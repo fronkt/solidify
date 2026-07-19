@@ -120,6 +120,25 @@ physics model, milestone gates — set in stone before implementation).
       k floored 0.12, pour guarantees undercool ≥ 0.9 — heavy alloys (A356) no longer
       solutally choke a lone seed (fs 6.8 % vs 1 % in the same tick budget)
 
+## v0.6 (2026-07-19): landing motion layer
+
+- [x] anime.js v4 motion pass on the existing layout (Frank: motion layer now,
+      scroll-story rebuild kept as backup; libraries free-choice — anime covers all needs,
+      GSAP/Motion not pulled in; UIverse/shadcn contribute CSS craft, not packages)
+- [x] Hero entrance: per-letter headline "solidifies" (rise + unblur + molten-amber→white
+      cool-down), staggered copy/CTAs, demo panel scales in — timeline, outExpo
+- [x] Scroll reveals via IntersectionObserver + anime tweens (once, never scrubbed):
+      stat strip w/ count-up (1,048,576 rolls), bento stagger, footer
+- [x] Micro-interactions: magnetic CTAs (spring return), primary-CTA sheen sweep,
+      ghost/footer underline slides, bento cursor-tracking glow + lift, snowflake
+      Ken Burns, pulsing LIVE dot, shadcn-style focus-visible rings
+- [x] Robustness: inline html.anim gate skips prefers-reduced-motion, 2.5 s watchdog
+      reveals page if module fails; transforms/opacity/filter only (no layout thrash
+      against the WebGPU canvas); `:active` uses independent `scale` so it composes
+      with anime's inline transform
+- [x] Stat strip honesty: stale "15 kB" replaced with "0 FRAMEWORKS · HAND-ROLLED WGSL"
+      (landing chunk is 18 kB gz with anime; instrument bundle unchanged)
+
 **Known limits / next:**
 - [ ] Grain-boundary lines in ETCH are thin/broken while liquid films persist (partly physical)
 - [ ] Alloy solute scheme is qualitative (labelled as such); quantitative WB is a bigger lift

@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SOLIDIFY — watch metal freeze</title>
   <meta name="description" content="A real-time phase-field solidification laboratory in your browser. Grow dendrites, cast metals, run welds, engineer grain structure. Real physics on your GPU." />
+  <script>
+    // motion gate: pre-hide animated elements only when motion is allowed and
+    // JS is running; a watchdog reveals everything if the module never boots
+    (function () {
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      document.documentElement.classList.add("anim");
+      setTimeout(function () {
+        if (!window.__landingMotion) document.documentElement.classList.remove("anim");
+      }, 2500);
+    })();
+  </script>
   <style>
     :root {
       --bg: #0a0b0d;
@@ -34,21 +45,30 @@
     .hero .value { margin-top: 22px; color: var(--dim); font-size: 13px; line-height: 1.75; max-width: 46ch; }
     .hero .value b { color: var(--text); font-weight: 500; }
     .cta { margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap; }
-    .cta a { display: inline-block; letter-spacing: 0.08em; border-radius: 8px; padding: 13px 24px; font-size: 13.5px; border: 1px solid var(--line); transition: all 0.15s; white-space: nowrap; }
+    .cta a { position: relative; overflow: hidden; display: inline-block; letter-spacing: 0.08em; border-radius: 8px; padding: 13px 24px; font-size: 13.5px; border: 1px solid var(--line); transition: box-shadow 0.2s, border-color 0.2s, color 0.2s; white-space: nowrap; }
     .cta a.primary { background: var(--amber); color: #17110a; border-color: var(--amber); font-weight: 600; }
-    .cta a.primary:hover { box-shadow: 0 0 30px rgba(255,180,84,0.35); transform: translateY(-1px); }
+    .cta a.primary::after { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 42%, rgba(255,255,255,0.5) 50%, transparent 58%); transform: translateX(-130%); transition: transform 0.55s ease; pointer-events: none; }
+    .cta a.primary:hover { box-shadow: 0 0 34px rgba(255,180,84,0.35); }
+    .cta a.primary:hover::after { transform: translateX(130%); }
     .cta a.ghost { color: var(--text); }
+    .cta a.ghost::after { content: ""; position: absolute; left: 24px; right: 24px; bottom: 9px; height: 1px; background: var(--cyan); opacity: 0.75; transform: scaleX(0); transform-origin: left; transition: transform 0.3s ease; }
     .cta a.ghost:hover { border-color: #3a424e; color: #fff; }
+    .cta a.ghost:hover::after { transform: scaleX(1); }
+    .cta a:active { scale: 0.97; }
+    a:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 8px; }
 
     #demoBox { position: relative; width: 100%; max-width: min(560px, 70vh); aspect-ratio: 1; margin: 0 auto; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 0 90px rgba(255, 130, 30, 0.10), 0 24px 70px rgba(0,0,0,0.55); background: #060708; }
     #demo, #demoImg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
     #demoImg { object-fit: cover; display: none; }
     #demoTag { position: absolute; left: 14px; bottom: 12px; font-size: 10.5px; letter-spacing: 0.2em; color: rgba(220,225,232,0.75); text-shadow: 0 1px 4px #000; }
+    #demoTag::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #7ef0a0; box-shadow: 0 0 8px #7ef0a0; margin-right: 8px; vertical-align: 1px; }
+    .anim #demoTag::before { animation: livepulse 2.4s ease-in-out infinite; }
+    @keyframes livepulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
     /* ---- stat strip: plain, no cards ---- */
     .stats { margin-top: 26px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px 12px; border-top: 1px solid var(--line); padding-top: 26px; }
     @media (min-width: 700px) { .stats { grid-template-columns: repeat(4, 1fr); } }
-    .stat b { display: block; font-size: 24px; font-weight: 600; color: #eef1f5; letter-spacing: 0.02em; }
+    .stat b { display: block; font-size: 24px; font-weight: 600; color: #eef1f5; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
     .stat span { display: block; margin-top: 4px; font-size: 11px; color: var(--dim); letter-spacing: 0.12em; }
 
     /* ---- asymmetric bento ---- */
@@ -60,16 +80,27 @@
       .bento { grid-template-areas: "a img" "lens eng"; }
       .b1 { grid-area: a; } .bimg { grid-area: img; } .b3 { grid-area: lens; } .b4 { grid-area: eng; }
     }
-    .cell { background: rgba(17,19,24,0.75); border: 1px solid var(--line); border-radius: 12px; padding: 22px 22px 20px; }
+    .cell { position: relative; overflow: hidden; background: rgba(17,19,24,0.75); border: 1px solid var(--line); border-radius: 12px; padding: 22px 22px 20px; transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease; }
+    .cell::before { content: ""; position: absolute; inset: 0; background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), rgba(255,180,84,0.09), transparent 65%); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .cell:hover { transform: translateY(-3px); border-color: #3a4150; box-shadow: 0 16px 44px rgba(0,0,0,0.4); }
+    .cell:hover::before { opacity: 1; }
     .cell h3 { font-size: 12px; letter-spacing: 0.18em; color: var(--amber); margin-bottom: 10px; font-weight: 600; }
     .cell p { font-size: 12.5px; line-height: 1.7; color: #9aa1ab; }
     .cell p b { color: var(--text); font-weight: 500; }
     .bimg { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); min-height: 200px; position: relative; }
-    .bimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .bimg img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 6s cubic-bezier(0.22, 0.61, 0.36, 1); }
+    .bimg:hover img { transform: scale(1.07); }
     .b4 { background: linear-gradient(140deg, rgba(35,28,16,0.85), rgba(17,19,24,0.8)); }
 
     footer { margin-top: 60px; color: var(--dim); font-size: 11.5px; letter-spacing: 0.06em; line-height: 2; border-top: 1px solid var(--line); padding-top: 22px; }
     footer .cite { color: #4d545e; font-size: 10.5px; }
+    footer a { position: relative; }
+    footer a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 2px; height: 1px; background: var(--cyan); transform: scaleX(0); transform-origin: left; transition: transform 0.25s ease; }
+    footer a:hover::after { transform: scaleX(1); }
+
+    /* motion pre-states: only when html.anim (JS running + motion allowed) */
+    .anim .hero .copy > *, .anim #demoBox,
+    .anim .stat, .anim .cell, .anim .bimg, .anim footer { opacity: 0; }
   </style>
 </head>
 <body>
@@ -95,10 +126,10 @@
     </section>
 
     <div class="stats">
-      <div class="stat"><b>1,048,576</b><span>CELLS SOLVED IN REAL TIME</span></div>
-      <div class="stat"><b>60 fps</b><span>ON A MID-RANGE GPU</span></div>
-      <div class="stat"><b>10</b><span>LENSES ON ONE GROWTH</span></div>
-      <div class="stat"><b>15 kB</b><span>GZIPPED, NO FRAMEWORKS</span></div>
+      <div class="stat"><b data-count="1048576">1,048,576</b><span>CELLS SOLVED IN REAL TIME</span></div>
+      <div class="stat"><b data-count="60" data-suffix=" fps">60 fps</b><span>ON A MID-RANGE GPU</span></div>
+      <div class="stat"><b data-count="10">10</b><span>LENSES ON ONE GROWTH</span></div>
+      <div class="stat"><b>0</b><span>FRAMEWORKS · HAND-ROLLED WGSL</span></div>
     </div>
 
     <div class="bento">

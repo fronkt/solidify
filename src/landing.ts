@@ -1,6 +1,7 @@
 // Landing-page hero: a real 256² phase-field simulation rolling random scenes.
 // Falls back to a still image without WebGPU.
 
+import "./landing-motion";
 import { Simulation } from "./sim";
 import { Renderer } from "./render";
 
