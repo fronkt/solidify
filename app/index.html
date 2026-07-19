@@ -131,9 +131,24 @@
 
     #hint { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); color: var(--dim); font-size: 11px; letter-spacing: 0.08em; pointer-events: none; opacity: 0.85; transition: opacity 1s; }
     #hint.gone { opacity: 0; }
+
+    #matline { margin-top: 3px; font-size: 11px; color: var(--amber); letter-spacing: 0.06em; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
+    #canvas { touch-action: none; }
+    #transport .rec { border-color: #e0564a; color: #e0564a; }
+    .scilink { display: block; margin: 4px 0 10px; font-size: 10.5px; color: var(--dim); text-decoration: none; letter-spacing: 0.08em; }
+    .scilink:hover { color: var(--amber); }
+
+    /* analysis panels: bottom-right column, left of the rail */
+    #apanels { position: absolute; right: 282px; bottom: 84px; display: flex; flex-direction: column; gap: 8px; transition: right 0.25s ease; pointer-events: none; }
+    body.railHidden #apanels { right: 14px; }
+    .apanel { display: none; background: rgba(15,17,21,0.88); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px 6px; }
+    .apanel .t { font-size: 9px; letter-spacing: 0.15em; color: var(--dim); margin-bottom: 3px; }
+    .apanel canvas { display: block; }
+
+    #overlay { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 6; }
   </style>
-  <script type="module" crossorigin src="../assets/app-Qa2OUnmG.js"></script>
-  <link rel="modulepreload" crossorigin href="../assets/render-S_VuhdWi.js">
+  <script type="module" crossorigin src="../assets/app-Tjz-p1lU.js"></script>
+  <link rel="modulepreload" crossorigin href="../assets/render-Be9Ygs26.js">
 </head>
 <body>
   <div id="app">
@@ -141,6 +156,7 @@
     <div id="head">
       <h1><a href="../">SOLID<span>IFY</span></a></h1>
       <div class="sub">phase-field solidification · live</div>
+      <div id="matline"></div>
     </div>
     <div id="readouts"></div>
     <div id="views"></div>
@@ -149,12 +165,14 @@
     <div id="rail"></div>
     <button id="railToggle">controls</button>
     <div id="hud"></div>
+    <div id="apanels"></div>
+    <svg id="overlay"></svg>
     <div id="scalebar"><div class="bar"></div><span id="scalelabel">100 µm</span></div>
     <div id="thermbar"><span class="hi">T<sub>m</sub></span><span class="lo">cold</span></div>
     <div id="sembar">SEM · 15 kV · ×240 · WD 10.2 mm · SE</div>
     <button id="tourBtn">▸ tour</button>
     <div id="tour"></div>
-    <div id="hint">tap the melt to nucleate a crystal · shift-tap for a twin · scroll to zoom · right-drag to pan</div>
+    <div id="hint">tap the melt to nucleate a crystal · shift-tap for a twin · scroll or pinch to zoom · right-drag to pan</div>
     <div id="gate"><div class="in">
       <h1>SOLIDIFY</h1>
       <p>This instrument runs a real phase-field simulation on your GPU and needs <b>WebGPU</b>.<br/><br/>
