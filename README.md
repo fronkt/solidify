@@ -1,5 +1,7 @@
 # SOLIDIFY — watch metal freeze
 
+**Live: [fronkt.github.io/solidify](https://fronkt.github.io/solidify/)** (needs WebGPU — Chrome/Edge, Safari 26+, recent Firefox)
+
 A real-time **phase-field solidification instrument** that runs entirely in your browser on WebGPU.
 Undercool a melt, tap to nucleate crystals, and watch dendrites grow, branch, collide, and become
 grains — then read the result like a metallographer: etched micrograph view, grain-size histogram,
