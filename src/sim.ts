@@ -1,4 +1,4 @@
-import { FLUX_WGSL, UPDATE_WGSL, STAMP_WGSL, STATS_WGSL, MAX_GRAINS, MAX_SEEDS } from "./shaders";
+import { FLUX_WGSL, UPDATE_WGSL, STAMP_WGSL, STATS_WGSL, MAX_GRAINS, MAX_SEEDS, SEED_STRIDE } from "./shaders";
 
 export interface PhysParams {
   dx: number;
@@ -14,6 +14,20 @@ export interface PhysParams {
   tFar: number;
   coolRate: number;
   heatIn: number;
+  // scenarios
+  scen: number;       // 0 none, 1 bridgman, 2 weld
+  gradG: number;      // bridgman thermal gradient (T per unit length)
+  pullV: number;      // bridgman pull speed (units per unit time)
+  weldX: number;      // weld source position (cells)
+  weldY: number;
+  weldPow: number;
+  weldSig: number;    // gaussian sigma (cells)
+  // alloy
+  alloyOn: number;    // 0/1
+  c0: number;
+  mLiq: number;
+  kPart: number;
+  dSol: number;
 }
 
 export const DEFAULTS: PhysParams = {
@@ -31,29 +45,43 @@ export const DEFAULTS: PhysParams = {
   tFar: 0.0,
   coolRate: 0.0,
   heatIn: 0.0,
+  scen: 0,
+  gradG: 0.08,
+  pullV: 1.5,
+  weldX: 0,
+  weldY: 0,
+  weldPow: 700,
+  weldSig: 4,
+  alloyOn: 0,
+  c0: 0.3,
+  mLiq: 0.45,
+  kPart: 0.2,
+  dSol: 0.8,
 };
 
 export interface StatsResult {
   fracSolid: number;
   grainCount: number;
   meanAreaPx: number;
-  astm: number | null;       // needs a physical scale; domain is DOMAIN_MM wide
-  interfaceT: number;        // mean T on the interface band
-  diamsUm: number[];         // equivalent grain diameters, µm
+  astm: number | null;
+  interfaceT: number;
+  diamsUm: number[];
 }
 
 export const DOMAIN_MM = 1.0; // nominal physical width of the domain
 
-interface Seed { x: number; y: number; r: number; id: number }
+interface Seed { x: number; y: number; r: number; id: number; tact: number }
 
 export class Simulation {
   readonly device: GPUDevice;
   n: number;
   params: PhysParams;
-  frame = 0;      // substep counter (noise salt)
-  simTime = 0;    // dimensionless sim time
-  dir = 0;        // which state/grain texture is current
+  frame = 0;
+  simTime = 0;
+  dir = 0;
   nextId = 1;
+  /** bridgman frame anchor: reference-isotherm x (units); advanced by main loop */
+  frontX = 0;
 
   private stateTex: GPUTexture[] = [];
   private grainTex: GPUTexture[] = [];
@@ -76,7 +104,7 @@ export class Simulation {
 
   private pendingSeeds: Seed[] = [];
   private statsInFlight = false;
-  private paramData = new ArrayBuffer(64);
+  private paramData = new ArrayBuffer(128);
   private inFlight = 0;
 
   /** true when the GPU is >= 2 submitted frames behind — callers should skip stepping */
@@ -104,13 +132,13 @@ export class Simulation {
         GPUTextureUsage.STORAGE_BINDING |
         GPUTextureUsage.COPY_DST,
     });
-    this.stateTex = [d.createTexture(texDesc("rg32float")), d.createTexture(texDesc("rg32float"))];
+    this.stateTex = [d.createTexture(texDesc("rgba32float")), d.createTexture(texDesc("rgba32float"))];
     this.grainTex = [d.createTexture(texDesc("r32uint")), d.createTexture(texDesc("r32uint"))];
     this.fluxTex = d.createTexture(texDesc("rgba32float"));
 
-    this.paramBuf = d.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.paramBuf = d.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.theta0Buf = d.createBuffer({ size: MAX_GRAINS * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
-    this.seedBuf = d.createBuffer({ size: MAX_SEEDS * 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    this.seedBuf = d.createBuffer({ size: MAX_SEEDS * SEED_STRIDE * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     const statsSize = (4 + MAX_GRAINS) * 4;
     this.statsBuf = d.createBuffer({ size: statsSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
     this.statsStaging = d.createBuffer({ size: statsSize, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
@@ -175,34 +203,39 @@ export class Simulation {
   reset(tFar = this.params.tFar) {
     const n = this.n;
     this.params.tFar = tFar;
-    const state = new Float32Array(n * n * 2);
-    for (let i = 0; i < n * n; i++) state[i * 2 + 1] = tFar;
-    this.device.queue.writeTexture(
-      { texture: this.stateTex[0] }, state, { bytesPerRow: n * 8 }, [n, n]);
-    this.device.queue.writeTexture(
-      { texture: this.stateTex[1] }, state, { bytesPerRow: n * 8 }, [n, n]);
+    const state = new Float32Array(n * n * 4);
+    const c0 = this.params.alloyOn ? this.params.c0 : 0;
+    for (let i = 0; i < n * n; i++) {
+      state[i * 4 + 1] = tFar;
+      state[i * 4 + 2] = c0;
+    }
+    for (const t of this.stateTex)
+      this.device.queue.writeTexture({ texture: t }, state, { bytesPerRow: n * 16 }, [n, n]);
     const zeros = new Uint32Array(n * n);
-    this.device.queue.writeTexture(
-      { texture: this.grainTex[0] }, zeros, { bytesPerRow: n * 4 }, [n, n]);
-    this.device.queue.writeTexture(
-      { texture: this.grainTex[1] }, zeros, { bytesPerRow: n * 4 }, [n, n]);
+    for (const t of this.grainTex)
+      this.device.queue.writeTexture({ texture: t }, zeros, { bytesPerRow: n * 4 }, [n, n]);
     this.dir = 0;
     this.frame = 0;
     this.simTime = 0;
     this.nextId = 1;
+    this.frontX = 1.0;
     this.pendingSeeds = [];
     this.theta0CPU.fill(0);
     this.device.queue.writeBuffer(this.theta0Buf, 0, this.theta0CPU);
   }
 
-  /** queue a nucleus; x, y in grid cells; returns assigned grain id */
-  addSeed(x: number, y: number, r = 4, theta0?: number): number {
+  /**
+   * queue a nucleus; x, y in grid cells; returns assigned grain id.
+   * tact = activation temperature: seed only fires where T < tact
+   * (default 2 = always; rain passes a distribution for inoculant potency)
+   */
+  addSeed(x: number, y: number, r = 4, theta0?: number, tact = 2.0): number {
     let id = this.nextId++;
     if (id >= MAX_GRAINS) { this.nextId = 2; id = 1; }
     const th = theta0 ?? Math.random() * (2 * Math.PI / this.params.aniMode);
     this.theta0CPU[id] = th;
     this.device.queue.writeBuffer(this.theta0Buf, id * 4, this.theta0CPU, id, 1);
-    this.pendingSeeds.push({ x, y, r, id });
+    this.pendingSeeds.push({ x, y, r, id, tact });
     return id;
   }
 
@@ -226,6 +259,13 @@ export class Simulation {
     f[8] = p.alpha; f[9] = p.gamma; f[10] = p.latent; f[11] = p.noiseAmp;
     f[12] = p.tFar; f[13] = p.coolRate; f[14] = p.heatIn;
     u[15] = seedCount;
+    f[16] = this.simTime;
+    u[17] = p.scen;
+    f[18] = p.gradG;
+    f[19] = this.frontX;
+    f[20] = p.weldX; f[21] = p.weldY; f[22] = p.weldPow; f[23] = p.weldSig;
+    u[24] = p.alloyOn;
+    f[25] = p.c0; f[26] = p.mLiq; f[27] = p.kPart; f[28] = p.dSol;
     this.device.queue.writeBuffer(this.paramBuf, 0, this.paramData);
   }
 
@@ -235,29 +275,31 @@ export class Simulation {
   }
 
   /**
-   * Advance the field by `substeps` explicit Euler steps.
-   * Single command submission per call; WebGPU synchronizes successive
-   * dispatches on the same resources. Skips (returns 0) while the GPU is
-   * still behind, so a slow device can never accumulate an unbounded queue.
+   * Advance the field by `substeps` explicit Euler steps (0 = stamp seeds
+   * only, so taps show up while paused). Single command submission; skips
+   * (returns 0) while the GPU is >= 2 frames behind.
    */
   step(substeps: number): number {
     if (this.busy) return 0;
     const d = this.device;
-    // never ask one frame for more cell-updates than a mid-range GPU sustains
     const cap = Math.max(1, Math.floor(1.6e8 / (this.n * this.n)));
     const steps = Math.min(substeps, cap);
 
     let seedCount = 0;
     if (this.pendingSeeds.length > 0) {
       const batch = this.pendingSeeds.splice(0, MAX_SEEDS);
-      const sd = new Float32Array(batch.length * 4);
+      const sd = new Float32Array(batch.length * SEED_STRIDE);
       batch.forEach((s, i) => {
-        sd[i * 4] = s.x; sd[i * 4 + 1] = s.y; sd[i * 4 + 2] = s.r; sd[i * 4 + 3] = s.id;
+        const b = i * SEED_STRIDE;
+        sd[b] = s.x; sd[b + 1] = s.y; sd[b + 2] = s.r; sd[b + 3] = s.id; sd[b + 4] = s.tact;
       });
       d.queue.writeBuffer(this.seedBuf, 0, sd);
       seedCount = batch.length;
     }
+    if (steps === 0 && seedCount === 0) return 0;
     this.frame++;
+    // bridgman frame advances with sim time
+    if (this.params.scen === 1) this.frontX = 1.0 + this.params.pullV * this.simTime;
     this.writeParams(seedCount);
 
     const enc = d.createCommandEncoder();

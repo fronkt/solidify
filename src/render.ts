@@ -1,7 +1,7 @@
 import { RENDER_WGSL } from "./shaders";
 import type { Simulation } from "./sim";
 
-export type ViewMode = 0 | 1 | 2 | 3; // melt, orientation, micrograph, field
+export type ViewMode = number; // lens index 0..9
 
 export class Renderer {
   private device: GPUDevice;
@@ -10,7 +10,14 @@ export class Renderer {
   private pipe!: GPURenderPipeline;
   private rbuf!: GPUBuffer;
   private bg: GPUBindGroup[] = [];
-  private rdata = new ArrayBuffer(32);
+  private rdata = new ArrayBuffer(64);
+
+  // view transform (zoom/pan) + retro toggles
+  zoom = 1;
+  cx = 0.5;
+  cy = 0.5;
+  pixelSize = 0;   // 0 = off, else cells per chunky pixel
+  paletteOn = false;
 
   constructor(device: GPUDevice, canvas: HTMLCanvasElement, sim: Simulation) {
     this.device = device;
@@ -29,11 +36,10 @@ export class Renderer {
       },
       primitive: { topology: "triangle-list" },
     });
-    this.rbuf = device.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.rbuf = device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.rebind(sim);
   }
 
-  /** (re)create bind groups for the sim's ping-pong textures */
   rebind(sim: Simulation) {
     for (const dir of [0, 1]) {
       this.bg[dir] = this.device.createBindGroup({
@@ -58,19 +64,64 @@ export class Renderer {
     }
   }
 
-  /** map a client-space point to grid cells (cover fit), or null if outside */
-  clientToGrid(cx: number, cy: number, n: number): { x: number; y: number } | null {
+  /** clamp pan so the visible window stays inside the domain */
+  clampView() {
+    this.zoom = Math.min(24, Math.max(1, this.zoom));
+    const half = 0.5 / this.zoom;
+    this.cx = Math.min(1 - half, Math.max(half, this.cx));
+    this.cy = Math.min(1 - half, Math.max(half, this.cy));
+  }
+
+  resetView() { this.zoom = 1; this.cx = 0.5; this.cy = 0.5; }
+
+  /** client point -> cover-space 0..1 (before zoom) */
+  private clientToCover(cxp: number, cyp: number): { x: number; y: number } {
     const rect = this.canvas.getBoundingClientRect();
     const dpr = this.canvas.width / rect.width;
-    const px = (cx - rect.left) * dpr;
-    const py = (cy - rect.top) * dpr;
+    const px = (cxp - rect.left) * dpr;
+    const py = (cyp - rect.top) * dpr;
     const scale = Math.max(this.canvas.width, this.canvas.height);
     const offX = (this.canvas.width - scale) * 0.5;
     const offY = (this.canvas.height - scale) * 0.5;
-    const gx = ((px - offX) / scale) * n;
-    const gy = ((py - offY) / scale) * n;
+    return { x: (px - offX) / scale, y: (py - offY) / scale };
+  }
+
+  /** map a client-space point to grid cells (through zoom/pan), or null if outside */
+  clientToGrid(cxp: number, cyp: number, n: number): { x: number; y: number } | null {
+    const c = this.clientToCover(cxp, cyp);
+    const gx = ((c.x - 0.5) / this.zoom + this.cx) * n;
+    const gy = ((c.y - 0.5) / this.zoom + this.cy) * n;
     if (gx < 0 || gy < 0 || gx >= n || gy >= n) return null;
     return { x: gx, y: gy };
+  }
+
+  /** zoom about a client-space anchor point */
+  zoomAt(cxp: number, cyp: number, factor: number) {
+    const c = this.clientToCover(cxp, cyp);
+    const beforeX = (c.x - 0.5) / this.zoom + this.cx;
+    const beforeY = (c.y - 0.5) / this.zoom + this.cy;
+    this.zoom *= factor;
+    this.zoom = Math.min(24, Math.max(1, this.zoom));
+    this.cx = beforeX - (c.x - 0.5) / this.zoom;
+    this.cy = beforeY - (c.y - 0.5) / this.zoom;
+    this.clampView();
+  }
+
+  /** pan by a client-space pixel delta */
+  panBy(dxPx: number, dyPx: number) {
+    const rect = this.canvas.getBoundingClientRect();
+    const dpr = this.canvas.width / rect.width;
+    const scale = Math.max(this.canvas.width, this.canvas.height);
+    this.cx -= (dxPx * dpr) / scale / this.zoom;
+    this.cy -= (dyPx * dpr) / scale / this.zoom;
+    this.clampView();
+  }
+
+  /** css px per grid cell at current zoom (for the scale bar) */
+  cssPxPerCell(n: number): number {
+    const rect = this.canvas.getBoundingClientRect();
+    const scaleCss = Math.max(rect.width, rect.height);
+    return (scaleCss / n) * this.zoom;
   }
 
   render(sim: Simulation, view: ViewMode, time: number) {
@@ -84,6 +135,13 @@ export class Renderer {
     f[4] = time;
     f[5] = sim.params.aniMode;
     f[6] = sim.params.tFar;
+    f[7] = this.zoom;
+    f[8] = this.cx;
+    f[9] = this.cy;
+    f[10] = this.pixelSize;
+    u[11] = this.paletteOn ? 1 : 0;
+    u[12] = sim.params.alloyOn;
+    f[13] = sim.params.c0;
     this.device.queue.writeBuffer(this.rbuf, 0, this.rdata);
 
     const enc = this.device.createCommandEncoder();

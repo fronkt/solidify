@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SOLIDIFY — watch metal freeze</title>
+  <meta name="description" content="A real-time phase-field solidification laboratory in your browser. Grow dendrites, cast metals, run welds, engineer grain structure — real physics on your GPU." />
+  <style>
+    :root {
+      --bg: #0a0b0d;
+      --panel: #111318;
+      --line: #262b33;
+      --text: #c9cdd4;
+      --dim: #6b7280;
+      --amber: #ffb454;
+      --cyan: #56d4dd;
+      --font: ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { background: var(--bg); }
+    body { min-height: 100vh; background:
+      radial-gradient(1100px 600px at 50% -10%, #16120c 0%, transparent 60%),
+      var(--bg);
+      color: var(--text); font-family: var(--font); overflow-x: hidden; }
+    a { color: var(--cyan); text-decoration: none; }
+
+    .wrap { max-width: 980px; margin: 0 auto; padding: 0 22px 80px; display: flex; flex-direction: column; align-items: center; }
+
+    header { margin-top: 64px; text-align: center; user-select: none; }
+    header h1 { font-size: clamp(34px, 7vw, 58px); letter-spacing: 0.32em; font-weight: 600; color: #eef1f5; text-indent: 0.32em; }
+    header h1 span { color: var(--amber); }
+    header .tag { margin-top: 10px; color: var(--dim); font-size: clamp(12px, 2.4vw, 14.5px); letter-spacing: 0.12em; }
+
+    #demoBox { position: relative; margin-top: 40px; width: min(92vw, 620px); aspect-ratio: 1; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 0 90px rgba(255, 130, 30, 0.10), 0 24px 70px rgba(0,0,0,0.55); background: #060708; }
+    #demo, #demoImg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    #demoImg { object-fit: cover; display: none; }
+    #demoTag { position: absolute; left: 14px; bottom: 12px; font-size: 10.5px; letter-spacing: 0.2em; color: rgba(220,225,232,0.75); text-shadow: 0 1px 4px #000; }
+
+    .cta { margin-top: 34px; display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+    .cta a { display: inline-block; font-family: var(--font); letter-spacing: 0.08em; border-radius: 8px; padding: 13px 26px; font-size: 14px; border: 1px solid var(--line); transition: all 0.15s; }
+    .cta a.primary { background: var(--amber); color: #17110a; border-color: var(--amber); font-weight: 600; }
+    .cta a.primary:hover { box-shadow: 0 0 30px rgba(255,180,84,0.35); transform: translateY(-1px); }
+    .cta a.ghost { color: var(--text); }
+    .cta a.ghost:hover { border-color: #3a424e; color: #fff; }
+
+    .blurb { margin-top: 58px; max-width: 640px; text-align: center; color: #aab2bd; font-size: 14px; line-height: 1.75; }
+    .blurb b { color: #e8ebef; font-weight: 600; }
+
+    .cards { margin-top: 44px; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; width: 100%; }
+    .card { background: rgba(17,19,24,0.75); border: 1px solid var(--line); border-radius: 10px; padding: 18px 18px 16px; }
+    .card h3 { font-size: 12px; letter-spacing: 0.18em; color: var(--amber); margin-bottom: 9px; font-weight: 600; }
+    .card p { font-size: 12px; line-height: 1.65; color: #9aa1ab; }
+    .card p b { color: var(--text); font-weight: 500; }
+
+    footer { margin-top: 64px; color: var(--dim); font-size: 11.5px; letter-spacing: 0.08em; text-align: center; line-height: 2; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>SOLID<span>IFY</span></h1>
+      <div class="tag">watch metal freeze — a real phase-field simulation, live in your browser</div>
+    </header>
+
+    <div id="demoBox">
+      <canvas id="demo"></canvas>
+      <img id="demoImg" src="hero.jpg" alt="Dendrite grown by SOLIDIFY" />
+      <div id="demoTag">LIVE · SIMULATED ON YOUR GPU</div>
+    </div>
+
+    <div class="cta">
+      <a class="primary" href="app/">Open the instrument →</a>
+      <a class="ghost" href="app/?tour=1">▸ Take the tour</a>
+    </div>
+
+    <p class="blurb">
+      Every cast metal part — engine blocks, turbine blades, the frame of your bike — froze from a melt,
+      and its strength was decided in that moment. SOLIDIFY solves the <b>Kobayashi phase-field equations</b>
+      on your GPU in real time: undercool a melt, tap to nucleate crystals, and watch dendrites grow, branch,
+      collide, and become the grain structure a metallurgist would etch and measure.
+    </p>
+
+    <div class="cards">
+      <div class="card">
+        <h3>REAL PHYSICS</h3>
+        <p>Anisotropic phase-field + latent heat, dilute-alloy solute, directional gradients, moving weld pools.
+        Verified against the canonical dendrite morphology — <b>not a particle toy</b>.</p>
+      </div>
+      <div class="card">
+        <h3>TEN LENSES</h3>
+        <p>Incandescent melt, cross-polarised grains, etched micrograph, thermal cam, SEM, X-ray radiograph,
+        growth rings, curvature, neon contours — <b>one growth, ten instruments</b>.</p>
+      </div>
+      <div class="card">
+        <h3>ENGINEER IT</h3>
+        <p>Live ASTM grain-size metallography, and an onboard <b>CMA-ES optimizer</b> that learns casting
+        schedules to hit a target grain size — race it yourself in challenge mode.</p>
+      </div>
+      <div class="card">
+        <h3>RAW WEBGPU</h3>
+        <p>A million cells stepped thousands of times per second, <b>60 fps</b>, no frameworks, ~15 kB gzipped.
+        Needs a WebGPU browser (Chrome/Edge, Safari 26+, recent Firefox).</p>
+      </div>
+    </div>
+
+    <footer>
+      built by Frank Cai · <a href="https://github.com/fronkt/solidify">source on GitHub</a><br/>
+      Kobayashi (1993) anisotropic phase-field · Warren–Boettinger-type dilute alloy · ASTM E112 metallography
+    </footer>
+  </div>
+  <script type="module" src="/src/landing.ts"></script>
+</body>
+</html>

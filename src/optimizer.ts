@@ -110,9 +110,18 @@ const EP_GRID = 256;
 const EP_MAX_STEPS = 9000;
 const STEPS_PER_TICK = 300;
 
+export interface OptStartOpts {
+  limit?: number;                                    // stop after N castings
+  target?: number;                                   // fixed target (locks slider)
+  onDone?: (bestScore: number, bestG: number | null) => void;
+}
+
 export class Optimizer {
   active = false;
   targetASTM = 4;
+  private limit = 0;
+  private lockTarget = false;
+  private onDone: OptStartOpts["onDone"] = undefined;
   private cma = new SepCMAES(5);
   private queue: number[][] = [];
   private scores: number[] = [];
@@ -131,10 +140,14 @@ export class Optimizer {
 
   constructor(private host: OptHost) {}
 
-  start(currentGrid: number) {
+  start(currentGrid: number, opts: OptStartOpts = {}) {
     if (this.active) return;
     this.active = true;
     this.savedGrid = currentGrid;
+    this.limit = opts.limit ?? 0;
+    this.lockTarget = opts.target !== undefined;
+    if (opts.target !== undefined) this.targetASTM = opts.target;
+    this.onDone = opts.onDone;
     this.cma = new SepCMAES(5);
     this.queue = [];
     this.scores = [];
@@ -179,10 +192,17 @@ export class Optimizer {
     this.strip = strip;
     this.status = p.querySelector("#labStatus")!;
     const slider = p.querySelector("#labTarget") as HTMLInputElement;
-    slider.addEventListener("input", () => {
-      this.targetASTM = parseFloat(slider.value);
+    if (this.lockTarget) {
+      slider.disabled = true;
+      slider.style.opacity = "0.35";
+      slider.value = String(this.targetASTM);
       (head.querySelector("b") as HTMLElement).textContent = `G ${this.targetASTM}`;
-    });
+    } else {
+      slider.addEventListener("input", () => {
+        this.targetASTM = parseFloat(slider.value);
+        (head.querySelector("b") as HTMLElement).textContent = `G ${this.targetASTM}`;
+      });
+    }
     this.status.textContent = "casting #1 …";
   }
 
@@ -246,6 +266,14 @@ export class Optimizer {
       ` · σ ${this.cma.sigma.toFixed(2)}`;
     this.genome = null;
     this.finishing = false;
+
+    if (this.limit > 0 && this.episode >= this.limit) {
+      const cb = this.onDone;
+      const b = this.best;
+      const g = this.bestASTM;
+      this.stop();
+      cb?.(b, g);
+    }
   }
 
   /** drive one animation frame while active */

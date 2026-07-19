@@ -34,18 +34,26 @@ gracefully instead of freezing.
 
 ## The instrument
 
-- **Four views** — MELT (incandescent blackbody rendering), ORIENT (cross-polarized orientation
-  colours), ETCH (etched-specimen micrograph with scale bar), FIELD (temperature field + isotherms
-  + interface contour).
-- **Process controls** — undercooling, cooling rate, stochastic nucleation rain, chill-wall
-  seeding, anneal-to-remelt, 4-fold/6-fold symmetry, anisotropy strength, tip noise, latent heat.
+- **Ten lenses** — MELT (incandescent blackbody), ORIENT (cross-polarized grains), ETCH
+  (micrograph + scale bar), FIELD (T + isotherms), RINGS (solidification-time isochrones),
+  THERM (FLIR ironbow), SEM (secondary-electron look), NEON (glowing contours), XRAY
+  (synchrotron-radiograph absorption, shows solute), CURV (Gibbs–Thomson curvature).
+- **Scenarios** — free growth, Bridgman directional solidification (pulled gradient frame),
+  and a steerable/auto-raster laser weld that remelts and resolidifies the microstructure.
+- **Alloy mode** — Warren–Boettinger-type dilute solute (qualitative): constitutional
+  undercooling, solute halos, frozen-in microsegregation, composition/partition/liquidus sliders.
+- **Process controls** — undercooling, cooling rate, activation-gated nucleation rain, chill
+  wall, anneal-to-remelt, symmetry, anisotropy, noise, latent heat, brush size, and a pro panel
+  (ε̄, γ, α, τ, k) for power users. Reset arms a staged melt; run/pause/turbo transport.
+- **Looks & navigation** — scroll-zoom + right-drag pan in any lens, pixel mode (chunky
+  nearest-neighbour cells) and an 8-bit dithered palette toggle.
 - **Live metallography** — fraction solid, interface undercooling, grain count, grain-size
   histogram, ASTM G number, computed by GPU reduction while the sim runs.
-- **Guided tour** — six chapters: Mullins–Sekerka instability, why dendrites have arms, snow,
-  nucleation & impingement, the casting (columnar-to-equiaxed transition), and…
-- **Engineer it** — a separable CMA-ES optimizer that runs casting after casting, measures the
-  ASTM grain number of each, and learns a cooling + inoculation schedule that hits your target —
-  every attempt pinned to a lab-notebook strip as a micrograph thumbnail.
+- **Guided tour** — nine chapters from the Mullins–Sekerka instability through casting CET,
+  directional growth, welding, and alloys.
+- **Engineer it & challenge** — a separable CMA-ES optimizer runs casting after casting,
+  measures each ASTM grain number, and learns the schedule — every attempt pinned to a
+  lab-notebook strip. Challenge mode deals you the same target first and scores you against it.
 
 ## Running
 
