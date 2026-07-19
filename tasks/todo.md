@@ -191,6 +191,8 @@ physics model, milestone gates — set in stone before implementation).
       melted-wax boundaries + molten orange cores in a pale crust instead of
       laser-cut glyphs
 - [x] SCROLL cue lowered again (hero padding-bottom 62px, cue at 2px)
+- [x] v0.8.2: dendritic rim REMOVED (Frank: read as fatter letters) — back to
+      glyph-width molds; gentle cursor + arc unchanged
 
 **Known limits / next:**
 - [ ] Grain-boundary lines in ETCH are thin/broken while liquid films persist (partly physical)
