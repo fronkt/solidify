@@ -181,6 +181,17 @@ physics model, milestone gates — set in stone before implementation).
       clearance; amber ::selection; themed scrollbar (black track / amber thumb);
       SI favicon (S amber, I neutral) on all three pages; topnav align-items fix
 
+## v0.8.1 (2026-07-19): gentle cursor + dendritic fringe (Frank's feedback)
+
+- [x] Cursor detuned from plasma torch to gentle gloop: weldPow 150→0.25 (equilibrium
+      ΔT ≈ +0.06 vs +37), σ 12 — softens the mush locally, relaxes back over ~3 s
+- [x] Dendritic fringe: logotype mask gains a rim zone (stroked-glyph dilation, age
+      sentinel −0.25) of cold undercooled liquid held at 0.72 — dendrites sprout from
+      the letter edges into it and arrest at the mold, so the type gets organic
+      melted-wax boundaries + molten orange cores in a pale crust instead of
+      laser-cut glyphs
+- [x] SCROLL cue lowered again (hero padding-bottom 62px, cue at 2px)
+
 **Known limits / next:**
 - [ ] Grain-boundary lines in ETCH are thin/broken while liquid films persist (partly physical)
 - [ ] Alloy solute scheme is qualitative (labelled as such); quantitative WB is a bigger lift

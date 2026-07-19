@@ -177,7 +177,9 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   } else if (P.scen == 3u) {
     // crucible (cast logo): non-mold cells relax toward the heater set-point,
     // the mold stays a cold sink, and the pointer is a small torch
-    let tGoal = select(P.holdT, 0.06, s.a < -0.5);
+    // mold -> cold sink; unfrozen rim -> undercooled (dendrite fringe zone);
+    // pour and frozen metal -> the heater set-point
+    let tGoal = select(select(P.holdT, 0.72, s.a < -0.05), 0.06, s.a < -0.5);
     TNew = mix(TNew, tGoal, min(1.0, P.dt * P.holdRate));
     let d2 = distance(vec2f(gid.xy), vec2f(P.weldX, P.weldY));
     TNew += P.dt * P.weldPow * exp(-(d2 * d2) / (2.0 * P.weldSig * P.weldSig));

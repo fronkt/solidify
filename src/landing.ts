@@ -76,7 +76,7 @@ async function boot() {
   Object.assign(heroSim.params, {
     aniMode: 4, delta: 0.035, noiseAmp: 0.014, latent: 1.5,
     coolRate: 0, alloyOn: 0, twinProb: 0, meltGlow: 1.0, heatIn: 0,
-    scen: 3, holdT: 0.995, holdRate: 4, weldPow: 0, weldSig: 9,
+    scen: 3, holdT: 0.995, holdRate: 4, weldPow: 0, weldSig: 12,
     weldX: -9999, weldY: -9999,
   });
   const heroCanvas = document.getElementById("logoCast") as HTMLCanvasElement;
@@ -101,7 +101,8 @@ async function boot() {
   castBox.addEventListener("pointerdown", pour);
   castBox.addEventListener("pointermove", e => {
     const g = heroRen.clientToGrid(e.clientX, e.clientY, HN);
-    heroSim.params.weldPow = g ? 150 : 0;
+    // gentle: ~+0.06 T at equilibrium — softens the gloop, relaxes back in ~3 s
+    heroSim.params.weldPow = g ? 0.25 : 0;
     if (g) { heroSim.params.weldX = g.x; heroSim.params.weldY = g.y; }
   });
   castBox.addEventListener("pointerleave", () => { heroSim.params.weldPow = 0; });
