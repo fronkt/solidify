@@ -209,6 +209,16 @@ physics model, milestone gates — set in stone before implementation).
       unmistakable; rose live (random texture from 24 random seeds); Bridgman
       columnar-selection texture left as an emergent thing to explore
 
+## v0.9.1 (2026-07-19): tour part II — the instrument
+
+- [x] Tour extended 10 → 22 chapters: PART II walks every control — transport+lenses,
+      PRESETS, MATERIAL, MELT·PROCESS, SCENARIO, ALLOY(+composer), CRYSTAL, ANALYZE,
+      LOOK (stains/EBSD), ENGINE/ADVANCED/MODES, canvas gestures
+- [x] Non-destructive: part II never touches the running melt; chapters carry `hl`
+      targets — "sec:TITLE" opens+scrolls+pulses a rail section (ui.reveal), CSS
+      selectors highlight fixed chrome (#transport, #views); reveals cleared on
+      step change and close; Chapter.apply now optional, counter shows part label
+
 **Known limits / next:**
 - [ ] Grain-boundary lines in ETCH are thin/broken while liquid films persist (partly physical)
 - [ ] Alloy solute scheme is qualitative (labelled as such); quantitative WB is a bigger lift

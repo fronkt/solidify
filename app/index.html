@@ -58,6 +58,8 @@
     .checkrow { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; font-size: 11.5px; cursor: pointer; user-select: none; }
     .checkrow input { accent-color: var(--amber); }
     .subpanel { border-left: 2px solid #232833; padding-left: 9px; margin: 4px 0 8px; }
+    .hl { outline: 2px solid var(--amber); outline-offset: 4px; border-radius: 6px; animation: hlpulse 1.3s ease-in-out infinite; }
+    @keyframes hlpulse { 0%, 100% { outline-color: var(--amber); } 50% { outline-color: rgba(255,180,84,0.25); } }
     select { width: 100%; font-family: var(--font); font-size: 11.5px; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; cursor: pointer; outline: none; }
     select:hover { border-color: #3a424e; }
     .matnote { margin-top: 6px; font-size: 10.5px; line-height: 1.5; color: var(--dim); }

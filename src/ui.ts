@@ -47,6 +47,7 @@ interface SliderBind { update(): void }
 
 export class UI {
   private binds: SliderBind[] = [];
+  private sections: Record<string, { root: HTMLElement; setOpen: (b: boolean) => void }> = {};
   private viewBtns: HTMLButtonElement[] = [];
   private runBtn!: HTMLButtonElement;
   private turboBtn!: HTMLButtonElement;
@@ -118,7 +119,22 @@ export class UI {
     apply();
     s.append(h, body);
     rail.append(s);
+    this.sections[title] = {
+      root: s,
+      setOpen: b => { isOpen = b; apply(); },
+    };
     return body;
+  }
+
+  /** open a rail section, scroll it into view, and pulse a highlight (tour part II) */
+  reveal(title: string) {
+    const sec = this.sections[title];
+    if (!sec) return;
+    document.getElementById("rail")!.classList.remove("hidden");
+    document.body.classList.remove("railHidden");
+    sec.setOpen(true);
+    sec.root.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    sec.root.classList.add("hl");
   }
 
   private slider(

@@ -74,6 +74,13 @@ async function boot() {
     startOptimizer() { if (!challenge.active) opt.start(sim.n); },
     startChallenge() { if (!opt.active) challenge.start(); },
     syncUI() { ui.sync(); },
+    reveal(target) {
+      if (target.startsWith("sec:")) ui.reveal(target.slice(4));
+      else document.querySelectorAll(target).forEach(el => el.classList.add("hl"));
+    },
+    clearReveals() {
+      document.querySelectorAll(".hl").forEach(el => el.classList.remove("hl"));
+    },
     // ---- UIHost extras
     simParams: () => sim.params,
     getUndercool: () => undercool,

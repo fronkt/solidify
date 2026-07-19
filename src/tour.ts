@@ -16,6 +16,9 @@ export interface AppControl {
   startOptimizer(): void;
   startChallenge(): void;
   syncUI(): void;
+  /** tour part II: "sec:TITLE" opens+highlights a rail section, else a CSS selector */
+  reveal(target: string): void;
+  clearReveals(): void;
 }
 
 const NO_SCEN: Partial<PhysParams> = { scen: 0, heatIn: 0 };
@@ -78,7 +81,9 @@ interface Chapter {
   title: string;
   body: string;
   watch: string;
-  apply(app: AppControl): void;
+  apply?(app: AppControl): void;
+  hl?: string[];     // reveal targets ("sec:TITLE" or CSS selector)
+  part?: string;     // extra label in the chapter counter
 }
 
 export const CHAPTERS: Chapter[] = [
@@ -152,6 +157,92 @@ export const CHAPTERS: Chapter[] = [
     watch: "Each thumbnail is one casting the optimizer tried. Watch it converge — or fight it yourself with CHALLENGE in the controls.",
     apply(a) { a.startOptimizer(); },
   },
+
+  // ---- part II: a control-by-control walk through the instrument ----------
+  {
+    part: "THE INSTRUMENT",
+    title: "Part II: the instrument",
+    body: "The rest of the tour walks every control on the instrument, dropdown by dropdown. Nothing in part II touches your melt — whatever you have growing keeps growing. Close anytime.",
+    watch: "The transport (bottom left): RESET arms a fresh melt so you can stage seeds while paused, RUN/PAUSE is the space bar, TURBO fast-forwards, and ⏺ REC saves a .webm clip of the canvas.",
+    hl: ["#transport"],
+  },
+  {
+    part: "THE INSTRUMENT",
+    title: "The lenses",
+    body: "Ten ways to look at the same physics: incandescent MELT, ORIENT colours, the ETCH micrograph, raw FIELD, growth RINGS, a THERM camera, SEM, NEON contours, XRAY segregation, and CURV curvature.",
+    watch: "Keys 1–9 and 0 switch lenses instantly — the crystal never notices.",
+    hl: ["#views"],
+  },
+  {
+    part: "THE INSTRUMENT",
+    title: "Presets",
+    body: "Eight one-tap situations: dendrite, snow, seaweed, nucleation rain, a chilled casting, Bridgman directional growth, a raster weld, and a solutal alloy. Each stages the physics and hands the controls straight back to you.",
+    watch: "They are starting points, not demos — everything stays fully adjustable afterwards.",
+    hl: ["sec:PRESETS"],
+  },
+  {
+    part: "THE INSTRUMENT",
+    title: "Material",
+    body: "Ten material identities. Crystal structure picks the dendrite symmetry — FCC and BCC metals grow 4-fold, HCP metals 6-fold, and cobalt surprises everyone by freezing FCC. Each also sets how brightly its melt genuinely glows: steel white-hot, zinc not at all.",
+    watch: "The amber line under the SOLIDIFY logo always states exactly what is in the melt.",
+    hl: ["sec:MATERIAL"],
+  },
+  {
+    part: "THE INSTRUMENT",
+    title: "Melt · process",
+    body: "The foundry dials: UNDERCOOLING is how cold the melt starts, COOLING RATE keeps pulling heat out, and NUCLEATION rains in seeds gated by local temperature, like inoculant particles of varying potency.",
+    watch: "The buttons: SEED and TWIN SEED drop nuclei, CHILL WALL lines an edge, QUENCH ⚡ plunges the whole melt colder, and holding ANNEAL ⌛ remelts and coarsens.",
+    hl: ["sec:MELT · PROCESS"],
+  },
+  {
+    part: "THE INSTRUMENT",
+    title: "Scenario",
+    body: "FREE is an open melt. BRIDGMAN pulls the sample through a fixed thermal gradient — set the gradient and pull speed — the way turbine blades are grown. WELD drives a moving laser pool with power, spot size, and an auto-raster.",
+    watch: "In weld mode your pointer steers the laser directly.",
+    hl: ["sec:SCENARIO"],
+  },
+  {
+    part: "THE INSTRUMENT",
+    title: "Alloy",
+    body: "The dilute-solute field: composition, liquidus slope, and diffusivity sliders, plus partition k in ADVANCED. The ⚗ COMPOSE ALLOY builder goes further — pick a base metal, add elements in wt%, and read the real chemistry: liquidus shift and the growth restriction factor Q that foundries use to predict grain refinement.",
+    watch: "Pour A356 + TiB against Al–1Zn under the same nucleation: composition alone refines the grains eight-fold. Compositions are shareable as #alloy links.",
+    hl: ["sec:ALLOY"],
+  },
+  {
+    part: "THE INSTRUMENT",
+    title: "Crystal",
+    body: "The crystallography: ANISOTROPY δ sharpens arms (near zero grows seaweed), the symmetry toggles 4-fold metal against 6-fold ice, TIP NOISE seeds side-branches, LATENT HEAT K feeds recalescence, and TWIN RATE lets growth twins nucleate at the front.",
+    watch: "Twins must out-grow their parent to survive — the winners widen into feathery grains.",
+    hl: ["sec:CRYSTAL"],
+  },
+  {
+    part: "THE INSTRUMENT",
+    title: "Analyze",
+    body: "Foundry instruments: the COOLING PROBE plots T(t) at one cell — watch the recalescence arrest — and ctrl-tap moves it. SCHEIL overlays the predicted solidification path against what the sim measures. The TEXTURE ROSE histograms grain orientations. The SDAS RULER measures arm spacing by dragging a line, metallographer-style.",
+    watch: "Grow a Bridgman casting with the rose open: columnar competition visibly sharpens the texture.",
+    hl: ["sec:ANALYZE"],
+  },
+  {
+    part: "THE INSTRUMENT",
+    title: "Look",
+    body: "PIXEL MODE and the 8-BIT palette are the retro looks. The GRAIN STAIN select tints the ETCH micrograph like real reagents — Klemm's browns and blues, Beraha's violets, or anodize under crossed polars. EBSD FLAT MAP turns ORIENT into a microscope-style IPF orientation map.",
+    watch: "RESET VIEW undoes any zoom and pan.",
+    hl: ["sec:LOOK"],
+  },
+  {
+    part: "THE INSTRUMENT",
+    title: "Engine · advanced · modes",
+    body: "ENGINE sets simulation speed, brush size, and the grid (512² to 2048²). ADVANCED exposes the raw model dials — interface width ε̄, kinetics γ, driving α, relaxation τ, partition k — clamped to the numerically stable envelope. MODES holds the CMA-ES optimizer and the challenge match.",
+    watch: "Instability is unreachable from the sliders on purpose: every range was mapped before shipping.",
+    hl: ["sec:ENGINE", "sec:ADVANCED", "sec:MODES"],
+  },
+  {
+    part: "THE INSTRUMENT",
+    title: "Your hands",
+    body: "On the canvas itself: tap to nucleate a crystal, shift-tap for a twinned pair, scroll or pinch to zoom, right-drag (or two fingers) to pan, and ctrl-tap to move the cooling probe.",
+    watch: "That is the whole instrument. Go freeze something.",
+    hl: [],
+  },
 ];
 
 export class Tour {
@@ -165,10 +256,12 @@ export class Tour {
   goto(i: number) {
     if (i < 0 || i >= CHAPTERS.length) return this.close();
     const ch = CHAPTERS[i];
-    ch.apply(this.app);
+    this.app.clearReveals();
+    ch.apply?.(this.app);
     this.app.syncUI();
+    ch.hl?.forEach(t => this.app.reveal(t));
     this.el.innerHTML = `
-      <div class="ch">TOUR · ${i + 1} / ${CHAPTERS.length}</div>
+      <div class="ch">TOUR · ${i + 1} / ${CHAPTERS.length}${ch.part ? " · " + ch.part : ""}</div>
       <h3>${ch.title}</h3>
       <p>${ch.body}</p>
       <div class="watch">▸ ${ch.watch}</div>
@@ -187,6 +280,7 @@ export class Tour {
     this.btn.classList.add("hide");
   }
   close() {
+    this.app.clearReveals();
     this.el.classList.remove("show");
     this.btn.classList.remove("hide");
   }
