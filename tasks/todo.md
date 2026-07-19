@@ -80,6 +80,23 @@ physics model, milestone gates — set in stone before implementation).
     contour where neighbour φ ~ 1e-3, so no twins ever nucleated. Relaxed to a debris guard
     (`best > 0.003`); survivors then out-grow their parents exactly like real feathery grains.
 
+## v0.4 (2026-07-19): alloy composer
+
+- [x] `src/alloy.ts`: element database (6 bases × 3–6 solutes, approximate textbook
+      dilute-limit m/k/D/mass per binary), dilute superposition ΔT_L = Σmᵢcᵢ,
+      growth restriction Q = Σmᵢcᵢ(kᵢ−1), at% ↔ wt% conversion, pseudo-binary collapse
+      (c₀ from total wt%, k_eff = 1 − Q/|ΔT_L| = mᵢcᵢ-weighted mean k, TSCALE 100 K/unit),
+      honest clamp reporting; `#alloy=…` hash encode/decode
+- [x] `src/composer.ts`: modal composer — base buttons, wt% sliders with live at%,
+      element picker showing (m, k) + notes, famous-alloy quick-fills, derived readouts,
+      auto alloy name, pour → material identity + pseudo-binary + armed melt + share hash
+- [x] Copper base material added (10 materials now); deep link scatters seeds + runs
+- [x] **Verified the money experiment**: same rain (12/s) + cooling, A356+TiB (Q 71 K)
+      → 369 grains G 6.2 vs Al–1Zn (Q 0.9 K) → 46 grains G 2.8 — grain refinement from
+      composition alone (Easton–StJohn growth restriction, emergent)
+- [x] Chemistry spot-check: A356+TiB ΔT_L −44.7 K, Q 71.2 K match hand calculation;
+      1045 deep link maps to c0 0.12 · m 0.80 (clamped) · k 0.24 · D 1.50 (fast C)
+
 **Known limits / next:**
 - [ ] Grain-boundary lines in ETCH are thin/broken while liquid films persist (partly physical)
 - [ ] Alloy solute scheme is qualitative (labelled as such); quantitative WB is a bigger lift

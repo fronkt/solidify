@@ -42,11 +42,20 @@ gracefully instead of freezing.
   and a steerable/auto-raster laser weld that remelts and resolidifies the microstructure.
 - **Alloy mode** — Warren–Boettinger-type dilute solute (qualitative): constitutional
   undercooling, solute halos, frozen-in microsegregation, composition/partition/liquidus sliders.
-- **Materials** — nine qualitative identities (model metal, Al–Cu, Fe–C steel, Ni superalloy,
-  Co alloy, Mg AZ91, Zn spangle, ice, succinonitrile). Crystal structure picks the dendrite
-  symmetry (FCC/BCC → 4-fold, HCP → 6-fold — and yes, cobalt freezes FCC), and each material
-  sets anisotropy, latent heat, alloy bundle, and how brightly its melt actually glows:
-  steel pours white-hot, zinc at 420 °C is just liquid silver.
+- **Materials** — ten qualitative identities (model metal, Al–Cu, Fe–C steel, Ni superalloy,
+  Co alloy, copper, Mg AZ91, Zn spangle, ice, succinonitrile). Crystal structure picks the
+  dendrite symmetry (FCC/BCC → 4-fold, HCP → 6-fold — and yes, cobalt freezes FCC), and each
+  material sets anisotropy, latent heat, alloy bundle, and how brightly its melt actually
+  glows: steel pours white-hot, zinc at 420 °C is just liquid silver.
+- **Alloy composer** — build your own composition: pick a base (Al/Fe/Ni/Mg/Cu/Zn), add
+  elements in wt% with live at% conversion, using approximate textbook dilute-limit binary
+  coefficients (liquidus slope m, partition k per element). The composer reports the real
+  chemistry — liquidus shift ΔT_L = Σmᵢcᵢ and growth restriction factor Q = Σmᵢcᵢ(kᵢ−1) —
+  then collapses the mix onto the model's pseudo-binary solute field (k_eff = the mᵢcᵢ-weighted
+  mean partition), with every clamp labelled. Famous-alloy quick-fills (A356, AA2024, 4340,
+  IN718, AZ91, bronze…) and shareable `#alloy=…` deep links. Verified: A356+TiB (Q ≈ 71 K)
+  vs Al–1Zn (Q ≈ 1 K) under identical nucleation gives 369 vs 46 grains — composition alone
+  refines the structure, the Easton–StJohn mechanism emerging from the phase-field.
 - **Twinning** — stochastic growth twins nucleate at the front in twin registry (θ₀ + π/j) and
   must out-grow their parent to survive, like real feathery grains in aluminum DC casting;
   Shift+click stamps a twinned seed pair — in hexagonal mode that grows the rare

@@ -143,7 +143,7 @@ export const CHAPTERS: Chapter[] = [
   {
     title: "The alloy",
     body: "Real metals are alloys. The growing solid rejects solute, which piles up ahead of the front and lowers the local melting point — constitutional undercooling, the engine of most real dendrites. The rejected solute freezes into the last liquid between the arms.",
-    watch: "Blue-green halos hug the interface. Switch to XRAY — the segregation shows up exactly the way it does in synchrotron radiographs of real solidifying alloys. Then pick a metal in MATERIAL: steel pours white-hot, zinc freezes with no glow at all.",
+    watch: "Blue-green halos hug the interface. Switch to XRAY — the segregation shows up exactly the way it does in synchrotron radiographs of real solidifying alloys. Then open COMPOSE ALLOY and mix your own: the growth restriction factor Q it reports genuinely refines the grains here.",
     apply: SCENES.alloy,
   },
   {

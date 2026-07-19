@@ -6,6 +6,7 @@ import { Hud } from "./hud";
 import { Tour, SCENES } from "./tour";
 import { Optimizer, type OptHost } from "./optimizer";
 import { Challenge, type ChallengeHost } from "./challenge";
+import { Composer } from "./composer";
 
 const TURBO_STEPS = 150;
 
@@ -85,6 +86,7 @@ async function boot() {
       material = k;
       Object.assign(sim.params, m.params);
     },
+    openComposer() { if (!opt.active && !challenge.active) composer.open(); },
     getGrid: () => sim.n,
     setGrid(n) { if (n !== sim.n && !opt.active && !challenge.active) app.swapSim(n); },
     getView: () => view,
@@ -138,6 +140,14 @@ async function boot() {
   const ui = new UI(app);
   const tour = new Tour(app);
   const opt = new Optimizer(app);
+  const composer = new Composer({
+    applyAlloy(materialKey, params) {
+      app.setMaterial(materialKey);
+      Object.assign(sim.params, params);   // derived pseudo-binary overrides
+      app.resetArmed();
+      ui.sync();
+    },
+  });
 
   // challenge host adapter
   let chSavedGrid = 1024;
@@ -177,7 +187,7 @@ async function boot() {
   const challenge = new Challenge(chHost);
 
   (window as unknown as Record<string, unknown>).__solidify = {
-    app, opt, tour, ui, challenge,
+    app, opt, tour, ui, challenge, composer,
     tick(k: number) { for (let i = 0; i < k; i++) frameBody(last + 1000 / 60); },
   };
 
@@ -330,9 +340,15 @@ async function boot() {
     }
   }
 
-  // boot scene: a lone dendrite, instantly; ?tour=1 deep link opens the tour
+  // boot scene: a lone dendrite, instantly; ?tour=1 deep link opens the tour;
+  // #alloy=… deep link pours a shared composition and runs it
   SCENES.dendrite(app);
   if (new URLSearchParams(location.search).has("tour")) tour.goto(0);
+  if (location.hash.includes("alloy=") && composer.applyHash(location.hash)) {
+    app.scatterSeeds(6);
+    app.setView(0);
+    app.setRun(true);
+  }
   ui.sync();
   requestAnimationFrame(frame);
 }

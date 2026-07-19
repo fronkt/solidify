@@ -56,6 +56,35 @@
     select { width: 100%; font-family: var(--font); font-size: 11.5px; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; cursor: pointer; outline: none; }
     select:hover { border-color: #3a424e; }
     .matnote { margin-top: 6px; font-size: 10.5px; line-height: 1.5; color: var(--dim); }
+
+    /* ---- alloy composer ---- */
+    #composer { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(4,5,7,0.6); backdrop-filter: blur(4px); z-index: 30; }
+    #composer.show { display: flex; }
+    #composer .card { width: min(500px, 94vw); max-height: 88vh; overflow-y: auto; overflow-x: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; box-shadow: 0 18px 60px rgba(0,0,0,0.55); }
+    #composer .chead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    #composer .chead h3 { font-size: 12px; letter-spacing: 0.25em; color: var(--amber); font-weight: 600; }
+    #composer .chead .x { border: none; background: none; color: var(--dim); font-size: 14px; }
+    #composer .cnote { font-size: 10px; line-height: 1.5; color: var(--dim); margin-bottom: 12px; }
+    #composer .bases { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+    #composer .bases button { flex: 1 1 30%; }
+    #composer .crow { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+    #composer .crow b { flex: 0 0 22px; color: var(--amber); font-size: 12px; }
+    #composer .crow input { flex: 1; }
+    #composer .crow .cv { flex: 0 0 128px; text-align: right; font-size: 10.5px; color: var(--text); }
+    #composer .crow .rm { border: none; background: none; color: var(--dim); padding: 2px 4px; }
+    #composer .addrow { display: flex; gap: 6px; margin: 8px 0 12px; }
+    #composer .addrow select { flex: 1; width: auto; min-width: 0; text-overflow: ellipsis; }
+    #composer .addrow .add { white-space: nowrap; }
+    #composer .famous { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+    #composer .famous button { font-size: 10px; padding: 4px 7px; color: var(--dim); }
+    #composer .famous button:hover { color: var(--amber); border-color: var(--amber); }
+    #composer .derived { border-top: 1px solid var(--line); padding-top: 10px; margin-bottom: 12px; }
+    #composer .aname { font-size: 15px; color: #fff; letter-spacing: 0.04em; margin-bottom: 8px; }
+    #composer .drow { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); margin-bottom: 4px; }
+    #composer .drow b { color: var(--amber); font-weight: 500; }
+    #composer .clamp { font-size: 10px; color: #d9985a; margin-top: 4px; }
+    #composer .cfoot { display: flex; gap: 8px; }
+    #composer .cfoot .pour { flex: 1; border-color: var(--amber); color: var(--amber); font-weight: 600; padding: 8px; }
     .hiddenSec { display: none; }
 
     /* lens grid */

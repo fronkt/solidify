@@ -15,6 +15,7 @@ export interface UIHost extends AppControl {
   toggleTurbo(): void;
   getMaterial(): string;
   setMaterial(key: string): void;
+  openComposer(): void;
   getGrid(): number;
   setGrid(n: number): void;
   getView(): number;
@@ -226,6 +227,8 @@ export class UI {
     this.check(alloy, "dilute alloy (solute field)", () => p().alloyOn === 1, b => {
       p().alloyOn = b ? 1 : 0;
     });
+    const arow = this.btnRow(alloy);
+    this.button(arow, "⚗ compose alloy…", () => host.openComposer());
     this.alloyPanel = document.createElement("div");
     this.alloyPanel.className = "subpanel";
     alloy.append(this.alloyPanel);

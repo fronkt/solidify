@@ -39,6 +39,11 @@ export const MATERIALS: Record<string, Material> = {
     note: "Surprise: Co freezes FCC, so its dendrites are 4-fold like steel's. It only turns HCP at 417 °C, long after solidifying.",
     params: { aniMode: 4, delta: 0.035, latent: 1.7, alloyOn: 1, c0: 0.3, mLiq: 0.45, kPart: 0.25, dSol: 0.7, meltGlow: 0.95 },
   },
+  cu: {
+    label: "copper · bronze",
+    note: "The oldest cast metal — bronze bells, brass fittings. FCC, freezes at 1085 °C with an honest orange glow.",
+    params: { aniMode: 4, delta: 0.04, latent: 1.6, alloyOn: 1, c0: 0.3, mLiq: 0.45, kPart: 0.2, dSol: 0.8, meltGlow: 0.8 },
+  },
   mg: {
     label: "magnesium · AZ91",
     note: "HCP — a metal that grows genuine 6-fold dendrites, snowflakes in magnesium.",
