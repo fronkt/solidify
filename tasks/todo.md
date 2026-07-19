@@ -59,6 +59,27 @@ physics model, milestone gates — set in stone before implementation).
 8. Bridgman demo pace too slow — pull 3.5, gradient 0.11, speed 40.
 9. CURV/XRAY/halo gains too subtle — amplified.
 
+## v0.3 (2026-07-19): materials + twinning
+
+- [x] MATERIAL picker (9 qualitative identities): model metal, Al–Cu, Fe–C steel, Ni superalloy,
+      Co alloy (freezes FCC → 4-fold, the teachable surprise), Mg AZ91 (6-fold metal), Zn spangle,
+      ice, succinonitrile — each sets symmetry j, δ, latent K, alloy bundle, and melt incandescence
+- [x] meltGlow in MELT lens: display-only blackbody scale — steel white-hot, Al dull red,
+      Zn/ice silvery liquid with no glow (verified side by side)
+- [x] Growth twinning: stochastic twin nucleation in the grain-claim pass (GPU atomic id
+      allocator counting down from the top of the id range; θ₀ᵗʷⁱⁿ = θ₀ + π/j, the
+      maximal-misorientation 2D analog of a coherent twin) + twin-rate slider (CRYSTAL)
+- [x] Twin seed: Shift+click or "twin seed" button stamps a twinned pair — verified the
+      12-branched snowflake (two 6-fold domains locked at 30°, grains = 2)
+- [x] Twin boundaries etch faint in ETCH/ORIENT (misorientation ≈ π/j detected in render)
+- [x] Tour chapter "The twin" (now 10); landing twinStar archetype + occasional twinned castings
+- [x] Fair-play: twinProb zeroed in optimizer episodes + challenge player round
+
+**v0.3 bugs found & fixed during verification:**
+10. Twin spawn gate `best > 0.5` never fired — grain-id claiming runs ahead of the φ=0.5
+    contour where neighbour φ ~ 1e-3, so no twins ever nucleated. Relaxed to a debris guard
+    (`best > 0.003`); survivors then out-grow their parents exactly like real feathery grains.
+
 **Known limits / next:**
 - [ ] Grain-boundary lines in ETCH are thin/broken while liquid films persist (partly physical)
 - [ ] Alloy solute scheme is qualitative (labelled as such); quantitative WB is a bigger lift

@@ -142,6 +142,7 @@ export class Renderer {
     u[11] = this.paletteOn ? 1 : 0;
     u[12] = sim.params.alloyOn;
     f[13] = sim.params.c0;
+    f[14] = sim.params.meltGlow;
     this.device.queue.writeBuffer(this.rbuf, 0, this.rdata);
 
     const enc = this.device.createCommandEncoder();

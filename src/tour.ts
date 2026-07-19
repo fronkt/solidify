@@ -4,6 +4,7 @@ import type { PhysParams } from "./sim";
 export interface AppControl {
   clearMelt(undercool: number): void;
   seedCenter(): void;
+  twinSeedCenter(): void;
   chillWall(edge?: "left" | "bottom" | "auto"): void;
   scatterSeeds(count: number): void;
   setParams(p: Partial<PhysParams>): void;
@@ -105,6 +106,17 @@ export const CHAPTERS: Chapter[] = [
     apply: SCENES.snow,
   },
   {
+    title: "The twin",
+    body: "Sometimes a growing crystal makes a perfect mistake: a second lattice forms on it in mirror registry — a twin. Aluminum castings grow whole feathery grains this way, and two ice crystals locked at 30° grow the rarest snowflake of all: twelve branches.",
+    watch: "One seed, two orientations. Count the arms — twelve. The two twin domains show as two colours split by a faint boundary; real twin boundaries etch faint too. Raise TWIN RATE in CRYSTAL to let twins fire mid-growth.",
+    apply(a) {
+      a.setParams({ scen: 0, heatIn: 0, delta: 0.042, aniMode: 6, noiseAmp: 0.012, latent: 1.8, coolRate: 0, alloyOn: 0, twinProb: 0 });
+      a.setRain(0); a.setWeldAuto(false);
+      a.clearMelt(0.92); a.twinSeedCenter();
+      a.setView(1); a.setSpeed(16); a.setRun(true);
+    },
+  },
+  {
     title: "Many grains",
     body: "Real melts nucleate everywhere at once. Each nucleus is a crystal with its own random orientation; where they collide, growth stops and a grain boundary is frozen in. This is why metal is made of grains.",
     watch: "Each colour is one crystal orientation. When the last liquid vanishes, switch to ETCH — that is a micrograph.",
@@ -131,7 +143,7 @@ export const CHAPTERS: Chapter[] = [
   {
     title: "The alloy",
     body: "Real metals are alloys. The growing solid rejects solute, which piles up ahead of the front and lowers the local melting point — constitutional undercooling, the engine of most real dendrites. The rejected solute freezes into the last liquid between the arms.",
-    watch: "Blue-green halos hug the interface. Switch to XRAY — the segregation shows up exactly the way it does in synchrotron radiographs of real solidifying alloys.",
+    watch: "Blue-green halos hug the interface. Switch to XRAY — the segregation shows up exactly the way it does in synchrotron radiographs of real solidifying alloys. Then pick a metal in MATERIAL: steel pours white-hot, zinc freezes with no glow at all.",
     apply: SCENES.alloy,
   },
   {

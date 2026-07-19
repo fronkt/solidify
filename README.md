@@ -42,6 +42,15 @@ gracefully instead of freezing.
   and a steerable/auto-raster laser weld that remelts and resolidifies the microstructure.
 - **Alloy mode** — Warren–Boettinger-type dilute solute (qualitative): constitutional
   undercooling, solute halos, frozen-in microsegregation, composition/partition/liquidus sliders.
+- **Materials** — nine qualitative identities (model metal, Al–Cu, Fe–C steel, Ni superalloy,
+  Co alloy, Mg AZ91, Zn spangle, ice, succinonitrile). Crystal structure picks the dendrite
+  symmetry (FCC/BCC → 4-fold, HCP → 6-fold — and yes, cobalt freezes FCC), and each material
+  sets anisotropy, latent heat, alloy bundle, and how brightly its melt actually glows:
+  steel pours white-hot, zinc at 420 °C is just liquid silver.
+- **Twinning** — stochastic growth twins nucleate at the front in twin registry (θ₀ + π/j) and
+  must out-grow their parent to survive, like real feathery grains in aluminum DC casting;
+  Shift+click stamps a twinned seed pair — in hexagonal mode that grows the rare
+  12-branched snowflake. Twin boundaries etch faint, as in real metallography.
 - **Process controls** — undercooling, cooling rate, activation-gated nucleation rain, chill
   wall, anneal-to-remelt, symmetry, anisotropy, noise, latent heat, brush size, and a pro panel
   (ε̄, γ, α, τ, k) for power users. Reset arms a staged melt; run/pause/turbo transport.
@@ -49,8 +58,8 @@ gracefully instead of freezing.
   nearest-neighbour cells) and an 8-bit dithered palette toggle.
 - **Live metallography** — fraction solid, interface undercooling, grain count, grain-size
   histogram, ASTM G number, computed by GPU reduction while the sim runs.
-- **Guided tour** — nine chapters from the Mullins–Sekerka instability through casting CET,
-  directional growth, welding, and alloys.
+- **Guided tour** — ten chapters from the Mullins–Sekerka instability through twinning,
+  casting CET, directional growth, welding, and alloys.
 - **Engineer it & challenge** — a separable CMA-ES optimizer runs casting after casting,
   measures each ASTM grain number, and learns the schedule — every attempt pinned to a
   lab-notebook strip. Challenge mode deals you the same target first and scores you against it.

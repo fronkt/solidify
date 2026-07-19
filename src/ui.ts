@@ -1,6 +1,7 @@
 import type { AppControl } from "./tour";
 import { SCENES } from "./tour";
 import { LENS_NAMES } from "./shaders";
+import { MATERIALS } from "./materials";
 import type { PhysParams } from "./sim";
 
 export interface UIHost extends AppControl {
@@ -12,6 +13,8 @@ export interface UIHost extends AppControl {
   isRunning(): boolean;
   isTurbo(): boolean;
   toggleTurbo(): void;
+  getMaterial(): string;
+  setMaterial(key: string): void;
   getGrid(): number;
   setGrid(n: number): void;
   getView(): number;
@@ -154,6 +157,26 @@ export class UI {
       this.button(prow, name, () => { SCENES[name](host); this.sync(); });
     }
 
+    // ---- material identity (qualitative parameter bundles)
+    const mat = this.section(rail, "MATERIAL");
+    const sel = document.createElement("select");
+    for (const [key, m] of Object.entries(MATERIALS)) {
+      const o = document.createElement("option");
+      o.value = key;
+      o.textContent = m.label;
+      sel.append(o);
+    }
+    const matNote = document.createElement("div");
+    matNote.className = "matnote";
+    sel.addEventListener("change", () => { host.setMaterial(sel.value); this.sync(); });
+    mat.append(sel, matNote);
+    this.binds.push({
+      update: () => {
+        sel.value = host.getMaterial();
+        matNote.textContent = MATERIALS[host.getMaterial()]?.note ?? "";
+      },
+    });
+
     // ---- modes
     const modes = this.section(rail, "MODES");
     const mrow0 = this.btnRow(modes);
@@ -167,6 +190,7 @@ export class UI {
     this.slider(melt, "nucleation /s", 0, 30, 0.5, () => host.getRain(), v => host.setRain(v), v => v.toFixed(1));
     const mrow = this.btnRow(melt);
     this.button(mrow, "seed", () => host.seedCenter());
+    this.button(mrow, "twin seed", () => host.twinSeedCenter());
     this.button(mrow, "chill wall", () => host.chillWall("auto"));
     this.button(mrow, "quench ⚡", () => host.quench());
     const annealBtn = this.button(mrow, "anneal ⌛", () => {});
@@ -221,6 +245,8 @@ export class UI {
     sym(6, "hex ×6");
     this.slider(cr, "tip noise", 0, 0.04, 0.001, () => p().noiseAmp, v => { p().noiseAmp = v; }, v => v.toFixed(3));
     this.slider(cr, "latent heat K", 0.8, 2.2, 0.01, () => p().latent, v => { p().latent = v; });
+    this.slider(cr, "twin rate", 0, 0.004, 0.0001, () => p().twinProb, v => { p().twinProb = v; },
+      v => v > 0 ? `${(v * 1000).toFixed(1)}‰` : "off");
 
     // ---- look
     const look = this.section(rail, "LOOK");

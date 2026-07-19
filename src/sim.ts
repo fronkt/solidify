@@ -28,6 +28,9 @@ export interface PhysParams {
   mLiq: number;
   kPart: number;
   dSol: number;
+  // crystallography / material identity
+  twinProb: number;   // per-claim growth-twin probability (0 = off)
+  meltGlow: number;   // display-only incandescence scale (1 = steel-bright)
 }
 
 export const DEFAULTS: PhysParams = {
@@ -57,6 +60,8 @@ export const DEFAULTS: PhysParams = {
   mLiq: 0.45,
   kPart: 0.2,
   dSol: 0.8,
+  twinProb: 0,
+  meltGlow: 1.0,
 };
 
 export interface StatsResult {
@@ -88,6 +93,7 @@ export class Simulation {
   private fluxTex!: GPUTexture;
   private paramBuf!: GPUBuffer;
   private theta0Buf!: GPUBuffer;
+  private twinCtrBuf!: GPUBuffer;
   private seedBuf!: GPUBuffer;
   private statsBuf!: GPUBuffer;
   private statsStaging!: GPUBuffer;
@@ -139,6 +145,7 @@ export class Simulation {
 
     this.paramBuf = d.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.theta0Buf = d.createBuffer({ size: MAX_GRAINS * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    this.twinCtrBuf = d.createBuffer({ size: 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     this.seedBuf = d.createBuffer({ size: MAX_SEEDS * SEED_STRIDE * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     const statsSize = (4 + MAX_GRAINS) * 4;
     this.statsBuf = d.createBuffer({ size: statsSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
@@ -175,6 +182,8 @@ export class Simulation {
           { binding: 3, resource: this.fluxTex.createView() },
           { binding: 4, resource: so },
           { binding: 5, resource: go },
+          { binding: 6, resource: { buffer: this.theta0Buf } },
+          { binding: 7, resource: { buffer: this.twinCtrBuf } },
         ],
       });
       this.stampBG[dir] = d.createBindGroup({
@@ -223,6 +232,8 @@ export class Simulation {
     this.pendingSeeds = [];
     this.theta0CPU.fill(0);
     this.device.queue.writeBuffer(this.theta0Buf, 0, this.theta0CPU);
+    // GPU twins allocate ids downward from the top of the range
+    this.device.queue.writeBuffer(this.twinCtrBuf, 0, new Uint32Array([MAX_GRAINS - 1]));
   }
 
   /**
@@ -242,6 +253,19 @@ export class Simulation {
 
   /** one-shot uniform temperature drop (ice-brine plunge); stacks if pressed again */
   quench(dT = 0.25) { this.pendingQuench += dT; }
+
+  /**
+   * stamp a twinned nucleus: two adjacent seeds sharing a site, rotated by
+   * pi/j into twin registry. In 6-fold this grows the rare 12-branched
+   * snowflake; in 4-fold, the 2D analog of a feathery twinned grain.
+   */
+  addTwinSeed(x: number, y: number, r = 4) {
+    const th = Math.random() * (2 * Math.PI / this.params.aniMode);
+    const ang = Math.random() * Math.PI * 2;
+    const off = r * 0.45;
+    this.addSeed(x - Math.cos(ang) * off, y - Math.sin(ang) * off, r, th);
+    this.addSeed(x + Math.cos(ang) * off, y + Math.sin(ang) * off, r, th + Math.PI / this.params.aniMode);
+  }
 
   chillWall(edge: "bottom" | "left" = "bottom", count = 42) {
     const n = this.n;
@@ -271,6 +295,8 @@ export class Simulation {
     u[24] = p.alloyOn;
     f[25] = p.c0; f[26] = p.mLiq; f[27] = p.kPart; f[28] = p.dSol;
     f[29] = this.pendingQuench;
+    f[30] = p.twinProb;
+    u[31] = this.nextId;
     this.device.queue.writeBuffer(this.paramBuf, 0, this.paramData);
   }
 

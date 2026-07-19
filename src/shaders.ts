@@ -49,8 +49,8 @@ struct Params {
   kPart: f32,
   dSol: f32,
   quenchDT: f32,   // one-shot temperature drop applied in the stamp pass
-  pad1: f32,
-  pad2: f32,
+  twinProb: f32,   // per-claim chance of nucleating a growth twin at the front
+  idFloor: u32,    // CPU seed ids live below this; GPU twin ids above it
 }
 const PI = 3.14159265359;
 
@@ -108,6 +108,8 @@ ${COMMON}
 @group(0) @binding(3) var flux: texture_2d<f32>;
 @group(0) @binding(4) var stateOut: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(5) var grainOut: texture_storage_2d<r32uint, write>;
+@group(0) @binding(6) var<storage, read_write> theta0: array<f32>;
+@group(0) @binding(7) var<storage, read_write> twinCtr: atomic<u32>;
 
 @compute @workgroup_size(8, 8)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -201,6 +203,18 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
           let nphi = textureLoad(state, nc, 0).r;
           if (nphi > best) { best = nphi; id = nid; }
         }
+      }
+    }
+    // growth twinning: rarely, a claim at the advancing front nucleates a new
+    // domain in twin registry — theta0 + pi/j, the maximal-misorientation 2D
+    // analog of a coherent twin (feathery Al grains; 12-branched snowflakes).
+    // The twin then has to out-grow its parent to survive, like the real thing.
+    if (id != 0u && best > 0.003 && P.twinProb > 0.0 &&
+        hash3(gid.x + 7919u, gid.y + 104729u, P.frame) < P.twinProb) {
+      let tid = atomicSub(&twinCtr, 1u);
+      if (tid > P.idFloor && tid < ${MAX_GRAINS}u) {
+        theta0[tid] = theta0[min(id, ${MAX_GRAINS - 1}u)] + PI / max(P.aniMode, 1.0);
+        id = tid;
       }
     }
   }
@@ -305,7 +319,7 @@ struct RParams {
   paletteOn: u32,
   alloyOn: u32,
   c0: f32,
-  pad0: f32,
+  meltGlow: f32,    // material incandescence: 1 = steel-bright, 0.3 = zinc (no glow)
   pad1: f32,
 }
 const PI = 3.14159265359;
@@ -435,10 +449,13 @@ fn fmain(in: VOut) -> @location(0) vec4f {
 
   let solidness = smoothstep(0.35, 0.65, phi);
 
-  // grain boundary detect (step matches pixel size)
+  // grain boundary detect (step matches pixel size); coherent-twin boundaries
+  // (misorientation near pi/j) etch faint, like real metallography
   var gb = 0.0;
+  var gbTwin = 0.0;
   let st = max(1, i32(ps));
   if (id != 0u && phi > 0.5) {
+    let period = 2.0 * PI / max(R.aniMode, 1.0);
     for (var k = 0; k < 4; k++) {
       var d = vec2i(st, 0);
       if (k == 1) { d = vec2i(-st, 0); }
@@ -446,7 +463,12 @@ fn fmain(in: VOut) -> @location(0) vec4f {
       if (k == 3) { d = vec2i(0, -st); }
       let nc = cl(ci + d);
       let nid = textureLoad(grain, nc, 0).r;
-      if (nid != 0u && nid != id && textureLoad(state, nc, 0).r > 0.5) { gb = 1.0; }
+      if (nid != 0u && nid != id && textureLoad(state, nc, 0).r > 0.5) {
+        gb = 1.0;
+        let dth = theta0[min(nid, ${MAX_GRAINS - 1}u)] - th0;
+        let miso = abs(fract(dth / period + 0.5) - 0.5) * period;
+        if (miso > 0.35 * period) { gbTwin = 1.0; }
+      }
     }
   }
 
@@ -454,7 +476,10 @@ fn fmain(in: VOut) -> @location(0) vec4f {
 
   switch (R.view) {
     case 0u: { // MELT
-      let glow = heat(T);
+      // incandescence scales with the material's melting point; cold-melting
+      // metals (Zn, Mg) read as silvery liquid instead of blackbody glow
+      var glow = heat(T * R.meltGlow);
+      glow += vec3f(0.14, 0.147, 0.163) * (1.0 - R.meltGlow) * clamp(T + 0.6, 0.0, 1.0);
       let steel = vec3f(0.11, 0.115, 0.13) * (0.5 + 0.95 * diff) + vec3f(spec) * 0.3;
       let tint = polar(th0 / (2.0 * PI / max(R.aniMode, 1.0)), idh);
       var solidCol = steel * (0.7 + 0.3 * tint) + glow * 0.3;
@@ -471,7 +496,7 @@ fn fmain(in: VOut) -> @location(0) vec4f {
       let base = polar(hfrac, idh) * idv * (0.42 + 0.72 * diff) + vec3f(spec) * 0.2;
       let liq = vec3f(0.012, 0.014, 0.02) + heat(T) * 0.1;
       col = mix(liq, base, solidness);
-      col *= 1.0 - gb * 0.7;
+      col *= 1.0 - gb * select(0.7, 0.28, gbTwin > 0.5);
     }
     case 2u: { // ETCH
       var lum = 0.58 + 0.24 * idh + diff * 0.05 - spec * 0.03;
@@ -480,7 +505,7 @@ fn fmain(in: VOut) -> @location(0) vec4f {
       let solidCol = vec3f(lum) * vec3f(0.99, 0.965, 0.915);
       let liq = vec3f(0.965, 0.955, 0.935);
       col = mix(liq, solidCol, solidness);
-      col *= 1.0 - gb * 0.82;
+      col *= 1.0 - gb * select(0.82, 0.4, gbTwin > 0.5);
       col *= 0.97 + 0.06 * hashf(u32(ci.x), u32(ci.y), 7u);
     }
     case 3u: { // FIELD

@@ -15,11 +15,11 @@ function pick<T>(xs: T[]): T { return xs[Math.floor(Math.random() * xs.length)];
 // never appears (single-crystal scenes are 6-fold or seaweed).
 function randomScene(sim: Simulation, renderer: Renderer, first: boolean): SceneResult {
   const p = sim.params;
-  Object.assign(p, { scen: 0, alloyOn: 0, heatIn: 0, coolRate: 0, aniMode: 4 });
+  Object.assign(p, { scen: 0, alloyOn: 0, heatIn: 0, coolRate: 0, aniMode: 4, twinProb: 0, meltGlow: 1 });
 
   const arch = first
     ? "duo"
-    : pick(["multi", "multi", "duo", "duo", "snow", "seaweed", "rainCast", "rainCast", "hexRain"]);
+    : pick(["multi", "multi", "duo", "duo", "snow", "seaweed", "rainCast", "rainCast", "hexRain", "twinStar"]);
 
   let view = 0;
   switch (arch) {
@@ -52,8 +52,16 @@ function randomScene(sim: Simulation, renderer: Renderer, first: boolean): Scene
       view = pick([0, 0, 1, 4]);
       break;
     }
+    case "twinStar": { // rotational twin: the 12-branched snowflake
+      p.aniMode = 6; p.delta = rnd(0.038, 0.05); p.noiseAmp = rnd(0.008, 0.016); p.latent = rnd(1.6, 1.9);
+      sim.reset(rnd(0, 0.1));
+      sim.addTwinSeed(N * rnd(0.42, 0.58), N * rnd(0.42, 0.58), 4);
+      view = pick([0, 0, 1]);
+      break;
+    }
     case "rainCast": {
       p.delta = rnd(0.035, 0.05); p.noiseAmp = rnd(0.01, 0.016); p.latent = rnd(1.3, 1.6); p.coolRate = rnd(0.2, 0.35);
+      if (Math.random() < 0.25) p.twinProb = 0.0012;
       sim.reset(rnd(0.15, 0.3));
       const k = Math.floor(rnd(18, 40));
       for (let i = 0; i < k; i++)

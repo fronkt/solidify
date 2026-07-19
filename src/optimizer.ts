@@ -223,6 +223,7 @@ export class Optimizer {
     sim.params.aniMode = 4;
     sim.params.noiseAmp = 0.012;
     sim.params.latent = 1.5;
+    sim.params.twinProb = 0;
     sim.params.coolRate = g[0];
     sim.reset(1 - g[4]);
   }

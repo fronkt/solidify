@@ -1,4 +1,5 @@
 import { Simulation, DOMAIN_MM, type StatsResult } from "./sim";
+import { MATERIALS } from "./materials";
 import { Renderer, type ViewMode } from "./render";
 import { UI, type UIHost } from "./ui";
 import { Hud } from "./hud";
@@ -35,6 +36,7 @@ async function boot() {
   let rainAcc = 0;
   let lastStats: StatsResult | null = null;
   let fps = 60;
+  let material = "generic";
 
   const app: UIHost & OptHost = {
     // ---- AppControl (scenes / tour)
@@ -48,6 +50,7 @@ async function boot() {
       weldDir = 1;
     },
     seedCenter() { sim.addSeed(sim.n / 2, sim.n / 2, brush + 1); hideHint(); },
+    twinSeedCenter() { sim.addTwinSeed(sim.n / 2, sim.n / 2, brush + 1.5); hideHint(); },
     chillWall(edge = "auto") {
       const e = edge === "auto" ? (canvas.width >= canvas.height ? "left" : "bottom") : edge;
       sim.chillWall(e);
@@ -75,6 +78,13 @@ async function boot() {
     isRunning: () => running,
     isTurbo: () => turbo,
     toggleTurbo() { turbo = !turbo; },
+    getMaterial: () => material,
+    setMaterial(k) {
+      const m = MATERIALS[k];
+      if (!m) return;
+      material = k;
+      Object.assign(sim.params, m.params);
+    },
     getGrid: () => sim.n,
     setGrid(n) { if (n !== sim.n && !opt.active && !challenge.active) app.swapSim(n); },
     getView: () => view,
@@ -143,6 +153,7 @@ async function boot() {
       sim.params.aniMode = 4;
       sim.params.noiseAmp = 0.012;
       sim.params.latent = 1.5;
+      sim.params.twinProb = 0;
       rain = 6;
       sim.reset(1 - u);
       hud.reset();
@@ -191,7 +202,8 @@ async function boot() {
     const minDist = Math.max(6, sim.n * 0.012);
     if (Math.hypot(g.x - lastSeed.x, g.y - lastSeed.y) < minDist) return;
     lastSeed = g;
-    sim.addSeed(g.x, g.y, brush);
+    if (e.shiftKey) sim.addTwinSeed(g.x, g.y, brush);
+    else sim.addSeed(g.x, g.y, brush);
     hideHint();
   };
 
