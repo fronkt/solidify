@@ -248,21 +248,21 @@ export class Simulation {
 
   /**
    * cast into a mold: mask=1 cells become superheated liquid (the pour),
-   * mask=2 a rim of cold undercooled liquid (dendrites grow into it from the
-   * letter edges), mask=0 cold solid mold sharing one grain. Age sentinels:
-   * mold -1 forever, rim starts -0.25 until it freezes, pour 0.
+   * mask=0 cells become cold solid mold sharing one grain. Age sentinel:
+   * mold cells stay -1 forever, so the CAST lens can tell cast metal from
+   * mold whatever its grain id.
    */
   resetMold(mask: Uint8Array, tLiquid = 1.15, tMold = 0.06) {
     const n = this.n;
     const state = new Float32Array(n * n * 4);
     const ids = new Uint32Array(n * n);
     for (let i = 0; i < n * n; i++) {
-      const m = mask[i];
-      state[i * 4] = m === 0 ? 1 : 0;
-      state[i * 4 + 1] = m === 1 ? tLiquid : m === 2 ? 0.35 : tMold;
-      state[i * 4 + 3] = m === 1 ? 0 : m === 2 ? -0.25 : -1;
+      const inside = mask[i] === 1;
+      state[i * 4] = inside ? 0 : 1;
+      state[i * 4 + 1] = inside ? tLiquid : tMold;
+      state[i * 4 + 3] = inside ? 0 : -1;
     }
-    for (let i = 0; i < n * n; i++) if (mask[i] === 0) ids[i] = 1;
+    for (let i = 0; i < n * n; i++) if (mask[i] !== 1) ids[i] = 1;
     for (const t of this.stateTex)
       this.device.queue.writeTexture({ texture: t }, state, { bytesPerRow: n * 16 }, [n, n]);
     for (const t of this.grainTex)
