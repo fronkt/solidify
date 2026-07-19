@@ -564,7 +564,7 @@ fn fmain(in: VOut) -> @location(0) vec4f {
       I *= 0.97 + 0.05 * hashf(u32(in.pos.x), u32(in.pos.y), u32(R.time * 15.0) % 256u);
       col = vec3f(I) * vec3f(0.93, 0.96, 1.0);
     }
-    default: { // CURV: Gibbs–Thomson lens — interface coloured by curvature
+    case 9u: { // CURV: Gibbs–Thomson lens — interface coloured by curvature
       let lp = (sampleState(p + vec2f(e, 0.0)).x + sampleState(p - vec2f(e, 0.0)).x +
                 sampleState(p + vec2f(0.0, e)).x + sampleState(p - vec2f(0.0, e)).x - 4.0 * phi) / (e * e);
       let kappa = clamp(lp * 6.0 / max(gmag * 4.0, 0.02), -1.2, 1.2);
@@ -574,6 +574,20 @@ fn fmain(in: VOut) -> @location(0) vec4f {
       let kcol = mix(cool, warm, kappa * 0.5 + 0.5);
       col = vec3f(0.03, 0.035, 0.05) + vec3f(0.07) * solidness * (0.5 + diff);
       col = mix(col, kcol, band);
+    }
+    default: { // CAST (landing hero): dark mold (age -1), lit cast metal above
+      let glow = heat(T);
+      let isMold = age < -0.5;
+      let tint = polar(th0 / (2.0 * PI / max(R.aniMode, 1.0)), idh);
+      var base = vec3f(0.30, 0.31, 0.345);
+      if (isMold) { base = vec3f(0.085, 0.09, 0.105); }
+      var solidCol = base * (0.5 + 0.85 * diff) + vec3f(spec) * select(0.45, 0.15, isMold);
+      if (!isMold) {
+        solidCol *= 0.82 + 0.36 * tint;                                  // grain-to-grain sheen
+        solidCol += vec3f(0.55, 0.22, 0.05) * clamp(T - 0.15, 0.0, 1.0); // residual-heat ember
+      }
+      col = mix(glow + vec3f(0.015), solidCol, solidness);
+      col -= gb * vec3f(0.05);
     }
   }
 

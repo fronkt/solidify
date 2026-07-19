@@ -139,6 +139,27 @@ physics model, milestone gates — set in stone before implementation).
 - [x] Stat strip honesty: stale "15 kB" replaced with "0 FRAMEWORKS · HAND-ROLLED WGSL"
       (landing chunk is 18 kB gz with anime; instrument bundle unchanged)
 
+## v0.7 (2026-07-19): scroll-story landing + sim-cast logo
+
+- [x] **The logo is cast by the solver**: `resetMold` (mask → cold solid mold w/ age −1
+      sentinel + superheated letter channels), `logotype.ts` rasterises the wordmark into
+      the mold, seeds fire as the pour cools, fronts arrest at the mold walls; dedicated
+      CAST render case (default) keeps frozen letters legible forever (lit steel + grain
+      sheen + residual-heat ember vs near-black mold). Tap to re-pour. 768² hero grid.
+- [x] Scroll story (GSAP + ScrollTrigger): pinned TEN-LENSES act (one live casting,
+      scroll flips all 10 lenses + rail), pinned MATERIALS act (4 steps re-pour
+      steel/Al/Zn/ice with true melt glow), composer teaser (chips, Q count-up,
+      369-vs-46 bars), science finale (equation types itself, stamps, big CTA)
+- [x] All acts are LIVE sims sharing one GPU device, visibility-paused via
+      IntersectionObserver: only the act on screen ticks
+- [x] Fallbacks: no-WebGPU / reduced-motion → static text + stills, no pins;
+      html.anim watchdog kept; topnav appears past the hero (align-items fix per Frank)
+- [x] Archived v0.6 landing → docs/landing-v0.6-archive-2026-07-19.html
+- [x] Bugs fixed during verification: logo band vertically mirrored (renderer UV already
+      flips; removed double flip); frozen letters went mold-dark (wall epitaxy claims
+      mold's grain id → switched mold identity to the age channel); IO active-flags are
+      stale immediately after programmatic scroll in occluded windows (test-harness only)
+
 **Known limits / next:**
 - [ ] Grain-boundary lines in ETCH are thin/broken while liquid films persist (partly physical)
 - [ ] Alloy solute scheme is qualitative (labelled as such); quantitative WB is a bigger lift

@@ -1,135 +1,252 @@
-// Landing-page hero: a real 256² phase-field simulation rolling random scenes.
-// Falls back to a still image without WebGPU.
+// Landing scroll-story controller. Three real simulations share one GPU
+// device: the cast wordmark (letter-shaped molds), the pinned ten-lens act,
+// and the materials act. Only the sim currently on screen ticks. GSAP's
+// ScrollTrigger drives the pinned acts; DOM-only motion lives in
+// landing-motion.ts. Without WebGPU (or with reduced motion) the page falls
+// back to static text and stills, unpinned.
 
 import "./landing-motion";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Simulation } from "./sim";
 import { Renderer } from "./render";
+import { buildLogoMask } from "./logotype";
+import { MATERIALS } from "./materials";
+import { LENS_NAMES } from "./shaders";
 
-const N = 256;
+gsap.registerPlugin(ScrollTrigger);
 
-interface SceneResult { view: number; doneAt: number }
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-function rnd(lo: number, hi: number) { return lo + Math.random() * (hi - lo); }
-function pick<T>(xs: T[]): T { return xs[Math.floor(Math.random() * xs.length)]; }
+const LENS_DESC = [
+  "Incandescent blackbody glow: the halo around every growing tip is latent heat escaping.",
+  "Cross-polarised light: every colour is one crystal orientation.",
+  "The metallographer's micrograph, etched boundaries, scale bar and all.",
+  "The raw temperature field, isotherms drifting ahead of the front.",
+  "Growth rings: every band is a moment of solidification history.",
+  "An ironbow thermal camera pointed at the freezing melt.",
+  "A secondary-electron microscope, scan lines included.",
+  "Only the interface itself, glowing like a storm map.",
+  "A synchrotron radiograph: solute segregation in absorption contrast.",
+  "Gibbs–Thomson curvature: warm tips, cold grooves. The physics of shape.",
+];
 
-// Random scene generator. Archetypes chosen so a lone centered 4-fold cross
-// never appears (single-crystal scenes are 6-fold or seaweed).
-function randomScene(sim: Simulation, renderer: Renderer, first: boolean): SceneResult {
-  const p = sim.params;
-  Object.assign(p, { scen: 0, alloyOn: 0, heatIn: 0, coolRate: 0, aniMode: 4, twinProb: 0, meltGlow: 1 });
+interface MatStep { key: string; name: string; temp: string; fact: string; undercool: number }
+const MAT_STEPS: MatStep[] = [
+  { key: "steel", name: "STEEL", temp: "Fe–C · pours at ~1540 °C", fact: "White-hot. Four-fold δ-ferrite dendrites — the brightest melt in the instrument.", undercool: 0.9 },
+  { key: "al", name: "ALUMINUM", temp: "Al–Cu · freezes at 660 °C", fact: "A dull red glow, and castings that grow feathery twinned grains.", undercool: 0.9 },
+  { key: "zn", name: "ZINC", temp: "the galvanizing spangle · 420 °C", fact: "No glow at all: six-fold crystals blooming in liquid silver.", undercool: 0.95 },
+  { key: "ice", name: "ICE", temp: "H₂O · 0 °C", fact: "Six-fold because the lattice is. That single fact is why no snowflake has four arms.", undercool: 0.92 },
+];
 
-  const arch = first
-    ? "duo"
-    : pick(["multi", "multi", "duo", "duo", "snow", "seaweed", "rainCast", "rainCast", "hexRain", "twinStar"]);
+function buildRail(el: HTMLElement, count: number) {
+  for (let i = 0; i < count; i++) el.append(document.createElement("i"));
+  el.children[0].classList.add("on");
+}
 
-  let view = 0;
-  switch (arch) {
-    case "snow": {
-      p.aniMode = 6; p.delta = rnd(0.035, 0.05); p.noiseAmp = rnd(0.01, 0.02); p.latent = rnd(1.6, 1.9);
-      sim.reset(rnd(0, 0.12));
-      sim.addSeed(N * rnd(0.42, 0.58), N * rnd(0.42, 0.58), 4);
-      break;
-    }
-    case "seaweed": {
-      p.delta = rnd(0.002, 0.008); p.noiseAmp = rnd(0.015, 0.025); p.latent = rnd(1.4, 1.6);
-      sim.reset(0);
-      sim.addSeed(N * rnd(0.35, 0.65), N * rnd(0.35, 0.65), 4);
-      break;
-    }
-    case "duo": {
-      p.aniMode = pick([4, 4, 6]); p.delta = rnd(0.035, 0.06); p.noiseAmp = rnd(0.006, 0.016); p.latent = rnd(1.5, 1.8);
-      sim.reset(rnd(0, 0.1));
-      const k = pick([2, 3, 3]);
-      for (let i = 0; i < k; i++)
-        sim.addSeed(N * rnd(0.2, 0.8), N * rnd(0.2, 0.8), 4);
-      break;
-    }
-    case "multi": {
-      p.delta = rnd(0.03, 0.05); p.noiseAmp = rnd(0.008, 0.016); p.latent = rnd(1.4, 1.7); p.coolRate = rnd(0.04, 0.15);
-      sim.reset(rnd(0.1, 0.25));
-      const k = Math.floor(rnd(5, 12));
-      for (let i = 0; i < k; i++)
-        sim.addSeed(N * Math.random(), N * Math.random(), 3.5);
-      view = pick([0, 0, 1, 4]);
-      break;
-    }
-    case "twinStar": { // rotational twin: the 12-branched snowflake
-      p.aniMode = 6; p.delta = rnd(0.038, 0.05); p.noiseAmp = rnd(0.008, 0.016); p.latent = rnd(1.6, 1.9);
-      sim.reset(rnd(0, 0.1));
-      sim.addTwinSeed(N * rnd(0.42, 0.58), N * rnd(0.42, 0.58), 4);
-      view = pick([0, 0, 1]);
-      break;
-    }
-    case "rainCast": {
-      p.delta = rnd(0.035, 0.05); p.noiseAmp = rnd(0.01, 0.016); p.latent = rnd(1.3, 1.6); p.coolRate = rnd(0.2, 0.35);
-      if (Math.random() < 0.25) p.twinProb = 0.0012;
-      sim.reset(rnd(0.15, 0.3));
-      const k = Math.floor(rnd(18, 40));
-      for (let i = 0; i < k; i++)
-        sim.addSeed(N * Math.random(), N * Math.random(), 3);
-      view = pick([1, 1, 4, 0]);
-      break;
-    }
-    default: { // hexRain
-      p.aniMode = 6; p.delta = rnd(0.035, 0.045); p.noiseAmp = rnd(0.01, 0.018); p.latent = rnd(1.5, 1.8); p.coolRate = rnd(0.06, 0.15);
-      sim.reset(rnd(0.05, 0.15));
-      const k = Math.floor(rnd(8, 16));
-      for (let i = 0; i < k; i++)
-        sim.addSeed(N * Math.random(), N * Math.random(), 3.5);
-      view = pick([0, 4, 1]);
-    }
-  }
+function setRail(el: HTMLElement, idx: number) {
+  [...el.children].forEach((c, i) => c.classList.toggle("on", i === idx));
+}
 
-  // occasional surprise looks
-  if (!first && Math.random() < 0.10) view = 7;                    // neon wireframe
-  renderer.pixelSize = !first && Math.random() < 0.12 ? Math.floor(rnd(4, 10)) : 0;
-  renderer.paletteOn = renderer.pixelSize > 0 && Math.random() < 0.5;
-
-  return { view, doneAt: rnd(0.6, 0.8) };
+function staticFallback() {
+  document.body.classList.add("nogpu");
 }
 
 async function boot() {
-  const canvas = document.getElementById("demo") as HTMLCanvasElement;
-  const img = document.getElementById("demoImg") as HTMLImageElement;
-  const tag = document.getElementById("demoTag")!;
-  const fallback = () => {
-    canvas.style.display = "none";
-    img.style.display = "block";
-    tag.textContent = "GROWN BY SOLIDIFY (YOUR BROWSER LACKS WEBGPU)";
-  };
+  buildRail(document.getElementById("lensRail")!, 10);
+  buildRail(document.getElementById("matRail")!, MAT_STEPS.length);
+  if (reduced || !navigator.gpu) return staticFallback();
+  let device: GPUDevice;
   try {
-    if (!navigator.gpu) return fallback();
     const adapter = await navigator.gpu.requestAdapter();
-    if (!adapter) return fallback();
-    const device = await adapter.requestDevice();
+    if (!adapter) return staticFallback();
+    device = await adapter.requestDevice();
+    device.lost.then(info => { if (info.reason !== "destroyed") staticFallback(); });
+  } catch {
+    return staticFallback();
+  }
 
-    const sim = new Simulation(device, N);
-    const renderer = new Renderer(device, canvas, sim);
+  // ------------------------------------------------ hero: the cast wordmark
+  const HN = 768;
+  const heroSim = new Simulation(device, HN);
+  Object.assign(heroSim.params, {
+    aniMode: 4, delta: 0.035, noiseAmp: 0.012, latent: 1.5,
+    coolRate: 0.05, alloyOn: 0, twinProb: 0, meltGlow: 1.0, scen: 0, heatIn: 0,
+  });
+  const heroCanvas = document.getElementById("logoCast") as HTMLCanvasElement;
+  const heroRen = new Renderer(device, heroCanvas, heroSim);
+  const logo = buildLogoMask(HN, 0.235);
+  const maskFrac = logo.cells.length / (HN * HN);
 
-    let scene = randomScene(sim, renderer, true);
-    let sceneFrames = 0;
-    let checking = false;
+  let heroPhase: "grow" | "cool" | "hold" = "grow";
+  let heroClock = 0;
+  const pour = () => {
+    heroSim.resetMold(logo.mask, 1.22, 0.05);
+    heroSim.params.coolRate = 0.05;
+    for (let i = 0; i < 30; i++) {
+      const idx = logo.cells[Math.floor(Math.random() * logo.cells.length)];
+      heroSim.addSeed(idx % HN, Math.floor(idx / HN), 2.5, undefined, 0.9 + Math.random() * 0.08);
+    }
+    heroPhase = "grow";
+    heroClock = 0;
+  };
+  pour();
+  document.getElementById("castBox")!.addEventListener("pointerdown", pour);
 
-    function frame(t: number) {
-      sim.step(10);
-      renderer.render(sim, scene.view, t / 1000);
-      sceneFrames++;
-      if (sceneFrames > 240 && !checking) {
-        checking = true;
-        void sim.readStats().then(s => {
-          checking = false;
-          if ((s && s.fracSolid > scene.doneAt) || sceneFrames > 2400) {
-            scene = randomScene(sim, renderer, false);
-            sceneFrames = 0;
+  let heroPoll = 0;
+  const heroScene = (dt: number) => {
+    heroClock += dt;
+    if (heroPhase === "grow") {
+      heroPoll += dt;
+      if (heroPoll > 0.4) {
+        heroPoll = 0;
+        void heroSim.readStats().then(s => {
+          // solid fraction of the whole domain: mold is already solid
+          if (s && (s.fracSolid > 1 - maskFrac * 0.12 || heroClock > 16)) {
+            heroPhase = "cool";
+            heroClock = 0;
+            heroSim.params.coolRate = 0.4;
           }
         });
       }
-      requestAnimationFrame(frame);
+    } else if (heroPhase === "cool" && heroClock > 3.2) {
+      heroPhase = "hold";
+      heroClock = 0;
+      heroSim.params.coolRate = 0;
+    } else if (heroPhase === "hold" && heroClock > 5) {
+      pour();
     }
-    requestAnimationFrame(frame);
-  } catch {
-    fallback();
+  };
+
+  // ------------------------------------------------------- lens act (pinned)
+  const LN = 256;
+  const lensSim = new Simulation(device, LN);
+  const lensCanvas = document.getElementById("lensSim") as HTMLCanvasElement;
+  const lensRen = new Renderer(device, lensCanvas, lensSim);
+  let lensView = 0;
+  const pourLens = () => {
+    Object.assign(lensSim.params, {
+      aniMode: 4, delta: 0.045, noiseAmp: 0.012, latent: 1.6, coolRate: 0.1,
+      alloyOn: 1, c0: 0.25, mLiq: 0.4, kPart: 0.2, dSol: 0.8,
+      twinProb: 0.0008, meltGlow: 1.0, scen: 0, heatIn: 0,
+    });
+    lensSim.reset(0.12);
+    for (let i = 0; i < 9; i++)
+      lensSim.addSeed(Math.random() * LN, Math.random() * LN, 3.5, undefined, 0.9 + Math.random() * 0.08);
+  };
+  pourLens();
+  let lensPoll = 0;
+  const lensScene = (dt: number) => {
+    lensPoll += dt;
+    if (lensPoll > 0.6) {
+      lensPoll = 0;
+      void lensSim.readStats().then(s => { if (s && s.fracSolid > 0.93) pourLens(); });
+    }
+  };
+
+  const lensName = document.getElementById("lensName")!;
+  const lensDesc = document.getElementById("lensDesc")!;
+  const lensRail = document.getElementById("lensRail")!;
+  const setLens = (idx: number) => {
+    if (idx === lensView) return;
+    lensView = idx;
+    lensName.textContent = LENS_NAMES[idx];
+    lensDesc.textContent = LENS_DESC[idx];
+    setRail(lensRail, idx);
+    gsap.fromTo(lensName, { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power2.out", overwrite: true });
+    gsap.fromTo(lensDesc, { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "none", overwrite: true });
+  };
+
+  ScrollTrigger.create({
+    trigger: "#lensAct",
+    start: "top top",
+    end: "+=3600",
+    pin: true,
+    scrub: true,
+    onUpdate: self => setLens(Math.min(9, Math.floor(self.progress * 10))),
+  });
+
+  // -------------------------------------------------- materials act (pinned)
+  const matSim = new Simulation(device, LN);
+  const matCanvas = document.getElementById("matSim") as HTMLCanvasElement;
+  const matRen = new Renderer(device, matCanvas, matSim);
+  let matIdx = -1;
+  const matName = document.getElementById("matName")!;
+  const matTemp = document.getElementById("matTemp")!;
+  const matFact = document.getElementById("matFact")!;
+  const matRail = document.getElementById("matRail")!;
+  const setMat = (idx: number) => {
+    if (idx === matIdx) return;
+    matIdx = idx;
+    const m = MAT_STEPS[idx];
+    Object.assign(matSim.params, { scen: 0, heatIn: 0, coolRate: 0.04, twinProb: 0, noiseAmp: 0.012 }, MATERIALS[m.key].params);
+    matSim.reset(1 - m.undercool);
+    for (let i = 0; i < 6; i++)
+      matSim.addSeed(Math.random() * LN, Math.random() * LN, 3.5);
+    matName.textContent = m.name;
+    matTemp.textContent = m.temp;
+    matFact.textContent = m.fact;
+    setRail(matRail, idx);
+    gsap.fromTo([matName, matTemp, matFact], { y: 12, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, stagger: 0.06, ease: "power2.out", overwrite: true });
+  };
+  setMat(0);
+
+  ScrollTrigger.create({
+    trigger: "#matAct",
+    start: "top top",
+    end: "+=2200",
+    pin: true,
+    scrub: true,
+    onUpdate: self => setMat(Math.min(MAT_STEPS.length - 1, Math.floor(self.progress * MAT_STEPS.length))),
+  });
+
+  // ------------------------------------------- visibility-gated master loop
+  const active = { hero: true, lens: false, mat: false };
+  const watch = (el: Element, key: keyof typeof active) => {
+    new IntersectionObserver(es => {
+      for (const e of es) active[key] = e.isIntersecting;
+    }, { threshold: 0.02 }).observe(el);
+  };
+  watch(heroCanvas, "hero");
+  watch(lensCanvas, "lens");
+  watch(matCanvas, "mat");
+
+  let last = performance.now();
+  function frameBody(t: number) {
+    const dt = Math.min(0.1, (t - last) / 1000);
+    last = t;
+    try {
+      if (active.hero) {
+        heroScene(dt);
+        heroSim.step(11);
+        heroRen.render(heroSim, 10, t / 1000);   // 10 = CAST hero lens
+      }
+      if (active.lens) {
+        lensScene(dt);
+        lensSim.step(10);
+        lensRen.render(lensSim, lensView, t / 1000);
+      }
+      if (active.mat) {
+        matSim.step(12);
+        matRen.render(matSim, 0, t / 1000);
+      }
+    } catch (err) {
+      console.error("[solidify] landing frame error:", err);
+    }
   }
+  function frame(t: number) {
+    frameBody(t);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // test hook: drive frames manually in occluded windows (rAF is suspended)
+  (window as unknown as Record<string, unknown>).__landing = {
+    tick(k: number) { for (let i = 0; i < k; i++) frameBody(last + 1000 / 60); },
+    sims: { heroSim, lensSim, matSim },
+    active,
+    pour,
+  };
 }
 
 void boot();

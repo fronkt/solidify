@@ -242,6 +242,41 @@ export class Simulation {
   }
 
   /**
+   * cast into a mold: mask=1 cells become superheated liquid (the pour),
+   * mask=0 cells become cold solid mold sharing one grain. Solidification
+   * fronts then sweep inward from the mold walls as the pour loses its heat
+   * to the cold sink — a real casting, arrested at the mold boundary.
+   */
+  resetMold(mask: Uint8Array, tLiquid = 1.15, tMold = 0.06) {
+    const n = this.n;
+    const state = new Float32Array(n * n * 4);
+    const ids = new Uint32Array(n * n);
+    for (let i = 0; i < n * n; i++) {
+      const inside = mask[i] === 1;
+      state[i * 4] = inside ? 0 : 1;
+      state[i * 4 + 1] = inside ? tLiquid : tMold;
+      // age sentinel: mold cells stay -1 forever (they never re-freeze), so
+      // the CAST lens can tell cast metal from mold whatever its grain id
+      state[i * 4 + 3] = inside ? 0 : -1;
+    }
+    for (let i = 0; i < n * n; i++) if (mask[i] !== 1) ids[i] = 1;
+    for (const t of this.stateTex)
+      this.device.queue.writeTexture({ texture: t }, state, { bytesPerRow: n * 16 }, [n, n]);
+    for (const t of this.grainTex)
+      this.device.queue.writeTexture({ texture: t }, ids, { bytesPerRow: n * 4 }, [n, n]);
+    this.dir = 0;
+    this.frame = 0;
+    this.simTime = 0;
+    this.frontX = 1.0;
+    this.pendingSeeds = [];
+    this.theta0CPU.fill(0);
+    this.theta0CPU[1] = Math.random() * (2 * Math.PI / this.params.aniMode);
+    this.nextId = 2;
+    this.device.queue.writeBuffer(this.theta0Buf, 0, this.theta0CPU);
+    this.device.queue.writeBuffer(this.twinCtrBuf, 0, new Uint32Array([MAX_GRAINS - 1]));
+  }
+
+  /**
    * queue a nucleus; x, y in grid cells; returns assigned grain id.
    * tact = activation temperature: seed only fires where T < tact
    * (default 2 = always; rain passes a distribution for inoculant potency)
