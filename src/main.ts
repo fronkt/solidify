@@ -79,6 +79,7 @@ async function boot() {
     setGrid(n) { if (n !== sim.n && !opt.active && !challenge.active) app.swapSim(n); },
     getView: () => view,
     anneal(on) { sim.params.heatIn = on ? 1.1 : 0; },
+    quench() { sim.quench(0.25); },
     resetArmed() {
       sim.reset(1 - undercool);
       hud.reset();

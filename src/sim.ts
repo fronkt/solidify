@@ -103,6 +103,7 @@ export class Simulation {
   private statsBG: GPUBindGroup[] = [];
 
   private pendingSeeds: Seed[] = [];
+  private pendingQuench = 0;
   private statsInFlight = false;
   private paramData = new ArrayBuffer(128);
   private inFlight = 0;
@@ -239,6 +240,9 @@ export class Simulation {
     return id;
   }
 
+  /** one-shot uniform temperature drop (ice-brine plunge); stacks if pressed again */
+  quench(dT = 0.25) { this.pendingQuench += dT; }
+
   chillWall(edge: "bottom" | "left" = "bottom", count = 42) {
     const n = this.n;
     for (let i = 0; i < count; i++) {
@@ -266,6 +270,7 @@ export class Simulation {
     f[20] = p.weldX; f[21] = p.weldY; f[22] = p.weldPow; f[23] = p.weldSig;
     u[24] = p.alloyOn;
     f[25] = p.c0; f[26] = p.mLiq; f[27] = p.kPart; f[28] = p.dSol;
+    f[29] = this.pendingQuench;
     this.device.queue.writeBuffer(this.paramBuf, 0, this.paramData);
   }
 
@@ -296,16 +301,18 @@ export class Simulation {
       d.queue.writeBuffer(this.seedBuf, 0, sd);
       seedCount = batch.length;
     }
-    if (steps === 0 && seedCount === 0) return 0;
+    const doStamp = seedCount > 0 || this.pendingQuench !== 0;
+    if (steps === 0 && !doStamp) return 0;
     this.frame++;
     // bridgman frame advances with sim time
     if (this.params.scen === 1) this.frontX = 1.0 + this.params.pullV * this.simTime;
     this.writeParams(seedCount);
+    this.pendingQuench = 0;
 
     const enc = d.createCommandEncoder();
     const pass = enc.beginComputePass();
     let dir = this.dir;
-    if (seedCount > 0) {
+    if (doStamp) {
       pass.setPipeline(this.stampPipe);
       pass.setBindGroup(0, this.stampBG[dir]);
       this.dispatch(pass);

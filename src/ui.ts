@@ -16,6 +16,7 @@ export interface UIHost extends AppControl {
   setGrid(n: number): void;
   getView(): number;
   anneal(on: boolean): void;
+  quench(): void;
   resetArmed(): void;
   getBrush(): number;
   setBrush(v: number): void;
@@ -167,6 +168,7 @@ export class UI {
     const mrow = this.btnRow(melt);
     this.button(mrow, "seed", () => host.seedCenter());
     this.button(mrow, "chill wall", () => host.chillWall("auto"));
+    this.button(mrow, "quench ⚡", () => host.quench());
     const annealBtn = this.button(mrow, "anneal ⌛", () => {});
     annealBtn.addEventListener("pointerdown", () => host.anneal(true));
     for (const ev of ["pointerup", "pointerleave", "pointercancel"])

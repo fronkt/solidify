@@ -48,7 +48,7 @@ struct Params {
   mLiq: f32,
   kPart: f32,
   dSol: f32,
-  pad0: f32,
+  quenchDT: f32,   // one-shot temperature drop applied in the stamp pass
   pad1: f32,
   pad2: f32,
 }
@@ -230,6 +230,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   var phi = s.r;
   var age = s.a;
   var id = textureLoad(grain, c, 0).r;
+  let Tq = clamp(s.g - P.quenchDT, -1.0, 2.0);
   if (phi < 0.3) {
     let p = vec2f(gid.xy) + 0.5;
     for (var i = 0u; i < P.seedCount; i++) {
@@ -237,7 +238,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
       let pos = vec2f(seeds[b], seeds[b + 1u]);
       let r = seeds[b + 2u];
       let tact = seeds[b + 4u];
-      if (s.g >= tact) { continue; }
+      if (Tq >= tact) { continue; }
       let d = distance(p, pos);
       if (d < r) {
         let v = 1.0 - smoothstep(r - 2.0, r, d);
@@ -245,7 +246,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
       }
     }
   }
-  textureStore(stateOut, c, vec4f(phi, s.g, s.b, age));
+  textureStore(stateOut, c, vec4f(phi, Tq, s.b, age));
   textureStore(grainOut, c, vec4u(id, 0u, 0u, 0u));
 }
 `;
