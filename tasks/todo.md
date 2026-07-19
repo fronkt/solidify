@@ -219,6 +219,16 @@ physics model, milestone gates — set in stone before implementation).
       selectors highlight fixed chrome (#transport, #views); reveals cleared on
       step change and close; Chapter.apply now optional, counter shows part label
 
+## v0.9.2 (2026-07-19): contact page
+
+- [x] /contact/: email card (address assembled in JS at click-time — never in the
+      HTML for scrapers; verified), GitHub-issue card w/ bug-report guidance
+      (lens/material/scenario + browser/GPU), copy-address button, house style,
+      linked from landing topnav+footer, science footer, app rail
+- [ ] Analytics: GoatCounter chosen (free, cookie-free, no consent banner);
+      WAITING on Frank to sign up + send the site code, then add the one-line
+      script to all four pages
+
 **Known limits / next:**
 - [ ] Grain-boundary lines in ETCH are thin/broken while liquid films persist (partly physical)
 - [ ] Alloy solute scheme is qualitative (labelled as such); quantitative WB is a bigger lift

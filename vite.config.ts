@@ -9,6 +9,7 @@ export default defineConfig({
         landing: resolve(__dirname, "index.html"),
         app: resolve(__dirname, "app/index.html"),
         science: resolve(__dirname, "science/index.html"),
+        contact: resolve(__dirname, "contact/index.html"),
       },
     },
   },

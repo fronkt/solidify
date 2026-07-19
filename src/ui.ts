@@ -358,12 +358,17 @@ export class UI {
     this.slider(adv, "relax τ ×10⁻⁴", 1.5, 8, 0.1, () => p().tau * 1e4, v => { p().tau = v * 1e-4; }, v => v.toFixed(1));
     this.slider(adv, "partition k", 0.05, 0.9, 0.01, () => p().kPart, v => { p().kPart = v; });
 
-    // ---- science link
+    // ---- science + contact links
     const sci = document.createElement("a");
     sci.className = "scilink";
     sci.href = "../science/";
     sci.textContent = "the science behind it ↗";
     rail.append(sci);
+    const con = document.createElement("a");
+    con.className = "scilink";
+    con.href = "../contact/";
+    con.textContent = "questions · feedback ↗";
+    rail.append(con);
   }
 
   /** refresh all controls + conditional panels from state */
