@@ -194,6 +194,21 @@ physics model, milestone gates — set in stone before implementation).
 - [x] v0.8.2: dendritic rim REMOVED (Frank: read as fatter letters) — back to
       glyph-width molds; gentle cursor + arc unchanged
 
+## v0.9 (2026-07-19): stains + texture (Frank's ask)
+
+- [x] Grain stain select in LOOK (applies to ETCH): plain Nital / Klemm's tint
+      (straw browns↔steel blues) / Beraha's tint (blue-violet) / anodize + crossed
+      polars (vivid hue wheel) — orientation-keyed interference colours, RParams
+      lookFlags low bits
+- [x] EBSD flat map checkbox (applies to ORIENT): flat IPF hue wheel, no relief,
+      black boundaries (twin boundaries lighter) — lookFlags bit 8
+- [x] Texture rose in ANALYZE: area-weighted grain-orientation histogram over the
+      fundamental zone, replicated by the crystal's j-fold symmetry; θ₀ snapshot
+      rides the stats staging readback so GPU-spawned twins are counted
+- [x] Verified: Klemm's on an equiaxed casting reads like a real tint etch; EBSD map
+      unmistakable; rose live (random texture from 24 random seeds); Bridgman
+      columnar-selection texture left as an emergent thing to explore
+
 **Known limits / next:**
 - [ ] Grain-boundary lines in ETCH are thin/broken while liquid films persist (partly physical)
 - [ ] Alloy solute scheme is qualitative (labelled as such); quantitative WB is a bigger lift

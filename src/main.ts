@@ -138,6 +138,10 @@ async function boot() {
     setPixel(v) { renderer.pixelSize = v; },
     getPalette: () => renderer.paletteOn,
     setPalette(b) { renderer.paletteOn = b; },
+    getStain: () => renderer.stainMode,
+    setStain(v) { renderer.stainMode = v; },
+    getEbsd: () => renderer.ebsdOn,
+    setEbsd(b) { renderer.ebsdOn = b; },
     resetZoom() { renderer.resetView(); },
     simTimeNow: () => sim.simTime,
     // ---- OptHost

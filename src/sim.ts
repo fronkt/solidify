@@ -78,6 +78,8 @@ export interface StatsResult {
   diamsUm: number[];
   probeT: number | null;   // temperature at the cooling-curve probe cell
   probePhi: number | null;
+  /** area-weighted grain-orientation histogram over [0, 2pi/j), 18 bins */
+  oriRose: number[];
 }
 
 export const DOMAIN_MM = 1.0; // nominal physical width of the domain
@@ -154,12 +156,13 @@ export class Simulation {
     this.fluxTex = d.createTexture(texDesc("rgba32float"));
 
     this.paramBuf = d.createBuffer({ size: 144, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-    this.theta0Buf = d.createBuffer({ size: MAX_GRAINS * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    this.theta0Buf = d.createBuffer({ size: MAX_GRAINS * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
     this.twinCtrBuf = d.createBuffer({ size: 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     this.seedBuf = d.createBuffer({ size: MAX_SEEDS * SEED_STRIDE * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     const statsSize = (8 + MAX_GRAINS) * 4;
     this.statsBuf = d.createBuffer({ size: statsSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
-    this.statsStaging = d.createBuffer({ size: statsSize, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    // staging carries the stats block plus a theta0 snapshot (for the texture rose)
+    this.statsStaging = d.createBuffer({ size: statsSize + MAX_GRAINS * 4, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
 
     const mk = (code: string) =>
       d.createComputePipeline({ layout: "auto", compute: { module: d.createShaderModule({ code }), entryPoint: "main" } });
@@ -423,6 +426,7 @@ export class Simulation {
     this.dispatch(pass);
     pass.end();
     enc.copyBufferToBuffer(this.statsBuf, 0, this.statsStaging, 0, this.statsBuf.size);
+    enc.copyBufferToBuffer(this.theta0Buf, 0, this.statsStaging, this.statsBuf.size, MAX_GRAINS * 4);
     d.queue.submit([enc.finish()]);
     try {
       await this.statsStaging.mapAsync(GPUMapMode.READ);
@@ -430,7 +434,9 @@ export class Simulation {
       this.statsInFlight = false;
       return null;
     }
-    const data = new Uint32Array(this.statsStaging.getMappedRange().slice(0));
+    const raw = this.statsStaging.getMappedRange().slice(0);
+    const data = new Uint32Array(raw, 0, 8 + MAX_GRAINS);
+    const thetas = new Float32Array(raw, (8 + MAX_GRAINS) * 4, MAX_GRAINS);
     this.statsStaging.unmap();
     this.statsInFlight = false;
 
@@ -443,12 +449,16 @@ export class Simulation {
     const minPx = Math.max(20, this.n * this.n * 1e-5);
     const umPerPx = (DOMAIN_MM * 1000) / this.n;
     const diams: number[] = [];
+    const period = 2 * Math.PI / this.params.aniMode;
+    const oriRose = new Array<number>(18).fill(0);
     let areaSum = 0;
     for (let i = 1; i < MAX_GRAINS; i++) {
       const c = data[8 + i];
       if (c > minPx) {
         areaSum += c;
         diams.push(2 * Math.sqrt(c / Math.PI) * umPerPx);
+        const th = ((thetas[i] % period) + period) % period;
+        oriRose[Math.min(17, Math.floor((th / period) * 18))] += c;
       }
     }
     const count = diams.length;
@@ -459,7 +469,7 @@ export class Simulation {
       const meanAreaMm2 = meanAreaPx * (umPerPx / 1000) ** 2;
       astm = 3.322 * Math.log10(1 / meanAreaMm2) - 2.954;
     }
-    return { fracSolid: solid / total, grainCount: count, meanAreaPx, astm, interfaceT: interfT, diamsUm: diams, probeT, probePhi };
+    return { fracSolid: solid / total, grainCount: count, meanAreaPx, astm, interfaceT: interfT, diamsUm: diams, probeT, probePhi, oriRose };
   }
 
   /**

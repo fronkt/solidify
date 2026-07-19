@@ -339,7 +339,7 @@ struct RParams {
   alloyOn: u32,
   c0: f32,
   meltGlow: f32,    // material incandescence: 1 = steel-bright, 0.3 = zinc (no glow)
-  pad1: f32,
+  lookFlags: u32,   // low bits: stain (0 none, 1 Klemm, 2 Beraha, 3 anodize); bit 8: EBSD map
 }
 const PI = 3.14159265359;
 @group(0) @binding(0) var<uniform> R: RParams;
@@ -421,6 +421,15 @@ fn polar(h: f32, idh: f32) -> vec3f {
   c = mix(c, c4, smoothstep(0.66, 0.92, t));
   c = mix(c, c1, smoothstep(0.92, 1.0, t));
   return c;
+}
+
+// hue wheel for the EBSD-style flat orientation map
+fn hue2rgb(h: f32) -> vec3f {
+  let x = fract(h) * 6.0;
+  let r = clamp(abs(x - 3.0) - 1.0, 0.0, 1.0);
+  let g = clamp(2.0 - abs(x - 2.0), 0.0, 1.0);
+  let b = clamp(2.0 - abs(x - 4.0), 0.0, 1.0);
+  return vec3f(r, g, b);
 }
 
 const BAYER = array<f32, 16>(
@@ -509,19 +518,38 @@ fn fmain(in: VOut) -> @location(0) vec4f {
       }
       col -= gb * vec3f(0.03);
     }
-    case 1u: { // ORIENT
+    case 1u: { // ORIENT (with optional EBSD flat IPF map)
       let hfrac = th0 / (2.0 * PI / max(R.aniMode, 1.0));
-      let idv = 0.6 + 0.75 * hashf(id, 5u, 31u);
-      let base = polar(hfrac, idh) * idv * (0.42 + 0.72 * diff) + vec3f(spec) * 0.2;
-      let liq = vec3f(0.012, 0.014, 0.02) + heat(T) * 0.1;
-      col = mix(liq, base, solidness);
-      col *= 1.0 - gb * select(0.7, 0.28, gbTwin > 0.5);
+      if ((R.lookFlags & 256u) != 0u) {
+        // EBSD look: flat orientation hue, no relief, black boundaries
+        let base = hue2rgb(hfrac) * 0.92 + 0.06;
+        col = mix(vec3f(0.05, 0.055, 0.065), base, solidness);
+        col *= 1.0 - gb * select(0.9, 0.45, gbTwin > 0.5);
+      } else {
+        let idv = 0.6 + 0.75 * hashf(id, 5u, 31u);
+        let base = polar(hfrac, idh) * idv * (0.42 + 0.72 * diff) + vec3f(spec) * 0.2;
+        let liq = vec3f(0.012, 0.014, 0.02) + heat(T) * 0.1;
+        col = mix(liq, base, solidness);
+        col *= 1.0 - gb * select(0.7, 0.28, gbTwin > 0.5);
+      }
     }
-    case 2u: { // ETCH
+    case 2u: { // ETCH (plain Nital, or tint-etched per the stain setting)
       var lum = 0.58 + 0.24 * idh + diff * 0.05 - spec * 0.03;
       // alloy: interdendritic segregation etches darker
       if (R.alloyOn == 1u) { lum -= clamp(conc - R.c0, 0.0, 1.0) * 0.35; }
-      let solidCol = vec3f(lum) * vec3f(0.99, 0.965, 0.915);
+      let stain = R.lookFlags & 255u;
+      var solidCol = vec3f(lum) * vec3f(0.99, 0.965, 0.915);
+      if (stain != 0u) {
+        // tint etchants colour each grain by orientation (interference films)
+        let hfrac = fract(th0 / (2.0 * PI / max(R.aniMode, 1.0)) + idh * 0.21);
+        if (stain == 1u) {        // Klemm's: straw browns to steel blues
+          solidCol = mix(vec3f(0.72, 0.53, 0.33), vec3f(0.30, 0.45, 0.66), hfrac) * (0.55 + 0.75 * lum);
+        } else if (stain == 2u) { // Beraha's: pale blue to violet
+          solidCol = mix(vec3f(0.42, 0.55, 0.78), vec3f(0.67, 0.48, 0.74), hfrac) * (0.55 + 0.75 * lum);
+        } else {                  // anodized + crossed polars: vivid interference colours
+          solidCol = (hue2rgb(hfrac) * 0.8 + 0.15) * (0.45 + 0.85 * lum);
+        }
+      }
       let liq = vec3f(0.965, 0.955, 0.935);
       col = mix(liq, solidCol, solidness);
       col *= 1.0 - gb * select(0.82, 0.4, gbTwin > 0.5);

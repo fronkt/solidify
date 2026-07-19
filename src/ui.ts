@@ -32,6 +32,10 @@ export interface UIHost extends AppControl {
   setPixel(v: number): void;
   getPalette(): boolean;
   setPalette(b: boolean): void;
+  getStain(): number;
+  setStain(v: number): void;
+  getEbsd(): boolean;
+  setEbsd(b: boolean): void;
   resetZoom(): void;
   simTimeNow(): number;
   isRecording(): boolean;
@@ -285,6 +289,22 @@ export class UI {
       v => { this.lastPixel = v; if (host.getPixel() > 0) host.setPixel(v); },
       v => `${v.toFixed(0)}px`);
     this.check(look, "8-bit palette + dither", () => host.getPalette(), b => host.setPalette(b));
+    // metallographic staining: tint etchants colour grains by orientation (ETCH lens)
+    const stainNote = document.createElement("div");
+    stainNote.className = "matnote";
+    stainNote.textContent = "grain stain · shows in the ETCH lens";
+    look.append(stainNote);
+    const stainSel = document.createElement("select");
+    ["no stain (plain Nital)", "Klemm's tint etch", "Beraha's tint etch", "anodize + crossed polars"].forEach((label, i) => {
+      const o = document.createElement("option");
+      o.value = String(i);
+      o.textContent = label;
+      stainSel.append(o);
+    });
+    stainSel.addEventListener("change", () => { host.setStain(parseInt(stainSel.value, 10)); this.sync(); });
+    look.append(stainSel);
+    this.binds.push({ update: () => { stainSel.value = String(host.getStain()); } });
+    this.check(look, "EBSD flat map (ORIENT lens)", () => host.getEbsd(), b => host.setEbsd(b));
     const lrow = this.btnRow(look);
     this.button(lrow, "reset view", () => host.resetZoom());
 
@@ -302,6 +322,7 @@ export class UI {
     const an = this.section(rail, "ANALYZE");
     this.check(an, "cooling probe (ctrl-tap moves it)", () => this.analyze.probeOn, b => this.analyze.setProbeOn(b));
     this.check(an, "Scheil overlay (needs alloy)", () => this.analyze.scheilOn, b => this.analyze.setScheilOn(b));
+    this.check(an, "texture rose (grain orientations)", () => this.analyze.textureOn, b => this.analyze.setTextureOn(b));
     const anrow = this.btnRow(an);
     const rulerBtn = this.button(anrow, "SDAS ruler — drag a line", () => {
       this.analyze.setRulerOn(!this.analyze.rulerOn);

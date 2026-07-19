@@ -23,6 +23,7 @@ export class Analyze {
   probeOn = false;
   scheilOn = false;
   rulerOn = false;
+  textureOn = false;
 
   private fx = 0.5;             // probe position, fraction of domain
   private fy = 0.5;
@@ -33,8 +34,11 @@ export class Analyze {
 
   private probePanel: HTMLElement;
   private scheilPanel: HTMLElement;
+  private texPanel: HTMLElement;
   private probeCtx: CanvasRenderingContext2D;
   private scheilCtx: CanvasRenderingContext2D;
+  private texCtx: CanvasRenderingContext2D;
+  private lastRose: number[] | null = null;
   private svg: SVGSVGElement;
   private probeMark: SVGGElement;
   private rulerLine: SVGLineElement;
@@ -59,8 +63,10 @@ export class Analyze {
     };
     const a = mkPanel("probePanel", "COOLING CURVE · PROBE");
     const b = mkPanel("scheilPanel", "SCHEIL fs–T · PREDICTED vs MEASURED");
+    const c = mkPanel("texPanel", "TEXTURE · GRAIN ORIENTATION ROSE");
     this.probePanel = a.p; this.probeCtx = a.ctx;
     this.scheilPanel = b.p; this.scheilCtx = b.ctx;
+    this.texPanel = c.p; this.texCtx = c.ctx;
 
     this.svg = document.getElementById("overlay") as unknown as SVGSVGElement;
     this.svg.innerHTML = `
@@ -91,6 +97,11 @@ export class Analyze {
     this.layout();
   }
 
+  setTextureOn(on: boolean) {
+    this.textureOn = on;
+    this.layout();
+  }
+
   setRulerOn(on: boolean) {
     this.rulerOn = on;
     if (!on) { this.ruler = null; if (this.resultEl) this.resultEl.textContent = ""; }
@@ -113,6 +124,7 @@ export class Analyze {
   reset() {
     this.curve = [];
     this.scheil = [];
+    this.lastRose = null;
     this.draw();
   }
 
@@ -125,6 +137,7 @@ export class Analyze {
       this.scheil.push({ fs: s.fracSolid, Ti: s.interfaceT });
       if (this.scheil.length > 900) this.scheil = this.scheil.filter((_, i) => i % 2 === 0);
     }
+    if (this.textureOn) this.lastRose = s.oriRose;
     this.draw();
   }
 
@@ -190,6 +203,7 @@ export class Analyze {
   private layout() {
     this.probePanel.style.display = this.probeOn ? "block" : "none";
     this.scheilPanel.style.display = this.scheilOn ? "block" : "none";
+    this.texPanel.style.display = this.textureOn ? "block" : "none";
     this.draw();
   }
 
@@ -204,6 +218,49 @@ export class Analyze {
     const p = this.host.simParams();
     if (this.probeOn) this.drawCurve(p);
     if (this.scheilOn) this.drawScheil(p);
+    if (this.textureOn) this.drawRose(p);
+  }
+
+  /** area-weighted orientation rose, replicated by the crystal's j-fold symmetry */
+  private drawRose(p: PhysParams) {
+    const ctx = this.texCtx;
+    const { w, h, m } = this.frame(ctx);
+    const dpr = devicePixelRatio;
+    const rose = this.lastRose;
+    ctx.font = `${9 * dpr}px monospace`;
+    if (!rose || rose.reduce((a, b) => a + b, 0) === 0) {
+      ctx.fillStyle = "#5b6675";
+      ctx.fillText("no grains yet — grow something", m, h / 2);
+      return;
+    }
+    const j = Math.max(1, Math.round(p.aniMode));
+    const cx = w / 2, cy = h / 2;
+    const R = Math.min(w, h) / 2 - m;
+    ctx.strokeStyle = "#2a303b";
+    ctx.lineWidth = dpr;
+    for (const f of [0.5, 1]) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * f, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    const max = Math.max(...rose);
+    const period = (2 * Math.PI) / j;
+    const binW = period / rose.length;
+    ctx.fillStyle = "rgba(255,180,84,0.75)";
+    for (let k = 0; k < j; k++) {
+      for (let b = 0; b < rose.length; b++) {
+        const r = R * Math.sqrt(rose[b] / max);
+        if (r < 1) continue;
+        const a0 = k * period + b * binW;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, a0, a0 + binW * 0.9);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    ctx.fillStyle = "#5b6675";
+    ctx.fillText(`area-weighted · ×${j} symmetry`, m, h - 2 * dpr);
   }
 
   private drawCurve(p: PhysParams) {
