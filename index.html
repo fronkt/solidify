@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SOLIDIFY — watch metal freeze</title>
-  <meta name="description" content="A real-time phase-field solidification laboratory in your browser. Grow dendrites, cast metals, run welds, engineer grain structure. Real physics on your GPU." />
+  <meta name="description" content="A real-time phase-field solidification laboratory in your browser. The logo is cast by the solver. Grow dendrites, switch lenses, pour alloys, engineer grain structure." />
   <script>
     // motion gate: pre-hide animated elements only when motion is allowed and
-    // JS is running; a watchdog reveals everything if the module never boots
+    // JS is running; a watchdog reveals everything if the modules never boot
     (function () {
       if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
       document.documentElement.classList.add("anim");
@@ -28,23 +28,46 @@
       --font: ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html { background: var(--bg); }
-    body { min-height: 100vh; background:
-      radial-gradient(1100px 600px at 72% -10%, #17120b 0%, transparent 60%),
-      var(--bg);
-      color: var(--text); font-family: var(--font); overflow-x: hidden; }
+    html { background: var(--bg); scroll-behavior: auto; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); overflow-x: hidden; }
     a { color: var(--cyan); text-decoration: none; }
-    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 22px 72px; }
+    b { color: var(--text); font-weight: 600; }
+    .k { font-size: 11px; letter-spacing: 0.3em; color: var(--dim); }
 
-    /* ---- split hero ---- */
-    .hero { display: grid; grid-template-columns: 1fr; gap: 40px; align-items: center; padding-top: 56px; min-height: min(88dvh, 780px); }
-    @media (min-width: 980px) { .hero { grid-template-columns: 5fr 6fr; gap: 56px; } }
-    .hero .copy h1 { font-size: clamp(34px, 5.2vw, 54px); letter-spacing: 0.28em; font-weight: 600; color: #eef1f5; }
-    .hero .copy h1 span { color: var(--amber); }
-    .hero .tag { margin-top: 12px; color: #9aa1ab; font-size: clamp(12.5px, 1.6vw, 15px); letter-spacing: 0.08em; line-height: 1.6; }
-    .hero .value { margin-top: 22px; color: var(--dim); font-size: 13px; line-height: 1.75; max-width: 46ch; }
-    .hero .value b { color: var(--text); font-weight: 500; }
-    .cta { margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap; }
+    /* ---------- top nav (appears after the hero) ---------- */
+    #topnav { position: fixed; top: 0; left: 0; right: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; padding: 14px 26px; background: rgba(10,11,13,0.82); backdrop-filter: blur(10px); border-bottom: 1px solid transparent; opacity: 0; transform: translateY(-10px); transition: opacity 0.3s, transform 0.3s, border-color 0.3s; pointer-events: none; }
+    #topnav.show { opacity: 1; transform: none; pointer-events: auto; border-color: var(--line); }
+    #topnav .mark { font-weight: 700; letter-spacing: 0.28em; color: #eef1f5; font-size: 13px; }
+    #topnav .mark span { color: var(--amber); }
+    #topnav nav { display: flex; align-items: center; gap: 22px; font-size: 12px; letter-spacing: 0.08em; }
+    #topnav nav a { color: var(--dim); transition: color 0.2s; }
+    #topnav nav a:hover { color: var(--amber); }
+    #topnav nav a.go { color: #17110a; background: var(--amber); border-radius: 6px; padding: 7px 14px; font-weight: 600; }
+
+    /* ---------- acts ---------- */
+    .act { position: relative; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 0 22px; }
+    .inner { width: 100%; max-width: 1150px; margin: 0 auto; }
+
+    /* ---------- ACT 0 · hero: the cast wordmark ---------- */
+    #heroAct { flex-direction: column; padding-top: 6dvh; background:
+      radial-gradient(1000px 480px at 50% 8%, #161009 0%, transparent 65%), var(--bg); }
+    #castBox { position: relative; width: min(96vw, 1150px); aspect-ratio: 4.15; border-radius: 16px; overflow: hidden; border: 1px solid #1d222b; background: #07080a; box-shadow: 0 0 110px rgba(255, 130, 30, 0.10), 0 30px 80px rgba(0,0,0,0.6), inset 0 0 40px rgba(0,0,0,0.5); cursor: pointer; }
+    #logoCast { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    #logoFallback { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; font-size: clamp(40px, 8.4vw, 106px); letter-spacing: 0.22em; color: #eef1f5; font-weight: 700; }
+    #logoFallback span { color: var(--amber); }
+    .nogpu #logoCast { display: none; }
+    .nogpu #logoFallback { display: flex; }
+    #castHint { position: absolute; right: 16px; bottom: 12px; font-size: 10px; letter-spacing: 0.22em; color: rgba(220,225,232,0.55); text-shadow: 0 1px 4px #000; pointer-events: none; }
+    #castHint::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #7ef0a0; box-shadow: 0 0 8px #7ef0a0; margin-right: 8px; vertical-align: 1px; }
+    .anim #castHint::before { animation: livepulse 2.4s ease-in-out infinite; }
+    @keyframes livepulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .nogpu #castHint { display: none; }
+
+    #heroCopy { text-align: center; margin-top: 34px; max-width: 760px; }
+    #heroCopy .tag { font-size: clamp(14px, 1.8vw, 17px); letter-spacing: 0.08em; color: #b9bfc9; line-height: 1.6; }
+    #heroCopy .cast-note { margin-top: 12px; font-size: 12px; color: var(--dim); line-height: 1.7; }
+    #heroCopy .cast-note b { color: var(--amber); font-weight: 500; }
+    .cta { margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
     .cta a { position: relative; overflow: hidden; display: inline-block; letter-spacing: 0.08em; border-radius: 8px; padding: 13px 24px; font-size: 13.5px; border: 1px solid var(--line); transition: box-shadow 0.2s, border-color 0.2s, color 0.2s; white-space: nowrap; }
     .cta a.primary { background: var(--amber); color: #17110a; border-color: var(--amber); font-weight: 600; }
     .cta a.primary::after { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 42%, rgba(255,255,255,0.5) 50%, transparent 58%); transform: translateX(-130%); transition: transform 0.55s ease; pointer-events: none; }
@@ -57,113 +80,221 @@
     .cta a:active { scale: 0.97; }
     a:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 8px; }
 
-    #demoBox { position: relative; width: 100%; max-width: min(560px, 70vh); aspect-ratio: 1; margin: 0 auto; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 0 90px rgba(255, 130, 30, 0.10), 0 24px 70px rgba(0,0,0,0.55); background: #060708; }
-    #demo, #demoImg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-    #demoImg { object-fit: cover; display: none; }
-    #demoTag { position: absolute; left: 14px; bottom: 12px; font-size: 10.5px; letter-spacing: 0.2em; color: rgba(220,225,232,0.75); text-shadow: 0 1px 4px #000; }
-    #demoTag::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #7ef0a0; box-shadow: 0 0 8px #7ef0a0; margin-right: 8px; vertical-align: 1px; }
-    .anim #demoTag::before { animation: livepulse 2.4s ease-in-out infinite; }
-    @keyframes livepulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .stats { margin-top: 40px; display: grid; grid-template-columns: repeat(2, auto); gap: 20px 48px; }
+    @media (min-width: 700px) { .stats { grid-template-columns: repeat(4, auto); } }
+    .stat { text-align: center; }
+    .stat b { display: block; font-size: 22px; font-weight: 600; color: #eef1f5; font-variant-numeric: tabular-nums; }
+    .stat span { display: block; margin-top: 4px; font-size: 10px; color: var(--dim); letter-spacing: 0.14em; }
 
-    /* ---- stat strip: plain, no cards ---- */
-    .stats { margin-top: 26px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px 12px; border-top: 1px solid var(--line); padding-top: 26px; }
-    @media (min-width: 700px) { .stats { grid-template-columns: repeat(4, 1fr); } }
-    .stat b { display: block; font-size: 24px; font-weight: 600; color: #eef1f5; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
-    .stat span { display: block; margin-top: 4px; font-size: 11px; color: var(--dim); letter-spacing: 0.12em; }
+    #scrollCue { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: var(--dim); font-size: 10px; letter-spacing: 0.3em; }
+    #scrollCue::after { content: "▾"; display: block; text-align: center; margin-top: 3px; }
+    .anim #scrollCue::after { animation: cue 1.8s ease-in-out infinite; }
+    @keyframes cue { 0%, 100% { transform: translateY(0); opacity: 0.6; } 50% { transform: translateY(5px); opacity: 1; } }
 
-    /* ---- asymmetric bento ---- */
-    .bento { margin-top: 54px; display: grid; grid-template-columns: 1fr; gap: 14px; }
-    @media (min-width: 820px) {
-      .bento { grid-template-columns: 7fr 5fr; }
-      .bento .b3 { grid-column: 1 / 2; }
-      .bento .b4 { grid-column: 2 / 3; grid-row: 2; }
-      .bento { grid-template-areas: "a img" "lens eng"; }
-      .b1 { grid-area: a; } .bimg { grid-area: img; } .b3 { grid-area: lens; } .b4 { grid-area: eng; }
-    }
-    .cell { position: relative; overflow: hidden; background: rgba(17,19,24,0.75); border: 1px solid var(--line); border-radius: 12px; padding: 22px 22px 20px; transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease; }
-    .cell::before { content: ""; position: absolute; inset: 0; background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), rgba(255,180,84,0.09), transparent 65%); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
-    .cell:hover { transform: translateY(-3px); border-color: #3a4150; box-shadow: 0 16px 44px rgba(0,0,0,0.4); }
-    .cell:hover::before { opacity: 1; }
-    .cell h3 { font-size: 12px; letter-spacing: 0.18em; color: var(--amber); margin-bottom: 10px; font-weight: 600; }
-    .cell p { font-size: 12.5px; line-height: 1.7; color: #9aa1ab; }
-    .cell p b { color: var(--text); font-weight: 500; }
-    .bimg { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); min-height: 200px; position: relative; }
-    .bimg img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 6s cubic-bezier(0.22, 0.61, 0.36, 1); }
-    .bimg:hover img { transform: scale(1.07); }
-    .b4 { background: linear-gradient(140deg, rgba(35,28,16,0.85), rgba(17,19,24,0.8)); }
+    /* ---------- shared sim panel ---------- */
+    .simBox { position: relative; width: 100%; aspect-ratio: 1; max-width: min(560px, 66vh); margin: 0 auto; border-radius: 14px; overflow: hidden; border: 1px solid #1d222b; background: #07080a; box-shadow: 0 24px 70px rgba(0,0,0,0.55); }
+    .simBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    .simBox img.fb { display: none; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .nogpu .simBox canvas { display: none; }
+    .nogpu .simBox img.fb { display: block; }
 
-    footer { margin-top: 60px; color: var(--dim); font-size: 11.5px; letter-spacing: 0.06em; line-height: 2; border-top: 1px solid var(--line); padding-top: 22px; }
+    /* ---------- ACT 1 · ten lenses (pinned) ---------- */
+    #lensAct { background: var(--bg); }
+    .lensGrid { display: grid; grid-template-columns: 1fr; gap: 34px; align-items: center; width: 100%; max-width: 1150px; }
+    @media (min-width: 940px) { .lensGrid { grid-template-columns: 5fr 6fr; gap: 56px; } }
+    #lensName { font-size: clamp(52px, 9vw, 118px); font-weight: 700; letter-spacing: 0.04em; color: var(--amber); line-height: 1.05; margin: 14px 0 10px; }
+    #lensDesc { font-size: 13.5px; color: var(--dim); line-height: 1.7; max-width: 40ch; min-height: 3.4em; }
+    .rail { display: flex; gap: 7px; margin-top: 26px; }
+    .rail i { width: 18px; height: 3px; background: #2a303b; border-radius: 2px; transition: background 0.25s, height 0.25s; }
+    .rail i.on { background: var(--amber); }
+
+    /* ---------- ACT 2 · materials (pinned) ---------- */
+    #matAct { background:
+      radial-gradient(900px 500px at 22% 50%, #14100a 0%, transparent 60%), var(--bg); }
+    .matGrid { display: grid; grid-template-columns: 1fr; gap: 34px; align-items: center; width: 100%; max-width: 1150px; }
+    @media (min-width: 940px) { .matGrid { grid-template-columns: 6fr 5fr; gap: 56px; } }
+    #matName { font-size: clamp(46px, 7.6vw, 96px); font-weight: 700; letter-spacing: 0.05em; color: #eef1f5; line-height: 1.05; margin: 14px 0 6px; }
+    #matTemp { font-size: 14px; color: var(--amber); letter-spacing: 0.1em; }
+    #matFact { margin-top: 14px; font-size: 13.5px; color: var(--dim); line-height: 1.7; max-width: 42ch; min-height: 3.4em; }
+
+    /* ---------- ACT 3 · composer teaser ---------- */
+    #composeAct { background: var(--bg); }
+    #composeAct .inner { max-width: 860px; }
+    .chips { margin: 22px 0 8px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .chip { border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; font-size: 13px; color: var(--text); background: rgba(17,19,24,0.7); }
+    .chip b { color: var(--amber); font-weight: 600; }
+    .chips .arrow { color: var(--dim); }
+    .chip.result { border-color: var(--amber); color: #eef1f5; }
+    #qLine { margin-top: 20px; font-size: 15px; color: var(--dim); letter-spacing: 0.04em; }
+    #qLine b { color: var(--amber); font-size: 24px; font-variant-numeric: tabular-nums; }
+    .bars { margin-top: 30px; display: grid; gap: 16px; max-width: 640px; }
+    .barRow .lab { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); margin-bottom: 6px; letter-spacing: 0.08em; }
+    .barRow .lab b { font-size: 16px; color: #eef1f5; font-variant-numeric: tabular-nums; }
+    .barRow .track { height: 10px; background: #171b22; border-radius: 5px; overflow: hidden; }
+    .barRow .fill { height: 100%; width: 0%; border-radius: 5px; }
+    .barRow.hi .fill { background: linear-gradient(90deg, #b06a1e, var(--amber)); }
+    .barRow.lo .fill { background: #39404d; }
+    #composeAct .after { margin-top: 26px; font-size: 13px; color: var(--dim); line-height: 1.7; max-width: 60ch; }
+    #composeAct .after b { color: var(--text); }
+    #composeAct .cta { justify-content: flex-start; }
+
+    /* ---------- ACT 4 · science finale ---------- */
+    #sciAct { flex-direction: column; text-align: center; background:
+      radial-gradient(900px 480px at 50% 90%, #131009 0%, transparent 60%), var(--bg); }
+    #eq { font-size: clamp(15px, 2.6vw, 24px); color: #eef1f5; letter-spacing: 0.02em; min-height: 1.6em; }
+    #eq .cursor { display: inline-block; width: 0.55em; height: 1.1em; background: var(--amber); vertical-align: -0.15em; margin-left: 2px; }
+    .anim #eq .cursor { animation: blink 0.9s steps(1) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+    #sciAct .sub2 { margin-top: 14px; color: var(--dim); font-size: 13px; }
+    .stamps { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+    .stamp { border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; font-size: 12px; color: var(--dim); letter-spacing: 0.06em; }
+    .stamp b { color: var(--amber); margin-right: 8px; }
+    #sciAct .cta { margin-top: 44px; }
+    #sciAct .cta a.primary { font-size: 15px; padding: 16px 34px; }
+
+    footer { color: var(--dim); font-size: 11.5px; letter-spacing: 0.06em; line-height: 2; border-top: 1px solid var(--line); padding: 26px 22px 40px; text-align: center; }
     footer .cite { color: #4d545e; font-size: 10.5px; }
     footer a { position: relative; }
     footer a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 2px; height: 1px; background: var(--cyan); transform: scaleX(0); transform-origin: left; transition: transform 0.25s ease; }
     footer a:hover::after { transform: scaleX(1); }
 
-    /* motion pre-states: only when html.anim (JS running + motion allowed) */
-    .anim .hero .copy > *, .anim #demoBox,
-    .anim .stat, .anim .cell, .anim .bimg, .anim footer { opacity: 0; }
+    /* motion pre-states (html.anim only) */
+    .anim #heroCopy > *, .anim .stats { opacity: 0; }
+    .anim #composeAct .chip, .anim #composeAct .arrow, .anim #composeAct .after, .anim #composeAct .cta, .anim .bars, .anim #qLine { opacity: 0; }
+    .anim .stamp, .anim #sciAct .cta, .anim #sciAct .sub2 { opacity: 0; }
   </style>
-  <script type="module" crossorigin src="./assets/landing-BnQAQu4X.js"></script>
-  <link rel="modulepreload" crossorigin href="./assets/render-Be9Ygs26.js">
+  <script type="module" crossorigin src="./assets/landing-DCtO3gja.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/render-C7g0M9Lx.js">
 </head>
 <body>
-  <div class="wrap">
-    <section class="hero">
-      <div class="copy">
-        <h1>SOLID<span>IFY</span></h1>
-        <div class="tag">Watch metal freeze: a real phase-field simulation, live in your browser.</div>
-        <p class="value">Undercool a melt, tap to nucleate crystals, and watch dendrites grow, collide, and become
-        the grain structure a metallurgist would <b>etch and measure</b>. Cast, weld, alloy, and let an onboard
-        optimizer learn the process.</p>
+  <header id="topnav">
+    <div class="mark">SOLID<span>IFY</span></div>
+    <nav>
+      <a href="science/">the science</a>
+      <a href="https://github.com/fronkt/solidify">github</a>
+      <a class="go" href="app/">open the instrument</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ACT 0 · the cast wordmark -->
+    <section class="act" id="heroAct">
+      <div id="castBox" title="tap to re-pour">
+        <canvas id="logoCast"></canvas>
+        <h1 id="logoFallback">SOLID<span>IFY</span></h1>
+        <div id="castHint">CAST LIVE ON YOUR GPU · TAP TO RE-POUR</div>
+      </div>
+      <div id="heroCopy">
+        <p class="tag">Watch metal freeze: a real phase-field solidification laboratory, live in your browser.</p>
+        <p class="cast-note">The wordmark above is not a logo file. It was <b>poured just now</b>: molten metal cast into
+        letter-shaped molds and solidified, dendrite by dendrite, by the same solver you are about to drive.</p>
         <div class="cta">
           <a class="primary" href="app/">Open the instrument</a>
           <a class="ghost" href="app/?tour=1">Take the tour</a>
           <a class="ghost" href="science/">The science</a>
         </div>
+        <div class="stats">
+          <div class="stat"><b data-count="1048576">1,048,576</b><span>CELLS SOLVED IN REAL TIME</span></div>
+          <div class="stat"><b data-count="60" data-suffix=" fps">60 fps</b><span>ON A MID-RANGE GPU</span></div>
+          <div class="stat"><b data-count="10">10</b><span>LENSES ON ONE GROWTH</span></div>
+          <div class="stat"><b>0</b><span>FRAMEWORKS · HAND-ROLLED WGSL</span></div>
+        </div>
       </div>
-      <div id="demoBox">
-        <canvas id="demo"></canvas>
-        <img id="demoImg" src="hero.jpg" alt="Dendrite grown by SOLIDIFY" />
-        <div id="demoTag">LIVE, SIMULATED ON YOUR GPU</div>
+      <div id="scrollCue">SCROLL</div>
+    </section>
+
+    <!-- ACT 1 · one crystal, ten instruments -->
+    <section class="act" id="lensAct">
+      <div class="lensGrid">
+        <div class="lensCopy">
+          <div class="k">ONE CRYSTAL · TEN INSTRUMENTS</div>
+          <div id="lensName">MELT</div>
+          <p id="lensDesc">Incandescent blackbody glow — the halo around every growing tip is latent heat escaping.</p>
+          <div class="rail" id="lensRail"></div>
+        </div>
+        <div class="simBox">
+          <canvas id="lensSim"></canvas>
+          <img class="fb" src="snowflake.jpg" alt="Dendrite viewed through the SOLIDIFY lenses" />
+        </div>
       </div>
     </section>
 
-    <div class="stats">
-      <div class="stat"><b data-count="1048576">1,048,576</b><span>CELLS SOLVED IN REAL TIME</span></div>
-      <div class="stat"><b data-count="60" data-suffix=" fps">60 fps</b><span>ON A MID-RANGE GPU</span></div>
-      <div class="stat"><b data-count="10">10</b><span>LENSES ON ONE GROWTH</span></div>
-      <div class="stat"><b>0</b><span>FRAMEWORKS · HAND-ROLLED WGSL</span></div>
-    </div>
+    <!-- ACT 2 · materials -->
+    <section class="act" id="matAct">
+      <div class="matGrid">
+        <div class="simBox">
+          <canvas id="matSim"></canvas>
+          <img class="fb" src="hero.jpg" alt="Molten metal solidifying" />
+        </div>
+        <div class="matCopy">
+          <div class="k">THE MELT GLOWS EXACTLY AS HOT AS ITS PHYSICS SAYS</div>
+          <div id="matName">STEEL</div>
+          <div id="matTemp">Fe–C · pours at ~1540 °C</div>
+          <p id="matFact">White-hot. Four-fold δ-ferrite dendrites, the brightest melt in the instrument.</p>
+          <div class="rail" id="matRail"></div>
+        </div>
+      </div>
+    </section>
 
-    <div class="bento">
-      <div class="cell b1">
-        <h3>REAL PHYSICS</h3>
-        <p>Kobayashi anisotropic phase-field with latent heat, dilute-alloy solute, directional gradients,
-        moving weld pools, and <b>growth twinning</b> — down to the 12-branched snowflake. Verified against the
-        canonical dendrite morphology: <b>not a particle toy</b>. Constitutional undercooling,
-        columnar-to-equiaxed transitions, and recalescence all emerge from the equations, never from scripting.
-        Freeze it as steel, aluminum, magnesium, zinc, or ice — or <b>compose your own alloy</b> element by
-        element and watch its growth restriction factor refine the grains.</p>
+    <!-- ACT 3 · compose an alloy -->
+    <section class="act" id="composeAct">
+      <div class="inner">
+        <div class="k">COMPOSE AN ALLOY, ELEMENT BY ELEMENT</div>
+        <div class="chips">
+          <span class="chip">Al <b>base</b></span>
+          <span class="arrow">+</span>
+          <span class="chip">Si <b>7.0 wt%</b></span>
+          <span class="arrow">+</span>
+          <span class="chip">Mg <b>0.35 wt%</b></span>
+          <span class="arrow">+</span>
+          <span class="chip">Ti <b>0.12 wt%</b></span>
+          <span class="arrow">=</span>
+          <span class="chip result">A356 + TiB refiner</span>
+        </div>
+        <div id="qLine">growth restriction factor &nbsp;<b data-q="71">Q = 0 K</b></div>
+        <div class="bars">
+          <div class="barRow hi">
+            <div class="lab"><span>A356 + TiB · Q ≈ 71 K</span><b data-count="369">0</b></div>
+            <div class="track"><div class="fill" data-w="100"></div></div>
+          </div>
+          <div class="barRow lo">
+            <div class="lab"><span>Al–1Zn · Q ≈ 1 K</span><b data-count="46">0</b></div>
+            <div class="track"><div class="fill" data-w="12.5"></div></div>
+          </div>
+        </div>
+        <p class="after">Same nucleation. Same cooling. <b>Composition alone refined the metal eight-fold</b>: the
+        growth-restriction mechanism foundries rely on, emerging from the phase-field. Measured in this instrument,
+        not asserted.</p>
+        <div class="cta">
+          <a class="primary" href="app/#alloy=al:Si7,Mg0.35,Ti0.12">Pour this alloy</a>
+          <a class="ghost" href="app/">Mix your own</a>
+        </div>
       </div>
-      <div class="bimg">
-        <img src="snowflake.jpg" alt="Six-fold dendritic snowflake grown by the same equations" />
-      </div>
-      <div class="cell b3">
-        <h3>TEN LENSES</h3>
-        <p>Incandescent melt, cross-polarised grains, etched micrograph with a scale bar, thermal cam, SEM,
-        X-ray radiograph, growth rings, curvature. Plus a <b>pixel mode</b> for the retro among us.</p>
-      </div>
-      <div class="cell b4">
-        <h3>ENGINEER IT</h3>
-        <p>Live ASTM grain-size metallography, and an onboard <b>CMA-ES optimizer</b> that learns casting
-        schedules to hit a target grain size. Think you can beat it? Challenge mode deals you both the same hand.</p>
-      </div>
-    </div>
+    </section>
 
-    <footer>
-      built by Frank Cai · <a href="https://github.com/fronkt/solidify">source on GitHub</a> · <a href="science/">the science</a><br/>
-      <span class="cite">Kobayashi (1993) anisotropic phase-field, Warren-Boettinger-type dilute alloy, ASTM E112 metallography.
-      Needs a WebGPU browser: Chrome, Edge, Safari 26+, recent Firefox.</span>
-    </footer>
-  </div>
+    <!-- ACT 4 · the science -->
+    <section class="act" id="sciAct">
+      <div class="inner">
+        <div class="k">NO SCRIPTS · NO PARTICLES · TWO EQUATIONS</div>
+        <div id="eq" style="margin-top: 22px;"><span id="eqText">τ ∂φ/∂t = ∇·(ε²∇φ) + φ(1−φ)(φ−½+m) &nbsp;·&nbsp; ∂T/∂t = ∇²T + K ∂φ/∂t</span><span class="cursor"></span></div>
+        <div class="sub2">Kobayashi (1993) anisotropic phase-field · Warren–Boettinger dilute alloy · ASTM E112 metallography</div>
+        <div class="stamps">
+          <div class="stamp"><b>✓</b>canonical dendrite morphology</div>
+          <div class="stamp"><b>✓</b>emergent CET, recalescence, twinning</div>
+          <div class="stamp"><b>✓</b>honest units, labelled approximations</div>
+        </div>
+        <div class="cta">
+          <a class="primary" href="app/">Open the instrument</a>
+          <a class="ghost" href="science/">Read the science</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    built by Frank Cai · <a href="https://github.com/fronkt/solidify">source on GitHub</a> · <a href="science/">the science</a><br/>
+    <span class="cite">Needs a WebGPU browser for the live pages: Chrome, Edge, Safari 26+, recent Firefox.</span>
+  </footer>
+
 </body>
 </html>
