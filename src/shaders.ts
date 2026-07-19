@@ -53,8 +53,8 @@ struct Params {
   idFloor: u32,    // CPU seed ids live below this; GPU twin ids above it
   probeX: u32,     // cooling-curve probe cell (0xffffffff = off)
   probeY: u32,
-  pad3: f32,
-  pad4: f32,
+  holdT: f32,      // crucible (scen 3): heater set-point for non-mold cells
+  holdRate: f32,   // crucible: relax rate toward the set-point
 }
 const PI = 3.14159265359;
 
@@ -174,6 +174,13 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     let xu = f32(gid.x) * P.dx;
     let tProf = clamp(0.7 + P.gradG * (xu - P.frontX) / P.dx * P.dx / 1.0, -0.6, 1.5);
     TNew = mix(TNew, tProf, min(1.0, P.dt * 150.0));
+  } else if (P.scen == 3u) {
+    // crucible (cast logo): non-mold cells relax toward the heater set-point,
+    // the mold stays a cold sink, and the pointer is a small torch
+    let tGoal = select(P.holdT, 0.06, s.a < -0.5);
+    TNew = mix(TNew, tGoal, min(1.0, P.dt * P.holdRate));
+    let d2 = distance(vec2f(gid.xy), vec2f(P.weldX, P.weldY));
+    TNew += P.dt * P.weldPow * exp(-(d2 * d2) / (2.0 * P.weldSig * P.weldSig));
   }
   TNew = clamp(TNew, -1.0, 2.0);
 
@@ -576,14 +583,17 @@ fn fmain(in: VOut) -> @location(0) vec4f {
       col = mix(col, kcol, band);
     }
     default: { // CAST (landing hero): dark mold (age -1), lit cast metal above
-      let glow = heat(T);
+      // piecewise-compressed blackbody: only a superheated pour flashes white;
+      // melt held near the liquidus reads orange, dying heat walks through red
+      let Tr = select(T * 0.79, 0.79 + (T - 1.0) * 2.4, T > 1.0);
+      let glow = heat(Tr);
       let isMold = age < -0.5;
       let tint = polar(th0 / (2.0 * PI / max(R.aniMode, 1.0)), idh);
       var base = vec3f(0.30, 0.31, 0.345);
       if (isMold) { base = vec3f(0.085, 0.09, 0.105); }
       var solidCol = base * (0.5 + 0.85 * diff) + vec3f(spec) * select(0.45, 0.15, isMold);
       if (!isMold) {
-        solidCol *= 0.82 + 0.36 * tint;                                  // grain-to-grain sheen
+        solidCol *= 0.74 + 0.5 * tint;                                   // grain-to-grain sheen
         solidCol += vec3f(0.55, 0.22, 0.05) * clamp(T - 0.15, 0.0, 1.0); // residual-heat ember
       }
       col = mix(glow + vec3f(0.015), solidCol, solidness);

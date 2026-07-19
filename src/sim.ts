@@ -31,6 +31,9 @@ export interface PhysParams {
   // crystallography / material identity
   twinProb: number;   // per-claim growth-twin probability (0 = off)
   meltGlow: number;   // display-only incandescence scale (1 = steel-bright)
+  // crucible scenario (scen 3, cast logo)
+  holdT: number;      // heater set-point for non-mold cells
+  holdRate: number;   // relax rate toward the set-point
 }
 
 export const DEFAULTS: PhysParams = {
@@ -62,6 +65,8 @@ export const DEFAULTS: PhysParams = {
   dSol: 0.8,
   twinProb: 0,
   meltGlow: 1.0,
+  holdT: 0,
+  holdRate: 0,
 };
 
 export interface StatsResult {
@@ -339,6 +344,8 @@ export class Simulation {
     u[31] = this.nextId;
     u[32] = this.probe ? Math.round(this.probe.x) : 0xffffffff;
     u[33] = this.probe ? Math.round(this.probe.y) : 0xffffffff;
+    f[34] = p.holdT;
+    f[35] = p.holdRate;
     this.device.queue.writeBuffer(this.paramBuf, 0, this.paramData);
   }
 

@@ -33,9 +33,8 @@ function countUp(el: HTMLElement, target: number, format: (n: number) => string,
 function heroEntrance() {
   const tl = createTimeline({ defaults: { ease: "outExpo" } });
   tl.add("#heroCopy .tag", { opacity: [0, 1], translateY: [16, 0], duration: 750 }, 350);
-  tl.add("#heroCopy .cast-note", { opacity: [0, 1], translateY: [14, 0], duration: 700 }, 520);
-  tl.add("#heroCopy .cta a", { opacity: [0, 1], translateY: [14, 0], duration: 650, delay: stagger(90) }, 680);
-  tl.add(".stats", { opacity: [0, 1], translateY: [14, 0], duration: 700 }, 900);
+  tl.add("#heroCopy .cta a", { opacity: [0, 1], translateY: [14, 0], duration: 650, delay: stagger(90) }, 550);
+  tl.add(".stats", { opacity: [0, 1], translateY: [14, 0], duration: 700 }, 800);
   tl.call(() => {
     document.querySelectorAll<HTMLElement>(".stats b[data-count]").forEach(el => {
       const suffix = el.dataset.suffix ?? "";

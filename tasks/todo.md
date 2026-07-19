@@ -160,6 +160,27 @@ physics model, milestone gates — set in stone before implementation).
       mold's grain id → switched mold identity to the age channel); IO active-flags are
       stale immediately after programmatic scroll in occluded windows (test-harness only)
 
+## v0.8 (2026-07-19): molten crucible logo + polish round (Frank's live feedback)
+
+- [x] Crucible scenario (scen 3): non-mold cells relax toward a heater set-point
+      (holdT/holdRate in the spare Params slots), mold stays a cold sink, pointer =
+      torch (weld gaussian in the same branch). Arc: white pour flash → held orange
+      gloop (~13 s, mushy near-liquidus + molten pockets) → heater dies over 17 s
+      (holdT ramps 0.985→0.18, grains rain in) → cold grained metal (~9 s) → re-pour
+- [x] Cursor torch: white-hot wake + molten runnels, remelts hardened regions, they
+      refreeze when you leave; grain rain runs in molten+harden so the gloop is
+      polycrystalline and the hardened word shows grain contrast
+- [x] CAST lens: piecewise-compressed blackbody (only superheat flashes white; the
+      held melt reads orange; dying heat walks red)
+- [x] **Root-caused a silent showstopper: `target` is a WGSL reserved keyword** — the
+      whole crucible branch invalidated UPDATE_WGSL and Chrome surfaced nothing; every
+      "phase" screenshot was the static initial state. Found via pushErrorScope +
+      getCompilationInfo (probe cell read T=1.250 pristine after 470 frames)
+- [x] Lens act: substeps 10→7 + coolRate 0.08 (≈5 s more dendrite stage time)
+- [x] Hero copy: wordmark paragraph removed, CTAs moved up; SCROLL cue given real
+      clearance; amber ::selection; themed scrollbar (black track / amber thumb);
+      SI favicon (S amber, I neutral) on all three pages; topnav align-items fix
+
 **Known limits / next:**
 - [ ] Grain-boundary lines in ETCH are thin/broken while liquid films persist (partly physical)
 - [ ] Alloy solute scheme is qualitative (labelled as such); quantitative WB is a bigger lift

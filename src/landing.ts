@@ -33,7 +33,7 @@ const LENS_DESC = [
 
 interface MatStep { key: string; name: string; temp: string; fact: string; undercool: number }
 const MAT_STEPS: MatStep[] = [
-  { key: "steel", name: "STEEL", temp: "Fe–C · pours at ~1540 °C", fact: "White-hot. Four-fold δ-ferrite dendrites — the brightest melt in the instrument.", undercool: 0.9 },
+  { key: "steel", name: "STEEL", temp: "Fe–C · pours at ~1540 °C", fact: "White-hot. Four-fold δ-ferrite dendrites, the brightest melt in the instrument.", undercool: 0.9 },
   { key: "al", name: "ALUMINUM", temp: "Al–Cu · freezes at 660 °C", fact: "A dull red glow, and castings that grow feathery twinned grains.", undercool: 0.9 },
   { key: "zn", name: "ZINC", temp: "the galvanizing spangle · 420 °C", fact: "No glow at all: six-fold crystals blooming in liquid silver.", undercool: 0.95 },
   { key: "ice", name: "ICE", temp: "H₂O · 0 °C", fact: "Six-fold because the lattice is. That single fact is why no snowflake has four arms.", undercool: 0.92 },
@@ -53,6 +53,8 @@ function staticFallback() {
 }
 
 async function boot() {
+  // a pinned scroll story restored mid-pin on reload is disorienting; start clean
+  history.scrollRestoration = "manual";
   buildRail(document.getElementById("lensRail")!, 10);
   buildRail(document.getElementById("matRail")!, MAT_STEPS.length);
   if (reduced || !navigator.gpu) return staticFallback();
@@ -69,52 +71,65 @@ async function boot() {
   // ------------------------------------------------ hero: the cast wordmark
   const HN = 768;
   const heroSim = new Simulation(device, HN);
+  // crucible scenario: letters relax toward a heater set-point, mold stays a
+  // cold sink, and the pointer is a torch (weld source reused)
   Object.assign(heroSim.params, {
-    aniMode: 4, delta: 0.035, noiseAmp: 0.012, latent: 1.5,
-    coolRate: 0.05, alloyOn: 0, twinProb: 0, meltGlow: 1.0, scen: 0, heatIn: 0,
+    aniMode: 4, delta: 0.035, noiseAmp: 0.014, latent: 1.5,
+    coolRate: 0, alloyOn: 0, twinProb: 0, meltGlow: 1.0, heatIn: 0,
+    scen: 3, holdT: 0.995, holdRate: 4, weldPow: 0, weldSig: 9,
+    weldX: -9999, weldY: -9999,
   });
   const heroCanvas = document.getElementById("logoCast") as HTMLCanvasElement;
   const heroRen = new Renderer(device, heroCanvas, heroSim);
   const logo = buildLogoMask(HN, 0.235);
-  const maskFrac = logo.cells.length / (HN * HN);
 
-  let heroPhase: "grow" | "cool" | "hold" = "grow";
+  // molten gloop, then the heater dies over ~30 s and grains claim the letters
+  const MOLTEN_S = 13, HARDEN_S = 17, COLD_S = 9;
+  const HOLD_HOT = 0.985, HOLD_COLD = 0.18;
+  let heroPhase: "molten" | "harden" | "cold" = "molten";
   let heroClock = 0;
+  let grainAcc = 0;
   const pour = () => {
-    heroSim.resetMold(logo.mask, 1.22, 0.05);
-    heroSim.params.coolRate = 0.05;
-    for (let i = 0; i < 30; i++) {
-      const idx = logo.cells[Math.floor(Math.random() * logo.cells.length)];
-      heroSim.addSeed(idx % HN, Math.floor(idx / HN), 2.5, undefined, 0.9 + Math.random() * 0.08);
-    }
-    heroPhase = "grow";
+    heroSim.resetMold(logo.mask, 1.25, 0.06);
+    heroSim.params.holdT = HOLD_HOT;
+    heroPhase = "molten";
     heroClock = 0;
+    grainAcc = 0;
   };
   pour();
-  document.getElementById("castBox")!.addEventListener("pointerdown", pour);
+  const castBox = document.getElementById("castBox")!;
+  castBox.addEventListener("pointerdown", pour);
+  castBox.addEventListener("pointermove", e => {
+    const g = heroRen.clientToGrid(e.clientX, e.clientY, HN);
+    heroSim.params.weldPow = g ? 150 : 0;
+    if (g) { heroSim.params.weldX = g.x; heroSim.params.weldY = g.y; }
+  });
+  castBox.addEventListener("pointerleave", () => { heroSim.params.weldPow = 0; });
 
-  let heroPoll = 0;
   const heroScene = (dt: number) => {
     heroClock += dt;
-    if (heroPhase === "grow") {
-      heroPoll += dt;
-      if (heroPoll > 0.4) {
-        heroPoll = 0;
-        void heroSim.readStats().then(s => {
-          // solid fraction of the whole domain: mold is already solid
-          if (s && (s.fracSolid > 1 - maskFrac * 0.12 || heroClock > 16)) {
-            heroPhase = "cool";
-            heroClock = 0;
-            heroSim.params.coolRate = 0.4;
-          }
-        });
+    // grains nucleate wherever the melt has cooled enough to take them, so the
+    // gloop is polycrystalline and the hardened word shows real grain contrast
+    if (heroPhase !== "cold") {
+      grainAcc += dt;
+      if (grainAcc > 0.6) {
+        grainAcc = 0;
+        for (let i = 0; i < 2; i++) {
+          const idx = logo.cells[Math.floor(Math.random() * logo.cells.length)];
+          heroSim.addSeed(idx % HN, Math.floor(idx / HN), 2.5, undefined, 0.998);
+        }
       }
-    } else if (heroPhase === "cool" && heroClock > 3.2) {
-      heroPhase = "hold";
-      heroClock = 0;
-      heroSim.params.coolRate = 0;
-    } else if (heroPhase === "hold" && heroClock > 5) {
-      pour();
+    }
+    if (heroPhase === "molten") {
+      heroSim.params.holdT = HOLD_HOT;
+      if (heroClock > MOLTEN_S) { heroPhase = "harden"; heroClock = 0; }
+    } else if (heroPhase === "harden") {
+      const f = Math.min(1, heroClock / HARDEN_S);
+      heroSim.params.holdT = HOLD_HOT + (HOLD_COLD - HOLD_HOT) * f;
+      if (heroClock > HARDEN_S) { heroPhase = "cold"; heroClock = 0; }
+    } else if (heroPhase === "cold") {
+      heroSim.params.holdT = HOLD_COLD;
+      if (heroClock > COLD_S) pour();
     }
   };
 
@@ -126,7 +141,7 @@ async function boot() {
   let lensView = 0;
   const pourLens = () => {
     Object.assign(lensSim.params, {
-      aniMode: 4, delta: 0.045, noiseAmp: 0.012, latent: 1.6, coolRate: 0.1,
+      aniMode: 4, delta: 0.045, noiseAmp: 0.012, latent: 1.6, coolRate: 0.08,
       alloyOn: 1, c0: 0.25, mLiq: 0.4, kPart: 0.2, dSol: 0.8,
       twinProb: 0.0008, meltGlow: 1.0, scen: 0, heatIn: 0,
     });
@@ -223,7 +238,7 @@ async function boot() {
       }
       if (active.lens) {
         lensScene(dt);
-        lensSim.step(10);
+        lensSim.step(7);   // slower growth: the dendrites get ~5 s more stage time
         lensRen.render(lensSim, lensView, t / 1000);
       }
       if (active.mat) {
