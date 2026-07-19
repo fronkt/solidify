@@ -4,12 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SOLIDIFY — watch metal freeze</title>
-  <meta name="description" content="A real-time phase-field solidification instrument. Undercool a melt, grow dendrites, engineer grain structure — live in your browser." />
+  <meta name="description" content="A real-time phase-field solidification laboratory in your browser. Grow dendrites, cast metals, run welds, engineer grain structure. Real physics on your GPU." />
   <style>
     :root {
       --bg: #0a0b0d;
       --panel: #111318;
-      --panel2: #16191f;
       --line: #262b33;
       --text: #c9cdd4;
       --dim: #6b7280;
@@ -18,100 +17,119 @@
       --font: ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; }
-    #canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
-    #app { position: absolute; inset: 0; }
+    html { background: var(--bg); }
+    body { min-height: 100vh; background:
+      radial-gradient(1100px 600px at 72% -10%, #17120b 0%, transparent 60%),
+      var(--bg);
+      color: var(--text); font-family: var(--font); overflow-x: hidden; }
+    a { color: var(--cyan); text-decoration: none; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 22px 72px; }
 
-    /* top-left identity + readouts */
-    #head { position: absolute; top: 16px; left: 18px; user-select: none; pointer-events: none; text-shadow: 0 1px 4px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.5); }
-    #head h1 { font-size: 15px; letter-spacing: 0.35em; font-weight: 600; color: #eef1f5; }
-    #head h1 span { color: var(--amber); }
-    #head .sub { margin-top: 2px; color: var(--dim); font-size: 11px; letter-spacing: 0.08em; }
-    #readouts { position: absolute; top: 78px; left: 18px; display: flex; flex-direction: column; gap: 3px; pointer-events: none; user-select: none; font-size: 11.5px; text-shadow: 0 1px 3px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.6); }
-    #readouts div { color: #9aa1ab; }
-    #readouts b { color: #e8ebef; font-weight: 500; }
-    #readouts .u { color: var(--dim); }
+    /* ---- split hero ---- */
+    .hero { display: grid; grid-template-columns: 1fr; gap: 40px; align-items: center; padding-top: 56px; min-height: min(88dvh, 780px); }
+    @media (min-width: 980px) { .hero { grid-template-columns: 5fr 6fr; gap: 56px; } }
+    .hero .copy h1 { font-size: clamp(34px, 5.2vw, 54px); letter-spacing: 0.28em; font-weight: 600; color: #eef1f5; }
+    .hero .copy h1 span { color: var(--amber); }
+    .hero .tag { margin-top: 12px; color: #9aa1ab; font-size: clamp(12.5px, 1.6vw, 15px); letter-spacing: 0.08em; line-height: 1.6; }
+    .hero .value { margin-top: 22px; color: var(--dim); font-size: 13px; line-height: 1.75; max-width: 46ch; }
+    .hero .value b { color: var(--text); font-weight: 500; }
+    .cta { margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .cta a { display: inline-block; letter-spacing: 0.08em; border-radius: 8px; padding: 13px 24px; font-size: 13.5px; border: 1px solid var(--line); transition: all 0.15s; white-space: nowrap; }
+    .cta a.primary { background: var(--amber); color: #17110a; border-color: var(--amber); font-weight: 600; }
+    .cta a.primary:hover { box-shadow: 0 0 30px rgba(255,180,84,0.35); transform: translateY(-1px); }
+    .cta a.ghost { color: var(--text); }
+    .cta a.ghost:hover { border-color: #3a424e; color: #fff; }
 
-    /* right control rail */
-    #rail { position: absolute; top: 0; right: 0; bottom: 0; width: 264px; background: linear-gradient(90deg, transparent, rgba(10,11,13,0.55) 12%), var(--panel); background: rgba(15,17,21,0.92); border-left: 1px solid var(--line); overflow-y: auto; padding: 14px 14px 90px; backdrop-filter: blur(6px); transition: transform 0.25s ease; scrollbar-width: thin; scrollbar-color: #2b313b transparent; }
-    #rail.hidden { transform: translateX(100%); }
-    #railToggle { position: absolute; top: 14px; right: 278px; z-index: 5; transition: right 0.25s ease; }
-    #rail.hidden ~ #railToggle, body.railHidden #railToggle { right: 14px; }
-    .sec { margin-bottom: 16px; }
-    .sec h2 { font-size: 10px; letter-spacing: 0.25em; color: var(--dim); margin-bottom: 8px; font-weight: 600; }
-    .row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
-    .row label { flex: 0 0 92px; color: var(--text); font-size: 11.5px; }
-    .row .val { flex: 0 0 46px; text-align: right; color: var(--amber); font-size: 11px; }
-    input[type="range"] { flex: 1; appearance: none; height: 2px; background: #333a45; border-radius: 1px; outline: none; }
-    input[type="range"]::-webkit-slider-thumb { appearance: none; width: 11px; height: 11px; border-radius: 50%; background: var(--amber); border: 2px solid #0a0b0d; box-shadow: 0 0 0 1px #4a4235; cursor: ew-resize; }
-    button { font-family: var(--font); font-size: 11px; letter-spacing: 0.06em; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 6px 9px; cursor: pointer; }
-    button:hover { border-color: #3a424e; color: #fff; }
-    button.on { border-color: var(--amber); color: var(--amber); }
-    button.warn:hover { border-color: #e06c60; color: #e06c60; }
-    .btnrow { display: flex; flex-wrap: wrap; gap: 6px; }
-    .btnrow button { flex: 1 1 auto; }
+    #demoBox { position: relative; width: 100%; max-width: min(560px, 70vh); aspect-ratio: 1; margin: 0 auto; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 0 90px rgba(255, 130, 30, 0.10), 0 24px 70px rgba(0,0,0,0.55); background: #060708; }
+    #demo, #demoImg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    #demoImg { object-fit: cover; display: none; }
+    #demoTag { position: absolute; left: 14px; bottom: 12px; font-size: 10.5px; letter-spacing: 0.2em; color: rgba(220,225,232,0.75); text-shadow: 0 1px 4px #000; }
 
-    /* view tabs */
-    #views { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; background: rgba(15,17,21,0.85); border: 1px solid var(--line); border-radius: 6px; padding: 3px; backdrop-filter: blur(6px); }
-    #views button { border: none; background: transparent; padding: 5px 13px; border-radius: 4px; color: var(--dim); }
-    #views button.on { background: #232833; color: #fff; }
+    /* ---- stat strip: plain, no cards ---- */
+    .stats { margin-top: 26px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px 12px; border-top: 1px solid var(--line); padding-top: 26px; }
+    @media (min-width: 700px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+    .stat b { display: block; font-size: 24px; font-weight: 600; color: #eef1f5; letter-spacing: 0.02em; }
+    .stat span { display: block; margin-top: 4px; font-size: 11px; color: var(--dim); letter-spacing: 0.12em; }
 
-    /* tour card */
-    #tour { position: absolute; left: 18px; bottom: 18px; width: 330px; background: rgba(15,17,21,0.92); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; backdrop-filter: blur(6px); display: none; }
-    #tour.show { display: block; }
-    #tour .ch { font-size: 10px; letter-spacing: 0.2em; color: var(--cyan); margin-bottom: 5px; }
-    #tour h3 { font-size: 13px; color: #eef1f5; margin-bottom: 6px; letter-spacing: 0.04em; }
-    #tour p { font-size: 11.5px; line-height: 1.55; color: var(--text); }
-    #tour .watch { margin-top: 7px; font-size: 11px; color: var(--amber); }
-    #tour .nav { display: flex; gap: 6px; margin-top: 11px; }
-    #tourBtn { position: absolute; left: 18px; bottom: 18px; }
-    #tourBtn.hide { display: none; }
+    /* ---- asymmetric bento ---- */
+    .bento { margin-top: 54px; display: grid; grid-template-columns: 1fr; gap: 14px; }
+    @media (min-width: 820px) {
+      .bento { grid-template-columns: 7fr 5fr; }
+      .bento .b3 { grid-column: 1 / 2; }
+      .bento .b4 { grid-column: 2 / 3; grid-row: 2; }
+      .bento { grid-template-areas: "a img" "lens eng"; }
+      .b1 { grid-area: a; } .bimg { grid-area: img; } .b3 { grid-area: lens; } .b4 { grid-area: eng; }
+    }
+    .cell { background: rgba(17,19,24,0.75); border: 1px solid var(--line); border-radius: 12px; padding: 22px 22px 20px; }
+    .cell h3 { font-size: 12px; letter-spacing: 0.18em; color: var(--amber); margin-bottom: 10px; font-weight: 600; }
+    .cell p { font-size: 12.5px; line-height: 1.7; color: #9aa1ab; }
+    .cell p b { color: var(--text); font-weight: 500; }
+    .bimg { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); min-height: 200px; position: relative; }
+    .bimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .b4 { background: linear-gradient(140deg, rgba(35,28,16,0.85), rgba(17,19,24,0.8)); }
 
-    /* hud sparklines */
-    #hud { position: absolute; right: 278px; bottom: 14px; display: flex; gap: 10px; transition: right 0.25s ease; pointer-events: none; }
-    body.railHidden #hud { right: 14px; }
-    .spark { background: rgba(15,17,21,0.85); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px 4px; }
-    .spark .t { font-size: 9px; letter-spacing: 0.15em; color: var(--dim); margin-bottom: 2px; }
-    .spark canvas { display: block; }
-
-    /* scale bar (micrograph) */
-    #scalebar { position: absolute; right: 278px; top: 64px; display: none; align-items: center; gap: 8px; color: #111; background: rgba(238,235,225,0.9); border-radius: 4px; padding: 5px 10px; font-size: 11px; transition: right .25s ease; }
-    body.railHidden #scalebar { right: 14px; }
-    #scalebar .bar { width: 80px; height: 4px; background: #111; }
-
-    /* gate screen */
-    #gate { position: absolute; inset: 0; background: var(--bg); display: none; align-items: center; justify-content: center; text-align: center; z-index: 50; }
-    #gate .in { max-width: 460px; padding: 24px; }
-    #gate h1 { letter-spacing: 0.35em; margin-bottom: 14px; color: #eef1f5; }
-    #gate p { color: var(--dim); line-height: 1.6; font-size: 12.5px; }
-    #gate p b { color: var(--amber); }
-
-    #hint { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); color: var(--dim); font-size: 11px; letter-spacing: 0.08em; pointer-events: none; opacity: 0.85; transition: opacity 1s; }
-    #hint.gone { opacity: 0; }
+    footer { margin-top: 60px; color: var(--dim); font-size: 11.5px; letter-spacing: 0.06em; line-height: 2; border-top: 1px solid var(--line); padding-top: 22px; }
+    footer .cite { color: #4d545e; font-size: 10.5px; }
   </style>
-  <script type="module" crossorigin src="./assets/index-Cbul-scb.js"></script>
+  <script type="module" crossorigin src="./assets/landing-BoGqmOM2.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/render-DCtqRS-5.js">
 </head>
 <body>
-  <div id="app">
-    <canvas id="canvas"></canvas>
-    <div id="head">
-      <h1>SOLID<span>IFY</span></h1>
-      <div class="sub">phase-field solidification · live</div>
+  <div class="wrap">
+    <section class="hero">
+      <div class="copy">
+        <h1>SOLID<span>IFY</span></h1>
+        <div class="tag">Watch metal freeze: a real phase-field simulation, live in your browser.</div>
+        <p class="value">Undercool a melt, tap to nucleate crystals, and watch dendrites grow, collide, and become
+        the grain structure a metallurgist would <b>etch and measure</b>. Cast, weld, alloy, and let an onboard
+        optimizer learn the process.</p>
+        <div class="cta">
+          <a class="primary" href="app/">Open the instrument</a>
+          <a class="ghost" href="app/?tour=1">Take the tour</a>
+        </div>
+      </div>
+      <div id="demoBox">
+        <canvas id="demo"></canvas>
+        <img id="demoImg" src="hero.jpg" alt="Dendrite grown by SOLIDIFY" />
+        <div id="demoTag">LIVE, SIMULATED ON YOUR GPU</div>
+      </div>
+    </section>
+
+    <div class="stats">
+      <div class="stat"><b>1,048,576</b><span>CELLS SOLVED IN REAL TIME</span></div>
+      <div class="stat"><b>60 fps</b><span>ON A MID-RANGE GPU</span></div>
+      <div class="stat"><b>10</b><span>LENSES ON ONE GROWTH</span></div>
+      <div class="stat"><b>15 kB</b><span>GZIPPED, NO FRAMEWORKS</span></div>
     </div>
-    <div id="readouts"></div>
-    <div id="views"></div>
-    <div id="rail"></div>
-    <button id="railToggle">controls</button>
-    <div id="hud"></div>
-    <div id="scalebar"><div class="bar"></div><span id="scalelabel">100 µm</span></div>
-    <button id="tourBtn">▸ tour</button>
-    <div id="tour"></div>
-    <div id="hint">tap the melt to nucleate a crystal</div>
-    <div id="gate"><div class="in">
-      <h1>SOLIDIFY</h1>
-      <p>This instrument runs a real phase-field simulation on your GPU and needs <b>WebGPU</b>.<br/><br/>
-      It works in Chrome, Edge, Safari 26+, and recent Firefox. If you're already there, your browser may have WebGPU disabled for this device.</p>
-    </div></div>
+
+    <div class="bento">
+      <div class="cell b1">
+        <h3>REAL PHYSICS</h3>
+        <p>Kobayashi anisotropic phase-field with latent heat, dilute-alloy solute, directional gradients,
+        and moving weld pools. Verified against the canonical dendrite morphology: <b>not a particle toy</b>.
+        Constitutional undercooling, columnar-to-equiaxed transitions, and recalescence all emerge from the
+        equations, never from scripting.</p>
+      </div>
+      <div class="bimg">
+        <img src="snowflake.jpg" alt="Six-fold dendritic snowflake grown by the same equations" />
+      </div>
+      <div class="cell b3">
+        <h3>TEN LENSES</h3>
+        <p>Incandescent melt, cross-polarised grains, etched micrograph with a scale bar, thermal cam, SEM,
+        X-ray radiograph, growth rings, curvature. Plus a <b>pixel mode</b> for the retro among us.</p>
+      </div>
+      <div class="cell b4">
+        <h3>ENGINEER IT</h3>
+        <p>Live ASTM grain-size metallography, and an onboard <b>CMA-ES optimizer</b> that learns casting
+        schedules to hit a target grain size. Think you can beat it? Challenge mode deals you both the same hand.</p>
+      </div>
+    </div>
+
+    <footer>
+      built by Frank Cai · <a href="https://github.com/fronkt/solidify">source on GitHub</a><br/>
+      <span class="cite">Kobayashi (1993) anisotropic phase-field, Warren-Boettinger-type dilute alloy, ASTM E112 metallography.
+      Needs a WebGPU browser: Chrome, Edge, Safari 26+, recent Firefox.</span>
+    </footer>
   </div>
 </body>
 </html>
