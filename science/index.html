@@ -3,12 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%230a0b0d"/><text x="32" y="45" font-family="ui-monospace,Consolas,monospace" font-size="36" font-weight="700" text-anchor="middle"><tspan fill="%23ffb454">S</tspan><tspan fill="%23eef1f5">I</tspan></text></svg>' />
   <title>SOLIDIFY — the science</title>
   <meta name="description" content="The phase-field model behind SOLIDIFY: equations, numerics, what is quantitative, what is qualitative, and how it was verified." />
   <style>
     :root { --bg: #0a0b0d; --panel: #101216; --line: #232833; --text: #b8c0cc; --bright: #eef1f5; --dim: #5b6675; --amber: #ffb454; --cyan: #56d4dd; --font: "SF Mono", "Cascadia Code", Consolas, monospace; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: var(--bg); color: var(--text); font-family: var(--font); line-height: 1.7; font-size: 13.5px; }
+    ::selection { background: var(--amber); color: #17110a; }
+    ::-webkit-scrollbar { width: 10px; background: #0a0b0d; }
+    ::-webkit-scrollbar-thumb { background: #c98a3a; border-radius: 5px; border: 2px solid #0a0b0d; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--amber); }
+    html { scrollbar-color: #c98a3a #0a0b0d; }
     .wrap { max-width: 780px; margin: 0 auto; padding: 48px 22px 80px; }
     header { margin-bottom: 42px; }
     header h1 { color: var(--bright); font-size: 24px; letter-spacing: 0.3em; }

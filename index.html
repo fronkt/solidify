@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SOLIDIFY — watch metal freeze</title>
   <meta name="description" content="A real-time phase-field solidification laboratory in your browser. The logo is cast by the solver. Grow dendrites, switch lenses, pour alloys, engineer grain structure." />
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%230a0b0d"/><text x="32" y="45" font-family="ui-monospace,Consolas,monospace" font-size="36" font-weight="700" text-anchor="middle"><tspan fill="%23ffb454">S</tspan><tspan fill="%23eef1f5">I</tspan></text></svg>' />
   <script>
     // motion gate: pre-hide animated elements only when motion is allowed and
     // JS is running; a watchdog reveals everything if the modules never boot
@@ -28,8 +29,13 @@
       --font: ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html { background: var(--bg); scroll-behavior: auto; }
+    html { background: var(--bg); scroll-behavior: auto; scrollbar-color: #c98a3a #0a0b0d; }
     body { background: var(--bg); color: var(--text); font-family: var(--font); overflow-x: hidden; }
+    ::selection { background: var(--amber); color: #17110a; }
+    ::-webkit-scrollbar { width: 10px; background: #0a0b0d; }
+    ::-webkit-scrollbar-track { background: #0a0b0d; }
+    ::-webkit-scrollbar-thumb { background: #c98a3a; border-radius: 5px; border: 2px solid #0a0b0d; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--amber); }
     a { color: var(--cyan); text-decoration: none; }
     b { color: var(--text); font-weight: 600; }
     .k { font-size: 11px; letter-spacing: 0.3em; color: var(--dim); }
@@ -49,7 +55,7 @@
     .inner { width: 100%; max-width: 1150px; margin: 0 auto; }
 
     /* ---------- ACT 0 · hero: the cast wordmark ---------- */
-    #heroAct { flex-direction: column; padding-top: 6dvh; background:
+    #heroAct { flex-direction: column; padding-top: 6dvh; padding-bottom: 52px; background:
       radial-gradient(1000px 480px at 50% 8%, #161009 0%, transparent 65%), var(--bg); }
     #castBox { position: relative; width: min(96vw, 1150px); aspect-ratio: 4.15; border-radius: 16px; overflow: hidden; border: 1px solid #1d222b; background: #07080a; box-shadow: 0 0 110px rgba(255, 130, 30, 0.10), 0 30px 80px rgba(0,0,0,0.6), inset 0 0 40px rgba(0,0,0,0.5); cursor: pointer; }
     #logoCast { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -65,8 +71,6 @@
 
     #heroCopy { text-align: center; margin-top: 34px; max-width: 760px; }
     #heroCopy .tag { font-size: clamp(14px, 1.8vw, 17px); letter-spacing: 0.08em; color: #b9bfc9; line-height: 1.6; }
-    #heroCopy .cast-note { margin-top: 12px; font-size: 12px; color: var(--dim); line-height: 1.7; }
-    #heroCopy .cast-note b { color: var(--amber); font-weight: 500; }
     .cta { margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
     .cta a { position: relative; overflow: hidden; display: inline-block; letter-spacing: 0.08em; border-radius: 8px; padding: 13px 24px; font-size: 13.5px; border: 1px solid var(--line); transition: box-shadow 0.2s, border-color 0.2s, color 0.2s; white-space: nowrap; }
     .cta a.primary { background: var(--amber); color: #17110a; border-color: var(--amber); font-weight: 600; }
@@ -86,7 +90,7 @@
     .stat b { display: block; font-size: 22px; font-weight: 600; color: #eef1f5; font-variant-numeric: tabular-nums; }
     .stat span { display: block; margin-top: 4px; font-size: 10px; color: var(--dim); letter-spacing: 0.14em; }
 
-    #scrollCue { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: var(--dim); font-size: 10px; letter-spacing: 0.3em; }
+    #scrollCue { position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); color: var(--dim); font-size: 10px; letter-spacing: 0.3em; }
     #scrollCue::after { content: "▾"; display: block; text-align: center; margin-top: 3px; }
     .anim #scrollCue::after { animation: cue 1.8s ease-in-out infinite; }
     @keyframes cue { 0%, 100% { transform: translateY(0); opacity: 0.6; } 50% { transform: translateY(5px); opacity: 1; } }
@@ -163,8 +167,8 @@
     .anim #composeAct .chip, .anim #composeAct .arrow, .anim #composeAct .after, .anim #composeAct .cta, .anim .bars, .anim #qLine { opacity: 0; }
     .anim .stamp, .anim #sciAct .cta, .anim #sciAct .sub2 { opacity: 0; }
   </style>
-  <script type="module" crossorigin src="./assets/landing-DCtO3gja.js"></script>
-  <link rel="modulepreload" crossorigin href="./assets/render-C7g0M9Lx.js">
+  <script type="module" crossorigin src="./assets/landing-BBtSlVXr.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/render-BZKCjANH.js">
 </head>
 <body>
   <header id="topnav">
@@ -182,12 +186,10 @@
       <div id="castBox" title="tap to re-pour">
         <canvas id="logoCast"></canvas>
         <h1 id="logoFallback">SOLID<span>IFY</span></h1>
-        <div id="castHint">CAST LIVE ON YOUR GPU · TAP TO RE-POUR</div>
+        <div id="castHint">CAST LIVE ON YOUR GPU · STIR IT WITH YOUR CURSOR · TAP TO RE-POUR</div>
       </div>
       <div id="heroCopy">
         <p class="tag">Watch metal freeze: a real phase-field solidification laboratory, live in your browser.</p>
-        <p class="cast-note">The wordmark above is not a logo file. It was <b>poured just now</b>: molten metal cast into
-        letter-shaped molds and solidified, dendrite by dendrite, by the same solver you are about to drive.</p>
         <div class="cta">
           <a class="primary" href="app/">Open the instrument</a>
           <a class="ghost" href="app/?tour=1">Take the tour</a>
