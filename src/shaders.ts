@@ -51,6 +51,10 @@ struct Params {
   quenchDT: f32,   // one-shot temperature drop applied in the stamp pass
   twinProb: f32,   // per-claim chance of nucleating a growth twin at the front
   idFloor: u32,    // CPU seed ids live below this; GPU twin ids above it
+  probeX: u32,     // cooling-curve probe cell (0xffffffff = off)
+  probeY: u32,
+  pad3: f32,
+  pad4: f32,
 }
 const PI = 3.14159265359;
 
@@ -273,6 +277,10 @@ struct Stats {
   interf: atomic<u32>,
   interfT: atomic<u32>,   // fixed point x1000
   pad: u32,
+  probeT: u32,            // (T+1) x1000 at the probe cell (single writer)
+  probePhi: u32,          // phi x1000 at the probe cell
+  pad2: u32,
+  pad3: u32,
   counts: array<atomic<u32>, ${MAX_GRAINS}>,
 }
 @group(0) @binding(0) var<uniform> P: Params;
@@ -285,6 +293,10 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   if (gid.x >= P.n || gid.y >= P.n) { return; }
   let c = vec2i(gid.xy);
   let s = textureLoad(state, c, 0);
+  if (gid.x == P.probeX && gid.y == P.probeY) {
+    stats.probeT = u32(clamp(s.g + 1.0, 0.0, 3.0) * 1000.0);
+    stats.probePhi = u32(clamp(s.r, 0.0, 1.0) * 1000.0);
+  }
   if (s.r > 0.5) {
     atomicAdd(&stats.solid, 1u);
     let id = textureLoad(grain, c, 0).r;

@@ -6,7 +6,7 @@ import { BASES, FAMOUS, derive, encodeMix, decodeMix, type Mix, type Derived } f
 // pseudo-binary solute field and arms a fresh melt.
 
 export interface ComposerHost {
-  applyAlloy(materialKey: string, params: Record<string, number>): void;
+  applyAlloy(materialKey: string, params: Record<string, number>, name: string): void;
 }
 
 export class Composer {
@@ -88,7 +88,7 @@ export class Composer {
 
   private pour(setHash = true) {
     const d = derive(this.mix);
-    this.host.applyAlloy(BASES[this.mix.base].materialKey, d.params as Record<string, number>);
+    this.host.applyAlloy(BASES[this.mix.base].materialKey, d.params as Record<string, number>, d.name);
     if (setHash) history.replaceState(null, "", "#" + encodeMix(this.mix));
     this.close();
   }

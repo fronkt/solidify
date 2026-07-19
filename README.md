@@ -67,6 +67,14 @@ gracefully instead of freezing.
   nearest-neighbour cells) and an 8-bit dithered palette toggle.
 - **Live metallography** — fraction solid, interface undercooling, grain count, grain-size
   histogram, ASTM G number, computed by GPU reduction while the sim runs.
+- **Analysis instruments** — a cooling-curve probe (foundry thermal analysis: watch the
+  recalescence arrest at the liquidus; ctrl-tap moves the probe), a Scheil overlay
+  (analytic T(fs) path vs the measured interface temperature), and an SDAS ruler that
+  measures secondary-arm spacing by dragging a linear-intercept line, metallographer-style.
+- **Recorder** — one-button ⏺ capture of the canvas to a .webm clip.
+- **Touch** — pinch to zoom, two-finger pan, tap to nucleate.
+- **The science page** — [/science/](https://fronkt.github.io/solidify/science/) documents the
+  equations, the numerics, what's quantitative vs qualitative, and the references.
 - **Guided tour** — ten chapters from the Mullins–Sekerka instability through twinning,
   casting CET, directional growth, welding, and alloys.
 - **Engineer it & challenge** — a separable CMA-ES optimizer runs casting after casting,

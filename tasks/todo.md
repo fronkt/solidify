@@ -97,6 +97,29 @@ physics model, milestone gates — set in stone before implementation).
 - [x] Chemistry spot-check: A356+TiB ΔT_L −44.7 K, Q 71.2 K match hand calculation;
       1045 deep link maps to c0 0.12 · m 0.80 (clamped) · k 0.24 · D 1.50 (fast C)
 
+## v0.5 (2026-07-19): analysis instruments + tidy rail + science page
+
+- [x] Collapsible rail: every section is a dropdown (▸/▾), open state persists in
+      localStorage; only PRESETS + MELT·PROCESS open by default — decluttered
+- [x] Mat line under the logo (top-left): always shows what's in the melt — material
+      preset label or the composed alloy name (user request mid-build)
+- [x] Cooling-curve probe: probe cell rides the stats reduction (Params +probeX/Y,
+      144 B; Stats +probeT/probePhi), panel plots T(t) with liquidus line +
+      "solid" arrest marker; ctrl-tap moves the probe; crosshair overlay via gridToClient
+- [x] Scheil overlay: analytic T(fs) = 1 − m·c₀(1−fs)^(k−1) of the current pseudo-binary
+      vs measured (fs, T_interface) — prediction and experiment in one chart
+- [x] SDAS ruler: drag a line, one-shot GPU row readback (readLine), linear-intercept
+      count with hysteresis → λ₂ (verified: λ₂ ≈ 45.7 µm over 7 arms on a big dendrite)
+- [x] ⏺ rec in the transport: MediaRecorder canvas capture → .webm download (verified 1 MB/2 s)
+- [x] Mobile: pinch-zoom + two-finger pan; touch taps seed on release so a second
+      finger never leaves a stray crystal
+- [x] /science/ page: model equations, why dendrites happen, twins, alloy chemistry + Q,
+      numerics/GPU notes, quantitative-vs-qualitative table, references; linked from
+      landing (CTA + footer) and the rail
+- [x] Composer playability fix: dimensionless depression capped at 0.22 (badged),
+      k floored 0.12, pour guarantees undercool ≥ 0.9 — heavy alloys (A356) no longer
+      solutally choke a lone seed (fs 6.8 % vs 1 % in the same tick budget)
+
 **Known limits / next:**
 - [ ] Grain-boundary lines in ETCH are thin/broken while liquid films persist (partly physical)
 - [ ] Alloy solute scheme is qualitative (labelled as such); quantitative WB is a bigger lift

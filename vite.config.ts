@@ -8,6 +8,7 @@ export default defineConfig({
       input: {
         landing: resolve(__dirname, "index.html"),
         app: resolve(__dirname, "app/index.html"),
+        science: resolve(__dirname, "science/index.html"),
       },
     },
   },

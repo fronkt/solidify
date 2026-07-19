@@ -99,7 +99,8 @@ export const FAMOUS: { label: string; mix: Mix }[] = [
 ];
 
 const TSCALE = 100;   // kelvin per dimensionless temperature unit
-const WT_PER_C0 = 12; // wt% total solute mapping to c0 = 1
+const WT_PER_C0 = 15; // wt% total solute mapping to c0 = 1
+const DEPR_CAP = 0.22; // max dimensionless liquidus depression (keeps growth watchable)
 
 export interface Derived {
   name: string;
@@ -138,13 +139,14 @@ export function derive(mix: Mix): Derived {
   const c0 = Math.min(0.7, Math.max(0.05, c0raw));
   if (c0raw > 0.7) clamps.push("composition saturates the model solute field");
 
-  const mRaw = depression / TSCALE / c0;
+  const deprDim = depression / TSCALE;
+  if (deprDim > DEPR_CAP) clamps.push("strong alloy — model depression capped so growth stays watchable");
+  const mRaw = Math.min(deprDim, DEPR_CAP) / c0;
   const mLiq = Math.min(0.8, Math.max(0.1, mRaw));
-  if (mRaw > 0.8) clamps.push("liquidus depression clipped to the stable envelope");
 
   const kRaw = depression > 1e-6 ? 1 - Q / depression : 0.9;
-  const kPart = Math.min(0.9, Math.max(0.05, kRaw));
-  if (kRaw < 0.05) clamps.push("Q saturates the model (k floored) — refinement still shows");
+  const kPart = Math.min(0.9, Math.max(0.12, kRaw));
+  if (kRaw < 0.12) clamps.push("Q saturates the model (k floored) — refinement still shows");
 
   const dSol = Math.min(1.5, Math.max(0.2, 0.8 * (totalWt > 0 ? dSum / totalWt : 1)));
 

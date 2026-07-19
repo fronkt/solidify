@@ -3,6 +3,7 @@ import { SCENES } from "./tour";
 import { LENS_NAMES } from "./shaders";
 import { MATERIALS } from "./materials";
 import type { PhysParams } from "./sim";
+import type { Analyze } from "./analyze";
 
 export interface UIHost extends AppControl {
   simParams(): PhysParams;
@@ -33,6 +34,9 @@ export interface UIHost extends AppControl {
   setPalette(b: boolean): void;
   resetZoom(): void;
   simTimeNow(): number;
+  isRecording(): boolean;
+  toggleRec(): void;
+  getAlloyName(): string;
 }
 
 interface SliderBind { update(): void }
@@ -42,6 +46,7 @@ export class UI {
   private viewBtns: HTMLButtonElement[] = [];
   private runBtn!: HTMLButtonElement;
   private turboBtn!: HTMLButtonElement;
+  private recBtn!: HTMLButtonElement;
   private symBtns: HTMLButtonElement[] = [];
   private gridBtns: HTMLButtonElement[] = [];
   private scenBtns: HTMLButtonElement[] = [];
@@ -49,12 +54,10 @@ export class UI {
   private weldPanel!: HTMLElement;
   private alloyPanel!: HTMLElement;
   private pixelRow!: HTMLElement;
-  private advBody!: HTMLElement;
-  private advOpen = false;
   private readouts = document.getElementById("readouts")!;
   private lastPixel = 6;
 
-  constructor(private host: UIHost) {
+  constructor(private host: UIHost, private analyze: Analyze) {
     this.buildViews();
     this.buildTransport();
     this.buildRail();
@@ -81,16 +84,37 @@ export class UI {
     this.button(el, "⟲ reset", () => { this.host.resetArmed(); this.sync(); }, "warn");
     this.runBtn = this.button(el, "▶ run", () => { this.host.setRun(!this.host.isRunning()); this.sync(); });
     this.turboBtn = this.button(el, "turbo", () => { this.host.toggleTurbo(); this.sync(); });
+    this.recBtn = this.button(el, "⏺ rec", () => this.host.toggleRec());
   }
 
-  private section(rail: HTMLElement, title: string): HTMLElement {
+  /** collapsible rail section; open state persists in localStorage */
+  private section(rail: HTMLElement, title: string, open = false): HTMLElement {
     const s = document.createElement("div");
     s.className = "sec";
     const h = document.createElement("h2");
     h.textContent = title;
-    s.append(h);
+    const tog = document.createElement("span");
+    tog.className = "tog";
+    h.append(tog);
+    h.style.cursor = "pointer";
+    const body = document.createElement("div");
+    body.className = "secbody";
+    const key = "sol.sec." + title;
+    const stored = localStorage.getItem(key);
+    let isOpen = stored != null ? stored === "1" : open;
+    const apply = () => {
+      body.style.display = isOpen ? "block" : "none";
+      tog.textContent = isOpen ? "▾" : "▸";
+    };
+    h.addEventListener("click", () => {
+      isOpen = !isOpen;
+      localStorage.setItem(key, isOpen ? "1" : "0");
+      apply();
+    });
+    apply();
+    s.append(h, body);
     rail.append(s);
-    return s;
+    return body;
   }
 
   private slider(
@@ -152,7 +176,7 @@ export class UI {
     const p = () => host.simParams();
 
     // ---- presets
-    const pre = this.section(rail, "PRESETS");
+    const pre = this.section(rail, "PRESETS", true);
     const prow = this.btnRow(pre);
     for (const name of ["dendrite", "snow", "seaweed", "rain", "casting", "bridgman", "weld", "alloy"]) {
       this.button(prow, name, () => { SCENES[name](host); this.sync(); });
@@ -185,7 +209,7 @@ export class UI {
     this.button(mrow0, "⚔ challenge", () => host.startChallenge());
 
     // ---- melt / process
-    const melt = this.section(rail, "MELT · PROCESS");
+    const melt = this.section(rail, "MELT · PROCESS", true);
     this.slider(melt, "undercooling", 0.3, 1.0, 0.01, () => host.getUndercool(), v => host.setUndercool(v));
     this.slider(melt, "cooling rate", 0, 0.6, 0.005, () => p().coolRate, v => { p().coolRate = v; });
     this.slider(melt, "nucleation /s", 0, 30, 0.5, () => host.getRain(), v => host.setRain(v), v => v.toFixed(1));
@@ -274,22 +298,35 @@ export class UI {
       this.gridBtns.push(b);
     }
 
-    // ---- advanced (collapsed)
+    // ---- analyze: foundry instruments
+    const an = this.section(rail, "ANALYZE");
+    this.check(an, "cooling probe (ctrl-tap moves it)", () => this.analyze.probeOn, b => this.analyze.setProbeOn(b));
+    this.check(an, "Scheil overlay (needs alloy)", () => this.analyze.scheilOn, b => this.analyze.setScheilOn(b));
+    const anrow = this.btnRow(an);
+    const rulerBtn = this.button(anrow, "SDAS ruler — drag a line", () => {
+      this.analyze.setRulerOn(!this.analyze.rulerOn);
+      this.sync();
+    });
+    this.binds.push({ update: () => rulerBtn.classList.toggle("on", this.analyze.rulerOn) });
+    const rres = document.createElement("div");
+    rres.className = "matnote";
+    an.append(rres);
+    this.analyze.attachResultEl(rres);
+
+    // ---- advanced
     const adv = this.section(rail, "ADVANCED");
-    const h2 = adv.querySelector("h2")!;
-    const tog = document.createElement("span");
-    tog.className = "tog";
-    tog.textContent = "▸";
-    h2.append(tog);
-    h2.style.cursor = "pointer";
-    this.advBody = document.createElement("div");
-    adv.append(this.advBody);
-    h2.addEventListener("click", () => { this.advOpen = !this.advOpen; tog.textContent = this.advOpen ? "▾" : "▸"; this.sync(); });
-    this.slider(this.advBody, "interface ε̄", 0.006, 0.016, 0.0005, () => p().epsBar, v => { p().epsBar = v; }, v => v.toFixed(4));
-    this.slider(this.advBody, "kinetics γ", 4, 25, 0.5, () => p().gamma, v => { p().gamma = v; }, v => v.toFixed(1));
-    this.slider(this.advBody, "driving α", 0.6, 1.0, 0.01, () => p().alpha, v => { p().alpha = v; });
-    this.slider(this.advBody, "relax τ ×10⁻⁴", 1.5, 8, 0.1, () => p().tau * 1e4, v => { p().tau = v * 1e-4; }, v => v.toFixed(1));
-    this.slider(this.advBody, "partition k", 0.05, 0.9, 0.01, () => p().kPart, v => { p().kPart = v; });
+    this.slider(adv, "interface ε̄", 0.006, 0.016, 0.0005, () => p().epsBar, v => { p().epsBar = v; }, v => v.toFixed(4));
+    this.slider(adv, "kinetics γ", 4, 25, 0.5, () => p().gamma, v => { p().gamma = v; }, v => v.toFixed(1));
+    this.slider(adv, "driving α", 0.6, 1.0, 0.01, () => p().alpha, v => { p().alpha = v; });
+    this.slider(adv, "relax τ ×10⁻⁴", 1.5, 8, 0.1, () => p().tau * 1e4, v => { p().tau = v * 1e-4; }, v => v.toFixed(1));
+    this.slider(adv, "partition k", 0.05, 0.9, 0.01, () => p().kPart, v => { p().kPart = v; });
+
+    // ---- science link
+    const sci = document.createElement("a");
+    sci.className = "scilink";
+    sci.href = "../science/";
+    sci.textContent = "the science behind it ↗";
+    rail.append(sci);
   }
 
   /** refresh all controls + conditional panels from state */
@@ -305,11 +342,13 @@ export class UI {
     this.weldPanel.style.display = p.scen === 2 ? "block" : "none";
     this.alloyPanel.style.display = p.alloyOn === 1 ? "block" : "none";
     this.pixelRow.style.display = host.getPixel() > 0 ? "flex" : "none";
-    this.advBody.style.display = this.advOpen ? "block" : "none";
 
     this.runBtn.textContent = host.isRunning() ? "⏸ pause" : "▶ run";
     this.runBtn.classList.toggle("accent", !host.isRunning());
     this.turboBtn.classList.toggle("on", host.isTurbo());
+    this.recBtn.textContent = host.isRecording() ? "⏹ stop" : "⏺ rec";
+    this.recBtn.classList.toggle("rec", host.isRecording());
+    document.getElementById("matline")!.textContent = host.getAlloyName();
     const grids = [512, 1024, 2048];
     this.gridBtns.forEach((b, i) => b.classList.toggle("on", grids[i] === host.getGrid()));
 

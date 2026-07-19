@@ -117,6 +117,18 @@ export class Renderer {
     this.clampView();
   }
 
+  /** grid cell -> client-space css point (inverse of clientToGrid), for DOM overlays */
+  gridToClient(gx: number, gy: number, n: number): { x: number; y: number } {
+    const rect = this.canvas.getBoundingClientRect();
+    const dpr = this.canvas.width / Math.max(rect.width, 1);
+    const scale = Math.max(this.canvas.width, this.canvas.height);
+    const offX = (this.canvas.width - scale) * 0.5;
+    const offY = (this.canvas.height - scale) * 0.5;
+    const cx = (gx / n - this.cx) * this.zoom + 0.5;
+    const cy = (gy / n - this.cy) * this.zoom + 0.5;
+    return { x: (cx * scale + offX) / dpr + rect.left, y: (cy * scale + offY) / dpr + rect.top };
+  }
+
   /** css px per grid cell at current zoom (for the scale bar) */
   cssPxPerCell(n: number): number {
     const rect = this.canvas.getBoundingClientRect();

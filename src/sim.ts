@@ -71,6 +71,8 @@ export interface StatsResult {
   astm: number | null;
   interfaceT: number;
   diamsUm: number[];
+  probeT: number | null;   // temperature at the cooling-curve probe cell
+  probePhi: number | null;
 }
 
 export const DOMAIN_MM = 1.0; // nominal physical width of the domain
@@ -87,6 +89,8 @@ export class Simulation {
   nextId = 1;
   /** bridgman frame anchor: reference-isotherm x (units); advanced by main loop */
   frontX = 0;
+  /** cooling-curve probe cell, or null = off */
+  probe: { x: number; y: number } | null = null;
 
   private stateTex: GPUTexture[] = [];
   private grainTex: GPUTexture[] = [];
@@ -111,7 +115,7 @@ export class Simulation {
   private pendingSeeds: Seed[] = [];
   private pendingQuench = 0;
   private statsInFlight = false;
-  private paramData = new ArrayBuffer(128);
+  private paramData = new ArrayBuffer(144);
   private inFlight = 0;
 
   /** true when the GPU is >= 2 submitted frames behind — callers should skip stepping */
@@ -137,17 +141,18 @@ export class Simulation {
       usage:
         GPUTextureUsage.TEXTURE_BINDING |
         GPUTextureUsage.STORAGE_BINDING |
-        GPUTextureUsage.COPY_DST,
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.COPY_SRC,
     });
     this.stateTex = [d.createTexture(texDesc("rgba32float")), d.createTexture(texDesc("rgba32float"))];
     this.grainTex = [d.createTexture(texDesc("r32uint")), d.createTexture(texDesc("r32uint"))];
     this.fluxTex = d.createTexture(texDesc("rgba32float"));
 
-    this.paramBuf = d.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.paramBuf = d.createBuffer({ size: 144, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.theta0Buf = d.createBuffer({ size: MAX_GRAINS * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     this.twinCtrBuf = d.createBuffer({ size: 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     this.seedBuf = d.createBuffer({ size: MAX_SEEDS * SEED_STRIDE * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
-    const statsSize = (4 + MAX_GRAINS) * 4;
+    const statsSize = (8 + MAX_GRAINS) * 4;
     this.statsBuf = d.createBuffer({ size: statsSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
     this.statsStaging = d.createBuffer({ size: statsSize, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
 
@@ -297,6 +302,8 @@ export class Simulation {
     f[29] = this.pendingQuench;
     f[30] = p.twinProb;
     u[31] = this.nextId;
+    u[32] = this.probe ? Math.round(this.probe.x) : 0xffffffff;
+    u[33] = this.probe ? Math.round(this.probe.y) : 0xffffffff;
     this.device.queue.writeBuffer(this.paramBuf, 0, this.paramData);
   }
 
@@ -391,12 +398,14 @@ export class Simulation {
     const solid = data[0];
     const interf = data[1];
     const interfT = interf > 0 ? data[2] / 1000 / interf : 0;
+    const probeT = this.probe ? data[4] / 1000 - 1 : null;
+    const probePhi = this.probe ? data[5] / 1000 : null;
     const minPx = Math.max(20, this.n * this.n * 1e-5);
     const umPerPx = (DOMAIN_MM * 1000) / this.n;
     const diams: number[] = [];
     let areaSum = 0;
     for (let i = 1; i < MAX_GRAINS; i++) {
-      const c = data[4 + i];
+      const c = data[8 + i];
       if (c > minPx) {
         areaSum += c;
         diams.push(2 * Math.sqrt(c / Math.PI) * umPerPx);
@@ -410,6 +419,43 @@ export class Simulation {
       const meanAreaMm2 = meanAreaPx * (umPerPx / 1000) ** 2;
       astm = 3.322 * Math.log10(1 / meanAreaMm2) - 2.954;
     }
-    return { fracSolid: solid / total, grainCount: count, meanAreaPx, astm, interfaceT: interfT, diamsUm: diams };
+    return { fracSolid: solid / total, grainCount: count, meanAreaPx, astm, interfaceT: interfT, diamsUm: diams, probeT, probePhi };
+  }
+
+  /**
+   * one-shot readback of phi sampled along a line (grid coords) — the SDAS
+   * ruler's linear-intercept trace. Copies only the rows the line spans.
+   */
+  async readLine(ax: number, ay: number, bx: number, by: number, samples = 400): Promise<Float32Array | null> {
+    const n = this.n;
+    const cl = (v: number) => Math.min(n - 1, Math.max(0, v));
+    ax = cl(ax); ay = cl(ay); bx = cl(bx); by = cl(by);
+    const y0 = Math.floor(Math.min(ay, by));
+    const rows = Math.ceil(Math.max(ay, by)) - y0 + 1;
+    const bpr = n * 16; // multiple of 256 for all grid sizes
+    const buf = this.device.createBuffer({ size: bpr * rows, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    const enc = this.device.createCommandEncoder();
+    enc.copyTextureToBuffer(
+      { texture: this.stateTex[this.dir], origin: { x: 0, y: y0 } },
+      { buffer: buf, bytesPerRow: bpr },
+      { width: n, height: rows });
+    this.device.queue.submit([enc.finish()]);
+    try {
+      await buf.mapAsync(GPUMapMode.READ);
+    } catch {
+      buf.destroy();
+      return null;
+    }
+    const data = new Float32Array(buf.getMappedRange().slice(0));
+    buf.unmap();
+    buf.destroy();
+    const out = new Float32Array(samples);
+    for (let i = 0; i < samples; i++) {
+      const t = i / (samples - 1);
+      const x = Math.round(ax + (bx - ax) * t);
+      const y = Math.round(ay + (by - ay) * t);
+      out[i] = data[((y - y0) * n + x) * 4];
+    }
+    return out;
   }
 }

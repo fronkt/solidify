@@ -7,6 +7,7 @@ import { Tour, SCENES } from "./tour";
 import { Optimizer, type OptHost } from "./optimizer";
 import { Challenge, type ChallengeHost } from "./challenge";
 import { Composer } from "./composer";
+import { Analyze } from "./analyze";
 
 const TURBO_STEPS = 150;
 
@@ -38,6 +39,8 @@ async function boot() {
   let lastStats: StatsResult | null = null;
   let fps = 60;
   let material = "generic";
+  let alloyName = MATERIALS.generic.label;
+  let recorder: MediaRecorder | null = null;
 
   const app: UIHost & OptHost = {
     // ---- AppControl (scenes / tour)
@@ -45,6 +48,7 @@ async function boot() {
       undercool = u;
       sim.reset(1 - u);
       hud.reset();
+      analyze.reset();
       lastStats = null;
       sim.params.weldX = sim.n * 0.12;
       sim.params.weldY = sim.n * 0.2;
@@ -84,9 +88,32 @@ async function boot() {
       const m = MATERIALS[k];
       if (!m) return;
       material = k;
+      alloyName = m.label;
       Object.assign(sim.params, m.params);
     },
     openComposer() { if (!opt.active && !challenge.active) composer.open(); },
+    getAlloyName: () => alloyName,
+    isRecording: () => recorder != null,
+    toggleRec() {
+      if (recorder) { recorder.stop(); return; }
+      const stream = canvas.captureStream(60);
+      const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
+        .find(m => MediaRecorder.isTypeSupported(m));
+      const chunks: Blob[] = [];
+      recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+      recorder.onstop = () => {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob(chunks, { type: "video/webm" }));
+        a.download = `solidify-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}.webm`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+        recorder = null;
+        ui.sync();
+      };
+      recorder.start();
+      ui.sync();
+    },
     getGrid: () => sim.n,
     setGrid(n) { if (n !== sim.n && !opt.active && !challenge.active) app.swapSim(n); },
     getView: () => view,
@@ -95,6 +122,7 @@ async function boot() {
     resetArmed() {
       sim.reset(1 - undercool);
       hud.reset();
+      analyze.reset();
       lastStats = null;
       running = false;
       sim.params.weldX = sim.n * 0.12;
@@ -137,13 +165,17 @@ async function boot() {
     onOptimizerDone() { ui.sync(); },
   };
 
-  const ui = new UI(app);
+  const analyze = new Analyze({ getSim: () => sim, renderer, simParams: () => sim.params });
+  const ui = new UI(app, analyze);
   const tour = new Tour(app);
   const opt = new Optimizer(app);
   const composer = new Composer({
-    applyAlloy(materialKey, params) {
+    applyAlloy(materialKey, params, name) {
       app.setMaterial(materialKey);
       Object.assign(sim.params, params);   // derived pseudo-binary overrides
+      alloyName = name;
+      sim.params.coolRate = Math.min(sim.params.coolRate, 0.2);
+      if (undercool < 0.9) undercool = 0.9; // pour = hot melt into a cold mould
       app.resetArmed();
       ui.sync();
     },
@@ -187,15 +219,21 @@ async function boot() {
   const challenge = new Challenge(chHost);
 
   (window as unknown as Record<string, unknown>).__solidify = {
-    app, opt, tour, ui, challenge, composer,
+    app, opt, tour, ui, challenge, composer, analyze,
     tick(k: number) { for (let i = 0; i < k; i++) frameBody(last + 1000 / 60); },
   };
 
   // --------------------------------------------------------------- pointer
+  // mouse: click seeds immediately, drag paints, right-drag pans.
+  // touch: tap seeds on release, drag paints, two fingers pinch-zoom + pan.
   let seeding = false;
   let panning = false;
+  let rulerDrag = false;
   let lastPan = { x: 0, y: 0 };
   let lastSeed = { x: -1e9, y: -1e9 };
+  const pts = new Map<number, { x: number; y: number }>();
+  let pinch: { d: number; mx: number; my: number } | null = null;
+  let touchTap: { x: number; y: number; id: number } | null = null;
   const hideHint = () => document.getElementById("hint")!.classList.add("gone");
 
   const seedAt = (e: PointerEvent) => {
@@ -218,25 +256,69 @@ async function boot() {
   };
 
   canvas.addEventListener("pointerdown", e => {
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) {
+      // second finger: become a pinch, cancel any tap/paint in progress
+      seeding = false;
+      touchTap = null;
+      rulerDrag = false;
+      const [a, b] = [...pts.values()];
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+      return;
+    }
     if (e.button === 2) {
       panning = true;
       lastPan = { x: e.clientX, y: e.clientY };
       canvas.setPointerCapture(e.pointerId);
-    } else if (e.button === 0 && !opt.active) {
-      seeding = true;
-      seedAt(e);
+      return;
     }
+    if (e.button !== 0 || opt.active) return;
+    const g = renderer.clientToGrid(e.clientX, e.clientY, sim.n);
+    if (analyze.rulerOn && g) { rulerDrag = true; analyze.beginRuler(g); return; }
+    if (e.ctrlKey && analyze.probeOn && g) { analyze.setProbe(g.x, g.y); return; }
+    if (e.pointerType === "touch") { touchTap = { x: e.clientX, y: e.clientY, id: e.pointerId }; return; }
+    seeding = true;
+    seedAt(e);
   });
   canvas.addEventListener("pointermove", e => {
+    if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      renderer.zoomAt(mx, my, d / Math.max(pinch.d, 1e-3));
+      renderer.panBy(mx - pinch.mx, my - pinch.my);
+      pinch = { d, mx, my };
+      return;
+    }
     if (panning) {
       renderer.panBy(e.clientX - lastPan.x, e.clientY - lastPan.y);
       lastPan = { x: e.clientX, y: e.clientY };
+    } else if (rulerDrag) {
+      const g = renderer.clientToGrid(e.clientX, e.clientY, sim.n);
+      if (g) analyze.dragRuler(g);
+    } else if (touchTap && e.pointerId === touchTap.id) {
+      if (Math.hypot(e.clientX - touchTap.x, e.clientY - touchTap.y) > 9) {
+        touchTap = null;
+        seeding = true;   // finger is dragging: paint seeds
+      }
     } else if (seeding && !opt.active) {
       seedAt(e);
     }
   });
   for (const ev of ["pointerup", "pointercancel"] as const)
-    canvas.addEventListener(ev, () => { seeding = false; panning = false; lastSeed = { x: -1e9, y: -1e9 }; });
+    canvas.addEventListener(ev, e => {
+      pts.delete(e.pointerId);
+      if (pts.size < 2) pinch = null;
+      if (rulerDrag) { rulerDrag = false; void analyze.endRuler(); }
+      if (touchTap && e.pointerId === touchTap.id) {
+        if (ev === "pointerup") seedAt(e);   // clean tap: seed on release
+        touchTap = null;
+      }
+      seeding = false;
+      panning = false;
+      lastSeed = { x: -1e9, y: -1e9 };
+    });
   canvas.addEventListener("contextmenu", e => e.preventDefault());
   canvas.addEventListener("wheel", e => {
     e.preventDefault();
@@ -316,6 +398,8 @@ async function boot() {
       }
       renderer.render(sim, view, t / 1000);
     }
+    analyze.applyProbe();
+    analyze.updateOverlay();
 
     statsClock += dt;
     if (statsClock > 0.25) {
@@ -323,7 +407,10 @@ async function boot() {
       void sim.readStats().then(s => {
         if (s) {
           lastStats = s;
-          if (!opt.active) hud.push(s);
+          if (!opt.active) {
+            hud.push(s);
+            analyze.onStats(s, sim.simTime);
+          }
           challenge.onStats(s);
         }
       });
