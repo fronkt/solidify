@@ -61,6 +61,14 @@ export interface UIHost extends AppControl {
   setSliceAxis(a: number): void;
   getSliceOff(): number;
   setSliceOff(v: number): void;
+  getSliceTilt(): number;
+  setSliceTilt(v: number): void;
+  getSliceTurn(): number;
+  setSliceTurn(v: number): void;
+  getSliceSweep(): boolean;
+  setSliceSweep(b: boolean): void;
+  getCutStyle(): number;
+  setCutStyle(v: number): void;
   getSym3(): number;
   setSym3(j: number): void;
 }
@@ -78,13 +86,11 @@ export class UI {
   private symBtns: HTMLButtonElement[] = [];
   private gridBtns: HTMLButtonElement[] = [];
   private grid3Btns: HTMLButtonElement[] = [];
-  private axisBtns: HTMLButtonElement[] = [];
   private scenBtns: HTMLButtonElement[] = [];
   private bridgePanel!: HTMLElement;
   private weldPanel!: HTMLElement;
   private alloyPanel!: HTMLElement;
   private pixelRow!: HTMLElement;
-  private slicePanel!: HTMLElement;
   private only2d: HTMLElement[] = [];
   private only3d: HTMLElement[] = [];
   private readouts = document.getElementById("readouts")!;
@@ -447,22 +453,8 @@ export class UI {
     this.binds.push({ update: () => { stainSel.value = String(host.getStain()); } });
     const ebsdChk = this.check(look, "EBSD flat map (ORIENT lens)", () => host.getEbsd(), b => host.setEbsd(b));
     this.only2d.push(ebsdChk.parentElement as HTMLElement);
-    // 3D: section-plane controls for the SLICE lens
-    this.slicePanel = document.createElement("div");
-    this.slicePanel.className = "subpanel";
-    look.append(this.slicePanel);
-    const axRow = this.btnRow(this.slicePanel);
-    ["cut ⊥ X", "cut ⊥ Y", "cut ⊥ Z"].forEach((label, i) => {
-      const b = this.button(axRow, label, () => { host.setSliceAxis(i); this.sync(); });
-      this.axisBtns.push(b);
-    });
-    this.slider(this.slicePanel, "section depth", 0.02, 0.98, 0.005,
-      () => host.getSliceOff(), v => host.setSliceOff(v), v => `${(v * 100).toFixed(0)}%`);
-    const sliceNote = document.createElement("div");
-    sliceNote.className = "matnote";
-    sliceNote.textContent = "SLICE lens: section the ingot like a metallographer — shift-drag on the melt scrubs the depth";
-    this.slicePanel.append(sliceNote);
-    this.only3d.push(this.slicePanel);
+    // (the SLICE section-plane controls live in the floating SECTION PLANE
+    // popup — src/slicepanel.ts — shown with the SLICE lens)
     const lrow = this.btnRow(look);
     this.button(lrow, "reset view", () => host.resetZoom());
 
@@ -562,9 +554,7 @@ export class UI {
       const j = Number(b.dataset.j);
       b.classList.toggle("on", m3 ? host.getSym3() === j : p.aniMode === j);
     }
-    this.axisBtns.forEach((b, i) => b.classList.toggle("on", i === host.getSliceAxis()));
     this.grid3Btns.forEach(b => b.classList.toggle("on", Number(b.dataset.n) === host.getGrid3()));
-    this.slicePanel.style.display = m3 && host.getView3d() === 2 ? "block" : "none";
     this.scenBtns.forEach((b, i) => b.classList.toggle("on", i === p.scen));
     this.bridgePanel.style.display = !m3 && p.scen === 1 ? "block" : "none";
     this.weldPanel.style.display = !m3 && p.scen === 2 ? "block" : "none";

@@ -299,13 +299,17 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 `;
 
 // ------------------------------------------------------------- render pass
-// RParams3D slot map (128 B; four trailing vec4f at byte offsets 48/64/80/96)
+// RParams3D slot map (144 B; vec4s at byte offsets 48/64/80/96/112/128)
+// flags bits 4–7 = cut-face style: 0 orientation tint · 1 Nital · 2 Klemm's ·
+// 3 Beraha's · 4 EBSD-IPF · 5 Niyama ramp
 export const R3 = {
   view: 0, n: 1, canvasW: 2, canvasH: 3,
-  time: 4, sliceAxis: 5, sliceOff: 6, flags: 7,
-  meltGlow: 8, tFar: 9, stepScale: 10,
-  eye: 12, right: 16, up: 20, fwd: 24,   // vec4 starts (f32 slots)
-  BYTES: 128,
+  time: 4, res0: 5, res1: 6, flags: 7,
+  meltGlow: 8, tFar: 9, stepScale: 10, _padA: 11,
+  sliceN: 12,                            // vec4f: unit normal + plane constant c (voxels)
+  eye: 16, right: 20, up: 24, fwd: 28,   // vec4 starts (f32 slots)
+  misc: 32,                              // vec4f: x = simTime, y = nyCrit
+  BYTES: 144,
 } as const;
 
 /**
@@ -332,22 +336,24 @@ fn stateFine(p: vec3f) -> vec2f {
 
   return /* wgsl */ `
 struct RParams3D {
-  view: u32,        // 0 MELT, 1 ORIENT, 2 SLICE, 3 FIELD
+  view: u32,        // lens index
   n: u32,
   canvasW: f32,
   canvasH: f32,
   time: f32,
-  sliceAxis: u32,   // 0 x, 1 y, 2 z
-  sliceOff: f32,    // 0..1 along the axis
-  flags: u32,
+  res0: f32,
+  res1: f32,
+  flags: u32,       // bits 4-7: cut-face style
   meltGlow: f32,
   tFar: f32,
   stepScale: f32,   // fine-march step in voxels
   _padA: f32,
+  sliceN: vec4f,    // unit section-plane normal + plane constant c (voxels)
   eye: vec4f,       // xyz + tanHalfFov in w
   right: vec4f,     // xyz + aspect in w
   up: vec4f,
   fwd: vec4f,
+  misc: vec4f,      // x = simTime, y = Niyama critical value
 }
 const PI = 3.14159265359;
 @group(0) @binding(0) var<uniform> R: RParams3D;
@@ -438,14 +444,23 @@ fn shadeSurface(p: vec3f, rd: vec3f, orientLens: bool) -> vec3f {
   return steel * (0.72 + 0.28 * grainCol(id)) + ember + vec3f(0.08, 0.085, 0.1) * rim;
 }
 
-// micrograph colouring of a point on the section plane (SLICE lens)
+// orientation hue fraction from the grain's quaternion axis (shared by
+// the IPF / tint-etch cut-face styles)
+fn cutHue(id: u32) -> f32 {
+  let q = quats[min(id, ${MAX_GRAINS3 - 1}u)];
+  let ax = qrotR(q, vec3f(0.0, 0.0, 1.0));
+  return fract(atan2(ax.y, ax.x) / (2.0 * PI) + ax.z * 0.31);
+}
+
+// micrograph colouring of a point on the section plane (SLICE lens);
+// style comes from R.flags bits 4-7 — the real lab's etch cabinet
 fn sliceColor(p: vec3f) -> vec3f {
   let s = stateAt(p);
   let id = grainAt(p);
+  let style = (R.flags >> 4u) & 15u;
+  // grain-boundary detect in the cut plane
+  var gb = 0.0;
   if (s.r > 0.5) {
-    // etched grain: orientation tint + boundary detect in the cut plane
-    var col = grainCol(id) * (0.55 + 0.45 * hashf(id, 3u, 57u));
-    var gb = 0.0;
     for (var k = 0; k < 6; k++) {
       var d = vec3i(1, 0, 0);
       if (k == 1) { d = vec3i(-1, 0, 0); }
@@ -457,10 +472,35 @@ fn sliceColor(p: vec3f) -> vec3f {
       let nid = textureLoad(grain, nc, 0).r;
       if (nid != 0u && nid != id && textureLoad(state, nc, 0).r > 0.5) { gb = 1.0; }
     }
-    return col * (1.0 - gb * 0.65);
   }
-  // liquid on the cut: incandescent glow
-  return heat(s.g * R.meltGlow) * 0.85 + vec3f(0.01, 0.012, 0.018);
+  if (s.r <= 0.5) {
+    if (style == 0u) {
+      // live view: incandescent liquid on the cut
+      return heat(s.g * R.meltGlow) * 0.85 + vec3f(0.01, 0.012, 0.018);
+    }
+    // etched-micrograph styles: liquid reads as pale mounting resin
+    return vec3f(0.955, 0.945, 0.925);
+  }
+  let idh = hashf(id, 17u, 91u);
+  let lum = 0.58 + 0.24 * idh;
+  var col: vec3f;
+  if (style == 1u) {          // plain Nital
+    col = vec3f(lum) * vec3f(0.99, 0.965, 0.915);
+    col *= 1.0 - gb * 0.82;
+  } else if (style == 2u) {   // Klemm's tint etch: straw browns to steel blues
+    col = mix(vec3f(0.72, 0.53, 0.33), vec3f(0.30, 0.45, 0.66), cutHue(id)) * (0.55 + 0.75 * lum);
+    col *= 1.0 - gb * 0.6;
+  } else if (style == 3u) {   // Beraha's: pale blue to violet
+    col = mix(vec3f(0.42, 0.55, 0.78), vec3f(0.67, 0.48, 0.74), cutHue(id)) * (0.55 + 0.75 * lum);
+    col *= 1.0 - gb * 0.6;
+  } else if (style == 4u) {   // EBSD / IPF map: flat orientation hue, black GB
+    col = hue2rgb(cutHue(id)) * 0.92 + 0.06;
+    col *= 1.0 - gb * 0.9;
+  } else {                    // 0 (default): orientation tint on the live cut
+    col = grainCol(id) * (0.55 + 0.45 * hashf(id, 3u, 57u));
+    col *= 1.0 - gb * 0.65;
+  }
+  return col;
 }
 
 @fragment
@@ -491,11 +531,8 @@ fn fmain(in: VOut) -> @location(0) vec4f {
     var cutFront = -1.0;   // camera in the removed half: cut face fronts the volume
     var cutBack = -1.0;    // camera in the kept half: plane truncates the far side
     if (R.view == 2u) {
-      let ax = R.sliceAxis;
-      var nrm = vec3f(1.0, 0.0, 0.0);
-      if (ax == 1u) { nrm = vec3f(0.0, 1.0, 0.0); }
-      if (ax == 2u) { nrm = vec3f(0.0, 0.0, 1.0); }
-      let off = R.sliceOff * nf;
+      let nrm = R.sliceN.xyz;
+      let off = R.sliceN.w;
       let denom = dot(rd, nrm);
       let camSide = dot(ro, nrm) - off;
       if (abs(denom) < 1e-6) {

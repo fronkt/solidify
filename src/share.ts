@@ -15,6 +15,7 @@ export interface ShareState {
   sched?: [number, number, number] | null;  // applied recipe cooling schedule
   d?: 1;                                    // 1 = the setup lives in TRUE-3D mode
   g3?: number;                              // 3D grid edge (128 / 160 / 192)
+  sl?: [number, number, number, number, number]; // section plane: axis, off, tilt, turn, style
 }
 
 // grid-derived / runtime fields that must never ride a link

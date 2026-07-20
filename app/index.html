@@ -52,6 +52,13 @@
     /* 2D-only chrome folds away in TRUE-3D mode */
     body.mode3d #hud, body.mode3d #tourBtn, body.mode3d #scalebar, body.mode3d #thermbar,
     body.mode3d #sembar, body.mode3d #apanels, body.mode3d #overlay, body.mode3d #tour { display: none !important; }
+    /* floating SECTION PLANE panel (SLICE lens) */
+    #slicePop { position: absolute; left: 18px; bottom: 62px; width: 252px; display: none; z-index: 6;
+      background: rgba(15,17,21,0.9); border: 1px solid var(--line); border-radius: 6px;
+      padding: 9px 11px 8px; backdrop-filter: blur(6px); }
+    #slicePop .t { font-size: 9px; letter-spacing: 0.18em; color: var(--dim); margin-bottom: 7px; }
+    #slicePop .btnrow { margin-bottom: 7px; }
+    #slicePop select { margin-top: 4px; }
     .sec { margin-bottom: 15px; }
     .sec h2 { font-size: 10px; letter-spacing: 0.25em; color: var(--dim); margin-bottom: 8px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
     .sec h2 .tog { margin-left: auto; cursor: pointer; color: var(--dim); font-size: 11px; }
@@ -199,6 +206,7 @@
     <button id="railToggle">controls</button>
     <div id="dimSwitch"></div>
     <canvas id="viewcube" width="184" height="184"></canvas>
+    <div id="slicePop"></div>
     <div id="hud"></div>
     <div id="apanels"></div>
     <svg id="overlay"></svg>

@@ -2,7 +2,8 @@ import { Simulation, DOMAIN_MM, type StatsResult } from "./sim";
 import { MATERIALS, to3D } from "./materials";
 import { Renderer, type ViewMode } from "./render";
 import { Sim3D, type StatsResult3D } from "./sim3d";
-import { Renderer3D } from "./render3d";
+import { Renderer3D, slicePlane } from "./render3d";
+import { SlicePanel } from "./slicepanel";
 import { ViewCube } from "./viewcube";
 import { UI, type UIHost } from "./ui";
 import { Hud } from "./hud";
@@ -74,7 +75,9 @@ async function boot() {
   let rain3d = 0;
   let rainAcc3 = 0;
   let grid3 = caps3d.maxN;
-  const slice = { axis: 0, off: 0.5 };
+  // section plane: preset axis + depth + free tilt/turn, CT-sweep animation,
+  // and the cut-face style (the etch cabinet)
+  const slice = { axis: 0, off: 0.5, tilt: 0, turn: 0, sweep: false, sweepDir: 1, style: 0 };
   let lastStats3: StatsResult3D | null = null;
   let mode3dPending = false;
 
@@ -322,6 +325,14 @@ async function boot() {
     setSliceAxis(a) { slice.axis = Math.max(0, Math.min(2, a)); },
     getSliceOff: () => slice.off,
     setSliceOff(v) { slice.off = Math.max(0.02, Math.min(0.98, v)); },
+    getSliceTilt: () => slice.tilt,
+    setSliceTilt(v) { slice.tilt = Math.max(0, Math.min(90, v)); },
+    getSliceTurn: () => slice.turn,
+    setSliceTurn(v) { slice.turn = ((v % 360) + 360) % 360; },
+    getSliceSweep: () => slice.sweep,
+    setSliceSweep(b) { slice.sweep = b; },
+    getCutStyle: () => slice.style,
+    setCutStyle(v) { slice.style = Math.max(0, Math.min(5, v)); },
     getSym3: () => (sim3d?.params.aniMode3 === 2 ? 6 : 4),
     setSym3(j) {
       if (!sim3d) return;
@@ -356,6 +367,7 @@ async function boot() {
         return location.origin + location.pathname + packShare({
           p: { ...sim.params }, u: undercool, v: view3d, m: material,
           n: alloyName, rain: rain3d, d: 1, g3: sim3d.n,
+          sl: [slice.axis, +slice.off.toFixed(3), Math.round(slice.tilt), Math.round(slice.turn), slice.style],
         });
       }
       return location.origin + location.pathname + packShare({
@@ -386,6 +398,7 @@ async function boot() {
 
   const analyze = new Analyze({ getSim: () => sim, renderer, simParams: () => sim.params });
   const ui = new UI(app, analyze);
+  const slicePanelUI = new SlicePanel(app);
   const tour = new Tour(app);
   const opt = new Optimizer(app);
   const composer = new Composer({
@@ -510,7 +523,9 @@ async function boot() {
       this.drag = null;
       if (!isUp || !d || d.moved || d.btn !== 0) return;
       if (performance.now() - d.t > 350) return;
-      const g = renderer3d?.pickSeedPoint(e.clientX, e.clientY, view3d === 2 ? slice : null);
+      const g = renderer3d?.pickSeedPoint(
+        e.clientX, e.clientY,
+        view3d === 2 && sim3d ? slicePlane(slice, sim3d.n) : null);
       if (g && sim3d) { sim3d.addSeed3D(g[0], g[1], g[2], brush); hideHint(); }
     },
     wheel(e: WheelEvent) {
@@ -658,6 +673,7 @@ async function boot() {
     const dt = Math.min(0.1, Math.max(0, (t - last) / 1000));
     last = Math.max(last, t);
     if (dt > 0) fps = fps * 0.95 + (1 / dt) * 0.05;
+    slicePanelUI.update(mode === "3d" && view3d === 2);
 
     // ------------------------------------------------------- TRUE-3D branch
     if (mode === "3d") {
@@ -674,8 +690,14 @@ async function boot() {
         } else {
           sim3d.step(0); // stamp queued taps so staging is visible while armed
         }
+        // CT sweep: the section plane serially sweeps the volume (pairs with ⏺ rec)
+        if (slice.sweep && view3d === 2) {
+          slice.off += slice.sweepDir * 0.08 * dt;
+          if (slice.off > 0.98) { slice.off = 0.98; slice.sweepDir = -1; }
+          if (slice.off < 0.02) { slice.off = 0.02; slice.sweepDir = 1; }
+        }
         renderer3d.tick(dt);
-        renderer3d.render(sim3d, view3d, t / 1000, slice);
+        renderer3d.render(sim3d, view3d, t / 1000, slicePlane(slice, sim3d.n), slice.style);
         viewcube?.draw(renderer3d.cam());
 
         statsClock += dt;
@@ -788,6 +810,11 @@ async function boot() {
       if ([128, 160, 192].includes(g) && g <= caps3d.maxN) grid3 = g;
       view3d = Math.max(0, Math.min(3, Math.round(shared.v)));
       rain3d = shared.rain ?? 0;
+      if (shared.sl) {
+        app.setSliceAxis(shared.sl[0]); app.setSliceOff(shared.sl[1]);
+        app.setSliceTilt(shared.sl[2]); app.setSliceTurn(shared.sl[3]);
+        app.setCutStyle(shared.sl[4]);
+      }
       void enter3D(true).then(() => { app.setView3d(view3d); ui.sync(); });
     }
   }

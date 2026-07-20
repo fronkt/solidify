@@ -7,6 +7,24 @@ import type { Sim3D } from "./sim3d";
 
 export interface CamState { az: number; el: number; dist: number; tgt: [number, number, number] }
 
+export interface SliceSpec { axis: number; off: number; tilt: number; turn: number }
+export interface SlicePlane { n: [number, number, number]; c: number }
+
+/** slice spec (preset axis + depth + tilt/turn degrees) -> plane {unit n̂, constant c} in voxels */
+export function slicePlane(s: SliceSpec, n: number): SlicePlane {
+  const a = [[1, 0, 0], [0, 1, 0], [0, 0, 1]][s.axis] as [number, number, number];
+  const u = (s.axis === 0 ? [0, 1, 0] : [1, 0, 0]) as [number, number, number];
+  const v = (s.axis === 2 ? [0, 1, 0] : [0, 0, 1]) as [number, number, number];
+  const t = (s.tilt * Math.PI) / 180;
+  const r = (s.turn * Math.PI) / 180;
+  const nh: [number, number, number] = [0, 0, 0];
+  for (let i = 0; i < 3; i++)
+    nh[i] = Math.cos(t) * a[i] + Math.sin(t) * (Math.cos(r) * u[i] + Math.sin(r) * v[i]);
+  const dMin = n * (Math.min(nh[0], 0) + Math.min(nh[1], 0) + Math.min(nh[2], 0));
+  const dMax = n * (Math.max(nh[0], 0) + Math.max(nh[1], 0) + Math.max(nh[2], 0));
+  return { n: nh, c: dMin + s.off * (dMax - dMin) };
+}
+
 const HOME = { az: -0.95, el: 0.42 };
 
 export class Renderer3D {
@@ -172,7 +190,7 @@ export class Renderer3D {
    * given, else the view-facing plane through the volume centre. Returns
    * voxel coords clamped just inside the box, or null when the ray misses.
    */
-  pickSeedPoint(clientX: number, clientY: number, slice: { axis: number; off: number } | null): [number, number, number] | null {
+  pickSeedPoint(clientX: number, clientY: number, plane: SlicePlane | null): [number, number, number] | null {
     const rect = this.canvas.getBoundingClientRect();
     const u = (clientX - rect.left) / Math.max(rect.width, 1);
     const v = (clientY - rect.top) / Math.max(rect.height, 1);
@@ -189,13 +207,11 @@ export class Renderer3D {
     for (let i = 0; i < 3; i++) rd[i] /= rl;
 
     let t: number;
-    if (slice) {
-      const nrm: [number, number, number] = [0, 0, 0];
-      nrm[slice.axis] = 1;
+    if (plane) {
+      const nrm = plane.n;
       const denom = rd[0] * nrm[0] + rd[1] * nrm[1] + rd[2] * nrm[2];
       if (Math.abs(denom) < 1e-6) return null;
-      const off = slice.off * this.n;
-      t = (off - (b.eye[0] * nrm[0] + b.eye[1] * nrm[1] + b.eye[2] * nrm[2])) / denom;
+      t = (plane.c - (b.eye[0] * nrm[0] + b.eye[1] * nrm[1] + b.eye[2] * nrm[2])) / denom;
     } else {
       const c = this.n / 2;
       const denom = rd[0] * b.fwd[0] + rd[1] * b.fwd[1] + rd[2] * b.fwd[2];
@@ -212,7 +228,7 @@ export class Renderer3D {
     return [cl(p[0]), cl(p[1]), cl(p[2])];
   }
 
-  render(sim3: Sim3D, view3: number, time: number, slice: { axis: number; off: number }) {
+  render(sim3: Sim3D, view3: number, time: number, plane: SlicePlane, cutStyle = 0) {
     this.resize3();
     const b = this.basis();
     const u = new Uint32Array(this.rdata);
@@ -222,12 +238,13 @@ export class Renderer3D {
     f[R3.canvasW] = this.canvas.width;
     f[R3.canvasH] = this.canvas.height;
     f[R3.time] = time;
-    u[R3.sliceAxis] = slice.axis;
-    f[R3.sliceOff] = slice.off;
-    u[R3.flags] = 0;
+    u[R3.flags] = (cutStyle & 15) << 4;
     f[R3.meltGlow] = sim3.params.meltGlow;
     f[R3.tFar] = sim3.params.tFar;
     f[R3.stepScale] = 0.7;
+    f[R3.sliceN] = plane.n[0]; f[R3.sliceN + 1] = plane.n[1];
+    f[R3.sliceN + 2] = plane.n[2]; f[R3.sliceN + 3] = plane.c;
+    f[R3.misc] = sim3.simTime; f[R3.misc + 1] = 8.0;
     f[R3.eye] = b.eye[0]; f[R3.eye + 1] = b.eye[1]; f[R3.eye + 2] = b.eye[2]; f[R3.eye + 3] = this.tanHalfFov;
     f[R3.right] = b.right[0]; f[R3.right + 1] = b.right[1]; f[R3.right + 2] = b.right[2];
     f[R3.right + 3] = this.canvas.width / Math.max(this.canvas.height, 1);
