@@ -68,6 +68,7 @@ export class Sim3D {
   private stateTex: GPUTexture[] = [];
   private grainTex: GPUTexture[] = [];
   private fluxTex!: GPUTexture;
+  private ageTex!: GPUTexture;   // rg32float: r = freeze time, g = Niyama at freeze
   private paramBuf!: GPUBuffer;
   private quatBuf!: GPUBuffer;
   private seedBuf!: GPUBuffer;
@@ -124,6 +125,7 @@ export class Sim3D {
   stateTexture(dir: number) { return this.stateTex[dir]; }
   grainTexture(dir: number) { return this.grainTex[dir]; }
   get quatBuffer() { return this.quatBuf; }
+  get ageTexture() { return this.ageTex; }
 
   private build() {
     const d = this.device;
@@ -137,6 +139,7 @@ export class Sim3D {
     this.stateTex = [d.createTexture(texDesc("rg32float")), d.createTexture(texDesc("rg32float"))];
     this.grainTex = [d.createTexture(texDesc("r32uint")), d.createTexture(texDesc("r32uint"))];
     this.fluxTex = d.createTexture(texDesc("rgba32float"));
+    this.ageTex = d.createTexture(texDesc("rg32float"));
 
     this.paramBuf = d.createBuffer({ size: P3.BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.quatBuf = d.createBuffer({ size: MAX_GRAINS3 * 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
@@ -176,6 +179,7 @@ export class Sim3D {
           { binding: 3, resource: this.fluxTex.createView() },
           { binding: 4, resource: so },
           { binding: 5, resource: go },
+          { binding: 6, resource: this.ageTex.createView() },
         ],
       });
       this.stampBG[dir] = d.createBindGroup({
@@ -187,6 +191,7 @@ export class Sim3D {
           { binding: 3, resource: { buffer: this.seedBuf } },
           { binding: 4, resource: so },
           { binding: 5, resource: go },
+          { binding: 6, resource: this.ageTex.createView() },
         ],
       });
       this.statsBG[dir] = d.createBindGroup({
@@ -205,6 +210,7 @@ export class Sim3D {
     for (const t of this.stateTex) t?.destroy();
     for (const t of this.grainTex) t?.destroy();
     this.fluxTex?.destroy();
+    this.ageTex?.destroy();
     this.paramBuf?.destroy();
     this.quatBuf?.destroy();
     this.seedBuf?.destroy();
@@ -216,6 +222,9 @@ export class Sim3D {
     const n = this.n;
     this.params.tFar = tFar;
     const state = new Float32Array(n * n * n * 2);
+    // zeros first double as the age-texture clear
+    this.device.queue.writeTexture(
+      { texture: this.ageTex }, state, { bytesPerRow: n * 8, rowsPerImage: n }, [n, n, n]);
     for (let i = 0; i < n * n * n; i++) state[i * 2 + 1] = tFar;
     for (const t of this.stateTex)
       this.device.queue.writeTexture(

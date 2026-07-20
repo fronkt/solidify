@@ -2,6 +2,7 @@ import { Simulation, DOMAIN_MM, type StatsResult } from "./sim";
 import { MATERIALS, to3D } from "./materials";
 import { Renderer, type ViewMode } from "./render";
 import { Sim3D, type StatsResult3D } from "./sim3d";
+import { LENS3_NAMES } from "./shaders3d";
 import { Renderer3D, slicePlane } from "./render3d";
 import { SlicePanel } from "./slicepanel";
 import { ViewCube } from "./viewcube";
@@ -318,7 +319,7 @@ async function boot() {
       if (mode === "3d") void swapSim3D(n);
     },
     getView3d: () => view3d,
-    setView3d(v) { view3d = Math.max(0, Math.min(3, v)); },
+    setView3d(v) { view3d = Math.max(0, Math.min(LENS3_NAMES.length - 1, v)); },
     getSubsteps3: () => substeps3d,
     setSpeed3(v) { substeps3d = v; turbo = false; },
     getSliceAxis: () => slice.axis,
@@ -630,7 +631,7 @@ async function boot() {
     if (e.target instanceof HTMLInputElement) return;
     if (e.code === "Space") { e.preventDefault(); app.setRun(!app.isRunning()); ui.sync(); }
     if (mode === "3d") {
-      if (/^[1-4]$/.test(e.key)) { app.setView3d(parseInt(e.key) - 1); ui.sync(); }
+      if (/^[1-9]$/.test(e.key)) { app.setView3d(parseInt(e.key) - 1); ui.sync(); }
       return;
     }
     if (/^[0-9]$/.test(e.key)) {
@@ -808,7 +809,7 @@ async function boot() {
     if (shared.d === 1 && caps3d.supported) {
       const g = Math.round(shared.g3 ?? 0);
       if ([128, 160, 192].includes(g) && g <= caps3d.maxN) grid3 = g;
-      view3d = Math.max(0, Math.min(3, Math.round(shared.v)));
+      view3d = Math.max(0, Math.min(LENS3_NAMES.length - 1, Math.round(shared.v)));
       rain3d = shared.rain ?? 0;
       if (shared.sl) {
         app.setSliceAxis(shared.sl[0]); app.setSliceOff(shared.sl[1]);

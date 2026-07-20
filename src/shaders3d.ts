@@ -21,7 +21,7 @@ export const MAX_GRAINS3 = 4096;
 export const MAX_SEEDS3 = 64;
 export const SEED3_STRIDE = 8; // floats per seed: x, y, z, r, id, tact, pad, pad
 
-export const LENS3_NAMES = ["MELT", "ORIENT", "SLICE", "FIELD"];
+export const LENS3_NAMES = ["MELT", "ORIENT", "SLICE", "FIELD", "SEM", "RINGS", "THERM", "NEON", "CURV"];
 
 // Params3D slot map — single source of truth shared with sim3d.writeParams
 // (u = u32 view, f = f32 view over one 128-byte buffer)
@@ -159,6 +159,7 @@ ${COMMON3}
 @group(0) @binding(3) var flux: texture_3d<f32>;
 @group(0) @binding(4) var stateOut: texture_storage_3d<rg32float, write>;
 @group(0) @binding(5) var grainOut: texture_storage_3d<r32uint, write>;
+@group(0) @binding(6) var ageOut: texture_storage_3d<rg32float, write>;
 
 @compute @workgroup_size(4, 4, 4)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -203,6 +204,18 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 
   let TNew = clamp(T + P.dt * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn, -1.0, 2.0);
 
+  // solidification record: freeze time (growth rings) + Niyama at freeze.
+  // Ṫ uses the thermal field only (lapT − cooling), NOT (TNew−T)/dt — the
+  // voxel's own latent release (recalescence) would poison the criterion.
+  if (phi < 0.5 && phiNew >= 0.5) {
+    let gT = vec3f(sE.g - sW.g, sN.g - sS.g, sU.g - sD.g) * inv2dx;
+    let tDotCool = lapT - P.coolRate + P.heatIn;
+    let ny = length(gT) / sqrt(max(-tDotCool, 1e-4));
+    textureStore(ageOut, c, vec4f(P.time, min(ny, 99.0), 0.0, 0.0));
+  } else if (phi >= 0.5 && phiNew < 0.5) {
+    textureStore(ageOut, c, vec4f(0.0));
+  }
+
   // grain id bookkeeping: claim ahead of the front from the best face
   // neighbour, release on remelt (quaternions are CPU-written at seed time
   // only, so claiming reads a fixed table — no race by construction)
@@ -241,6 +254,7 @@ ${COMMON3}
 @group(0) @binding(3) var<storage, read> seeds: array<f32, ${MAX_SEEDS3 * SEED3_STRIDE}>;
 @group(0) @binding(4) var stateOut: texture_storage_3d<rg32float, write>;
 @group(0) @binding(5) var grainOut: texture_storage_3d<r32uint, write>;
+@group(0) @binding(6) var ageOut: texture_storage_3d<rg32float, write>;
 
 @compute @workgroup_size(4, 4, 4)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -249,6 +263,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let s = textureLoad(state, c, 0);
   var phi = s.r;
   var id = textureLoad(grain, c, 0).r;
+  var stamped = false;
   let Tq = clamp(s.g - P.quenchDT, -1.0, 2.0);
   if (phi < 0.3) {
     let p = vec3f(gid) + 0.5;
@@ -261,9 +276,13 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
       let d = distance(p, pos);
       if (d < r) {
         let v = 1.0 - smoothstep(r - 2.0, r, d);
-        if (v > phi) { phi = v; id = u32(seeds[b + 4u]); }
+        if (v > phi) { phi = v; id = u32(seeds[b + 4u]); stamped = true; }
       }
     }
+  }
+  if (stamped && phi >= 0.5) {
+    // seed cores are born solid — record the time, and a benign Niyama
+    textureStore(ageOut, c, vec4f(P.time, 25.0, 0.0, 0.0));
   }
   textureStore(stateOut, c, vec4f(phi, Tq, 0.0, 0.0));
   textureStore(grainOut, c, vec4u(id, 0u, 0u, 0u));
@@ -360,6 +379,7 @@ const PI = 3.14159265359;
 @group(0) @binding(1) var state: texture_3d<f32>;
 @group(0) @binding(2) var grain: texture_3d<u32>;
 @group(0) @binding(3) var<storage, read> quats: array<vec4f>;
+@group(0) @binding(5) var age: texture_3d<f32>;
 ${sampBinding}
 
 struct VOut { @builtin(position) pos: vec4f, @location(0) uv: vec2f }
@@ -383,6 +403,9 @@ fn stateAt(p: vec3f) -> vec2f {
 }
 fn grainAt(p: vec3f) -> u32 {
   return textureLoad(grain, clampC(vec3i(p)), 0).r;
+}
+fn ageAt(p: vec3f) -> vec2f {
+  return textureLoad(age, clampC(vec3i(p)), 0).rg;
 }
 
 // central-difference surface normal at the phi=0.5 crossing
@@ -426,8 +449,8 @@ fn grainCol(id: u32) -> vec3f {
   return polar(hue, hashf(id, 5u, 31u) * 0.6);
 }
 
-// shade a solid surface hit for the MELT / ORIENT lenses
-fn shadeSurface(p: vec3f, rd: vec3f, orientLens: bool) -> vec3f {
+// shade a solid surface hit; lens picks the instrument (SLICE ghosts use ORIENT)
+fn shadeSurface(p: vec3f, rd: vec3f, lens: u32) -> vec3f {
   let nrm = surfNormal(p);
   let L = normalize(vec3f(-0.5, -0.62, 0.6));
   let diff = max(dot(nrm, L), 0.0);
@@ -435,9 +458,40 @@ fn shadeSurface(p: vec3f, rd: vec3f, orientLens: bool) -> vec3f {
   let spec = pow(max(dot(nrm, normalize(L - rd)), 0.0), 26.0);
   let id = grainAt(p);
   let s = stateFine(p);
-  if (orientLens) {
+  if (lens == 1u) {
     let idv = 0.62 + 0.7 * hashf(id, 5u, 31u);
     return grainCol(id) * idv * (0.30 + 0.85 * diff) + vec3f(spec) * 0.25 + vec3f(0.09, 0.10, 0.12) * rim;
+  }
+  if (lens == 4u) {
+    // SEM secondary-electron: edges bright, faces flat gray (scan lines added later)
+    let g = 0.14 + diff * 0.42 + spec * 0.35 + rim * 0.6;
+    return vec3f(g) * vec3f(0.94, 0.97, 1.0);
+  }
+  if (lens == 5u) {
+    // RINGS: growth-band shells by freeze time — 3D tree rings. Band count is
+    // normalized to the total growth time so rings stay readable at any speed.
+    let a = ageAt(p).r;
+    let ageN = clamp(a / max(R.misc.x, 1e-3), 0.0, 1.0);
+    let band = fract(ageN * 8.0);
+    let ring = smoothstep(0.0, 0.3, band) * (1.0 - smoothstep(0.7, 1.0, band));
+    let base = mix(vec3f(0.16, 0.34, 0.44), vec3f(0.95, 0.72, 0.28), ageN);
+    return base * (0.34 + 0.42 * ring + 0.38 * diff) + vec3f(spec) * 0.15;
+  }
+  if (lens == 6u) {
+    // THERM: FLIR ironbow of the surface temperature
+    return ironbow((s.g + 0.25) / 1.35) * (0.55 + 0.5 * diff) + vec3f(spec) * 0.1;
+  }
+  if (lens == 8u) {
+    // CURV: Gibbs–Thomson lens — tips vs necks by interface curvature
+    let e = 1.5;
+    let pxp = phiAt(p + vec3f(e, 0.0, 0.0)); let pxm = phiAt(p - vec3f(e, 0.0, 0.0));
+    let pyp = phiAt(p + vec3f(0.0, e, 0.0)); let pym = phiAt(p - vec3f(0.0, e, 0.0));
+    let pzp = phiAt(p + vec3f(0.0, 0.0, e)); let pzm = phiAt(p - vec3f(0.0, 0.0, e));
+    let lp = (pxp + pxm + pyp + pym + pzp + pzm - 6.0 * phiAt(p)) / (e * e);
+    let gm = length(vec3f(pxp - pxm, pyp - pym, pzp - pzm)) / (2.0 * e);
+    let kappa = clamp(lp * 6.0 / max(gm * 4.0, 0.02), -1.2, 1.2);
+    let kcol = mix(vec3f(0.2, 0.55, 1.0), vec3f(1.0, 0.35, 0.15), kappa * 0.5 + 0.5);
+    return kcol * (0.35 + 0.55 * diff) + vec3f(spec) * 0.1;
   }
   let steel = vec3f(0.11, 0.115, 0.13) * (0.42 + 1.0 * diff) + vec3f(spec) * 0.3;
   let ember = heat(s.g * R.meltGlow) * 0.35;
@@ -568,6 +622,19 @@ fn fmain(in: VOut) -> @location(0) vec4f {
       col = vec3f(I) * vec3f(0.90, 0.94, 1.0);
       col += inferno(clamp((Tm + 0.2) / 1.3, 0.0, 1.0)) * (1.0 - I) * 0.28;
       col += hashf(u32(in.pos.x), u32(in.pos.y), u32(R.time * 15.0) % 256u) * 0.02;
+    } else if (R.view == 7u) {
+      // NEON: volumetric glow of the whole interface — see every arm at once
+      var glow = vec3f(0.0);
+      var tt = t;
+      loop {
+        if (tt >= tMax) { break; }
+        let s = stateAt(ro + rd * tt);
+        let ifc = exp(-pow(abs(s.r - 0.5) / 0.09, 2.0));
+        glow += vec3f(0.25, 0.95, 1.0) * ifc * 0.045;
+        glow += vec3f(1.0, 0.62, 0.18) * exp(-pow((abs(fract(s.g * 12.0) - 0.5) * 2.0) / 0.10, 2.0)) * 0.004 * (1.0 - s.r);
+        tt += 1.5;
+      }
+      col = vec3f(0.012, 0.016, 0.026) + glow;
     } else if (t < tMax) {
       // draw the cut face first when the camera looks through the section
       if (cutFront > 0.0) {
@@ -591,9 +658,14 @@ fn fmain(in: VOut) -> @location(0) vec4f {
         if (t >= tMax) { break; }
         let p = ro + rd * t;
         let s = stateAt(p);
-        if (R.view == 0u && s.r < 0.5) {
-          // MELT: emissive incandescent liquid (smooth-sampled T)
-          acc += trans * heat(stateFine(p).g * R.meltGlow) * emit * 2.0;
+        if (s.r < 0.5 && (R.view == 0u || R.view == 6u)) {
+          if (R.view == 0u) {
+            // MELT: emissive incandescent liquid (smooth-sampled T)
+            acc += trans * heat(stateFine(p).g * R.meltGlow) * emit * 2.0;
+          } else {
+            // THERM: the thermal halo itself, in ironbow
+            acc += trans * ironbow(clamp((stateFine(p).g + 0.25) / 1.35, 0.0, 1.0)) * emit * 0.8;
+          }
           trans *= exp(-absorb * 2.0);
           if (trans < 0.012) { break; }
         }
@@ -630,7 +702,14 @@ fn fmain(in: VOut) -> @location(0) vec4f {
 
       if (hitT > 0.0) {
         let p = ro + rd * hitT;
-        var surf = shadeSurface(p, rd, R.view == 1u || R.view == 2u);
+        var lensS = R.view;
+        if (R.view == 2u) { lensS = 1u; }        // SLICE ghosts shade like ORIENT
+        var surf = shadeSurface(p, rd, lensS);
+        if (R.view == 4u) {
+          // SEM finish: shot noise + scan lines over the detector signal
+          surf += (hashf(u32(in.pos.x), u32(in.pos.y), u32(R.time * 30.0) % 512u) - 0.5) * 0.10;
+          surf += sin(in.pos.y * 1.7) * 0.015;
+        }
         if (cutFront > 0.0) { surf *= 0.55; }    // ghosted behind the cut
         col = acc + trans * surf;
       } else if (cutBack > 0.0 && stateAt(ro + rd * (cutBack - 0.05)).r > 0.5) {

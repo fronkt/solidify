@@ -388,6 +388,17 @@ fn hue2rgb(h: f32) -> vec3f {
   let b = clamp(2.0 - abs(x - 4.0), 0.0, 1.0);
   return vec3f(r, g, b);
 }
+
+// FLIR-style ironbow
+fn ironbow(x: f32) -> vec3f {
+  let t = clamp(x, 0.0, 1.0);
+  var c = mix(vec3f(0.01, 0.0, 0.03), vec3f(0.19, 0.02, 0.31), smoothstep(0.0, 0.25, t));
+  c = mix(c, vec3f(0.64, 0.10, 0.36), smoothstep(0.2, 0.5, t));
+  c = mix(c, vec3f(0.89, 0.36, 0.11), smoothstep(0.45, 0.72, t));
+  c = mix(c, vec3f(0.97, 0.72, 0.19), smoothstep(0.68, 0.9, t));
+  c = mix(c, vec3f(1.0, 0.98, 0.88), smoothstep(0.88, 1.0, t));
+  return c;
+}
 `;
 
 export const RENDER_WGSL = /* wgsl */ `
@@ -446,17 +457,6 @@ fn sampleState(p: vec2f) -> vec4f {
   let s01 = textureLoad(state, cl(i + vec2i(0, 1)), 0);
   let s11 = textureLoad(state, cl(i + vec2i(1, 1)), 0);
   return mix(mix(s00, s10, f.x), mix(s01, s11, f.x), f.y);
-}
-
-// FLIR-style ironbow
-fn ironbow(x: f32) -> vec3f {
-  let t = clamp(x, 0.0, 1.0);
-  var c = mix(vec3f(0.01, 0.0, 0.03), vec3f(0.19, 0.02, 0.31), smoothstep(0.0, 0.25, t));
-  c = mix(c, vec3f(0.64, 0.10, 0.36), smoothstep(0.2, 0.5, t));
-  c = mix(c, vec3f(0.89, 0.36, 0.11), smoothstep(0.45, 0.72, t));
-  c = mix(c, vec3f(0.97, 0.72, 0.19), smoothstep(0.68, 0.9, t));
-  c = mix(c, vec3f(1.0, 0.98, 0.88), smoothstep(0.88, 1.0, t));
-  return c;
 }
 
 const BAYER = array<f32, 16>(

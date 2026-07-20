@@ -82,6 +82,7 @@ export class Renderer3D {
         { binding: 1, resource: sim3.stateTexture(dir).createView() },
         { binding: 2, resource: sim3.grainTexture(dir).createView() },
         { binding: 3, resource: { buffer: sim3.quatBuffer } },
+        { binding: 5, resource: sim3.ageTexture.createView() },
       ];
       if (this.sampler) entries.push({ binding: 4, resource: this.sampler });
       this.bg[dir] = this.device.createBindGroup({
