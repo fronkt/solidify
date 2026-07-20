@@ -409,11 +409,13 @@ async function boot() {
     setSliceSweep(b) { slice.sweep = b; },
     getCutStyle: () => slice.style,
     setCutStyle(v) { slice.style = Math.max(0, Math.min(5, v)); },
-    getSym3: () => (sim3d?.params.aniMode3 === 2 ? 6 : 4),
+    getSym3: () => (sim3d?.params.aniMode3 === 2 ? 6 : sim3d?.params.aniMode3 === 3 ? 5 : 4),
     setSym3(j) {
       if (!sim3d) return;
-      sim3d.params.aniMode3 = j === 6 ? 2 : 1;
+      sim3d.params.aniMode3 = j === 6 ? 2 : j === 5 ? 3 : 1;
       sim3d.params.deltaZ = j === 6 ? 0.03 : 0;
+      // icosahedral convexity edge sits lower than the cubic δ range
+      if (j === 5) sim3d.params.delta = Math.min(sim3d.params.delta, 0.02);
     },
     getHabit: () => sim3d ? sim3d.params.deltaZ : NaN,
     setHabit(v) { if (sim3d) sim3d.params.deltaZ = v; },

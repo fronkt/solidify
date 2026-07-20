@@ -406,7 +406,7 @@ export class UI {
     // symmetry (the crystallographic restriction theorem); 5- and 10-fold are the
     // "forbidden" symmetries only quasicrystals achieve
     const srow = this.btnRow(cr);
-    const sym = (j: number, label: string, in3d = false) => {
+    const sym = (j: number, label: string, where: "2d" | "3d" | "both" = "2d") => {
       const b = this.button(srow, label, () => {
         if (host.getMode() === "3d") host.setSym3(j);
         else p().aniMode = j;
@@ -414,14 +414,16 @@ export class UI {
       });
       b.dataset.j = String(j);
       this.symBtns.push(b);
-      if (!in3d) this.only2d.push(b);
+      if (where === "2d") this.only2d.push(b);
+      if (where === "3d") this.only3d.push(b);
     };
     sym(2, "×2");
     sym(3, "×3");
-    sym(4, "cubic ×4", true);
-    sym(6, "hex ×6", true);
+    sym(4, "cubic ×4", "both");
+    sym(6, "hex ×6", "both");
     sym(5, "×5 quasi");
     sym(10, "×10 quasi");
+    sym(5, "icosa QC", "3d");   // the genuine 3D quasicrystal — six 5-fold axes
     const symNote = document.createElement("div");
     symNote.className = "matnote";
     symNote.textContent = "2·3·4·6 are the only symmetries a periodic lattice allows — 5 and 10 are quasicrystal territory";

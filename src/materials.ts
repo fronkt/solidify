@@ -15,7 +15,7 @@ export interface Material {
 
 /** map a material's 2D symmetry onto the 3D anisotropy model */
 export interface Map3D {
-  aniMode3: 0 | 1 | 2;   // 0 iso, 1 cubic <100>, 2 hex basal plates
+  aniMode3: 0 | 1 | 2 | 3;   // 0 iso, 1 cubic <100>, 2 hex basal plates, 3 icosahedral
   delta: number;
   deltaZ: number;
   supported: boolean;
@@ -27,8 +27,10 @@ export function to3D(m: Material): Map3D {
   const delta = Math.min(m.params.delta ?? 0.04, 0.06);
   if (j === 6) return { aniMode3: 2, delta, deltaZ: 0.03, supported: true };
   if (j === 4) return { aniMode3: 1, delta, deltaZ: 0, supported: true };
-  // 2/3/5/10-fold have no 3D crystal class in this model (icosahedral
-  // quasicrystal anisotropy is a planned stretch) — fall back to cubic
+  // the 2D "forbidden" 5/10-fold get the genuine 3D quasicrystal answer:
+  // icosahedral anisotropy (six 5-fold axes)
+  if (j === 5 || j === 10) return { aniMode3: 3, delta: 0.02, deltaZ: 0, supported: true };
+  // 2/3-fold have no dedicated 3D class here — fall back to cubic
   return {
     aniMode3: 1, delta: 0.03, deltaZ: 0, supported: false,
     note3d: "this symmetry is 2D-only — growing as a model cubic metal in 3D",

@@ -144,6 +144,29 @@ fn aniso3(np: vec3f, P: Params3D) -> Ani {
       P.delta * (6.0 * x * x2 * x2 - 60.0 * x * x2 * y2 + 30.0 * x * y2 * y2),
       P.delta * (-30.0 * x2 * x2 * y + 60.0 * x2 * y * y2 - 6.0 * y * y2 * y2),
       -2.0 * P.deltaZ * np.z);
+  } else if (P.aniMode3 == 3u) {
+    // icosahedral — the honest 3D answer to the "forbidden" 5-fold: energy
+    // built on the six 5-fold axes (0, ±1, φ)/√(1+φ²) + cyclic. K=7, c₀=6
+    // zero-mean Σ(n̂·mᵢ)⁶ (sphere mean 6/7, max 1.04 on the 5-fold axes);
+    // δ clamped to the convexity-safe range (soak-tested at the slider max)
+    let dI = min(P.delta, 0.035);
+    var fsum = 0.0;
+    var gsum = vec3f(0.0);
+    for (var i = 0; i < 6; i++) {
+      var mm = vec3f(0.0, 0.52573111, 0.85065081);
+      if (i == 1) { mm = vec3f(0.0, -0.52573111, 0.85065081); }
+      if (i == 2) { mm = vec3f(0.52573111, 0.85065081, 0.0); }
+      if (i == 3) { mm = vec3f(-0.52573111, 0.85065081, 0.0); }
+      if (i == 4) { mm = vec3f(0.85065081, 0.0, 0.52573111); }
+      if (i == 5) { mm = vec3f(0.85065081, 0.0, -0.52573111); }
+      let dp = dot(np, mm);
+      let dp2 = dp * dp;
+      let dp4 = dp2 * dp2;
+      fsum += dp4 * dp2;
+      gsum += mm * (dp4 * dp);
+    }
+    r.a = 1.0 + dI * (7.0 * fsum - 6.0);
+    r.g = 42.0 * dI * gsum;
   } else {
     r.a = 1.0;
     r.g = vec3f(0.0);

@@ -118,6 +118,14 @@ export const SCENES3: Record<string, (a: TourHost) => void> = {
     a.setWeldAuto(true);
     a.setView3d(0); a.setSpeed(22); a.setRun(true);
   },
+  quasi(a) {
+    a.setSym3(5);   // icosahedral: the genuine 3D forbidden symmetry
+    a.setParams({ scen: 0, delta: 0.02, noiseAmp: 0.008, latent: 1.7, coolRate: 0.02, heatIn: 0 });
+    a.setRain(0); a.setWeldAuto(false);
+    a.clearMelt(0.8);
+    a.seedCenter();
+    a.setView3d(1); a.setSpeed(20); a.setRun(true);
+  },
 };
 
 interface Chapter {
