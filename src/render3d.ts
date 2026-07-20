@@ -105,7 +105,7 @@ export class Renderer3D {
   cam(): CamState { return { az: this.az, el: this.el, dist: this.dist, tgt: [...this.tgt] }; }
 
   orbitBy(dxPx: number, dyPx: number) {
-    this.azT += dxPx * 0.008;
+    this.azT -= dxPx * 0.008;
     this.elT = Math.min(1.45, Math.max(-1.45, this.elT + dyPx * 0.008));
   }
 
