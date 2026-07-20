@@ -149,7 +149,8 @@ export class Sim3D {
       size: [n, n, n],
       dimension: "3d",
       format,
-      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_DST,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING |
+        GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
     });
     this.stateTex = [d.createTexture(texDesc("rg32float")), d.createTexture(texDesc("rg32float"))];
     this.grainTex = [d.createTexture(texDesc("r32uint")), d.createTexture(texDesc("r32uint"))];
@@ -263,6 +264,33 @@ export class Sim3D {
 
   /** per-grain quaternions (CPU mirror) — read-only, for the IPF panel */
   get quats(): Float32Array { return this.quatCPU; }
+
+  /** one-shot φ volume readback (n³ floats) — feeds the STL mesher */
+  async readPhiVolume(): Promise<Float32Array | null> {
+    const n = this.n;
+    const buf = this.device.createBuffer({
+      size: n * n * n * 8,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+    const enc = this.device.createCommandEncoder();
+    enc.copyTextureToBuffer(
+      { texture: this.stateTex[this.dir] },
+      { buffer: buf, bytesPerRow: n * 8, rowsPerImage: n },
+      [n, n, n]);
+    this.device.queue.submit([enc.finish()]);
+    try {
+      await buf.mapAsync(GPUMapMode.READ);
+    } catch {
+      buf.destroy();
+      return null;
+    }
+    const raw = new Float32Array(buf.getMappedRange().slice(0));
+    buf.unmap();
+    buf.destroy();
+    const phi = new Float32Array(n * n * n);
+    for (let i = 0; i < phi.length; i++) phi[i] = raw[i * 2];
+    return phi;
+  }
 
   reset(tFar = this.params.tFar) {
     const n = this.n;

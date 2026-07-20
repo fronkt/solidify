@@ -75,6 +75,8 @@ export interface UIHost extends AppControl {
   setStereoOn(b: boolean): void;
   getIpfOn(): boolean;
   setIpfOn(b: boolean): void;
+  exportSTL(): void;
+  startTurntable(): void;
 }
 
 interface SliderBind { update(): void }
@@ -512,6 +514,17 @@ export class UI {
     volNote.className = "matnote";
     volNote.textContent = "stereology measures the SLICE plane — what a 2D micrograph would tell you vs the 3D truth";
     vol.append(volNote);
+    const vrow = this.btnRow(vol);
+    const stlBtn = this.button(vrow, "⬇ STL — print your dendrite", () => {
+      stlBtn.textContent = "meshing…";
+      host.exportSTL();
+      setTimeout(() => { stlBtn.textContent = "⬇ STL — print your dendrite"; }, 3000);
+    });
+    this.button(vrow, "⏺ 360° turntable", () => host.startTurntable());
+    const expNote = document.createElement("div");
+    expNote.className = "matnote";
+    expNote.textContent = "STL: the crystal you grew as a watertight printable mesh (~40 mm) · 360°: a 6 s orbit recorded to webm";
+    vol.append(expNote);
     this.only3d.push(this.sections["VOLUME · 3D"].root);
 
     // ---- advanced

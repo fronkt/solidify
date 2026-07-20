@@ -81,6 +81,31 @@ async function boot() {
   // and the cut-face style (the etch cabinet)
   const slice = { axis: 0, off: 0.5, tilt: 0, turn: 0, sweep: false, sweepDir: 1, style: 0 };
   let lastStats3: StatsResult3D | null = null;
+  let turntable: { t0: number; az0: number } | null = null;
+
+  /** φ volume → surface-nets worker → binary STL download (or test readout) */
+  async function exportSTL(download: boolean): Promise<{ tris: number; bytes: number } | null> {
+    if (mode !== "3d" || !sim3d) return null;
+    const phi = await sim3d.readPhiVolume();
+    if (!phi) return null;
+    const n = sim3d.n;
+    return new Promise(resolve => {
+      const w = new Worker(new URL("./mc-worker.ts", import.meta.url), { type: "module" });
+      w.onmessage = (ev: MessageEvent<{ stl?: ArrayBuffer; tris?: number; error?: string }>) => {
+        w.terminate();
+        if (!ev.data.stl) { console.error("[solidify] STL:", ev.data.error); resolve(null); return; }
+        if (download) {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(new Blob([ev.data.stl], { type: "model/stl" }));
+          a.download = `solidify-dendrite-${n}.stl`;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+        }
+        resolve({ tris: ev.data.tris!, bytes: ev.data.stl.byteLength });
+      };
+      w.postMessage({ phi: phi.buffer, n, stride: 2, iso: 0.5, boxMm: 40 }, [phi.buffer]);
+    });
+  }
   let mode3dPending = false;
 
   const HINT_2D = "tap the melt to nucleate a crystal · shift-tap for a twin · scroll or pinch to zoom · right-drag to pan";
@@ -131,6 +156,8 @@ async function boot() {
       renderer3d!.resetView();
       mode = "3d";
       document.body.classList.add("mode3d");
+      hud.reset();
+      hud.setMode3(true);
       setHintMode(true);
       ui.sync();
     } finally {
@@ -141,6 +168,8 @@ async function boot() {
   const exit3D = () => {
     mode = "2d";
     document.body.classList.remove("mode3d");
+    hud.reset();
+    hud.setMode3(false);
     setHintMode(false);
     ui.sync();
   };
@@ -276,6 +305,7 @@ async function boot() {
         lastStats3 = null;
         rainAcc3 = 0;
         running3d = false;
+        hud.reset();
         return;
       }
       sim.reset(1 - undercool);
@@ -345,6 +375,12 @@ async function boot() {
     setStereoOn(b) { an3.setStereoOn(b); },
     getIpfOn: () => an3.ipfOn,
     setIpfOn(b) { an3.setIpfOn(b); },
+    exportSTL() { void exportSTL(true); },
+    startTurntable() {
+      if (mode !== "3d" || !renderer3d || turntable) return;
+      if (!recorder) app.toggleRec();
+      turntable = { t0: performance.now(), az0: renderer3d.cam().az };
+    },
     // ---- OptHost
     swapSim(n) {
       const params = { ...sim.params };
@@ -469,6 +505,7 @@ async function boot() {
     cam3: () => renderer3d?.cam() ?? null,
     vc: () => viewcube,
     fps: () => fps,
+    stl: () => exportSTL(false),
     tick(k: number) { for (let i = 0; i < k; i++) frameBody(last + 1000 / 60); },
   };
 
@@ -702,6 +739,16 @@ async function boot() {
         } else {
           sim3d.step(0); // stamp queued taps so staging is visible while armed
         }
+        // 360° turntable: constant-rate spin while the recorder runs
+        if (turntable) {
+          if (!recorder) {
+            turntable = null;   // user stopped the recording early
+          } else {
+            const u2 = (t - turntable.t0) / 6000;
+            renderer3d.spinTo(turntable.az0 + 2 * Math.PI * Math.min(u2, 1));
+            if (u2 >= 1) { turntable = null; app.toggleRec(); }
+          }
+        }
         // CT sweep: the section plane serially sweeps the volume (pairs with ⏺ rec)
         if (slice.sweep && view3d === 2) {
           slice.off += slice.sweepDir * 0.08 * dt;
@@ -715,7 +762,7 @@ async function boot() {
         statsClock += dt;
         if (statsClock > 0.25) {
           statsClock = 0;
-          void sim3d.readStats().then(s => { if (s) lastStats3 = s; });
+          void sim3d.readStats().then(s => { if (s) { lastStats3 = s; hud.push3(s); } });
           an3.tick(0.25);
           const s = lastStats3;
           ui.setReadouts([

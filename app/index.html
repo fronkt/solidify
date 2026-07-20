@@ -49,8 +49,8 @@
       transition: right 0.25s ease, opacity 0.3s; display: none; touch-action: none; }
     body.railHidden #viewcube { right: 14px; }
     body.mode3d #viewcube { display: block; }
-    /* 2D-only chrome folds away in TRUE-3D mode */
-    body.mode3d #hud, body.mode3d #tourBtn, body.mode3d #scalebar, body.mode3d #thermbar,
+    /* 2D-only chrome folds away in TRUE-3D mode (the HUD stays — it carries porosity there) */
+    body.mode3d #tourBtn, body.mode3d #scalebar, body.mode3d #thermbar,
     body.mode3d #sembar, body.mode3d #apanels, body.mode3d #overlay, body.mode3d #tour { display: none !important; }
     /* floating SECTION PLANE panel (SLICE lens) */
     #slicePop { position: absolute; left: 18px; bottom: 62px; width: 252px; display: none; z-index: 6;

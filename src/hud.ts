@@ -1,10 +1,13 @@
 import type { StatsResult } from "./sim";
+import type { StatsResult3D } from "./sim3d";
+import { DOMAIN_MM } from "./sim";
 
-/** ring-buffer sparklines + grain-size histogram */
+/** ring-buffer sparklines + grain-size histogram (2D and TRUE-3D modes) */
 export class Hud {
   private root: HTMLElement;
   private series: Record<string, number[]> = { fs: [], grains: [], dt: [] };
   private canvases: Record<string, CanvasRenderingContext2D> = {};
+  private titles: Record<string, HTMLElement> = {};
   private histCtx!: CanvasRenderingContext2D;
   private cap = 160;
 
@@ -22,6 +25,7 @@ export class Hud {
     const t = document.createElement("div");
     t.className = "t";
     t.textContent = title;
+    this.titles[title.split(" ")[0]] = t;
     const c = document.createElement("canvas");
     c.width = 110 * devicePixelRatio;
     c.height = 30 * devicePixelRatio;
@@ -30,6 +34,11 @@ export class Hud {
     box.append(t, c);
     this.root.append(box);
     return c;
+  }
+
+  /** relabel the ΔT strip for TRUE-3D (it carries porosity % there) */
+  setMode3(on: boolean) {
+    this.titles.INTERFACE.textContent = on ? "POROSITY %" : "INTERFACE ΔT";
   }
 
   private add(key: string, title: string) {
@@ -54,6 +63,21 @@ export class Hud {
     for (const k of Object.keys(this.series))
       if (this.series[k].length > this.cap) this.series[k].shift();
     this.drawAll(s);
+  }
+
+  /** TRUE-3D mode: fs, porosity %, grain count, eq-diameter histogram */
+  push3(s: StatsResult3D) {
+    this.series.fs.push(s.fracSolid);
+    this.series.dt.push(s.poreFrac * 100);
+    this.series.grains.push(s.grainCount);
+    for (const k of Object.keys(this.series))
+      if (this.series[k].length > this.cap) this.series[k].shift();
+    const umPerVox = (DOMAIN_MM * 1000) / 1024;
+    const diams = s.grains.map(g => Math.cbrt((6 * g.vox) / Math.PI) * umPerVox);
+    this.spark("fs", "#ffb454", 1);
+    this.spark("dt", "#e06c60");
+    this.spark("grains", "#b394e0");
+    this.hist(diams);
   }
 
   private drawAll(s: StatsResult | null) {
