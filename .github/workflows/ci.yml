@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+# The headless verify-*.mjs suite (npm test) needs a WebGPU-capable Chrome at a
+# hardcoded local path and is not portable to this runner — see TESTING.md.
+# `npm run typecheck` is available locally as a stricter check but isn't gated
+# here: it currently has two pending noUnusedLocals warnings in src/ui.ts tied
+# to in-progress true-3D-mode scaffolding (LENS3_NAMES, to3D), not build-build
+# breakage, so it isn't wired as a hard CI gate yet.
