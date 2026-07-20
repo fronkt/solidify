@@ -36,7 +36,7 @@ async function shotAt(p, name) {
     const act = document.getElementById("diveAct");
     const sp = act.closest(".pin-spacer") || act;
     const top = sp.getBoundingClientRect().top + scrollY;
-    scrollTo(0, top + pp * 23000);
+    scrollTo(0, top + pp * 19000);
   }, p);
   await new Promise(r => setTimeout(r, 2200));
   await page.screenshot({ path: `${OUT}/${name}.png` });
@@ -54,7 +54,7 @@ console.log("shot fan-b");
 await page.evaluate(() => {
   const act = document.getElementById("diveAct");
   const sp = act.closest(".pin-spacer") || act;
-  scrollTo(0, sp.getBoundingClientRect().top + scrollY + 0.47 * 23000);
+  scrollTo(0, sp.getBoundingClientRect().top + scrollY + 0.47 * 19000);
 });
 const fps = await page.evaluate(() => new Promise(res => {
   let n = 0; const t0 = performance.now();
