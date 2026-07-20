@@ -436,3 +436,18 @@ node once and share it between adjoining segments.
 - [x] PARKED with reasons: polymorph switching (needs solid-state transformation
       physics — new nucleation-in-solid pass), Penrose overlay (decoration; the
       honest QC payoff would be a future FFT "diffraction" instrument)
+
+## v1.8.1 (2026-07-20): enlarge-click fix + activation switch + 3D verdict
+
+- [x] BUG (Frank): #apanels has pointer-events:none so the ⤢ button click fell
+      through to the canvas and SEEDED. Fix: .apanel pointer-events:auto —
+      panels interactive, strip still passes through. Verified with real mouse.
+- [x] Tilt rebuilt as an ACTIVATION SWITCH (.actswitch: pill track + amber-glow
+      knob + "RENDER MODE" tag) per Frank's Illustrator analogy; note says
+      "true 3D: planned"
+- [x] 3D FEASIBILITY PROBE on the live device: maxTextureDimension3D=2048,
+      268MB buffers, 128³ rgba32float texture_storage_3d CREATED and a 3D
+      compute pipeline COMPILED. Verdict: true 3D at 128³–192³ is genuinely
+      buildable as an activation-switch mode (Kobayashi 3D cubic-harmonic
+      anisotropy + raymarched isosurface renderer) — its own build session,
+      NOT this one. Plan when Frank calls it.
