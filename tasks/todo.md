@@ -314,3 +314,22 @@ All verified 2026-07-19 headless (extension pipeline was wedged): live3d boot,
 → SVG dive, reduced-motion → static, 390px OK; deployed + pushed (8569319).
 LESSON: per-endpoint jitter on shared polyline nodes reads as DASHES — lift each
 node once and share it between adjoining segments.
+
+## v1.3 (2026-07-19): the 11-stage instrument ladder (Frank: "detail the tools we use")
+
+- [x] AskUserQuestion round: all four instruments (synchrotron/press/saw/polisher),
+      FULL stage each, synchrotron before the lattice finale
+- [x] Ladder: GPU 300mm (die-lid REVEAL: hinges open to interposer+chiplets) →
+      DIE 40mm → CORES 10mm (SM floorplan, amber solver core, L2 pulses) →
+      SAW 400mm (spinning disc, cast ingot, ballistic sparks, amber slice) →
+      PRESS 200mm (mold sleeve lifts, amber puck revealed, gauge+heater band) →
+      POLISHER 150mm (spinning platen + counter-rotating holder) →
+      MICROSCOPE 5mm (slow Y-spin + stigmator/BSE/feedthrough/porthole/turbo/conduit) →
+      SPECIMEN 500µm (+ spring clips, Vickers indent) → DENDRITE 50µm (tip halos,
+      dives into its nucleus) → LIGHT SOURCE 200m (ring, 12 magnets, RF, undulator,
+      bunches racing, beam pulse to hutch sample) → LATTICE 1nm (HCP triple-ring
+      atoms, amber unit cell, draw-on, CTA)
+- [x] scrub end +=16600, weights per stage, HUD 0X/11 + dynamic dash rail
+- [x] verified headlessly at 18 scroll points; bugs fixed: cores reticle 1.2 units
+      off the amber SM, press/polisher too-tight cameras, lattice atoms drawn as
+      "pins" (vertical ring mis-centered), stray label statement
