@@ -146,7 +146,8 @@ async function boot() {
           { snapTo: d => renderer3d!.snapTo(d), orbitBy: (dx, dy) => renderer3d!.orbitBy(dx, dy) },
         );
       }
-      tour.close();
+      // (the tour survives the switch — part III drives it; the manual dim
+      // switch closes it via closeTour() instead)
       apply3DMaterial();
       sim3d.reset(1 - undercool);
       sim3d.addSeed3D(sim3d.n / 2, sim3d.n / 2, sim3d.n / 2, brush + 1);
@@ -203,6 +204,13 @@ async function boot() {
     clearMelt(u) {
       undercool = u;
       recipeSchedule = null;   // a new scene retires any applied recipe
+      if (mode === "3d" && sim3d) {
+        sim3d.reset(1 - u);
+        hud.reset();
+        lastStats3 = null;
+        rainAcc3 = 0;
+        return;
+      }
       sim.reset(1 - u);
       hud.reset();
       analyze.reset();
@@ -228,13 +236,31 @@ async function boot() {
       hideHint();
     },
     scatterSeeds(count) {
+      if (mode === "3d" && sim3d) {
+        for (let i = 0; i < count; i++)
+          sim3d.addSeed3D(Math.random() * sim3d.n, Math.random() * sim3d.n, Math.random() * sim3d.n, 3.5);
+        return;
+      }
       for (let i = 0; i < count; i++)
         sim.addSeed(Math.random() * sim.n, Math.random() * sim.n, 3.5);
     },
-    setParams(p) { Object.assign(sim.params, p); },
+    // in 3D only the dials both solvers share land on the 3D params — a tour
+    // chapter passing 2D-only fields (scen, alloyOn…) must not pollute them
+    setParams(p) {
+      if (mode === "3d" && sim3d) {
+        const P = sim3d.params as unknown as Record<string, number>;
+        for (const [k, v] of Object.entries(p)) if (k in P) P[k] = v as number;
+        return;
+      }
+      Object.assign(sim.params, p);
+    },
     setRain(v) { if (mode === "3d") rain3d = v; else rain = v; },
     setView(v) { view = v as ViewMode; },
-    setSpeed(v) { substeps = v; turbo = false; },
+    setSpeed(v) {
+      if (mode === "3d") substeps3d = Math.min(22, v);
+      else substeps = v;
+      turbo = false;
+    },
     // while the optimizer owns the stage, the transport drives IT, not the melt
     setRun(on) {
       if (opt.active) opt.setRunning(on);
@@ -341,11 +367,13 @@ async function boot() {
     simTimeNow: () => (mode === "3d" && sim3d ? sim3d.simTime : sim.simTime),
     // ---- TRUE-3D mode surface
     getMode: () => mode,
+    // returns the enter promise so the tour can await the switch before staging
     setMode(m) {
       if (m === mode) return;
-      if (m === "3d") void enter3D();
-      else exit3D();
+      if (m === "3d") return enter3D();
+      exit3D();
     },
+    closeTour() { tour.close(); },
     canSwitchMode: () => caps3d.supported && !opt.active && !challenge.active && !mode3dPending,
     caps3dSizes: () => [128, 160, 192].filter(v => v <= caps3d.maxN),
     getGrid3: () => grid3,

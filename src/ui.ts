@@ -48,8 +48,9 @@ export interface UIHost extends AppControl {
   getAlloyName(): string;
   // TRUE-3D mode
   getMode(): "2d" | "3d";
-  setMode(m: "2d" | "3d"): void;
+  setMode(m: "2d" | "3d"): void | Promise<void>;
   canSwitchMode(): boolean;
+  closeTour(): void;
   caps3dSizes(): number[];
   getGrid3(): number;
   setGrid3(n: number): void;
@@ -143,7 +144,11 @@ export class UI {
     const mount = document.getElementById("dimSwitch")!;
     const row = this.actSwitch(mount, "TRUE 3D", "VOLUME",
       () => this.host.getMode() === "3d",
-      b => this.host.setMode(b ? "3d" : "2d"));
+      b => {
+        // flipping the switch by hand is the user taking over — end the tour
+        this.host.closeTour();
+        void this.host.setMode(b ? "3d" : "2d");
+      });
     this.binds.push({
       update: () => {
         const ok = this.host.canSwitchMode() || this.host.getMode() === "3d";

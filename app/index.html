@@ -49,9 +49,10 @@
       transition: right 0.25s ease, opacity 0.3s; display: none; touch-action: none; }
     body.railHidden #viewcube { right: 14px; }
     body.mode3d #viewcube { display: block; }
-    /* 2D-only chrome folds away in TRUE-3D mode (the HUD stays — it carries porosity there) */
-    body.mode3d #tourBtn, body.mode3d #scalebar, body.mode3d #thermbar,
-    body.mode3d #sembar, body.mode3d #apanels, body.mode3d #overlay, body.mode3d #tour { display: none !important; }
+    /* 2D-only chrome folds away in TRUE-3D mode (the HUD and the tour stay —
+       porosity lives on the HUD, part III of the tour lives in the volume) */
+    body.mode3d #scalebar, body.mode3d #thermbar,
+    body.mode3d #sembar, body.mode3d #apanels, body.mode3d #overlay { display: none !important; }
     /* floating SECTION PLANE panel (SLICE lens) */
     #slicePop { position: absolute; left: 18px; bottom: 62px; width: 252px; display: none; z-index: 6;
       background: rgba(15,17,21,0.9); border: 1px solid var(--line); border-radius: 6px;

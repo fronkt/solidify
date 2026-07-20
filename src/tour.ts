@@ -21,6 +21,19 @@ export interface AppControl {
   clearReveals(): void;
 }
 
+// What the tour itself needs beyond AppControl (declared locally — importing
+// UIHost from ui.ts would create a module cycle). main's `app` satisfies both.
+export interface TourHost extends AppControl {
+  getMode(): "2d" | "3d";
+  setMode(m: "2d" | "3d"): void | Promise<void>;
+  canSwitchMode(): boolean;
+  setView3d(v: number): void;
+  setSym3(j: number): void;
+  setSliceSweep(b: boolean): void;
+  setCutStyle(v: number): void;
+  setStereoOn(b: boolean): void;
+}
+
 const NO_SCEN: Partial<PhysParams> = { scen: 0, heatIn: 0, facet: 0 };
 
 // Named scenes: used by the preset buttons AND the tour chapters.
@@ -88,9 +101,10 @@ interface Chapter {
   title: string;
   body: string;
   watch: string;
-  apply?(app: AppControl): void;
+  apply?(app: TourHost): void;
   hl?: string[];     // reveal targets ("sec:TITLE" or CSS selector)
   part?: string;     // extra label in the chapter counter
+  dim?: "2d" | "3d"; // instrument mode this chapter runs in (default 2d)
 }
 
 export const CHAPTERS: Chapter[] = [
@@ -256,28 +270,123 @@ export const CHAPTERS: Chapter[] = [
     watch: "That is the whole instrument. Go freeze something.",
     hl: [],
   },
+
+  // ---- part III: the same physics with its missing dimension restored ------
+  {
+    part: "THE THIRD DIMENSION",
+    dim: "3d",
+    title: "Part III: out of the plane",
+    body: "Everything so far was a 2D section of a 3D event. A real cubic dendrite grows six primary arms — one pair per crystal axis — and a real grain is a polyhedron you can only understand by walking around it. This flips the instrument into TRUE 3D: seven million voxels solving the same phase-field equations, drawn by marching rays through the volume.",
+    watch: "One seed, six arms, locked to ⟨100⟩. The glow is the same latent heat as chapter two — now escaping in three dimensions, which is exactly why 3D tips grow sharper than 2D theory predicts.",
+    apply(a) {
+      a.setRain(0);
+      a.setSym3(4);
+      a.setParams({ delta: 0.05, noiseAmp: 0.006, latent: 1.6, coolRate: 0, heatIn: 0 });
+      a.clearMelt(1.0);
+      a.seedCenter();
+      a.setView3d(0); a.setSpeed(14); a.setRun(true);
+    },
+  },
+  {
+    part: "THE THIRD DIMENSION",
+    dim: "3d",
+    title: "Orbit it",
+    body: "The camera is an instrument now. Drag to orbit, wheel to dolly, right-drag to pan. Or use the cube, exactly as in a CAD package: faces snap to engineering views, edges and corners to isometrics, and dragging the cube spins the crystal in your hand.",
+    watch: "Hover the ViewCube — faces, edges and corners all light up. Tap the melt to nucleate at depth; shift-tap drops a Σ3 twin pair, two crystals locked at 60° about a shared ⟨111⟩ axis.",
+    hl: ["#viewcube"],
+  },
+  {
+    part: "THE THIRD DIMENSION",
+    dim: "3d",
+    title: "Section it",
+    body: "A metallurgist cannot see inside an opaque solid either. The lab answer is serial sectioning: grind, polish, image, repeat, and rebuild the volume from slices. The SLICE lens is that section plane — free to move, tilt and turn — and CT SWEEP drives it through the volume like a tomography scan. The cut face renders as etched metal or as an EBSD orientation map.",
+    watch: "The plane is sweeping a many-grain casting on the EBSD style. Open STEREOLOGY in VOLUME · 3D: the grain size measured on the section runs smaller than the true 3D size, because a random plane almost never cuts a grain through its equator. Sections lie small — that correction is a century of stereology.",
+    apply(a) {
+      a.setSym3(4);
+      a.setParams({ delta: 0.045, noiseAmp: 0.012, latent: 1.5, coolRate: 0.1, heatIn: 0 });
+      a.clearMelt(0.85);
+      a.scatterSeeds(30);
+      a.setRain(6);
+      a.setView3d(2);
+      a.setSliceSweep(true);
+      a.setCutStyle(4);
+      a.setStereoOn(true);
+      a.setSpeed(18); a.setRun(true);
+    },
+    hl: ["sec:VOLUME · 3D"],
+  },
+  {
+    part: "THE THIRD DIMENSION",
+    dim: "3d",
+    title: "Inspect it",
+    body: "Now the defect that makes inspection an industry. A casting freezes from the walls inward; liquid pockets that lose their feed path to the riser shrink into voids as they solidify — shrinkage porosity. The FIELD lens is the x-ray radiograph NDT uses to find it: pores read as dark specks in the transmission image. The section plane's Niyama style maps |∇T|/√Ṫ, the foundry criterion that flags starved regions before they turn into pores.",
+    watch: "A chill floor, nucleation rain, and hard cooling — a real casting recipe. Watch POROSITY % climb in the HUD as unfed pockets freeze. Then open the SECTION PLANE and switch the cut style to the Niyama map: the risk lights up ahead of the defects.",
+    apply(a) {
+      a.setSym3(4);
+      a.setParams({ delta: 0.045, noiseAmp: 0.014, latent: 1.85, coolRate: 0.28, heatIn: 0 });
+      a.clearMelt(0.62);
+      a.chillWall("auto");
+      a.setRain(3);
+      a.setSliceSweep(false);
+      a.setCutStyle(5);
+      a.setView3d(3);
+      a.setSpeed(20); a.setRun(true);
+    },
+    hl: ["#hud"],
+  },
+  {
+    part: "THE THIRD DIMENSION",
+    dim: "3d",
+    title: "Take it home",
+    body: "Everything you grow is yours to keep. STL meshes the crystal into a watertight, printable surface straight from the φ field — closed pore shells included. 360° records a six-second orbit to webm while the physics keeps running. And the share link carries the entire setup, section plane and all, to anyone with a browser.",
+    watch: "That is the whole lab: cast it, orbit it, section it, inspect it, print it. Go fill the volume.",
+    hl: ["sec:VOLUME · 3D"],
+  },
 ];
 
 export class Tour {
   private el: HTMLElement;
   private btn: HTMLElement;
-  constructor(private app: AppControl) {
+  private nav = 0;   // navigation token: a newer goto/close cancels one awaiting a mode switch
+  constructor(private app: TourHost) {
     this.el = document.getElementById("tour")!;
     this.btn = document.getElementById("tourBtn")!;
-    this.btn.addEventListener("click", () => this.goto(0));
+    // from 3D the tour opens straight onto part III; the 2D chapters would
+    // otherwise yank the user out of the volume they are looking at
+    this.btn.addEventListener("click", () => {
+      const p3 = CHAPTERS.findIndex(c => c.dim === "3d");
+      void this.goto(this.app.getMode() === "3d" && p3 >= 0 ? p3 : 0);
+    });
   }
-  goto(i: number) {
+  async goto(i: number) {
     if (i < 0 || i >= CHAPTERS.length) return this.close();
+    const my = ++this.nav;
     const ch = CHAPTERS[i];
+    // settle the instrument mode BEFORE staging the chapter — apply() must hit
+    // the solver the chapter was written for
+    const want = ch.dim ?? "2d";
+    let blocked = false;
+    if (this.app.getMode() !== want) {
+      if (want === "3d" && !this.app.canSwitchMode()) blocked = true;
+      else await this.app.setMode(want);
+      if (my !== this.nav) return;   // user navigated on while the mode swapped
+      if (this.app.getMode() !== want) blocked = true;
+    }
     this.app.clearReveals();
-    ch.apply?.(this.app);
-    this.app.syncUI();
-    ch.hl?.forEach(t => this.app.reveal(t));
+    if (!blocked) {
+      ch.apply?.(this.app);
+      this.app.syncUI();
+      ch.hl?.forEach(t => this.app.reveal(t));
+    } else this.app.syncUI();
+    const body = blocked
+      ? "The volume mode isn't available right now — it needs an idle instrument (no optimizer or challenge running) and a WebGPU device with room for the 3D field. The story anyway: " + ch.body
+      : ch.body;
+    const watch = blocked ? "Part III is best experienced live — try a desktop with WebGPU." : ch.watch;
     this.el.innerHTML = `
       <div class="ch">TOUR · ${i + 1} / ${CHAPTERS.length}${ch.part ? " · " + ch.part : ""}</div>
       <h3>${ch.title}</h3>
-      <p>${ch.body}</p>
-      <div class="watch">▸ ${ch.watch}</div>
+      <p>${body}</p>
+      <div class="watch">▸ ${watch}</div>
       <div class="nav"></div>`;
     const nav = this.el.querySelector(".nav")!;
     const mk = (label: string, fn: () => void) => {
@@ -286,13 +395,14 @@ export class Tour {
       b.addEventListener("click", fn);
       nav.append(b);
     };
-    if (i > 0) mk("◂ back", () => this.goto(i - 1));
-    mk(i < CHAPTERS.length - 1 ? "next ▸" : "finish", () => this.goto(i + 1));
+    if (i > 0) mk("◂ back", () => void this.goto(i - 1));
+    mk(i < CHAPTERS.length - 1 ? "next ▸" : "finish", () => void this.goto(i + 1));
     mk("close", () => this.close());
     this.el.classList.add("show");
     this.btn.classList.add("hide");
   }
   close() {
+    this.nav++;
     this.app.clearReveals();
     this.el.classList.remove("show");
     this.btn.classList.remove("hide");
