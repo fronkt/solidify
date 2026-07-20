@@ -1,7 +1,8 @@
 import type { AppControl } from "./tour";
 import { SCENES } from "./tour";
 import { LENS_NAMES } from "./shaders";
-import { MATERIALS } from "./materials";
+import { LENS3_NAMES } from "./shaders3d";
+import { MATERIALS, to3D } from "./materials";
 import type { PhysParams } from "./sim";
 import type { Analyze } from "./analyze";
 
@@ -45,6 +46,23 @@ export interface UIHost extends AppControl {
   isRecording(): boolean;
   toggleRec(): void;
   getAlloyName(): string;
+  // TRUE-3D mode
+  getMode(): "2d" | "3d";
+  setMode(m: "2d" | "3d"): void;
+  canSwitchMode(): boolean;
+  caps3dSizes(): number[];
+  getGrid3(): number;
+  setGrid3(n: number): void;
+  getView3d(): number;
+  setView3d(v: number): void;
+  getSubsteps3(): number;
+  setSpeed3(v: number): void;
+  getSliceAxis(): number;
+  setSliceAxis(a: number): void;
+  getSliceOff(): number;
+  setSliceOff(v: number): void;
+  getSym3(): number;
+  setSym3(j: number): void;
 }
 
 interface SliderBind { update(): void }
@@ -53,16 +71,22 @@ export class UI {
   private binds: SliderBind[] = [];
   private sections: Record<string, { root: HTMLElement; setOpen: (b: boolean) => void }> = {};
   private viewBtns: HTMLButtonElement[] = [];
+  private viewBtns3: HTMLButtonElement[] = [];
   private runBtn!: HTMLButtonElement;
   private turboBtn!: HTMLButtonElement;
   private recBtn!: HTMLButtonElement;
   private symBtns: HTMLButtonElement[] = [];
   private gridBtns: HTMLButtonElement[] = [];
+  private grid3Btns: HTMLButtonElement[] = [];
+  private axisBtns: HTMLButtonElement[] = [];
   private scenBtns: HTMLButtonElement[] = [];
   private bridgePanel!: HTMLElement;
   private weldPanel!: HTMLElement;
   private alloyPanel!: HTMLElement;
   private pixelRow!: HTMLElement;
+  private slicePanel!: HTMLElement;
+  private only2d: HTMLElement[] = [];
+  private only3d: HTMLElement[] = [];
   private readouts = document.getElementById("readouts")!;
   private lastPixel = 6;
 
@@ -70,6 +94,7 @@ export class UI {
     this.buildViews();
     this.buildTransport();
     this.buildRail();
+    this.buildDimSwitch();
     document.getElementById("railToggle")!.addEventListener("click", () => {
       document.getElementById("rail")!.classList.toggle("hidden");
       document.body.classList.toggle("railHidden");
@@ -85,6 +110,32 @@ export class UI {
       b.addEventListener("click", () => { this.host.setView(i); this.sync(); });
       el.append(b);
       this.viewBtns.push(b);
+    });
+    LENS3_NAMES.forEach((name, i) => {
+      const b = document.createElement("button");
+      b.textContent = name;
+      b.title = `3D lens ${i + 1}`;
+      b.style.display = "none";
+      b.addEventListener("click", () => { this.host.setView3d(i); this.sync(); });
+      el.append(b);
+      this.viewBtns3.push(b);
+    });
+  }
+
+  /** the 2D ↔ 3D activation switch, floating just below the CONTROLS button */
+  private buildDimSwitch() {
+    const mount = document.getElementById("dimSwitch")!;
+    const row = this.actSwitch(mount, "TRUE 3D", "VOLUME",
+      () => this.host.getMode() === "3d",
+      b => this.host.setMode(b ? "3d" : "2d"));
+    this.binds.push({
+      update: () => {
+        const ok = this.host.canSwitchMode() || this.host.getMode() === "3d";
+        row.classList.toggle("disabled", !ok);
+        row.title = ok
+          ? "volumetric phase-field — heavier render, orbit camera"
+          : "3D needs an idle instrument (finish the optimizer / challenge) and a capable GPU";
+      },
     });
   }
 
@@ -154,8 +205,13 @@ export class UI {
     inp.min = String(min); inp.max = String(max); inp.step = String(step);
     const val = document.createElement("div");
     val.className = "val";
-    const update = () => { inp.value = String(get()); val.textContent = fmt(get()); };
-    inp.addEventListener("input", () => { set(parseFloat(inp.value)); val.textContent = fmt(get()); });
+    // rows bound to params the other mode doesn't have read undefined — show a dash
+    const update = () => {
+      const v = get();
+      inp.value = String(Number.isFinite(v) ? v : min);
+      val.textContent = Number.isFinite(v) ? fmt(v) : "—";
+    };
+    inp.addEventListener("input", () => { set(parseFloat(inp.value)); update(); });
     row.append(lab, inp, val);
     parent.append(row);
     update();
@@ -218,6 +274,7 @@ export class UI {
     for (const name of ["dendrite", "snow", "seaweed", "quasi", "rain", "casting", "bridgman", "weld", "alloy"]) {
       this.button(prow, name, () => { SCENES[name](host); this.sync(); });
     }
+    this.only2d.push(this.sections.PRESETS.root);
 
     // ---- material identity (qualitative parameter bundles)
     const mat = this.section(rail, "MATERIAL");
@@ -234,8 +291,21 @@ export class UI {
     mat.append(sel, matNote);
     this.binds.push({
       update: () => {
+        const m3 = host.getMode() === "3d";
+        for (const o of Array.from(sel.options)) {
+          const mm = MATERIALS[o.value];
+          const map = mm ? to3D(mm) : null;
+          const off = m3 && map != null && !map.supported;
+          o.disabled = off;
+          const base = mm?.label ?? o.value;
+          o.textContent = off ? `${base} · 2D only` : base;
+        }
         sel.value = host.getMaterial();
-        matNote.textContent = MATERIALS[host.getMaterial()]?.note ?? "";
+        const mm = MATERIALS[host.getMaterial()];
+        const map = mm ? to3D(mm) : null;
+        matNote.textContent = m3 && map && !map.supported
+          ? (map.note3d ?? "")
+          : mm?.note ?? "";
       },
     });
 
@@ -244,6 +314,7 @@ export class UI {
     const mrow0 = this.btnRow(modes);
     this.button(mrow0, "engineer it (optimizer)", () => { host.startOptimizer(); this.sync(); });
     this.button(mrow0, "⚔ challenge", () => host.startChallenge());
+    this.only2d.push(this.sections.MODES.root);
 
     // ---- melt / process
     const melt = this.section(rail, "MELT · PROCESS", true);
@@ -252,8 +323,8 @@ export class UI {
     this.slider(melt, "nucleation /s", 0, 30, 0.5, () => host.getRain(), v => host.setRain(v), v => v.toFixed(1));
     const mrow = this.btnRow(melt);
     this.button(mrow, "seed", () => host.seedCenter());
-    this.button(mrow, "twin seed", () => host.twinSeedCenter());
-    this.button(mrow, "chill wall", () => host.chillWall("auto"));
+    this.only2d.push(this.button(mrow, "twin seed", () => host.twinSeedCenter()));
+    this.only2d.push(this.button(mrow, "chill wall", () => host.chillWall("auto")));
     this.button(mrow, "quench ⚡", () => host.quench());
     const annealBtn = this.button(mrow, "anneal ⌛", () => {});
     annealBtn.addEventListener("pointerdown", () => host.anneal(true));
@@ -282,6 +353,7 @@ export class UI {
     this.slider(this.weldPanel, "spot size", 2, 9, 0.5, () => p().weldSig, v => { p().weldSig = v; }, v => v.toFixed(1));
     this.check(this.weldPanel, "auto raster (click melt to steer)", () => host.getWeldAuto(), b => host.setWeldAuto(b));
     this.slider(this.weldPanel, "sweep speed", 10, 140, 2, () => host.getWeldSweep(), v => host.setWeldSweep(v), v => v.toFixed(0));
+    this.only2d.push(this.sections.SCENARIO.root);
 
     // ---- alloy
     const alloy = this.section(rail, "ALLOY");
@@ -296,6 +368,7 @@ export class UI {
     this.slider(this.alloyPanel, "composition c₀", 0.05, 0.7, 0.01, () => p().c0, v => { p().c0 = v; });
     this.slider(this.alloyPanel, "liquidus slope", 0.1, 0.8, 0.01, () => p().mLiq, v => { p().mLiq = v; });
     this.slider(this.alloyPanel, "solute D", 0.2, 1.5, 0.05, () => p().dSol, v => { p().dSol = v; });
+    this.only2d.push(this.sections.ALLOY.root);
 
     // ---- crystal
     const cr = this.section(rail, "CRYSTAL");
@@ -304,51 +377,63 @@ export class UI {
     // symmetry (the crystallographic restriction theorem); 5- and 10-fold are the
     // "forbidden" symmetries only quasicrystals achieve
     const srow = this.btnRow(cr);
-    const sym = (j: number, label: string) => {
-      const b = this.button(srow, label, () => { p().aniMode = j; this.sync(); });
+    const sym = (j: number, label: string, in3d = false) => {
+      const b = this.button(srow, label, () => {
+        if (host.getMode() === "3d") host.setSym3(j);
+        else p().aniMode = j;
+        this.sync();
+      });
       b.dataset.j = String(j);
       this.symBtns.push(b);
+      if (!in3d) this.only2d.push(b);
     };
     sym(2, "×2");
     sym(3, "×3");
-    sym(4, "cubic ×4");
-    sym(6, "hex ×6");
+    sym(4, "cubic ×4", true);
+    sym(6, "hex ×6", true);
     sym(5, "×5 quasi");
     sym(10, "×10 quasi");
     const symNote = document.createElement("div");
     symNote.className = "matnote";
     symNote.textContent = "2·3·4·6 are the only symmetries a periodic lattice allows — 5 and 10 are quasicrystal territory";
     cr.append(symNote);
-    this.check(cr, "faceted growth (cusped ε)", () => p().facet > 0.5, b => { p().facet = b ? 1 : 0; });
+    const facetChk = this.check(cr, "faceted growth (cusped ε)", () => p().facet > 0.5, b => { p().facet = b ? 1 : 0; });
+    this.only2d.push(facetChk.parentElement as HTMLElement);
     const facNote = document.createElement("div");
     facNote.className = "matnote";
     facNote.textContent = "cusped interface energy pins flat facets — silicon and intermetallics grow this way";
     cr.append(facNote);
+    this.only2d.push(facNote);
     this.slider(cr, "tip noise", 0, 0.04, 0.001, () => p().noiseAmp, v => { p().noiseAmp = v; }, v => v.toFixed(3));
     this.slider(cr, "latent heat K", 0.8, 2.2, 0.01, () => p().latent, v => { p().latent = v; });
-    this.slider(cr, "twin rate", 0, 0.004, 0.0001, () => p().twinProb, v => { p().twinProb = v; },
-      v => v > 0 ? `${(v * 1000).toFixed(1)}‰` : "off");
+    this.only2d.push(this.slider(cr, "twin rate", 0, 0.004, 0.0001, () => p().twinProb, v => { p().twinProb = v; },
+      v => v > 0 ? `${(v * 1000).toFixed(1)}‰` : "off"));
 
     // ---- look
     const look = this.section(rail, "LOOK");
-    this.check(look, "pixel mode", () => host.getPixel() > 0, b => {
+    const pixChk = this.check(look, "pixel mode", () => host.getPixel() > 0, b => {
       host.setPixel(b ? this.lastPixel : 0);
     });
+    this.only2d.push(pixChk.parentElement as HTMLElement);
     this.pixelRow = this.slider(look, "pixel size", 2, 24, 1,
       () => (host.getPixel() > 0 ? host.getPixel() : this.lastPixel),
       v => { this.lastPixel = v; if (host.getPixel() > 0) host.setPixel(v); },
       v => `${v.toFixed(0)}px`);
-    this.check(look, "8-bit palette + dither", () => host.getPalette(), b => host.setPalette(b));
-    this.actSwitch(look, "2.5D RELIEF", "RENDER MODE", () => host.getTilt(), b => host.setTilt(b));
+    const palChk = this.check(look, "8-bit palette + dither", () => host.getPalette(), b => host.setPalette(b));
+    this.only2d.push(palChk.parentElement as HTMLElement);
+    const tiltRow = this.actSwitch(look, "2.5D RELIEF", "RENDER MODE", () => host.getTilt(), b => host.setTilt(b));
+    this.only2d.push(tiltRow);
     const tiltNote = document.createElement("div");
     tiltNote.className = "matnote";
-    tiltNote.textContent = "raking-light oblique view — same 2D physics, extruded by solidification age · true 3D: planned";
+    tiltNote.textContent = "raking-light oblique view — same 2D physics, extruded by solidification age · true 3D: flip the TRUE 3D switch";
     look.append(tiltNote);
+    this.only2d.push(tiltNote);
     // metallographic staining: tint etchants colour grains by orientation (ETCH lens)
     const stainNote = document.createElement("div");
     stainNote.className = "matnote";
     stainNote.textContent = "grain stain · shows in the ETCH lens";
     look.append(stainNote);
+    this.only2d.push(stainNote);
     const stainSel = document.createElement("select");
     ["no stain (plain Nital)", "Klemm's tint etch", "Beraha's tint etch", "anodize + crossed polars"].forEach((label, i) => {
       const o = document.createElement("option");
@@ -358,20 +443,53 @@ export class UI {
     });
     stainSel.addEventListener("change", () => { host.setStain(parseInt(stainSel.value, 10)); this.sync(); });
     look.append(stainSel);
+    this.only2d.push(stainSel);
     this.binds.push({ update: () => { stainSel.value = String(host.getStain()); } });
-    this.check(look, "EBSD flat map (ORIENT lens)", () => host.getEbsd(), b => host.setEbsd(b));
+    const ebsdChk = this.check(look, "EBSD flat map (ORIENT lens)", () => host.getEbsd(), b => host.setEbsd(b));
+    this.only2d.push(ebsdChk.parentElement as HTMLElement);
+    // 3D: section-plane controls for the SLICE lens
+    this.slicePanel = document.createElement("div");
+    this.slicePanel.className = "subpanel";
+    look.append(this.slicePanel);
+    const axRow = this.btnRow(this.slicePanel);
+    ["cut ⊥ X", "cut ⊥ Y", "cut ⊥ Z"].forEach((label, i) => {
+      const b = this.button(axRow, label, () => { host.setSliceAxis(i); this.sync(); });
+      this.axisBtns.push(b);
+    });
+    this.slider(this.slicePanel, "section depth", 0.02, 0.98, 0.005,
+      () => host.getSliceOff(), v => host.setSliceOff(v), v => `${(v * 100).toFixed(0)}%`);
+    const sliceNote = document.createElement("div");
+    sliceNote.className = "matnote";
+    sliceNote.textContent = "SLICE lens: section the ingot like a metallographer — shift-drag on the melt scrubs the depth";
+    this.slicePanel.append(sliceNote);
+    this.only3d.push(this.slicePanel);
     const lrow = this.btnRow(look);
     this.button(lrow, "reset view", () => host.resetZoom());
 
     // ---- engine
     const sm = this.section(rail, "ENGINE");
-    this.slider(sm, "speed", 1, 60, 1, () => host.getSubsteps(), v => host.setSpeed(v), v => `${v.toFixed(0)}×`);
+    this.only2d.push(
+      this.slider(sm, "speed", 1, 60, 1, () => host.getSubsteps(), v => host.setSpeed(v), v => `${v.toFixed(0)}×`));
+    this.only3d.push(
+      this.slider(sm, "speed (3D)", 1, 22, 1, () => host.getSubsteps3(), v => host.setSpeed3(v), v => `${v.toFixed(0)}×`));
     this.slider(sm, "brush size", 2, 18, 0.5, () => host.getBrush(), v => host.setBrush(v), v => v.toFixed(1));
     const grow = this.btnRow(sm);
     for (const n of [512, 1024, 2048]) {
       const b = this.button(grow, `${n}²`, () => { host.setGrid(n); this.sync(); });
       this.gridBtns.push(b);
     }
+    this.only2d.push(grow);
+    const grow3 = this.btnRow(sm);
+    for (const n of host.caps3dSizes()) {
+      const b = this.button(grow3, `${n}³`, () => { host.setGrid3(n); this.sync(); });
+      b.dataset.n = String(n);
+      this.grid3Btns.push(b);
+    }
+    const gridNote3 = document.createElement("div");
+    gridNote3.className = "matnote";
+    gridNote3.textContent = "192³ = 7.1M voxels — expect ~30 fps; drop to 128³ for full speed";
+    sm.append(gridNote3);
+    this.only3d.push(grow3, gridNote3);
 
     // ---- analyze: foundry instruments
     const an = this.section(rail, "ANALYZE");
@@ -388,6 +506,7 @@ export class UI {
     rres.className = "matnote";
     an.append(rres);
     this.analyze.attachResultEl(rres);
+    this.only2d.push(this.sections.ANALYZE.root);
 
     // ---- advanced
     const adv = this.section(rail, "ADVANCED");
@@ -395,7 +514,7 @@ export class UI {
     this.slider(adv, "kinetics γ", 4, 25, 0.5, () => p().gamma, v => { p().gamma = v; }, v => v.toFixed(1));
     this.slider(adv, "driving α", 0.6, 1.0, 0.01, () => p().alpha, v => { p().alpha = v; });
     this.slider(adv, "relax τ ×10⁻⁴", 1.5, 8, 0.1, () => p().tau * 1e4, v => { p().tau = v * 1e-4; }, v => v.toFixed(1));
-    this.slider(adv, "partition k", 0.05, 0.9, 0.01, () => p().kPart, v => { p().kPart = v; });
+    this.only2d.push(this.slider(adv, "partition k", 0.05, 0.9, 0.01, () => p().kPart, v => { p().kPart = v; }));
     const shareB = this.button(this.btnRow(adv), "⎘ copy setup link", () => {
       void navigator.clipboard.writeText(host.shareLink()).then(() => {
         shareB.textContent = "copied ✓";
@@ -425,20 +544,40 @@ export class UI {
     for (const b of this.binds) b.update();
     const host = this.host;
     const p = host.simParams();
-    this.viewBtns.forEach((b, i) => b.classList.toggle("on", i === host.getView()));
-    for (const b of this.symBtns) b.classList.toggle("on", p.aniMode === Number(b.dataset.j));
+    const m3 = host.getMode() === "3d";
+
+    // mode gating: 2D-only vs 3D-only rows, sections and buttons
+    for (const el of this.only2d) el.style.display = m3 ? "none" : "";
+    for (const el of this.only3d) el.style.display = m3 ? "" : "none";
+
+    this.viewBtns.forEach((b, i) => {
+      b.style.display = m3 ? "none" : "";
+      b.classList.toggle("on", !m3 && i === host.getView());
+    });
+    this.viewBtns3.forEach((b, i) => {
+      b.style.display = m3 ? "" : "none";
+      b.classList.toggle("on", m3 && i === host.getView3d());
+    });
+    for (const b of this.symBtns) {
+      const j = Number(b.dataset.j);
+      b.classList.toggle("on", m3 ? host.getSym3() === j : p.aniMode === j);
+    }
+    this.axisBtns.forEach((b, i) => b.classList.toggle("on", i === host.getSliceAxis()));
+    this.grid3Btns.forEach(b => b.classList.toggle("on", Number(b.dataset.n) === host.getGrid3()));
+    this.slicePanel.style.display = m3 && host.getView3d() === 2 ? "block" : "none";
     this.scenBtns.forEach((b, i) => b.classList.toggle("on", i === p.scen));
-    this.bridgePanel.style.display = p.scen === 1 ? "block" : "none";
-    this.weldPanel.style.display = p.scen === 2 ? "block" : "none";
-    this.alloyPanel.style.display = p.alloyOn === 1 ? "block" : "none";
-    this.pixelRow.style.display = host.getPixel() > 0 ? "flex" : "none";
+    this.bridgePanel.style.display = !m3 && p.scen === 1 ? "block" : "none";
+    this.weldPanel.style.display = !m3 && p.scen === 2 ? "block" : "none";
+    this.alloyPanel.style.display = !m3 && p.alloyOn === 1 ? "block" : "none";
+    this.pixelRow.style.display = !m3 && host.getPixel() > 0 ? "flex" : "none";
 
     this.runBtn.textContent = host.isRunning() ? "⏸ pause" : "▶ run";
     this.runBtn.classList.toggle("accent", !host.isRunning());
     this.turboBtn.classList.toggle("on", host.isTurbo());
     this.recBtn.textContent = host.isRecording() ? "⏹ stop" : "⏺ rec";
     this.recBtn.classList.toggle("rec", host.isRecording());
-    document.getElementById("matline")!.textContent = host.getAlloyName();
+    document.getElementById("matline")!.textContent =
+      host.getAlloyName() + (m3 ? ` · 3D ${host.getGrid3()}³` : "");
     const grids = [512, 1024, 2048];
     this.gridBtns.forEach((b, i) => b.classList.toggle("on", grids[i] === host.getGrid()));
 

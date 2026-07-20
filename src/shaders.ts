@@ -338,6 +338,58 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 // Lenses: 0 MELT 1 ORIENT 2 ETCH 3 FIELD 4 RINGS 5 THERM 6 SEM 7 NEON 8 XRAY 9 CURV
 export const LENS_NAMES = ["MELT", "ORIENT", "ETCH", "FIELD", "RINGS", "THERM", "SEM", "NEON", "XRAY", "CURV"];
 
+// shared colour toolkit: used by the 2D lenses and the 3D raymarcher alike
+export const PALETTE_WGSL = /* wgsl */ `
+fn hashf(x: u32, y: u32, z: u32) -> f32 {
+  var v = x * 747796405u + y * 2891336453u + z * 3546859427u + 2654435769u;
+  v ^= v >> 16u; v *= 2246822519u; v ^= v >> 13u; v *= 3266489917u; v ^= v >> 16u;
+  return f32(v) * (1.0 / 4294967295.0);
+}
+
+// incandescent ramp
+fn heat(T: f32) -> vec3f {
+  let t = clamp((T - 0.15) / 0.9, 0.0, 1.0);
+  var c = mix(vec3f(0.012, 0.011, 0.016), vec3f(0.135, 0.014, 0.008), smoothstep(0.0, 0.38, t));
+  c = mix(c, vec3f(0.62, 0.11, 0.015), smoothstep(0.3, 0.62, t));
+  c = mix(c, vec3f(1.0, 0.42, 0.06), smoothstep(0.55, 0.82, t));
+  c = mix(c, vec3f(1.18, 0.83, 0.35), smoothstep(0.78, 0.95, t));
+  c = mix(c, vec3f(1.35, 1.18, 0.95), smoothstep(0.92, 1.0, t));
+  return c;
+}
+
+fn inferno(x: f32) -> vec3f {
+  let t = clamp(x, 0.0, 1.0);
+  var c = mix(vec3f(0.001, 0.0, 0.014), vec3f(0.34, 0.06, 0.38), smoothstep(0.0, 0.3, t));
+  c = mix(c, vec3f(0.73, 0.21, 0.33), smoothstep(0.25, 0.55, t));
+  c = mix(c, vec3f(0.98, 0.55, 0.13), smoothstep(0.5, 0.8, t));
+  c = mix(c, vec3f(0.99, 0.99, 0.75), smoothstep(0.78, 1.0, t));
+  return c;
+}
+
+// cross-polarised metallographic palette
+fn polar(h: f32, idh: f32) -> vec3f {
+  let c1 = vec3f(0.93, 0.68, 0.20);
+  let c2 = vec3f(0.16, 0.42, 0.72);
+  let c3 = vec3f(0.74, 0.28, 0.55);
+  let c4 = vec3f(0.24, 0.63, 0.60);
+  let t = fract(h + idh * 0.13);
+  var c = mix(c1, c2, smoothstep(0.0, 0.33, t));
+  c = mix(c, c3, smoothstep(0.33, 0.66, t));
+  c = mix(c, c4, smoothstep(0.66, 0.92, t));
+  c = mix(c, c1, smoothstep(0.92, 1.0, t));
+  return c;
+}
+
+// hue wheel for the EBSD-style flat orientation map
+fn hue2rgb(h: f32) -> vec3f {
+  let x = fract(h) * 6.0;
+  let r = clamp(abs(x - 3.0) - 1.0, 0.0, 1.0);
+  let g = clamp(2.0 - abs(x - 2.0), 0.0, 1.0);
+  let b = clamp(2.0 - abs(x - 4.0), 0.0, 1.0);
+  return vec3f(r, g, b);
+}
+`;
+
 export const RENDER_WGSL = /* wgsl */ `
 struct RParams {
   view: u32,
@@ -374,11 +426,7 @@ fn vmain(@builtin(vertex_index) vi: u32) -> VOut {
   return out;
 }
 
-fn hashf(x: u32, y: u32, z: u32) -> f32 {
-  var v = x * 747796405u + y * 2891336453u + z * 3546859427u + 2654435769u;
-  v ^= v >> 16u; v *= 2246822519u; v ^= v >> 13u; v *= 3266489917u; v ^= v >> 16u;
-  return f32(v) * (1.0 / 4294967295.0);
-}
+${PALETTE_WGSL}
 
 fn cl(c: vec2i) -> vec2i { return clamp(c, vec2i(0), vec2i(i32(R.n) - 1)); }
 
@@ -400,26 +448,6 @@ fn sampleState(p: vec2f) -> vec4f {
   return mix(mix(s00, s10, f.x), mix(s01, s11, f.x), f.y);
 }
 
-// incandescent ramp
-fn heat(T: f32) -> vec3f {
-  let t = clamp((T - 0.15) / 0.9, 0.0, 1.0);
-  var c = mix(vec3f(0.012, 0.011, 0.016), vec3f(0.135, 0.014, 0.008), smoothstep(0.0, 0.38, t));
-  c = mix(c, vec3f(0.62, 0.11, 0.015), smoothstep(0.3, 0.62, t));
-  c = mix(c, vec3f(1.0, 0.42, 0.06), smoothstep(0.55, 0.82, t));
-  c = mix(c, vec3f(1.18, 0.83, 0.35), smoothstep(0.78, 0.95, t));
-  c = mix(c, vec3f(1.35, 1.18, 0.95), smoothstep(0.92, 1.0, t));
-  return c;
-}
-
-fn inferno(x: f32) -> vec3f {
-  let t = clamp(x, 0.0, 1.0);
-  var c = mix(vec3f(0.001, 0.0, 0.014), vec3f(0.34, 0.06, 0.38), smoothstep(0.0, 0.3, t));
-  c = mix(c, vec3f(0.73, 0.21, 0.33), smoothstep(0.25, 0.55, t));
-  c = mix(c, vec3f(0.98, 0.55, 0.13), smoothstep(0.5, 0.8, t));
-  c = mix(c, vec3f(0.99, 0.99, 0.75), smoothstep(0.78, 1.0, t));
-  return c;
-}
-
 // FLIR-style ironbow
 fn ironbow(x: f32) -> vec3f {
   let t = clamp(x, 0.0, 1.0);
@@ -429,29 +457,6 @@ fn ironbow(x: f32) -> vec3f {
   c = mix(c, vec3f(0.97, 0.72, 0.19), smoothstep(0.68, 0.9, t));
   c = mix(c, vec3f(1.0, 0.98, 0.88), smoothstep(0.88, 1.0, t));
   return c;
-}
-
-// cross-polarised metallographic palette
-fn polar(h: f32, idh: f32) -> vec3f {
-  let c1 = vec3f(0.93, 0.68, 0.20);
-  let c2 = vec3f(0.16, 0.42, 0.72);
-  let c3 = vec3f(0.74, 0.28, 0.55);
-  let c4 = vec3f(0.24, 0.63, 0.60);
-  let t = fract(h + idh * 0.13);
-  var c = mix(c1, c2, smoothstep(0.0, 0.33, t));
-  c = mix(c, c3, smoothstep(0.33, 0.66, t));
-  c = mix(c, c4, smoothstep(0.66, 0.92, t));
-  c = mix(c, c1, smoothstep(0.92, 1.0, t));
-  return c;
-}
-
-// hue wheel for the EBSD-style flat orientation map
-fn hue2rgb(h: f32) -> vec3f {
-  let x = fract(h) * 6.0;
-  let r = clamp(abs(x - 3.0) - 1.0, 0.0, 1.0);
-  let g = clamp(2.0 - abs(x - 2.0), 0.0, 1.0);
-  let b = clamp(2.0 - abs(x - 4.0), 0.0, 1.0);
-  return vec3f(r, g, b);
 }
 
 const BAYER = array<f32, 16>(

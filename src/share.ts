@@ -13,6 +13,8 @@ export interface ShareState {
   n?: string;                               // display name (composed alloys)
   rain?: number;                            // nucleation seeds per second
   sched?: [number, number, number] | null;  // applied recipe cooling schedule
+  d?: 1;                                    // 1 = the setup lives in TRUE-3D mode
+  g3?: number;                              // 3D grid edge (128 / 160 / 192)
 }
 
 // grid-derived / runtime fields that must never ride a link

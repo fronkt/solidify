@@ -1,6 +1,9 @@
 import { Simulation, DOMAIN_MM, type StatsResult } from "./sim";
-import { MATERIALS } from "./materials";
+import { MATERIALS, to3D } from "./materials";
 import { Renderer, type ViewMode } from "./render";
+import { Sim3D, type StatsResult3D } from "./sim3d";
+import { Renderer3D } from "./render3d";
+import { ViewCube } from "./viewcube";
 import { UI, type UIHost } from "./ui";
 import { Hud } from "./hud";
 import { Tour, SCENES } from "./tour";
@@ -17,8 +20,22 @@ async function boot() {
   if (!navigator.gpu) return gate();
   const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
   if (!adapter) return gate();
-  const device = await adapter.requestDevice();
+  // float32-filterable buys the 3D raymarcher hardware trilinear sampling
+  const wantFilter = adapter.features.has("float32-filterable");
+  const device = await adapter.requestDevice({
+    requiredFeatures: wantFilter ? ["float32-filterable" as GPUFeatureName] : [],
+  });
   device.lost.then(info => { if (info.reason !== "destroyed") gate(); });
+
+  // TRUE-3D capability gate: limits first; real memory gating happens in the
+  // Sim3D.create OOM ladder (192 -> 160 -> 128) and is remembered
+  const caps3d = {
+    supported:
+      adapter.limits.maxTextureDimension3D >= 128 &&
+      adapter.limits.maxStorageTexturesPerShaderStage >= 2,
+    maxN: adapter.limits.maxTextureDimension3D >= 192 ? 192
+      : adapter.limits.maxTextureDimension3D >= 160 ? 160 : 128,
+  };
 
   const canvas = document.getElementById("canvas") as HTMLCanvasElement;
   let sim = new Simulation(device, 1024);
@@ -46,6 +63,107 @@ async function boot() {
   // exactly the way the optimizer's episodes ran it
   let recipeSchedule: [number, number, number] | null = null;
 
+  // ------------------------------------------------------- TRUE-3D mode state
+  let mode: "2d" | "3d" = "2d";
+  let sim3d: Sim3D | null = null;
+  let renderer3d: Renderer3D | null = null;
+  let viewcube: ViewCube | null = null;
+  let view3d = 0;                 // 0 MELT, 1 ORIENT, 2 SLICE, 3 FIELD
+  let running3d = true;
+  let substeps3d = 8;
+  let rain3d = 0;
+  let rainAcc3 = 0;
+  let grid3 = caps3d.maxN;
+  const slice = { axis: 0, off: 0.5 };
+  let lastStats3: StatsResult3D | null = null;
+  let mode3dPending = false;
+
+  const HINT_2D = "tap the melt to nucleate a crystal · shift-tap for a twin · scroll or pinch to zoom · right-drag to pan";
+  const HINT_3D = "tap to nucleate in the volume · drag to orbit · wheel to dolly · right-drag to pan";
+  const setHintMode = (m3: boolean) => {
+    const h = document.getElementById("hint")!;
+    h.textContent = m3 ? HINT_3D : HINT_2D;
+    if (m3) h.classList.remove("gone");
+  };
+
+  /** carry the current material + shared dials onto the 3D solver */
+  const apply3DMaterial = () => {
+    if (!sim3d) return;
+    const m3 = to3D(MATERIALS[material] ?? MATERIALS.generic);
+    Object.assign(sim3d.params, {
+      aniMode3: m3.aniMode3,
+      delta: m3.delta,
+      deltaZ: m3.deltaZ,
+      latent: sim.params.latent,
+      noiseAmp: sim.params.noiseAmp,
+      meltGlow: sim.params.meltGlow,
+      coolRate: sim.params.coolRate,
+    });
+  };
+
+  /** lazy-create the 3D stack once, then start a fresh melt with a centre seed */
+  const enter3D = async (armed = false) => {
+    if (mode3dPending || opt.active || challenge.active || !caps3d.supported) return;
+    mode3dPending = true;
+    try {
+      if (!sim3d) {
+        sim3d = await Sim3D.create(device, grid3);
+        if (!sim3d) { caps3d.supported = false; ui.sync(); return; }
+        grid3 = sim3d.n;
+        renderer3d = new Renderer3D(device, canvas, sim3d);
+        viewcube = new ViewCube(
+          document.getElementById("viewcube") as HTMLCanvasElement,
+          { snapTo: d => renderer3d!.snapTo(d), orbitBy: (dx, dy) => renderer3d!.orbitBy(dx, dy) },
+        );
+      }
+      tour.close();
+      apply3DMaterial();
+      sim3d.reset(1 - undercool);
+      sim3d.addSeed3D(sim3d.n / 2, sim3d.n / 2, sim3d.n / 2, brush + 1);
+      lastStats3 = null;
+      rainAcc3 = 0;
+      running3d = !armed;
+      renderer3d!.resetView();
+      mode = "3d";
+      document.body.classList.add("mode3d");
+      setHintMode(true);
+      ui.sync();
+    } finally {
+      mode3dPending = false;
+    }
+  };
+
+  const exit3D = () => {
+    mode = "2d";
+    document.body.classList.remove("mode3d");
+    setHintMode(false);
+    ui.sync();
+  };
+
+  /** rebuild the 3D solver at a new grid edge (destroy first — ~283 MB at 192³) */
+  const swapSim3D = async (n: number) => {
+    if (!sim3d || mode3dPending) return;
+    mode3dPending = true;
+    try {
+      const params = { ...sim3d.params };
+      sim3d.destroy();
+      sim3d = null;
+      const created = await Sim3D.create(device, n);
+      if (!created) { caps3d.supported = false; exit3D(); return; }
+      created.params = params;
+      created.reset(1 - undercool);
+      created.addSeed3D(created.n / 2, created.n / 2, created.n / 2, brush + 1);
+      sim3d = created;
+      grid3 = created.n;
+      renderer3d!.rebind3(created);
+      lastStats3 = null;
+      running3d = true;
+      ui.sync();
+    } finally {
+      mode3dPending = false;
+    }
+  };
+
   const app: UIHost & OptHost = {
     // ---- AppControl (scenes / tour)
     clearMelt(u) {
@@ -59,7 +177,11 @@ async function boot() {
       sim.params.weldY = sim.n * 0.2;
       weldDir = 1;
     },
-    seedCenter() { sim.addSeed(sim.n / 2, sim.n / 2, brush + 1); hideHint(); },
+    seedCenter() {
+      if (mode === "3d" && sim3d) sim3d.addSeed3D(sim3d.n / 2, sim3d.n / 2, sim3d.n / 2, brush + 1);
+      else sim.addSeed(sim.n / 2, sim.n / 2, brush + 1);
+      hideHint();
+    },
     twinSeedCenter() { sim.addTwinSeed(sim.n / 2, sim.n / 2, brush + 1.5); hideHint(); },
     chillWall(edge = "auto") {
       const e = edge === "auto" ? (canvas.width >= canvas.height ? "left" : "bottom") : edge;
@@ -71,11 +193,15 @@ async function boot() {
         sim.addSeed(Math.random() * sim.n, Math.random() * sim.n, 3.5);
     },
     setParams(p) { Object.assign(sim.params, p); },
-    setRain(v) { rain = v; },
+    setRain(v) { if (mode === "3d") rain3d = v; else rain = v; },
     setView(v) { view = v as ViewMode; },
     setSpeed(v) { substeps = v; turbo = false; },
     // while the optimizer owns the stage, the transport drives IT, not the melt
-    setRun(on) { if (opt.active) opt.setRunning(on); else running = on; },
+    setRun(on) {
+      if (opt.active) opt.setRunning(on);
+      else if (mode === "3d") running3d = on;
+      else running = on;
+    },
     setWeldAuto(on) { weldAuto = on; },
     startOptimizer() { if (!challenge.active) opt.start(sim.n); },
     startChallenge() { if (!opt.active) challenge.start(); },
@@ -88,12 +214,14 @@ async function boot() {
       document.querySelectorAll(".hl").forEach(el => el.classList.remove("hl"));
     },
     // ---- UIHost extras
-    simParams: () => sim.params,
+    // in 3D mode the shared dial rows (δ, noise, latent, ε̄, γ, α, τ, cooling)
+    // drive the 3D solver's params — same field names by design
+    simParams: () => (mode === "3d" && sim3d ? (sim3d.params as unknown as typeof sim.params) : sim.params),
     getUndercool: () => undercool,
     setUndercool(v) { undercool = v; },
-    getRain: () => rain,
+    getRain: () => (mode === "3d" ? rain3d : rain),
     getSubsteps: () => substeps,
-    isRunning: () => (opt.active ? opt.isRunning() : running),
+    isRunning: () => (opt.active ? opt.isRunning() : mode === "3d" ? running3d : running),
     isEngineering: () => opt.active,
     isTurbo: () => turbo,
     toggleTurbo() { turbo = !turbo; },
@@ -104,6 +232,7 @@ async function boot() {
       material = k;
       alloyName = m.label;
       Object.assign(sim.params, m.params);
+      if (mode === "3d") apply3DMaterial();
     },
     openComposer() { if (!opt.active && !challenge.active) composer.open(); },
     getAlloyName: () => alloyName,
@@ -131,9 +260,19 @@ async function boot() {
     getGrid: () => sim.n,
     setGrid(n) { if (n !== sim.n && !opt.active && !challenge.active) app.swapSim(n); },
     getView: () => view,
-    anneal(on) { sim.params.heatIn = on ? 1.1 : 0; },
-    quench() { sim.quench(0.25); },
+    anneal(on) {
+      if (mode === "3d" && sim3d) sim3d.params.heatIn = on ? 1.1 : 0;
+      else sim.params.heatIn = on ? 1.1 : 0;
+    },
+    quench() { if (mode === "3d" && sim3d) sim3d.quench(0.25); else sim.quench(0.25); },
     resetArmed() {
+      if (mode === "3d" && sim3d) {
+        sim3d.reset(1 - undercool);
+        lastStats3 = null;
+        rainAcc3 = 0;
+        running3d = false;
+        return;
+      }
       sim.reset(1 - undercool);
       hud.reset();
       analyze.reset();
@@ -158,8 +297,37 @@ async function boot() {
     setEbsd(b) { renderer.ebsdOn = b; },
     getTilt: () => renderer.tiltOn,
     setTilt(b) { renderer.tiltOn = b; },
-    resetZoom() { renderer.resetView(); },
-    simTimeNow: () => sim.simTime,
+    resetZoom() { if (mode === "3d") renderer3d?.resetView(); else renderer.resetView(); },
+    simTimeNow: () => (mode === "3d" && sim3d ? sim3d.simTime : sim.simTime),
+    // ---- TRUE-3D mode surface
+    getMode: () => mode,
+    setMode(m) {
+      if (m === mode) return;
+      if (m === "3d") void enter3D();
+      else exit3D();
+    },
+    canSwitchMode: () => caps3d.supported && !opt.active && !challenge.active && !mode3dPending,
+    caps3dSizes: () => [128, 160, 192].filter(v => v <= caps3d.maxN),
+    getGrid3: () => grid3,
+    setGrid3(n) {
+      if (n === grid3 || !caps3d.supported) return;
+      grid3 = n;
+      if (mode === "3d") void swapSim3D(n);
+    },
+    getView3d: () => view3d,
+    setView3d(v) { view3d = Math.max(0, Math.min(3, v)); },
+    getSubsteps3: () => substeps3d,
+    setSpeed3(v) { substeps3d = v; turbo = false; },
+    getSliceAxis: () => slice.axis,
+    setSliceAxis(a) { slice.axis = Math.max(0, Math.min(2, a)); },
+    getSliceOff: () => slice.off,
+    setSliceOff(v) { slice.off = Math.max(0.02, Math.min(0.98, v)); },
+    getSym3: () => (sim3d?.params.aniMode3 === 2 ? 6 : 4),
+    setSym3(j) {
+      if (!sim3d) return;
+      sim3d.params.aniMode3 = j === 6 ? 2 : 1;
+      sim3d.params.deltaZ = j === 6 ? 0.03 : 0;
+    },
     // ---- OptHost
     swapSim(n) {
       const params = { ...sim.params };
@@ -184,6 +352,12 @@ async function boot() {
     },
     onOptimizerDone() { ui.sync(); },
     shareLink() {
+      if (mode === "3d" && sim3d) {
+        return location.origin + location.pathname + packShare({
+          p: { ...sim.params }, u: undercool, v: view3d, m: material,
+          n: alloyName, rain: rain3d, d: 1, g3: sim3d.n,
+        });
+      }
       return location.origin + location.pathname + packShare({
         p: { ...sim.params }, u: undercool, v: view, m: material,
         n: alloyName, rain, sched: recipeSchedule,
@@ -265,6 +439,10 @@ async function boot() {
 
   (window as unknown as Record<string, unknown>).__solidify = {
     app, opt, tour, ui, challenge, composer, analyze,
+    mode: () => mode,
+    sim3d: () => sim3d,
+    cam3: () => renderer3d?.cam() ?? null,
+    fps: () => fps,
     tick(k: number) { for (let i = 0; i < k; i++) frameBody(last + 1000 / 60); },
   };
 
@@ -280,6 +458,64 @@ async function boot() {
   let pinch: { d: number; mx: number; my: number } | null = null;
   let touchTap: { x: number; y: number; id: number } | null = null;
   const hideHint = () => document.getElementById("hint")!.classList.add("gone");
+
+  // 3D pointer grammar: left-drag orbits, right-drag pans, wheel dollies,
+  // pinch = dolly + pan, a clean quick tap (any pointer type) seeds at depth,
+  // shift-drag scrubs the section plane while the SLICE lens is active
+  const p3 = {
+    pts: new Map<number, { x: number; y: number }>(),
+    pinch: null as null | { d: number; my: number },
+    drag: null as null | { x: number; y: number; sx: number; sy: number; t: number; btn: number; shift: boolean; moved: boolean },
+    down(e: PointerEvent) {
+      this.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this.pts.size === 2) {
+        this.drag = null;
+        const [a, b] = [...this.pts.values()];
+        this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), my: (a.y + b.y) / 2 };
+        return;
+      }
+      canvas.setPointerCapture(e.pointerId);
+      this.drag = {
+        x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY,
+        t: performance.now(), btn: e.button, shift: e.shiftKey, moved: false,
+      };
+    },
+    move(e: PointerEvent) {
+      if (this.pts.has(e.pointerId)) this.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this.pinch && this.pts.size === 2) {
+        const [a, b] = [...this.pts.values()];
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        renderer3d?.dollyBy(Math.pow(this.pinch.d / Math.max(d, 1e-3), 1.0));
+        this.pinch = { d, my: (a.y + b.y) / 2 };
+        return;
+      }
+      if (!this.drag) return;
+      const dx = e.clientX - this.drag.x;
+      const dy = e.clientY - this.drag.y;
+      if (!this.drag.moved && Math.hypot(e.clientX - this.drag.sx, e.clientY - this.drag.sy) > 6)
+        this.drag.moved = true;
+      if (this.drag.moved) {
+        if (this.drag.btn === 2) renderer3d?.panTargetBy(dx, dy);
+        else if (this.drag.shift && view3d === 2) app.setSliceOff(slice.off - dy * 0.0022);
+        else renderer3d?.orbitBy(dx, dy);
+      }
+      this.drag.x = e.clientX;
+      this.drag.y = e.clientY;
+    },
+    up(e: PointerEvent, isUp: boolean) {
+      this.pts.delete(e.pointerId);
+      if (this.pts.size < 2) this.pinch = null;
+      const d = this.drag;
+      this.drag = null;
+      if (!isUp || !d || d.moved || d.btn !== 0) return;
+      if (performance.now() - d.t > 350) return;
+      const g = renderer3d?.pickSeedPoint(e.clientX, e.clientY, view3d === 2 ? slice : null);
+      if (g && sim3d) { sim3d.addSeed3D(g[0], g[1], g[2], brush); hideHint(); }
+    },
+    wheel(e: WheelEvent) {
+      renderer3d?.dollyBy(Math.exp(e.deltaY * 0.0012));
+    },
+  };
 
   const seedAt = (e: PointerEvent) => {
     const g = renderer.clientToGrid(e.clientX, e.clientY, sim.n);
@@ -301,6 +537,7 @@ async function boot() {
   };
 
   canvas.addEventListener("pointerdown", e => {
+    if (mode === "3d") { p3.down(e); return; }
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pts.size === 2) {
       // second finger: become a pinch, cancel any tap/paint in progress
@@ -326,6 +563,7 @@ async function boot() {
     seedAt(e);
   });
   canvas.addEventListener("pointermove", e => {
+    if (mode === "3d") { p3.move(e); return; }
     if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pinch && pts.size === 2) {
       const [a, b] = [...pts.values()];
@@ -353,6 +591,7 @@ async function boot() {
   });
   for (const ev of ["pointerup", "pointercancel"] as const)
     canvas.addEventListener(ev, e => {
+      if (mode === "3d") { p3.up(e, ev === "pointerup"); return; }
       pts.delete(e.pointerId);
       if (pts.size < 2) pinch = null;
       if (rulerDrag) { rulerDrag = false; void analyze.endRuler(); }
@@ -367,12 +606,17 @@ async function boot() {
   canvas.addEventListener("contextmenu", e => e.preventDefault());
   canvas.addEventListener("wheel", e => {
     e.preventDefault();
+    if (mode === "3d") { p3.wheel(e); return; }
     renderer.zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0016));
   }, { passive: false });
 
   window.addEventListener("keydown", e => {
     if (e.target instanceof HTMLInputElement) return;
-    if (e.code === "Space") { e.preventDefault(); app.setRun(!running); ui.sync(); }
+    if (e.code === "Space") { e.preventDefault(); app.setRun(!app.isRunning()); ui.sync(); }
+    if (mode === "3d") {
+      if (/^[1-4]$/.test(e.key)) { app.setView3d(parseInt(e.key) - 1); ui.sync(); }
+      return;
+    }
     if (/^[0-9]$/.test(e.key)) {
       const lens = e.key === "0" ? 9 : parseInt(e.key) - 1;
       app.setView(lens);
@@ -382,7 +626,7 @@ async function boot() {
 
   // -------------------------------------------------------------- scale bar
   function updateScalebar() {
-    if (view !== 2) return;
+    if (view !== 2 || mode === "3d") return;
     const cssPxPerCell = renderer.cssPxPerCell(sim.n);
     const umPerCssPx = (DOMAIN_MM * 1000 / sim.n) / cssPxPerCell;
     let bestUm = 100;
@@ -410,9 +654,45 @@ async function boot() {
   }
 
   function frameBody(t: number) {
-    const dt = Math.min(0.1, (t - last) / 1000);
-    last = t;
-    fps = fps * 0.95 + (1 / Math.max(dt, 1e-4)) * 0.05;
+    const dt = Math.min(0.1, Math.max(0, (t - last) / 1000));
+    last = Math.max(last, t);
+    if (dt > 0) fps = fps * 0.95 + (1 / dt) * 0.05;
+
+    // ------------------------------------------------------- TRUE-3D branch
+    if (mode === "3d") {
+      if (sim3d && renderer3d) {
+        if (running3d) {
+          rainAcc3 += rain3d * dt;
+          while (rainAcc3 >= 1) {
+            rainAcc3 -= 1;
+            sim3d.addSeed3D(
+              Math.random() * sim3d.n, Math.random() * sim3d.n, Math.random() * sim3d.n,
+              3.0, undefined, 0.86 + Math.random() * 0.12);
+          }
+          sim3d.step(turbo ? 48 : substeps3d);
+        } else {
+          sim3d.step(0); // stamp queued taps so staging is visible while armed
+        }
+        renderer3d.tick(dt);
+        renderer3d.render(sim3d, view3d, t / 1000, slice);
+        viewcube?.draw(renderer3d.cam());
+
+        statsClock += dt;
+        if (statsClock > 0.25) {
+          statsClock = 0;
+          void sim3d.readStats().then(s => { if (s) lastStats3 = s; });
+          const s = lastStats3;
+          ui.setReadouts([
+            ["t", sim3d.simTime.toFixed(3)],
+            ["solid", s ? `${(s.fracSolid * 100).toFixed(1)} %` : "—"],
+            ["grains", s ? String(s.grainCount) : "—"],
+            ["d̄ eq", s?.eqDiamUm != null ? `${s.eqDiamUm.toFixed(0)} µm` : "—"],
+            ["fps", `${fps.toFixed(0)} · ${sim3d.n}³`],
+          ]);
+        }
+      }
+      return;
+    }
 
     if (opt.active) {
       opt.tick();
@@ -501,6 +781,14 @@ async function boot() {
     recipeSchedule = shared.sched ?? null;
     if (shared.n) alloyName = shared.n;
     app.resetArmed();   // stages it ARMED; resetArmed keeps the schedule
+    // a TRUE-3D setup link re-enters the 3D mode at its grid, staged ARMED
+    if (shared.d === 1 && caps3d.supported) {
+      const g = Math.round(shared.g3 ?? 0);
+      if ([128, 160, 192].includes(g) && g <= caps3d.maxN) grid3 = g;
+      view3d = Math.max(0, Math.min(3, Math.round(shared.v)));
+      rain3d = shared.rain ?? 0;
+      void enter3D(true).then(() => { app.setView3d(view3d); ui.sync(); });
+    }
   }
   ui.sync();
   requestAnimationFrame(frame);

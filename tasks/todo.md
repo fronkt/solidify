@@ -451,3 +451,53 @@ node once and share it between adjoining segments.
       buildable as an activation-switch mode (Kobayashi 3D cubic-harmonic
       anisotropy + raymarched isosurface renderer) — its own build session,
       NOT this one. Plan when Frank calls it.
+
+## v1.9 (2026-07-20): TRUE 3D MODE — volumetric phase-field + raymarcher + ViewCube
+
+Design: ~/.claude/plans/robust-puzzling-emerson.md (overwritten with the 3D plan).
+
+- [x] M0 — PALETTE_WGSL extracted from RENDER_WGSL (hashf/heat/inferno/polar/
+      hue2rgb shared with 3D); float32-filterable requested at device creation;
+      caps3d limit gate. 2D suite still green.
+- [x] M1 — sim3d.ts + shaders3d.ts: rg32float (φ,T) n³ ping-pong, r32uint grain,
+      rgba32float flux; FLUX3D/UPDATE3D/STAMP3D/STATS3D @wg(4,4,4); variational
+      anisotropy split A = ε²a|∇φ|(g−(g·n)n), w = ε²a²; cubic ⟨100⟩ + hex-K6
+      basal plates via per-grain quaternions (Marsaglia); 6-face claiming;
+      dt 9e-5; OOM ladder 192→160→128 (pushErrorScope).
+- [x] M2 — render3d.ts: fullscreen-triangle raymarch (coarse 2vox → fine 0.7 →
+      3× bisection, central-diff normals, hardware trilinear when filterable);
+      z-up orbit camera w/ eased az/el/dist/target, idle auto-orbit @8s;
+      TRUE 3D actswitch BELOW the controls button (slides with rail).
+- [x] M2.5 — viewcube.ts: CAD ViewCube (Canvas2D, labeled faces, painter-sorted,
+      exact 2×2 unprojection hit-test; face/edge/corner → snapped views incl.
+      isometric; drag-to-orbit with hand-matched direction per Frank's report).
+- [x] M3 — SLICE (fixed +side clip, cut-face micrograph w/ in-plane GB detect,
+      ghosted isosurface behind) + FIELD x-ray transmittance; slice axis/depth
+      rail controls + shift-drag scrub; tap-at-depth seeding (ray ∩ slice plane
+      or view-facing mid-plane).
+- [x] M4 — rain nucleation in volume, impingement, StatsResult3D (fracSolid /
+      grainCount / eq-diam µm at the 2D-consistent 0.977µm voxel), 3D readouts,
+      chrome gating (body.mode3d), 4-lens row swap, rail section gating.
+- [x] M5 — materials to3D() mapping (cubic/hex; qc = "2D only" w/ fallback),
+      share links carry {d:1, g3}, 128³/160³/192³ grid buttons + OOM ladder.
+- [x] M6 tuning — per-pixel ray-start jitter (killed contour banding), fine-march
+      window 14vox (interface is ~6vox wide — grazing rays missed crossings),
+      smooth-T sampling for surface ember + emission (killed T-quantization
+      wood-grain), home dist 3.1 frames the box, dt clamp ≥0 (tick() harness).
+- [x] Verified (scripts/verify-3d.mjs, real headless WebGPU): 192³ + filterable,
+      fracSolid monotone growth, two-seed → 2 grains distinct hues, 4 lens shots,
+      real-mouse orbit, tap lands on plane, ViewCube TOP snap el→1.45,
+      60 fps @ 192³ AND 128³, share round-trip, zero page errors. 2D suite green.
+- [x] MORPHOLOGY: center seed grows the textbook cubic sequence — ⟨100⟩-vertex
+      octahedron with hopper faces → 4/6-arm cross with glowing latent-heat
+      halo pockets (MELT lens is the money shot).
+
+**Bugs found & fixed:**
+1. WGSL forbids mixing `*` and `^` without parens — UPDATE3D never compiled,
+   every step silently dropped (validation errors only visible as console
+   warnings). Lesson: getCompilationInfo / console-warning capture in tests.
+2. layout:"auto" DROPS bindings the shader never statically uses — quats at
+   render binding 3 made every bind group invalid → black canvas. Fix: ORIENT
+   hue now derives from the actual quaternion axis (better science anyway).
+3. ViewCube drag felt inverted horizontally (Frank): grabbing the cube must
+   spin the cube with the hand = orbit the camera the OPPOSITE way; dy stays.
