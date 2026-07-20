@@ -288,23 +288,29 @@ reduced-motion poster. animejs.com also ships Three.js.
 Frank's design calls (AskUserQuestion): SEM column for stage 3; ALL five stages
 3D; geometric dendrite REPLACES the live-sim finale (diveSim removed).
 
-- [ ] deps: three (ships own types), d3-delaunay (+@types) for specimen grains
-- [ ] src/dendrite.mjs: seeded 6-fold geometric dendrite generator (primaries +
+- [x] deps: three (ships own types), d3-delaunay (+@types) for specimen grains
+- [x] src/dendrite.mjs: seeded 6-fold geometric dendrite generator (primaries +
       enveloped secondaries + tertiary stubs, birth-time per segment) shared by
       runtime (growth = drawRange) and poster script
-- [ ] src/dive3d.ts (lazy chunk): Wire builder (LineSegments per class w/d/amber/
+- [x] src/dive3d.ts (lazy chunk): Wire builder (LineSegments per class w/d/amber/
       beam, fog, transparent canvas), five stage groups, per-stage camera
       keyframes + crossfade handoff, DOM label/reticle projection layer, fan spin
       + scroll-velocity boost, particles (heat wisps, interposer clock pulses),
       idle sway + pointer parallax, IO-gated rAF, WebGL-fail → old SVG dive
-- [ ] S3 SEM column: gun/anode/condenser×2/scan coils/objective/aperture/chamber+
+- [x] S3 SEM column: gun/anode/condenser×2/scan coils/objective/aperture/chamber+
       specimen puck parts explode axially with stagger + labeled callouts, amber
       beam draws through the bore, camera descends past parts then dives to puck
-- [ ] S5 finale: growing geometric dendrite (draw-on under scroll) + ENTER THE
+- [x] S5 finale: growing geometric dendrite (draw-on under scroll) + ENTER THE
       LAB CTA; HUD copy updated (no more "not a video" line); diveSim deleted
       from landing.ts; poster SVG generated into stage 5 fallback
-- [ ] index.html: canvas#dive3d + #diveLabels + #diveReticle, live3d class hides
+- [x] index.html: canvas#dive3d + #diveLabels + #diveReticle, live3d class hides
       SVG stages when 3D active; scroll length +=6800, stage weights 1/1/1.7/1/1.4
-- [ ] verify: scrub screenshots at 9 progress points in fresh tab, fan-motion
+- [x] verify: scrub screenshots at 9 progress points in fresh tab, fan-motion
       diff, FPS probe, WebGL-kill fallback, reduced-motion, 390px viewport,
       tsc + build size; deploy Vercel prod; push
+
+All verified 2026-07-19 headless (extension pipeline was wedged): live3d boot,
+9-point scrub, fan-motion frame diff, 52 fps on SwiftShader (software!), WebGL-kill
+→ SVG dive, reduced-motion → static, 390px OK; deployed + pushed (8569319).
+LESSON: per-endpoint jitter on shared polyline nodes reads as DASHES — lift each
+node once and share it between adjoining segments.
