@@ -373,3 +373,23 @@ node once and share it between adjoining segments.
 - [x] StageDef.target now P3 | ()=>Vector3 for moving dive targets
 - [x] verified 11 scroll points headless; 60 fps (one 5.4 reading was SwiftShader
       still settling after screenshot churn — re-probe twice before believing)
+
+## v1.6 (2026-07-20): "Engineer it" → paused ENGINEERING ML MODE + tour explainer
+
+- [x] Frank: don't auto-start the optimizer on click; enter a mode with a small
+      explanation, and make the transport pause/run actually gate it
+- [x] Optimizer: `running` state; free-play start() enters PAUSED (challenge AI
+      with a casting limit still auto-runs); setRunning()/isRunning(); tick()
+      gates on running; panel retitled "⚙ ENGINEERING · ML MODE" + explainer line
+      + moved status below strip; "stop"→"exit"
+- [x] main.ts: setRun()/isRunning() route to opt when opt.active; paused frame
+      still renders (ORIENT) so the stage isn't frozen; isEngineering() added
+- [x] ui.ts: engineer-it button syncs; armed/PAUSED indicator suppressed in ML
+      mode (panel shows its own status)
+- [x] tour "Engineer it" chapter rewritten to explain the mode, the run/pause,
+      and WHY early castings look like a chaotic blizzard of grains (exploration;
+      grain count = nucleation knob; finer target = more grains)
+- [x] BUG fixed: setRunning() bailed on `this.finishing` → pause was dropped
+      during the async stats read; now pause always lands, in-flight casting
+      completes then loop halts. verify-optimizer.mjs asserts enter-paused/run/
+      pause-frozen/exit end-to-end
