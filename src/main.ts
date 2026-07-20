@@ -168,6 +168,7 @@ async function boot() {
 
   const exit3D = () => {
     mode = "2d";
+    probeMark3.style.display = "none";   // the frame loop's 3D branch stops updating it
     document.body.classList.remove("mode3d");
     hud.reset();
     hud.setMode3(false);
@@ -212,6 +213,7 @@ async function boot() {
       if (mode === "3d" && sim3d) {
         sim3d.reset(1 - u);
         hud.reset();
+        an3.reset();
         lastStats3 = null;
         rainAcc3 = 0;
         sim3d.params.weldX = sim3d.n * 0.12;
@@ -345,6 +347,7 @@ async function boot() {
         rainAcc3 = 0;
         running3d = false;
         hud.reset();
+        an3.reset();
         sim3d.params.weldX = sim3d.n * 0.12;
         sim3d.params.weldY = sim3d.n * 0.2;
         weldDir = 1;
@@ -443,6 +446,12 @@ async function boot() {
     setStereoOn(b) { an3.setStereoOn(b); },
     getIpfOn: () => an3.ipfOn,
     setIpfOn(b) { an3.setIpfOn(b); },
+    getPoleOn: () => an3.poleOn,
+    setPoleOn(b) { an3.setPoleOn(b); },
+    getProbe3On: () => an3.probeOn,
+    setProbe3On(b) { an3.setProbeOn(b); },
+    getScheil3On: () => an3.scheilOn,
+    setScheil3On(b) { an3.setScheilOn(b); },
     exportSTL() { void exportSTL(true); },
     startTurntable() {
       if (mode !== "3d" || !renderer3d || turntable) return;
@@ -512,6 +521,16 @@ async function boot() {
     plane: () => (sim3d ? slicePlane(slice, sim3d.n) : null),
     lastStats: () => lastStats3,
   });
+  // 3D probe crosshair on the shared overlay SVG (appended AFTER Analyze's
+  // constructor set the overlay innerHTML — never rewrite it, append only)
+  const probeMark3 = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  probeMark3.id = "probeMark3";
+  probeMark3.style.display = "none";
+  probeMark3.innerHTML =
+    '<circle r="7" fill="none" stroke="#56d4dd" stroke-width="1.2"/>' +
+    '<line x1="-11" x2="11" y1="0" y2="0" stroke="#56d4dd" stroke-width="1"/>' +
+    '<line y1="-11" y2="11" x1="0" x2="0" stroke="#56d4dd" stroke-width="1"/>';
+  document.getElementById("overlay")!.append(probeMark3);
   const ui = new UI(app, analyze);
   const slicePanelUI = new SlicePanel(app);
   slicePanelUI.addStyle("Niyama map · porosity risk");
@@ -651,6 +670,18 @@ async function boot() {
       this.drag = null;
       if (!isUp || !d || d.moved || d.btn !== 0) return;
       if (performance.now() - d.t > 350) return;
+      // ctrl-tap relocates the cooling probe (2D grammar port) — checked first
+      if (e.ctrlKey && an3.probeOn && sim3d) {
+        const g = renderer3d?.pickSeedPoint(
+          e.clientX, e.clientY,
+          view3d === 2 ? slicePlane(slice, sim3d.n) : null);
+        if (g) {
+          sim3d.probe = { x: g[0], y: g[1], z: g[2] };
+          an3.reset();
+          hideHint();
+        }
+        return;
+      }
       // weld scenario: a tap steers the laser on the top face instead of seeding
       if (sim3d && sim3d.params.scen === 2) {
         const w = renderer3d?.pickSeedPoint(e.clientX, e.clientY, { n: [0, 0, 1], c: sim3d.n - 1 });
@@ -785,9 +816,17 @@ async function boot() {
 
   // -------------------------------------------------------------- scale bar
   function updateScalebar() {
-    if (view !== 2 || mode === "3d") return;
-    const cssPxPerCell = renderer.cssPxPerCell(sim.n);
-    const umPerCssPx = (DOMAIN_MM * 1000 / sim.n) / cssPxPerCell;
+    let umPerCssPx: number;
+    if (mode === "3d") {
+      // 3D: shown for the SLICE lens (a section micrograph earns a scale bar);
+      // scale taken at the camera-target distance, voxel = the 2D cell pitch
+      if (view3d !== 2 || !renderer3d) return;
+      umPerCssPx = (DOMAIN_MM * 1000 / 1024) / renderer3d.cssPerVoxel();
+    } else {
+      if (view !== 2) return;
+      const cssPxPerCell = renderer.cssPxPerCell(sim.n);
+      umPerCssPx = (DOMAIN_MM * 1000 / sim.n) / cssPxPerCell;
+    }
     let bestUm = 100;
     let bestErr = Infinity;
     for (const um of [5, 10, 20, 50, 100, 200, 500]) {
@@ -864,15 +903,26 @@ async function boot() {
         renderer3d.tick(dt);
         renderer3d.render(sim3d, view3d, t / 1000, slicePlane(slice, sim3d.n), slice.style);
         viewcube?.draw(renderer3d.cam());
+        // probe crosshair rides the projection (perspective, so every frame)
+        if (an3.probeOn && sim3d.probe) {
+          const pc = renderer3d.worldToClient([sim3d.probe.x, sim3d.probe.y, sim3d.probe.z]);
+          if (pc) {
+            probeMark3.setAttribute("transform", `translate(${pc[0]}, ${pc[1]})`);
+            probeMark3.style.display = "";
+          } else probeMark3.style.display = "none";
+        } else probeMark3.style.display = "none";
 
         statsClock += dt;
         if (statsClock > 0.25) {
           statsClock = 0;
-          void sim3d.readStats().then(s => { if (s) { lastStats3 = s; hud.push3(s); } });
+          void sim3d.readStats().then(s => {
+            if (s && sim3d) { lastStats3 = s; hud.push3(s); an3.onStats3(s, sim3d.simTime); }
+          });
           // GPU-born twins live only in the GPU quat buffer — mirror them back
           // for the IPF/pole panels while the twin rate is nonzero
           if (sim3d.params.twinProb > 0) void sim3d.refreshQuats();
           an3.tick(0.25);
+          updateScalebar();
           const s = lastStats3;
           ui.setReadouts([
             ["t", sim3d.simTime.toFixed(3)],

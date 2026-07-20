@@ -80,6 +80,12 @@ export interface UIHost extends AppControl {
   setStereoOn(b: boolean): void;
   getIpfOn(): boolean;
   setIpfOn(b: boolean): void;
+  getPoleOn(): boolean;
+  setPoleOn(b: boolean): void;
+  getProbe3On(): boolean;
+  setProbe3On(b: boolean): void;
+  getScheil3On(): boolean;
+  setScheil3On(b: boolean): void;
   exportSTL(): void;
   startTurntable(): void;
 }
@@ -517,27 +523,35 @@ export class UI {
     sm.append(gridNote3);
     this.only3d.push(grow3, gridNote3);
 
-    // ---- analyze: foundry instruments
+    // ---- analyze: foundry instruments (one home — dispatched per mode)
     const an = this.section(rail, "ANALYZE");
-    this.check(an, "cooling probe (ctrl-tap moves it)", () => this.analyze.probeOn, b => this.analyze.setProbeOn(b));
-    this.check(an, "Scheil overlay (needs alloy)", () => this.analyze.scheilOn, b => this.analyze.setScheilOn(b));
-    this.check(an, "texture rose (grain orientations)", () => this.analyze.textureOn, b => this.analyze.setTextureOn(b));
+    const m3now = () => host.getMode() === "3d";
+    this.check(an, "cooling probe (ctrl-tap moves it)",
+      () => m3now() ? host.getProbe3On() : this.analyze.probeOn,
+      b => { if (m3now()) host.setProbe3On(b); else this.analyze.setProbeOn(b); });
+    this.check(an, "Scheil overlay (needs alloy)",
+      () => m3now() ? host.getScheil3On() : this.analyze.scheilOn,
+      b => { if (m3now()) host.setScheil3On(b); else this.analyze.setScheilOn(b); });
+    const roseChk = this.check(an, "texture rose (grain orientations)", () => this.analyze.textureOn, b => this.analyze.setTextureOn(b));
+    this.only2d.push(roseChk.parentElement as HTMLElement);
     const anrow = this.btnRow(an);
     const rulerBtn = this.button(anrow, "SDAS ruler — drag a line", () => {
       this.analyze.setRulerOn(!this.analyze.rulerOn);
       this.sync();
     });
+    this.only2d.push(anrow);
     this.binds.push({ update: () => rulerBtn.classList.toggle("on", this.analyze.rulerOn) });
     const rres = document.createElement("div");
     rres.className = "matnote";
     an.append(rres);
     this.analyze.attachResultEl(rres);
-    this.only2d.push(this.sections.ANALYZE.root);
+    this.only2d.push(rres);
 
     // ---- 3D characterization lab
     const vol = this.section(rail, "VOLUME · 3D");
     this.check(vol, "stereology — section vs true 3D", () => host.getStereoOn(), b => host.setStereoOn(b));
     this.check(vol, "IPF texture map (grain axes)", () => host.getIpfOn(), b => host.setIpfOn(b));
+    this.check(vol, "pole figure ⟨100⟩ / (0001)", () => host.getPoleOn(), b => host.setPoleOn(b));
     const volNote = document.createElement("div");
     volNote.className = "matnote";
     volNote.textContent = "stereology measures the SLICE plane — what a 2D micrograph would tell you vs the 3D truth";
@@ -638,9 +652,10 @@ export class UI {
       armed.style.display = "none";
     }
 
-    // lens overlays
+    // lens overlays (the scale bar also serves the 3D SLICE lens)
     const v = host.getView();
-    document.getElementById("scalebar")!.style.display = v === 2 ? "flex" : "none";
+    const barOn = m3 ? host.getView3d() === 2 : v === 2;
+    document.getElementById("scalebar")!.style.display = barOn ? "flex" : "none";
     document.getElementById("thermbar")!.style.display = v === 5 ? "block" : "none";
     document.getElementById("sembar")!.style.display = v === 6 ? "block" : "none";
   }

@@ -143,6 +143,27 @@ export class Renderer3D {
     this.azT = az;
   }
 
+  /** project a voxel-space point to CSS client coords (null when behind the eye) */
+  worldToClient(p: [number, number, number]): [number, number] | null {
+    const b = this.basis();
+    const v = [p[0] - b.eye[0], p[1] - b.eye[1], p[2] - b.eye[2]];
+    const zf = v[0] * b.fwd[0] + v[1] * b.fwd[1] + v[2] * b.fwd[2];
+    if (zf < 1e-3) return null;
+    const xr = v[0] * b.right[0] + v[1] * b.right[1] + v[2] * b.right[2];
+    const yu = v[0] * b.up[0] + v[1] * b.up[1] + v[2] * b.up[2];
+    const rect = this.canvas.getBoundingClientRect();
+    const aspect = rect.width / Math.max(rect.height, 1);
+    const sx = xr / (zf * this.tanHalfFov * aspect);
+    const sy = yu / (zf * this.tanHalfFov);
+    return [rect.left + (sx * 0.5 + 0.5) * rect.width, rect.top + (0.5 - sy * 0.5) * rect.height];
+  }
+
+  /** CSS pixels per voxel at the camera-target distance — drives the 3D scale bar */
+  cssPerVoxel(): number {
+    const rect = this.canvas.getBoundingClientRect();
+    return Math.max(rect.height, 1) / (2 * this.tanHalfFov * this.dist * this.n * 0.55);
+  }
+
   /** ViewCube snap: ease the camera to a face / edge / corner direction */
   snapTo(dir: [number, number, number]) {
     const [x, y, z] = dir;
