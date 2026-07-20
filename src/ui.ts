@@ -369,7 +369,12 @@ export class UI {
     this.bridgePanel = document.createElement("div");
     this.bridgePanel.className = "subpanel";
     scen.append(this.bridgePanel);
-    this.slider(this.bridgePanel, "gradient", 0.02, 0.25, 0.005, () => p().gradG, v => { p().gradG = v; }, v => v.toFixed(3));
+    // the 3D domain is 5.76 physical units vs 30.7 in 2D — same steepness
+    // needs a ~5× larger gradG, so the dial gets a mode-specific range
+    this.only2d.push(
+      this.slider(this.bridgePanel, "gradient", 0.02, 0.25, 0.005, () => p().gradG, v => { p().gradG = v; }, v => v.toFixed(3)));
+    this.only3d.push(
+      this.slider(this.bridgePanel, "gradient (3D)", 0.05, 0.9, 0.01, () => p().gradG, v => { p().gradG = v; }, v => v.toFixed(2)));
     this.slider(this.bridgePanel, "pull speed", 0.3, 5, 0.1, () => p().pullV, v => { p().pullV = v; }, v => v.toFixed(1));
     this.weldPanel = document.createElement("div");
     this.weldPanel.className = "subpanel";
@@ -378,7 +383,6 @@ export class UI {
     this.slider(this.weldPanel, "spot size", 2, 9, 0.5, () => p().weldSig, v => { p().weldSig = v; }, v => v.toFixed(1));
     this.check(this.weldPanel, "auto raster (click melt to steer)", () => host.getWeldAuto(), b => host.setWeldAuto(b));
     this.slider(this.weldPanel, "sweep speed", 10, 140, 2, () => host.getWeldSweep(), v => host.setWeldSweep(v), v => v.toFixed(0));
-    this.only2d.push(this.sections.SCENARIO.root);
 
     // ---- alloy
     const alloy = this.section(rail, "ALLOY");
@@ -608,8 +612,8 @@ export class UI {
     }
     this.grid3Btns.forEach(b => b.classList.toggle("on", Number(b.dataset.n) === host.getGrid3()));
     this.scenBtns.forEach((b, i) => b.classList.toggle("on", i === p.scen));
-    this.bridgePanel.style.display = !m3 && p.scen === 1 ? "block" : "none";
-    this.weldPanel.style.display = !m3 && p.scen === 2 ? "block" : "none";
+    this.bridgePanel.style.display = p.scen === 1 ? "block" : "none";
+    this.weldPanel.style.display = p.scen === 2 ? "block" : "none";
     this.alloyPanel.style.display = !m3 && p.alloyOn === 1 ? "block" : "none";
     this.pixelRow.style.display = !m3 && host.getPixel() > 0 ? "flex" : "none";
 

@@ -244,7 +244,22 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let phiNew = clamp(phi + (P.dt / P.tau) * (aniso + react), 0.0, 1.0);
   let dPhi = phiNew - phi;
 
-  let TNew = clamp(T + P.dt * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn, -1.0, 2.0);
+  var TNew = T + P.dt * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn;
+  if (P.scen == 1u || P.scen == 3u) {
+    // bridgman / selector: relax T toward the pulled linear profile (2D port,
+    // minus its no-op /dx*dx algebra); cold below the isotherm, columns race up
+    let zu = f32(gid.z) * P.dx;
+    let tProf = clamp(0.7 + P.gradG * (zu - P.frontZ), -0.6, 1.5);
+    TNew = mix(TNew, tProf, min(1.0, P.dt * 150.0));
+  } else if (P.scen == 2u) {
+    // weld: laser on the TOP face — xy gaussian, Beer-Lambert decay in depth
+    let dxy = distance(vec2f(gid.xy), vec2f(P.weldX, P.weldY));
+    let depth = f32(P.n - 1u) - f32(gid.z);
+    TNew += P.dt * P.weldPow
+      * exp(-(dxy * dxy) / (2.0 * P.weldSig * P.weldSig))
+      * exp(-depth / (2.0 * P.weldSig));
+  }
+  TNew = clamp(TNew, -1.0, 2.0);
 
   // solidification record: freeze time (growth rings) + Niyama at freeze.
   // Ṫ uses the thermal field only (lapT − cooling), NOT (TNew−T)/dt — the

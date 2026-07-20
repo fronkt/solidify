@@ -97,6 +97,29 @@ export const SCENES: Record<string, (a: AppControl) => void> = {
   },
 };
 
+// 3D scene presets — same names as SCENES, staged for the volumetric solver.
+// Filled progressively (bridgman/weld first); the preset row dispatches here
+// in 3D mode once the set is complete.
+export const SCENES3: Record<string, (a: TourHost) => void> = {
+  bridgman(a) {
+    a.setSym3(4);
+    a.setParams({ scen: 1, gradG: 0.55, pullV: 3.5, delta: 0.045, noiseAmp: 0.012, latent: 1.6, coolRate: 0, heatIn: 0 });
+    a.setRain(0); a.setWeldAuto(false);
+    a.clearMelt(0.5);
+    a.chillWall("auto");     // = chill floor in 3D: the columnar race starts here
+    a.setView3d(1); a.setSpeed(22); a.setRun(true);
+  },
+  weld(a) {
+    a.setSym3(4);
+    a.setParams({ scen: 2, weldPow: 950, weldSig: 5, delta: 0.045, noiseAmp: 0.012, latent: 1.6, coolRate: 0.5, heatIn: 0 });
+    a.setRain(0);
+    a.clearMelt(0.6);
+    a.scatterSeeds(60);
+    a.setWeldAuto(true);
+    a.setView3d(0); a.setSpeed(22); a.setRun(true);
+  },
+};
+
 interface Chapter {
   title: string;
   body: string;

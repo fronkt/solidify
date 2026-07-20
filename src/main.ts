@@ -209,6 +209,9 @@ async function boot() {
         hud.reset();
         lastStats3 = null;
         rainAcc3 = 0;
+        sim3d.params.weldX = sim3d.n * 0.12;
+        sim3d.params.weldY = sim3d.n * 0.2;
+        weldDir = 1;
         return;
       }
       sim.reset(1 - u);
@@ -337,6 +340,9 @@ async function boot() {
         rainAcc3 = 0;
         running3d = false;
         hud.reset();
+        sim3d.params.weldX = sim3d.n * 0.12;
+        sim3d.params.weldY = sim3d.n * 0.2;
+        weldDir = 1;
         return;
       }
       sim.reset(1 - undercool);
@@ -607,6 +613,17 @@ async function boot() {
       this.drag = null;
       if (!isUp || !d || d.moved || d.btn !== 0) return;
       if (performance.now() - d.t > 350) return;
+      // weld scenario: a tap steers the laser on the top face instead of seeding
+      if (sim3d && sim3d.params.scen === 2) {
+        const w = renderer3d?.pickSeedPoint(e.clientX, e.clientY, { n: [0, 0, 1], c: sim3d.n - 1 });
+        if (w) {
+          sim3d.params.weldX = w[0];
+          sim3d.params.weldY = w[1];
+          weldAuto = false;
+          hideHint();
+        }
+        return;
+      }
       const g = renderer3d?.pickSeedPoint(
         e.clientX, e.clientY,
         view3d === 2 && sim3d ? slicePlane(slice, sim3d.n) : null);
@@ -773,6 +790,18 @@ async function boot() {
             sim3d.addSeed3D(
               Math.random() * sim3d.n, Math.random() * sim3d.n, Math.random() * sim3d.n,
               3.0, undefined, 0.86 + Math.random() * 0.12);
+          }
+          // weld auto-raster on the top face (2D serpentine port)
+          if (sim3d.params.scen === 2 && weldAuto) {
+            const p3d = sim3d.params;
+            p3d.weldX += weldDir * weldSweep * dt;
+            const margin = sim3d.n * 0.08;
+            if (p3d.weldX > sim3d.n - margin || p3d.weldX < margin) {
+              weldDir *= -1;
+              p3d.weldX = Math.max(margin, Math.min(sim3d.n - margin, p3d.weldX));
+              p3d.weldY += sim3d.n * 0.14;
+              if (p3d.weldY > sim3d.n * 0.9) p3d.weldY = sim3d.n * 0.15;
+            }
           }
           sim3d.step(turbo ? 48 : substeps3d);
         } else {
