@@ -12,6 +12,7 @@ export interface UIHost extends AppControl {
   getRain(): number;
   getSubsteps(): number;
   isRunning(): boolean;
+  isEngineering(): boolean;
   isTurbo(): boolean;
   toggleTurbo(): void;
   getMaterial(): string;
@@ -225,7 +226,7 @@ export class UI {
     // ---- modes
     const modes = this.section(rail, "MODES");
     const mrow0 = this.btnRow(modes);
-    this.button(mrow0, "engineer it (optimizer)", () => host.startOptimizer());
+    this.button(mrow0, "engineer it (optimizer)", () => { host.startOptimizer(); this.sync(); });
     this.button(mrow0, "⚔ challenge", () => host.startChallenge());
 
     // ---- melt / process
@@ -394,9 +395,9 @@ export class UI {
     const grids = [512, 1024, 2048];
     this.gridBtns.forEach((b, i) => b.classList.toggle("on", grids[i] === host.getGrid()));
 
-    // armed / paused indicator
+    // armed / paused indicator (the ML mode shows its own status instead)
     const armed = document.getElementById("armed")!;
-    if (!host.isRunning()) {
+    if (!host.isRunning() && !host.isEngineering()) {
       armed.style.display = "block";
       armed.textContent = host.simTimeNow() < 1e-9 ? "ARMED — stage your melt, then run" : "PAUSED";
     } else {

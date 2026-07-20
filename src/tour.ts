@@ -153,8 +153,8 @@ export const CHAPTERS: Chapter[] = [
   },
   {
     title: "Engineer it",
-    body: "Grain size sets strength — finer is stronger (Hall–Petch). A process engineer tunes cooling and inoculation to hit a target grain size. Here, an optimizer does that job: it runs castings, measures the ASTM grain number, and learns the schedule.",
-    watch: "Each thumbnail is one casting the optimizer tried. Watch it converge — or fight it yourself with CHALLENGE in the controls.",
+    body: "Grain size sets strength — finer is stronger (Hall–Petch). A process engineer tunes cooling and inoculation to hit a target grain size. This opens ENGINEERING · ML MODE, where a CMA-ES optimizer does that job: it runs one casting after another, measures the ASTM grain number, and learns the recipe. It starts paused — press ▶ RUN to set it going, PAUSE to freeze any casting and inspect it.",
+    watch: "Once running it replays dozens of fast castings back to back. Early ones nucleate heavily and look like a chaotic blizzard of grains — that is the optimizer exploring, not a glitch: grain count and nucleation are the same knob, so it tries a lot before it homes in. Watch |ΔG| shrink in the panel as it converges; drag the target toward G 1 and the grains thin out, toward G 6 and they multiply. Or fight it yourself with CHALLENGE.",
     apply(a) { a.startOptimizer(); },
   },
 

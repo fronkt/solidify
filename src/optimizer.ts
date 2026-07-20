@@ -118,6 +118,7 @@ export interface OptStartOpts {
 
 export class Optimizer {
   active = false;
+  running = false;   // the transport run/pause gates the optimization loop
   targetASTM = 4;
   private limit = 0;
   private lockTarget = false;
@@ -155,13 +156,38 @@ export class Optimizer {
     this.episode = 0;
     this.best = Infinity;
     this.bestASTM = null;
+    // free-play "Engineer it" enters PAUSED so the user presses run to begin;
+    // the bounded challenge AI (has a casting limit) auto-runs.
+    this.running = this.limit > 0;
     this.host.swapSim(EP_GRID);
+    this.host.renderOnce(1);   // show the fresh melt behind the intro panel
     this.buildPanel();
+  }
+
+  isRunning() { return this.running; }
+
+  setRunning(on: boolean) {
+    if (!this.active) return;
+    // always honour a pause — even mid-measurement; the in-flight casting
+    // finishes, then the loop halts (tick() gates on `running`)
+    this.running = on;
+    if (!this.finishing) this.refreshStatus();
+  }
+
+  private refreshStatus() {
+    if (!this.status) return;
+    if (!this.running && this.episode === 0)
+      this.status.innerHTML = 'paused — press <b style="color:#ffb454">▶ RUN</b> (bottom-left) to start optimizing';
+    else if (!this.running)
+      this.status.textContent = `paused at casting #${this.episode} · press ▶ run to resume`;
+    else if (this.episode === 0)
+      this.status.textContent = "casting #1 …";
   }
 
   stop() {
     if (!this.active) return;
     this.active = false;
+    this.running = false;
     this.panel?.remove();
     this.host.swapSim(this.savedGrid);
     this.host.onOptimizerDone();
@@ -175,22 +201,30 @@ export class Optimizer {
       "position:absolute;left:50%;transform:translateX(-50%);bottom:14px;width:min(720px,86vw);" +
       "background:rgba(15,17,21,0.93);border:1px solid #262b33;border-radius:8px;padding:10px 14px;backdrop-filter:blur(6px);z-index:6;";
     const head = document.createElement("div");
-    head.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:8px;font-size:11px;";
-    head.innerHTML = `<span style="letter-spacing:.2em;color:#56d4dd">LAB NOTEBOOK</span>
+    head.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:6px;font-size:11px;";
+    head.innerHTML = `<span style="letter-spacing:.2em;color:#56d4dd">⚙ ENGINEERING · ML MODE</span>
       <span>target ASTM <b style="color:#ffb454">G ${this.targetASTM}</b></span>
-      <input id="labTarget" type="range" min="1" max="6" step="0.5" value="${this.targetASTM}" style="width:110px">
-      <span id="labStatus" style="color:#6b7280;flex:1"></span>`;
+      <input id="labTarget" type="range" min="1" max="6" step="0.5" value="${this.targetASTM}" style="width:110px;flex:1;max-width:150px">`;
     const stop = document.createElement("button");
-    stop.textContent = "stop";
+    stop.textContent = "exit";
     stop.addEventListener("click", () => this.stop());
     head.append(stop);
+    const desc = document.createElement("div");
+    desc.style.cssText = "font-size:10.5px;color:#8891a0;line-height:1.55;margin-bottom:8px;";
+    desc.innerHTML = "A <b style=\"color:#cfd6df\">CMA-ES optimizer</b> searches for a casting recipe " +
+      "(cooling schedule + nucleation rate) that lands on your target grain size. Each tile below is " +
+      "<b style=\"color:#cfd6df\">one full casting</b> it tried — early runs nucleate heavily and look chaotic while it explores; " +
+      "watch <b style=\"color:#cfd6df\">|ΔG|</b> shrink as it learns. Finer targets need more grains, coarser targets fewer.";
     const strip = document.createElement("div");
     strip.style.cssText = "display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;min-height:86px;align-items:flex-end;";
-    p.append(head, strip);
+    const status = document.createElement("div");
+    status.id = "labStatus";
+    status.style.cssText = "margin-top:6px;font-size:11px;color:#6b7280;";
+    p.append(head, desc, strip, status);
     document.getElementById("app")!.append(p);
     this.panel = p;
     this.strip = strip;
-    this.status = p.querySelector("#labStatus")!;
+    this.status = status;
     const slider = p.querySelector("#labTarget") as HTMLInputElement;
     if (this.lockTarget) {
       slider.disabled = true;
@@ -203,7 +237,7 @@ export class Optimizer {
         (head.querySelector("b") as HTMLElement).textContent = `G ${this.targetASTM}`;
       });
     }
-    this.status.textContent = "casting #1 …";
+    this.refreshStatus();
   }
 
   private beginEpisode() {
@@ -267,6 +301,7 @@ export class Optimizer {
       ` · σ ${this.cma.sigma.toFixed(2)}`;
     this.genome = null;
     this.finishing = false;
+    if (!this.running) this.refreshStatus();   // a pause landed mid-casting
 
     if (this.limit > 0 && this.episode >= this.limit) {
       const cb = this.onDone;
@@ -277,9 +312,9 @@ export class Optimizer {
     }
   }
 
-  /** drive one animation frame while active */
+  /** drive one animation frame while active (only when the transport is running) */
   tick() {
-    if (!this.active || this.finishing) return;
+    if (!this.active || !this.running || this.finishing) return;
     if (!this.genome) { this.beginEpisode(); return; }
 
     const sim = this.host.getSim();

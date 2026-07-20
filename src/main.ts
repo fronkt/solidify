@@ -69,7 +69,8 @@ async function boot() {
     setRain(v) { rain = v; },
     setView(v) { view = v as ViewMode; },
     setSpeed(v) { substeps = v; turbo = false; },
-    setRun(on) { running = on; },
+    // while the optimizer owns the stage, the transport drives IT, not the melt
+    setRun(on) { if (opt.active) opt.setRunning(on); else running = on; },
     setWeldAuto(on) { weldAuto = on; },
     startOptimizer() { if (!challenge.active) opt.start(sim.n); },
     startChallenge() { if (!opt.active) challenge.start(); },
@@ -87,7 +88,8 @@ async function boot() {
     setUndercool(v) { undercool = v; },
     getRain: () => rain,
     getSubsteps: () => substeps,
-    isRunning: () => running,
+    isRunning: () => (opt.active ? opt.isRunning() : running),
+    isEngineering: () => opt.active,
     isTurbo: () => turbo,
     toggleTurbo() { turbo = !turbo; },
     getMaterial: () => material,
@@ -382,6 +384,8 @@ async function boot() {
 
     if (opt.active) {
       opt.tick();
+      // when paused, tick() is a no-op — keep the stage live so it isn't frozen
+      if (!opt.isRunning()) renderer.render(sim, 1, t / 1000);
     } else {
       if (running) {
         // nucleation rain with an activation-undercooling distribution:
