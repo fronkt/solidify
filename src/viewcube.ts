@@ -24,7 +24,8 @@ const add = (a: V3, b: V3, s = 1): V3 => [a[0] + b[0] * s, a[1] + b[1] * s, a[2]
 
 export class ViewCube {
   private ctx: CanvasRenderingContext2D;
-  private hover: string | null = null;
+  /** current snapped hover direction (face / edge / corner) — public for tests */
+  hoverDir: V3 | null = null;
   private drag: { x: number; y: number; moved: boolean } | null = null;
   private lastCam: CamState | null = null;
 
@@ -50,9 +51,8 @@ export class ViewCube {
           this.drag.y = e.clientY;
         }
       } else {
-        const dir = this.pick(e);
-        this.hover = dir ? dir.join(",") : null;
-        this.canvas.style.cursor = dir ? "pointer" : "default";
+        this.hoverDir = this.pick(e);
+        this.canvas.style.cursor = this.hoverDir ? "pointer" : "default";
       }
     });
     canvas.addEventListener("pointerup", e => {
@@ -62,7 +62,7 @@ export class ViewCube {
       }
       this.drag = null;
     });
-    canvas.addEventListener("pointerleave", () => { this.hover = null; });
+    canvas.addEventListener("pointerleave", () => { this.hoverDir = null; });
   }
 
   /** camera basis (matches Renderer3D: z-up, eye offset by az/el) */
@@ -140,20 +140,53 @@ export class ViewCube {
       ];
       const pts = corners.map(c => this.project(c, b, cx, cy, s));
       const lit = 0.5 + 0.5 * Math.max(0, dot(f.n, light));
-      const hovered = this.hover != null && this.hover.split(",").map(Number).every((v, i) => v === f.n[i]);
-      const base = 22 + lit * 26 + (hovered ? 16 : 0);
+      const base = 22 + lit * 26;
       ctx.beginPath();
       ctx.moveTo(pts[0][0], pts[0][1]);
       for (let i = 1; i < 4; i++) ctx.lineTo(pts[i][0], pts[i][1]);
       ctx.closePath();
       ctx.fillStyle = `rgb(${base + 2}, ${base + 4}, ${base + 9})`;
       ctx.fill();
-      ctx.strokeStyle = hovered ? "rgba(255,180,84,0.9)" : "rgba(120,130,145,0.55)";
-      ctx.lineWidth = hovered ? 1.6 : 1;
+      ctx.strokeStyle = "rgba(120,130,145,0.55)";
+      ctx.lineWidth = 1;
       ctx.stroke();
+    }
 
+    // Fusion-style hover: light the exact snap zone (face centre cell, edge
+    // strip, or corner square) on EVERY visible face that shares the target
+    const D = this.hoverDir;
+    if (D) {
+      const range = (c: number): [number, number] =>
+        c === 0 ? [-0.55, 0.55] : c > 0 ? [0.55, 1] : [-1, -0.55];
+      for (const f of visible) {
+        if (dot(D, f.n) !== 1) continue;
+        const [u0, u1] = range(dot(D, f.ta));
+        const [v0, v1] = range(dot(D, f.tb));
+        const zone: V3[] = [
+          add(add([...f.n] as V3, f.ta, u0), f.tb, v0),
+          add(add([...f.n] as V3, f.ta, u1), f.tb, v0),
+          add(add([...f.n] as V3, f.ta, u1), f.tb, v1),
+          add(add([...f.n] as V3, f.ta, u0), f.tb, v1),
+        ];
+        const zp = zone.map(c => this.project(c, b, cx, cy, s));
+        ctx.beginPath();
+        ctx.moveTo(zp[0][0], zp[0][1]);
+        for (let i = 1; i < 4; i++) ctx.lineTo(zp[i][0], zp[i][1]);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(255,180,84,0.35)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,180,84,0.9)";
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      }
+    }
+
+    // labels last so highlights never cover them
+    for (const f of visible) {
+      const faceHover = D != null && dot(D, f.n) === 1 &&
+        dot(D, f.ta) === 0 && dot(D, f.tb) === 0;
       const fc = this.project(f.n, b, cx, cy, s);
-      ctx.fillStyle = hovered ? "#ffb454" : "rgba(200,206,215,0.85)";
+      ctx.fillStyle = faceHover ? "#ffb454" : "rgba(200,206,215,0.85)";
       ctx.font = `600 ${Math.round(w * 0.10)}px ui-monospace, Consolas, monospace`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";

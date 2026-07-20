@@ -442,6 +442,7 @@ async function boot() {
     mode: () => mode,
     sim3d: () => sim3d,
     cam3: () => renderer3d?.cam() ?? null,
+    vc: () => viewcube,
     fps: () => fps,
     tick(k: number) { for (let i = 0; i < k; i++) frameBody(last + 1000 / 60); },
   };
