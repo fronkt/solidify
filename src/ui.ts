@@ -178,6 +178,19 @@ export class UI {
     return inp;
   }
 
+  /** activation switch: a render-mode toggle that reads as "this costs GPU" */
+  private actSwitch(parent: HTMLElement, label: string, tag: string, get: () => boolean, set: (b: boolean) => void): HTMLElement {
+    const row = document.createElement("div");
+    row.className = "actswitch";
+    row.innerHTML = `<span class="track"><span class="knob"></span></span><span>${label}</span><span class="tag">${tag}</span>`;
+    const apply = () => row.classList.toggle("on", get());
+    row.addEventListener("click", () => { set(!get()); apply(); this.sync(); });
+    parent.append(row);
+    apply();
+    this.binds.push({ update: apply });
+    return row;
+  }
+
   private button(parent: Element, label: string, fn: () => void, cls = ""): HTMLButtonElement {
     const b = document.createElement("button");
     b.textContent = label;
@@ -326,10 +339,10 @@ export class UI {
       v => { this.lastPixel = v; if (host.getPixel() > 0) host.setPixel(v); },
       v => `${v.toFixed(0)}px`);
     this.check(look, "8-bit palette + dither", () => host.getPalette(), b => host.setPalette(b));
-    this.check(look, "specimen tilt (2.5D relief)", () => host.getTilt(), b => host.setTilt(b));
+    this.actSwitch(look, "2.5D RELIEF", "RENDER MODE", () => host.getTilt(), b => host.setTilt(b));
     const tiltNote = document.createElement("div");
     tiltNote.className = "matnote";
-    tiltNote.textContent = "raking-light oblique view — same 2D physics, extruded by solidification age";
+    tiltNote.textContent = "raking-light oblique view — same 2D physics, extruded by solidification age · true 3D: planned";
     look.append(tiltNote);
     // metallographic staining: tint etchants colour grains by orientation (ETCH lens)
     const stainNote = document.createElement("div");

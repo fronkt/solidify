@@ -57,6 +57,19 @@
     .btnrow button { flex: 1 1 auto; }
     .checkrow { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; font-size: 11.5px; cursor: pointer; user-select: none; }
     .checkrow input { accent-color: var(--amber); }
+    /* activation switch: render-mode toggles (Illustrator-style "this costs GPU") */
+    .actswitch { display: flex; align-items: center; gap: 9px; margin: 9px 0 7px; padding: 7px 9px;
+      border: 1px solid var(--line); border-radius: 6px; cursor: pointer; user-select: none;
+      font-size: 11px; letter-spacing: 0.1em; color: var(--dim); transition: border-color 0.25s, color 0.25s; }
+    .actswitch .track { flex: 0 0 auto; width: 34px; height: 18px; border-radius: 999px;
+      background: #1b1f26; border: 1px solid #333a45; position: relative; transition: background 0.25s, border-color 0.25s; }
+    .actswitch .knob { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%;
+      background: #5b6675; transition: transform 0.25s, background 0.25s, box-shadow 0.25s; }
+    .actswitch.on { border-color: rgba(255,180,84,0.55); color: var(--amber); }
+    .actswitch.on .track { background: rgba(255,180,84,0.18); border-color: rgba(255,180,84,0.6); }
+    .actswitch.on .knob { transform: translateX(16px); background: var(--amber); box-shadow: 0 0 8px rgba(255,180,84,0.8); }
+    .actswitch .tag { margin-left: auto; font-size: 9px; letter-spacing: 0.14em; color: #5b6675; }
+    .actswitch.on .tag { color: rgba(255,180,84,0.75); }
     .subpanel { border-left: 2px solid #232833; padding-left: 9px; margin: 4px 0 8px; }
     .hl { outline: 2px solid var(--amber); outline-offset: 4px; border-radius: 6px; animation: hlpulse 1.3s ease-in-out infinite; }
     @keyframes hlpulse { 0%, 100% { outline-color: var(--amber); } 50% { outline-color: rgba(255,180,84,0.25); } }
@@ -148,7 +161,10 @@
     /* analysis panels: bottom-right column, left of the rail */
     #apanels { position: absolute; right: 282px; bottom: 84px; display: flex; flex-direction: column; gap: 8px; transition: right 0.25s ease; pointer-events: none; }
     body.railHidden #apanels { right: 14px; }
-    .apanel { display: none; background: rgba(15,17,21,0.88); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px 6px; }
+    /* container passes clicks through to the melt; the panels themselves are
+       interactive (the ⤢ enlarge button must win over tap-to-seed) */
+    .apanel { display: none; pointer-events: auto; background: rgba(15,17,21,0.88); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px 6px; }
+    .apanel .zoomBtn { pointer-events: auto; }
     .apanel .t { font-size: 9px; letter-spacing: 0.15em; color: var(--dim); margin-bottom: 3px; }
     .apanel canvas { display: block; }
 
