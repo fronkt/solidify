@@ -1,102 +1,14 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SOLIDIFY — contact</title>
-  <meta name="description" content="Questions, feedback, bug reports, or collaboration around SOLIDIFY, the in-browser phase-field solidification laboratory." />
-  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%230a0b0d"/><text x="32" y="45" font-family="ui-monospace,Consolas,monospace" font-size="36" font-weight="700" text-anchor="middle"><tspan fill="%23ffb454">S</tspan><tspan fill="%23eef1f5">I</tspan></text></svg>' />
-  <style>
-    :root { --bg: #0a0b0d; --panel: #101216; --line: #232833; --text: #b8c0cc; --bright: #eef1f5; --dim: #5b6675; --amber: #ffb454; --cyan: #56d4dd; --font: "SF Mono", "Cascadia Code", Consolas, monospace; }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: var(--bg); color: var(--text); font-family: var(--font); line-height: 1.7; font-size: 13.5px; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 40px 22px; }
-    ::selection { background: var(--amber); color: #17110a; }
-    ::-webkit-scrollbar { width: 10px; background: #0a0b0d; }
-    ::-webkit-scrollbar-thumb { background: #c98a3a; border-radius: 5px; border: 2px solid #0a0b0d; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--amber); }
-    html { scrollbar-color: #c98a3a #0a0b0d; }
-    .wrap { max-width: 560px; width: 100%; }
-    h1 { color: var(--bright); font-size: 22px; letter-spacing: 0.3em; }
-    h1 span { color: var(--amber); }
-    .sub { color: var(--dim); margin: 8px 0 34px; font-size: 12.5px; }
-    a { color: var(--cyan); text-decoration: none; }
-    a:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 8px; }
-
-    .card { display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; margin-bottom: 14px; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; cursor: pointer; color: var(--text); }
-    .card:hover { border-color: #3a4150; transform: translateY(-2px); box-shadow: 0 14px 40px rgba(0,0,0,0.35); }
-    .card:active { transform: translateY(0) scale(0.99); }
-    .card h2 { font-size: 13px; letter-spacing: 0.14em; color: var(--amber); margin-bottom: 6px; font-weight: 600; }
-    .card p { font-size: 12px; color: var(--dim); }
-    .card .addr { margin-top: 8px; font-size: 12.5px; color: var(--bright); letter-spacing: 0.04em; display: none; }
-    .card.revealed .addr { display: block; }
-
-    .row { display: flex; gap: 10px; margin-top: 4px; }
-    .mini { flex: 1; text-align: center; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 11.5px; color: var(--dim); transition: border-color 0.2s, color 0.2s; }
-    .mini:hover { border-color: var(--amber); color: var(--amber); }
-
-    .note { margin-top: 26px; font-size: 11px; color: var(--dim); line-height: 1.8; }
-    .note b { color: var(--text); font-weight: 500; }
-    nav { margin-top: 30px; display: flex; gap: 16px; font-size: 12px; border-top: 1px solid var(--line); padding-top: 18px; }
-    nav a:hover { color: var(--amber); }
-  </style>
+<meta charset="utf-8" />
+<title>SOLIDIFY has moved</title>
+<script>
+  var target = "https://solidify-mu.vercel.app" + location.pathname.replace(/^\/solidify/, "") + location.search + location.hash;
+  location.replace(target);
+</script>
+<meta http-equiv="refresh" content="1; url=https://solidify-mu.vercel.app/" />
+<style>body{background:#0a0b0d;color:#c9cdd4;font-family:monospace;display:flex;align-items:center;justify-content:center;min-height:100vh}a{color:#56d4dd}</style>
 </head>
-<body>
-  <div class="wrap">
-    <h1>SOLID<span>IFY</span> · CONTACT</h1>
-    <div class="sub">questions, feedback, bug reports, collaboration — all welcome</div>
-
-    <a class="card" id="mailCard" href="#">
-      <h2>✉ EMAIL ME</h2>
-      <p>Fastest for questions, feedback, or anything else. Click to open your mail app — or reveal and copy the address below.</p>
-      <div class="addr" id="addr"></div>
-    </a>
-
-    <a class="card" href="https://github.com/fronkt/solidify/issues/new" rel="noopener">
-      <h2>⌗ OPEN A GITHUB ISSUE</h2>
-      <p>Best for bugs and feature ideas — they stay public and tracked. For rendering bugs, please include your browser and GPU (the fps readout's grid size helps too).</p>
-    </a>
-
-    <div class="row">
-      <a class="mini" id="copyBtn" href="#">copy address</a>
-      <a class="mini" href="https://github.com/fronkt/solidify" rel="noopener">view the source</a>
-    </div>
-
-    <div class="note">
-      Found the physics doing something wrong? That is the report I most want — say which
-      <b>lens</b>, <b>material</b>, and <b>scenario</b>, and what you expected instead.
-    </div>
-
-    <nav>
-      <a href="../">← home</a>
-      <a href="../app/">the instrument</a>
-      <a href="../science/">the science</a>
-    </nav>
-  </div>
-
-  <script>
-    // address assembled at runtime so HTML scrapers never see it
-    (function () {
-      var u = ["fra", "nkyc", "11223"].join("");
-      var d = ["gm", "ail", ".com"].join("");
-      var addr = u + "@" + d;
-      var card = document.getElementById("mailCard");
-      var addrEl = document.getElementById("addr");
-      var subject = encodeURIComponent("SOLIDIFY — ");
-      card.addEventListener("click", function (e) {
-        e.preventDefault();
-        addrEl.textContent = addr;
-        card.classList.add("revealed");
-        location.href = "mailto:" + addr + "?subject=" + subject;
-      });
-      document.getElementById("copyBtn").addEventListener("click", function (e) {
-        e.preventDefault();
-        addrEl.textContent = addr;
-        card.classList.add("revealed");
-        navigator.clipboard && navigator.clipboard.writeText(addr);
-        this.textContent = "copied ✓";
-      });
-    })();
-  </script>
-  <script data-goatcounter="https://frankcai2.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
-</body>
+<body><p>SOLIDIFY has moved &rarr; <a href="https://solidify-mu.vercel.app/">solidify-mu.vercel.app</a></p></body>
 </html>
