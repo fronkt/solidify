@@ -20,6 +20,8 @@ import { PALETTE_WGSL } from "./shaders";
 export const MAX_GRAINS3 = 4096;
 export const MAX_SEEDS3 = 64;
 export const SEED3_STRIDE = 8; // floats per seed: x, y, z, r, id, tact, pad, pad
+/** reserved grain id for shrinkage-pore voxels (φ pinned 0 forever) */
+export const PORE_ID = MAX_GRAINS3 - 1;
 
 export const LENS3_NAMES = ["MELT", "ORIENT", "SLICE", "FIELD", "SEM", "RINGS", "THERM", "NEON", "CURV"];
 
@@ -30,7 +32,9 @@ export const P3 = {
   epsBar: 4, delta: 5, aniMode3: 6, tau: 7,
   alpha: 8, gamma: 9, latent: 10, noiseAmp: 11,
   tFar: 12, coolRate: 13, heatIn: 14, seedCount: 15,
-  time: 16, deltaZ: 17, quenchDT: 18,
+  time: 16, deltaZ: 17, quenchDT: 18, curGen: 19,
+  sliceN: 20,     // vec4f: stereology section plane (n̂ + c), else zeros
+  pPore: 24,
   BYTES: 128,
 } as const;
 
@@ -55,11 +59,15 @@ struct Params3D {
   time: f32,
   deltaZ: f32,     // hex: c-axis penalty that flattens growth into plates
   quenchDT: f32,   // one-shot temperature drop applied in the stamp pass
-  reserved: u32,
-  _pad0: vec4f,
-  _pad1: vec4f,
+  curGen: u32,     // feed-flood generation counter (porosity)
+  sliceN: vec4f,   // stereology section plane: unit normal + constant c
+  pPore: f32,      // pore hash gate at the thin-remnant stage (0 disables)
+  _p1a: f32,
+  _p1b: f32,
+  _p1c: f32,
   _pad2: vec4f,
 }
+const PORE = ${PORE_ID}u;
 const PI = 3.14159265359;
 
 fn cid3(p: Params3D, c: vec3i) -> vec3i {
@@ -160,6 +168,7 @@ ${COMMON3}
 @group(0) @binding(4) var stateOut: texture_storage_3d<rg32float, write>;
 @group(0) @binding(5) var grainOut: texture_storage_3d<r32uint, write>;
 @group(0) @binding(6) var ageOut: texture_storage_3d<rg32float, write>;
+@group(0) @binding(7) var fed: texture_3d<u32>;
 
 @compute @workgroup_size(4, 4, 4)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -183,6 +192,15 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let lapPhi = (sE.r + sW.r + sN.r + sS.r + sU.r + sD.r - 6.0 * phi) * invdx2;
   let lapT   = (sE.g + sW.g + sN.g + sS.g + sU.g + sD.g - 6.0 * T) * invdx2;
   let gph = vec3f(sE.r - sW.r, sN.r - sS.r, sU.r - sD.r) * inv2dx;
+
+  // shrinkage pore: a permanent void — φ pinned to 0 (else solid neighbours
+  // would regrow it), temperature keeps conducting, anneal never heals it
+  let selfId = textureLoad(grain, c, 0).r;
+  if (selfId == PORE) {
+    textureStore(stateOut, c, vec4f(0.0, clamp(T + P.dt * lapT - P.dt * P.coolRate, -1.0, 2.0), 0.0, 0.0));
+    textureStore(grainOut, c, vec4u(PORE, 0u, 0u, 0u));
+    return;
+  }
 
   // anisotropic terms from the flux texture
   let fC = textureLoad(flux, c, 0);
@@ -216,10 +234,22 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     textureStore(ageOut, c, vec4f(0.0));
   }
 
+  // shrinkage-pore formation: a voxel that SOLIDIFIES while cut off from feed
+  // metal voids with roughly the solidification-shrinkage fraction — this is
+  // how interdendritic micro-porosity actually distributes in castings
+  let isFed = textureLoad(fed, c, 0).r + 1u >= P.curGen;
+  if (P.pPore > 0.0 && P.curGen >= 4u && !isFed && phi < 0.5 && phiNew >= 0.5) {
+    if (hash3(gid.x, gid.y * 31u + gid.z, 977u) < P.pPore * 0.12) {
+      textureStore(stateOut, c, vec4f(0.0, TNew, 0.0, 0.0));
+      textureStore(grainOut, c, vec4u(PORE, 0u, 0u, 0u));
+      return;
+    }
+  }
+
   // grain id bookkeeping: claim ahead of the front from the best face
   // neighbour, release on remelt (quaternions are CPU-written at seed time
   // only, so claiming reads a fixed table — no race by construction)
-  var id = textureLoad(grain, c, 0).r;
+  var id = selfId;
   if (phiNew < 1e-4) {
     id = 0u;
   } else if (id == 0u) {
@@ -233,7 +263,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
       if (k == 5) { d = vec3i(0, 0, -1); }
       let nc = cid3(P, c + d);
       let nid = textureLoad(grain, nc, 0).r;
-      if (nid != 0u) {
+      if (nid != 0u && nid != PORE) {
         let nphi = textureLoad(state, nc, 0).r;
         if (nphi > best) { best = nphi; id = nid; }
       }
@@ -242,6 +272,48 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 
   textureStore(stateOut, c, vec4f(phiNew, TNew, 0.0, 0.0));
   textureStore(grainOut, c, vec4u(id, 0u, 0u, 0u));
+}
+`;
+
+// ---------------------------------------------------- feed-connectivity pass
+// Generation-stamped flood from the riser (top face): fedTex stores the last
+// generation that reached each liquid voxel. A pocket that stops receiving
+// generations is cut off from feed metal — its last remnant becomes porosity.
+export const FEED3D_WGSL = /* wgsl */ `
+${COMMON3}
+@group(0) @binding(0) var<uniform> P: Params3D;
+@group(0) @binding(1) var state: texture_3d<f32>;
+@group(0) @binding(2) var fedIn: texture_3d<u32>;
+@group(0) @binding(3) var fedOut: texture_storage_3d<r32uint, write>;
+
+@compute @workgroup_size(4, 4, 4)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= P.n || gid.y >= P.n || gid.z >= P.n) { return; }
+  let c = vec3i(gid);
+  let phi = textureLoad(state, c, 0).r;
+  let old = textureLoad(fedIn, c, 0).r;
+  if (phi >= 0.5) {
+    textureStore(fedOut, c, vec4u(old, 0u, 0u, 0u));
+    return;
+  }
+  var g = old;
+  if (gid.z == P.n - 1u) {
+    g = P.curGen;                       // the riser: liquid on the top face
+  } else {
+    for (var k = 0; k < 6; k++) {
+      var d = vec3i(1, 0, 0);
+      if (k == 1) { d = vec3i(-1, 0, 0); }
+      if (k == 2) { d = vec3i(0, 1, 0); }
+      if (k == 3) { d = vec3i(0, -1, 0); }
+      if (k == 4) { d = vec3i(0, 0, 1); }
+      if (k == 5) { d = vec3i(0, 0, -1); }
+      let nc = cid3(P, c + d);
+      if (textureLoad(state, nc, 0).r < 0.5 && textureLoad(fedIn, nc, 0).r == P.curGen) {
+        g = P.curGen;
+      }
+    }
+  }
+  textureStore(fedOut, c, vec4u(g, 0u, 0u, 0u));
 }
 `;
 
@@ -265,7 +337,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   var id = textureLoad(grain, c, 0).r;
   var stamped = false;
   let Tq = clamp(s.g - P.quenchDT, -1.0, 2.0);
-  if (phi < 0.3) {
+  if (phi < 0.3 && id != PORE) {
     let p = vec3f(gid) + 0.5;
     for (var i = 0u; i < P.seedCount; i++) {
       let b = i * ${SEED3_STRIDE}u;
@@ -307,9 +379,13 @@ struct Stats3 {
 fn main(@builtin(global_invocation_id) gid: vec3u) {
   if (gid.x >= P.n || gid.y >= P.n || gid.z >= P.n) { return; }
   let s = textureLoad(state, vec3i(gid), 0);
+  let id = textureLoad(grain, vec3i(gid), 0).r;
+  if (id == PORE) {
+    atomicAdd(&stats.counts[PORE], 1u);   // porosity census rides the id table
+    return;
+  }
   if (s.r > 0.5) {
     atomicAdd(&stats.solid, 1u);
-    let id = textureLoad(grain, vec3i(gid), 0).r;
     if (id > 0u && id < ${MAX_GRAINS3}u) {
       atomicAdd(&stats.counts[id], 1u);
     }
@@ -512,6 +588,10 @@ fn sliceColor(p: vec3f) -> vec3f {
   let s = stateAt(p);
   let id = grainAt(p);
   let style = (R.flags >> 4u) & 15u;
+  if (id == ${PORE_ID}u) {
+    // shrinkage pore on the cut: a void, near-black with a cold blue cast
+    return vec3f(0.004, 0.008, 0.02);
+  }
   // grain-boundary detect in the cut plane
   var gb = 0.0;
   if (s.r > 0.5) {
@@ -532,13 +612,21 @@ fn sliceColor(p: vec3f) -> vec3f {
       // live view: incandescent liquid on the cut
       return heat(s.g * R.meltGlow) * 0.85 + vec3f(0.01, 0.012, 0.018);
     }
+    if (style == 5u) {
+      // Niyama map: still-liquid regions read as cold unmeasured blue
+      return vec3f(0.05, 0.06, 0.10);
+    }
     // etched-micrograph styles: liquid reads as pale mounting resin
     return vec3f(0.955, 0.945, 0.925);
   }
   let idh = hashf(id, 17u, 91u);
   let lum = 0.58 + 0.24 * idh;
   var col: vec3f;
-  if (style == 1u) {          // plain Nital
+  if (style == 5u) {          // Niyama ramp: hot spots = porosity risk
+    let risk = clamp(1.0 - ageAt(p).g / max(R.misc.y, 1e-3), 0.0, 1.0);
+    col = inferno(risk);
+    col *= 1.0 - gb * 0.25;
+  } else if (style == 1u) {   // plain Nital
     col = vec3f(lum) * vec3f(0.99, 0.965, 0.915);
     col *= 1.0 - gb * 0.82;
   } else if (style == 2u) {   // Klemm's tint etch: straw browns to steel blues
@@ -613,6 +701,7 @@ fn fmain(in: VOut) -> @location(0) vec4f {
         if (tt >= tMax) { break; }
         let s = stateAt(ro + rd * tt);
         att += s.r * 2.0;
+        if (grainAt(ro + rd * tt) == ${PORE_ID}u) { att += 7.0; }  // pores: dark NDT spots
         tSum += s.g;
         wSum += 1.0;
         tt += 2.0;

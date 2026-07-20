@@ -4,8 +4,8 @@
 // orientations, and an out-of-memory creation ladder for weaker GPUs.
 
 import {
-  FLUX3D_WGSL, UPDATE3D_WGSL, STAMP3D_WGSL, STATS3D_WGSL,
-  MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3,
+  FLUX3D_WGSL, UPDATE3D_WGSL, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL,
+  MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
 } from "./shaders3d";
 import { DOMAIN_MM } from "./sim";
 
@@ -25,6 +25,7 @@ export interface Phys3DParams {
   coolRate: number;
   heatIn: number;
   meltGlow: number;   // display-only, carried from the material
+  pPore: number;      // shrinkage-pore hash gate at the thin-remnant stage (0 = off)
 }
 
 export const DEFAULTS3D: Phys3DParams = {
@@ -43,6 +44,7 @@ export const DEFAULTS3D: Phys3DParams = {
   coolRate: 0.0,
   heatIn: 0.0,
   meltGlow: 1.0,
+  pPore: 0.85,
 };
 
 export interface StatsResult3D {
@@ -50,6 +52,8 @@ export interface StatsResult3D {
   grainCount: number;
   meanVolVox: number;
   eqDiamUm: number | null;   // volume-equivalent sphere diameter
+  poreFrac: number;          // shrinkage-porosity volume fraction
+  grains: { id: number; vox: number }[];   // retained for IPF / histogram panels
 }
 
 interface Seed3 { x: number; y: number; z: number; r: number; id: number; tact: number }
@@ -69,6 +73,10 @@ export class Sim3D {
   private grainTex: GPUTexture[] = [];
   private fluxTex!: GPUTexture;
   private ageTex!: GPUTexture;   // rg32float: r = freeze time, g = Niyama at freeze
+  private fedTex: GPUTexture[] = [];   // r32uint generation-stamped feed flood
+  /** feed-flood generation counter (advances every 2n SUBSTEPS; test-visible) */
+  feedGen = 2;
+  private subAcc = 0;
   private paramBuf!: GPUBuffer;
   private quatBuf!: GPUBuffer;
   private seedBuf!: GPUBuffer;
@@ -80,10 +88,12 @@ export class Sim3D {
   private updatePipe!: GPUComputePipeline;
   private stampPipe!: GPUComputePipeline;
   private statsPipe!: GPUComputePipeline;
+  private feedPipe!: GPUComputePipeline;
   private fluxBG: GPUBindGroup[] = [];
   private updateBG: GPUBindGroup[] = [];
   private stampBG: GPUBindGroup[] = [];
   private statsBG: GPUBindGroup[] = [];
+  private feedBG: GPUBindGroup[][] = [];   // [stateDir][pingpong]
 
   private pendingSeeds: Seed3[] = [];
   private pendingQuench = 0;
@@ -140,6 +150,7 @@ export class Sim3D {
     this.grainTex = [d.createTexture(texDesc("r32uint")), d.createTexture(texDesc("r32uint"))];
     this.fluxTex = d.createTexture(texDesc("rgba32float"));
     this.ageTex = d.createTexture(texDesc("rg32float"));
+    this.fedTex = [d.createTexture(texDesc("r32uint")), d.createTexture(texDesc("r32uint"))];
 
     this.paramBuf = d.createBuffer({ size: P3.BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.quatBuf = d.createBuffer({ size: MAX_GRAINS3 * 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
@@ -154,6 +165,7 @@ export class Sim3D {
     this.updatePipe = mk(UPDATE3D_WGSL);
     this.stampPipe = mk(STAMP3D_WGSL);
     this.statsPipe = mk(STATS3D_WGSL);
+    this.feedPipe = mk(FEED3D_WGSL);
 
     for (const dir of [0, 1]) {
       const s = this.stateTex[dir].createView();
@@ -180,8 +192,19 @@ export class Sim3D {
           { binding: 4, resource: so },
           { binding: 5, resource: go },
           { binding: 6, resource: this.ageTex.createView() },
+          { binding: 7, resource: this.fedTex[0].createView() },
         ],
       });
+      // feed flood: 4 iterations/frame, even count → data always lands in fedTex[0]
+      this.feedBG[dir] = [0, 1].map(pp => d.createBindGroup({
+        layout: this.feedPipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.paramBuf } },
+          { binding: 1, resource: s },
+          { binding: 2, resource: this.fedTex[pp].createView() },
+          { binding: 3, resource: this.fedTex[1 - pp].createView() },
+        ],
+      }));
       this.stampBG[dir] = d.createBindGroup({
         layout: this.stampPipe.getBindGroupLayout(0),
         entries: [
@@ -211,6 +234,7 @@ export class Sim3D {
     for (const t of this.grainTex) t?.destroy();
     this.fluxTex?.destroy();
     this.ageTex?.destroy();
+    for (const t of this.fedTex) t?.destroy();
     this.paramBuf?.destroy();
     this.quatBuf?.destroy();
     this.seedBuf?.destroy();
@@ -233,6 +257,11 @@ export class Sim3D {
     for (const t of this.grainTex)
       this.device.queue.writeTexture(
         { texture: t }, zeros, { bytesPerRow: n * 4, rowsPerImage: n }, [n, n, n]);
+    for (const t of this.fedTex)
+      this.device.queue.writeTexture(
+        { texture: t }, zeros, { bytesPerRow: n * 4, rowsPerImage: n }, [n, n, n]);
+    this.feedGen = 2;
+    this.subAcc = 0;
     this.dir = 0;
     this.frame = 0;
     this.simTime = 0;
@@ -263,7 +292,7 @@ export class Sim3D {
    */
   addSeed3D(x: number, y: number, z: number, r = 4, q?: [number, number, number, number], tact = 2.0): number {
     let id = this.nextId++;
-    if (id >= MAX_GRAINS3) { this.nextId = 2; id = 1; }
+    if (id >= MAX_GRAINS3 - 1) { this.nextId = 2; id = 1; }   // top id is PORE_ID
     const quat = q ?? Sim3D.randomQuat();
     this.quatCPU.set(quat, id * 4);
     this.device.queue.writeBuffer(this.quatBuf, id * 16, this.quatCPU, id * 4, 4);
@@ -291,6 +320,8 @@ export class Sim3D {
     f[P3.time] = this.simTime;
     f[P3.deltaZ] = p.deltaZ;
     f[P3.quenchDT] = this.pendingQuench;
+    u[P3.curGen] = this.feedGen;
+    f[P3.pPore] = p.pPore;
     this.device.queue.writeBuffer(this.paramBuf, 0, this.paramData);
   }
 
@@ -324,12 +355,26 @@ export class Sim3D {
     const doStamp = seedCount > 0 || this.pendingQuench !== 0;
     if (steps === 0 && !doStamp) return 0;
     this.frame++;
+    // generations advance in PHYSICS time (2n substeps), and flood iterations
+    // scale with substeps, so each generation always accumulates ≥ n iterations
+    // whatever the wall-clock speed — turbo can't outrun the connectivity check
+    this.subAcc += steps;
+    if (this.subAcc >= 2 * this.n) { this.subAcc -= 2 * this.n; this.feedGen++; }
     this.writeParams(seedCount);
     this.pendingQuench = 0;
 
     const enc = d.createCommandEncoder();
     const pass = enc.beginComputePass();
     let dir = this.dir;
+    // even iteration count keeps the result in fedTex[0], which UPDATE binds
+    if (this.params.pPore > 0 && steps > 0) {
+      const feedIters = Math.min(24, Math.max(2, 2 * Math.ceil(steps / 4)));
+      pass.setPipeline(this.feedPipe);
+      for (let i = 0; i < feedIters; i++) {
+        pass.setBindGroup(0, this.feedBG[dir][i % 2]);
+        this.dispatch(pass);
+      }
+    }
     if (doStamp) {
       pass.setPipeline(this.stampPipe);
       pass.setBindGroup(0, this.stampBG[dir]);
@@ -383,17 +428,21 @@ export class Sim3D {
     const solid = data[0];
     const minVox = Math.max(64, total * 1e-5);
     let volSum = 0;
-    let count = 0;
-    for (let i = 1; i < MAX_GRAINS3; i++) {
+    const grains: { id: number; vox: number }[] = [];
+    for (let i = 1; i < MAX_GRAINS3 - 1; i++) {   // top id is the pore census
       const c = data[8 + i];
-      if (c > minVox) { volSum += c; count++; }
+      if (c > minVox) { volSum += c; grains.push({ id: i, vox: c }); }
     }
+    const count = grains.length;
     const meanVolVox = count > 0 ? volSum / count : 0;
     // same dx as the 2D reference grid (1024 cells / mm) → same physical voxel
     const umPerVox = (DOMAIN_MM * 1000) / 1024;
     const eqDiamUm = meanVolVox > 0
       ? Math.cbrt((6 * meanVolVox) / Math.PI) * umPerVox
       : null;
-    return { fracSolid: solid / total, grainCount: count, meanVolVox, eqDiamUm };
+    return {
+      fracSolid: solid / total, grainCount: count, meanVolVox, eqDiamUm,
+      poreFrac: data[8 + PORE_ID] / total, grains,
+    };
   }
 }

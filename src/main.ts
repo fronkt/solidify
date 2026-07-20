@@ -34,7 +34,7 @@ async function boot() {
   const caps3d = {
     supported:
       adapter.limits.maxTextureDimension3D >= 128 &&
-      adapter.limits.maxStorageTexturesPerShaderStage >= 2,
+      adapter.limits.maxStorageTexturesPerShaderStage >= 3,
     maxN: adapter.limits.maxTextureDimension3D >= 192 ? 192
       : adapter.limits.maxTextureDimension3D >= 160 ? 160 : 128,
   };
@@ -400,6 +400,7 @@ async function boot() {
   const analyze = new Analyze({ getSim: () => sim, renderer, simParams: () => sim.params });
   const ui = new UI(app, analyze);
   const slicePanelUI = new SlicePanel(app);
+  slicePanelUI.addStyle("Niyama map · porosity risk");
   const tour = new Tour(app);
   const opt = new Optimizer(app);
   const composer = new Composer({
@@ -711,6 +712,7 @@ async function boot() {
             ["solid", s ? `${(s.fracSolid * 100).toFixed(1)} %` : "—"],
             ["grains", s ? String(s.grainCount) : "—"],
             ["d̄ eq", s?.eqDiamUm != null ? `${s.eqDiamUm.toFixed(0)} µm` : "—"],
+            ["pores", s ? `${(s.poreFrac * 100).toFixed(2)} %` : "—"],
             ["fps", `${fps.toFixed(0)} · ${sim3d.n}³`],
           ]);
         }
