@@ -393,3 +393,24 @@ node once and share it between adjoining segments.
       during the async stats read; now pause always lands, in-flight casting
       completes then loop halts. verify-optimizer.mjs asserts enter-paused/run/
       pause-frozen/exit end-to-end
+
+## v1.7 (2026-07-20): recipe report + forbidden symmetry
+
+- [x] Optimizer payoff (Frank: "it just keeps going with no report"): free-play
+      convergence detection (best |ΔG| ≤ 0.3 + 6-casting stall after ≥12, or
+      18-casting hard stall) → pauses on an amber REPORT: best G, castings used,
+      and the recipe (undercooling · nucleation/unit-time · cooling early/mid/
+      late) with ⚗ APPLY RECIPE (exits, stages it ARMED on the full grid — incl.
+      fracSolid-scheduled cooling in the main loop + sim-time→wall rain
+      conversion) and KEEP SEARCHING; target-slider move re-arms the watch;
+      challenge path (limit>0) unchanged. verify-optimizer runs the whole arc:
+      converged #17, |ΔG| 0.15, applied → 1024², armed.
+- [x] Crystal symmetry (Frank: "all 7 systems/14 lattices? quasicrystals?"):
+      honest 2D answer implemented — CRYSTAL now offers ×2/×3/×4/×6 (the only
+      rotations a periodic lattice allows in 2D — restriction theorem) plus
+      forbidden ×5/×10 quasi modes; shader was already generic in j. New
+      Al–Co–Ni decagonal MATERIAL (j=10, δ=0.022 — exceeds δ_crit=1/(j²−1) but
+      regularizes fine, verified), "quasi" preset (j=5 star, verified), tour
+      chapter "Forbidden symmetry" (Shechtman story + honesty note: interface-
+      energy symmetry only, not the aperiodic lattice). 14 Bravais lattices are
+      3D classifications — out of scope for a 2D section, said so honestly.
