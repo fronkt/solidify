@@ -30,7 +30,7 @@
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html { background: var(--bg); scroll-behavior: auto; scrollbar-color: #c98a3a #0a0b0d; }
-    body { background: var(--bg); color: var(--text); font-family: var(--font); overflow-x: hidden; }
+    body { background: transparent; color: var(--text); font-family: var(--font); overflow-x: hidden; }
     ::selection { background: var(--amber); color: #17110a; }
     ::-webkit-scrollbar { width: 10px; background: #0a0b0d; }
     ::-webkit-scrollbar-track { background: #0a0b0d; }
@@ -39,6 +39,23 @@
     a { color: var(--cyan); text-decoration: none; }
     b { color: var(--text); font-weight: 600; }
     .k { font-size: 11px; letter-spacing: 0.3em; color: var(--dim); }
+
+    /* ---------- grain-boundary microstructure backdrop ----------
+       Seamless tileable equiaxed polycrystal (d3-delaunay Voronoi; same network
+       as the specimen puck), fixed at z-index -1. The texture never moves — only
+       a soft transparency "wave" travels across it. --gline is the wave's height:
+       the mask is opaque above it and transparent below, so landing.ts sweeps
+       --gline UP across the dive (grain dissolves bottom-to-top to clean dark)
+       then DOWN over the ALL IN ONE finale (grain refills top-to-bottom). --gline
+       rests at 140% (wave below the viewport = full grain) for every other act.
+       Regen the tile with `node scripts/gen-grain.mjs`. */
+    #grain { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+      pointer-events: none; color: var(--line); opacity: var(--gbase, 0.6); --gline: 140%;
+      -webkit-mask-image: linear-gradient(to bottom, #000 calc(var(--gline) - 38%), transparent var(--gline));
+              mask-image: linear-gradient(to bottom, #000 calc(var(--gline) - 38%), transparent var(--gline)); }
+    #grain path { fill: none; stroke: currentColor; stroke-width: 1; }
+    /* reduced motion: no wave (the #diveAct re-opaque lives after its rule below) */
+    @media (prefers-reduced-motion: reduce) { #grain { --gbase: 0.45; } }
 
     /* ---------- top nav (appears after the hero) ---------- */
     #topnav { position: fixed; top: 0; left: 0; right: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; padding: 14px 26px; background: rgba(10,11,13,0.82); backdrop-filter: blur(10px); border-bottom: 1px solid transparent; opacity: 0; transform: translateY(-10px); transition: opacity 0.3s, transform 0.3s, border-color 0.3s; pointer-events: none; }
@@ -56,7 +73,7 @@
 
     /* ---------- ACT 0 · hero: the cast wordmark ---------- */
     #heroAct { flex-direction: column; padding-top: 6dvh; padding-bottom: 62px; background:
-      radial-gradient(1000px 480px at 50% 8%, #161009 0%, transparent 65%), var(--bg); }
+      radial-gradient(1000px 480px at 50% 8%, #161009 0%, transparent 65%); }
     #wordmark { font-size: clamp(46px, 9.4vw, 118px); letter-spacing: 0.2em; color: #eef1f5; font-weight: 700; line-height: 1.1; margin-bottom: 8px; text-shadow: 0 0 60px rgba(255, 140, 40, 0.12); }
     #wordmark span { color: var(--amber); }
     #heroCopy { text-align: center; max-width: 820px; }
@@ -92,9 +109,12 @@
     .nogpu .simBox canvas { display: none; }
     .nogpu .simBox img.fb { display: block; }
 
-    /* ---------- ACT 0.5 · THE DIVE (pinned camera descent) ---------- */
-    #diveAct { position: relative; height: 100dvh; overflow: hidden; background:
-      radial-gradient(900px 600px at 50% 50%, #101014 0%, var(--bg) 70%); }
+    /* ---------- ACT 0.5 · THE DIVE (pinned camera descent) ----------
+       transparent so the grain curtain (behind, z-index -1) shows through the
+       alpha dive canvas; the dark comes from html's base. */
+    #diveAct { position: relative; height: 100dvh; overflow: hidden; background: transparent; }
+    /* reduced motion: no curtain animation, so re-opaque the dive to hide the static grain */
+    @media (prefers-reduced-motion: reduce) { #diveAct { background: var(--bg); } }
     #diveStage { position: absolute; inset: 0; }
     .stage { position: absolute; inset: 0; display: none; contain: layout paint; }
     .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -152,7 +172,7 @@
     #diveDashes i.on { background: var(--amber); }
 
     /* ---------- ACT 1 · ten lenses (pinned) ---------- */
-    #lensAct { background: var(--bg); }
+    #lensAct { background: transparent; }
     .lensGrid { display: grid; grid-template-columns: 1fr; gap: 34px; align-items: center; width: 100%; max-width: 1150px; }
     @media (min-width: 940px) { .lensGrid { grid-template-columns: 5fr 6fr; gap: 56px; } }
     #lensName { font-size: clamp(52px, 9vw, 118px); font-weight: 700; letter-spacing: 0.04em; color: var(--amber); line-height: 1.05; margin: 14px 0 10px; }
@@ -163,7 +183,7 @@
 
     /* ---------- ACT 2 · materials (pinned) ---------- */
     #matAct { background:
-      radial-gradient(900px 500px at 22% 50%, #14100a 0%, transparent 60%), var(--bg); }
+      radial-gradient(900px 500px at 22% 50%, #14100a 0%, transparent 60%); }
     .matGrid { display: grid; grid-template-columns: 1fr; gap: 34px; align-items: center; width: 100%; max-width: 1150px; }
     @media (min-width: 940px) { .matGrid { grid-template-columns: 6fr 5fr; gap: 56px; } }
     #matName { font-size: clamp(46px, 7.6vw, 96px); font-weight: 700; letter-spacing: 0.05em; color: #eef1f5; line-height: 1.05; margin: 14px 0 6px; }
@@ -171,7 +191,7 @@
     #matFact { margin-top: 14px; font-size: 13.5px; color: var(--dim); line-height: 1.7; max-width: 42ch; min-height: 3.4em; }
 
     /* ---------- ACT 3 · composer teaser ---------- */
-    #composeAct { background: var(--bg); }
+    #composeAct { background: transparent; }
     #composeAct .inner { max-width: 860px; }
     .chips { margin: 22px 0 8px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
     .chip { border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; font-size: 13px; color: var(--text); background: rgba(17,19,24,0.7); }
@@ -193,7 +213,7 @@
 
     /* ---------- ACT 4 · science finale ---------- */
     #sciAct { flex-direction: column; text-align: center; background:
-      radial-gradient(900px 480px at 50% 90%, #131009 0%, transparent 60%), var(--bg); }
+      radial-gradient(900px 480px at 50% 90%, #131009 0%, transparent 60%); }
     #eq { font-size: clamp(15px, 2.6vw, 24px); color: #eef1f5; letter-spacing: 0.02em; min-height: 1.6em; }
     #eq .cursor { display: inline-block; width: 0.55em; height: 1.1em; background: var(--amber); vertical-align: -0.15em; margin-left: 2px; }
     .anim #eq .cursor { animation: blink 0.9s steps(1) infinite; }
@@ -218,6 +238,16 @@
   </style>
 </head>
 <body>
+  <!-- grain-boundary microstructure backdrop (tileable Voronoi, gen-grain.mjs) -->
+  <svg id="grain" aria-hidden="true">
+    <defs>
+      <pattern id="grainPat" width="420" height="420" patternUnits="userSpaceOnUse">
+        <path d="M9.3 0L0 60.6 M12.9 382.6L14.6 385.2 M14.6 385.2L9.3 420 M0 379.7L12.9 382.6 M328.6 103.7L292 0 M420 60.6L419.5 64.1 M419.5 64.1L343.2 106.7 M343.2 106.7L328.6 103.7 M292 420L288.7 410.5 M288.7 410.5L336.1 361 M336.1 361L420 379.7 M55.7 276.3L12.9 382.6 M0 218L47.1 253.9 M47.1 253.9L55.7 276.3 M319.7 278.1L418.8 217.1 M418.8 217.1L420 218 M336.1 361L319.7 278.1 M287.3 132.5L271.9 249.4 M271.9 249.4L209.3 261.3 M209.3 261.3L150.4 174.3 M150.4 174.3L150.7 159.6 M150.7 159.6L196.5 116.2 M196.5 116.2L287.3 132.5 M196.5 116.2L185.2 47.9 M185.2 47.9L230 0 M328.6 103.7L287.3 132.5 M230 420L241.2 408 M241.2 408L288.7 410.5 M271.9 249.4L319.7 278.1 M241.2 408L171.6 327.5 M171.6 327.5L170.7 318 M170.7 318L209.3 261.3 M150.7 159.6L73.2 111.1 M73.2 111.1L70.8 104.4 M70.8 104.4L117.7 27.2 M117.7 27.2L185.2 47.9 M343.2 106.7L418.3 212.9 M418.3 212.9L418.8 217.1 M150.4 174.3L47.1 253.9 M0 210.6L73.2 111.1 M418.3 212.9L420 210.6 M170.7 318L55.7 276.3 M117.7 27.2L104.6 0 M104.6 420L99.6 409.6 M99.6 409.6L171.6 327.5 M99.6 409.6L14.6 385.2 M70.8 104.4L0 64.4 M420 64.4L419.5 64.1"/>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#grainPat)"/>
+  </svg>
+
   <header id="topnav">
     <div class="mark">SOLID<span>IFY</span></div>
     <nav>

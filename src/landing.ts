@@ -52,6 +52,37 @@ function staticFallback() {
   document.body.classList.add("nogpu");
 }
 
+// The grain texture stays put; only a soft transparency "wave" (--gline, the
+// height of the mask's opaque/transparent boundary) travels across it. As the
+// dive begins the wave sweeps UP so the grain dissolves to clean dark, then
+// DOWN over the ALL IN ONE finale so it refills — the moving line is the whole
+// effect, no sliding. Driven off the dive's pin range (id "dive") via functional
+// start/end, so it aligns with both the 3D pin (+=19000) and the 2.5D fallback
+// (+=5200). --gline rests at REST (full grain) outside this range.
+function initGrainCurtain() {
+  const grain = document.getElementById("grain");
+  const dive = ScrollTrigger.getById("dive");
+  if (!grain || !dive) return;
+  const REST = 140, GONE = -4;                // wave height %: 140 = full grain, -4 = fully dissolved
+  const ENTER = 0.14;                         // fully dissolved by here (through THE DIE)
+  const EXIT_A = 0.915, EXIT_B = 0.99;        // refills across the ALL IN ONE finale (stage 12/13)
+  const smooth = (t: number) => t * t * (3 - 2 * t);
+  const wave = (v: number) => grain.style.setProperty("--gline", `${v.toFixed(1)}%`);
+  ScrollTrigger.create({
+    trigger: "#diveAct",
+    start: () => dive.start,   // re-read the dive's pinned range on every refresh
+    end: () => dive.end,
+    scrub: 1,                  // match the dive camera's momentum so the wave glides in sync
+    onUpdate: self => {
+      const p = self.progress;
+      if (p < 0.5)                              // enter: wave sweeps up, grain dissolves to clean dark
+        wave(REST - (REST - GONE) * smooth(Math.min(1, p / ENTER)));
+      else                                     // ALL IN ONE: wave sweeps down, grain refills
+        wave(GONE + (REST - GONE) * smooth(Math.min(1, Math.max(0, (p - EXIT_A) / (EXIT_B - EXIT_A)))));
+    },
+  });
+}
+
 async function boot() {
   // a pinned scroll story restored mid-pin on reload is disorienting; start clean
   history.scrollRestoration = "manual";
@@ -72,6 +103,7 @@ async function boot() {
       initDive(false);
     }
   }
+  if (!reduced) initGrainCurtain();   // curtain works over the 2.5D fallback too, so before the GPU gate
   if (reduced || !navigator.gpu) return staticFallback();
   let device: GPUDevice;
   try {
