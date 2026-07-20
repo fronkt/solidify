@@ -169,6 +169,8 @@ async function boot() {
   const exit3D = () => {
     mode = "2d";
     probeMark3.style.display = "none";   // the frame loop's 3D branch stops updating it
+    rulerLine3.style.display = "none";
+    rulerText3.style.display = "none";
     document.body.classList.remove("mode3d");
     hud.reset();
     hud.setMode3(false);
@@ -452,6 +454,11 @@ async function boot() {
     setProbe3On(b) { an3.setProbeOn(b); },
     getScheil3On: () => an3.scheilOn,
     setScheil3On(b) { an3.setScheilOn(b); },
+    getRuler3On: () => an3.ruler3On,
+    setRuler3On(b) {
+      an3.setRuler3On(b);
+      if (!b) { rulerLine3.style.display = "none"; rulerText3.style.display = "none"; }
+    },
     exportSTL() { void exportSTL(true); },
     startTurntable() {
       if (mode !== "3d" || !renderer3d || turntable) return;
@@ -531,6 +538,20 @@ async function boot() {
     '<line x1="-11" x2="11" y1="0" y2="0" stroke="#56d4dd" stroke-width="1"/>' +
     '<line y1="-11" y2="11" x1="0" x2="0" stroke="#56d4dd" stroke-width="1"/>';
   document.getElementById("overlay")!.append(probeMark3);
+  // 3D SDAS ruler line + readout (client-space — the drag itself is on screen)
+  const rulerLine3 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  rulerLine3.id = "rulerLine3";
+  rulerLine3.setAttribute("stroke", "#ffb454");
+  rulerLine3.setAttribute("stroke-width", "1.4");
+  rulerLine3.setAttribute("stroke-dasharray", "5 3");
+  rulerLine3.style.display = "none";
+  const rulerText3 = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  rulerText3.id = "rulerText3";
+  rulerText3.setAttribute("fill", "#ffb454");
+  rulerText3.setAttribute("font-size", "11");
+  rulerText3.style.display = "none";
+  document.getElementById("overlay")!.append(rulerLine3, rulerText3);
+  let ruler3Start: [number, number, number] | null = null;
   const ui = new UI(app, analyze);
   const slicePanelUI = new SlicePanel(app);
   slicePanelUI.addStyle("Niyama map · porosity risk");
@@ -628,6 +649,24 @@ async function boot() {
     pinch: null as null | { d: number; my: number },
     drag: null as null | { x: number; y: number; sx: number; sy: number; t: number; btn: number; shift: boolean; moved: boolean },
     down(e: PointerEvent) {
+      // armed SDAS ruler owns the drag — orbit yields (2D short-circuit port)
+      if (an3.ruler3On && sim3d && e.button === 0) {
+        const g = renderer3d?.pickSeedPoint(
+          e.clientX, e.clientY,
+          view3d === 2 ? slicePlane(slice, sim3d.n) : null);
+        if (g) {
+          ruler3Start = g;
+          an3.beginRuler3(g);
+          rulerLine3.setAttribute("x1", String(e.clientX));
+          rulerLine3.setAttribute("y1", String(e.clientY));
+          rulerLine3.setAttribute("x2", String(e.clientX));
+          rulerLine3.setAttribute("y2", String(e.clientY));
+          rulerLine3.style.display = "";
+          rulerText3.style.display = "none";
+          canvas.setPointerCapture(e.pointerId);
+          return;
+        }
+      }
       this.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.pts.size === 2) {
         this.drag = null;
@@ -642,6 +681,11 @@ async function boot() {
       };
     },
     move(e: PointerEvent) {
+      if (ruler3Start) {
+        rulerLine3.setAttribute("x2", String(e.clientX));
+        rulerLine3.setAttribute("y2", String(e.clientY));
+        return;
+      }
       if (this.pts.has(e.pointerId)) this.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.pinch && this.pts.size === 2) {
         const [a, b] = [...this.pts.values()];
@@ -664,6 +708,21 @@ async function boot() {
       this.drag.y = e.clientY;
     },
     up(e: PointerEvent, isUp: boolean) {
+      if (ruler3Start && isUp && sim3d) {
+        const g = renderer3d?.pickSeedPoint(
+          e.clientX, e.clientY,
+          view3d === 2 ? slicePlane(slice, sim3d.n) : null);
+        ruler3Start = null;
+        if (g) {
+          void an3.endRuler3(g).then(txt => {
+            rulerText3.textContent = txt;
+            rulerText3.setAttribute("x", String(e.clientX + 10));
+            rulerText3.setAttribute("y", String(e.clientY - 8));
+            rulerText3.style.display = "";
+          });
+        }
+        return;
+      }
       this.pts.delete(e.pointerId);
       if (this.pts.size < 2) this.pinch = null;
       const d = this.drag;

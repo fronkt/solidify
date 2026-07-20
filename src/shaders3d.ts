@@ -544,6 +544,29 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 }
 `;
 
+// ------------------------------------------------------------ line sampler
+// 400 φ samples along a 3D segment — the SDAS ruler's readback (the 2D
+// row-copy readLine doesn't generalize to a volume line). Own tiny uniform:
+// the shared Params3D has no free vec3 pair, and sharing buffers with step()
+// is how the stereology race happened.
+export const LINE3D_WGSL = /* wgsl */ `
+struct LineU { a: vec4f, b: vec4f }   // endpoints in voxels; a.w = grid n
+@group(0) @binding(0) var<uniform> L: LineU;
+@group(0) @binding(1) var state: texture_3d<f32>;
+@group(0) @binding(2) var<storage, read_write> out: array<f32, 400>;
+
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  let i = gid.x;
+  if (i >= 400u) { return; }
+  let t = f32(i) / 399.0;
+  let p = mix(L.a.xyz, L.b.xyz, vec3f(t));
+  let n = i32(L.a.w);
+  let c = clamp(vec3i(p), vec3i(0), vec3i(n - 1));
+  out[i] = textureLoad(state, c, 0).r;
+}
+`;
+
 // ------------------------------------------------------------ stereology pass
 // counts per-grain voxels within half a voxel of the section plane — i.e. the
 // grain's SECTION AREA — so the panel can compare 2D metallography against the

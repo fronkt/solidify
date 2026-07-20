@@ -137,6 +137,32 @@ export class Analyze3D {
   /** melt reset / probe move: start fresh series */
   reset() { this.curve = []; this.scheil = []; this.lastStereo = null; }
 
+  // ---- SDAS ruler on the section (drag pre-empts the orbit while armed)
+  ruler3On = false;
+  private rulerA: [number, number, number] | null = null;
+  setRuler3On(b: boolean) { this.ruler3On = b; if (!b) this.rulerA = null; }
+  beginRuler3(p: [number, number, number]) { this.rulerA = p; }
+  /** intercept count + λ₂, verbatim port of the 2D hysteresis walk */
+  async endRuler3(p: [number, number, number]): Promise<string> {
+    const a = this.rulerA;
+    this.rulerA = null;
+    const s3 = this.host.sim3d();
+    if (!a || !s3) return "";
+    const phi = await s3.readLine3D(a, p);
+    if (!phi) return "measuring…";
+    let arms = 0;
+    let inSolid = phi[0] > 0.6;
+    for (let i = 1; i < phi.length; i++) {
+      if (!inSolid && phi[i] > 0.6) { inSolid = true; arms++; }
+      else if (inSolid && phi[i] < 0.4) inSolid = false;
+    }
+    if (arms === 0 && inSolid) arms = 1;
+    const lenUm = Math.hypot(p[0] - a[0], p[1] - a[1], p[2] - a[2]) * UM_PER_VOX;
+    return arms >= 2
+      ? `λ₂ ≈ ${(lenUm / arms).toFixed(1)} µm · ${arms} arms / ${lenUm.toFixed(0)} µm`
+      : `${arms} intercept${arms === 1 ? "" : "s"} — drag across more arms`;
+  }
+
   /** stats arrived (~4 Hz) — collect the instrument series */
   onStats3(s: StatsResult3D, simTime: number) {
     if (this.probeOn && s.probeT != null && s.probePhi != null) {

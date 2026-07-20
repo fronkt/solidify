@@ -5,7 +5,7 @@
 
 import {
   FLUX3D_WGSL, update3dWgsl, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL, STEREO3D_WGSL,
-  MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
+  LINE3D_WGSL, MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
 } from "./shaders3d";
 import { DOMAIN_MM } from "./sim";
 
@@ -143,6 +143,12 @@ export class Sim3D {
   private stereoStaging!: GPUBuffer;
   private stereoParamBuf!: GPUBuffer;
   private stereoInFlight = false;
+  private linePipe!: GPUComputePipeline;
+  private lineBG: GPUBindGroup[] = [];
+  private lineUBuf!: GPUBuffer;
+  private lineBuf!: GPUBuffer;
+  private lineStaging!: GPUBuffer;
+  private lineInFlight = false;
 
   private pendingSeeds: Seed3[] = [];
   private pendingQuench = 0;
@@ -226,6 +232,9 @@ export class Sim3D {
     // concurrent step()'s writeParams zero the plane before the dispatch ran
     // (full-box census race — a section suddenly counting whole grains)
     this.stereoParamBuf = d.createBuffer({ size: P3.BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.lineUBuf = d.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.lineBuf = d.createBuffer({ size: 400 * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
+    this.lineStaging = d.createBuffer({ size: 400 * 4, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
 
     const mk = (code: string) =>
       d.createComputePipeline({ layout: "auto", compute: { module: d.createShaderModule({ code }), entryPoint: "main" } });
@@ -239,6 +248,7 @@ export class Sim3D {
     this.statsPipe = mk(STATS3D_WGSL);
     this.feedPipe = mk(FEED3D_WGSL);
     this.stereoPipe = mk(STEREO3D_WGSL);
+    this.linePipe = mk(LINE3D_WGSL);
 
     for (const dir of [0, 1]) {
       const s = this.stateTex[dir].createView();
@@ -309,6 +319,14 @@ export class Sim3D {
           { binding: 1, resource: s },
           { binding: 2, resource: g },
           { binding: 3, resource: { buffer: this.stereoBuf } },
+        ],
+      });
+      this.lineBG[dir] = d.createBindGroup({
+        layout: this.linePipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.lineUBuf } },
+          { binding: 1, resource: s },
+          { binding: 2, resource: { buffer: this.lineBuf } },
         ],
       });
     }
@@ -437,6 +455,9 @@ export class Sim3D {
     this.stereoBuf?.destroy();
     this.stereoStaging?.destroy();
     this.stereoParamBuf?.destroy();
+    this.lineUBuf?.destroy();
+    this.lineBuf?.destroy();
+    this.lineStaging?.destroy();
   }
 
   /** per-grain quaternions (CPU mirror) — read-only, for the IPF panel */
@@ -739,6 +760,38 @@ export class Sim3D {
     this.inFlight++;
     d.queue.onSubmittedWorkDone().then(() => { this.inFlight = Math.max(0, this.inFlight - 1); });
     return steps;
+  }
+
+  /**
+   * 400 φ samples along a 3D segment (voxel coords) — feeds the SDAS ruler's
+   * linear-intercept count. Resolves null while a read is in flight.
+   */
+  async readLine3D(a: [number, number, number], b: [number, number, number]): Promise<Float32Array | null> {
+    if (this.lineInFlight) return null;
+    this.lineInFlight = true;
+    const d = this.device;
+    const u = new Float32Array(8);
+    u.set(a, 0); u[3] = this.n;
+    u.set(b, 4);
+    d.queue.writeBuffer(this.lineUBuf, 0, u);
+    const enc = d.createCommandEncoder();
+    const pass = enc.beginComputePass();
+    pass.setPipeline(this.linePipe);
+    pass.setBindGroup(0, this.lineBG[this.dir]);
+    pass.dispatchWorkgroups(Math.ceil(400 / 64));
+    pass.end();
+    enc.copyBufferToBuffer(this.lineBuf, 0, this.lineStaging, 0, 400 * 4);
+    d.queue.submit([enc.finish()]);
+    try {
+      await this.lineStaging.mapAsync(GPUMapMode.READ);
+    } catch {
+      this.lineInFlight = false;
+      return null;
+    }
+    const out = new Float32Array(this.lineStaging.getMappedRange().slice(0));
+    this.lineStaging.unmap();
+    this.lineInFlight = false;
+    return out;
   }
 
   /**

@@ -86,6 +86,8 @@ export interface UIHost extends AppControl {
   setProbe3On(b: boolean): void;
   getScheil3On(): boolean;
   setScheil3On(b: boolean): void;
+  getRuler3On(): boolean;
+  setRuler3On(b: boolean): void;
   exportSTL(): void;
   startTurntable(): void;
 }
@@ -536,11 +538,13 @@ export class UI {
     this.only2d.push(roseChk.parentElement as HTMLElement);
     const anrow = this.btnRow(an);
     const rulerBtn = this.button(anrow, "SDAS ruler — drag a line", () => {
-      this.analyze.setRulerOn(!this.analyze.rulerOn);
+      if (m3now()) host.setRuler3On(!host.getRuler3On());
+      else this.analyze.setRulerOn(!this.analyze.rulerOn);
       this.sync();
     });
-    this.only2d.push(anrow);
-    this.binds.push({ update: () => rulerBtn.classList.toggle("on", this.analyze.rulerOn) });
+    this.binds.push({
+      update: () => rulerBtn.classList.toggle("on", m3now() ? host.getRuler3On() : this.analyze.rulerOn),
+    });
     const rres = document.createElement("div");
     rres.className = "matnote";
     an.append(rres);
