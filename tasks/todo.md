@@ -273,3 +273,38 @@ physics model, milestone gates — set in stone before implementation).
 - [ ] Alloy solute scheme is qualitative (labelled as such); quantitative WB is a bigger lift
 - [ ] Optimizer/challenge use fixed 256² episodes; could expose episode budget
 - [ ] WebGPU only — gate screen with explainer for unsupported browsers (recorded loop TBD)
+
+## v1.2 (2026-07-19): THE DIVE goes true 3D (Three.js wireframe world)
+
+Frank: "still far behind exea labs quality... dynamic, turns, is in 3D space and
+moves; the gpu fans also move around... make the microscope 3D and have it zoom
+into different parts like animejs.com breaks apart its camera lens... make the
+dendritic growth a geometric vector svg."
+Research finding (decompiled exealabs.org bundles): their hero = Three.js
+LineSegments wireframes + procedural geometry builder (seg/poly/circle/box) +
+scroll-keyframed camera + idle sway (0.008·cos(t/6600)) + DOM labels projected
+via .project(camera) + particles lerping along paths; SSR SVG is only the
+reduced-motion poster. animejs.com also ships Three.js.
+Frank's design calls (AskUserQuestion): SEM column for stage 3; ALL five stages
+3D; geometric dendrite REPLACES the live-sim finale (diveSim removed).
+
+- [ ] deps: three (ships own types), d3-delaunay (+@types) for specimen grains
+- [ ] src/dendrite.mjs: seeded 6-fold geometric dendrite generator (primaries +
+      enveloped secondaries + tertiary stubs, birth-time per segment) shared by
+      runtime (growth = drawRange) and poster script
+- [ ] src/dive3d.ts (lazy chunk): Wire builder (LineSegments per class w/d/amber/
+      beam, fog, transparent canvas), five stage groups, per-stage camera
+      keyframes + crossfade handoff, DOM label/reticle projection layer, fan spin
+      + scroll-velocity boost, particles (heat wisps, interposer clock pulses),
+      idle sway + pointer parallax, IO-gated rAF, WebGL-fail → old SVG dive
+- [ ] S3 SEM column: gun/anode/condenser×2/scan coils/objective/aperture/chamber+
+      specimen puck parts explode axially with stagger + labeled callouts, amber
+      beam draws through the bore, camera descends past parts then dives to puck
+- [ ] S5 finale: growing geometric dendrite (draw-on under scroll) + ENTER THE
+      LAB CTA; HUD copy updated (no more "not a video" line); diveSim deleted
+      from landing.ts; poster SVG generated into stage 5 fallback
+- [ ] index.html: canvas#dive3d + #diveLabels + #diveReticle, live3d class hides
+      SVG stages when 3D active; scroll length +=6800, stage weights 1/1/1.7/1/1.4
+- [ ] verify: scrub screenshots at 9 progress points in fresh tab, fan-motion
+      diff, FPS probe, WebGL-kill fallback, reduced-motion, 390px viewport,
+      tsc + build size; deploy Vercel prod; push

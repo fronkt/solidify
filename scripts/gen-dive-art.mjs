@@ -148,3 +148,18 @@ class Draw {
     .map(([cls, v]) => `  <path class="${cls}" d="${v.join(" ")}"/>`).join("\n");
   console.log(`\n<!-- S2 · package floorplan (generated) -->\n${g}`);
 }
+
+// ------------------------------------------------- S5 · dendrite poster
+// flat projection of src/dendrite.mjs — the reduced-motion / no-WebGL still
+// for the dive finale. Runtime growth uses the same generator in 3D.
+import { genDendrite } from "../src/dendrite.mjs";
+{
+  const segs = genDendrite();
+  const P = { w: [], d: [], amber: [] };
+  const X = v => fmt(600 + v * 62);
+  const Y = v => fmt(400 - v * 62);
+  for (const s of segs) P[s.cls].push(`M${X(s.a[0])} ${Y(s.a[1])}L${X(s.b[0])} ${Y(s.b[1])}`);
+  const g = Object.entries(P).filter(([, v]) => v.length)
+    .map(([cls, v]) => `  <path class="${cls}" d="${v.join(" ")}"/>`).join("\n");
+  console.log(`\n<!-- S5 · geometric dendrite (generated) -->\n${g}`);
+}

@@ -21,9 +21,9 @@ interface StageMeta {
 const META: StageMeta[] = [
   { field: "FIELD ≈ 300 MM", title: "YOUR GPU", sub: "The furnace. A million cells solve the freeze on this card, sixty times a second." },
   { field: "FIELD ≈ 40 MM", title: "THE DIE", sub: "The field lives in VRAM: φ, T, c, age — 128 bits per cell, two compute passes per step." },
-  { field: "FIELD ≈ 5 MM", title: "THE MICROSCOPE", sub: "SOLIDIFY renders the way metallurgists look: electron beams, X-rays, polarised light." },
+  { field: "FIELD ≈ 5 MM", title: "THE MICROSCOPE", sub: "An electron column, taken apart. Gun, condensers, scan coils, objective: the optics that see metal at the micron." },
   { field: "FIELD ≈ 500 µM", title: "THE SPECIMEN", sub: "Grains, boundaries, dendrite arms: the structure that decides whether metal holds." },
-  { field: "FIELD ≈ 50 µM", title: "THE DENDRITE · LIVE", sub: "Not a video. The solver is running under your scroll, right now, on the card you just flew through." },
+  { field: "FIELD ≈ 50 µM", title: "THE DENDRITE", sub: "Anisotropy chooses the arms. Latent heat spaces them. The lab grows the real thing live in your browser." },
 ];
 
 const smooth = (x: number) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));

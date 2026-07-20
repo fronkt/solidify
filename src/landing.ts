@@ -57,7 +57,12 @@ async function boot() {
   history.scrollRestoration = "manual";
   buildRail(document.getElementById("lensRail")!, 10);
   buildRail(document.getElementById("matRail")!, MAT_STEPS.length);
-  initDive(reduced);   // the camera math is DOM-only: works even without WebGPU
+  // the dive: true-3D Three.js wireframes when WebGL is up; otherwise the
+  // 2.5D SVG camera (dive.ts), which needs no GPU at all
+  if (reduced) initDive(true);
+  else import("./dive3d")
+    .then(m => { if (!m.initDive3D()) initDive(false); })
+    .catch(() => initDive(false));
   if (reduced || !navigator.gpu) return staticFallback();
   let device: GPUDevice;
   try {
@@ -151,30 +156,8 @@ async function boot() {
     onUpdate: self => setMat(Math.min(MAT_STEPS.length - 1, Math.floor(self.progress * MAT_STEPS.length))),
   });
 
-  // ----------------------------------------- dive act finale: the live melt
-  const diveSim = new Simulation(device, LN);
-  const diveCanvas = document.getElementById("diveSim") as HTMLCanvasElement;
-  const diveRen = new Renderer(device, diveCanvas, diveSim);
-  const pourDive = () => {
-    Object.assign(diveSim.params, {
-      aniMode: 6, delta: 0.042, noiseAmp: 0.013, latent: 1.8, coolRate: 0,
-      alloyOn: 0, twinProb: 0, meltGlow: 1.0, scen: 0, heatIn: 0,
-    });
-    diveSim.reset(0.08);
-    diveSim.addSeed(LN / 2, LN / 2, 4);
-  };
-  pourDive();
-  let divePoll = 0;
-  const diveScene = (dt: number) => {
-    divePoll += dt;
-    if (divePoll > 0.7) {
-      divePoll = 0;
-      void diveSim.readStats().then(s => { if (s && s.fracSolid > 0.55) pourDive(); });
-    }
-  };
-
   // ------------------------------------------- visibility-gated master loop
-  const active = { lens: false, mat: false, dive: false };
+  const active = { lens: false, mat: false };
   const watch = (el: Element, key: keyof typeof active) => {
     new IntersectionObserver(es => {
       for (const e of es) active[key] = e.isIntersecting;
@@ -182,7 +165,6 @@ async function boot() {
   };
   watch(lensCanvas, "lens");
   watch(matCanvas, "mat");
-  watch(diveCanvas, "dive");
 
   let last = performance.now();
   function frameBody(t: number) {
@@ -198,11 +180,6 @@ async function boot() {
         matSim.step(12);
         matRen.render(matSim, 0, t / 1000);
       }
-      if (active.dive) {
-        diveScene(dt);
-        diveSim.step(8);
-        diveRen.render(diveSim, 0, t / 1000);
-      }
     } catch (err) {
       console.error("[solidify] landing frame error:", err);
     }
@@ -216,7 +193,7 @@ async function boot() {
   // test hook: drive frames manually in occluded windows (rAF is suspended)
   (window as unknown as Record<string, unknown>).__landing = {
     tick(k: number) { for (let i = 0; i < k; i++) frameBody(last + 1000 / 60); },
-    sims: { lensSim, matSim, diveSim },
+    sims: { lensSim, matSim },
     active,
   };
 }
