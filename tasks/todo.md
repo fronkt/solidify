@@ -501,3 +501,66 @@ Design: ~/.claude/plans/robust-puzzling-emerson.md (overwritten with the 3D plan
    hue now derives from the actual quaternion axis (better science anyway).
 3. ViewCube drag felt inverted horizontally (Frank): grabbing the cube must
    spin the cube with the hand = orbit the camera the OPPOSITE way; dy stays.
+
+## v2.0 (2026-07-20): THE 3D CHARACTERIZATION LAB — deployed
+
+Design: ~/.claude/plans/robust-puzzling-emerson.md (v1.9 plan archived alongside).
+Identity: cast → solidify → inspect (x-ray NDT, SEM, sectioning, EBSD, stereology)
+→ take it home (STL, turntable). All milestones committed separately; prod-verified.
+
+- [x] N0 — ViewCube Fusion hover zones: face/edge/corner cells highlight on every
+      visible face (thresholds ±0.55), `__solidify.vc` hook.
+- [x] N1 — Free section plane {axis, depth, tilt 0–90°, turn 0–360°} → n̂+c;
+      R3 144 B; floating SECTION PLANE popup (slicepanel.ts) w/ CT sweep;
+      cut styles Nital/Klemm's/Beraha's/EBSD-IPF; share `sl`; rail panel killed.
+- [x] N2 — ageTex rg32float (freeze time + Niyama-at-freeze); 5 new lenses →
+      9 total (SEM fractograph, RINGS growth shells, THERM ironbow emission,
+      NEON volumetric dark-field, CURV); keys 1–9.
+- [x] N3 — Shrinkage porosity: generation-stamped feed flood from the riser
+      (top-face liquid; gen advances per 2n substeps — physics-time, not frames),
+      solidify-while-unfed pore rule (PORE_ID=4095, φ pinned, anneal never heals),
+      Niyama Ṫ from lapT−coolRate+heatIn (recalescence-clean); FIELD x-ray dark
+      specks; SLICE void + Niyama ramp style; porosity % readout. Deterministic
+      hollow-shell test: 0.57% poreFrac vs 0 in pPore=0 control.
+- [x] N4 — analyze3d.ts: STEREOLOGY panel (section d̄₂/ASTM-from-plane vs true
+      3D census d̄₃ — measured ratio 0.91, Saltykov note) + IPF texture scatter
+      (CPU quats, stereographic, point ∝ vox^⅓) in #apanels3 with ⤢ modals.
+- [x] N5 — STL export: readPhiVolume (COPY_SRC) → surface-nets worker
+      (mc-worker.ts, watertight via virtual φ=0 pad, exact 84+50·tris bytes);
+      360° turntable (spinTo 2π/6s + auto rec-stop); 3D HUD mode (porosity
+      strip + eq-diam histogram).
+- [x] N6 — Σ3 twin shift-tap (60° about lab ⟨111⟩ of q₁ — verified 60.00°
+      misorientation), chill wall→chill floor in 3D (8×8 at z=2, opposite the
+      riser), hex-only habit slider (δz: −needles ⇠ ⇢ plates+).
+- [x] N7 — Tour part III "THE THIRD DIMENSION" (out of the plane / orbit it /
+      section it / inspect it / take it home); Chapter.dim + goto() awaits the
+      mode switch BEFORE staging; manual dim-switch closes the tour (closeTour);
+      mode-aware clearMelt/scatterSeeds/setParams/setSpeed; graceful no-WebGPU
+      fallback card; tour button in 3D opens straight onto part III.
+- [x] N8 — Landing: LIVE #threeDAct (96³ Sim3D on the landing device, dynamic
+      import, warm-melt recipe so arms actually form, scroll-gated, no3d
+      fallback still); hero stat "7,077,888 voxels"; science §6 THE THIRD
+      DIMENSION (+Karma–Rappel, Niyama refs; honesty row updated); README
+      TRUE-3D block + hero-3d.jpg; contact "2D or TRUE 3D"; capture-demos
+      3D block; 96 rung in the OOM ladder; verify-3d +6 v2.0 regressions
+      (NINE-LENSES / SLICE-TAP / CAST-SMOKE / STEREOLOGY / STL / VC-ZONES).
+
+**Verified:** full verify-tools + extended verify-3d green (60 fps @192³ AND
+128³), landing suite green on dev + prod bundle, production smoke on
+solidify.frankcai.dev green (landing live-D3 grows, tour 24/28, science §6,
+STL in prod bundle). Zero page errors anywhere.
+
+**Bugs found & fixed (v2.0):**
+1. Porosity gen counter was frame-paced → turbo starved the flood; now
+   substep-paced with feedIters scaled to steps.
+2. Thin-remnant pore rule never fired (channels stay fed to the end) →
+   replaced with solidify-while-unfed micro-porosity (better physics too).
+3. TDZ boot crash: UI queried an3 before construction — order analyze→an3→ui.
+4. STL read back zeros — storage textures need explicit COPY_SRC.
+5. RINGS moiré — bands normalized to total growth time (misc.x).
+6. Headless canary: WebGPU canvas presents only on real BeginFrames — assert
+   solver state (fracSolid), not pixel diffs, for liveness in headless tests.
+7. Landing demo first recipe grew a featureless blob: fully-cold melt is
+   kinetic-limited massive growth; warm melt (undercool ~0.7–0.85) is
+   diffusion-limited and grows the six-armed star. Same lesson drives the
+   capture recipe (128³, undercool 0.7, ~4000 frames @ speed 22).
