@@ -109,18 +109,23 @@ const META: StageMeta[] = [
   { field: "FIELD ≈ 300 MM", title: "YOUR GPU", sub: "The furnace. A million cells solve the freeze on this card, sixty times a second." },
   { field: "FIELD ≈ 40 MM", title: "THE DIE", sub: "The field lives in VRAM: φ, T, c, age. 128 bits per cell, two compute passes per step." },
   { field: "FIELD ≈ 10 MM", title: "THE CORES", sub: "One chiplet, thousands of lanes. Every cell of the melt maps to a thread; the freeze is one giant tensor op." },
-  { field: "FIELD ≈ 400 MM", title: "THE SAW", sub: "Now the real metal. An abrasive disc takes a slice off the casting; everything downstream starts here." },
-  { field: "FIELD ≈ 200 MM", title: "THE MOUNTING PRESS", sub: "Heat, bakelite, four bars. The slice becomes a puck you can hold, grind, and polish." },
+  { field: "FIELD ≈ 1 M", title: "THE FURNACE", sub: "Now the real metal. Coils pump kilowatts into the crucible; the melt waits, superheated, for the pour." },
+  { field: "FIELD ≈ 400 MM", title: "THE ARC MELTER", sub: "For small heats: an arc jumps from the stinger to the button, remelting it on cold copper until it is uniform." },
+  { field: "FIELD ≈ 200 MM", title: "THE MOUNTING PRESS", sub: "Heat, bakelite, four bars. A cut of the casting becomes a puck you can hold, grind, and polish." },
   { field: "FIELD ≈ 150 MM", title: "THE POLISHER", sub: "Diamond slurry on a spinning platen, down to one micron. Grains only show on a mirror." },
+  { field: "FIELD ≈ 100 MM", title: "THE HARDNESS TESTER", sub: "A diamond pyramid, half a kilogram, ten seconds. The dent it leaves prices the metal's strength." },
   { field: "FIELD ≈ 5 MM", title: "THE MICROSCOPE", sub: "An electron column, taken apart. Gun, condensers, scan coils, objective: the optics that see metal at the micron." },
   { field: "FIELD ≈ 500 µM", title: "THE SPECIMEN", sub: "Grains, boundaries, dendrite arms: the structure that decides whether metal holds." },
   { field: "FIELD ≈ 50 µM", title: "THE DENDRITE", sub: "Anisotropy chooses the arms. Latent heat spaces them. The lab grows the real thing live in your browser." },
+  { field: "FIELD ≈ 3 M", title: "THE TENSILE FRAME", sub: "Pull until it breaks. The dendrites you just watched grow decide where the crack goes and the number on the dial." },
   { field: "FIELD ≈ 200 M", title: "THE LIGHT SOURCE", sub: "To measure atoms you need a machine the size of a stadium. Electrons circle; X-rays fire down the beamline." },
+  { field: "FIELD ≈ 2 M", title: "THE BEAMLINE", sub: "Inside the hutch: slits, a monochromator, the goniometer, and a detector catching rings. Each ring is a plane of atoms." },
   { field: "FIELD ≈ 1 NM", title: "THE LATTICE", sub: "Hexagonal close packing. The six-fold symmetry you watched all the way down starts here, atom by atom." },
+  { field: "FIELD = ONE TAB", title: "ALL IN ONE", sub: "Furnace, microscope, beamline, test frame. Every instrument on this page runs live in one browser tab. That is SOLIDIFY." },
 ];
 
 // scroll weight per stage (the exploding column and the growing forms earn dwell)
-const WEIGHTS = [1.15, 1.15, 1, 1.05, 1.05, 1, 1.7, 1, 1.2, 1.25, 1.35];
+const WEIGHTS = [1.15, 1.15, 1, 1.1, 1, 1.05, 1, 1.05, 1.7, 1, 1.2, 1.15, 1.25, 1.3, 1.35, 1.3];
 
 // ------------------------------------------------------------- label defs
 interface LabelDef {
@@ -182,8 +187,10 @@ export function initDive3D(): boolean {
   }
 
   const stages: StageDef[] = [
-    buildCard(), buildPackage(), buildCores(), buildSaw(), buildPress(), buildPolisher(),
-    buildColumn(), buildSpecimen(), buildDendriteStage(), buildSynchrotron(), buildLattice(),
+    buildCard(), buildPackage(), buildCores(),
+    buildFurnace(), buildArcMelter(), buildPress(), buildPolisher(), buildVickers(),
+    buildColumn(), buildSpecimen(), buildDendriteStage(),
+    buildTensile(), buildSynchrotron(), buildBeamline(), buildLattice(), buildAllInOne(),
   ];
   for (const s of stages) { s.group.visible = false; scene.add(s.group); }
 
@@ -347,7 +354,7 @@ export function initDive3D(): boolean {
     id: "dive",
     trigger: act,
     start: "top top",
-    end: "+=16600",
+    end: "+=23000",
     pin: true,
     scrub: 1,   // smoothed: momentum flicks glide through stages, never skip them
     refreshPriority: 1,   // first in the document: must refresh before the sim acts
@@ -740,103 +747,609 @@ function buildCores(): StageDef {
 }
 
 // ==================================================================== S4
-// the cut-off saw: spinning abrasive disc, cast ingot in the vise, sparks.
-// scale pivot: from the solver to the real metal.
-function buildSaw(): StageDef {
+// the induction furnace: coil-wrapped crucible, the melt pouring into a
+// mold. The pivot from the solver to the real metal — where SOLIDIFY's
+// subject matter is literally born.
+function buildFurnace(): StageDef {
   const mats: Mat[] = [];
   const wire = new Wire();
 
-  // cabinet + table
-  wire.box(-4, -2.6, -2.5, 8, 2.6, 5, "w");
-  wire.poly([[-3.4, -0.4, 2.51], [-0.6, -0.4, 2.51], [-0.6, -2.2, 2.51], [-3.4, -2.2, 2.51]], "d");
-  wire.circle(-2, -1.3, 2.52, 0.25, "xy", "d", 12);
-  wire.box(-4, 0, -2.5, 8, 0.15, 5, "d", false);
-  // T-slots on the table
-  for (const z of [-1.6, 0, 1.6]) wire.seg([-3.9, 0.16, z], [3.9, 0.16, z], "d");
-
-  // pivot arm from the rear post to the blade hub
-  wire.box(2.6, 0.15, -2.3, 1.2, 3.4, 1.0, "w");
-  wire.poly([[3.2, 3.4, -1.8], [1.0, 3.1, 0], [0.7, 2.6, 0], [3.2, 2.9, -1.8]], "w", false);
-
-  // vise + rough cast ingot (draft angles, riser stub)
-  wire.box(-2.7, 0.15, -1.1, 0.5, 1.3, 2.2, "w");
-  wire.box(0.35, 0.15, -1.1, 0.4, 1.3, 2.2, "w");
-  wire.cyl(-3.1, 0.6, 0, 0.18, 0, "d", 0, 10);
-  wire.poly([[-2.2, 0.15, -0.75], [0.35, 0.15, -0.7], [0.3, 1.25, -0.55], [-2.1, 1.25, -0.6]], "w", false);
-  wire.poly([[-2.2, 0.15, 0.75], [0.35, 0.15, 0.7], [0.3, 1.25, 0.55], [-2.1, 1.25, 0.6]], "w", false);
-  wire.poly([[-2.2, 0.15, -0.75], [-2.2, 0.15, 0.75], [-2.1, 1.25, 0.6], [-2.1, 1.25, -0.6]], "w");
-  wire.box(-1.6, 1.25, -0.3, 0.7, 0.5, 0.6, "d");
-  // the slice being taken: amber sliver at the blade plane
-  wire.box(0.02, 0.15, -0.62, 0.26, 1.06, 1.24, "amber");
-
-  // blade guard: arcs over the top half
-  wire.circle(0.15, 2.35, 0, 2.55, "xy", "w", 40, Math.PI * 0.02, Math.PI * 0.98);
-  wire.circle(0.15, 2.35, -0.3, 2.55, "xy", "d", 40, Math.PI * 0.1, Math.PI * 0.9);
-  wire.seg([0.15 - 2.55, 2.35, 0], [0.15 - 2.5, 2.35, -0.3], "d");
-  wire.seg([0.15 + 2.55, 2.35, 0], [0.15 + 2.5, 2.35, -0.3], "d");
-  // coolant line down to the cut
-  wire.poly([[1.3, 3.6, -0.4], [0.9, 2.9, 0.15], [0.45, 1.7, 0.1], [0.25, 1.3, 0.05]], "d", false);
+  // platform + support pillars
+  wire.box(-3.5, -0.5, -2.5, 7, 0.5, 5, "w");
+  wire.box(-2.9, 0, -0.5, 0.5, 3.9, 1, "d");
+  wire.box(-2.9, 3.5, -0.5, 2.2, 0.4, 1, "d");
+  // crucible: tapered, with rim + pour spout
+  {
+    const seams = 8;
+    wire.circle(0, 1.0, 0, 0.85, "xz", "w", 32);
+    wire.circle(0, 3.2, 0, 1.1, "xz", "w", 36);
+    wire.circle(0, 3.3, 0, 1.2, "xz", "w", 36);
+    for (let i = 0; i < seams; i++) {
+      const a = (i / seams) * Math.PI * 2;
+      wire.seg([Math.cos(a) * 1.1, 3.2, Math.sin(a) * 1.1], [Math.cos(a) * 0.85, 1.0, Math.sin(a) * 0.85], "d");
+    }
+    wire.seg([1.2, 3.3, 0.12], [1.45, 3.18, 0.05], "w");
+    wire.seg([1.2, 3.3, -0.12], [1.45, 3.18, -0.05], "w");
+  }
+  // induction coil: five turns with jump connectors + leads to the bus box
+  for (let k = 0; k < 5; k++) {
+    const y = 1.2 + k * 0.42;
+    wire.circle(0, y, 0, 1.5, "xz", "d", 40, 0.25, Math.PI * 2 + 0.05);
+    if (k < 4) wire.seg([Math.cos(0.15) * 1.5, y, Math.sin(0.15) * 1.5], [Math.cos(0.25) * 1.5, y + 0.42, Math.sin(0.25) * 1.5], "d");
+  }
+  wire.seg([1.5, 1.2, 0.25], [2.6, 0.7, 1.3], "d");
+  wire.seg([1.48, 2.9, 0.4], [2.6, 0.9, 1.45], "d");
+  wire.box(2.5, 0, 1.2, 0.8, 1.0, 0.6, "w");
+  // melt surface: amber, with a swirl
+  wire.circle(0, 3.05, 0, 0.95, "xz", "amber", 32);
+  wire.circle(0.2, 3.06, 0.1, 0.5, "xz", "amber", 20, 0.5, 4.2);
+  // the mold: open box + sprue, catching the pour
+  wire.box(1.7, 0, -0.55, 1.5, 0.8, 1.1, "w");
+  wire.poly([[1.95, 0.8, -0.3], [2.35, 0.8, -0.3], [2.35, 0.8, 0.3], [1.95, 0.8, 0.3]], "d");
+  wire.poly([[1.9, 1.1, -0.35], [2.4, 1.1, -0.35], [2.4, 1.1, 0.35], [1.9, 1.1, 0.35]], "d");
 
   const { group } = wire.build(mats);
 
-  // spinning abrasive disc (vertical, xy-plane): rim ticks make the spin read
-  const discW = new Wire();
-  discW.circle(0, 0, 0, 2.2, "xy", "w", 48);
-  discW.circle(0, 0, 0, 0.5, "xy", "w", 20);
-  discW.circle(0, 0, 0, 0.28, "xy", "d", 12);
-  for (let k = 0; k < 12; k++) {
-    const a = (k / 12) * Math.PI * 2;
-    discW.seg([Math.cos(a) * 1.95, Math.sin(a) * 1.95, 0], [Math.cos(a) * 2.2, Math.sin(a) * 2.2, 0], "d");
+  // the pour: amber stream, drawn on as the crucible commits
+  const pourW = new Wire();
+  const PN = 8;
+  const pourPts: P3[] = [[1.3, 3.25, 0], [1.75, 2.9, 0], [2.05, 2.3, 0], [2.15, 1.7, 0], [2.15, 1.1, 0]];
+  for (let i = 0; i < pourPts.length - 1; i++) {
+    const [a, b] = [pourPts[i], pourPts[i + 1]];
+    for (let k = 0; k < 2; k++) {
+      const u0 = k / 2, u1 = (k + 1) / 2;
+      pourW.seg(
+        [lerp(a[0], b[0], u0), lerp(a[1], b[1], u0), lerp(a[2], b[2], u0)],
+        [lerp(a[0], b[0], u1), lerp(a[1], b[1], u1), lerp(a[2], b[2], u1)], "amber");
+    }
   }
-  for (let k = 0; k < 3; k++) {
-    const a = (k / 3) * Math.PI * 2;
-    discW.seg([Math.cos(a) * 0.5, Math.sin(a) * 0.5, 0], [Math.cos(a) * 1.9, Math.sin(a) * 1.9, 0], "d");
+  const pourB = pourW.build(mats, "pour");
+  const pourLines = pourB.lines.amber!;
+  pourLines.geometry.setDrawRange(0, 0);
+  group.add(pourB.group);
+  // the casting taking shape inside the mold
+  const castW = new Wire();
+  castW.box(1.85, 0.1, -0.4, 1.2, 0.5, 0.8, "amber", false);
+  castW.seg([2.15, 0.6, -0.4], [2.15, 0.6, 0.4], "amber");
+  group.add(castW.build(mats, "cast").group);
+
+  // heat shimmer above the melt
+  const R = rng(41);
+  const hBase: [number, number][] = [];
+  const hpos: number[] = [];
+  for (let i = 0; i < 14; i++) {
+    const a = R() * Math.PI * 2, r = R() * 0.8;
+    hBase.push([Math.cos(a) * r, Math.sin(a) * r]);
+    hpos.push(Math.cos(a) * r, 3.3, Math.sin(a) * r);
   }
-  const disc = discW.build(mats).group;
-  disc.position.set(0.15, 2.35, 0);
-  group.add(disc);
+  const hg = new BufferGeometry();
+  hg.setAttribute("position", new Float32BufferAttribute(hpos, 3));
+  const hm = new PointsMaterial({ color: 0xd0722a, size: 0.07, transparent: true, opacity: 0.5, depthWrite: false });
+  mats.push({ m: hm as unknown as LineBasicMaterial, base: 0.5, tag: "" });
+  const heat = new Points(hg, hm);
+  group.add(heat);
 
-  // sparks: ballistic spray from the cut point
-  const R = rng(99);
-  const sparkDir = [...Array(18)].map(() => ({
-    vx: -0.5 - R() * 1.6, vy: 0.4 + R() * 1.1, vz: (R() - 0.5) * 0.9, ph: R(),
-  }));
-  const sg = new BufferGeometry();
-  sg.setAttribute("position", new Float32BufferAttribute(new Array(18 * 3).fill(0), 3));
-  const sm = new PointsMaterial({ color: 0xffb054, size: 0.07, transparent: true, opacity: 0.9, depthWrite: false });
-  mats.push({ m: sm as unknown as LineBasicMaterial, base: 0.9, tag: "" });
-  const sparks = new Points(sg, sm);
-  group.add(sparks);
-
-  const TGT: P3 = [0.15, 0.7, 0];
+  const TGT: P3 = [2.45, 0.45, 0];
   const def: StageDef = {
     group, mats, labels: [],
     kfs: [
-      { p: 0, pos: [8.8, 5.2, 9.2], look: [0, 0.9, 0] },
-      { p: 0.4, pos: [6.2, 3.1, 4.6], look: [0, 1.2, 0] },
-      { p: 0.75, pos: [2.4, 1.9, 2.5], look: [TGT[0], 0.8, 0] },
-      { p: 1, pos: [1.05, 1.15, 1.0], look: TGT },
+      { p: 0, pos: [8.6, 5.6, 8.6], look: [0, 1.9, 0] },
+      { p: 0.4, pos: [5.5, 3.5, 4.7], look: [0.4, 2.0, 0] },
+      { p: 0.75, pos: [3.4, 1.9, 2.3], look: [2.2, 0.7, 0] },
+      { p: 1, pos: [2.9, 1.15, 0.95], look: TGT },
+    ],
+    update: (f, t) => {
+      const p = heat.geometry.getAttribute("position");
+      for (let i = 0; i < hBase.length; i++) {
+        const y = 3.3 + ((t * 0.5 + i * 0.37) % 1.4);
+        p.setXYZ(i, hBase[i][0] + Math.sin(t * 1.3 + i) * 0.1, y, hBase[i][1]);
+      }
+      p.needsUpdate = true;
+      const pour = smooth((f - 0.3) / 0.25);
+      pourLines.geometry.setDrawRange(0, Math.floor(pour * PN) * 2);
+      group.userData.fade = { cast: smooth((f - 0.5) / 0.18), pour: 1 };
+    },
+    target: TGT,
+    reticleLbl: "THE CASTING",
+    reticleFrom: 0.62,
+  };
+  def.labels = mkLabels(def, [
+    { text: "INDUCTION COIL · 30 KW", anchor: [-1.5, 2.1, 0.6], side: -1 },
+    { text: "ALUMINA CRUCIBLE", anchor: [-0.6, 3.35, -0.7], side: -1 },
+    { text: "SUPERHEAT +80 °C", anchor: [0.3, 3.1, 0.4], amber: true, side: 1, alpha: f => smooth((f - 0.12) / 0.1) * (1 - smooth((f - 0.4) / 0.08)) },
+    { text: "THE CASTING · DIVE TARGET", anchor: [2.45, 0.85, 0.4], amber: true, side: 1, alpha: f => smooth((f - 0.5) / 0.1) * (1 - smooth((f - 0.6) / 0.08)) },
+  ]);
+  return def;
+}
+
+// ==================================================================== S5
+// the arc melter: a stinger, a water-cooled copper hearth, and a flickering
+// arc remelting the button under argon.
+function buildArcMelter(): StageDef {
+  const mats: Mat[] = [];
+  const wire = new Wire();
+
+  // chamber on legs, domed top, viewport
+  wire.cyl(0, 0.8, 0, 1.6, 2.2, "w", 10);
+  wire.circle(0, 3.25, 0, 1.0, "xz", "w", 32);
+  wire.circle(0, 3.42, 0, 0.4, "xz", "w", 20);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    wire.seg([Math.cos(a) * 1.6, 3.0, Math.sin(a) * 1.6], [Math.cos(a) * 1.0, 3.25, Math.sin(a) * 1.0], "d");
+    wire.seg([Math.cos(a) * 1.0, 3.25, Math.sin(a) * 1.0], [Math.cos(a) * 0.4, 3.42, Math.sin(a) * 0.4], "d");
+  }
+  for (const [lx, lz] of [[-1.2, -1.2], [1.2, -1.2], [-1.2, 1.2], [1.2, 1.2]] as const)
+    wire.seg([lx, 0.8, lz], [lx * 1.15, 0, lz * 1.15], "w");
+  wire.circle(0, 1.9, 1.61, 0.5, "xy", "w", 24);
+  wire.circle(0, 1.9, 1.63, 0.62, "xy", "d", 24);
+  // stinger entering through the gland at an angle
+  wire.circle(0.75, 3.44, 0, 0.18, "xz", "d", 12);
+  wire.seg([1.15, 4.6, 0], [0.78, 3.5, 0], "w");
+  wire.seg([0.78, 3.5, 0], [0.2, 2.25, 0.1], "w");
+  // hearth plate with four dimples, three dim buttons
+  wire.circle(0, 1.05, 0, 1.2, "xz", "w", 36);
+  for (const [dx, dz] of [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5]] as const) {
+    wire.circle(dx, 1.06, dz, 0.28, "xz", "d", 16);
+    wire.circle(dx, 1.1, dz, 0.16, "xz", "d", 12);
+  }
+  wire.circle(0.35, 1.06, 0.25, 0.28, "xz", "d", 16);
+  // the live button, amber
+  wire.circle(0.35, 1.1, 0.25, 0.17, "xz", "amber", 14);
+  wire.circle(0.35, 1.16, 0.25, 0.1, "xz", "amber", 10);
+  // water cooling loops at the base
+  wire.poly([[-1.7, 0.55, -0.6], [-2.4, 0.55, -0.6], [-2.4, 0.3, 0.6], [-1.7, 0.3, 0.6]], "d", false);
+
+  const { group } = wire.build(mats);
+
+  // the arc: jagged, regenerated every frame, flickering
+  const ag = new BufferGeometry();
+  ag.setAttribute("position", new Float32BufferAttribute(new Array(6 * 3).fill(0), 3));
+  const am = new LineBasicMaterial({ color: 0x9fe8ee, transparent: true, opacity: 0.9, depthWrite: false });
+  mats.push({ m: am, base: 0.9, tag: "arc" });
+  const arc = new LineSegments(ag, am);
+  group.add(arc);
+  const AR = rng(7);
+
+  const TGT: P3 = [0.35, 1.15, 0.25];
+  const def: StageDef = {
+    group, mats, labels: [],
+    kfs: [
+      { p: 0, pos: [7.8, 5.0, 7.8], look: [0, 1.7, 0] },
+      { p: 0.4, pos: [4.7, 3.2, 4.1], look: [0, 1.8, 0] },
+      { p: 0.75, pos: [2.2, 2.3, 2.2], look: [0.3, 1.6, 0.2] },
+      { p: 1, pos: [1.15, 1.7, 1.05], look: TGT },
     ],
     update: (f, t) => {
       void f;
-      disc.rotation.z = -t * 7;
-      const p = sparks.geometry.getAttribute("position");
-      for (let i = 0; i < 18; i++) {
-        const d = sparkDir[i];
-        const u = (t * 1.6 + d.ph) % 1;
-        p.setXYZ(i, 0.3 + d.vx * u, 1.25 + d.vy * u - 2.6 * u * u, d.vz * u);
+      // rebuild the jag: tip (0.2,2.25,0.1) → button, 3 segments with noise
+      const p = arc.geometry.getAttribute("position");
+      const tip = [0.2, 2.25, 0.1], bot = [0.35, 1.16, 0.25];
+      let px = tip[0], py = tip[1], pz = tip[2];
+      for (let s = 0; s < 3; s++) {
+        const u = (s + 1) / 3;
+        const nx = u === 1 ? bot[0] : lerp(tip[0], bot[0], u) + (AR() - 0.5) * 0.22;
+        const ny = u === 1 ? bot[1] : lerp(tip[1], bot[1], u) + (AR() - 0.5) * 0.1;
+        const nz = u === 1 ? bot[2] : lerp(tip[2], bot[2], u) + (AR() - 0.5) * 0.22;
+        p.setXYZ(s * 2, px, py, pz);
+        p.setXYZ(s * 2 + 1, nx, ny, nz);
+        px = nx; py = ny; pz = nz;
       }
       p.needsUpdate = true;
+      group.userData.fade = { arc: 0.55 + 0.45 * Math.abs(Math.sin(t * 23) * Math.sin(t * 7.3)) };
     },
     target: TGT,
-    reticleLbl: "THE SLICE",
-    reticleFrom: 0.58,
+    reticleLbl: "THE BUTTON",
+    reticleFrom: 0.6,
   };
   def.labels = mkLabels(def, [
-    { text: "ABRASIVE DISC · 60 M/S", anchor: [0.15, 4.2, 0], side: 1 },
-    { text: "CAST INGOT · AS-SOLIDIFIED", anchor: [-2.1, 1.5, -0.7], side: -1 },
-    { text: "COOLANT", anchor: [1.3, 3.6, -0.4], side: 1 },
-    { text: "THE SLICE · DIVE TARGET", anchor: [0.15, 1.35, 0.7], amber: true, side: 1, alpha: f => smooth((f - 0.3) / 0.1) * (1 - smooth((f - 0.54) / 0.08)) },
+    { text: "TUNGSTEN STINGER", anchor: [1.15, 4.5, 0], side: 1 },
+    { text: "AR ATMOSPHERE", anchor: [0, 2.1, 1.62], side: 1 },
+    { text: "WATER-COOLED COPPER HEARTH", anchor: [-1.15, 1.05, -0.35], side: -1 },
+    { text: "THE BUTTON · DIVE TARGET", anchor: [0.35, 1.3, 0.25], amber: true, side: 1, alpha: f => smooth((f - 0.34) / 0.1) * (1 - smooth((f - 0.52) / 0.08)) },
+  ]);
+  return def;
+}
+
+// ==================================================================== S8
+// the Vickers hardness tester: the indenter descends onto the polished
+// puck, dwells, retracts — and leaves the indent the microscope will find.
+function buildVickers(): StageDef {
+  const mats: Mat[] = [];
+  const wire = new Wire();
+
+  // C-frame: two profile faces + connectors
+  const prof: [number, number][] = [
+    [-1.2, 0], [-1.2, 4.2], [0.9, 4.2], [0.9, 3.1], [-0.3, 3.1], [-0.3, 1.6], [0.9, 1.6], [0.9, 0],
+  ];
+  for (const zz of [-0.55, 0.55]) wire.poly(prof.map(([x, y]) => [x, y, zz] as const), "w");
+  for (const [x, y] of prof) wire.seg([x, y, -0.55], [x, y, 0.55], "d");
+  // anvil screw column + table + the amber puck (fresh from the polisher)
+  wire.cyl(0.35, 0, 0, 0.32, 0.75, "d", 6, 16);
+  wire.circle(0.35, 0.78, 0, 0.62, "xz", "w", 28);
+  wire.cyl(0.35, 0.8, 0, 0.42, 0.3, "amber", 0, 24);
+  // dial + screen on the upper arm
+  wire.circle(-0.15, 3.7, 0.57, 0.4, "xy", "w", 24);
+  for (let k = 0; k < 6; k++) {
+    const a = Math.PI * 0.2 + (k / 5) * Math.PI * 0.6;
+    wire.seg([-0.15 + Math.cos(a) * 0.32, 3.7 + Math.sin(a) * 0.32, 0.58], [-0.15 + Math.cos(a) * 0.39, 3.7 + Math.sin(a) * 0.39, 0.58], "d");
+  }
+  wire.seg([-0.15, 3.7, 0.59], [0.05, 3.95, 0.59], "amber");
+  // dead weights stacked on top
+  wire.cyl(-0.6, 4.2, 0, 0.45, 0.18, "d", 0, 20);
+  wire.cyl(-0.6, 4.38, 0, 0.38, 0.16, "d", 0, 20);
+  wire.cyl(-0.6, 4.54, 0, 0.3, 0.14, "d", 0, 20);
+
+  const { group } = wire.build(mats);
+
+  // moving spindle: shaft + pyramid diamond tip
+  const spW = new Wire();
+  spW.cyl(0, -0.9, 0, 0.22, 0.9, "w", 6, 16);
+  spW.seg([-0.1, -0.9, -0.1], [0, -1.08, 0], "w");
+  spW.seg([0.1, -0.9, -0.1], [0, -1.08, 0], "w");
+  spW.seg([0.1, -0.9, 0.1], [0, -1.08, 0], "w");
+  spW.seg([-0.1, -0.9, 0.1], [0, -1.08, 0], "w");
+  const spindle = spW.build(mats).group;
+  spindle.position.set(0.35, 3.1, 0);
+  group.add(spindle);
+  // the indent left behind (fades in after the dwell)
+  const inW = new Wire();
+  const s = 0.09;
+  inW.poly([[0.35 - s, 1.11, 0], [0.35, 1.11, -s], [0.35 + s, 1.11, 0], [0.35, 1.11, s]], "amber");
+  group.add(inW.build(mats, "indent").group);
+
+  const TGT: P3 = [0.35, 1.12, 0];
+  const def: StageDef = {
+    group, mats, labels: [],
+    kfs: [
+      { p: 0, pos: [6.6, 4.4, 6.9], look: [0, 2.0, 0] },
+      { p: 0.4, pos: [4.1, 3.0, 3.7], look: [0.1, 2.0, 0] },
+      { p: 0.75, pos: [2.0, 2.2, 1.9], look: [0.35, 1.4, 0] },
+      { p: 1, pos: [1.05, 1.75, 0.95], look: TGT },
+    ],
+    update: (f) => {
+      // descend, dwell on the puck, retract
+      const press = smooth((f - 0.3) / 0.14) * (1 - smooth((f - 0.58) / 0.12));
+      spindle.position.y = 3.1 - press * 0.88;
+      group.userData.fade = { indent: smooth((f - 0.62) / 0.1) };
+    },
+    target: TGT,
+    reticleLbl: "THE INDENT",
+    reticleFrom: 0.68,
+  };
+  def.labels = mkLabels(def, [
+    { text: "DIAMOND PYRAMID · 136°", anchor: [0.35, 2.6, 0.25], side: 1, alpha: f => smooth((f - 0.16) / 0.1) * (1 - smooth((f - 0.5) / 0.08)) },
+    { text: "HV = 1.854 F/d²", anchor: [-0.15, 4.15, 0.57], side: -1 },
+    { text: "THE PUCK, POLISHED", anchor: [0.35, 1.1, -0.45], amber: true, side: -1, alpha: f => smooth((f - 0.1) / 0.1) * (1 - smooth((f - 0.32) / 0.08)) },
+    { text: "THE INDENT · DIVE TARGET", anchor: [0.35, 1.25, 0.12], amber: true, side: 1, alpha: f => smooth((f - 0.66) / 0.08) * (1 - smooth((f - 0.82) / 0.08)) },
+  ]);
+  return def;
+}
+
+// ==================================================================== S12
+// the tensile frame: the payoff question. The dogbone stretches, necks,
+// and fractures — where the grains you watched grow decide it would.
+function buildTensile(): StageDef {
+  const mats: Mat[] = [];
+  const wire = new Wire();
+
+  // base, twin columns, fixed top crosshead
+  wire.box(-2.2, 0, -1.2, 4.4, 0.6, 2.4, "w");
+  wire.cyl(-1.5, 0.6, 0, 0.22, 4.4, "w", 4, 16);
+  wire.cyl(1.5, 0.6, 0, 0.22, 4.4, "w", 4, 16);
+  wire.box(-2.0, 5.0, -0.7, 4.0, 0.5, 1.4, "w");
+  // lower grip on the base
+  wire.box(-0.35, 1.1, -0.3, 0.7, 0.7, 0.6, "w");
+  wire.seg([-0.35, 1.55, -0.3], [0.35, 1.55, -0.3], "d");
+  // console with live readout
+  wire.box(2.6, 0, 0.2, 0.9, 2.6, 0.7, "w");
+  wire.poly([[2.65, 2.0, 0.15], [3.45, 2.0, 0.15], [3.45, 1.4, 0.15], [2.65, 1.4, 0.15]], "d");
+
+  const { group } = wire.build(mats);
+
+  // moving crosshead with load cell + upper grip
+  const chW = new Wire();
+  chW.box(-2.0, 0, -0.7, 4.0, 0.45, 1.4, "w");
+  chW.box(-0.3, -0.5, -0.25, 0.6, 0.5, 0.5, "d");
+  chW.box(-0.35, -1.2, -0.3, 0.7, 0.7, 0.6, "w");
+  const crosshead = chW.build(mats).group;
+  crosshead.position.y = 3.4;
+  group.add(crosshead);
+
+  // the dogbone, in two halves that meet at a jagged fracture line (y=2.42)
+  const jag: P3[] = [[-0.14, 2.42, 0], [-0.05, 2.36, 0], [0.04, 2.45, 0], [0.14, 2.4, 0]];
+  const lowW = new Wire();
+  lowW.poly([[-0.3, 1.8, 0], [0.3, 1.8, 0], [0.3, 2.0, 0], [0.14, 2.12, 0], [0.14, 2.4, 0]], "amber", false);
+  lowW.poly([[-0.3, 1.8, 0], [-0.3, 2.0, 0], [-0.14, 2.12, 0], [-0.14, 2.42, 0]], "amber", false);
+  for (let i = 0; i < jag.length - 1; i++) lowW.seg(jag[i], jag[i + 1], "amber");
+  const lower = lowW.build(mats).group;
+  group.add(lower);
+  const upW = new Wire();
+  upW.poly([[-0.3, 3.05, 0], [0.3, 3.05, 0], [0.3, 2.85, 0], [0.14, 2.73, 0], [0.14, 2.45, 0]], "amber", false);
+  upW.poly([[-0.3, 3.05, 0], [-0.3, 2.85, 0], [-0.14, 2.73, 0], [-0.14, 2.43, 0]], "amber", false);
+  for (let i = 0; i < jag.length - 1; i++) upW.seg([jag[i][0], 4.85 - jag[i][1], 0], [jag[i + 1][0], 4.85 - jag[i + 1][1], 0], "amber");
+  const upper = upW.build(mats).group;
+  group.add(upper);
+  // extensometer clipped to the gauge
+  const exW = new Wire();
+  exW.box(0.2, 2.15, -0.14, 0.3, 0.5, 0.28, "d");
+  exW.seg([0.2, 2.25, 0], [0.14, 2.25, 0], "d");
+  exW.seg([0.2, 2.55, 0], [0.14, 2.55, 0], "d");
+  const exten = exW.build(mats, "ext").group;
+  group.add(exten);
+
+  const TGT: P3 = [0, 2.45, 0];
+  const def: StageDef = {
+    group, mats, labels: [],
+    kfs: [
+      { p: 0, pos: [7.9, 5.0, 8.2], look: [0, 2.6, 0] },
+      { p: 0.4, pos: [4.8, 3.4, 4.4], look: [0, 2.6, 0] },
+      { p: 0.75, pos: [2.2, 2.8, 2.1], look: [0, 2.5, 0] },
+      { p: 1, pos: [1.0, 2.55, 0.95], look: TGT },
+    ],
+    update: (f) => {
+      // elastic-plastic pull, then the snap
+      const pull = smooth((f - 0.2) / 0.4) * 0.22;
+      const snap = smooth((f - 0.66) / 0.07);
+      crosshead.position.y = 3.4 + pull + snap * 0.3;
+      upper.position.y = pull + snap * 0.3;
+      lower.position.y = -snap * 0.05;
+      group.userData.fade = { ext: 1 - snap };
+    },
+    target: TGT,
+    reticleLbl: "THE FRACTURE",
+    reticleFrom: 0.74,
+  };
+  def.labels = mkLabels(def, [
+    { text: "100 KN LOAD FRAME", anchor: [-1.5, 4.6, 0], side: -1 },
+    { text: "EXTENSOMETER", anchor: [0.5, 2.4, 0], side: 1, alpha: f => smooth((f - 0.2) / 0.1) * (1 - smooth((f - 0.6) / 0.08)) },
+    { text: "12.4 KN · 3.1 % STRAIN", anchor: [3.05, 2.1, 0.15], side: 1, alpha: f => smooth((f - 0.3) / 0.1) * (1 - smooth((f - 0.72) / 0.08)) },
+    { text: "THE FRACTURE · DIVE TARGET", anchor: [0.2, 2.42, 0], amber: true, side: 1, alpha: f => smooth((f - 0.72) / 0.06) * (1 - smooth((f - 0.88) / 0.08)) },
+  ]);
+  return def;
+}
+
+// ==================================================================== S14
+// the beamline endstation, inside the hutch the light source aimed at:
+// slits → monochromator → goniometer → area detector catching rings.
+// Not the microscope: electrons image shape, X-rays measure spacing.
+function buildBeamline(): StageDef {
+  const mats: Mat[] = [];
+  const wire = new Wire();
+
+  // the hutch itself: floor grid, three walls, sliding door, warning lamp
+  {
+    const HW = 4.4, HD = 5.6, HH = 3.1;
+    wire.poly([[-HW, 0, -HD], [HW, 0, -HD], [HW, 0, HD], [-HW, 0, HD]], "d");
+    for (const [x0, z0, x1, z1] of [[-HW, -HD, -HW, HD], [-HW, -HD, HW, -HD], [HW, -HD, HW, HD]] as const)
+      wire.poly([[x0, 0, z0], [x1, 0, z1], [x1, HH, z1], [x0, HH, z0]], "d");
+    for (let x = -HW + 1.1; x < HW; x += 1.1) wire.seg([x, 0, -HD], [x, 0, HD], "d");
+    // door gap in the +x wall + slid-open panel
+    wire.poly([[HW, 0, 1.1], [HW, 2.5, 1.1], [HW, 2.5, 2.6], [HW, 0, 2.6]], "w");
+    wire.seg([HW, 1.3, 1.1], [HW, 1.3, 2.6], "d");
+    // beam-on lamp over the door
+    wire.circle(HW - 0.02, 2.75, 1.85, 0.14, "yz", "amber", 10);
+  }
+  // optical table (beam runs along +z)
+  wire.box(-1.5, 0, -4.6, 3.0, 0.5, 9.2, "w");
+  for (let z = -4.2; z < 4.4; z += 0.8) wire.seg([-1.4, 0.51, z], [1.4, 0.51, z], "d");
+  // entrance pipe + slits
+  wire.circle(0, 1.15, -4.55, 0.28, "xy", "w", 20);
+  wire.circle(0, 1.15, -3.7, 0.28, "xy", "w", 20);
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + 0.4;
+    wire.seg([Math.cos(a) * 0.28, 1.15 + Math.sin(a) * 0.28, -4.55], [Math.cos(a) * 0.28, 1.15 + Math.sin(a) * 0.28, -3.7], "d");
+  }
+  wire.box(-0.5, 0.5, -3.4, 0.42, 1.1, 0.25, "w");
+  wire.box(0.08, 0.5, -3.4, 0.42, 1.1, 0.25, "w");
+  // monochromator box with two tilted crystals
+  wire.box(-0.7, 0.5, -2.9, 1.4, 1.2, 1.3, "w");
+  wire.poly([[-0.35, 0.95, -2.7], [0.35, 1.1, -2.7], [0.35, 1.1, -2.3], [-0.35, 0.95, -2.3]], "d");
+  wire.poly([[-0.35, 1.35, -2.2], [0.35, 1.2, -2.2], [0.35, 1.2, -1.8], [-0.35, 1.35, -1.8]], "d");
+  // ion chamber
+  wire.circle(0, 1.15, -1.3, 0.2, "xy", "d", 14);
+  wire.circle(0, 1.15, -0.85, 0.2, "xy", "d", 14);
+  wire.seg([0.2, 1.15, -1.3], [0.2, 1.15, -0.85], "d");
+  wire.seg([-0.2, 1.15, -1.3], [-0.2, 1.15, -0.85], "d");
+  // goniometer: base, χ-cradle arc, φ ring — the sample at beam height
+  wire.cyl(0, 0.5, 1.2, 0.7, 0.3, "w", 8, 28);
+  wire.circle(0, 1.15, 1.2, 0.45, "xz", "d", 28);
+  wire.seg([0, 0.8, 1.2], [0, 1.05, 1.2], "w");
+
+  const { group } = wire.build(mats);
+
+  // rocking cradle + amber sample pin (big enough to read at room scale)
+  const crW = new Wire();
+  crW.circle(0, 0, 0, 0.55, "xy", "w", 24, Math.PI * 0.15, Math.PI * 0.85);
+  crW.seg([0, 0.02, 0], [0, 0.5, 0], "d");
+  crW.circle(0, 0.6, 0, 0.11, "xz", "amber", 12);
+  crW.circle(0, 0.6, 0, 0.11, "xy", "amber", 12);
+  crW.circle(0, 0.6, 0, 0.11, "yz", "amber", 12);
+  const cradle = crW.build(mats).group;
+  cradle.position.set(0, 0.55, 1.2);
+  group.add(cradle);
+
+  // area detector: panel + stand + beamstop; rings draw on separately
+  const detW = new Wire();
+  detW.poly([[-1.35, 0.15, 3.9], [1.35, 0.15, 3.9], [1.35, 2.15, 3.9], [-1.35, 2.15, 3.9]], "w");
+  detW.box(-0.25, 0, 3.95, 0.5, 0.3, 0.4, "d");
+  detW.circle(0, 1.15, 3.88, 0.07, "xy", "d", 10);
+  group.add(detW.build(mats).group);
+  const ringW = new Wire();
+  for (const r of [0.28, 0.55, 0.82, 1.08]) ringW.circle(0, 1.15, 3.89, r, "xy", "amber", 40);
+  const ringsB = ringW.build(mats, "rings");
+  const ringLines = ringsB.lines.amber!;
+  ringLines.geometry.setDrawRange(0, 0);
+  group.add(ringsB.group);
+  // faint diffraction cone from sample to the second ring
+  const coneW = new Wire();
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    coneW.seg([0, 1.15, 1.2], [Math.cos(a) * 0.55, 1.15 + Math.sin(a) * 0.55, 3.89], "d");
+  }
+  group.add(coneW.build(mats, "cone").group);
+
+  // the X-ray pulse down the axis
+  const beamW = new Wire();
+  const BN = 14;
+  for (let i = 0; i < BN; i++) {
+    const z0 = -4.5 + (5.7 / BN) * i, z1 = -4.5 + (5.7 / BN) * (i + 1);
+    beamW.seg([0, 1.15, z0], [0, 1.15, z1], "beam");
+  }
+  const beamB = beamW.build(mats, "beam");
+  const beamLines = beamB.lines.beam!;
+  beamLines.geometry.setDrawRange(0, 0);
+  group.add(beamB.group);
+
+  const TGT: P3 = [0, 1.15, 3.85];
+  const def: StageDef = {
+    group, mats, labels: [],
+    kfs: [
+      { p: 0, pos: [5.6, 3.8, -3.4], look: [0, 0.9, 0.4] },
+      { p: 0.35, pos: [4.9, 2.7, 1.4], look: [0, 1.0, 1.2] },
+      { p: 0.7, pos: [2.7, 2.0, 2.2], look: [0, 1.15, 2.9] },
+      { p: 1, pos: [1.0, 1.55, 2.45], look: TGT },
+    ],
+    update: (f, t) => {
+      cradle.rotation.z = 0.22 * Math.sin(t * 0.8);
+      const u = (t * 0.8) % 1.4;
+      beamLines.geometry.setDrawRange(0, Math.min(BN, Math.floor(u * BN * 1.5)) * 2);
+      // the measurement: rings accumulate as you approach the detector
+      const rr = smooth((f - 0.35) / 0.35);
+      ringLines.geometry.setDrawRange(0, Math.floor(rr * 4 * 41) * 2);
+      group.userData.fade = { cone: smooth((f - 0.45) / 0.15) * 0.7, rings: 1 };
+    },
+    target: TGT,
+    reticleLbl: "THE RINGS",
+    reticleFrom: 0.7,
+  };
+  def.labels = mkLabels(def, [
+    { text: "SLITS", anchor: [-0.3, 1.8, -3.3], side: -1, alpha: f => smooth((f - 0.06) / 0.08) * (1 - smooth((f - 0.4) / 0.08)) },
+    { text: "MONOCHROMATOR · SI(111)", anchor: [-0.7, 1.9, -2.3], side: -1, alpha: f => smooth((f - 0.12) / 0.08) * (1 - smooth((f - 0.5) / 0.08)) },
+    { text: "GONIOMETER", anchor: [0.75, 1.5, 1.2], side: 1, alpha: f => smooth((f - 0.3) / 0.08) * (1 - smooth((f - 0.66) / 0.08)) },
+    { text: "DEBYE-SCHERRER RINGS", anchor: [0.9, 2.0, 3.9], amber: true, side: 1, alpha: f => smooth((f - 0.55) / 0.1) * (1 - smooth((f - 0.85) / 0.08)) },
+  ]);
+  return def;
+}
+
+// ==================================================================== S16
+// ALL IN ONE: the reveal. A browser window growing a dendrite, with every
+// machine from the ladder orbiting it. The instrument is SOLIDIFY.
+function buildAllInOne(): StageDef {
+  const mats: Mat[] = [];
+  const wire = new Wire();
+
+  // ground ring
+  wire.circle(0, 0, 0, 4.9, "xz", "d", 72);
+
+  // the browser window: frame, top bar, dots, stand
+  wire.poly([[-1.9, 1.1, 0], [1.9, 1.1, 0], [1.9, 3.7, 0], [-1.9, 3.7, 0]], "w");
+  wire.poly([[-1.82, 1.18, 0], [1.82, 1.18, 0], [1.82, 3.38, 0], [-1.82, 3.38, 0]], "d");
+  wire.seg([-1.9, 3.42, 0], [1.9, 3.42, 0], "w");
+  for (let k = 0; k < 3; k++) wire.circle(-1.68 + k * 0.18, 3.56, 0.01, 0.05, "xy", "d", 8);
+  wire.seg([-0.5, 1.1, 0], [-0.7, 0.55, 0], "w");
+  wire.seg([0.5, 1.1, 0], [0.7, 0.55, 0], "w");
+  wire.circle(0, 0.55, 0, 1.0, "xz", "d", 32);
+  // screen content: a mini six-fold dendrite + lens rail + sparkline
+  for (let arm = 0; arm < 6; arm++) {
+    const th = (arm / 6) * Math.PI * 2 + 0.26;
+    const cx = 0, cy = 2.32;
+    const tipX = cx + Math.cos(th) * 0.85, tipY = cy + Math.sin(th) * 0.85;
+    wire.seg([cx, cy, 0.01], [tipX, tipY, 0.01], "amber");
+    wire.seg([lerp(cx, tipX, 0.55) - Math.sin(th) * 0.16, lerp(cy, tipY, 0.55) + Math.cos(th) * 0.16, 0.01], [lerp(cx, tipX, 0.55), lerp(cy, tipY, 0.55), 0.01], "amber");
+    wire.seg([lerp(cx, tipX, 0.55) + Math.sin(th) * 0.16, lerp(cy, tipY, 0.55) - Math.cos(th) * 0.16, 0.01], [lerp(cx, tipX, 0.55), lerp(cy, tipY, 0.55), 0.01], "amber");
+  }
+  for (let k = 0; k < 10; k++) wire.seg([-1.6 + k * 0.34, 1.28, 0.01], [-1.45 + k * 0.34, 1.28, 0.01], k === 0 ? "amber" : "d");
+  wire.poly([[1.0, 3.05, 0.01], [1.2, 3.2, 0.01], [1.35, 3.0, 0.01], [1.55, 3.25, 0.01], [1.7, 3.12, 0.01]], "d", false);
+
+  const { group } = wire.build(mats);
+
+  // the carousel: every machine from the dive, miniaturized, orbiting
+  const carousel = new Group();
+  group.add(carousel);
+  const minis: ((w: Wire) => void)[] = [
+    w => { // gpu card
+      w.box(-0.5, 0, -0.22, 1.0, 0.05, 0.44, "w");
+      w.circle(-0.22, 0.06, 0, 0.16, "xz", "d", 12);
+      w.circle(0.18, 0.06, 0, 0.16, "xz", "d", 12);
+    },
+    w => { // furnace crucible + coil
+      w.circle(0, 0.5, 0, 0.2, "xz", "w", 12);
+      w.circle(0, 0.1, 0, 0.15, "xz", "w", 12);
+      w.circle(0, 0.25, 0, 0.28, "xz", "d", 12);
+      w.circle(0, 0.4, 0, 0.28, "xz", "d", 12);
+    },
+    w => { // arc melter chamber
+      w.cyl(0, 0, 0, 0.26, 0.4, "w", 4, 12);
+      w.seg([0.2, 0.75, 0], [0, 0.42, 0], "d");
+    },
+    w => { // press
+      w.cyl(0, 0, 0, 0.2, 0.45, "w", 4, 10);
+      w.circle(0, 0.55, 0, 0.16, "xz", "d", 10);
+    },
+    w => { // polisher wheel
+      w.box(-0.3, 0, -0.25, 0.6, 0.25, 0.5, "w");
+      w.circle(0, 0.27, 0, 0.24, "xz", "d", 14);
+    },
+    w => { // vickers C-frame
+      w.poly([[-0.16, 0, 0], [-0.16, 0.6, 0], [0.16, 0.6, 0], [0.16, 0.45, 0], [-0.02, 0.45, 0], [-0.02, 0.15, 0], [0.16, 0.15, 0], [0.16, 0, 0]], "w");
+    },
+    w => { // sem column
+      w.circle(0, 0.55, 0, 0.12, "xz", "w", 10);
+      w.circle(0, 0.38, 0, 0.16, "xz", "w", 12);
+      w.circle(0, 0.2, 0, 0.2, "xz", "w", 12);
+      w.box(-0.2, 0, -0.2, 0.4, 0.12, 0.4, "d");
+    },
+    w => { // tensile frame
+      w.seg([-0.2, 0, 0], [-0.2, 0.6, 0], "w");
+      w.seg([0.2, 0, 0], [0.2, 0.6, 0], "w");
+      w.seg([-0.25, 0.6, 0], [0.25, 0.6, 0], "w");
+      w.seg([-0.25, 0.32, 0], [0.25, 0.32, 0], "d");
+      w.seg([0, 0.12, 0], [0, 0.32, 0], "amber");
+    },
+    w => { // synchrotron ring
+      w.circle(0, 0.1, 0, 0.3, "xz", "w", 20);
+      w.seg([0.3, 0.1, 0], [0.55, 0.1, 0.3], "d");
+    },
+    w => { // beamline detector + rings
+      w.poly([[-0.22, 0, 0], [0.22, 0, 0], [0.22, 0.5, 0], [-0.22, 0.5, 0]], "w");
+      w.circle(0, 0.25, 0.01, 0.08, "xy", "amber", 8);
+      w.circle(0, 0.25, 0.01, 0.15, "xy", "d", 10);
+    },
+  ];
+  minis.forEach((draw, k) => {
+    const w = new Wire();
+    draw(w);
+    const b = w.build(mats, `m${k}`);
+    const a = (k / minis.length) * Math.PI * 2;
+    b.group.position.set(Math.cos(a) * 4.1, 0.35, Math.sin(a) * 4.1);
+    b.group.rotation.y = -a + Math.PI / 2;
+    carousel.add(b.group);
+    const tw = new Wire();
+    tw.seg([Math.cos(a) * 3.6, 0.02, Math.sin(a) * 3.6], [Math.cos(a) * 2.2, 0.02, Math.sin(a) * 2.2], "d");
+    const tb = tw.build(mats, `m${k}`);
+    carousel.add(tb.group);
+  });
+
+  const def: StageDef = {
+    group, mats, labels: [],
+    cam: (f, pos, look) => {
+      const az = 0.75 - f * 0.55;
+      const r = 10.8 - smooth(f) * 3.2;
+      const y = 4.8 - smooth(f) * 1.9;
+      pos.set(Math.cos(az) * r, y, Math.sin(az) * r);
+      look.set(0, 1.7, 0);
+    },
+    update: (f, t) => {
+      carousel.rotation.y = t * 0.12;
+      const fade: Record<string, number> = {};
+      for (let k = 0; k < minis.length; k++) fade[`m${k}`] = smooth((f - 0.12 - k * 0.05) / 0.08);
+      group.userData.fade = fade;
+    },
+  };
+  def.labels = mkLabels(def, [
+    { text: "LIVE PHASE-FIELD SOLVER", anchor: [0, 4.0, 0], amber: true, side: 1, alpha: f => smooth((f - 0.3) / 0.1) },
+    { text: "10 RENDER LENSES", anchor: [-1.75, 1.28, 0], side: -1, alpha: f => smooth((f - 0.45) / 0.1) },
+    { text: "RUNS ON THE CARD FROM STAGE 01", anchor: [2.2, 0.4, 2.2], side: 1, alpha: f => smooth((f - 0.6) / 0.1) },
   ]);
   return def;
 }
@@ -1092,7 +1605,7 @@ function buildSynchrotron(): StageDef {
       beamLines.geometry.setDrawRange(0, Math.min(BN, Math.floor(u * BN * 1.4)) * 2);
     },
     target: TGT,
-    reticleLbl: "THE SAMPLE",
+    reticleLbl: "THE HUTCH",
     reticleFrom: 0.62,
   };
   def.labels = mkLabels(def, [
