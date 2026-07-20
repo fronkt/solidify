@@ -140,7 +140,7 @@ interface StageDef {
   kfs?: { p: number; pos: P3; look: P3 }[];
   cam?: (f: number, pos: Vector3, look: Vector3) => void;
   update?: (f: number, t: number, dt: number) => void;
-  target?: P3;           // reticle anchor, stage-local
+  target?: P3 | (() => Vector3);   // reticle anchor: stage-local point, or a live world-pos fn
   reticleLbl?: string;
   reticleFrom?: number;  // f at which the reticle appears
 }
@@ -326,7 +326,9 @@ export function initDive3D(): boolean {
     // reticle: bracket the dive target, swelling as the camera closes
     if (st.target && st.reticleFrom !== undefined && f >= st.reticleFrom && !isLast) {
       const rf = (f - st.reticleFrom) / (1 - st.reticleFrom);
-      const w = st.group.localToWorld(new Vector3(...st.target));
+      const w = typeof st.target === "function"
+        ? st.target()
+        : st.group.localToWorld(new Vector3(...st.target));
       const pr = project(w);
       const grow = 1 + smooth(rf) * 1.6 + smooth((f - 0.94) / 0.06) * 2.2;
       const rw = 150 * grow, rh = 100 * grow;
@@ -615,6 +617,20 @@ function buildPackage(): StageDef {
 
   const { group } = wire.build(mats);
 
+  // power-on handoff: an amber raster line sweeps the cell grid and the
+  // rows light up behind it as the camera dives into the cores
+  const scanW = new Wire();
+  scanW.seg([-1.12, 0.52, 0], [1.08, 0.52, 0], "amber");
+  const scan = scanW.build(mats, "scan").group;
+  scan.position.z = -1.35;
+  group.add(scan);
+  const litW = new Wire();
+  for (let gz = 0; gz <= 10; gz++) litW.seg([-1.1, 0.51, -1.35 + gz * 0.27], [1.06, 0.51, -1.35 + gz * 0.27], "amber");
+  const litB = litW.build(mats, "lit");
+  const lit = litB.lines.amber!;
+  lit.geometry.setDrawRange(0, 0);
+  group.add(litB.group);
+
   // clock pulses: points lerping along HBM→die traces
   const paths: [Vector3, Vector3][] = [];
   for (let i = 0; i < 4; i++) {
@@ -641,7 +657,6 @@ function buildPackage(): StageDef {
       { p: 1, pos: [0.35, 1.35, 1.05], look: [0, 0.45, 0] },
     ],
     update: (f, t) => {
-      void f;
       const p = pulses.geometry.getAttribute("position");
       for (let i = 0; i < 12; i++) {
         const [pa, pb] = paths[i % paths.length];
@@ -649,6 +664,11 @@ function buildPackage(): StageDef {
         p.setXYZ(i, lerp(pa.x, pb.x, u), 0.34, lerp(pa.z, pb.z, u));
       }
       p.needsUpdate = true;
+      // the scanline sweep, late in the stage
+      const sw = smooth((f - 0.7) / 0.24);
+      scan.position.z = -1.35 + sw * 2.7;
+      lit.geometry.setDrawRange(0, Math.floor(sw * 11) * 2);
+      group.userData.fade = { scan: sw > 0 && sw < 1 ? 1 : 0, lit: 1 };
     },
     target: [0, 0.5, 0],
     reticleLbl: "THE CHIPLETS",
@@ -774,13 +794,18 @@ function buildArcMelter(): StageDef {
     wire.circle(dx, 1.1, dz, 0.16, "xz", "d", 12);
   }
   wire.circle(0.35, 1.06, 0.25, 0.28, "xz", "d", 16);
-  // the live button, amber
-  wire.circle(0.35, 1.1, 0.25, 0.17, "xz", "amber", 14);
-  wire.circle(0.35, 1.16, 0.25, 0.1, "xz", "amber", 10);
   // water cooling loops at the base
   wire.poly([[-1.7, 0.55, -0.6], [-2.4, 0.55, -0.6], [-2.4, 0.3, 0.6], [-1.7, 0.3, 0.6]], "d", false);
 
   const { group } = wire.build(mats);
+
+  // the live button: its own group, so the handoff can lift it out
+  const btnW = new Wire();
+  btnW.circle(0, 0.04, 0, 0.17, "xz", "amber", 14);
+  btnW.circle(0, 0.1, 0, 0.1, "xz", "amber", 10);
+  const button = btnW.build(mats).group;
+  button.position.set(0.35, 1.06, 0.25);
+  group.add(button);
 
   // the arc: jagged, regenerated every frame, flickering
   const ag = new BufferGeometry();
@@ -791,14 +816,13 @@ function buildArcMelter(): StageDef {
   group.add(arc);
   const AR = rng(7);
 
-  const TGT: P3 = [0.35, 1.15, 0.25];
   const def: StageDef = {
     group, mats, labels: [],
     kfs: [
       { p: 0, pos: [7.8, 5.0, 7.8], look: [0, 1.7, 0] },
       { p: 0.4, pos: [4.7, 3.2, 4.1], look: [0, 1.8, 0] },
       { p: 0.75, pos: [2.2, 2.3, 2.2], look: [0.3, 1.6, 0.2] },
-      { p: 1, pos: [1.15, 1.7, 1.05], look: TGT },
+      { p: 1, pos: [1.25, 1.95, 1.15], look: [0.35, 1.65, 0.25] },
     ],
     update: (f, t) => {
       void f;
@@ -816,9 +840,12 @@ function buildArcMelter(): StageDef {
         px = nx; py = ny; pz = nz;
       }
       p.needsUpdate = true;
-      group.userData.fade = { arc: 0.55 + 0.45 * Math.abs(Math.sin(t * 23) * Math.sin(t * 7.3)) };
+      // handoff: the arc dies and the finished button lifts out of the hearth
+      const rise = smooth((f - 0.74) / 0.2);
+      button.position.y = 1.06 + rise * 0.85;
+      group.userData.fade = { arc: (0.55 + 0.45 * Math.abs(Math.sin(t * 23) * Math.sin(t * 7.3))) * (1 - rise) };
     },
-    target: TGT,
+    target: () => button.getWorldPosition(new Vector3()).add(new Vector3(0, 0.07, 0)),
     reticleLbl: "THE BUTTON",
     reticleFrom: 0.6,
   };
@@ -893,10 +920,12 @@ function buildTensile(): StageDef {
       { p: 1, pos: [1.0, 2.55, 0.95], look: TGT },
     ],
     update: (f) => {
-      // elastic-plastic pull, then the snap
+      // arrival: the crosshead descends and the grips close on the dogbone
+      const clamp = smooth(f / 0.13);
+      // then the elastic-plastic pull, then the snap
       const pull = smooth((f - 0.2) / 0.4) * 0.22;
       const snap = smooth((f - 0.66) / 0.07);
-      crosshead.position.y = 3.4 + pull + snap * 0.3;
+      crosshead.position.y = 3.4 + (1 - clamp) * 0.6 + pull + snap * 0.3;
       upper.position.y = pull + snap * 0.3;
       lower.position.y = -snap * 0.05;
       group.userData.fade = { ext: 1 - snap };
@@ -929,11 +958,8 @@ function buildBeamline(): StageDef {
     for (const [x0, z0, x1, z1] of [[-HW, -HD, -HW, HD], [-HW, -HD, HW, -HD], [HW, -HD, HW, HD]] as const)
       wire.poly([[x0, 0, z0], [x1, 0, z1], [x1, HH, z1], [x0, HH, z0]], "d");
     for (let x = -HW + 1.1; x < HW; x += 1.1) wire.seg([x, 0, -HD], [x, 0, HD], "d");
-    // door gap in the +x wall + slid-open panel
-    wire.poly([[HW, 0, 1.1], [HW, 2.5, 1.1], [HW, 2.5, 2.6], [HW, 0, 2.6]], "w");
-    wire.seg([HW, 1.3, 1.1], [HW, 1.3, 2.6], "d");
-    // beam-on lamp over the door
-    wire.circle(HW - 0.02, 2.75, 1.85, 0.14, "yz", "amber", 10);
+    // doorway frame in the +x wall (the camera enters through this gap)
+    wire.poly([[HW, 0, 1.1], [HW, 2.5, 1.1], [HW, 2.5, 2.6], [HW, 0, 2.6]], "d");
   }
   // optical table (beam runs along +z)
   wire.box(-1.5, 0, -4.6, 3.0, 0.5, 9.2, "w");
@@ -963,6 +989,18 @@ function buildBeamline(): StageDef {
 
   const { group } = wire.build(mats);
 
+  // the sliding door: starts open, closes behind the camera on arrival
+  const doorW = new Wire();
+  doorW.poly([[0, 0, 0], [0, 2.5, 0], [0, 2.5, 1.5], [0, 0, 1.5]], "w");
+  doorW.seg([0, 1.3, 0], [0, 1.3, 1.5], "d");
+  const door = doorW.build(mats).group;
+  door.position.set(4.42, 0, 2.7);
+  group.add(door);
+  // beam-on lamp over the door: lights once the door is shut
+  const lampW = new Wire();
+  lampW.circle(4.4, 2.75, 1.85, 0.14, "yz", "amber", 10);
+  group.add(lampW.build(mats, "lamp").group);
+
   // rocking cradle + amber sample pin (big enough to read at room scale)
   const crW = new Wire();
   crW.circle(0, 0, 0, 0.55, "xy", "w", 24, Math.PI * 0.15, Math.PI * 0.85);
@@ -974,17 +1012,19 @@ function buildBeamline(): StageDef {
   cradle.position.set(0, 0.55, 1.2);
   group.add(cradle);
 
-  // area detector: panel + stand + beamstop; rings draw on separately
+  // area detector: panel + stand + beamstop; rings draw on separately,
+  // centered on their own group so the exit can blow them up past camera
   const detW = new Wire();
   detW.poly([[-1.35, 0.15, 3.9], [1.35, 0.15, 3.9], [1.35, 2.15, 3.9], [-1.35, 2.15, 3.9]], "w");
   detW.box(-0.25, 0, 3.95, 0.5, 0.3, 0.4, "d");
   detW.circle(0, 1.15, 3.88, 0.07, "xy", "d", 10);
   group.add(detW.build(mats).group);
   const ringW = new Wire();
-  for (const r of [0.28, 0.55, 0.82, 1.08]) ringW.circle(0, 1.15, 3.89, r, "xy", "amber", 40);
+  for (const r of [0.28, 0.55, 0.82, 1.08]) ringW.circle(0, 0, 0, r, "xy", "amber", 40);
   const ringsB = ringW.build(mats, "rings");
   const ringLines = ringsB.lines.amber!;
   ringLines.geometry.setDrawRange(0, 0);
+  ringsB.group.position.set(0, 1.15, 3.89);
   group.add(ringsB.group);
   // faint diffraction cone from sample to the second ring
   const coneW = new Wire();
@@ -1010,19 +1050,30 @@ function buildBeamline(): StageDef {
   const def: StageDef = {
     group, mats, labels: [],
     kfs: [
-      { p: 0, pos: [5.6, 3.8, -3.4], look: [0, 0.9, 0.4] },
-      { p: 0.35, pos: [4.9, 2.7, 1.4], look: [0, 1.0, 1.2] },
-      { p: 0.7, pos: [2.7, 2.0, 2.2], look: [0, 1.15, 2.9] },
+      { p: 0, pos: [6.3, 1.6, 1.85], look: [0, 1.2, 0.6] },
+      { p: 0.2, pos: [3.1, 2.0, 0.9], look: [-0.5, 1.0, 0] },
+      { p: 0.45, pos: [2.5, 2.5, -3.3], look: [0, 1.0, -0.6] },
+      { p: 0.72, pos: [2.7, 2.0, 1.7], look: [0, 1.15, 2.7] },
       { p: 1, pos: [1.0, 1.55, 2.45], look: TGT },
     ],
     update: (f, t) => {
       cradle.rotation.z = 0.22 * Math.sin(t * 0.8);
       const u = (t * 0.8) % 1.4;
       beamLines.geometry.setDrawRange(0, Math.min(BN, Math.floor(u * BN * 1.5)) * 2);
+      // arrival: the door slides shut behind the camera, then the lamp lights
+      const shut = smooth((f - 0.06) / 0.2);
+      door.position.z = 2.7 - shut * 1.6;
       // the measurement: rings accumulate as you approach the detector
       const rr = smooth((f - 0.35) / 0.35);
       ringLines.geometry.setDrawRange(0, Math.floor(rr * 4 * 41) * 2);
-      group.userData.fade = { cone: smooth((f - 0.45) / 0.15) * 0.7, rings: 1 };
+      // exit: the rings blow up past the camera into real space
+      const ex = smooth((f - 0.88) / 0.12);
+      ringsB.group.scale.setScalar(1 + ex * 2.8);
+      group.userData.fade = {
+        cone: smooth((f - 0.45) / 0.15) * 0.7,
+        rings: 1,
+        lamp: 0.3 + 0.7 * shut,
+      };
     },
     target: TGT,
     reticleLbl: "THE RINGS",
@@ -1055,19 +1106,25 @@ function buildAllInOne(): StageDef {
   wire.seg([-0.5, 1.1, 0], [-0.7, 0.55, 0], "w");
   wire.seg([0.5, 1.1, 0], [0.7, 0.55, 0], "w");
   wire.circle(0, 0.55, 0, 1.0, "xz", "d", 32);
-  // screen content: a mini six-fold dendrite + lens rail + sparkline
-  for (let arm = 0; arm < 6; arm++) {
-    const th = (arm / 6) * Math.PI * 2 + 0.26;
-    const cx = 0, cy = 2.32;
-    const tipX = cx + Math.cos(th) * 0.85, tipY = cy + Math.sin(th) * 0.85;
-    wire.seg([cx, cy, 0.01], [tipX, tipY, 0.01], "amber");
-    wire.seg([lerp(cx, tipX, 0.55) - Math.sin(th) * 0.16, lerp(cy, tipY, 0.55) + Math.cos(th) * 0.16, 0.01], [lerp(cx, tipX, 0.55), lerp(cy, tipY, 0.55), 0.01], "amber");
-    wire.seg([lerp(cx, tipX, 0.55) + Math.sin(th) * 0.16, lerp(cy, tipY, 0.55) - Math.cos(th) * 0.16, 0.01], [lerp(cx, tipX, 0.55), lerp(cy, tipY, 0.55), 0.01], "amber");
-  }
+  // screen dressing: lens rail + sparkline
   for (let k = 0; k < 10; k++) wire.seg([-1.6 + k * 0.34, 1.28, 0.01], [-1.45 + k * 0.34, 1.28, 0.01], k === 0 ? "amber" : "d");
   wire.poly([[1.0, 3.05, 0.01], [1.2, 3.2, 0.01], [1.35, 3.0, 0.01], [1.55, 3.25, 0.01], [1.7, 3.12, 0.01]], "d", false);
 
   const { group } = wire.build(mats);
+
+  // the screen's dendrite: its own part, so it can grow from the pixel the
+  // collapsing lattice just became
+  const sdW = new Wire();
+  for (let arm = 0; arm < 6; arm++) {
+    const th = (arm / 6) * Math.PI * 2 + 0.26;
+    const cx = 0, cy = 2.32;
+    const tipX = cx + Math.cos(th) * 0.85, tipY = cy + Math.sin(th) * 0.85;
+    sdW.seg([cx, cy, 0.01], [tipX, tipY, 0.01], "amber");
+    sdW.seg([lerp(cx, tipX, 0.55) - Math.sin(th) * 0.16, lerp(cy, tipY, 0.55) + Math.cos(th) * 0.16, 0.01], [lerp(cx, tipX, 0.55), lerp(cy, tipY, 0.55), 0.01], "amber");
+    sdW.seg([lerp(cx, tipX, 0.55) + Math.sin(th) * 0.16, lerp(cy, tipY, 0.55) - Math.cos(th) * 0.16, 0.01], [lerp(cx, tipX, 0.55), lerp(cy, tipY, 0.55), 0.01], "amber");
+  }
+  const sd = sdW.build(mats, "sd").group;
+  group.add(sd);
 
   // the carousel: every machine from the dive, miniaturized, orbiting
   const carousel = new Group();
@@ -1137,6 +1194,11 @@ function buildAllInOne(): StageDef {
       carousel.rotation.y = t * 0.12;
       const fade: Record<string, number> = {};
       for (let k = 0; k < minis.length; k++) fade[`m${k}`] = smooth((f - 0.12 - k * 0.05) / 0.08);
+      // arrival: the crystal grows on screen from the collapsed lattice's pixel
+      const grow = smooth((f - 0.03) / 0.14);
+      fade["sd"] = grow;
+      sd.scale.setScalar(0.1 + 0.9 * grow);
+      sd.position.y = 2.32 * (1 - (0.1 + 0.9 * grow));   // scale about the screen dendrite's own center
       group.userData.fade = fade;
     },
   };
@@ -1190,6 +1252,11 @@ function buildPolisher(): StageDef {
   const puck = puckW.build(mats).group;
   puck.position.set(1.05, 2.36, 0.35);
   group.add(puck);
+  // sheen line that sweeps the face during the tilt-to-mirror handoff
+  const shW = new Wire();
+  shW.seg([-0.26, 0.32, 0], [0.26, 0.32, 0], "w");
+  const sheen = shW.build(mats, "sheen").group;
+  puck.add(sheen);
 
   const TGT: P3 = [1.05, 2.5, 0.35];
   const def: StageDef = {
@@ -1201,11 +1268,16 @@ function buildPolisher(): StageDef {
       { p: 1, pos: [1.7, 3.0, 1.15], look: TGT },
     ],
     update: (f, t) => {
-      void f;
       platen.rotation.y = t * 2.4;
-      puck.rotation.y = -t * 1.1;
+      // handoff: the holder lifts and tilts the polished face square to camera
+      const tilt = smooth((f - 0.7) / 0.22);
+      puck.rotation.y = -t * 1.1 * (1 - tilt);
+      puck.rotation.x = -0.85 * tilt;
+      puck.position.y = 2.36 + tilt * 0.45;
+      sheen.position.z = -0.3 + smooth((f - 0.78) / 0.14) * 0.6;
+      group.userData.fade = { sheen: tilt > 0.4 && f < 0.96 ? 0.9 : 0 };
     },
-    target: TGT,
+    target: () => puck.getWorldPosition(new Vector3()).add(new Vector3(0, 0.25, 0.1)),
     reticleLbl: "THE MIRROR FACE",
     reticleFrom: 0.6,
   };
@@ -1227,15 +1299,15 @@ function buildSynchrotron(): StageDef {
   const wire = new Wire();
 
   // a box rotated about Y — for ring magnets sitting tangent to the circle
-  const rotBox = (cx: number, cz: number, ang: number, l: number, w: number, y0: number, h: number, cls: Cls) => {
+  const rotBox = (tw: Wire, cx: number, cz: number, ang: number, l: number, w: number, y0: number, h: number, cls: Cls) => {
     const ca = Math.cos(ang), sa = Math.sin(ang);
     const c = (dx: number, dz: number): [number, number] => [cx + dx * ca - dz * sa, cz + dx * sa + dz * ca];
     const pts = [c(-l / 2, -w / 2), c(l / 2, -w / 2), c(l / 2, w / 2), c(-l / 2, w / 2)];
     const bot: P3[] = pts.map(p => [p[0], y0, p[1]] as const);
     const top: P3[] = pts.map(p => [p[0], y0 + h, p[1]] as const);
-    wire.poly(bot, cls);
-    wire.poly(top, cls);
-    for (let i = 0; i < 4; i++) wire.seg(bot[i], top[i], cls);
+    tw.poly(bot, cls);
+    tw.poly(top, cls);
+    for (let i = 0; i < 4; i++) tw.seg(bot[i], top[i], cls);
   };
 
   // storage ring + inner booster + linac
@@ -1244,16 +1316,11 @@ function buildSynchrotron(): StageDef {
   wire.circle(0, 0.12, 0, 2.1, "xz", "d", 48);
   wire.poly([[-0.4, 0.12, -0.35], [-1.45, 0.12, -1.5]], "d", false);
   wire.box(-0.62, 0.02, -0.58, 0.45, 0.3, 0.45, "d");
-  // bending magnets every 30°, tangent to the ring
-  for (let k = 0; k < 12; k++) {
-    const a = (k / 12) * Math.PI * 2 + 0.13;
-    rotBox(Math.cos(a) * 4.05, Math.sin(a) * 4.05, a + Math.PI / 2, 0.95, 0.5, 0.06, 0.5, "d");
-  }
   // RF cavities: two cylinders on the far side
   wire.cyl(-3.55, 0.06, -2.05, 0.28, 0.55, "w", 6, 16);
   wire.cyl(-3.15, 0.06, -2.6, 0.28, 0.55, "w", 6, 16);
   // undulator on the straight section before the beamline exit
-  rotBox(4.05, -1.1, Math.PI / 2, 1.5, 0.55, 0.06, 0.45, "w");
+  rotBox(wire, 4.05, -1.1, Math.PI / 2, 1.5, 0.55, 0.06, 0.45, "w");
   for (let k = 0; k < 7; k++) wire.seg([3.8, 0.56, -1.75 + k * 0.22], [4.3, 0.56, -1.75 + k * 0.22], "d");
 
   // beamline: twin pipes from the undulator to the hutches (+z direction)
@@ -1270,6 +1337,14 @@ function buildSynchrotron(): StageDef {
   wire.cyl(4.2, 0.44, 4.3, 0.12, 0.08, "amber", 0, 14);
 
   const { group } = wire.build(mats);
+
+  // bending magnets every 30°: each its own part so they pop in on arrival
+  for (let k = 0; k < 12; k++) {
+    const a = (k / 12) * Math.PI * 2 + 0.13;
+    const mw = new Wire();
+    rotBox(mw, Math.cos(a) * 4.05, Math.sin(a) * 4.05, a + Math.PI / 2, 0.95, 0.5, 0.06, 0.5, "d");
+    group.add(mw.build(mats, `mag${k}`).group);
+  }
 
   // X-ray pulse: drawRange flashes down the beamline to the sample
   const beamW = new Wire();
@@ -1301,7 +1376,6 @@ function buildSynchrotron(): StageDef {
       { p: 1, pos: [4.95, 1.1, 4.95], look: TGT },
     ],
     update: (f, t) => {
-      void f;
       const p = bunches.geometry.getAttribute("position");
       for (let i = 0; i < 6; i++) {
         const a = t * 1.4 + (i / 6) * Math.PI * 2;
@@ -1311,6 +1385,10 @@ function buildSynchrotron(): StageDef {
       // pulse: sawtooth draw down the line, brief hold, reset
       const u = (t * 0.7) % 1.3;
       beamLines.geometry.setDrawRange(0, Math.min(BN, Math.floor(u * BN * 1.4)) * 2);
+      // arrival: the ring commissions itself, magnets popping in around it
+      const fade: Record<string, number> = {};
+      for (let k = 0; k < 12; k++) fade[`mag${k}`] = smooth((f - 0.03 - k * 0.016) / 0.05);
+      group.userData.fade = fade;
     },
     target: TGT,
     reticleLbl: "THE HUTCH",
@@ -1413,10 +1491,11 @@ function buildLattice(): StageDef {
     group, mats, labels: [],
     cam: (f, pos, look) => {
       const az = 0.8 - f * 0.55;
-      const r = 9.8 - smooth(f) * 3.0;
-      const y = 4.9 - smooth(f) * 1.6;
+      const dip = smooth((f - 0.86) / 0.14);
+      const r = (9.8 - smooth(f) * 3.0) * (1 - dip * 0.4);
+      const y = (4.9 - smooth(f) * 1.6) * (1 - dip * 0.35);
       pos.set(Math.cos(az) * r, y, Math.sin(az) * r);
-      look.set(0, 0.7, 0);
+      look.set(0, 0.7 * (1 - dip * 0.5), 0);
     },
     update: (f, t) => {
       group.rotation.y = t * 0.06;
@@ -1425,6 +1504,10 @@ function buildLattice(): StageDef {
         const ls = built.lines[cls];
         if (ls) ls.geometry.setDrawRange(0, upperBound(births[cls], g) * 2);
       }
+      // exit: the whole crystal collapses toward a single point — the pixel
+      // the next stage's browser screen grows its dendrite from
+      const dip = smooth((f - 0.86) / 0.14);
+      group.scale.setScalar(1 - dip * 0.8);
     },
   };
   def.labels = mkLabels(def, [
@@ -1531,9 +1614,6 @@ function buildColumn(): StageDef {
     w.poly([[-s, 0, -s], [s, 0, -s], [s, 0, s], [-s, 0, s]], "w");
     for (const [x, z] of [[-s, -s], [s, -s], [s, s], [-s, s]] as const) w.seg([x, 0, z], [x, h, z], "w");
     w.poly([[-s, h, -s], [s, h, -s], [s, h, s], [-s, h, s]], "d");
-    // stage pedestal + specimen puck
-    w.box(-0.5, 0, -0.5, 1, 0.55, 1, "d");
-    w.cyl(0, 0.55, 0, 0.42, 0.28, "amber", 0, 28);
     // door hatch lines + porthole + hinge on the front wall
     w.seg([-1.2, 0.3, s], [1.2, 0.3, s], "d");
     w.seg([-1.2, 1.7, s], [1.2, 1.7, s], "d");
@@ -1559,6 +1639,14 @@ function buildColumn(): StageDef {
     w.poly([[1.0, 6.3, 1.55], [1.75, 5.9, 1.0], [1.9, 4.4, 0.6], [1.9, 2.2, 0.6], [1.75, 0.4, 0.9]], "d", false);
     w.poly([[1.15, 6.3, 1.4], [1.9, 5.9, 0.85], [2.05, 4.4, 0.45], [2.05, 2.2, 0.45]], "d", false);
   }, 2.55, 0, "casing");
+
+  // stage pedestal + specimen puck: a riser inside the chamber, so the
+  // handoff can drive it up toward the beam (a real SEM's Z-approach)
+  const riserW = new Wire();
+  riserW.box(-0.5, 0, -0.5, 1, 0.55, 1, "d");
+  riserW.cyl(0, 0.55, 0, 0.42, 0.28, "amber", 0, 28);
+  const riser = riserW.build(mats).group;
+  chamber.add(riser);
 
   // the beam: drawn segment-by-segment through every bore once exploded
   const beamWire = new Wire();
@@ -1618,9 +1706,11 @@ function buildColumn(): StageDef {
         p.setXYZ(i, 0, lerp(BEAM_TOP, BEAM_BOT, u), 0);
       }
       p.needsUpdate = true;
+      // handoff: the stage rises to working distance under the beam
+      riser.position.y = smooth((f - 0.82) / 0.16) * 0.42;
       void chamber;
     },
-    target: [0, 0.72, 0],
+    target: () => riser.getWorldPosition(new Vector3()).add(new Vector3(0, 0.72, 0)),
     reticleLbl: "THE SPECIMEN",
     reticleFrom: 0.74,
   };
@@ -1753,6 +1843,17 @@ function buildSpecimen(): StageDef {
     aw.seg([1.6, 0.012, 1.1], [1.6 + Math.cos(a) * 0.34, 0.012, 1.1 + Math.sin(a) * 0.34], "amber");
   }
   group.add(aw.build(mats).group);
+  // nucleation tease: side branches sprout from the root just before the cut
+  const teaseW = new Wire();
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + 0.2;
+    const bx = 1.6 + Math.cos(a) * 0.21, bz = 1.1 + Math.sin(a) * 0.21;
+    for (const s of [1, -1]) {
+      const b = a + s * (Math.PI / 3);
+      teaseW.seg([bx, 0.012, bz], [bx + Math.cos(b) * 0.12, 0.012, bz + Math.sin(b) * 0.12], "amber");
+    }
+  }
+  group.add(teaseW.build(mats, "tease").group);
 
   const totalGB = births.length;
 
@@ -1767,6 +1868,7 @@ function buildSpecimen(): StageDef {
     update: (f) => {
       const g = smooth(f / 0.32);
       gbLines.geometry.setDrawRange(0, Math.floor(g * totalGB) * 2);
+      group.userData.fade = { tease: smooth((f - 0.78) / 0.16) };
     },
     target: [1.6, 0, 1.1],
     reticleLbl: "THE DENDRITE",
