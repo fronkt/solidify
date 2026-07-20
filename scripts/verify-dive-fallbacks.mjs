@@ -25,7 +25,7 @@ async function run(name, { args = [], reduced = false, viewport = { width: 1440,
   await page.evaluate(pp => {
     const act = document.getElementById("diveAct");
     const sp = act.closest(".pin-spacer") || act;
-    scrollTo(0, sp.getBoundingClientRect().top + scrollY + pp * 6800);
+    scrollTo(0, sp.getBoundingClientRect().top + scrollY + pp * 8200);
   }, scrollP);
   await new Promise(r => setTimeout(r, 700));
   await page.screenshot({ path: `${OUT}/${name}.png` });

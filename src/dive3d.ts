@@ -114,7 +114,7 @@ const META: StageMeta[] = [
 ];
 
 // scroll weight per stage (stage 3 explodes, stage 5 grows: both earn dwell)
-const WEIGHTS = [1, 1, 1.7, 1, 1.35];
+const WEIGHTS = [1.15, 1.15, 1.7, 1, 1.35];
 
 // ------------------------------------------------------------- label defs
 interface LabelDef {
@@ -264,10 +264,11 @@ export function initDive3D(): boolean {
     const st = stages[i];
     stages.forEach((s, j) => { s.group.visible = j === i; });
 
-    // dissolve envelope: fade out into the cut, fade in after it
+    // dissolve envelope: tight, so no stage hides inside the cut — a fast
+    // flick still travels THROUGH every stage thanks to scrub smoothing
     const isLast = i === stages.length - 1;
-    const aIn = i === 0 ? 1 : smooth(f / 0.09);
-    const aOut = isLast ? 1 : 1 - smooth((f - 0.88) / 0.12);
+    const aIn = i === 0 ? 1 : smooth(f / 0.06);
+    const aOut = isLast ? 1 : 1 - smooth((f - 0.93) / 0.07);
     const a = aIn * aOut;
     for (const m of st.mats) m.m.opacity = m.base * a * (st.group.userData.fade?.[m.tag] ?? 1);
 
@@ -327,7 +328,7 @@ export function initDive3D(): boolean {
     }
 
     cta?.classList.toggle("on", isLast && f > 0.85);
-    setHud(f > 0.94 && !isLast ? i + 1 : i);
+    setHud(f > 0.95 && !isLast ? i + 1 : i);
     renderer.render(scene, camera);
   };
 
@@ -335,9 +336,9 @@ export function initDive3D(): boolean {
     id: "dive",
     trigger: act,
     start: "top top",
-    end: "+=6800",
+    end: "+=8200",
     pin: true,
-    scrub: true,
+    scrub: 1,   // smoothed: momentum flicks glide through stages, never skip them
     onUpdate: self => { progress = self.progress; },
   });
   ScrollTrigger.refresh();
@@ -361,44 +362,99 @@ function buildCard(): StageDef {
   const W = 267, DEP = 112, PCB = 3;
   const wire = new Wire();
 
+  // ---- pcb slab, corner screws
   wire.box(0, 0, 0, W, PCB, DEP, "w");
-  wire.box(4, PCB, 4, W - 8, 1.5, DEP - 8, "d", false);
+  for (const [sx, sz] of [[7, 8], [W - 7, 8], [7, DEP - 8], [W - 7, DEP - 8]] as const)
+    wire.circle(sx, PCB + 0.1, sz, 2.2, "xz", "d", 12);
+
+  // ---- backplate: rim, X-brace, flow-through tail cutout with fins showing
+  wire.box(3, -1.6, 3, W - 6, 1.6, DEP - 6, "d", false);
+  wire.seg([10, -1.7, 10], [150, -1.7, DEP - 10], "d");
+  wire.seg([10, -1.7, DEP - 10], [150, -1.7, 10], "d");
+  wire.poly([[214, -1.7, 16], [258, -1.7, 16], [258, -1.7, 96], [214, -1.7, 96]], "d");
+  for (let x = 218; x < 256; x += 6) wire.seg([x, -1.7, 20], [x, -1.7, 92], "d");
+
+  // ---- shroud: body, chamfered top plate, louvers, accent spears
   const SH = { w: 176, h: 38 };
+  const TY = PCB + SH.h;
   wire.box(0, PCB, 0, SH.w, SH.h, DEP, "w");
+  wire.poly([[5, TY, 5], [SH.w - 5, TY, 5], [SH.w - 5, TY, DEP - 5], [5, TY, DEP - 5]], "d");
+  for (let k = 0; k < 6; k++)
+    wire.seg([148 + k * 4.5, PCB + 6, DEP + 0.1], [153 + k * 4.5, PCB + SH.h - 8, DEP + 0.1], "d");
+  wire.seg([6, PCB + 8, DEP + 0.1], [120, PCB + 8, DEP + 0.1], "d");
+  wire.seg([6, PCB + SH.h - 4, DEP + 0.1], [140, PCB + SH.h - 4, DEP + 0.1], "d");
 
-  // fin stack under the shroud, front edge
-  for (let x = 8; x < SH.w - 6; x += 7) wire.seg([x, PCB + 2, DEP + 0.1], [x, PCB + SH.h - 6, DEP + 0.1], "d");
+  // ---- fin stack on BOTH long edges
+  for (let x = 8; x < SH.w - 6; x += 5) {
+    wire.seg([x, PCB + 2, DEP + 0.1], [x, PCB + SH.h - 6, DEP + 0.1], "d");
+    wire.seg([x, PCB + 2, -0.1], [x, PCB + SH.h - 6, -0.1], "d");
+  }
 
-  // exposed pcb: die + memory + vrm
-  wire.box(196, PCB, 34, 34, 2.4, 34, "amber");
-  for (const [mx, mz] of [[188, 12], [238, 12], [188, 76], [238, 76], [160, 34], [160, 60]])
+  // ---- heatpipes sweeping from the vapor chamber over the die into the fins
+  for (let k = 0; k < 4; k++) {
+    const z0 = 30 + k * 14;
+    wire.poly([
+      [206, PCB + 3.5, z0], [176, PCB + 6 + k, z0],
+      [150, PCB + 9 + k, 16 + k * 24], [24, PCB + 9 + k, 16 + k * 24],
+    ], k % 2 ? "d" : "w", false);
+  }
+
+  // ---- exposed pcb: package substrate, die, retention screws, GDDR ring, VRM
+  wire.box(188, PCB, 26, 50, 1.2, 50, "d", false);
+  wire.box(196, PCB + 1.2, 34, 34, 2.4, 34, "amber");
+  for (const [sx, sz] of [[191, 29], [235, 29], [191, 73], [235, 73]] as const)
+    wire.circle(sx, PCB + 1.3, sz, 1.6, "xz", "d", 10);
+  for (const [mx, mz] of [[190, 8], [212, 8], [234, 8], [190, 88], [212, 88], [234, 88], [166, 30], [166, 56]] as const)
     wire.box(mx, PCB, mz, 16, 1.6, 12, "d", false);
-  for (let z = 14; z <= 90; z += 11) wire.box(250, PCB, z, 9, 4, 8, "d", false);
+  for (let z = 10; z <= 92; z += 11) wire.box(246, PCB, z, 8, 4, 8, "d", false);
+  for (let z = 12; z <= 90; z += 11) wire.box(257, PCB, z, 6, 2, 5, "d", false);
+  for (const cz of [18, 40, 62, 84]) wire.cyl(240, PCB, cz, 2.6, 5.5, "d", 0, 12);
 
-  // pcie fingers + bracket + 8-pin
-  wire.seg([12, -0.1, 0], [101, -0.1, 0], "w");
-  for (let x = 14; x < 99; x += 3.4) wire.seg([x, 0, 0], [x, -4.5, 0], "d");
+  // ---- pcie edge: gold fingers with the key notch
+  wire.seg([12, -0.1, 0], [30, -0.1, 0], "w");
+  wire.seg([34, -0.1, 0], [101, -0.1, 0], "w");
+  for (let x = 14; x < 99; x += 3.4) {
+    if (x > 29 && x < 34.5) continue;
+    wire.seg([x, 0, 0], [x, -4.5, 0], "d");
+  }
+
+  // ---- IO bracket: plate, vent slots, three display connectors
   wire.poly([[0, -8, 0], [0, 48, 0], [0, 48, DEP * 0.36], [0, -8, DEP * 0.36]], "d");
-  wire.seg([0, 8, 8], [0, 40, 8], "d");
-  wire.seg([0, 8, 20], [0, 40, 20], "d");
-  wire.box(210, PCB + 2.4, -0.5, 22, 9, 7, "d");
-  wire.box(236, PCB + 2.4, -0.5, 22, 9, 7, "d");
+  for (let vy = 2; vy <= 40; vy += 5.5) wire.seg([0, vy, 26], [0, vy, 38], "d");
+  for (const [cy, ch] of [[4, 10], [18, 10], [32, 7]] as const)
+    wire.poly([[-1, cy, 6], [-1, cy + ch, 6], [-1, cy + ch, 22], [-1, cy, 22]], "d");
+
+  // ---- power: two 8-pin sockets with pin lattices
+  for (const px of [210, 236]) {
+    wire.box(px, PCB + 2.4, -0.5, 22, 9, 7, "d");
+    for (let c = 1; c < 4; c++) wire.seg([px + c * 5.5, PCB + 2.4, -0.5], [px + c * 5.5, PCB + 11.4, -0.5], "d");
+    wire.seg([px, PCB + 6.9, -0.5], [px + 22, PCB + 6.9, -0.5], "d");
+  }
 
   const { group } = wire.build(mats);
 
   // fans: rings static, blade sets in their own spinning groups
   const fanY = PCB + SH.h + 0.1;
   const spinners: Group[] = [];
-  for (const fx of [46, 134]) {
+  for (const fx of [45, 131]) {
     const ring = new Wire();
+    // frame square + screw bosses + double ring + static struts under the blades
+    ring.poly([[-43, 0, -43], [43, 0, -43], [43, 0, 43], [-43, 0, 43]], "d");
+    for (const [cx, cz] of [[-38, -38], [38, -38], [38, 38], [-38, 38]] as const)
+      ring.circle(cx, 0, cz, 2.5, "xz", "d", 10);
     ring.circle(0, 0, 0, 42, "xz", "w");
     ring.circle(0, 0, 0, 39, "xz", "d");
+    for (let s = 0; s < 4; s++) {
+      const a = (s / 4) * Math.PI * 2 + 0.4;
+      ring.seg([Math.cos(a) * 11, -1, Math.sin(a) * 11], [Math.cos(a) * 39, -1, Math.sin(a) * 39], "d");
+    }
     const rr = ring.build(mats);
     rr.group.position.set(fx, fanY, DEP / 2);
     group.add(rr.group);
 
     const blades = new Wire();
     blades.circle(0, 0, 0, 11, "xz", "w");
+    blades.circle(0, 0.8, 0, 7.5, "xz", "d");
     for (let b = 0; b < 9; b++) {
       const a0 = (b / 9) * Math.PI * 2;
       const pts: P3[] = [];
