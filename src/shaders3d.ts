@@ -26,7 +26,7 @@ export const PORE_ID = MAX_GRAINS3 - 1;
 export const LENS3_NAMES = ["MELT", "ORIENT", "SLICE", "FIELD", "SEM", "RINGS", "THERM", "NEON", "CURV"];
 
 // Params3D slot map — single source of truth shared with sim3d.writeParams
-// (u = u32 view, f = f32 view over one 128-byte buffer)
+// (u = u32 view, f = f32 view over one 192-byte buffer)
 export const P3 = {
   n: 0, frame: 1, dx: 2, dt: 3,
   epsBar: 4, delta: 5, aniMode3: 6, tau: 7,
@@ -35,7 +35,15 @@ export const P3 = {
   time: 16, deltaZ: 17, quenchDT: 18, curGen: 19,
   sliceN: 20,     // vec4f: stereology section plane (n̂ + c), else zeros
   pPore: 24,
-  BYTES: 128,
+  scen: 25,       // u32: 0 free · 1 bridgman · 2 weld · 3 grain selector
+  gradG: 26, frontZ: 27,
+  weldX: 28, weldY: 29, weldPow: 30, weldSig: 31,
+  alloyOn: 32,    // u32
+  c0: 33, mLiq: 34, kPart: 35, dSol: 36, twinProb: 37,
+  idFloor: 38,    // u32: CPU seed ids live below this — GPU twins spawn above
+  facet: 39,
+  probeX: 40, probeY: 41, probeZ: 42,   // u32, 0xffffffff = probe off
+  BYTES: 192,
 } as const;
 
 const COMMON3 = /* wgsl */ `
@@ -62,10 +70,26 @@ struct Params3D {
   curGen: u32,     // feed-flood generation counter (porosity)
   sliceN: vec4f,   // stereology section plane: unit normal + constant c
   pPore: f32,      // pore hash gate at the thin-remnant stage (0 disables)
-  _p1a: f32,
-  _p1b: f32,
-  _p1c: f32,
-  _pad2: vec4f,
+  scen: u32,       // 0 free · 1 bridgman pull · 2 weld · 3 grain selector
+  gradG: f32,      // bridgman thermal gradient (per voxel-unit along z)
+  frontZ: f32,     // z (units) of the pulled reference isotherm
+  weldX: f32,      // laser position on the top face (voxels)
+  weldY: f32,
+  weldPow: f32,
+  weldSig: f32,    // laser spot sigma (voxels)
+  alloyOn: u32,
+  c0: f32,         // far-field composition
+  mLiq: f32,       // liquidus slope: tEq = 1 - mLiq*c
+  kPart: f32,      // partition coefficient (solute rejection factor 1-k)
+  dSol: f32,       // liquid solute diffusivity (solid = dSol*0.02)
+  twinProb: f32,   // per-claim growth-twin probability (0 disables)
+  idFloor: u32,    // GPU twin ids stay above this (CPU nextId)
+  facet: f32,      // >0.5: cusped {100} interface energy — flat facets
+  probeX: u32,     // cooling-curve probe voxel (0xffffffff = off)
+  probeY: u32,
+  probeZ: u32,
+  _s43: f32,
+  _pad3: vec4f,
 }
 const PORE = ${PORE_ID}u;
 const PI = 3.14159265359;
@@ -366,8 +390,12 @@ export const STATS3D_WGSL = /* wgsl */ `
 ${COMMON3}
 struct Stats3 {
   solid: atomic<u32>,
-  pad1: u32, pad2: u32, pad3: u32,
-  pad4: u32, pad5: u32, pad6: u32, pad7: u32,
+  interf: atomic<u32>,    // cells with 0.2 < phi < 0.8
+  interfT: atomic<u32>,   // their summed (T+1)*1000 — mean interface temperature
+  pad3: u32,
+  probeT: atomic<u32>,    // (T+1)*1000 at the probe voxel (single writer)
+  probePhi: atomic<u32>,  // phi*1000 at the probe voxel
+  pad6: u32, pad7: u32,
   counts: array<atomic<u32>, ${MAX_GRAINS3}>,
 }
 @group(0) @binding(0) var<uniform> P: Params3D;
@@ -380,9 +408,17 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   if (gid.x >= P.n || gid.y >= P.n || gid.z >= P.n) { return; }
   let s = textureLoad(state, vec3i(gid), 0);
   let id = textureLoad(grain, vec3i(gid), 0).r;
+  if (gid.x == P.probeX && gid.y == P.probeY && gid.z == P.probeZ) {
+    atomicStore(&stats.probeT, u32(clamp((s.g + 1.0) * 1000.0, 0.0, 4000.0)));
+    atomicStore(&stats.probePhi, u32(clamp(s.r * 1000.0, 0.0, 1000.0)));
+  }
   if (id == PORE) {
     atomicAdd(&stats.counts[PORE], 1u);   // porosity census rides the id table
     return;
+  }
+  if (s.r > 0.2 && s.r < 0.8) {
+    atomicAdd(&stats.interf, 1u);
+    atomicAdd(&stats.interfT, u32(clamp((s.g + 1.0) * 1000.0, 0.0, 4000.0)));
   }
   if (s.r > 0.5) {
     atomicAdd(&stats.solid, 1u);

@@ -15,7 +15,7 @@ export interface Phys3DParams {
   epsBar: number;
   delta: number;
   deltaZ: number;     // hex: c-axis penalty (plates)
-  aniMode3: number;   // 0 isotropic, 1 cubic, 2 hex
+  aniMode3: number;   // 0 isotropic, 1 cubic, 2 hex, 3 icosahedral
   tau: number;
   alpha: number;
   gamma: number;
@@ -26,6 +26,20 @@ export interface Phys3DParams {
   heatIn: number;
   meltGlow: number;   // display-only, carried from the material
   pPore: number;      // shrinkage-pore hash gate at the thin-remnant stage (0 = off)
+  scen: number;       // 0 free · 1 bridgman · 2 weld · 3 grain selector
+  gradG: number;      // bridgman gradient along z
+  pullV: number;      // bridgman pull speed (units of frontZ per sim-time)
+  weldX: number;      // laser position on the top face (voxels)
+  weldY: number;
+  weldPow: number;
+  weldSig: number;
+  alloyOn: number;    // 1 = solute field active (textures lazily allocated)
+  c0: number;
+  mLiq: number;
+  kPart: number;
+  dSol: number;
+  twinProb: number;   // stochastic growth-twin rate at the claim front
+  facet: number;      // >0.5 = cusped {100} interface energy
 }
 
 export const DEFAULTS3D: Phys3DParams = {
@@ -45,6 +59,20 @@ export const DEFAULTS3D: Phys3DParams = {
   heatIn: 0.0,
   meltGlow: 1.0,
   pPore: 0.85,
+  scen: 0,
+  gradG: 0.08,
+  pullV: 1.5,
+  weldX: 0,
+  weldY: 0,
+  weldPow: 700,
+  weldSig: 4,
+  alloyOn: 0,
+  c0: 0.3,
+  mLiq: 0.45,
+  kPart: 0.2,
+  dSol: 0.8,
+  twinProb: 0,
+  facet: 0,
 };
 
 export interface StatsResult3D {
@@ -53,6 +81,9 @@ export interface StatsResult3D {
   meanVolVox: number;
   eqDiamUm: number | null;   // volume-equivalent sphere diameter
   poreFrac: number;          // shrinkage-porosity volume fraction
+  interfaceT: number;        // mean T over the diffuse interface band
+  probeT: number | null;     // cooling-curve probe readings (null when off)
+  probePhi: number | null;
   grains: { id: number; vox: number }[];   // retained for IPF / histogram panels
 }
 
@@ -68,6 +99,10 @@ export class Sim3D {
   nextId = 1;
   /** last stamped seed centre — exposed for the headless tap-placement test */
   lastSeed: { x: number; y: number; z: number } | null = null;
+  /** cooling-curve probe voxel (null = off) — rides the stats reduction */
+  probe: { x: number; y: number; z: number } | null = null;
+  /** bridgman/selector: z of the pulled reference isotherm (advances in step) */
+  frontZ = 1;
 
   private stateTex: GPUTexture[] = [];
   private grainTex: GPUTexture[] = [];
@@ -317,6 +352,7 @@ export class Sim3D {
     this.frame = 0;
     this.simTime = 0;
     this.nextId = 1;
+    this.frontZ = 1;
     this.pendingSeeds = [];
     this.lastSeed = null;
     // identity quaternion everywhere (liquid cells read entry 0)
@@ -432,6 +468,20 @@ export class Sim3D {
     f[P3.quenchDT] = this.pendingQuench;
     u[P3.curGen] = this.feedGen;
     f[P3.pPore] = p.pPore;
+    u[P3.scen] = p.scen;
+    f[P3.gradG] = p.gradG;
+    f[P3.frontZ] = this.frontZ;
+    f[P3.weldX] = p.weldX; f[P3.weldY] = p.weldY;
+    f[P3.weldPow] = p.weldPow; f[P3.weldSig] = p.weldSig;
+    u[P3.alloyOn] = p.alloyOn;
+    f[P3.c0] = p.c0; f[P3.mLiq] = p.mLiq;
+    f[P3.kPart] = p.kPart; f[P3.dSol] = p.dSol;
+    f[P3.twinProb] = p.twinProb;
+    u[P3.idFloor] = this.nextId;
+    f[P3.facet] = p.facet;
+    u[P3.probeX] = this.probe ? Math.floor(this.probe.x) : 0xffffffff;
+    u[P3.probeY] = this.probe ? Math.floor(this.probe.y) : 0xffffffff;
+    u[P3.probeZ] = this.probe ? Math.floor(this.probe.z) : 0xffffffff;
     this.device.queue.writeBuffer(this.paramBuf, 0, this.paramData);
   }
 
@@ -446,6 +496,9 @@ export class Sim3D {
    */
   step(substeps: number): number {
     if (this.busy) return 0;
+    // bridgman + selector: the reference isotherm rides sim time (2D frontX port)
+    if (this.params.scen === 1 || this.params.scen === 3)
+      this.frontZ = 1 + this.params.pullV * this.simTime;
     const d = this.device;
     const cap = Math.max(1, Math.floor(1.6e8 / (this.n * this.n * this.n)));
     const steps = Math.min(substeps, cap);
@@ -586,9 +639,14 @@ export class Sim3D {
     const eqDiamUm = meanVolVox > 0
       ? Math.cbrt((6 * meanVolVox) / Math.PI) * umPerVox
       : null;
+    const interf = data[1];
+    const interfaceT = interf > 0 ? data[2] / 1000 / interf - 1 : 0;
     return {
       fracSolid: solid / total, grainCount: count, meanVolVox, eqDiamUm,
-      poreFrac: data[8 + PORE_ID] / total, grains,
+      poreFrac: data[8 + PORE_ID] / total, interfaceT,
+      probeT: this.probe ? data[4] / 1000 - 1 : null,
+      probePhi: this.probe ? data[5] / 1000 : null,
+      grains,
     };
   }
 }
