@@ -414,3 +414,25 @@ node once and share it between adjoining segments.
       chapter "Forbidden symmetry" (Shechtman story + honesty note: interface-
       energy symmetry only, not the aperiodic lattice). 14 Bravais lattices are
       3D classifications — out of scope for a 2D section, said so honestly.
+
+## v1.8 (2026-07-20): the tool batch — facets, share links, enlarge, tilt
+
+- [x] FACETED GROWTH: Params +facet (buffer 144→160B, f[36]); FLUX pass gets a
+      regularized-cusp interface energy ε=ε̄(1+δ(2√(sin²(β/2)+.001)−1)) — cusped
+      minima pin j flat facets; CRYSTAL checkbox; NO_SCEN clears it; verified:
+      j=6 grows a genuinely flat-faceted hexagonal crystal (vs smooth dendrite)
+- [x] SHARE LINKS: src/share.ts #set= base64url of {params−(dx/dt/weld/tFar),
+      undercool, lens, material, name, rain, recipe schedule}; boot applies
+      ARMED; ADVANCED "⎘ copy setup link"; optimizer report "⎘ copy recipe link"
+      (shareRecipeLink builds without applying). Round-trip verified field-exact.
+- [x] PANEL ENLARGE (Frank: popups need an enlarge for examination): all three
+      analyze panels get ⤢ → live modal viewer (draw fns refactored to take ctx,
+      fonts scale via frame().fs); big rose verified live at 920px
+- [x] SPECIMEN TILT (Frank asked "3D as a checkbox?"): honest answer = true 3D
+      is a rewrite (grid³ + volume rendering), NOT a checkbox; shipped instead
+      LOOK "specimen tilt (2.5D relief)" — lookFlags bit 512, oblique
+      foreshorten + age-height parallax + raking-light normal shading over any
+      lens; labeled 2.5D, verified reads as raised specimen
+- [x] PARKED with reasons: polymorph switching (needs solid-state transformation
+      physics — new nucleation-in-solid pass), Penrose overlay (decoration; the
+      honest QC payoff would be a future FFT "diffraction" instrument)
