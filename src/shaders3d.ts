@@ -714,7 +714,15 @@ fn fmain(in: VOut) -> @location(0) vec4f {
       } else {
         let tp = (off - dot(ro, nrm)) / denom;
         if (camSide > 0.0) {
-          if (denom < 0.0 && tp < tMax) { t = max(t, tp); cutFront = tp; }
+          if (denom < 0.0 && tp < tMax) {
+            t = max(t, tp);
+            // a cut face exists only where the crossing lies INSIDE the box;
+            // rays that cross the infinite plane outside and enter the kept
+            // half through a box face must march normally — sampling at that
+            // outside crossing clamps to border voxels and smears the
+            // micrograph across the face (Frank's warp report)
+            if (tp >= hit.x) { cutFront = tp; }
+          }
           else { t = tMax + 1.0; }               // never reaches the kept half
         } else if (denom > 0.0 && tp < tMax) {
           tMax = tp;                             // kept half, truncated at the plane
