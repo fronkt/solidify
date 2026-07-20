@@ -10,6 +10,8 @@ export interface OptHost {
   renderOnce(view: number): void;
   captureThumb(): HTMLCanvasElement;
   onOptimizerDone(): void;
+  /** load a converged recipe into the real instrument (armed, full grid) */
+  applyRecipe(r: Recipe): void;
 }
 
 // ---------------------------------------------------------- separable CMA-ES
@@ -116,6 +118,21 @@ export interface OptStartOpts {
   onDone?: (bestScore: number, bestG: number | null) => void;
 }
 
+/** the winning casting schedule, in mapped (physical, dimensionless) units */
+export interface Recipe {
+  undercool: number;               // initial melt undercooling (fraction of ΔT_melt)
+  rain: number;                    // nucleation seeds per unit sim-time
+  cool: [number, number, number];  // cooling rate early / mid / late solidification
+  astm: number | null;             // grain size this recipe achieved
+}
+
+// free-play convergence: declare success once the best casting is close enough
+// AND the search has stopped improving (or has clearly stalled)
+const CONV_BEST = 0.3;           // |ΔG| considered "on target"
+const CONV_MIN_EPISODES = 12;
+const CONV_STALL = 6;            // castings without improvement (when on target)
+const CONV_STALL_HARD = 18;      // castings without improvement (regardless)
+
 export class Optimizer {
   active = false;
   running = false;   // the transport run/pause gates the optimization loop
@@ -133,10 +150,14 @@ export class Optimizer {
   private episode = 0;
   private best = Infinity;
   private bestASTM: number | null = null;
+  private bestRecipe: Recipe | null = null;
+  private sinceImprove = 0;
+  private converged = false;
   private savedGrid = 1024;
   private panel!: HTMLElement;
   private strip!: HTMLElement;
   private status!: HTMLElement;
+  private report!: HTMLElement;
   private finishing = false;
 
   constructor(private host: OptHost) {}
@@ -156,6 +177,9 @@ export class Optimizer {
     this.episode = 0;
     this.best = Infinity;
     this.bestASTM = null;
+    this.bestRecipe = null;
+    this.sinceImprove = 0;
+    this.converged = false;
     // free-play "Engineer it" enters PAUSED so the user presses run to begin;
     // the bounded challenge AI (has a casting limit) auto-runs.
     this.running = this.limit > 0;
@@ -168,6 +192,12 @@ export class Optimizer {
 
   setRunning(on: boolean) {
     if (!this.active) return;
+    // pressing run on a convergence report means "keep searching"
+    if (on && this.converged) {
+      this.converged = false;
+      this.sinceImprove = 0;
+      this.report.style.display = "none";
+    }
     // always honour a pause — even mid-measurement; the in-flight casting
     // finishes, then the loop halts (tick() gates on `running`)
     this.running = on;
@@ -214,17 +244,23 @@ export class Optimizer {
     desc.innerHTML = "A <b style=\"color:#cfd6df\">CMA-ES optimizer</b> searches for a casting recipe " +
       "(cooling schedule + nucleation rate) that lands on your target grain size. Each tile below is " +
       "<b style=\"color:#cfd6df\">one full casting</b> it tried — early runs nucleate heavily and look chaotic while it explores; " +
-      "watch <b style=\"color:#cfd6df\">|ΔG|</b> shrink as it learns. Finer targets need more grains, coarser targets fewer.";
+      "watch <b style=\"color:#cfd6df\">|ΔG|</b> shrink as it learns. When it converges it stops and " +
+      "<b style=\"color:#cfd6df\">reports the winning recipe</b>, which you can load into the instrument and run yourself.";
     const strip = document.createElement("div");
     strip.style.cssText = "display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;min-height:86px;align-items:flex-end;";
+    const report = document.createElement("div");
+    report.id = "labReport";
+    report.style.cssText = "display:none;margin-top:8px;padding:9px 11px;border:1px solid rgba(255,180,84,0.45);" +
+      "border-radius:6px;background:rgba(255,180,84,0.06);font-size:11px;line-height:1.7;";
     const status = document.createElement("div");
     status.id = "labStatus";
     status.style.cssText = "margin-top:6px;font-size:11px;color:#6b7280;";
-    p.append(head, desc, strip, status);
+    p.append(head, desc, strip, report, status);
     document.getElementById("app")!.append(p);
     this.panel = p;
     this.strip = strip;
     this.status = status;
+    this.report = report;
     const slider = p.querySelector("#labTarget") as HTMLInputElement;
     if (this.lockTarget) {
       slider.disabled = true;
@@ -235,6 +271,13 @@ export class Optimizer {
       slider.addEventListener("input", () => {
         this.targetASTM = parseFloat(slider.value);
         (head.querySelector("b") as HTMLElement).textContent = `G ${this.targetASTM}`;
+        // new objective: past scores are stale, so re-arm the convergence watch
+        this.best = Infinity;
+        this.bestASTM = null;
+        this.bestRecipe = null;
+        this.sinceImprove = 0;
+        this.converged = false;
+        this.report.style.display = "none";
       });
     }
     this.refreshStatus();
@@ -279,7 +322,15 @@ export class Optimizer {
       score = Math.abs(stats.astm - this.targetASTM) + 0.15 * (this.stepsUsed / EP_MAX_STEPS);
     }
     this.scores.push(score);
-    if (score < this.best) { this.best = score; this.bestASTM = astm; }
+    if (score < this.best) {
+      this.best = score;
+      this.bestASTM = astm;
+      const g = this.genome!.map(map);
+      this.bestRecipe = { undercool: g[4], rain: g[3], cool: [g[0], g[1], g[2]], astm };
+      this.sinceImprove = 0;
+    } else {
+      this.sinceImprove++;
+    }
 
     // snapshot as etched micrograph
     this.host.renderOnce(2);
@@ -309,7 +360,53 @@ export class Optimizer {
       const g = this.bestASTM;
       this.stop();
       cb?.(b, g);
+      return;
     }
+
+    // free-play: declare convergence and hand over the recipe
+    if (this.limit === 0 && !this.converged && this.bestRecipe && this.episode >= CONV_MIN_EPISODES &&
+        ((this.best <= CONV_BEST && this.sinceImprove >= CONV_STALL) || this.sinceImprove >= CONV_STALL_HARD)) {
+      this.showReport();
+    }
+  }
+
+  private showReport() {
+    this.converged = true;
+    this.running = false;
+    const r = this.bestRecipe!;
+    const onTarget = this.best <= CONV_BEST;
+    const f = (x: number) => x.toFixed(2);
+    this.report.innerHTML =
+      `<div style="letter-spacing:.18em;color:#ffb454;margin-bottom:4px">` +
+      (onTarget ? "⚑ CONVERGED — RECIPE FOUND" : "⚑ SEARCH STALLED — BEST RECIPE SO FAR") + `</div>` +
+      `<div style="color:#c9cdd4">Best casting: <b style="color:#ffb454">G ${r.astm !== null ? r.astm.toFixed(1) : "—"}</b>` +
+      ` (target G ${this.targetASTM} · |ΔG| ${this.best.toFixed(2)}) after ${this.episode} castings.</div>` +
+      `<div style="color:#8891a0">undercooling <b style="color:#c9cdd4">${f(r.undercool)}</b> · ` +
+      `nucleation <b style="color:#c9cdd4">${r.rain.toFixed(0)}</b> seeds/unit-time · ` +
+      `cooling early <b style="color:#c9cdd4">${f(r.cool[0])}</b> → mid <b style="color:#c9cdd4">${f(r.cool[1])}</b> → late <b style="color:#c9cdd4">${f(r.cool[2])}</b></div>`;
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;gap:8px;margin-top:7px";
+    const applyB = document.createElement("button");
+    applyB.textContent = "⚗ apply recipe to the instrument";
+    applyB.style.cssText = "border-color:#ffb454;color:#ffb454";
+    applyB.addEventListener("click", () => {
+      const rec = this.bestRecipe!;
+      this.stop();
+      this.host.applyRecipe(rec);
+    });
+    const moreB = document.createElement("button");
+    moreB.textContent = "keep searching";
+    moreB.addEventListener("click", () => {
+      this.converged = false;
+      this.sinceImprove = 0;      // re-arm: report again after the next stall
+      this.report.style.display = "none";
+      this.running = true;
+      this.refreshStatus();
+    });
+    row.append(applyB, moreB);
+    this.report.append(row);
+    this.report.style.display = "block";
+    this.status.textContent = "paused on the result · apply the recipe, keep searching, or move the target slider";
   }
 
   /** drive one animation frame while active (only when the transport is running) */

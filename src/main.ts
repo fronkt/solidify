@@ -4,7 +4,7 @@ import { Renderer, type ViewMode } from "./render";
 import { UI, type UIHost } from "./ui";
 import { Hud } from "./hud";
 import { Tour, SCENES } from "./tour";
-import { Optimizer, type OptHost } from "./optimizer";
+import { Optimizer, type OptHost, type Recipe } from "./optimizer";
 import { Challenge, type ChallengeHost } from "./challenge";
 import { Composer } from "./composer";
 import { Analyze } from "./analyze";
@@ -41,11 +41,15 @@ async function boot() {
   let material = "generic";
   let alloyName = MATERIALS.generic.label;
   let recorder: MediaRecorder | null = null;
+  // an applied optimizer recipe: phase-scheduled cooling driven off fracSolid,
+  // exactly the way the optimizer's episodes ran it
+  let recipeSchedule: [number, number, number] | null = null;
 
   const app: UIHost & OptHost = {
     // ---- AppControl (scenes / tour)
     clearMelt(u) {
       undercool = u;
+      recipeSchedule = null;   // a new scene retires any applied recipe
       sim.reset(1 - u);
       hud.reset();
       analyze.reset();
@@ -176,6 +180,18 @@ async function boot() {
       return t;
     },
     onOptimizerDone() { ui.sync(); },
+    applyRecipe(r: Recipe) {
+      // stop() has already restored the full grid; stage the winning casting
+      // ARMED so the user presses run to watch their optimized recipe pour
+      undercool = r.undercool;
+      sim.params.coolRate = r.cool[0];
+      recipeSchedule = r.cool;
+      // optimizer rain is seeds per unit SIM-time; the app rains per wall-second
+      rain = r.rain * sim.params.dt * substeps * 60;
+      view = 1;
+      app.resetArmed();          // does not clear the schedule (clearMelt does)
+      ui.sync();
+    },
   };
 
   const analyze = new Analyze({ getSim: () => sim, renderer, simParams: () => sim.params });
@@ -425,6 +441,13 @@ async function boot() {
           if (!opt.active) {
             hud.push(s);
             analyze.onStats(s, sim.simTime);
+            // an applied ML recipe schedules cooling by solid fraction,
+            // exactly as the optimizer's episodes did
+            if (recipeSchedule && running) {
+              sim.params.coolRate =
+                s.fracSolid < 0.33 ? recipeSchedule[0] :
+                s.fracSolid < 0.66 ? recipeSchedule[1] : recipeSchedule[2];
+            }
           }
           challenge.onStats(s);
         }

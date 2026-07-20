@@ -41,6 +41,41 @@ for (let i = 0; i < 40; i++) { await page.evaluate(() => window.__solidify.tick(
 console.log("after RUN + ticks:", JSON.stringify(await snap()));
 await page.screenshot({ path: `${OUT}/opt-2-running.png` });
 
+// 2b. keep running until the convergence report appears (or 500 tick-bursts)
+for (let i = 0; i < 500; i++) {
+  await page.evaluate(() => window.__solidify.tick(6));
+  await new Promise(r => setTimeout(r, 30));
+  const rep = await page.evaluate(() => document.getElementById("labReport")?.style.display === "block");
+  if (rep) break;
+}
+const conv = await page.evaluate(() => ({
+  shown: document.getElementById("labReport")?.style.display === "block",
+  text: document.getElementById("labReport")?.textContent?.slice(0, 200),
+}));
+console.log("CONVERGENCE:", JSON.stringify(conv));
+await page.screenshot({ path: `${OUT}/opt-4-report.png` });
+
+// 2c. apply the recipe — mode exits, recipe staged ARMED on the full grid
+if (conv.shown) {
+  await page.evaluate(() => {
+    [...document.querySelectorAll("#labReport button")].find(b => b.textContent.includes("apply"))?.click();
+  });
+  await new Promise(r => setTimeout(r, 800));
+  const applied = await page.evaluate(() => ({
+    optActive: window.__solidify.opt.active,
+    grid: window.__solidify.app.getGrid(),
+    undercool: +window.__solidify.app.getUndercool().toFixed(2),
+    coolRate: +window.__solidify.app.simParams().coolRate.toFixed(2),
+    rainPerSec: +window.__solidify.app.getRain().toFixed(1),
+    armedShown: document.getElementById("armed")?.style.display,
+  }));
+  console.log("APPLIED:", JSON.stringify(applied));
+  await page.screenshot({ path: `${OUT}/opt-5-applied.png` });
+  console.log("ERRORS:", errs.length ? errs.join(" | ") : "none");
+  await browser.close();
+  process.exit(0);
+}
+
 // 3. press PAUSE — let the in-flight casting settle, then confirm no new ones
 await page.evaluate(() => { window.__solidify.app.setRun(false); window.__solidify.ui.sync(); });
 await new Promise(r => setTimeout(r, 600));           // in-flight casting finishes
