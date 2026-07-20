@@ -1,4 +1,4 @@
-// TRUE-3D renderer: fullscreen-triangle raymarch over the n³ field with an
+﻿// TRUE-3D renderer: fullscreen-triangle raymarch over the nÂ³ field with an
 // eased orbit camera (z-up voxel space). Mirrors the 2D Renderer's
 // pipeline / rebind / uniform pattern; the camera replaces zoom/pan.
 
@@ -10,7 +10,7 @@ export interface CamState { az: number; el: number; dist: number; tgt: [number, 
 export interface SliceSpec { axis: number; off: number; tilt: number; turn: number }
 export interface SlicePlane { n: [number, number, number]; c: number }
 
-/** slice spec (preset axis + depth + tilt/turn degrees) -> plane {unit n̂, constant c} in voxels */
+/** slice spec (preset axis + depth + tilt/turn degrees) -> plane {unit nÌ‚, constant c} in voxels */
 export function slicePlane(s: SliceSpec, n: number): SlicePlane {
   const a = [[1, 0, 0], [0, 1, 0], [0, 0, 1]][s.axis] as [number, number, number];
   const u = (s.axis === 0 ? [0, 1, 0] : [1, 0, 0]) as [number, number, number];
@@ -45,7 +45,6 @@ export class Renderer3D {
   private tgtT: [number, number, number] = [0, 0, 0];
   private tgt: [number, number, number] = [0, 0, 0];
   private n = 128;
-  private lastInput = performance.now();
   private tanHalfFov = Math.tan((38 * Math.PI / 180) / 2);
 
   constructor(device: GPUDevice, canvas: HTMLCanvasElement, sim3: Sim3D) {
@@ -95,7 +94,7 @@ export class Renderer3D {
 
   resetView() {
     this.azT = HOME.az; this.elT = HOME.el;
-    this.distT = 3.1;   // whole box in frame with a margin at 38° fov
+    this.distT = 3.1;   // whole box in frame with a margin at 38Â° fov
     this.tgtT = [this.n / 2, this.n / 2, this.n / 2];
     // land instantly on first bind so the entry view doesn't swing in from nowhere
     this.az = this.azT; this.el = this.elT; this.dist = this.distT;
@@ -108,12 +107,10 @@ export class Renderer3D {
   orbitBy(dxPx: number, dyPx: number) {
     this.azT += dxPx * 0.008;
     this.elT = Math.min(1.45, Math.max(-1.45, this.elT + dyPx * 0.008));
-    this.lastInput = performance.now();
   }
 
   dollyBy(factor: number) {
     this.distT = Math.min(6, Math.max(1.15, this.distT * factor));
-    this.lastInput = performance.now();
   }
 
   panTargetBy(dxPx: number, dyPx: number) {
@@ -125,14 +122,12 @@ export class Renderer3D {
       cl(this.tgtT[1] - (b.right[1] * dxPx - b.up[1] * dyPx) * scale),
       cl(this.tgtT[2] - (b.right[2] * dxPx - b.up[2] * dyPx) * scale),
     ];
-    this.lastInput = performance.now();
   }
 
   /** turntable: set the azimuth directly (no easing) for a constant-rate spin */
   spinTo(az: number) {
     this.az = az;
     this.azT = az;
-    this.lastInput = performance.now();
   }
 
   /** ViewCube snap: ease the camera to a face / edge / corner direction */
@@ -149,12 +144,10 @@ export class Renderer3D {
       this.azT = az;
     }
     this.tgtT = [this.n / 2, this.n / 2, this.n / 2];
-    this.lastInput = performance.now();
   }
 
-  /** ease actuals toward targets; slow idle auto-orbit as a showcase touch */
+  /** ease actuals toward targets (no idle auto-orbit â€” the camera stays where you put it) */
   tick(dt: number) {
-    if (performance.now() - this.lastInput > 8000) this.azT += dt * 0.05;
     const k = 1 - Math.exp(-dt * 10);
     this.az += (this.azT - this.az) * k;
     this.el += (this.elT - this.el) * k;
@@ -171,7 +164,7 @@ export class Renderer3D {
     const eye: [number, number, number] = [
       this.tgt[0] + off[0] * d, this.tgt[1] + off[1] * d, this.tgt[2] + off[2] * d];
     const fwd: [number, number, number] = [-off[0], -off[1], -off[2]];
-    // right = normalize(fwd × up0), up0 = +z
+    // right = normalize(fwd Ã— up0), up0 = +z
     const rx = fwd[1], ry = -fwd[0];
     const rl = Math.hypot(rx, ry) || 1;
     const right: [number, number, number] = [rx / rl, ry / rl, 0];

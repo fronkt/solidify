@@ -524,6 +524,19 @@ fn surfNormal(p: vec3f) -> vec3f {
   let gz = phiAt(p + vec3f(0.0, 0.0, e)) - phiAt(p - vec3f(0.0, 0.0, e));
   let g = vec3f(gx, gy, gz);
   let l = length(g);
+  // where the crystal is truncated by a domain face, phi is uniform solid and
+  // the central difference is numerical noise — per-pixel random normals read
+  // as a rough, speckled face. Fall back to the geometric face normal there,
+  // trusting the phi gradient only where a real interface carries one.
+  let nf = f32(R.n);
+  var fb = vec3f(0.0);
+  if (p.x < 1.5) { fb.x = -1.0; } else if (p.x > nf - 1.5) { fb.x = 1.0; }
+  if (p.y < 1.5) { fb.y = -1.0; } else if (p.y > nf - 1.5) { fb.y = 1.0; }
+  if (p.z < 1.5) { fb.z = -1.0; } else if (p.z > nf - 1.5) { fb.z = 1.0; }
+  if (dot(fb, fb) > 0.5) {
+    let w = clamp(l / 0.12, 0.0, 1.0);
+    return normalize(mix(normalize(fb), -g / max(l, 1e-6), w));
+  }
   if (l < 1e-6) { return vec3f(0.0, 0.0, 1.0); }
   return -g / l;
 }
@@ -783,6 +796,14 @@ fn fmain(in: VOut) -> @location(0) vec4f {
       // coarse march until near the interface, then fine + bisect
       var prevT = t;
       var hitT = -1.0;
+      // a ray that ENTERS the box already inside solid (crystal truncated by
+      // a domain face): the visible surface IS the entry plane — hit it
+      // exactly. Marching from the jittered start would land 0-2 voxels deep
+      // at a per-pixel depth and speckle the flat face.
+      if (cutFront < 0.0 && phiAt(ro + rd * (hit.x + 0.01)) >= 0.5) {
+        hitT = hit.x + 0.01;
+      }
+      if (hitT < 0.0) {
       loop {
         if (t >= tMax) { break; }
         let p = ro + rd * t;
@@ -827,6 +848,7 @@ fn fmain(in: VOut) -> @location(0) vec4f {
         }
         prevT = t;
         t += 2.0;
+      }
       }
 
       if (hitT > 0.0) {
