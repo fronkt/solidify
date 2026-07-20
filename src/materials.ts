@@ -64,4 +64,9 @@ export const MATERIALS: Record<string, Material> = {
     note: "NASA's transparent model metal — flown on the Space Shuttle to film dendrites growing. Weak anisotropy, soft rounded tips.",
     params: { aniMode: 4, delta: 0.012, latent: 1.4, noiseAmp: 0.016, alloyOn: 0, meltGlow: 0.18 },
   },
+  qc: {
+    label: "Al–Co–Ni · quasicrystal",
+    note: "Decagonal quasicrystal: ordered but never repeating, with the 10-fold symmetry no periodic lattice is allowed (Shechtman, Nobel 2011). Here only the interface-energy symmetry is modelled.",
+    params: { aniMode: 10, delta: 0.022, latent: 1.5, noiseAmp: 0.008, alloyOn: 1, c0: 0.3, mLiq: 0.45, kPart: 0.3, dSol: 0.7, meltGlow: 0.7 },
+  },
 };

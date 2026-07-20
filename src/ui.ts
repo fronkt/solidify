@@ -199,7 +199,7 @@ export class UI {
     // ---- presets
     const pre = this.section(rail, "PRESETS", true);
     const prow = this.btnRow(pre);
-    for (const name of ["dendrite", "snow", "seaweed", "rain", "casting", "bridgman", "weld", "alloy"]) {
+    for (const name of ["dendrite", "snow", "seaweed", "quasi", "rain", "casting", "bridgman", "weld", "alloy"]) {
       this.button(prow, name, () => { SCENES[name](host); this.sync(); });
     }
 
@@ -284,13 +284,25 @@ export class UI {
     // ---- crystal
     const cr = this.section(rail, "CRYSTAL");
     this.slider(cr, "anisotropy δ", 0, 0.08, 0.001, () => p().delta, v => { p().delta = v; }, v => v.toFixed(3));
+    // in 2D, a periodic lattice permits exactly 2-, 3-, 4- and 6-fold rotational
+    // symmetry (the crystallographic restriction theorem); 5- and 10-fold are the
+    // "forbidden" symmetries only quasicrystals achieve
     const srow = this.btnRow(cr);
     const sym = (j: number, label: string) => {
       const b = this.button(srow, label, () => { p().aniMode = j; this.sync(); });
+      b.dataset.j = String(j);
       this.symBtns.push(b);
     };
+    sym(2, "×2");
+    sym(3, "×3");
     sym(4, "cubic ×4");
     sym(6, "hex ×6");
+    sym(5, "×5 quasi");
+    sym(10, "×10 quasi");
+    const symNote = document.createElement("div");
+    symNote.className = "matnote";
+    symNote.textContent = "2·3·4·6 are the only symmetries a periodic lattice allows — 5 and 10 are quasicrystal territory";
+    cr.append(symNote);
     this.slider(cr, "tip noise", 0, 0.04, 0.001, () => p().noiseAmp, v => { p().noiseAmp = v; }, v => v.toFixed(3));
     this.slider(cr, "latent heat K", 0.8, 2.2, 0.01, () => p().latent, v => { p().latent = v; });
     this.slider(cr, "twin rate", 0, 0.004, 0.0001, () => p().twinProb, v => { p().twinProb = v; },
@@ -378,8 +390,7 @@ export class UI {
     const host = this.host;
     const p = host.simParams();
     this.viewBtns.forEach((b, i) => b.classList.toggle("on", i === host.getView()));
-    this.symBtns[0]?.classList.toggle("on", p.aniMode === 4);
-    this.symBtns[1]?.classList.toggle("on", p.aniMode === 6);
+    for (const b of this.symBtns) b.classList.toggle("on", p.aniMode === Number(b.dataset.j));
     this.scenBtns.forEach((b, i) => b.classList.toggle("on", i === p.scen));
     this.bridgePanel.style.display = p.scen === 1 ? "block" : "none";
     this.weldPanel.style.display = p.scen === 2 ? "block" : "none";

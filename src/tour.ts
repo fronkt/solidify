@@ -44,6 +44,13 @@ export const SCENES: Record<string, (a: AppControl) => void> = {
     a.clearMelt(1.0); a.seedCenter();
     a.setView(0); a.setSpeed(18); a.setRun(true);
   },
+  quasi(a) {
+    // the forbidden five: quasicrystal-style interface-energy symmetry
+    a.setParams({ ...NO_SCEN, delta: 0.045, aniMode: 5, noiseAmp: 0.008, latent: 1.7, coolRate: 0, alloyOn: 0 });
+    a.setRain(0); a.setWeldAuto(false);
+    a.clearMelt(1.0); a.seedCenter();
+    a.setView(0); a.setSpeed(16); a.setRun(true);
+  },
   rain(a) {
     a.setParams({ ...NO_SCEN, delta: 0.045, aniMode: 4, noiseAmp: 0.012, latent: 1.5, coolRate: 0.12, alloyOn: 0 });
     a.setWeldAuto(false);
@@ -109,6 +116,12 @@ export const CHAPTERS: Chapter[] = [
     body: "Change the symmetry of that surface energy from four-fold to six-fold and the same equations grow a snowflake. Ice is hexagonal; that single fact is why no snowflake has four arms.",
     watch: "Side branches appear where random noise disturbs the growing tip. (Try the SEAWEED preset for what happens with almost no anisotropy.)",
     apply: SCENES.snow,
+  },
+  {
+    title: "Forbidden symmetry",
+    body: "A periodic lattice can only repeat with 2-, 3-, 4- or 6-fold rotational symmetry — the crystallographic restriction theorem. So when Dan Shechtman measured a sharp 10-fold diffraction pattern in 1982, his lab asked him to leave. He had found quasicrystals: ordered, never repeating. It took the field years to believe him and won the 2011 Nobel Prize.",
+    watch: "Five arms — the symmetry no ordinary crystal is allowed to have. Honesty note: we give the interface energy 5-fold symmetry; the aperiodic lattice itself is beyond this model. Try ×10 in CRYSTAL for the decagonal look, or the Al–Co–Ni quasicrystal in MATERIAL.",
+    apply: SCENES.quasi,
   },
   {
     title: "The twin",
