@@ -95,6 +95,7 @@ export class Renderer3D {
         { binding: 3, resource: { buffer: sim3.quatBuffer } },
         { binding: 5, resource: sim3.ageTexture.createView() },
         { binding: 6, resource: (sim3.soluteTexture(dir) ?? this.dummyTex).createView() },
+        { binding: 7, resource: sim3.maskTexture.createView() },
       ];
       if (this.sampler) entries.push({ binding: 4, resource: this.sampler });
       this.bg[dir] = this.device.createBindGroup({
@@ -251,7 +252,7 @@ export class Renderer3D {
     f[R3.canvasW] = this.canvas.width;
     f[R3.canvasH] = this.canvas.height;
     f[R3.time] = time;
-    u[R3.flags] = ((cutStyle & 15) << 4) | (sim3.alloyActive ? 4 : 0);
+    u[R3.flags] = ((cutStyle & 15) << 4) | (sim3.alloyActive ? 4 : 0) | (sim3.params.scen === 3 ? 8 : 0);
     f[R3.meltGlow] = sim3.params.meltGlow;
     f[R3.tFar] = sim3.params.tFar;
     f[R3.stepScale] = 0.7;

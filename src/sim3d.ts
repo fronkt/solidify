@@ -127,6 +127,8 @@ export class Sim3D {
   private updateAlloyPipe: GPUComputePipeline | null = null;
   private updateAlloyBG: GPUBindGroup[] = [];
   private soluteTex: GPUTexture[] = [];
+  private maskTex!: GPUTexture;   // r8uint mold walls (always n³ — 7 MB @192³)
+  private maskReady = false;
   private stampPipe!: GPUComputePipeline;
   private statsPipe!: GPUComputePipeline;
   private feedPipe!: GPUComputePipeline;
@@ -139,6 +141,7 @@ export class Sim3D {
   private stereoBG: GPUBindGroup[] = [];
   private stereoBuf!: GPUBuffer;
   private stereoStaging!: GPUBuffer;
+  private stereoParamBuf!: GPUBuffer;
   private stereoInFlight = false;
 
   private pendingSeeds: Seed3[] = [];
@@ -199,6 +202,15 @@ export class Sim3D {
     this.fluxTex = d.createTexture(texDesc("rgba32float"));
     this.ageTex = d.createTexture(texDesc("rg32float"));
     this.fedTex = [d.createTexture(texDesc("r32uint")), d.createTexture(texDesc("r32uint"))];
+    // mold-wall mask: always allocated (n³ bytes ≈ 1.7% of the budget) so no
+    // bind group ever needs rebuilding when the selector scenario toggles
+    this.maskTex = d.createTexture({
+      size: [n, n, n], dimension: "3d", format: "r8uint",
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+    d.queue.writeTexture(
+      { texture: this.maskTex }, new Uint8Array(n * n * n),
+      { bytesPerRow: n, rowsPerImage: n }, [n, n, n]);
 
     this.paramBuf = d.createBuffer({ size: P3.BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.quatBuf = d.createBuffer({ size: MAX_GRAINS3 * 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
@@ -210,6 +222,10 @@ export class Sim3D {
     this.statsStaging = d.createBuffer({ size: statsSize, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
     this.stereoBuf = d.createBuffer({ size: statsSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
     this.stereoStaging = d.createBuffer({ size: statsSize, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    // the stereology pass gets its OWN uniform buffer: sharing paramBuf let a
+    // concurrent step()'s writeParams zero the plane before the dispatch ran
+    // (full-box census race — a section suddenly counting whole grains)
+    this.stereoParamBuf = d.createBuffer({ size: P3.BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 
     const mk = (code: string) =>
       d.createComputePipeline({ layout: "auto", compute: { module: d.createShaderModule({ code }), entryPoint: "main" } });
@@ -252,6 +268,7 @@ export class Sim3D {
           { binding: 7, resource: this.fedTex[0].createView() },
           { binding: 10, resource: { buffer: this.quatBuf } },
           { binding: 11, resource: { buffer: this.twinCtrBuf } },
+          { binding: 12, resource: this.maskTex.createView() },
         ],
       });
       // feed flood: 4 iterations/frame, even count → data always lands in fedTex[0]
@@ -288,7 +305,7 @@ export class Sim3D {
       this.stereoBG[dir] = d.createBindGroup({
         layout: this.stereoPipe.getBindGroupLayout(0),
         entries: [
-          { binding: 0, resource: { buffer: this.paramBuf } },
+          { binding: 0, resource: { buffer: this.stereoParamBuf } },
           { binding: 1, resource: s },
           { binding: 2, resource: g },
           { binding: 3, resource: { buffer: this.stereoBuf } },
@@ -343,11 +360,43 @@ export class Sim3D {
           { binding: 9, resource: this.soluteTex[1 - dir].createView() },
           { binding: 10, resource: { buffer: this.quatBuf } },
           { binding: 11, resource: { buffer: this.twinCtrBuf } },
+          { binding: 12, resource: this.maskTex.createView() },
         ],
       });
     }
     this.params.alloyOn = 1;
     return true;
+  }
+
+  get maskTexture(): GPUTexture { return this.maskTex; }
+
+  /**
+   * Rasterize the single-crystal grain selector: an open starter block, a
+   * narrow helical channel (the turbine-blade "pigtail"), and an open blade
+   * cavity above. Everything else in the selector band is mold wall.
+   */
+  private fillPigtail() {
+    const n = this.n;
+    const m = new Uint8Array(n * n * n);
+    const cx = n / 2, cy = n / 2;
+    const zStart = Math.floor(0.12 * n), zEnd = Math.floor(0.45 * n);
+    const rCh = 0.055 * n;
+    const rHel = 0.16 * n;
+    const turns = 1.75;
+    for (let z = zStart; z < zEnd; z++) {
+      const u = (z - zStart) / (zEnd - zStart);
+      const ang = u * turns * 2 * Math.PI;
+      const hx = cx + rHel * Math.cos(ang);
+      const hy = cy + rHel * Math.sin(ang);
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          const d2 = (x - hx) * (x - hx) + (y - hy) * (y - hy);
+          m[(z * n + y) * n + x] = d2 < rCh * rCh ? 0 : 1;
+        }
+    }
+    this.device.queue.writeTexture(
+      { texture: this.maskTex }, m, { bytesPerRow: n, rowsPerImage: n }, [n, n, n]);
+    this.maskReady = true;
   }
 
   disableAlloy() {
@@ -377,6 +426,7 @@ export class Sim3D {
     this.ageTex?.destroy();
     for (const t of this.fedTex) t?.destroy();
     for (const t of this.soluteTex) t?.destroy();
+    this.maskTex?.destroy();
     this.paramBuf?.destroy();
     this.quatBuf?.destroy();
     this.quatStaging?.destroy();
@@ -386,6 +436,7 @@ export class Sim3D {
     this.statsStaging?.destroy();
     this.stereoBuf?.destroy();
     this.stereoStaging?.destroy();
+    this.stereoParamBuf?.destroy();
   }
 
   /** per-grain quaternions (CPU mirror) — read-only, for the IPF panel */
@@ -563,7 +614,11 @@ export class Sim3D {
       }
   }
 
-  private writeParams(seedCount: number, plane?: { n: [number, number, number]; c: number }) {
+  private writeParams(
+    seedCount: number,
+    plane?: { n: [number, number, number]; c: number },
+    target?: GPUBuffer,
+  ) {
     const p = this.params;
     const u = new Uint32Array(this.paramData);
     const f = new Float32Array(this.paramData);
@@ -597,7 +652,7 @@ export class Sim3D {
     u[P3.probeX] = this.probe ? Math.floor(this.probe.x) : 0xffffffff;
     u[P3.probeY] = this.probe ? Math.floor(this.probe.y) : 0xffffffff;
     u[P3.probeZ] = this.probe ? Math.floor(this.probe.z) : 0xffffffff;
-    this.device.queue.writeBuffer(this.paramBuf, 0, this.paramData);
+    this.device.queue.writeBuffer(target ?? this.paramBuf, 0, this.paramData);
   }
 
   private dispatch(pass: GPUComputePassEncoder) {
@@ -614,6 +669,8 @@ export class Sim3D {
     // bridgman + selector: the reference isotherm rides sim time (2D frontX port)
     if (this.params.scen === 1 || this.params.scen === 3)
       this.frontZ = 1 + this.params.pullV * this.simTime;
+    // entering the selector scenario rasterizes the pigtail on demand
+    if (this.params.scen === 3 && !this.maskReady) this.fillPigtail();
     const d = this.device;
     const cap = Math.max(1, Math.floor(1.6e8 / (this.n * this.n * this.n)));
     const steps = Math.min(substeps, cap);
@@ -693,7 +750,7 @@ export class Sim3D {
     if (this.stereoInFlight) return null;
     this.stereoInFlight = true;
     const d = this.device;
-    this.writeParams(0, plane);
+    this.writeParams(0, plane, this.stereoParamBuf);
     const enc = d.createCommandEncoder();
     enc.clearBuffer(this.stereoBuf);
     const pass = enc.beginComputePass();

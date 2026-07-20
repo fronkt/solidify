@@ -368,6 +368,8 @@ export class UI {
     scenBtn(0, "free");
     scenBtn(1, "bridgman");
     scenBtn(2, "weld");
+    scenBtn(3, "selector");   // 3D-only: the single-crystal pigtail
+    this.only3d.push(this.scenBtns[3]);
     this.bridgePanel = document.createElement("div");
     this.bridgePanel.className = "subpanel";
     scen.append(this.bridgePanel);

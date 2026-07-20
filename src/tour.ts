@@ -1,4 +1,5 @@
 import type { PhysParams } from "./sim";
+import type { Phys3DParams } from "./sim3d";
 
 // Everything a scene/chapter is allowed to do to the instrument.
 export interface AppControl {
@@ -7,7 +8,9 @@ export interface AppControl {
   twinSeedCenter(): void;
   chillWall(edge?: "left" | "bottom" | "auto"): void;
   scatterSeeds(count: number): void;
-  setParams(p: Partial<PhysParams>): void;
+  // accepts both solvers' dials; the mode-aware implementation lands each key
+  // only on params that actually carry it
+  setParams(p: Partial<PhysParams> & Partial<Phys3DParams>): void;
   setRain(perSec: number): void;
   setView(v: number): void;
   setSpeed(substeps: number): void;
@@ -125,6 +128,18 @@ export const SCENES3: Record<string, (a: TourHost) => void> = {
     a.clearMelt(0.8);
     a.seedCenter();
     a.setView3d(1); a.setSpeed(20); a.setRun(true);
+  },
+  selector(a) {
+    // single-crystal grain selector: chill-floor polycrystal races up the
+    // Bridgman gradient; the helical pigtail lets exactly one grain through.
+    // gradG shallow enough that the channel is undercooled from the pour
+    // (the climb is growth-limited, not pull-limited); the blade top stays hot
+    a.setSym3(4);
+    a.setParams({ scen: 3, gradG: 0.5, pullV: 4.0, delta: 0.045, noiseAmp: 0.012, latent: 1.6, coolRate: 0, heatIn: 0, pPore: 0 });
+    a.setRain(0); a.setWeldAuto(false);
+    a.clearMelt(0.5);
+    a.chillWall("auto");
+    a.setView3d(1); a.setSpeed(22); a.setRun(true);
   },
 };
 

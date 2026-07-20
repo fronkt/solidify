@@ -233,6 +233,7 @@ ${alloy ? /* wgsl */ `@group(0) @binding(8) var solute: texture_3d<f32>;
 @group(0) @binding(9) var soluteOut: texture_storage_3d<r32float, write>;` : ""}
 @group(0) @binding(10) var<storage, read_write> quats: array<vec4f>;
 @group(0) @binding(11) var<storage, read_write> twinCtr: atomic<u32>;
+@group(0) @binding(12) var mask: texture_3d<u32>;
 
 @compute @workgroup_size(4, 4, 4)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -257,6 +258,16 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let lapPhi = (sE.r + sW.r + sN.r + sS.r + sU.r + sD.r - 6.0 * phi) * invdx2;
   let lapT   = (sE.g + sW.g + sN.g + sS.g + sU.g + sD.g - 6.0 * T) * invdx2;
   let gph = vec3f(sE.r - sW.r, sN.r - sS.r, sU.r - sD.r) * inv2dx;
+
+  // grain-selector mold wall: dead geometry — φ pinned 0, held cold, never
+  // claimed (walls keep id 0, so the claim loop needs no extra guard); taps
+  // stamped into a wall self-heal next step
+  if (P.scen == 3u && textureLoad(mask, c, 0).r == 1u) {
+    textureStore(stateOut, c, vec4f(0.0, mix(T + P.dt * lapT, 0.12, min(1.0, P.dt * 30.0)), 0.0, 0.0));
+    textureStore(grainOut, c, vec4u(0u, 0u, 0u, 0u));
+    ${alloy ? "textureStore(soluteOut, c, vec4f(conc, 0.0, 0.0, 0.0));" : ""}
+    return;
+  }
 
   // shrinkage pore: a permanent void — φ pinned to 0 (else solid neighbours
   // would regrow it), temperature keeps conducting, anneal never heals it
@@ -629,6 +640,7 @@ const PI = 3.14159265359;
 @group(0) @binding(3) var<storage, read> quats: array<vec4f>;
 @group(0) @binding(5) var age: texture_3d<f32>;
 @group(0) @binding(6) var solute: texture_3d<f32>;
+@group(0) @binding(7) var mask: texture_3d<u32>;
 ${sampBinding}
 
 struct VOut { @builtin(position) pos: vec4f, @location(0) uv: vec2f }
@@ -659,6 +671,10 @@ fn ageAt(p: vec3f) -> vec2f {
 // solute (alloy mode; a 1×1×1 dummy binds otherwise — reads gated on flags bit 2)
 fn soluteAt(p: vec3f) -> f32 {
   return textureLoad(solute, clampC(vec3i(p)), 0).r;
+}
+// selector mold walls (always n³ — reads gated on flags bit 3)
+fn maskAt(p: vec3f) -> u32 {
+  return textureLoad(mask, clampC(vec3i(p)), 0).r;
 }
 
 // central-difference surface normal at the phi=0.5 crossing
@@ -910,6 +926,7 @@ fn fmain(in: VOut) -> @location(0) vec4f {
           att += (0.55 * cc * (1.0 - s.r) + 0.3 * cc * s.r) * 1.1;
         }
         if (grainAt(ro + rd * tt) == ${PORE_ID}u) { att += 7.0; }  // pores: dark NDT spots
+        if ((R.flags & 8u) != 0u && maskAt(ro + rd * tt) == 1u) { att += 0.5; }  // mold walls x-ray faint
         tSum += s.g;
         wSum += 1.0;
         tt += 2.0;
@@ -963,6 +980,12 @@ fn fmain(in: VOut) -> @location(0) vec4f {
         if (t >= tMax) { break; }
         let p = ro + rd * t;
         let s = stateAt(p);
+        if ((R.flags & 8u) != 0u && maskAt(p) == 1u) {
+          // selector walls: a faint glass ghost so the pigtail geometry reads
+          acc += trans * vec3f(0.055, 0.075, 0.095) * 0.06;
+          trans *= 0.93;
+          if (trans < 0.012) { break; }
+        }
         if (s.r < 0.5 && (R.view == 0u || R.view == 6u)) {
           if (R.view == 0u) {
             // MELT: emissive incandescent liquid (smooth-sampled T)
