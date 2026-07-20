@@ -74,6 +74,8 @@ export interface UIHost extends AppControl {
   setSym3(j: number): void;
   getHabit(): number;
   setHabit(v: number): void;
+  getAlloyOn(): boolean;
+  setAlloyOn(b: boolean): void;
   getStereoOn(): boolean;
   setStereoOn(b: boolean): void;
   getIpfOn(): boolean;
@@ -386,9 +388,8 @@ export class UI {
 
     // ---- alloy
     const alloy = this.section(rail, "ALLOY");
-    this.check(alloy, "dilute alloy (solute field)", () => p().alloyOn === 1, b => {
-      p().alloyOn = b ? 1 : 0;
-    });
+    // routed through the host: in 3D "on" means allocating the solute textures
+    this.check(alloy, "dilute alloy (solute field)", () => host.getAlloyOn(), b => host.setAlloyOn(b));
     const arow = this.btnRow(alloy);
     this.button(arow, "⚗ compose alloy…", () => host.openComposer());
     this.alloyPanel = document.createElement("div");
@@ -397,7 +398,6 @@ export class UI {
     this.slider(this.alloyPanel, "composition c₀", 0.05, 0.7, 0.01, () => p().c0, v => { p().c0 = v; });
     this.slider(this.alloyPanel, "liquidus slope", 0.1, 0.8, 0.01, () => p().mLiq, v => { p().mLiq = v; });
     this.slider(this.alloyPanel, "solute D", 0.2, 1.5, 0.05, () => p().dSol, v => { p().dSol = v; });
-    this.only2d.push(this.sections.ALLOY.root);
 
     // ---- crystal
     const cr = this.section(rail, "CRYSTAL");
@@ -614,7 +614,7 @@ export class UI {
     this.scenBtns.forEach((b, i) => b.classList.toggle("on", i === p.scen));
     this.bridgePanel.style.display = p.scen === 1 ? "block" : "none";
     this.weldPanel.style.display = p.scen === 2 ? "block" : "none";
-    this.alloyPanel.style.display = !m3 && p.alloyOn === 1 ? "block" : "none";
+    this.alloyPanel.style.display = host.getAlloyOn() ? "block" : "none";
     this.pixelRow.style.display = !m3 && host.getPixel() > 0 ? "flex" : "none";
 
     this.runBtn.textContent = host.isRunning() ? "⏸ pause" : "▶ run";

@@ -183,7 +183,11 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 `;
 
 // -------------------------------------------------------------- update pass
-export const UPDATE3D_WGSL = /* wgsl */ `
+// Two sources from one template: the alloy variant binds the solute pair
+// (4 storage textures — needs device limit ≥ 4); the base variant keeps 3 so
+// the ≥3 caps gate still serves weak devices. Never dummy-bind storage:
+// layout:"auto" drops statically-unused bindings (the v1.9 black-canvas bug).
+export const update3dWgsl = (alloy: boolean) => /* wgsl */ `
 ${COMMON3}
 @group(0) @binding(0) var<uniform> P: Params3D;
 @group(0) @binding(1) var state: texture_3d<f32>;
@@ -193,6 +197,8 @@ ${COMMON3}
 @group(0) @binding(5) var grainOut: texture_storage_3d<r32uint, write>;
 @group(0) @binding(6) var ageOut: texture_storage_3d<rg32float, write>;
 @group(0) @binding(7) var fed: texture_3d<u32>;
+${alloy ? /* wgsl */ `@group(0) @binding(8) var solute: texture_3d<f32>;
+@group(0) @binding(9) var soluteOut: texture_storage_3d<r32float, write>;` : ""}
 
 @compute @workgroup_size(4, 4, 4)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -203,6 +209,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let s = textureLoad(state, c, 0);
   let phi = s.r;
   let T = s.g;
+  ${alloy ? "let conc = textureLoad(solute, c, 0).r;" : ""}
 
   // 6 face neighbours
   let sE = textureLoad(state, cid3(P, c + vec3i(1, 0, 0)), 0);
@@ -223,6 +230,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   if (selfId == PORE) {
     textureStore(stateOut, c, vec4f(0.0, clamp(T + P.dt * lapT - P.dt * P.coolRate, -1.0, 2.0), 0.0, 0.0));
     textureStore(grainOut, c, vec4u(PORE, 0u, 0u, 0u));
+    ${alloy ? "textureStore(soluteOut, c, vec4f(conc, 0.0, 0.0, 0.0));" : ""}
     return;
   }
 
@@ -238,11 +246,34 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let gradW = vec3f(fE.w - fW.w, fN.w - fS.w, fU.w - fD.w) * inv2dx;
   let aniso = fC.w * lapPhi + dot(gradW, gph) + divA;
 
-  let m = (P.alpha / PI) * atan(P.gamma * (1.0 - T));
+  ${alloy
+    ? /* wgsl */ `// constitutional undercooling: solute depresses the local liquidus
+  let tEq = 1.0 - P.mLiq * conc;
+  let m = (P.alpha / PI) * atan(P.gamma * (tEq - T));`
+    : "let m = (P.alpha / PI) * atan(P.gamma * (1.0 - T));"}
   let chi = hash3(gid.x, gid.y * 7919u + gid.z * 104729u, P.frame) - 0.5;
   let react = phi * (1.0 - phi) * (phi - 0.5 + m) + P.noiseAmp * phi * (1.0 - phi) * chi;
   let phiNew = clamp(phi + (P.dt / P.tau) * (aniso + react), 0.0, 1.0);
   let dPhi = phiNew - phi;
+  ${alloy ? /* wgsl */ `
+  // Warren–Boettinger dilute solute (2D port): variable-D 6-face diffusion +
+  // partition rejection (1-k)·c·dφ at the moving interface; no anti-trapping
+  let cE = textureLoad(solute, cid3(P, c + vec3i(1, 0, 0)), 0).r;
+  let cW = textureLoad(solute, cid3(P, c - vec3i(1, 0, 0)), 0).r;
+  let cN = textureLoad(solute, cid3(P, c + vec3i(0, 1, 0)), 0).r;
+  let cS = textureLoad(solute, cid3(P, c - vec3i(0, 1, 0)), 0).r;
+  let cU = textureLoad(solute, cid3(P, c + vec3i(0, 0, 1)), 0).r;
+  let cD = textureLoad(solute, cid3(P, c - vec3i(0, 0, 1)), 0).r;
+  let dSolid = P.dSol * 0.02;
+  let dHere = mix(P.dSol, dSolid, phi);
+  let divC = (0.5 * (dHere + mix(P.dSol, dSolid, sE.r)) * (cE - conc)
+            + 0.5 * (dHere + mix(P.dSol, dSolid, sW.r)) * (cW - conc)
+            + 0.5 * (dHere + mix(P.dSol, dSolid, sN.r)) * (cN - conc)
+            + 0.5 * (dHere + mix(P.dSol, dSolid, sS.r)) * (cS - conc)
+            + 0.5 * (dHere + mix(P.dSol, dSolid, sU.r)) * (cU - conc)
+            + 0.5 * (dHere + mix(P.dSol, dSolid, sD.r)) * (cD - conc)) * invdx2;
+  let cNew = clamp(conc + P.dt * divC + (1.0 - P.kPart) * conc * dPhi, 0.0, 2.0);
+  textureStore(soluteOut, c, vec4f(cNew, 0.0, 0.0, 0.0));` : ""}
 
   var TNew = T + P.dt * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn;
   if (P.scen == 1u || P.scen == 3u) {
@@ -539,6 +570,7 @@ const PI = 3.14159265359;
 @group(0) @binding(2) var grain: texture_3d<u32>;
 @group(0) @binding(3) var<storage, read> quats: array<vec4f>;
 @group(0) @binding(5) var age: texture_3d<f32>;
+@group(0) @binding(6) var solute: texture_3d<f32>;
 ${sampBinding}
 
 struct VOut { @builtin(position) pos: vec4f, @location(0) uv: vec2f }
@@ -565,6 +597,10 @@ fn grainAt(p: vec3f) -> u32 {
 }
 fn ageAt(p: vec3f) -> vec2f {
   return textureLoad(age, clampC(vec3i(p)), 0).rg;
+}
+// solute (alloy mode; a 1×1×1 dummy binds otherwise — reads gated on flags bit 2)
+fn soluteAt(p: vec3f) -> f32 {
+  return textureLoad(solute, clampC(vec3i(p)), 0).r;
 }
 
 // central-difference surface normal at the phi=0.5 crossing
@@ -738,6 +774,10 @@ fn sliceColor(p: vec3f) -> vec3f {
     col = grainCol(id) * (0.55 + 0.45 * hashf(id, 3u, 57u));
     col *= 1.0 - gb * 0.65;
   }
+  if ((R.flags & 4u) != 0u && style != 5u) {
+    // microsegregation etches dark between the arms, like the 2D ETCH lens
+    col *= 1.0 - clamp(soluteAt(p) - R.misc.z, 0.0, 1.0) * 0.35;
+  }
   return col;
 }
 
@@ -805,6 +845,12 @@ fn fmain(in: VOut) -> @location(0) vec4f {
         if (tt >= tMax) { break; }
         let s = stateAt(ro + rd * tt);
         att += s.r * 2.0;
+        if ((R.flags & 4u) != 0u) {
+          // alloy: segregated solute absorbs — interdendritic liquid darkest,
+          // the 2D XRAY weights carried into the transmission integral
+          let cc = soluteAt(ro + rd * tt);
+          att += (0.55 * cc * (1.0 - s.r) + 0.3 * cc * s.r) * 1.1;
+        }
         if (grainAt(ro + rd * tt) == ${PORE_ID}u) { att += 7.0; }  // pores: dark NDT spots
         tSum += s.g;
         wSum += 1.0;
@@ -863,6 +909,10 @@ fn fmain(in: VOut) -> @location(0) vec4f {
           if (R.view == 0u) {
             // MELT: emissive incandescent liquid (smooth-sampled T)
             acc += trans * heat(stateFine(p).g * R.meltGlow) * emit * 2.0;
+            if ((R.flags & 4u) != 0u) {
+              // rejected solute reads as a cool blue haze against the heat
+              acc += trans * vec3f(0.10, 0.16, 0.22) * clamp(soluteAt(p) - R.misc.z, 0.0, 1.0) * emit * 4.0;
+            }
           } else {
             // THERM: the thermal halo itself, in ironbow
             acc += trans * ironbow(clamp((stateFine(p).g + 0.25) / 1.35, 0.0, 1.0)) * emit * 0.8;

@@ -36,6 +36,7 @@ export class Renderer3D {
   private bg: GPUBindGroup[] = [];
   private rdata = new ArrayBuffer(R3.BYTES);
   private sampler: GPUSampler | null = null;
+  private dummyTex!: GPUTexture;
   readonly filterable: boolean;
 
   // orbit camera: targets + eased actuals
@@ -70,10 +71,21 @@ export class Renderer3D {
       primitive: { topology: "triangle-list" },
     });
     this.rbuf = device.createBuffer({ size: R3.BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    // stand-in for the lazily-allocated solute texture (reads gated on flags bit 2)
+    this.dummyTex = device.createTexture({
+      size: [1, 1, 1], dimension: "3d", format: "r32float",
+      usage: GPUTextureUsage.TEXTURE_BINDING,
+    });
     this.rebind3(sim3);
   }
 
   rebind3(sim3: Sim3D) {
+    this.rebindBGs(sim3);
+    this.resetView();
+  }
+
+  /** (re)build bind groups WITHOUT touching the camera — alloy toggles use this */
+  rebindBGs(sim3: Sim3D) {
     this.n = sim3.n;
     for (const dir of [0, 1]) {
       const entries: GPUBindGroupEntry[] = [
@@ -82,6 +94,7 @@ export class Renderer3D {
         { binding: 2, resource: sim3.grainTexture(dir).createView() },
         { binding: 3, resource: { buffer: sim3.quatBuffer } },
         { binding: 5, resource: sim3.ageTexture.createView() },
+        { binding: 6, resource: (sim3.soluteTexture(dir) ?? this.dummyTex).createView() },
       ];
       if (this.sampler) entries.push({ binding: 4, resource: this.sampler });
       this.bg[dir] = this.device.createBindGroup({
@@ -89,7 +102,6 @@ export class Renderer3D {
         entries,
       });
     }
-    this.resetView();
   }
 
   resetView() {
@@ -239,13 +251,14 @@ export class Renderer3D {
     f[R3.canvasW] = this.canvas.width;
     f[R3.canvasH] = this.canvas.height;
     f[R3.time] = time;
-    u[R3.flags] = (cutStyle & 15) << 4;
+    u[R3.flags] = ((cutStyle & 15) << 4) | (sim3.alloyActive ? 4 : 0);
     f[R3.meltGlow] = sim3.params.meltGlow;
     f[R3.tFar] = sim3.params.tFar;
     f[R3.stepScale] = 0.7;
     f[R3.sliceN] = plane.n[0]; f[R3.sliceN + 1] = plane.n[1];
     f[R3.sliceN + 2] = plane.n[2]; f[R3.sliceN + 3] = plane.c;
     f[R3.misc] = sim3.simTime; f[R3.misc + 1] = 8.0;
+    f[R3.misc + 2] = sim3.params.c0;   // far-field composition for the solute lenses
     f[R3.eye] = b.eye[0]; f[R3.eye + 1] = b.eye[1]; f[R3.eye + 2] = b.eye[2]; f[R3.eye + 3] = this.tanHalfFov;
     f[R3.right] = b.right[0]; f[R3.right + 1] = b.right[1]; f[R3.right + 2] = b.right[2];
     f[R3.right + 3] = this.canvas.width / Math.max(this.canvas.height, 1);

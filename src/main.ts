@@ -186,6 +186,11 @@ async function boot() {
       const created = await Sim3D.create(device, n);
       if (!created) { caps3d.supported = false; exit3D(); return; }
       created.params = params;
+      // a grid swap rebuilds textures — the solute pair must re-allocate too
+      if (params.alloyOn === 1) {
+        created.params.alloyOn = 0;
+        await created.enableAlloy();
+      }
       created.reset(1 - undercool);
       created.addSeed3D(created.n / 2, created.n / 2, created.n / 2, brush + 1);
       sim3d = created;
@@ -412,6 +417,26 @@ async function boot() {
     },
     getHabit: () => sim3d ? sim3d.params.deltaZ : NaN,
     setHabit(v) { if (sim3d) sim3d.params.deltaZ = v; },
+    // alloy is a texture allocation in 3D, not just a param — route via the sim
+    getAlloyOn: () => (mode === "3d" && sim3d ? sim3d.alloyActive : sim.params.alloyOn === 1),
+    setAlloyOn(b) {
+      if (mode === "3d" && sim3d) {
+        if (b) {
+          void sim3d.enableAlloy().then(ok => {
+            if (ok && sim3d && renderer3d) renderer3d.rebindBGs(sim3d);
+            ui.sync();
+          });
+        } else {
+          // order matters: clear the sim's references, swap the renderer to the
+          // dummy, THEN the deferred destroy inside disableAlloy fires
+          sim3d.disableAlloy();
+          if (renderer3d) renderer3d.rebindBGs(sim3d);
+          ui.sync();
+        }
+        return;
+      }
+      sim.params.alloyOn = b ? 1 : 0;
+    },
     getStereoOn: () => an3.stereoOn,
     setStereoOn(b) { an3.setStereoOn(b); },
     getIpfOn: () => an3.ipfOn,
@@ -493,8 +518,19 @@ async function boot() {
   const composer = new Composer({
     applyAlloy(materialKey, params, name) {
       app.setMaterial(materialKey);
-      Object.assign(sim.params, params);   // derived pseudo-binary overrides
       alloyName = name;
+      if (mode === "3d" && sim3d) {
+        // route the pseudo-binary onto the 3D solver + allocate the solute pair
+        const P = sim3d.params as unknown as Record<string, number>;
+        for (const [k, v] of Object.entries(params)) if (k in P) P[k] = v as number;
+        sim3d.params.coolRate = Math.min(sim3d.params.coolRate, 0.2);
+        if (undercool < 0.9) undercool = 0.9;
+        app.setAlloyOn(true);
+        app.resetArmed();
+        ui.sync();
+        return;
+      }
+      Object.assign(sim.params, params);   // derived pseudo-binary overrides
       sim.params.coolRate = Math.min(sim.params.coolRate, 0.2);
       if (undercool < 0.9) undercool = 0.9; // pour = hot melt into a cold mould
       app.resetArmed();

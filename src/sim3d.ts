@@ -4,7 +4,7 @@
 // orientations, and an out-of-memory creation ladder for weaker GPUs.
 
 import {
-  FLUX3D_WGSL, UPDATE3D_WGSL, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL, STEREO3D_WGSL,
+  FLUX3D_WGSL, update3dWgsl, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL, STEREO3D_WGSL,
   MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
 } from "./shaders3d";
 import { DOMAIN_MM } from "./sim";
@@ -121,6 +121,9 @@ export class Sim3D {
 
   private fluxPipe!: GPUComputePipeline;
   private updatePipe!: GPUComputePipeline;
+  private updateAlloyPipe: GPUComputePipeline | null = null;
+  private updateAlloyBG: GPUBindGroup[] = [];
+  private soluteTex: GPUTexture[] = [];
   private stampPipe!: GPUComputePipeline;
   private statsPipe!: GPUComputePipeline;
   private feedPipe!: GPUComputePipeline;
@@ -206,7 +209,11 @@ export class Sim3D {
     const mk = (code: string) =>
       d.createComputePipeline({ layout: "auto", compute: { module: d.createShaderModule({ code }), entryPoint: "main" } });
     this.fluxPipe = mk(FLUX3D_WGSL);
-    this.updatePipe = mk(UPDATE3D_WGSL);
+    this.updatePipe = mk(update3dWgsl(false));
+    // the alloy variant compiles up front (no VRAM cost) so toggling never
+    // hitches; its bind groups are built only when the solute pair exists
+    if (d.limits.maxStorageTexturesPerShaderStage >= 4)
+      this.updateAlloyPipe = mk(update3dWgsl(true));
     this.stampPipe = mk(STAMP3D_WGSL);
     this.statsPipe = mk(STATS3D_WGSL);
     this.feedPipe = mk(FEED3D_WGSL);
@@ -283,12 +290,84 @@ export class Sim3D {
     }
   }
 
+  /** the solute pair exists and the params ask for it — step() runs the alloy variant */
+  get alloyActive(): boolean {
+    return this.params.alloyOn === 1 && this.soluteTex.length === 2 && this.updateAlloyPipe != null;
+  }
+  soluteTexture(dir: number): GPUTexture | null { return this.soluteTex[dir] ?? null; }
+
+  /**
+   * Lazily allocate the solute ping-pong pair (+2·n³·4 B) and its bind groups.
+   * Runtime allocation sits OUTSIDE the create-time OOM ladder, so it gets its
+   * own error scope; failure leaves alloy off and reports false.
+   */
+  async enableAlloy(): Promise<boolean> {
+    if (this.soluteTex.length === 2) { this.params.alloyOn = 1; return true; }
+    if (!this.updateAlloyPipe) return false;
+    const d = this.device;
+    const n = this.n;
+    d.pushErrorScope("out-of-memory");
+    const mkTex = () => d.createTexture({
+      size: [n, n, n], dimension: "3d", format: "r32float",
+      usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
+    });
+    const pair = [mkTex(), mkTex()];
+    const err = await d.popErrorScope();
+    if (err) {
+      for (const t of pair) t.destroy();
+      this.params.alloyOn = 0;
+      return false;
+    }
+    this.soluteTex = pair;
+    this.fillSolute();
+    for (const dir of [0, 1]) {
+      this.updateAlloyBG[dir] = d.createBindGroup({
+        layout: this.updateAlloyPipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.paramBuf } },
+          { binding: 1, resource: this.stateTex[dir].createView() },
+          { binding: 2, resource: this.grainTex[dir].createView() },
+          { binding: 3, resource: this.fluxTex.createView() },
+          { binding: 4, resource: this.stateTex[1 - dir].createView() },
+          { binding: 5, resource: this.grainTex[1 - dir].createView() },
+          { binding: 6, resource: this.ageTex.createView() },
+          { binding: 7, resource: this.fedTex[0].createView() },
+          { binding: 8, resource: this.soluteTex[dir].createView() },
+          { binding: 9, resource: this.soluteTex[1 - dir].createView() },
+        ],
+      });
+    }
+    this.params.alloyOn = 1;
+    return true;
+  }
+
+  disableAlloy() {
+    this.params.alloyOn = 0;
+    const old = this.soluteTex;
+    this.soluteTex = [];
+    this.updateAlloyBG = [];
+    // the caller rebinds the renderer synchronously after this call; deferring
+    // the destroy one microtask means no frame ever binds a dead texture
+    queueMicrotask(() => { for (const t of old) t.destroy(); });
+  }
+
+  /** flood both solute textures with the far-field composition c0 */
+  private fillSolute() {
+    if (this.soluteTex.length !== 2) return;
+    const n = this.n;
+    const c = new Float32Array(n * n * n).fill(this.params.c0);
+    for (const t of this.soluteTex)
+      this.device.queue.writeTexture(
+        { texture: t }, c, { bytesPerRow: n * 4, rowsPerImage: n }, [n, n, n]);
+  }
+
   destroy() {
     for (const t of this.stateTex) t?.destroy();
     for (const t of this.grainTex) t?.destroy();
     this.fluxTex?.destroy();
     this.ageTex?.destroy();
     for (const t of this.fedTex) t?.destroy();
+    for (const t of this.soluteTex) t?.destroy();
     this.paramBuf?.destroy();
     this.quatBuf?.destroy();
     this.seedBuf?.destroy();
@@ -346,6 +425,7 @@ export class Sim3D {
     for (const t of this.fedTex)
       this.device.queue.writeTexture(
         { texture: t }, zeros, { bytesPerRow: n * 4, rowsPerImage: n }, [n, n, n]);
+    this.fillSolute();   // alloy melts re-pour at the far-field composition
     this.feedGen = 2;
     this.subAcc = 0;
     this.dir = 0;
@@ -526,7 +606,14 @@ export class Sim3D {
     this.writeParams(seedCount);
     this.pendingQuench = 0;
 
+    const alloy = this.alloyActive;
     const enc = d.createCommandEncoder();
+    // STAMP flips the state ping-pong without writing solute — mirror the flip
+    // by copying solute across BEFORE the compute pass, or the pair desyncs
+    if (doStamp && alloy)
+      enc.copyTextureToTexture(
+        { texture: this.soluteTex[this.dir] }, { texture: this.soluteTex[1 - this.dir] },
+        [this.n, this.n, this.n]);
     const pass = enc.beginComputePass();
     let dir = this.dir;
     // even iteration count keeps the result in fedTex[0], which UPDATE binds
@@ -548,8 +635,8 @@ export class Sim3D {
       pass.setPipeline(this.fluxPipe);
       pass.setBindGroup(0, this.fluxBG[dir]);
       this.dispatch(pass);
-      pass.setPipeline(this.updatePipe);
-      pass.setBindGroup(0, this.updateBG[dir]);
+      pass.setPipeline(alloy ? this.updateAlloyPipe! : this.updatePipe);
+      pass.setBindGroup(0, alloy ? this.updateAlloyBG[dir] : this.updateBG[dir]);
       this.dispatch(pass);
       dir = 1 - dir;
     }
