@@ -137,6 +137,81 @@ if (grid > 128) {
 const link = await page.evaluate(() => window.__solidify.app.shareLink());
 console.log("SHARE LINK len", link.length, link.includes("set=") ? "OK" : "FAIL");
 
+// ---- v2.0 characterization-lab regressions ---------------------------------
+
+// 10. all nine lenses produce distinct frames
+const shots = [];
+for (let v = 0; v < 9; v++) {
+  await page.evaluate(k => window.__solidify.app.setView3d(k), v);
+  await tick(3);
+  shots.push(await page.screenshot({ type: "png" }));
+}
+let distinct = true;
+for (let v = 1; v < 9; v++) if (Buffer.compare(shots[0], shots[v]) === 0) distinct = false;
+console.log("NINE-LENSES", distinct ? "OK" : "FAIL");
+
+// 11. tilted slice plane still accepts a tap (pick lands on the plane)
+await page.evaluate(() => {
+  const a = window.__solidify.app;
+  a.setView3d(2); a.setSliceTilt(30); a.setSliceTurn(45); a.setSliceOff(0.5);
+});
+await tick(3);
+const before11 = await page.evaluate(() => window.__solidify.sim3d().nextId);
+await page.mouse.click(700, 475);
+await tick(3);
+const tap11 = await page.evaluate(() => ({
+  id: window.__solidify.sim3d().nextId, last: window.__solidify.sim3d().lastSeed }));
+console.log("SLICE-TAP", tap11.id > before11 && tap11.last ? "OK" : "FAIL", JSON.stringify(tap11.last));
+await page.evaluate(() => {
+  const a = window.__solidify.app;
+  a.setSliceTilt(0); a.setSliceTurn(0); a.setView3d(1);
+});
+
+// 12. casting smoke: chill floor + rain + hard cooling — porosity census live
+await page.evaluate(() => {
+  const S = window.__solidify.app;
+  S.setUndercool(0.62); S.resetArmed();
+  S.setParams({ coolRate: 0.28, latent: 1.85, noiseAmp: 0.014 });
+  S.chillWall("auto"); S.setRain(3); S.setRun(true);
+});
+await grow(6);
+const cast = await stats3();
+console.log("CAST-SMOKE", cast && cast.fracSolid > 0.001 && Number.isFinite(cast.poreFrac) && cast.grainCount > 20 ? "OK" : "FAIL",
+  JSON.stringify({ fs: cast?.fracSolid?.toFixed(4), pores: cast?.poreFrac, grains: cast?.grainCount }));
+
+// 13. stereology: a z-mid section of that casting cuts real grains
+const stereo = await page.evaluate(async () => {
+  const s3 = window.__solidify.sim3d();
+  let r = null;
+  for (let t = 0; t < 40 && !r; t++) {
+    r = await s3.readStereo({ n: [0, 0, 1], c: 4 });
+    if (!r) await s3.device.queue.onSubmittedWorkDone();
+  }
+  return { sections: r?.sections.length ?? 0 };
+});
+console.log("STEREOLOGY", stereo.sections >= 1 ? "OK" : "FAIL", JSON.stringify(stereo));
+
+// 14. STL export: exact binary size, watertight-scale triangle count
+const stl = await page.evaluate(async () => await window.__solidify.stl());
+console.log("STL", stl && stl.bytes === 84 + 50 * stl.tris && stl.tris > 1000 ? "OK" : "FAIL", JSON.stringify(stl));
+
+// 15. ViewCube Fusion zones: hovering the widget yields face AND corner dirs
+await page.evaluate(() => window.__solidify.app.resetZoom());
+await tick(30);
+const vcr = await page.evaluate(() => {
+  const r = document.getElementById("viewcube").getBoundingClientRect();
+  return { x: r.x, y: r.y, w: r.width, h: r.height };
+});
+const kinds = new Set();
+for (let i = 1; i <= 4; i++)
+  for (let j = 1; j <= 4; j++) {
+    await page.mouse.move(vcr.x + vcr.w * i / 5, vcr.y + vcr.h * j / 5);
+    await tick(1);
+    const d = await page.evaluate(() => window.__solidify.vc().hoverDir);
+    if (d) kinds.add(d.filter(c => Math.abs(c) > 0.01).length);
+  }
+console.log("VC-ZONES", kinds.has(1) && kinds.has(3) ? "OK" : "FAIL", JSON.stringify([...kinds]));
+
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 6) : "none");
 await browser.close();
 console.log("done");

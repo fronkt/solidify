@@ -149,7 +149,31 @@
       counts → ASTM G), and the cooling-curve probe all come from a single reduction pass.</li>
     </ul>
 
-    <h2>6 · WHAT'S QUANTITATIVE, WHAT'S QUALITATIVE</h2>
+    <h2>6 · THE THIRD DIMENSION</h2>
+    <p>The TRUE 3D switch replaces the 2D grid with a full <b>volumetric solver</b> — up to 192³
+    ≈ 7.1 million voxels stepping the same Kobayashi equations in three dimensions. Surface-energy
+    anisotropy becomes a function of the interface normal n̂ in each grain's own crystal frame
+    (per-grain quaternions carry the orientation):</p>
+    <div class="eq">
+      a(n̂) = 1 + δ(4Σn̂′ᵢ⁴ − 3) &nbsp;&nbsp;·&nbsp;&nbsp; a(n̂) = 1 + δ₆K₆(n̂′) − δ<sub>z</sub>n̂′<sub>z</sub>²
+      <div class="c">cubic ⟨100⟩ and hexagonal (basal K₆ + c-axis penalty) anisotropies — δ<sub>z</sub> &gt; 0 grows plates, &lt; 0 grows needles</div>
+    </div>
+    <p>The volume is drawn by <b>raymarching</b>: a ray per pixel steps the φ field, refines the
+    crossing by bisection, and shades the iso-surface with central-difference normals — nine lenses,
+    from incandescent MELT to a volumetric NEON dark-field. The <b>section plane</b> (free depth,
+    tilt and turn, CT sweep) is honest serial sectioning: the STEREOLOGY panel measures grain size
+    on that plane and against the true 3D census, showing the classic section-plane underestimate
+    that stereology exists to correct.</p>
+    <p><b>Shrinkage porosity</b> is modelled by feed-path tracking: a flood fill from the riser
+    (top face) marks liquid that can still be fed; liquid that solidifies while cut off becomes a
+    pore, which x-rays dark in the FIELD lens exactly as casting radiography finds it. At every
+    freezing voxel the instrument also records the <b>Niyama criterion</b> Ny = |∇T|/√Ṫ — the
+    foundry's standard porosity-risk index — and can paint it on the section plane. Numerics:
+    explicit Euler at dt = 0.53·dx²/6 (the 3D stability bound), two compute passes per substep over
+    ping-pong 3D storage textures, ~396 MB of VRAM at 192³, with an out-of-memory ladder down to
+    96³ for smaller GPUs.</p>
+
+    <h2>7 · WHAT'S QUANTITATIVE, WHAT'S QUALITATIVE</h2>
     <table>
       <tr><th>CLAIM</th><th>STATUS</th></tr>
       <tr><td>Dendrite/seaweed/snowflake morphology, tip selection, side-branching</td><td><b>canonical</b> — matches the published Kobayashi figures</td></tr>
@@ -158,15 +182,18 @@
       <tr><td>Alloy solute field</td><td><b>qualitative</b> — WB-type dilute model, not CALPHAD-coupled</td></tr>
       <tr><td>Composer chemistry (ΔT<sub>L</sub>, Q, wt%↔at%)</td><td><b>real dilute-limit values</b>, approximate textbook coefficients</td></tr>
       <tr><td>Units</td><td><b>dimensionless</b> — temperature is scaled (T<sub>m</sub> = 1), mapped at ~100 K per unit for the composer</td></tr>
-      <tr><td>Dimensionality</td><td><b>2D</b> — a thin-sample analog; real 3D dendrites branch out of plane</td></tr>
+      <tr><td>Dimensionality</td><td><b>2D by default</b> (thin-sample analog) — the TRUE 3D mode solves the full volume, where dendrites genuinely branch out of plane</td></tr>
+      <tr><td>Porosity + Niyama (3D)</td><td><b>mechanistic</b> — feed-path flood + solidify-while-unfed rule; Ny computed at freeze, not calibrated to a specific alloy</td></tr>
       <tr><td>Melt glow per material</td><td><b>display only</b> — incandescence scaled to each metal's freezing point</td></tr>
     </table>
     <p>The rule throughout: anything the instrument displays as a number is computed, and anything
     that is a stylistic choice is labelled as one.</p>
 
-    <h2>7 · REFERENCES</h2>
+    <h2>8 · REFERENCES</h2>
     <ul class="refs">
       <li>R. Kobayashi, “Modeling and numerical simulations of dendritic crystal growth,” <i>Physica D</i> 63 (1993) 410–423.</li>
+      <li>A. Karma &amp; W.-J. Rappel, “Quantitative phase-field modeling of dendritic growth in two and three dimensions,” <i>Phys. Rev. E</i> 57 (1998) 4323–4349.</li>
+      <li>E. Niyama, T. Uchida, M. Morikawa &amp; S. Saito, “A method of shrinkage prediction and its application to steel casting practice,” <i>AFS Int. Cast Metals J.</i> 7 (1982) 52–63 — the Niyama criterion.</li>
       <li>J.A. Warren &amp; W.J. Boettinger, “Prediction of dendritic growth and microsegregation patterns in a binary alloy using the phase-field method,” <i>Acta Metall. Mater.</i> 43 (1995) 689–703.</li>
       <li>W.W. Mullins &amp; R.F. Sekerka, “Stability of a planar interface during solidification of a dilute binary alloy,” <i>J. Appl. Phys.</i> 35 (1964) 444–451.</li>
       <li>M. Easton &amp; D. StJohn, “Grain refinement of aluminum alloys,” <i>Metall. Mater. Trans. A</i> 30 (1999) 1613–1633 — the growth restriction factor Q.</li>

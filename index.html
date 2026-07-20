@@ -92,7 +92,7 @@
     a:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 8px; }
 
     .stats { margin-top: 40px; display: grid; grid-template-columns: repeat(2, auto); gap: 20px 48px; }
-    @media (min-width: 700px) { .stats { grid-template-columns: repeat(4, auto); } }
+    @media (min-width: 700px) { .stats { grid-template-columns: repeat(5, auto); gap: 20px 38px; } }
     .stat { text-align: center; }
     .stat b { display: block; font-size: 22px; font-weight: 600; color: #eef1f5; font-variant-numeric: tabular-nums; }
     .stat span { display: block; margin-top: 4px; font-size: 10px; color: var(--dim); letter-spacing: 0.14em; }
@@ -186,6 +186,9 @@
       radial-gradient(900px 500px at 22% 50%, #14100a 0%, transparent 60%); }
     .matGrid { display: grid; grid-template-columns: 1fr; gap: 34px; align-items: center; width: 100%; max-width: 1150px; }
     @media (min-width: 940px) { .matGrid { grid-template-columns: 6fr 5fr; gap: 56px; } }
+    /* the 3D demo falls back alone when 2D WebGPU works but the volume can't */
+    #threeDAct.no3d canvas { display: none; }
+    #threeDAct.no3d img.fb { display: block; }
     #matName { font-size: clamp(46px, 7.6vw, 96px); font-weight: 700; letter-spacing: 0.05em; color: #eef1f5; line-height: 1.05; margin: 14px 0 6px; }
     #matTemp { font-size: 14px; color: var(--amber); letter-spacing: 0.1em; }
     #matFact { margin-top: 14px; font-size: 13.5px; color: var(--dim); line-height: 1.7; max-width: 42ch; min-height: 3.4em; }
@@ -274,6 +277,7 @@
           <div class="stat"><b data-count="1048576">1,048,576</b><span>CELLS SOLVED IN REAL TIME</span></div>
           <div class="stat"><b data-count="60" data-suffix=" fps">60 fps</b><span>ON A MID-RANGE GPU</span></div>
           <div class="stat"><b data-count="10">10</b><span>LENSES ON ONE GROWTH</span></div>
+          <div class="stat"><b data-count="7077888">7,077,888</b><span>VOXELS IN TRUE 3D MODE</span></div>
           <div class="stat"><b>0</b><span>FRAMEWORKS · HAND-ROLLED WGSL</span></div>
         </div>
       </div>
@@ -424,6 +428,26 @@
           <div id="matTemp">Fe–C · pours at ~1540 °C</div>
           <p id="matFact">White-hot. Four-fold δ-ferrite dendrites, the brightest melt in the instrument.</p>
           <div class="rail" id="matRail"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACT 2.5 · TRUE 3D: a live volumetric dendrite, raymarched -->
+    <section class="act" id="threeDAct">
+      <div class="matGrid">
+        <div class="simBox">
+          <canvas id="d3Sim"></canvas>
+          <img class="fb" src="dendrite3d.jpg" alt="A six-armed dendrite growing in the volumetric 3D solver, raymarched" />
+        </div>
+        <div class="matCopy">
+          <div class="k">AND THEN THE MISSING DIMENSION</div>
+          <div id="d3Name">TRUE 3D</div>
+          <div id="d3Temp">the same equations · all three dimensions · raymarched live</div>
+          <p id="d3Fact">A real cubic dendrite grows <b>six</b> arms, not four. Flip the TRUE 3D
+          switch and the instrument solves the full volumetric phase-field — millions of voxels —
+          then orbits it like a CAD model: section it on any plane, x-ray it for shrinkage
+          porosity, and print the crystal you grew as an STL. This one is growing live on your
+          GPU right now.</p>
         </div>
       </div>
     </section>

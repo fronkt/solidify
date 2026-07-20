@@ -113,7 +113,7 @@ const META: StageMeta[] = [
   { field: "FIELD ≈ 150 MM", title: "THE POLISHER", sub: "Diamond slurry on a spinning platen, down to one micron. Grains only show on a mirror." },
   { field: "FIELD ≈ 5 MM", title: "THE MICROSCOPE", sub: "An electron column, taken apart. Gun, condensers, scan coils, objective: the optics that see metal at the micron." },
   { field: "FIELD ≈ 500 µM", title: "THE SPECIMEN", sub: "Grains, boundaries, dendrite arms: the structure that decides whether metal holds." },
-  { field: "FIELD ≈ 50 µM", title: "THE DENDRITE", sub: "Anisotropy chooses the arms. Latent heat spaces them. The lab grows the real thing live in your browser." },
+  { field: "FIELD ≈ 50 µM", title: "THE DENDRITE", sub: "Anisotropy chooses the arms. Latent heat spaces them. The lab grows the real thing live — flat, or as a full 3D volume you can orbit." },
   { field: "FIELD ≈ 3 M", title: "THE TENSILE FRAME", sub: "Pull until it breaks. The dendrites you just watched grow decide where the crack goes and the number on the dial." },
   { field: "FIELD ≈ 200 M", title: "THE LIGHT SOURCE", sub: "To measure atoms you need a machine the size of a stadium. Electrons circle; X-rays fire down the beamline." },
   { field: "FIELD ≈ 2 M", title: "THE BEAMLINE", sub: "Inside the hutch: slits, a monochromator, the goniometer, and a detector catching rings. Each ring is a plane of atoms." },

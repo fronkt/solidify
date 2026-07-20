@@ -6,6 +6,7 @@
 import puppeteer from "puppeteer-core";
 
 const OUT = process.argv[2] ?? ".";
+const PORT = process.argv[3] ?? "5199";
 const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
 
 const browser = await puppeteer.launch({
@@ -24,7 +25,7 @@ const HIDE = () => {
 async function appShot(name, setup, { ticks = 22, clip } = {}) {
   const page = await browser.newPage();
   await page.setViewport({ width: 1600, height: 1000 });
-  await page.goto("http://localhost:5199/app/", { waitUntil: "networkidle0", timeout: 30000 });
+  await page.goto(`http://localhost:${PORT}/app/`, { waitUntil: "networkidle0", timeout: 30000 });
   try {
     await page.waitForFunction("!!window.__solidify", { timeout: 15000 });
   } catch {
@@ -61,11 +62,49 @@ await appShot("hero-steel.jpg", () => {
   a.setMaterial("steel"); a.setUndercool(0.88); a.resetArmed(); a.scatterSeeds(16); a.setView(0); a.setRun(true);
 }, { ticks: 55, clip: { x: 300, y: 100, width: 1000, height: 800 } });
 
+// TRUE 3D: six-armed dendrite at 128³ — landing fallback (MELT) + README hero (ORIENT).
+// A warm melt (undercool 0.7) keeps growth diffusion-limited so real arms form;
+// ~4000 frames at speed 22 is where the star is fully expressed but not box-bound.
+{
+  const page = await browser.newPage();
+  await page.setViewport({ width: 1600, height: 1000 });
+  await page.goto(`http://localhost:${PORT}/app/`, { waitUntil: "networkidle0", timeout: 30000 });
+  await page.waitForFunction("!!window.__solidify", { timeout: 20000 });
+  await new Promise(r => setTimeout(r, 800));
+  await page.evaluate(async () => { await window.__solidify.app.setMode("3d"); });
+  await page.evaluate(() => window.__solidify.app.setGrid3(128));
+  await page.waitForFunction("window.__solidify.sim3d()?.n === 128", { timeout: 30000 });
+  await page.evaluate(() => {
+    const a = window.__solidify.app;
+    a.setUndercool(0.7); a.setSym3(4);
+    a.setParams({ delta: 0.05, noiseAmp: 0.016, latent: 1.8, coolRate: 0.015, heatIn: 0 });
+    a.clearMelt(0.7); a.seedCenter(); a.setView3d(0); a.setSpeed(22); a.setRun(true);
+  });
+  for (let i = 0; i < 100; i++) {
+    await page.evaluate(() => window.__solidify.tick(40));
+    await new Promise(r => setTimeout(r, 60));
+  }
+  await page.evaluate(HIDE);
+  // HIDE keeps canvases — the ViewCube is one, and it doesn't belong in a still
+  await page.evaluate(() => { document.getElementById("viewcube").style.display = "none"; });
+  const clip3 = { x: 500, y: 200, width: 600, height: 600 };
+  await page.evaluate(() => window.__solidify.tick(2));
+  await new Promise(r => setTimeout(r, 250));
+  await page.screenshot({ path: `${OUT}/dendrite3d.jpg`, type: "jpeg", quality: 86, clip: clip3 });
+  console.log("shot dendrite3d.jpg");
+  await page.evaluate(() => window.__solidify.app.setView3d(1));
+  await page.evaluate(() => window.__solidify.tick(2));
+  await new Promise(r => setTimeout(r, 250));
+  await page.screenshot({ path: `${OUT}/hero-3d.jpg`, type: "jpeg", quality: 86, clip: clip3 });
+  console.log("shot hero-3d.jpg");
+  await page.close();
+}
+
 // the dive: fully-exploded SEM column, full landing viewport
 {
   const page = await browser.newPage();
   await page.setViewport({ width: 1600, height: 1000 });
-  await page.goto("http://localhost:5199/", { waitUntil: "networkidle0", timeout: 30000 });
+  await page.goto(`http://localhost:${PORT}/`, { waitUntil: "networkidle0", timeout: 30000 });
   await new Promise(r => setTimeout(r, 2500));
   await page.evaluate(() => {
     const act = document.getElementById("diveAct");

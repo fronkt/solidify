@@ -39,6 +39,34 @@ divergence-form anisotropy, all in WGSL compute shaders — roughly a billion ce
 second on a mid-range discrete GPU, with GPU-fence backpressure so slow devices throttle
 gracefully instead of freezing.
 
+## TRUE 3D mode
+
+Flip one switch and the instrument solves the **full volumetric phase-field** — up to
+**192³ ≈ 7.1 million voxels** — and raymarches it live:
+
+![Six-armed dendrite grown by the volumetric solver, orientation view](docs/hero-3d.jpg)
+
+- **Real 3D crystallography** — per-grain quaternion orientations; cubic ⟨100⟩ anisotropy grows
+  six-armed dendrites, the hexagonal K₆ + c-axis form grows plates or needles (habit slider).
+  Shift-tap seeds a Σ3 twin pair (60° about a shared ⟨111⟩).
+- **CAD-style camera** — orbit/dolly/pan plus a Fusion-style ViewCube with face/edge/corner
+  snapping, tap-to-nucleate at depth.
+- **Nine lenses** on the volume — MELT, ORIENT, SLICE, FIELD (x-ray), SEM, RINGS, THERM, NEON,
+  CURV.
+- **Serial sectioning** — a free section plane (depth/tilt/turn) with a CT sweep mode; the cut
+  face renders as Nital/Klemm's/Beraha's etches, an EBSD IPF map, or a Niyama porosity-risk map.
+- **Shrinkage porosity** — a generation-stamped feed flood from the riser marks starved liquid;
+  pockets that solidify unfed become pores that x-ray dark in FIELD, with live porosity % and the
+  Niyama criterion recorded at every freezing voxel.
+- **Stereology + IPF panels** — grain size measured on the section plane vs the true 3D census
+  (the classic stereological underestimate, live), and an inverse-pole-figure texture scatter.
+- **Take it home** — export the crystal as a watertight **STL** (surface-nets mesh, printable),
+  record a 6-second **360° turntable** webm, or share the whole setup as a link.
+- **Guided tour part III** — "Into the volume": five chapters from the first six-armed dendrite
+  to porosity NDT and the STL export.
+
+Budget: ~396 MB VRAM at 192³ with an OOM ladder down to 96³; 2D mode is untouched at 60 fps.
+
 ## The instrument
 
 - **Ten lenses** — MELT (incandescent blackbody), ORIENT (cross-polarized grains), ETCH

@@ -109,7 +109,10 @@ async function boot() {
   try {
     const adapter = await navigator.gpu.requestAdapter();
     if (!adapter) return staticFallback();
-    device = await adapter.requestDevice();
+    device = await adapter.requestDevice(
+      adapter.features.has("float32-filterable")
+        ? { requiredFeatures: ["float32-filterable"] }   // smooth trilinear raymarch in the 3D act
+        : undefined);
     device.lost.then(info => { if (info.reason !== "destroyed") staticFallback(); });
   } catch {
     return staticFallback();
@@ -197,8 +200,40 @@ async function boot() {
     onUpdate: self => setMat(Math.min(MAT_STEPS.length - 1, Math.floor(self.progress * MAT_STEPS.length))),
   });
 
+  // --------------------------------------------- true-3D act (live volume)
+  // dynamic import: the volumetric solver + raymarcher only load when the
+  // device can host them; any failure leaves the still-image fallback
+  const d3Canvas = document.getElementById("d3Sim") as HTMLCanvasElement;
+  let d3: { sim: import("./sim3d").Sim3D; ren: import("./render3d").Renderer3D; poll: number } | null = null;
+  const D3_PLANE = { n: [0, 0, 1] as [number, number, number], c: 48 };
+  const pourD3 = () => {
+    if (!d3) return;
+    // warm-ish melt: diffusion-limited growth keeps the crystal dendritic
+    // (a fully-cold melt grows a featureless massive blob) while the cooling
+    // rate keeps it moving on stage
+    Object.assign(d3.sim.params, {
+      aniMode3: 1, delta: 0.05, noiseAmp: 0.014, latent: 1.7,
+      coolRate: 0.04, heatIn: 0, pPore: 0, meltGlow: 1.0,
+    });
+    d3.sim.reset(0.15);
+    d3.sim.addSeed3D(d3.sim.n / 2, d3.sim.n / 2, d3.sim.n / 2, 4);
+  };
+  if (device.limits.maxStorageTexturesPerShaderStage >= 3) {
+    try {
+      const [{ Sim3D }, { Renderer3D }] = await Promise.all([import("./sim3d"), import("./render3d")]);
+      const s3 = await Sim3D.create(device, 96);
+      if (s3) {
+        d3 = { sim: s3, ren: new Renderer3D(device, d3Canvas, s3), poll: 0 };
+        pourD3();
+      }
+    } catch {
+      d3 = null;
+    }
+  }
+  if (!d3) document.getElementById("threeDAct")!.classList.add("no3d");
+
   // ------------------------------------------- visibility-gated master loop
-  const active = { lens: false, mat: false };
+  const active = { lens: false, mat: false, d3: false };
   const watch = (el: Element, key: keyof typeof active) => {
     new IntersectionObserver(es => {
       for (const e of es) active[key] = e.isIntersecting;
@@ -206,6 +241,7 @@ async function boot() {
   };
   watch(lensCanvas, "lens");
   watch(matCanvas, "mat");
+  if (d3) watch(d3Canvas, "d3");
 
   let last = performance.now();
   function frameBody(t: number) {
@@ -221,6 +257,17 @@ async function boot() {
         matSim.step(12);
         matRen.render(matSim, 0, t / 1000);
       }
+      if (active.d3 && d3) {
+        d3.poll += dt;
+        if (d3.poll > 0.7) {
+          d3.poll = 0;
+          void d3.sim.readStats().then(s => { if (s && s.fracSolid > 0.45) pourD3(); });
+        }
+        d3.sim.step(10);
+        d3.ren.tick(dt);
+        d3.ren.spinTo(-0.95 + t * 0.00012);   // one slow orbit ≈ 52 s
+        d3.ren.render(d3.sim, 0, t / 1000, D3_PLANE);
+      }
     } catch (err) {
       console.error("[solidify] landing frame error:", err);
     }
@@ -235,6 +282,7 @@ async function boot() {
   (window as unknown as Record<string, unknown>).__landing = {
     tick(k: number) { for (let i = 0; i < k; i++) frameBody(last + 1000 / 60); },
     sims: { lensSim, matSim },
+    d3: () => d3,
     active,
     ST: ScrollTrigger,   // test hook: assert pinned acts never overlap
   };

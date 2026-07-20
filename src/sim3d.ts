@@ -121,8 +121,9 @@ export class Sim3D {
    * smallest rung fails.
    */
   static async create(device: GPUDevice, n: number): Promise<Sim3D | null> {
-    const ladder = [192, 160, 128].filter(v => v <= n);
-    if (!ladder.length) ladder.push(128);
+    // 96 is the landing-demo size and the last-chance rung for tight GPUs
+    const ladder = [192, 160, 128, 96].filter(v => v <= n);
+    if (!ladder.length) ladder.push(96);
     for (const rung of ladder) {
       const sim = new Sim3D(device, rung);
       device.pushErrorScope("out-of-memory");
