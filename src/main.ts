@@ -216,8 +216,13 @@ async function boot() {
       else sim.addSeed(sim.n / 2, sim.n / 2, brush + 1);
       hideHint();
     },
-    twinSeedCenter() { sim.addTwinSeed(sim.n / 2, sim.n / 2, brush + 1.5); hideHint(); },
+    twinSeedCenter() {
+      if (mode === "3d" && sim3d) sim3d.addTwinSeed3D(sim3d.n / 2, sim3d.n / 2, sim3d.n / 2, brush + 1.5);
+      else sim.addTwinSeed(sim.n / 2, sim.n / 2, brush + 1.5);
+      hideHint();
+    },
     chillWall(edge = "auto") {
+      if (mode === "3d" && sim3d) { sim3d.chillFloor(); hideHint(); return; }
       const e = edge === "auto" ? (canvas.width >= canvas.height ? "left" : "bottom") : edge;
       sim.chillWall(e);
       hideHint();
@@ -371,6 +376,8 @@ async function boot() {
       sim3d.params.aniMode3 = j === 6 ? 2 : 1;
       sim3d.params.deltaZ = j === 6 ? 0.03 : 0;
     },
+    getHabit: () => sim3d ? sim3d.params.deltaZ : NaN,
+    setHabit(v) { if (sim3d) sim3d.params.deltaZ = v; },
     getStereoOn: () => an3.stereoOn,
     setStereoOn(b) { an3.setStereoOn(b); },
     getIpfOn: () => an3.ipfOn,
@@ -575,7 +582,11 @@ async function boot() {
       const g = renderer3d?.pickSeedPoint(
         e.clientX, e.clientY,
         view3d === 2 && sim3d ? slicePlane(slice, sim3d.n) : null);
-      if (g && sim3d) { sim3d.addSeed3D(g[0], g[1], g[2], brush); hideHint(); }
+      if (g && sim3d) {
+        if (d.shift || e.shiftKey) sim3d.addTwinSeed3D(g[0], g[1], g[2], brush);
+        else sim3d.addSeed3D(g[0], g[1], g[2], brush);
+        hideHint();
+      }
     },
     wheel(e: WheelEvent) {
       renderer3d?.dollyBy(Math.exp(e.deltaY * 0.0012));

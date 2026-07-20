@@ -71,6 +71,8 @@ export interface UIHost extends AppControl {
   setCutStyle(v: number): void;
   getSym3(): number;
   setSym3(j: number): void;
+  getHabit(): number;
+  setHabit(v: number): void;
   getStereoOn(): boolean;
   setStereoOn(b: boolean): void;
   getIpfOn(): boolean;
@@ -97,6 +99,8 @@ export class UI {
   private weldPanel!: HTMLElement;
   private alloyPanel!: HTMLElement;
   private pixelRow!: HTMLElement;
+  private habitRow!: HTMLElement;
+  private habitNote!: HTMLElement;
   private only2d: HTMLElement[] = [];
   private only3d: HTMLElement[] = [];
   private readouts = document.getElementById("readouts")!;
@@ -335,8 +339,12 @@ export class UI {
     this.slider(melt, "nucleation /s", 0, 30, 0.5, () => host.getRain(), v => host.setRain(v), v => v.toFixed(1));
     const mrow = this.btnRow(melt);
     this.button(mrow, "seed", () => host.seedCenter());
-    this.only2d.push(this.button(mrow, "twin seed", () => host.twinSeedCenter()));
-    this.only2d.push(this.button(mrow, "chill wall", () => host.chillWall("auto")));
+    this.button(mrow, "twin seed", () => host.twinSeedCenter());
+    const chillBtn = this.button(mrow, "chill wall", () => host.chillWall("auto"));
+    // in 3D the chill sits opposite the z=n−1 riser — directional feeding story
+    this.binds.push({
+      update: () => { chillBtn.textContent = host.getMode() === "3d" ? "chill floor" : "chill wall"; },
+    });
     this.button(mrow, "quench ⚡", () => host.quench());
     const annealBtn = this.button(mrow, "anneal ⌛", () => {});
     annealBtn.addEventListener("pointerdown", () => host.anneal(true));
@@ -420,6 +428,15 @@ export class UI {
     this.slider(cr, "latent heat K", 0.8, 2.2, 0.01, () => p().latent, v => { p().latent = v; });
     this.only2d.push(this.slider(cr, "twin rate", 0, 0.004, 0.0001, () => p().twinProb, v => { p().twinProb = v; },
       v => v > 0 ? `${(v * 1000).toFixed(1)}‰` : "off"));
+    // hex 3D only: δz sign picks the growth habit (managed manually in sync —
+    // visible iff 3D ∧ hex, so neither only2d nor only3d fits)
+    this.habitRow = this.slider(cr, "habit  needles ⇠ ⇢ plates", -0.06, 0.06, 0.002,
+      () => host.getHabit(), v => host.setHabit(v),
+      v => v <= -0.005 ? "needles" : v >= 0.005 ? "plates" : "equant");
+    this.habitNote = document.createElement("div");
+    this.habitNote.className = "matnote";
+    this.habitNote.textContent = "c-axis bias δz — negative rewards the c-axis (columnar ice needles), positive flattens growth into basal plates (snowflakes)";
+    cr.append(this.habitNote);
 
     // ---- look
     const look = this.section(rail, "LOOK");
@@ -568,6 +585,9 @@ export class UI {
     // mode gating: 2D-only vs 3D-only rows, sections and buttons
     for (const el of this.only2d) el.style.display = m3 ? "none" : "";
     for (const el of this.only3d) el.style.display = m3 ? "" : "none";
+    const hex3 = m3 && host.getSym3() === 6;
+    this.habitRow.style.display = hex3 ? "" : "none";
+    this.habitNote.style.display = hex3 ? "" : "none";
 
     this.viewBtns.forEach((b, i) => {
       b.style.display = m3 ? "none" : "";

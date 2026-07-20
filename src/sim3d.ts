@@ -354,6 +354,63 @@ export class Sim3D {
   /** one-shot uniform temperature drop; stacks if pressed again */
   quench(dT = 0.25) { this.pendingQuench += dT; }
 
+  private static qmul(a: number[], b: number[]): [number, number, number, number] {
+    return [
+      a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
+      a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
+      a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
+      a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2],
+    ];
+  }
+  private static qrotV(q: number[], v: number[]): [number, number, number] {
+    const [x, y, z, w] = q;
+    const tx = 2 * (y * v[2] - z * v[1]);
+    const ty = 2 * (z * v[0] - x * v[2]);
+    const tz = 2 * (x * v[1] - y * v[0]);
+    return [
+      v[0] + w * tx + (y * tz - z * ty),
+      v[1] + w * ty + (z * tx - x * tz),
+      v[2] + w * tz + (x * ty - y * tx),
+    ];
+  }
+
+  /**
+   * Σ3 coherent twin: two half-offset seeds, the second rotated 60° about one
+   * of the FIRST grain's ⟨111⟩ axes — real cubic twin crystallography.
+   */
+  addTwinSeed3D(x: number, y: number, z: number, r = 4) {
+    const q1 = Sim3D.randomQuat();
+    const s = 1 / Math.sqrt(3);
+    const axC = [
+      (Math.random() < 0.5 ? -1 : 1) * s,
+      (Math.random() < 0.5 ? -1 : 1) * s,
+      (Math.random() < 0.5 ? -1 : 1) * s,
+    ];
+    const axLab = Sim3D.qrotV(q1, axC);
+    const half = Math.PI / 6;   // 60° rotation
+    const q60 = [Math.sin(half) * axLab[0], Math.sin(half) * axLab[1], Math.sin(half) * axLab[2], Math.cos(half)];
+    const q2 = Sim3D.qmul(q60, q1);
+    const th = Math.random() * Math.PI * 2;
+    const ph = Math.acos(2 * Math.random() - 1);
+    const off = r * 0.45;
+    const dx = Math.sin(ph) * Math.cos(th) * off;
+    const dy = Math.sin(ph) * Math.sin(th) * off;
+    const dz = Math.cos(ph) * off;
+    this.addSeed3D(x - dx, y - dy, z - dz, r, q1);
+    this.addSeed3D(x + dx, y + dy, z + dz, r, q2);
+  }
+
+  /** chill floor: jittered seed grid on the bottom face (opposite the riser) */
+  chillFloor(count = 8) {
+    const n = this.n;
+    for (let i = 0; i < count; i++)
+      for (let j = 0; j < count; j++) {
+        const jx = ((i + 0.5) / count + (Math.random() - 0.5) * 0.5 / count) * n;
+        const jy = ((j + 0.5) / count + (Math.random() - 0.5) * 0.5 / count) * n;
+        this.addSeed3D(jx, jy, 2, 3.5);
+      }
+  }
+
   private writeParams(seedCount: number, plane?: { n: [number, number, number]; c: number }) {
     const p = this.params;
     const u = new Uint32Array(this.paramData);

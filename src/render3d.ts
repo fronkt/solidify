@@ -128,6 +128,13 @@ export class Renderer3D {
     this.lastInput = performance.now();
   }
 
+  /** turntable: set the azimuth directly (no easing) for a constant-rate spin */
+  spinTo(az: number) {
+    this.az = az;
+    this.azT = az;
+    this.lastInput = performance.now();
+  }
+
   /** ViewCube snap: ease the camera to a face / edge / corner direction */
   snapTo(dir: [number, number, number]) {
     const [x, y, z] = dir;
