@@ -106,8 +106,11 @@ export function initDive(reduced: boolean) {
     end: "+=5200",
     pin: true,
     scrub: true,
+    refreshPriority: 1,   // first pinned act: refresh before the sim acts
     onUpdate: self => apply(self.progress),
   });
+  ScrollTrigger.sort();
+  ScrollTrigger.refresh();
   addEventListener("resize", () => apply(ScrollTrigger.getById("dive")?.progress ?? 0), { passive: true });
   apply(0);
   setHud(0);

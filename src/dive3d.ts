@@ -339,8 +339,10 @@ export function initDive3D(): boolean {
     end: "+=8200",
     pin: true,
     scrub: 1,   // smoothed: momentum flicks glide through stages, never skip them
+    refreshPriority: 1,   // first in the document: must refresh before the sim acts
     onUpdate: self => { progress = self.progress; },
   });
+  ScrollTrigger.sort();
   ScrollTrigger.refresh();
 
   addEventListener("resize", () => {

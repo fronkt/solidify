@@ -58,11 +58,20 @@ async function boot() {
   buildRail(document.getElementById("lensRail")!, 10);
   buildRail(document.getElementById("matRail")!, MAT_STEPS.length);
   // the dive: true-3D Three.js wireframes when WebGL is up; otherwise the
-  // 2.5D SVG camera (dive.ts), which needs no GPU at all
+  // 2.5D SVG camera (dive.ts), which needs no GPU at all.
+  // AWAITED on purpose: every pinned ScrollTrigger below must be created
+  // AFTER the dive's pin exists, or their start positions are computed
+  // without its 8200px pin spacer and their pins land INSIDE the dive
+  // (seen in the field as "GPU → lens act → die → …" interleaving).
   if (reduced) initDive(true);
-  else import("./dive3d")
-    .then(m => { if (!m.initDive3D()) initDive(false); })
-    .catch(() => initDive(false));
+  else {
+    try {
+      const m = await import("./dive3d");
+      if (!m.initDive3D()) initDive(false);
+    } catch {
+      initDive(false);
+    }
+  }
   if (reduced || !navigator.gpu) return staticFallback();
   let device: GPUDevice;
   try {
@@ -195,6 +204,7 @@ async function boot() {
     tick(k: number) { for (let i = 0; i < k; i++) frameBody(last + 1000 / 60); },
     sims: { lensSim, matSim },
     active,
+    ST: ScrollTrigger,   // test hook: assert pinned acts never overlap
   };
 }
 
