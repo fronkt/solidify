@@ -14,6 +14,7 @@ import { packShare, unpackShare, type ShareState } from "./share";
 import { Challenge, type ChallengeHost } from "./challenge";
 import { Composer } from "./composer";
 import { Analyze } from "./analyze";
+import { Analyze3D } from "./analyze3d";
 
 const TURBO_STEPS = 150;
 
@@ -340,6 +341,10 @@ async function boot() {
       sim3d.params.aniMode3 = j === 6 ? 2 : 1;
       sim3d.params.deltaZ = j === 6 ? 0.03 : 0;
     },
+    getStereoOn: () => an3.stereoOn,
+    setStereoOn(b) { an3.setStereoOn(b); },
+    getIpfOn: () => an3.ipfOn,
+    setIpfOn(b) { an3.setIpfOn(b); },
     // ---- OptHost
     swapSim(n) {
       const params = { ...sim.params };
@@ -398,6 +403,11 @@ async function boot() {
   };
 
   const analyze = new Analyze({ getSim: () => sim, renderer, simParams: () => sim.params });
+  const an3 = new Analyze3D({
+    sim3d: () => sim3d,
+    plane: () => (sim3d ? slicePlane(slice, sim3d.n) : null),
+    lastStats: () => lastStats3,
+  });
   const ui = new UI(app, analyze);
   const slicePanelUI = new SlicePanel(app);
   slicePanelUI.addStyle("Niyama map · porosity risk");
@@ -706,6 +716,7 @@ async function boot() {
         if (statsClock > 0.25) {
           statsClock = 0;
           void sim3d.readStats().then(s => { if (s) lastStats3 = s; });
+          an3.tick(0.25);
           const s = lastStats3;
           ui.setReadouts([
             ["t", sim3d.simTime.toFixed(3)],

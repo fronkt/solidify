@@ -4,7 +4,7 @@
 // orientations, and an out-of-memory creation ladder for weaker GPUs.
 
 import {
-  FLUX3D_WGSL, UPDATE3D_WGSL, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL,
+  FLUX3D_WGSL, UPDATE3D_WGSL, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL, STEREO3D_WGSL,
   MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
 } from "./shaders3d";
 import { DOMAIN_MM } from "./sim";
@@ -89,11 +89,16 @@ export class Sim3D {
   private stampPipe!: GPUComputePipeline;
   private statsPipe!: GPUComputePipeline;
   private feedPipe!: GPUComputePipeline;
+  private stereoPipe!: GPUComputePipeline;
   private fluxBG: GPUBindGroup[] = [];
   private updateBG: GPUBindGroup[] = [];
   private stampBG: GPUBindGroup[] = [];
   private statsBG: GPUBindGroup[] = [];
   private feedBG: GPUBindGroup[][] = [];   // [stateDir][pingpong]
+  private stereoBG: GPUBindGroup[] = [];
+  private stereoBuf!: GPUBuffer;
+  private stereoStaging!: GPUBuffer;
+  private stereoInFlight = false;
 
   private pendingSeeds: Seed3[] = [];
   private pendingQuench = 0;
@@ -158,6 +163,8 @@ export class Sim3D {
     const statsSize = (8 + MAX_GRAINS3) * 4;
     this.statsBuf = d.createBuffer({ size: statsSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
     this.statsStaging = d.createBuffer({ size: statsSize, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    this.stereoBuf = d.createBuffer({ size: statsSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
+    this.stereoStaging = d.createBuffer({ size: statsSize, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
 
     const mk = (code: string) =>
       d.createComputePipeline({ layout: "auto", compute: { module: d.createShaderModule({ code }), entryPoint: "main" } });
@@ -166,6 +173,7 @@ export class Sim3D {
     this.stampPipe = mk(STAMP3D_WGSL);
     this.statsPipe = mk(STATS3D_WGSL);
     this.feedPipe = mk(FEED3D_WGSL);
+    this.stereoPipe = mk(STEREO3D_WGSL);
 
     for (const dir of [0, 1]) {
       const s = this.stateTex[dir].createView();
@@ -226,6 +234,15 @@ export class Sim3D {
           { binding: 3, resource: { buffer: this.statsBuf } },
         ],
       });
+      this.stereoBG[dir] = d.createBindGroup({
+        layout: this.stereoPipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.paramBuf } },
+          { binding: 1, resource: s },
+          { binding: 2, resource: g },
+          { binding: 3, resource: { buffer: this.stereoBuf } },
+        ],
+      });
     }
   }
 
@@ -240,7 +257,12 @@ export class Sim3D {
     this.seedBuf?.destroy();
     this.statsBuf?.destroy();
     this.statsStaging?.destroy();
+    this.stereoBuf?.destroy();
+    this.stereoStaging?.destroy();
   }
+
+  /** per-grain quaternions (CPU mirror) — read-only, for the IPF panel */
+  get quats(): Float32Array { return this.quatCPU; }
 
   reset(tFar = this.params.tFar) {
     const n = this.n;
@@ -304,10 +326,12 @@ export class Sim3D {
   /** one-shot uniform temperature drop; stacks if pressed again */
   quench(dT = 0.25) { this.pendingQuench += dT; }
 
-  private writeParams(seedCount: number) {
+  private writeParams(seedCount: number, plane?: { n: [number, number, number]; c: number }) {
     const p = this.params;
     const u = new Uint32Array(this.paramData);
     const f = new Float32Array(this.paramData);
+    f[P3.sliceN] = plane?.n[0] ?? 0; f[P3.sliceN + 1] = plane?.n[1] ?? 0;
+    f[P3.sliceN + 2] = plane?.n[2] ?? 0; f[P3.sliceN + 3] = plane?.c ?? 0;
     u[P3.n] = this.n;
     u[P3.frame] = this.frame;
     f[P3.dx] = p.dx; f[P3.dt] = p.dt;
@@ -397,6 +421,42 @@ export class Sim3D {
     this.inFlight++;
     d.queue.onSubmittedWorkDone().then(() => { this.inFlight = Math.max(0, this.inFlight - 1); });
     return steps;
+  }
+
+  /**
+   * per-grain section areas on an arbitrary plane — the stereology instrument.
+   * Resolves null when a read is already in flight.
+   */
+  async readStereo(plane: { n: [number, number, number]; c: number }):
+    Promise<{ sections: { id: number; areaVox: number }[]; poreVox: number } | null> {
+    if (this.stereoInFlight) return null;
+    this.stereoInFlight = true;
+    const d = this.device;
+    this.writeParams(0, plane);
+    const enc = d.createCommandEncoder();
+    enc.clearBuffer(this.stereoBuf);
+    const pass = enc.beginComputePass();
+    pass.setPipeline(this.stereoPipe);
+    pass.setBindGroup(0, this.stereoBG[this.dir]);
+    this.dispatch(pass);
+    pass.end();
+    enc.copyBufferToBuffer(this.stereoBuf, 0, this.stereoStaging, 0, this.stereoBuf.size);
+    d.queue.submit([enc.finish()]);
+    try {
+      await this.stereoStaging.mapAsync(GPUMapMode.READ);
+    } catch {
+      this.stereoInFlight = false;
+      return null;
+    }
+    const data = new Uint32Array(this.stereoStaging.getMappedRange().slice(0));
+    this.stereoStaging.unmap();
+    this.stereoInFlight = false;
+    const sections: { id: number; areaVox: number }[] = [];
+    for (let i = 1; i < MAX_GRAINS3 - 1; i++) {
+      const c = data[8 + i];
+      if (c >= 4) sections.push({ id: i, areaVox: c });
+    }
+    return { sections, poreVox: data[8 + PORE_ID] };
   }
 
   /** async GPU reduction; resolves null if one is already in flight */

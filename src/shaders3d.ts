@@ -393,6 +393,38 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 }
 `;
 
+// ------------------------------------------------------------ stereology pass
+// counts per-grain voxels within half a voxel of the section plane — i.e. the
+// grain's SECTION AREA — so the panel can compare 2D metallography against the
+// true 3D grain sizes (the classic stereology lesson)
+export const STEREO3D_WGSL = /* wgsl */ `
+${COMMON3}
+struct SBuf {
+  pad: array<u32, 8>,
+  counts: array<atomic<u32>, ${MAX_GRAINS3}>,
+}
+@group(0) @binding(0) var<uniform> P: Params3D;
+@group(0) @binding(1) var state: texture_3d<f32>;
+@group(0) @binding(2) var grain: texture_3d<u32>;
+@group(0) @binding(3) var<storage, read_write> stats: SBuf;
+
+@compute @workgroup_size(4, 4, 4)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= P.n || gid.y >= P.n || gid.z >= P.n) { return; }
+  let pc = vec3f(gid) + 0.5;
+  if (abs(dot(pc, P.sliceN.xyz) - P.sliceN.w) > 0.5) { return; }
+  let c = vec3i(gid);
+  let id = textureLoad(grain, c, 0).r;
+  if (id == PORE) {
+    atomicAdd(&stats.counts[PORE], 1u);
+    return;
+  }
+  if (id > 0u && textureLoad(state, c, 0).r > 0.5) {
+    atomicAdd(&stats.counts[id], 1u);
+  }
+}
+`;
+
 // ------------------------------------------------------------- render pass
 // RParams3D slot map (144 B; vec4s at byte offsets 48/64/80/96/112/128)
 // flags bits 4–7 = cut-face style: 0 orientation tint · 1 Nital · 2 Klemm's ·

@@ -71,6 +71,10 @@ export interface UIHost extends AppControl {
   setCutStyle(v: number): void;
   getSym3(): number;
   setSym3(j: number): void;
+  getStereoOn(): boolean;
+  setStereoOn(b: boolean): void;
+  getIpfOn(): boolean;
+  setIpfOn(b: boolean): void;
 }
 
 interface SliderBind { update(): void }
@@ -499,6 +503,16 @@ export class UI {
     an.append(rres);
     this.analyze.attachResultEl(rres);
     this.only2d.push(this.sections.ANALYZE.root);
+
+    // ---- 3D characterization lab
+    const vol = this.section(rail, "VOLUME · 3D");
+    this.check(vol, "stereology — section vs true 3D", () => host.getStereoOn(), b => host.setStereoOn(b));
+    this.check(vol, "IPF texture map (grain axes)", () => host.getIpfOn(), b => host.setIpfOn(b));
+    const volNote = document.createElement("div");
+    volNote.className = "matnote";
+    volNote.textContent = "stereology measures the SLICE plane — what a 2D micrograph would tell you vs the 3D truth";
+    vol.append(volNote);
+    this.only3d.push(this.sections["VOLUME · 3D"].root);
 
     // ---- advanced
     const adv = this.section(rail, "ADVANCED");

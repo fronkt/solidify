@@ -59,6 +59,12 @@
     #slicePop .t { font-size: 9px; letter-spacing: 0.18em; color: var(--dim); margin-bottom: 7px; }
     #slicePop .btnrow { margin-bottom: 7px; }
     #slicePop select { margin-top: 4px; }
+    /* 3D analysis panels (stereology / IPF) — same slot as the 2D #apanels */
+    #apanels3 { position: absolute; right: 282px; bottom: 84px; display: flex; flex-direction: column;
+      gap: 8px; transition: right 0.25s ease; pointer-events: none; }
+    body.railHidden #apanels3 { right: 14px; }
+    body:not(.mode3d) #apanels3 { display: none; }
+    #apanels3 .apanel { pointer-events: auto; }
     .sec { margin-bottom: 15px; }
     .sec h2 { font-size: 10px; letter-spacing: 0.25em; color: var(--dim); margin-bottom: 8px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
     .sec h2 .tog { margin-left: auto; cursor: pointer; color: var(--dim); font-size: 11px; }
@@ -207,6 +213,7 @@
     <div id="dimSwitch"></div>
     <canvas id="viewcube" width="184" height="184"></canvas>
     <div id="slicePop"></div>
+    <div id="apanels3"></div>
     <div id="hud"></div>
     <div id="apanels"></div>
     <svg id="overlay"></svg>
