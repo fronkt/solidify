@@ -92,22 +92,34 @@
     .nogpu .simBox canvas { display: none; }
     .nogpu .simBox img.fb { display: block; }
 
-    /* ---------- ACT 0.5 · the microscope, drawn (pinned scrub) ---------- */
-    #semAct { background: var(--bg); }
-    .semGrid { display: grid; grid-template-columns: 1fr; gap: 30px; align-items: center; width: 100%; max-width: 1080px; }
-    @media (min-width: 940px) { .semGrid { grid-template-columns: 5fr 6fr; gap: 60px; } }
-    #semTitle { font-size: clamp(40px, 6.4vw, 78px); font-weight: 700; letter-spacing: 0.04em; color: #eef1f5; line-height: 1.08; margin: 14px 0 12px; }
-    #semText { font-size: 13.5px; color: var(--dim); line-height: 1.75; max-width: 44ch; }
-    #semText b { color: var(--amber); font-weight: 500; }
-    #semSvg { width: 100%; max-height: 84vh; }
-    #semSvg .draw { stroke: #c98a3a; stroke-width: 1.4; stroke-linecap: round; }
-    #semSvg .draw.dim { stroke: #55483a; }
-    #semSvg .draw.amberer { stroke: var(--amber); stroke-width: 1.7; }
-    #semSvg .beam { stroke-dasharray: 3 5; stroke: #56d4dd; opacity: 0.8; }
-    #semSvg #beamDot { fill: #eef7ff; filter: drop-shadow(0 0 6px #56d4dd); }
-    #semSvg .lbl line { stroke: #3a4150; stroke-width: 1; stroke-dasharray: 2 3; }
-    #semSvg .lbl text { fill: #5b6675; font-family: var(--font); font-size: 9.5px; letter-spacing: 0.12em; }
-    #semSvg .lbl text.big { fill: #c98a3a; font-size: 10.5px; }
+    /* ---------- ACT 0.5 · THE DIVE (pinned camera descent) ---------- */
+    #diveAct { position: relative; height: 100dvh; overflow: hidden; background:
+      radial-gradient(900px 600px at 50% 50%, #101014 0%, var(--bg) 70%); }
+    #diveStage { position: absolute; inset: 0; }
+    .stage { position: absolute; inset: 0; will-change: transform, opacity; display: none; }
+    .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .stage .w { stroke: #cfd6df; stroke-width: 1.4; stroke-linecap: round; }
+    .stage .d { stroke: #414a57; stroke-width: 1.1; stroke-linecap: round; }
+    .stage .amber { stroke: var(--amber); stroke-width: 1.6; stroke-linecap: round; }
+    .stage .beam { stroke: #56d4dd; stroke-width: 1.2; stroke-dasharray: 3 5; opacity: 0.85; }
+    .stage .reticle rect { stroke: rgba(255,180,84,0.45); stroke-width: 1; stroke-dasharray: 5 5; }
+    .stage .reticle path { stroke: var(--amber); stroke-width: 1.6; }
+    .stage .lbl line { stroke: #3a4150; stroke-width: 1; stroke-dasharray: 2 3; }
+    .stage .lbl text { fill: #6b7280; font-family: var(--font); font-size: 12px; letter-spacing: 0.12em; }
+    .stage .lbl text.big { fill: #c98a3a; font-size: 13px; }
+    .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .stage img.fb { display: none; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .nogpu .stage canvas { display: none; }
+    .nogpu .stage img.fb { display: block; }
+    #diveHudTL { position: absolute; top: 74px; left: 26px; }
+    #diveHudBL { position: absolute; left: 26px; bottom: 26px; max-width: 460px; }
+    #diveTitle { font-size: clamp(26px, 3.6vw, 44px); font-weight: 700; letter-spacing: 0.06em; color: #eef1f5; }
+    #diveSub { margin-top: 6px; font-size: 12px; color: var(--dim); line-height: 1.7; }
+    #diveHudBR { position: absolute; right: 26px; bottom: 30px; display: flex; align-items: center; gap: 18px; font-size: 11px; letter-spacing: 0.18em; color: var(--dim); }
+    #diveField { color: var(--amber); }
+    #diveDashes { display: flex; gap: 6px; }
+    #diveDashes i { width: 22px; height: 3px; background: #2a303b; border-radius: 2px; transition: background 0.3s; }
+    #diveDashes i.on { background: var(--amber); }
 
     /* ---------- ACT 1 · ten lenses (pinned) ---------- */
     #lensAct { background: var(--bg); }
@@ -208,76 +220,143 @@
       <div id="scrollCue">SCROLL</div>
     </section>
 
-    <!-- ACT 0.5 · the microscope, drawn -->
-    <section class="act" id="semAct">
-      <div class="semGrid">
-        <div class="semCopy">
-          <div class="k">HOW MICROSTRUCTURE IS SEEN</div>
-          <div id="semTitle">From beam<br/>to grain</div>
-          <p id="semText">Metallurgists read frozen metal through instruments: electron beams, X-rays,
-          polarised light. SOLIDIFY simulates the metal <b>and</b> the instruments.
-          Keep scrolling: the beam is looking for your sample.</p>
+    <!-- ACT 0.5 · THE DIVE: scroll to go inside -->
+    <section id="diveAct">
+      <div id="diveStage">
+
+        <!-- S1 · GPU card (isometric) · reticle 150×100 @ (620,380) -->
+        <div class="stage" data-k="8" data-ax="620" data-ay="380">
+          <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" fill="none">
+            <!-- pcb top face (iso diamond) -->
+            <polygon class="w" points="240,470 740,220 1020,360 520,610"/>
+            <polygon class="d" points="240,470 240,496 520,636 520,610"/>
+            <polygon class="d" points="520,610 520,636 1020,386 1020,360"/>
+            <!-- shroud inset -->
+            <polygon class="d" points="300,462 720,252 950,367 530,577"/>
+            <!-- fans (iso ellipses) -->
+            <g transform="translate(430,400) rotate(-26)"><ellipse class="w" rx="72" ry="42"/><ellipse class="d" rx="52" ry="30"/><circle class="w" r="9"/><path class="d" d="M0-9 L26-24 M9 3 L38 12 M-9 4 L-30 20 M-4-9 L-14-34 M6 8 L10 32"/></g>
+            <g transform="translate(600,315) rotate(-26)"><ellipse class="w" rx="72" ry="42"/><ellipse class="d" rx="52" ry="30"/><circle class="w" r="9"/><path class="d" d="M0-9 L26-24 M9 3 L38 12 M-9 4 L-30 20 M-4-9 L-14-34 M6 8 L10 32"/></g>
+            <g transform="translate(778,232) rotate(-26)"><ellipse class="w" rx="72" ry="42"/><ellipse class="d" rx="52" ry="30"/><circle class="w" r="9"/><path class="d" d="M0-9 L26-24 M9 3 L38 12 M-9 4 L-30 20 M-4-9 L-14-34 M6 8 L10 32"/></g>
+            <!-- fin stack hints -->
+            <path class="d" d="M330 480 L370 460 M350 492 L390 472 M370 504 L410 484 M390 516 L430 496"/>
+            <!-- pcie edge fingers -->
+            <path class="w" d="M300 508 L470 593"/>
+            <path class="d" d="M310 513 L316 500 M326 521 L332 508 M342 529 L348 516 M358 537 L364 524 M374 545 L380 532 M390 553 L396 540 M406 561 L412 548 M422 569 L428 556"/>
+            <!-- 8-pin power -->
+            <rect class="d" x="905" y="305" width="52" height="22" transform="rotate(-26 931 316)"/>
+            <!-- die sits here: dive reticle -->
+            <g class="reticle"><rect x="545" y="330" width="150" height="100"/><path d="M545 330 h14 M545 330 v14 M695 330 h-14 M695 330 v14 M545 430 h14 M545 430 v-14 M695 430 h-14 M695 430 v-14"/></g>
+            <g class="lbl"><line x1="430" y1="360" x2="300" y2="300"/><text x="296" y="294" text-anchor="end">AXIAL FANS ×3</text></g>
+            <g class="lbl"><line x1="695" y1="380" x2="860" y2="470"/><text x="866" y="484">GPU DIE · DIVE TARGET</text></g>
+            <g class="lbl"><line x1="385" y1="550" x2="330" y2="620"/><text x="326" y="636" text-anchor="end">PCIE 4.0 ×16</text></g>
+            <g class="lbl"><line x1="931" y1="330" x2="1000" y2="250"/><text x="1004" y="244">8-PIN ×2</text></g>
+          </svg>
         </div>
-        <svg id="semSvg" viewBox="0 0 420 640" fill="none" aria-label="Cutaway drawing of a scanning electron microscope">
-          <!-- column walls -->
-          <line class="draw dim" x1="150" y1="14" x2="150" y2="478"/>
-          <line class="draw dim" x1="250" y1="14" x2="250" y2="478"/>
-          <!-- electron gun -->
-          <rect class="draw" x="168" y="16" width="64" height="38" rx="3"/>
-          <path class="draw" d="M188 26 L200 44 L212 26"/>
-          <line class="draw" x1="200" y1="8" x2="200" y2="16"/>
-          <!-- anode plates -->
-          <line class="draw" x1="176" y1="66" x2="194" y2="66"/>
-          <line class="draw" x1="206" y1="66" x2="224" y2="66"/>
-          <!-- condenser lenses -->
-          <rect class="draw" x="154" y="112" width="32" height="22"/>
-          <rect class="draw" x="234" y="112" width="32" height="22"/>
-          <line class="draw dim" x1="154" y1="112" x2="186" y2="134"/>
-          <line class="draw dim" x1="234" y1="112" x2="266" y2="134"/>
-          <rect class="draw" x="154" y="184" width="32" height="22"/>
-          <rect class="draw" x="234" y="184" width="32" height="22"/>
-          <line class="draw dim" x1="154" y1="184" x2="186" y2="206"/>
-          <line class="draw dim" x1="234" y1="184" x2="266" y2="206"/>
-          <!-- scan coils -->
-          <rect class="draw" x="166" y="262" width="20" height="16"/>
-          <rect class="draw" x="234" y="262" width="20" height="16"/>
-          <!-- objective lens -->
-          <rect class="draw" x="150" y="330" width="40" height="28"/>
-          <rect class="draw" x="230" y="330" width="40" height="28"/>
-          <line class="draw dim" x1="150" y1="330" x2="190" y2="358"/>
-          <line class="draw dim" x1="230" y1="330" x2="270" y2="358"/>
-          <!-- final aperture -->
-          <line class="draw" x1="158" y1="392" x2="190" y2="392"/>
-          <line class="draw" x1="210" y1="392" x2="242" y2="392"/>
-          <!-- beam axis + travelling electron -->
-          <line id="beamLine" class="draw beam" x1="200" y1="46" x2="200" y2="462"/>
-          <circle id="beamDot" cx="200" cy="46" r="4"/>
-          <!-- scan fan at the sample -->
-          <line class="draw beam dim" x1="200" y1="392" x2="186" y2="462"/>
-          <line class="draw beam dim" x1="200" y1="392" x2="214" y2="462"/>
-          <!-- stage + sample dendrite -->
-          <line class="draw" x1="118" y1="480" x2="302" y2="480"/>
-          <line class="draw dim" x1="140" y1="480" x2="140" y2="496"/>
-          <line class="draw dim" x1="280" y1="480" x2="280" y2="496"/>
-          <g id="sample" class="draw amberer">
-            <path d="M200 478 V446 M200 452 L192 444 M200 452 L208 444 M200 462 L189 452 M200 462 L211 452"/>
-            <path d="M200 478 L228 462 M222 465 L222 452 M214 470 L226 474"/>
-            <path d="M200 478 L172 462 M178 465 L178 452 M186 470 L174 474"/>
-          </g>
-          <!-- detector + signal path -->
-          <path class="draw" d="M292 424 L316 410 L316 438 Z"/>
-          <polyline class="draw dim" points="316,424 344,424 344,560 262,560"/>
-          <path class="draw dim" d="M262 560 L270 555 M262 560 L270 565"/>
-          <!-- labels with leader lines -->
-          <g class="lbl"><line x1="234" y1="30" x2="284" y2="30"/><text x="288" y="33">ELECTRON GUN · 30 kV</text></g>
-          <g class="lbl"><line x1="268" y1="123" x2="284" y2="123"/><text x="288" y="126">CONDENSER LENSES</text></g>
-          <g class="lbl"><line x1="256" y1="270" x2="284" y2="270"/><text x="288" y="273">SCAN COILS</text></g>
-          <g class="lbl"><line x1="272" y1="344" x2="284" y2="344"/><text x="288" y="347">OBJECTIVE LENS</text></g>
-          <g class="lbl"><text x="318" y="404">SE DETECTOR</text></g>
-          <g class="lbl"><line x1="148" y1="466" x2="118" y2="466"/><text x="114" y="469" text-anchor="end">SAMPLE: YOUR MELT</text></g>
-          <g class="lbl"><text x="200" y="588" text-anchor="middle" class="big">THE INSTRUMENT BELOW GIVES YOU TEN OF THESE ↓</text></g>
-        </svg>
+
+        <!-- S2 · die floorplan (top-down) · reticle 120×80 @ (600,390) -->
+        <div class="stage" data-k="10" data-ax="600" data-ay="390">
+          <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" fill="none">
+            <!-- substrate -->
+            <rect class="w" x="230" y="110" width="740" height="580" rx="10"/>
+            <!-- gddr ring -->
+            <rect class="d" x="270" y="150" width="90" height="120"/><rect class="d" x="270" y="340" width="90" height="120"/><rect class="d" x="270" y="530" width="90" height="120"/>
+            <rect class="d" x="840" y="150" width="90" height="120"/><rect class="d" x="840" y="340" width="90" height="120"/><rect class="d" x="840" y="530" width="90" height="120"/>
+            <rect class="d" x="450" y="140" width="120" height="70"/><rect class="d" x="630" y="140" width="120" height="70"/>
+            <!-- vrm caps -->
+            <path class="d" d="M460 640 h60 M460 656 h60 M540 640 h60 M540 656 h60 M620 640 h60 M620 656 h60 M700 640 h60 M700 656 h60"/>
+            <!-- the die -->
+            <rect class="w" x="420" y="250" width="360" height="300"/>
+            <!-- sm grid -->
+            <g class="d">
+              <path d="M450 280 h300 M450 320 h300 M450 360 h300 M450 400 h300 M450 440 h300 M450 480 h300"/>
+              <path d="M480 280 v220 M540 280 v220 M600 280 v220 M660 280 v220 M720 280 v220"/>
+            </g>
+            <rect class="d" x="450" y="500" width="300" height="26"/>
+            <!-- dive reticle on the cell grid -->
+            <g class="reticle"><rect x="540" y="350" width="120" height="80"/><path d="M540 350 h12 M540 350 v12 M660 350 h-12 M660 350 v12 M540 430 h12 M540 430 v-12 M660 430 h-12 M660 430 v-12"/></g>
+            <g class="lbl"><line x1="360" y1="210" x2="300" y2="90"/><text x="296" y="80" text-anchor="end">GDDR6 ×8</text></g>
+            <g class="lbl"><line x1="780" y1="300" x2="990" y2="230"/><text x="996" y="224">1,048,576 CELLS LIVE HERE</text></g>
+            <g class="lbl"><line x1="660" y1="390" x2="990" y2="420"/><text x="996" y="424">φ · T · c · AGE — 128 BIT / CELL</text></g>
+            <g class="lbl"><line x1="600" y1="513" x2="380" y2="740"/><text x="376" y="756" text-anchor="end">TWO PASSES PER TIME-STEP · WGSL</text></g>
+          </svg>
+        </div>
+
+        <!-- S3 · the microscope · reticle 150×100 @ (600,560) -->
+        <div class="stage" data-k="8" data-ax="600" data-ay="560">
+          <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" fill="none">
+            <!-- column -->
+            <line class="w" x1="540" y1="60" x2="540" y2="520"/>
+            <line class="w" x1="660" y1="60" x2="660" y2="520"/>
+            <rect class="w" x="560" y="40" width="80" height="46" rx="4"/>
+            <path class="w" d="M584 52 L600 74 L616 52"/>
+            <!-- lenses -->
+            <rect class="w" x="545" y="150" width="38" height="26"/><rect class="w" x="617" y="150" width="38" height="26"/>
+            <rect class="w" x="545" y="240" width="38" height="26"/><rect class="w" x="617" y="240" width="38" height="26"/>
+            <rect class="w" x="540" y="340" width="46" height="32"/><rect class="w" x="614" y="340" width="46" height="32"/>
+            <line class="d" x1="545" y1="150" x2="583" y2="176"/><line class="d" x1="617" y1="150" x2="655" y2="176"/>
+            <line class="d" x1="545" y1="240" x2="583" y2="266"/><line class="d" x1="617" y1="240" x2="655" y2="266"/>
+            <!-- beam -->
+            <line class="beam" x1="600" y1="86" x2="600" y2="520"/>
+            <line class="beam" x1="600" y1="380" x2="580" y2="520"/>
+            <line class="beam" x1="600" y1="380" x2="620" y2="520"/>
+            <!-- stage -->
+            <line class="w" x1="470" y1="525" x2="730" y2="525"/>
+            <line class="d" x1="500" y1="525" x2="500" y2="548"/>
+            <line class="d" x1="700" y1="525" x2="700" y2="548"/>
+            <!-- detector -->
+            <path class="w" d="M726 470 L762 450 L762 490 Z"/>
+            <!-- dive reticle over the sample -->
+            <g class="reticle"><rect x="525" y="510" width="150" height="100"/><path d="M525 510 h14 M525 510 v14 M675 510 h-14 M675 510 v14 M525 610 h14 M525 610 v-14 M675 610 h-14 M675 610 v-14"/></g>
+            <g class="lbl"><line x1="640" y1="63" x2="760" y2="63"/><text x="766" y="67">ELECTRON GUN</text></g>
+            <g class="lbl"><line x1="655" y1="163" x2="760" y2="163"/><text x="766" y="167">CONDENSER LENSES</text></g>
+            <g class="lbl"><line x1="660" y1="356" x2="760" y2="356"/><text x="766" y="360">OBJECTIVE</text></g>
+            <g class="lbl"><line x1="762" y1="470" x2="800" y2="500"/><text x="806" y="514">SE DETECTOR</text></g>
+            <g class="lbl"><line x1="525" y1="560" x2="420" y2="560"/><text x="414" y="564" text-anchor="end">SPECIMEN · DIVE TARGET</text></g>
+          </svg>
+        </div>
+
+        <!-- S4 · the specimen (grains) · reticle 150×100 @ (620,400) -->
+        <div class="stage" data-k="8" data-ax="620" data-ay="400">
+          <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" fill="none">
+            <g class="w">
+              <path d="M120 240 L310 130 L520 210 L470 400 L240 450 Z"/>
+              <path d="M310 130 L620 90 L740 230 L520 210 Z"/>
+              <path d="M740 230 L1020 160 L1100 330 L900 420 L780 380 Z"/>
+              <path d="M520 210 L740 230 L780 380 L560 440 L470 400 Z"/>
+              <path d="M120 240 L240 450 L180 620 L60 520 Z"/>
+              <path d="M240 450 L470 400 L560 440 L540 640 L300 680 L180 620 Z"/>
+              <path d="M560 440 L780 380 L900 420 L880 610 L540 640 Z"/>
+              <path d="M900 420 L1100 330 L1140 560 L880 610 Z"/>
+              <path d="M540 640 L880 610 L860 760 L340 760 L300 680 Z"/>
+            </g>
+            <!-- dendrite skeleton inside one grain -->
+            <g class="amber">
+              <path d="M620 400 L700 360 M620 400 L560 460 M620 400 L660 480 M620 400 L570 350"/>
+              <path d="M660 380 L672 356 M646 388 L650 366 M594 428 L572 420 M604 418 L588 402 M636 436 L654 442 M646 456 L664 458"/>
+            </g>
+            <g class="reticle"><rect x="545" y="350" width="150" height="100"/><path d="M545 350 h14 M545 350 v14 M695 350 h-14 M695 350 v14 M545 450 h14 M545 450 v-14 M695 450 h-14 M695 450 v-14"/></g>
+            <g class="lbl"><line x1="310" y1="130" x2="240" y2="70"/><text x="234" y="60" text-anchor="end">GRAIN BOUNDARIES</text></g>
+            <g class="lbl"><line x1="1020" y1="160" x2="1080" y2="100"/><text x="1086" y="94">EQUIAXED ZONE</text></g>
+            <g class="lbl"><line x1="695" y1="400" x2="950" y2="500"/><text x="956" y="514">DENDRITE · DIVE TARGET</text></g>
+            <g class="lbl"><line x1="340" y1="700" x2="280" y2="740"/><text x="274" y="756" text-anchor="end">λ₂ ≈ 45 µM</text></g>
+          </svg>
+        </div>
+
+        <!-- S5 · the live simulation -->
+        <div class="stage" data-k="2" data-ax="600" data-ay="400">
+          <canvas id="diveSim"></canvas>
+          <img class="fb" src="snowflake.jpg" alt="Dendrite grown by the solver" />
+          <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" fill="none">
+            <g class="reticle"><path d="M80 80 h34 M80 80 v34 M1120 80 h-34 M1120 80 v34 M80 720 h34 M80 720 v-34 M1120 720 h-34 M1120 720 v-34"/></g>
+            <g class="lbl"><text x="600" y="754" text-anchor="middle" class="big">LIVE · MELT LENS · SCROLL ON FOR THE OTHER NINE ↓</text></g>
+          </svg>
+        </div>
+
       </div>
+      <!-- dive HUD -->
+      <div id="diveHudTL"><div class="k">SCROLL TO GO INSIDE</div></div>
+      <div id="diveHudBL"><div id="diveTitle">YOUR GPU</div><div id="diveSub"></div></div>
+      <div id="diveHudBR"><span id="diveField">FIELD ≈ 300 MM</span><span id="diveNum">01 / 05</span><span id="diveDashes"><i class="on"></i><i></i><i></i><i></i><i></i></span></div>
     </section>
 
     <!-- ACT 1 · one crystal, ten instruments -->

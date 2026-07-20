@@ -8,6 +8,7 @@
 import "./landing-motion";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { initDive } from "./dive";
 import { Simulation } from "./sim";
 import { Renderer } from "./render";
 import { MATERIALS } from "./materials";
@@ -51,33 +52,12 @@ function staticFallback() {
   document.body.classList.add("nogpu");
 }
 
-// the SEM blueprint: strokes draw themselves and the beam descends, scrubbed
-// by scroll; without this running the SVG is simply fully drawn (fallback)
-function initSemAct() {
-  const svg = document.getElementById("semSvg");
-  if (!svg) return;
-  const strokes = [...svg.querySelectorAll<SVGGeometryElement>(".draw:not(.beam):not(g), #sample path")];
-  for (const el of strokes) {
-    const len = el.getTotalLength();
-    el.style.strokeDasharray = String(len);
-    el.style.strokeDashoffset = String(len);
-  }
-  const tl = gsap.timeline({
-    scrollTrigger: { trigger: "#semAct", start: "top top", end: "+=1500", pin: true, scrub: true },
-  });
-  tl.to(strokes, { strokeDashoffset: 0, duration: 5, stagger: 0.14, ease: "none" }, 0);
-  tl.from("#semSvg .lbl", { opacity: 0, duration: 1.2, stagger: 0.55, ease: "none" }, 1.2);
-  tl.from("#semSvg .beam", { opacity: 0, duration: 1, ease: "none" }, 3);
-  tl.fromTo("#beamDot", { attr: { cy: 46 } }, { attr: { cy: 462 }, duration: 4, ease: "power1.in" }, 3.2);
-  tl.to({}, { duration: 0.8 }, ">");   // beat at the bottom before unpinning
-}
-
 async function boot() {
   // a pinned scroll story restored mid-pin on reload is disorienting; start clean
   history.scrollRestoration = "manual";
   buildRail(document.getElementById("lensRail")!, 10);
   buildRail(document.getElementById("matRail")!, MAT_STEPS.length);
-  if (!reduced) initSemAct();   // DOM-only: works even without WebGPU
+  initDive(reduced);   // the camera math is DOM-only: works even without WebGPU
   if (reduced || !navigator.gpu) return staticFallback();
   let device: GPUDevice;
   try {
@@ -171,8 +151,30 @@ async function boot() {
     onUpdate: self => setMat(Math.min(MAT_STEPS.length - 1, Math.floor(self.progress * MAT_STEPS.length))),
   });
 
+  // ----------------------------------------- dive act finale: the live melt
+  const diveSim = new Simulation(device, LN);
+  const diveCanvas = document.getElementById("diveSim") as HTMLCanvasElement;
+  const diveRen = new Renderer(device, diveCanvas, diveSim);
+  const pourDive = () => {
+    Object.assign(diveSim.params, {
+      aniMode: 6, delta: 0.042, noiseAmp: 0.013, latent: 1.8, coolRate: 0,
+      alloyOn: 0, twinProb: 0, meltGlow: 1.0, scen: 0, heatIn: 0,
+    });
+    diveSim.reset(0.08);
+    diveSim.addSeed(LN / 2, LN / 2, 4);
+  };
+  pourDive();
+  let divePoll = 0;
+  const diveScene = (dt: number) => {
+    divePoll += dt;
+    if (divePoll > 0.7) {
+      divePoll = 0;
+      void diveSim.readStats().then(s => { if (s && s.fracSolid > 0.55) pourDive(); });
+    }
+  };
+
   // ------------------------------------------- visibility-gated master loop
-  const active = { lens: false, mat: false };
+  const active = { lens: false, mat: false, dive: false };
   const watch = (el: Element, key: keyof typeof active) => {
     new IntersectionObserver(es => {
       for (const e of es) active[key] = e.isIntersecting;
@@ -180,6 +182,7 @@ async function boot() {
   };
   watch(lensCanvas, "lens");
   watch(matCanvas, "mat");
+  watch(diveCanvas, "dive");
 
   let last = performance.now();
   function frameBody(t: number) {
@@ -195,6 +198,11 @@ async function boot() {
         matSim.step(12);
         matRen.render(matSim, 0, t / 1000);
       }
+      if (active.dive) {
+        diveScene(dt);
+        diveSim.step(8);
+        diveRen.render(diveSim, 0, t / 1000);
+      }
     } catch (err) {
       console.error("[solidify] landing frame error:", err);
     }
@@ -208,7 +216,7 @@ async function boot() {
   // test hook: drive frames manually in occluded windows (rAF is suspended)
   (window as unknown as Record<string, unknown>).__landing = {
     tick(k: number) { for (let i = 0; i < k; i++) frameBody(last + 1000 / 60); },
-    sims: { lensSim, matSim },
+    sims: { lensSim, matSim, diveSim },
     active,
   };
 }

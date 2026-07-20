@@ -248,6 +248,26 @@ physics model, milestone gates — set in stone before implementation).
       then attach solidify.frankcai.dev + apex redirect, re-point gh-pages stubs,
       update README links
 
+## v1.1 (2026-07-19): THE DIVE (Exea-style scroll descent)
+
+- [x] SEM scrub act replaced (Frank: below expectations, wants exealabs.org-style
+      camera descent). Studied the reference live: pinned wireframe scene, camera
+      dives through 5 scales, FIELD ≈ readout + stage counter + dash rail + callouts
+- [x] src/dive.ts: 2.5D piecewise camera — log-space zoom through stage chain
+      (k = 8·10·8·8·2 ≈ 10240× total, rebased per stage so CSS scales stay ≤10),
+      camera zooms toward each stage's dashed RETICLE while panning it to center,
+      next stage crossfades in exactly inside the reticle (cover-fit content→screen
+      mapping keeps anchors exact at any viewport)
+- [x] Ladder (Frank's note: "GPU card to package then to a microscope"): YOUR GPU
+      (iso card) → THE DIE (floorplan, "1,048,576 CELLS LIVE HERE") → THE MICROSCOPE
+      (column art returns as one stage) → THE SPECIMEN (grains + dendrite target) →
+      THE DENDRITE · LIVE (real 256² sim crossfades in, "not a video")
+- [x] HUD: SCROLL TO GO INSIDE, per-stage title+sub, FIELD 300 MM→50 µM, 0i/05,
+      dash rail; stage art = stroke-only SVGs, hand-drawn replacements spec'd in
+      docs/dive-art-spec.md (Frank will redraw; reticle aspect 3:2, data-k = 1200/rectW)
+- [x] Verified all five stages live incl. the sim finale; reduced-motion/nogpu get
+      static stage 1 + fallback still
+
 **Known limits / next:**
 - [ ] Grain-boundary lines in ETCH are thin/broken while liquid films persist (partly physical)
 - [ ] Alloy solute scheme is qualitative (labelled as such); quantitative WB is a bigger lift
