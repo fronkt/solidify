@@ -867,6 +867,9 @@ async function boot() {
         if (statsClock > 0.25) {
           statsClock = 0;
           void sim3d.readStats().then(s => { if (s) { lastStats3 = s; hud.push3(s); } });
+          // GPU-born twins live only in the GPU quat buffer — mirror them back
+          // for the IPF/pole panels while the twin rate is nonzero
+          if (sim3d.params.twinProb > 0) void sim3d.refreshQuats();
           an3.tick(0.25);
           const s = lastStats3;
           ui.setReadouts([

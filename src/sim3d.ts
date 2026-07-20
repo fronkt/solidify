@@ -114,6 +114,9 @@ export class Sim3D {
   private subAcc = 0;
   private paramBuf!: GPUBuffer;
   private quatBuf!: GPUBuffer;
+  private quatStaging!: GPUBuffer;
+  private twinCtrBuf!: GPUBuffer;
+  private quatsInFlight = false;
   private seedBuf!: GPUBuffer;
   private statsBuf!: GPUBuffer;
   private statsStaging!: GPUBuffer;
@@ -198,7 +201,9 @@ export class Sim3D {
     this.fedTex = [d.createTexture(texDesc("r32uint")), d.createTexture(texDesc("r32uint"))];
 
     this.paramBuf = d.createBuffer({ size: P3.BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-    this.quatBuf = d.createBuffer({ size: MAX_GRAINS3 * 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    this.quatBuf = d.createBuffer({ size: MAX_GRAINS3 * 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
+    this.quatStaging = d.createBuffer({ size: MAX_GRAINS3 * 16, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    this.twinCtrBuf = d.createBuffer({ size: 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     this.seedBuf = d.createBuffer({ size: MAX_SEEDS3 * SEED3_STRIDE * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     const statsSize = (8 + MAX_GRAINS3) * 4;
     this.statsBuf = d.createBuffer({ size: statsSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
@@ -245,6 +250,8 @@ export class Sim3D {
           { binding: 5, resource: go },
           { binding: 6, resource: this.ageTex.createView() },
           { binding: 7, resource: this.fedTex[0].createView() },
+          { binding: 10, resource: { buffer: this.quatBuf } },
+          { binding: 11, resource: { buffer: this.twinCtrBuf } },
         ],
       });
       // feed flood: 4 iterations/frame, even count → data always lands in fedTex[0]
@@ -334,6 +341,8 @@ export class Sim3D {
           { binding: 7, resource: this.fedTex[0].createView() },
           { binding: 8, resource: this.soluteTex[dir].createView() },
           { binding: 9, resource: this.soluteTex[1 - dir].createView() },
+          { binding: 10, resource: { buffer: this.quatBuf } },
+          { binding: 11, resource: { buffer: this.twinCtrBuf } },
         ],
       });
     }
@@ -370,6 +379,8 @@ export class Sim3D {
     for (const t of this.soluteTex) t?.destroy();
     this.paramBuf?.destroy();
     this.quatBuf?.destroy();
+    this.quatStaging?.destroy();
+    this.twinCtrBuf?.destroy();
     this.seedBuf?.destroy();
     this.statsBuf?.destroy();
     this.statsStaging?.destroy();
@@ -439,6 +450,30 @@ export class Sim3D {
     this.quatCPU.fill(0);
     for (let i = 0; i < MAX_GRAINS3; i++) this.quatCPU[i * 4 + 3] = 1;
     this.device.queue.writeBuffer(this.quatBuf, 0, this.quatCPU);
+    // GPU twin ids count DOWN from here (atomicSub returns pre-decrement;
+    // MAX_GRAINS3−1 is the pore census slot)
+    this.device.queue.writeBuffer(this.twinCtrBuf, 0, new Uint32Array([MAX_GRAINS3 - 2]));
+  }
+
+  /**
+   * Refresh the CPU quaternion mirror from the GPU (twins are born GPU-side).
+   * Call on the stats cadence while twinProb > 0; no-op when a read is in flight.
+   */
+  async refreshQuats(): Promise<void> {
+    if (this.quatsInFlight) return;
+    this.quatsInFlight = true;
+    const enc = this.device.createCommandEncoder();
+    enc.copyBufferToBuffer(this.quatBuf, 0, this.quatStaging, 0, MAX_GRAINS3 * 16);
+    this.device.queue.submit([enc.finish()]);
+    try {
+      await this.quatStaging.mapAsync(GPUMapMode.READ);
+    } catch {
+      this.quatsInFlight = false;
+      return;
+    }
+    this.quatCPU.set(new Float32Array(this.quatStaging.getMappedRange().slice(0)));
+    this.quatStaging.unmap();
+    this.quatsInFlight = false;
   }
 
   /** Marsaglia (1972): uniform random rotation quaternion */

@@ -426,17 +426,15 @@ export class UI {
     symNote.className = "matnote";
     symNote.textContent = "2·3·4·6 are the only symmetries a periodic lattice allows — 5 and 10 are quasicrystal territory";
     cr.append(symNote);
-    const facetChk = this.check(cr, "faceted growth (cusped ε)", () => p().facet > 0.5, b => { p().facet = b ? 1 : 0; });
-    this.only2d.push(facetChk.parentElement as HTMLElement);
+    this.check(cr, "faceted growth (cusped ε)", () => p().facet > 0.5, b => { p().facet = b ? 1 : 0; });
     const facNote = document.createElement("div");
     facNote.className = "matnote";
     facNote.textContent = "cusped interface energy pins flat facets — silicon and intermetallics grow this way";
     cr.append(facNote);
-    this.only2d.push(facNote);
     this.slider(cr, "tip noise", 0, 0.04, 0.001, () => p().noiseAmp, v => { p().noiseAmp = v; }, v => v.toFixed(3));
     this.slider(cr, "latent heat K", 0.8, 2.2, 0.01, () => p().latent, v => { p().latent = v; });
-    this.only2d.push(this.slider(cr, "twin rate", 0, 0.004, 0.0001, () => p().twinProb, v => { p().twinProb = v; },
-      v => v > 0 ? `${(v * 1000).toFixed(1)}‰` : "off"));
+    this.slider(cr, "twin rate", 0, 0.004, 0.0001, () => p().twinProb, v => { p().twinProb = v; },
+      v => v > 0 ? `${(v * 1000).toFixed(1)}‰` : "off");
     // hex 3D only: δz sign picks the growth habit (managed manually in sync —
     // visible iff 3D ∧ hex, so neither only2d nor only3d fits)
     this.habitRow = this.slider(cr, "habit  needles ⇠ ⇢ plates", -0.06, 0.06, 0.002,

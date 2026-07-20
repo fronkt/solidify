@@ -120,10 +120,19 @@ struct Ani { a: f32, g: vec3f }
 fn aniso3(np: vec3f, P: Params3D) -> Ani {
   var r: Ani;
   if (P.aniMode3 == 1u) {
-    // cubic harmonic: minima along <100> — six dendrite arms
-    let n3 = np * np * np;
-    r.a = 1.0 + P.delta * (4.0 * (n3.x * np.x + n3.y * np.y + n3.z * np.z) - 3.0);
-    r.g = 16.0 * P.delta * n3;
+    if (P.facet > 0.5) {
+      // regularized {100} cusps — the 3D Eggleston analog of the 2D |sin(β/2)|
+      // energy: Σ√(nᵢ²+ε) has cusped MINIMA along ⟨100⟩, so genuinely flat
+      // cube facets pin there (same 0.001 regularization as 2D)
+      let q = sqrt(np * np + vec3f(0.001));
+      r.a = 1.0 + 2.0 * P.delta * (q.x + q.y + q.z - 1.4);
+      r.g = 2.0 * P.delta * np / q;
+    } else {
+      // cubic harmonic: minima along <100> — six dendrite arms
+      let n3 = np * np * np;
+      r.a = 1.0 + P.delta * (4.0 * (n3.x * np.x + n3.y * np.y + n3.z * np.z) - 3.0);
+      r.g = 16.0 * P.delta * n3;
+    }
   } else if (P.aniMode3 == 2u) {
     // hex: 6-fold in the basal plane (polynomial form of cos6ψ·(1-nz²)³ — no
     // atan2, smooth at the poles) minus a c-axis penalty that makes plates
@@ -199,6 +208,8 @@ ${COMMON3}
 @group(0) @binding(7) var fed: texture_3d<u32>;
 ${alloy ? /* wgsl */ `@group(0) @binding(8) var solute: texture_3d<f32>;
 @group(0) @binding(9) var soluteOut: texture_storage_3d<r32float, write>;` : ""}
+@group(0) @binding(10) var<storage, read_write> quats: array<vec4f>;
+@group(0) @binding(11) var<storage, read_write> twinCtr: atomic<u32>;
 
 @compute @workgroup_size(4, 4, 4)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -336,6 +347,30 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
       if (nid != 0u && nid != PORE) {
         let nphi = textureLoad(state, nc, 0).r;
         if (nphi > best) { best = nphi; id = nid; }
+      }
+    }
+    // stochastic growth twin at the moving front (2D claim-spawn port): the
+    // freshly-claimed cell may re-nucleate in Σ3 registry — 60° about one of
+    // the PARENT's ⟨111⟩ axes. Ids count DOWN from MAX_GRAINS3−2 (atomicSub
+    // returns the pre-decrement value; the top id is the pore census) and stop
+    // above idFloor; the double guard also catches u32 wraparound.
+    if (id != 0u && best > 0.0002 && P.twinProb > 0.0 &&
+        hash3(gid.x + 7919u, gid.y + 104729u, P.frame) < P.twinProb) {
+      let tid = atomicSub(&twinCtr, 1u);
+      if (tid > P.idFloor && tid < PORE) {
+        let qp = quats[min(id, ${MAX_GRAINS3 - 1}u)];
+        let hb = u32(hash3(gid.z + 337u, gid.x + 31u, P.frame) * 3.999);
+        var ax = vec3f(0.57735027, 0.57735027, 0.57735027);
+        if (hb == 1u) { ax = vec3f(-0.57735027, 0.57735027, 0.57735027); }
+        if (hb == 2u) { ax = vec3f(0.57735027, -0.57735027, 0.57735027); }
+        if (hb == 3u) { ax = vec3f(0.57735027, 0.57735027, -0.57735027); }
+        let axl = qrot(qp, ax);
+        let q60 = vec4f(axl * 0.5, 0.86602540);   // axis·sin30°, cos30°
+        let qt = vec4f(
+          q60.w * qp.xyz + qp.w * q60.xyz + cross(q60.xyz, qp.xyz),
+          q60.w * qp.w - dot(q60.xyz, qp.xyz));
+        quats[tid] = normalize(qt);
+        id = tid;
       }
     }
   }
