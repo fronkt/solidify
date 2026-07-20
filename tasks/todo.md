@@ -333,3 +333,22 @@ node once and share it between adjoining segments.
 - [x] verified headlessly at 18 scroll points; bugs fixed: cores reticle 1.2 units
       off the amber SM, press/polisher too-tight cameras, lattice atoms drawn as
       "pins" (vertical ring mis-centered), stray label statement
+
+## v1.4 (2026-07-20): 16 stages — the full toolchain + ALL IN ONE finale
+
+- [x] Frank: add furnace/tensile/arc/Vickers/atom-probe ideas, saw OUT, beamline
+      clarified (endstation ≠ microscope: electrons image shape, X-rays measure
+      spacing), finale = "ALL IN ONE" (SOLIDIFY as the instrument)
+- [x] New stages: FURNACE (coil crucible, amber pour drawn on, casting fades in,
+      heat shimmer) → ARC MELTER (per-frame jagged arc + flicker, hearth buttons)
+      → VICKERS (spindle descends/dwells/retracts, indent fades in, continuity
+      with specimen's indent) → TENSILE (crosshead pulls, dogbone snaps at jagged
+      amber fracture, extensometer drops off) → BEAMLINE (hutch room + slits/
+      mono/goniometer rocking/detector with Debye rings drawing on) →
+      ALL IN ONE (browser-window instrument + 10-machine orbiting carousel,
+      "FIELD = ONE TAB", CTA)
+- [x] Ladder: GPU→DIE→CORES→FURNACE→ARC→PRESS→POLISHER→VICKERS→SEM→SPECIMEN→
+      DENDRITE→TENSILE→RING→BEAMLINE→LATTICE→ALL IN ONE; end +=23000; 0X/16
+- [x] fixes: beamline goniometer 0-seam cylinder read as floating rings; hutch
+      walls added (stage was too sparse); atom-probe idea PARKED (17 stages felt
+      like enough; revisit if Frank asks)
