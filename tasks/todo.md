@@ -352,3 +352,24 @@ node once and share it between adjoining segments.
 - [x] fixes: beamline goniometer 0-seam cylinder read as floating rings; hutch
       walls added (stage was too sparse); atom-probe idea PARKED (17 stages felt
       like enough; revisit if Frank asks)
+
+## v1.5 (2026-07-20): pruned to 13 + bespoke transitions on every handoff
+
+- [x] Removed furnace/press/Vickers per Frank (builders deleted, git keeps them);
+      ALL IN ONE camera settles dead-on at az=π/2 (window faces +z); end +=19000
+- [x] AskUserQuestion: ALL twelve handoffs bespoke, pivots KEEP the dissolve
+      (no iris), mixed exit/arrival energy
+- [x] Transition events: die lid (existing) · DIE→CORES amber scanline sweep +
+      rows light (drawRange) · ARC→POLISHER button lifts from hearth (arc dies,
+      reticle tracks via new dynamic target fn) · POLISHER→SEM puck tilts
+      face-on + sheen sweep · SEM→SPECIMEN chamber riser Z-approach ·
+      SPECIMEN→DENDRITE root star sprouts tease branches · DENDRITE dives into
+      nucleus · TENSILE arrival: crosshead descends + grips clamp before pull ·
+      RING arrival: 12 magnets pop in sequence (per-magnet mats) · RING→BEAMLINE
+      camera enters through hutch door, door slides shut, beam-on lamp lights ·
+      BEAMLINE→LATTICE Debye rings scale up past camera (rings on own centered
+      group) · LATTICE→ALL-IN-ONE crystal collapses to a pixel, screen dendrite
+      grows from it on arrival
+- [x] StageDef.target now P3 | ()=>Vector3 for moving dive targets
+- [x] verified 11 scroll points headless; 60 fps (one 5.4 reading was SwiftShader
+      still settling after screenshot churn — re-probe twice before believing)
