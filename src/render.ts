@@ -20,6 +20,7 @@ export class Renderer {
   paletteOn = false;
   stainMode = 0;   // ETCH tint etch: 0 none, 1 Klemm's, 2 Beraha's, 3 anodize
   ebsdOn = false;  // ORIENT as flat EBSD/IPF map
+  tiltOn = false;  // specimen tilt: oblique 2.5D relief view of the field
 
   constructor(device: GPUDevice, canvas: HTMLCanvasElement, sim: Simulation) {
     this.device = device;
@@ -157,7 +158,7 @@ export class Renderer {
     u[12] = sim.params.alloyOn;
     f[13] = sim.params.c0;
     f[14] = sim.params.meltGlow;
-    u[15] = (this.stainMode & 255) | (this.ebsdOn ? 256 : 0);
+    u[15] = (this.stainMode & 255) | (this.ebsdOn ? 256 : 0) | (this.tiltOn ? 512 : 0);
     this.device.queue.writeBuffer(this.rbuf, 0, this.rdata);
 
     const enc = this.device.createCommandEncoder();

@@ -45,12 +45,18 @@ export class Analyze {
   private rulerText: SVGTextElement;
   private resultEl: HTMLElement | null = null;
 
+  private bigFor: "probe" | "scheil" | "tex" | null = null;
+  private bigCtx: CanvasRenderingContext2D | null = null;
+  private bigWrap: HTMLElement | null = null;
+
   constructor(private host: AnalyzeHost) {
     const mkPanel = (id: string, title: string) => {
       const p = document.createElement("div");
       p.className = "apanel";
       p.id = id;
-      p.innerHTML = `<div class="t">${title}</div>`;
+      p.innerHTML = `<div class="t" style="display:flex;align-items:center">` +
+        `<span style="flex:1">${title}</span>` +
+        `<button class="zoomBtn" title="enlarge" style="padding:0 6px;font-size:12px;line-height:1.4">⤢</button></div>`;
       const c = document.createElement("canvas");
       const W = 252, H = 128;
       c.width = W * devicePixelRatio;
@@ -59,6 +65,8 @@ export class Analyze {
       c.style.height = H + "px";
       p.append(c);
       document.getElementById("apanels")!.append(p);
+      const which = id === "probePanel" ? "probe" as const : id === "scheilPanel" ? "scheil" as const : "tex" as const;
+      p.querySelector(".zoomBtn")!.addEventListener("click", () => this.openBig(which, title));
       return { p, ctx: c.getContext("2d")! };
     };
     const a = mkPanel("probePanel", "COOLING CURVE · PROBE");
@@ -207,27 +215,68 @@ export class Analyze {
     this.draw();
   }
 
+  // ------------------------------------------------------------ big viewer
+  /** modal enlargement of an analysis panel; live-updates with the sim */
+  private openBig(which: "probe" | "scheil" | "tex", title: string) {
+    this.closeBig();
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;" +
+      "background:rgba(8,9,12,0.78);backdrop-filter:blur(3px);";
+    const box = document.createElement("div");
+    box.style.cssText = "background:#101318;border:1px solid #2a303b;border-radius:10px;padding:14px 16px 16px;";
+    const W = Math.min(920, Math.round(innerWidth * 0.84));
+    const H = Math.min(560, Math.round(innerHeight * 0.68));
+    box.innerHTML = `<div style="display:flex;align-items:center;margin-bottom:10px;font-size:11px;letter-spacing:0.14em;color:#56d4dd">` +
+      `<span style="flex:1">${title}</span><button id="bigClose">✕ close</button></div>`;
+    const c = document.createElement("canvas");
+    c.width = W * devicePixelRatio;
+    c.height = H * devicePixelRatio;
+    c.style.cssText = `width:${W}px;height:${H}px;display:block`;
+    box.append(c);
+    wrap.append(box);
+    document.getElementById("app")!.append(wrap);
+    wrap.addEventListener("click", e => { if (e.target === wrap) this.closeBig(); });
+    box.querySelector("#bigClose")!.addEventListener("click", () => this.closeBig());
+    this.bigWrap = wrap;
+    this.bigCtx = c.getContext("2d")!;
+    this.bigFor = which;
+    this.draw();
+  }
+
+  private closeBig() {
+    this.bigWrap?.remove();
+    this.bigWrap = null;
+    this.bigCtx = null;
+    this.bigFor = null;
+  }
+
   // ---------------------------------------------------------------- charts
   private frame(ctx: CanvasRenderingContext2D) {
     const w = ctx.canvas.width, h = ctx.canvas.height;
     ctx.clearRect(0, 0, w, h);
-    return { w, h, m: 8 * devicePixelRatio };
+    // fs scales fonts/line weights up in the big viewer
+    const fs = Math.max(1, w / (devicePixelRatio * 460));
+    return { w, h, m: 8 * devicePixelRatio * fs, fs };
   }
 
   private draw() {
     const p = this.host.simParams();
-    if (this.probeOn) this.drawCurve(p);
-    if (this.scheilOn) this.drawScheil(p);
-    if (this.textureOn) this.drawRose(p);
+    if (this.probeOn) this.drawCurve(p, this.probeCtx);
+    if (this.scheilOn) this.drawScheil(p, this.scheilCtx);
+    if (this.textureOn) this.drawRose(p, this.texCtx);
+    if (this.bigCtx && this.bigFor) {
+      if (this.bigFor === "probe") this.drawCurve(p, this.bigCtx);
+      else if (this.bigFor === "scheil") this.drawScheil(p, this.bigCtx);
+      else this.drawRose(p, this.bigCtx);
+    }
   }
 
   /** area-weighted orientation rose, replicated by the crystal's j-fold symmetry */
-  private drawRose(p: PhysParams) {
-    const ctx = this.texCtx;
-    const { w, h, m } = this.frame(ctx);
+  private drawRose(p: PhysParams, ctx: CanvasRenderingContext2D) {
+    const { w, h, m, fs } = this.frame(ctx);
     const dpr = devicePixelRatio;
     const rose = this.lastRose;
-    ctx.font = `${9 * dpr}px monospace`;
+    ctx.font = `${9 * dpr * fs}px monospace`;
     if (!rose || rose.reduce((a, b) => a + b, 0) === 0) {
       ctx.fillStyle = "#5b6675";
       ctx.fillText("no grains yet — grow something", m, h / 2);
@@ -263,15 +312,14 @@ export class Analyze {
     ctx.fillText(`area-weighted · ×${j} symmetry`, m, h - 2 * dpr);
   }
 
-  private drawCurve(p: PhysParams) {
-    const ctx = this.probeCtx;
-    const { w, h, m } = this.frame(ctx);
+  private drawCurve(p: PhysParams, ctx: CanvasRenderingContext2D) {
+    const { w, h, m, fs } = this.frame(ctx);
     const d = this.curve;
     const dpr = devicePixelRatio;
     const TL = p.alloyOn ? 1 - p.mLiq * p.c0 : 1; // liquidus of the melt
     if (d.length < 2) {
       ctx.fillStyle = "#5b6675";
-      ctx.font = `${10 * dpr}px monospace`;
+      ctx.font = `${10 * dpr * fs}px monospace`;
       ctx.fillText("waiting for the melt to run…", m, h / 2);
       return;
     }
@@ -287,7 +335,7 @@ export class Analyze {
     ctx.beginPath(); ctx.moveTo(m, Y(TL)); ctx.lineTo(w - m, Y(TL)); ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = "#5b6675";
-    ctx.font = `${9 * dpr}px monospace`;
+    ctx.font = `${9 * dpr * fs}px monospace`;
     ctx.fillText("T liquidus", w - m - 62 * dpr, Y(TL) - 3 * dpr);
     // trace
     ctx.strokeStyle = "#ffb454";
@@ -307,13 +355,12 @@ export class Analyze {
     ctx.fillText(`T ${d[d.length - 1].T.toFixed(3)}`, m, m + 9 * dpr);
   }
 
-  private drawScheil(p: PhysParams) {
-    const ctx = this.scheilCtx;
-    const { w, h, m } = this.frame(ctx);
+  private drawScheil(p: PhysParams, ctx: CanvasRenderingContext2D) {
+    const { w, h, m, fs } = this.frame(ctx);
     const dpr = devicePixelRatio;
     if (!p.alloyOn) {
       ctx.fillStyle = "#5b6675";
-      ctx.font = `${10 * dpr}px monospace`;
+      ctx.font = `${10 * dpr * fs}px monospace`;
       ctx.fillText("enable ALLOY (or pour one) for Scheil", m, h / 2);
       return;
     }
@@ -337,7 +384,7 @@ export class Analyze {
     ctx.fillStyle = "#56d4dd";
     for (const q of this.scheil) ctx.fillRect(X(q.fs) - dpr, Y(q.Ti) - dpr, 2 * dpr, 2 * dpr);
     ctx.fillStyle = "#5b6675";
-    ctx.font = `${9 * dpr}px monospace`;
+    ctx.font = `${9 * dpr * fs}px monospace`;
     ctx.fillText("fs 0→1  ·  amber Scheil  ·  cyan measured T_interface", m, h - 2 * dpr);
   }
 }

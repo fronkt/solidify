@@ -21,7 +21,7 @@ export interface AppControl {
   clearReveals(): void;
 }
 
-const NO_SCEN: Partial<PhysParams> = { scen: 0, heatIn: 0 };
+const NO_SCEN: Partial<PhysParams> = { scen: 0, heatIn: 0, facet: 0 };
 
 // Named scenes: used by the preset buttons AND the tour chapters.
 export const SCENES: Record<string, (a: AppControl) => void> = {

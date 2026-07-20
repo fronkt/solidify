@@ -12,6 +12,8 @@ export interface OptHost {
   onOptimizerDone(): void;
   /** load a converged recipe into the real instrument (armed, full grid) */
   applyRecipe(r: Recipe): void;
+  /** a #set= deep link that restores this recipe, shareable */
+  shareRecipeLink(r: Recipe): string;
 }
 
 // ---------------------------------------------------------- separable CMA-ES
@@ -403,7 +405,15 @@ export class Optimizer {
       this.running = true;
       this.refreshStatus();
     });
-    row.append(applyB, moreB);
+    const linkB = document.createElement("button");
+    linkB.textContent = "⎘ copy recipe link";
+    linkB.addEventListener("click", () => {
+      void navigator.clipboard.writeText(this.host.shareRecipeLink(this.bestRecipe!)).then(() => {
+        linkB.textContent = "copied ✓";
+        setTimeout(() => { linkB.textContent = "⎘ copy recipe link"; }, 1400);
+      });
+    });
+    row.append(applyB, moreB, linkB);
     this.report.append(row);
     this.report.style.display = "block";
     this.status.textContent = "paused on the result · apply the recipe, keep searching, or move the target slider";

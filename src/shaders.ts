@@ -55,6 +55,10 @@ struct Params {
   probeY: u32,
   holdT: f32,      // crucible (scen 3): heater set-point for non-mold cells
   holdRate: f32,   // crucible: relax rate toward the set-point
+  facet: f32,      // 0 = smooth cos anisotropy, 1 = regularized-cusp (faceted growth)
+  _pad0: f32,
+  _pad1: f32,
+  _pad2: f32,
 }
 const PI = 3.14159265359;
 
@@ -97,8 +101,20 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let id = textureLoad(grain, c, 0).r;
   let th0 = theta0[min(id, ${MAX_GRAINS - 1}u)];
   let beta = P.aniMode * (atan2(py, px) - th0);
-  let eps = P.epsBar * (1.0 + P.delta * cos(beta));
-  let deps = -P.epsBar * P.delta * P.aniMode * sin(beta);
+  var eps: f32;
+  var deps: f32;
+  if (P.facet > 0.5) {
+    // faceted growth: regularized-cusp interface energy |sin(β/2)| — the
+    // cusped minima pin j flat facet orientations (Eggleston-style smoothing)
+    let x = 0.5 * beta;
+    let s = sin(x);
+    let q = sqrt(s * s + 0.001);
+    eps = P.epsBar * (1.0 + P.delta * (2.0 * q - 1.0));
+    deps = P.epsBar * P.delta * P.aniMode * s * cos(x) / q;
+  } else {
+    eps = P.epsBar * (1.0 + P.delta * cos(beta));
+    deps = -P.epsBar * P.delta * P.aniMode * sin(beta);
+  }
   textureStore(flux, c, vec4f(eps * deps * px, eps * deps * py, eps * eps, 0.0));
 }
 `;
@@ -366,6 +382,12 @@ fn hashf(x: u32, y: u32, z: u32) -> f32 {
 
 fn cl(c: vec2i) -> vec2i { return clamp(c, vec2i(0), vec2i(i32(R.n) - 1)); }
 
+// specimen-tilt relief height: solid stands proud, older solid stands prouder
+fn tiltH(pf: vec2f) -> f32 {
+  let s = textureLoad(state, cl(vec2i(pf)), 0);
+  return s.r * (0.45 + 0.55 * clamp(s.a * 0.12, 0.0, 1.0));
+}
+
 // bilinear on (phi, T, c, age)
 fn sampleState(p: vec2f) -> vec4f {
   let q = clamp(p - 0.5, vec2f(0.0), vec2f(f32(R.n) - 1.001));
@@ -446,6 +468,14 @@ fn fmain(in: VOut) -> @location(0) vec4f {
   let off = vec2f(R.canvasW - scale, R.canvasH - scale) * 0.5;
   let pc = ((in.uv * vec2f(R.canvasW, R.canvasH)) - off) / scale;   // 0..1 cover space
   var p = ((pc - 0.5) / R.zoom + vec2f(R.cx, R.cy)) * n;
+
+  // specimen tilt (2.5D): oblique foreshortening + parallax by local relief —
+  // a raking-light view of the same 2D field, not a 3D solve
+  if ((R.lookFlags & 512u) != 0u) {
+    let ct = p / n - 0.5;
+    p = (vec2f(ct.x, ct.y * 1.5 + 0.07) + 0.5) * n;
+    p.y = p.y + tiltH(p) * n * 0.02;
+  }
 
   // pixel mode: quantise the sampling position (chunky cells)
   var ps = 1.0;
@@ -630,6 +660,17 @@ fn fmain(in: VOut) -> @location(0) vec4f {
   }
 
   if (!inDomain) { col *= 0.12; }
+
+  // specimen tilt: raking-light relief shading over whatever the lens drew
+  if ((R.lookFlags & 512u) != 0u) {
+    let e = max(2.0, n / 512.0);
+    let hC = tiltH(p);
+    let hU = tiltH(p - vec2f(0.0, e));
+    let hR = tiltH(p + vec2f(e, 0.0));
+    let nrm = normalize(vec3f((hC - hR) * 22.0, (hU - hC) * 22.0, 1.0));
+    let lit = clamp(dot(nrm, normalize(vec3f(-0.45, 0.7, 0.6))), 0.0, 1.0);
+    col *= 0.38 + 0.9 * lit;
+  }
 
   // vignette + film grain (skip grain on ETCH and in pixel mode)
   let vuv = in.uv - 0.5;

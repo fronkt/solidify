@@ -13,6 +13,7 @@ export interface UIHost extends AppControl {
   getSubsteps(): number;
   isRunning(): boolean;
   isEngineering(): boolean;
+  shareLink(): string;
   isTurbo(): boolean;
   toggleTurbo(): void;
   getMaterial(): string;
@@ -37,6 +38,8 @@ export interface UIHost extends AppControl {
   setStain(v: number): void;
   getEbsd(): boolean;
   setEbsd(b: boolean): void;
+  getTilt(): boolean;
+  setTilt(b: boolean): void;
   resetZoom(): void;
   simTimeNow(): number;
   isRecording(): boolean;
@@ -303,6 +306,11 @@ export class UI {
     symNote.className = "matnote";
     symNote.textContent = "2·3·4·6 are the only symmetries a periodic lattice allows — 5 and 10 are quasicrystal territory";
     cr.append(symNote);
+    this.check(cr, "faceted growth (cusped ε)", () => p().facet > 0.5, b => { p().facet = b ? 1 : 0; });
+    const facNote = document.createElement("div");
+    facNote.className = "matnote";
+    facNote.textContent = "cusped interface energy pins flat facets — silicon and intermetallics grow this way";
+    cr.append(facNote);
     this.slider(cr, "tip noise", 0, 0.04, 0.001, () => p().noiseAmp, v => { p().noiseAmp = v; }, v => v.toFixed(3));
     this.slider(cr, "latent heat K", 0.8, 2.2, 0.01, () => p().latent, v => { p().latent = v; });
     this.slider(cr, "twin rate", 0, 0.004, 0.0001, () => p().twinProb, v => { p().twinProb = v; },
@@ -318,6 +326,11 @@ export class UI {
       v => { this.lastPixel = v; if (host.getPixel() > 0) host.setPixel(v); },
       v => `${v.toFixed(0)}px`);
     this.check(look, "8-bit palette + dither", () => host.getPalette(), b => host.setPalette(b));
+    this.check(look, "specimen tilt (2.5D relief)", () => host.getTilt(), b => host.setTilt(b));
+    const tiltNote = document.createElement("div");
+    tiltNote.className = "matnote";
+    tiltNote.textContent = "raking-light oblique view — same 2D physics, extruded by solidification age";
+    look.append(tiltNote);
     // metallographic staining: tint etchants colour grains by orientation (ETCH lens)
     const stainNote = document.createElement("div");
     stainNote.className = "matnote";
@@ -370,6 +383,16 @@ export class UI {
     this.slider(adv, "driving α", 0.6, 1.0, 0.01, () => p().alpha, v => { p().alpha = v; });
     this.slider(adv, "relax τ ×10⁻⁴", 1.5, 8, 0.1, () => p().tau * 1e4, v => { p().tau = v * 1e-4; }, v => v.toFixed(1));
     this.slider(adv, "partition k", 0.05, 0.9, 0.01, () => p().kPart, v => { p().kPart = v; });
+    const shareB = this.button(this.btnRow(adv), "⎘ copy setup link", () => {
+      void navigator.clipboard.writeText(host.shareLink()).then(() => {
+        shareB.textContent = "copied ✓";
+        setTimeout(() => { shareB.textContent = "⎘ copy setup link"; }, 1400);
+      });
+    });
+    const shareNote = document.createElement("div");
+    shareNote.className = "matnote";
+    shareNote.textContent = "the link restores this exact setup — material, physics dials, lens, even an applied ML recipe";
+    adv.append(shareNote);
 
     // ---- science + contact links
     const sci = document.createElement("a");

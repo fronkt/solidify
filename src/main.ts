@@ -5,6 +5,7 @@ import { UI, type UIHost } from "./ui";
 import { Hud } from "./hud";
 import { Tour, SCENES } from "./tour";
 import { Optimizer, type OptHost, type Recipe } from "./optimizer";
+import { packShare, unpackShare, type ShareState } from "./share";
 import { Challenge, type ChallengeHost } from "./challenge";
 import { Composer } from "./composer";
 import { Analyze } from "./analyze";
@@ -155,6 +156,8 @@ async function boot() {
     setStain(v) { renderer.stainMode = v; },
     getEbsd: () => renderer.ebsdOn,
     setEbsd(b) { renderer.ebsdOn = b; },
+    getTilt: () => renderer.tiltOn,
+    setTilt(b) { renderer.tiltOn = b; },
     resetZoom() { renderer.resetView(); },
     simTimeNow: () => sim.simTime,
     // ---- OptHost
@@ -180,6 +183,19 @@ async function boot() {
       return t;
     },
     onOptimizerDone() { ui.sync(); },
+    shareLink() {
+      return location.origin + location.pathname + packShare({
+        p: { ...sim.params }, u: undercool, v: view, m: material,
+        n: alloyName, rain, sched: recipeSchedule,
+      });
+    },
+    shareRecipeLink(r: Recipe) {
+      return location.origin + location.pathname + packShare({
+        p: { ...sim.params, coolRate: r.cool[0] },
+        u: r.undercool, v: 1, m: material, n: alloyName,
+        rain: r.rain * sim.params.dt * substeps * 60, sched: r.cool,
+      });
+    },
     applyRecipe(r: Recipe) {
       // stop() has already restored the full grid; stage the winning casting
       // ARMED so the user presses run to watch their optimized recipe pour
@@ -473,6 +489,18 @@ async function boot() {
     app.scatterSeeds(6);
     app.setView(0);
     app.setRun(true);
+  }
+  // shared-setup deep link: restore the whole instrument state, ARMED
+  const shared: ShareState | null = location.hash.includes("set=") ? unpackShare(location.hash) : null;
+  if (shared) {
+    if (MATERIALS[shared.m]) app.setMaterial(shared.m);
+    Object.assign(sim.params, shared.p);
+    undercool = shared.u;
+    view = Math.max(0, Math.min(9, Math.round(shared.v))) as ViewMode;
+    rain = shared.rain ?? 0;
+    recipeSchedule = shared.sched ?? null;
+    if (shared.n) alloyName = shared.n;
+    app.resetArmed();   // stages it ARMED; resetArmed keeps the schedule
   }
   ui.sync();
   requestAnimationFrame(frame);

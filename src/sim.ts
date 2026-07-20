@@ -34,6 +34,7 @@ export interface PhysParams {
   // crucible scenario (scen 3, cast logo)
   holdT: number;      // heater set-point for non-mold cells
   holdRate: number;   // relax rate toward the set-point
+  facet: number;      // 0 smooth cos anisotropy · 1 regularized-cusp (faceted)
 }
 
 export const DEFAULTS: PhysParams = {
@@ -67,6 +68,7 @@ export const DEFAULTS: PhysParams = {
   meltGlow: 1.0,
   holdT: 0,
   holdRate: 0,
+  facet: 0,
 };
 
 export interface StatsResult {
@@ -122,7 +124,7 @@ export class Simulation {
   private pendingSeeds: Seed[] = [];
   private pendingQuench = 0;
   private statsInFlight = false;
-  private paramData = new ArrayBuffer(144);
+  private paramData = new ArrayBuffer(160);
   private inFlight = 0;
 
   /** true when the GPU is >= 2 submitted frames behind — callers should skip stepping */
@@ -155,7 +157,7 @@ export class Simulation {
     this.grainTex = [d.createTexture(texDesc("r32uint")), d.createTexture(texDesc("r32uint"))];
     this.fluxTex = d.createTexture(texDesc("rgba32float"));
 
-    this.paramBuf = d.createBuffer({ size: 144, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.paramBuf = d.createBuffer({ size: 160, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.theta0Buf = d.createBuffer({ size: MAX_GRAINS * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
     this.twinCtrBuf = d.createBuffer({ size: 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     this.seedBuf = d.createBuffer({ size: MAX_SEEDS * SEED_STRIDE * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
@@ -347,6 +349,7 @@ export class Simulation {
     u[33] = this.probe ? Math.round(this.probe.y) : 0xffffffff;
     f[34] = p.holdT;
     f[35] = p.holdRate;
+    f[36] = p.facet;
     this.device.queue.writeBuffer(this.paramBuf, 0, this.paramData);
   }
 
