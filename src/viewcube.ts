@@ -44,9 +44,7 @@ export class ViewCube {
         const dx = e.clientX - this.drag.x, dy = e.clientY - this.drag.y;
         if (this.drag.moved || Math.hypot(dx, dy) > 4) {
           this.drag.moved = true;
-          // grabbing the cube spins the CUBE with the hand — the camera orbits
-          // the opposite way horizontally (drag right = see the cube's right)
-          this.hooks.orbitBy(-dx, dy);
+          this.hooks.orbitBy(dx, dy);
           this.drag.x = e.clientX;
           this.drag.y = e.clientY;
         }
