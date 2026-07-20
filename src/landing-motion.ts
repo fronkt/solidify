@@ -30,11 +30,54 @@ function countUp(el: HTMLElement, target: number, format: (n: number) => string,
   });
 }
 
+function splitLetters(h1: HTMLElement) {
+  // rebuild "SOLID<span>IFY</span>" as per-letter spans, preserving the amber
+  // span; screen readers keep the intact label
+  h1.setAttribute("aria-label", h1.textContent ?? "SOLIDIFY");
+  const frag = document.createDocumentFragment();
+  for (const node of [...h1.childNodes]) {
+    const amber = node.nodeName === "SPAN";
+    for (const ch of node.textContent ?? "") {
+      const s = document.createElement("span");
+      s.className = amber ? "ltr ltr-a" : "ltr ltr-w";
+      s.textContent = ch;
+      s.setAttribute("aria-hidden", "true");
+      s.style.display = "inline-block";
+      s.style.opacity = "0";
+      if (amber) s.style.color = "var(--amber)";
+      frag.append(s);
+    }
+  }
+  h1.textContent = "";
+  h1.append(frag);
+}
+
 function heroEntrance() {
+  const h1 = document.querySelector<HTMLElement>("#wordmark");
+  if (h1) {
+    splitLetters(h1);
+    utils.set(h1, { opacity: 1 });   // letters own their visibility now
+  }
   const tl = createTimeline({ defaults: { ease: "outExpo" } });
-  tl.add("#heroCopy .tag", { opacity: [0, 1], translateY: [16, 0], duration: 750 }, 350);
-  tl.add("#heroCopy .cta a", { opacity: [0, 1], translateY: [14, 0], duration: 650, delay: stagger(90) }, 550);
-  tl.add(".stats", { opacity: [0, 1], translateY: [14, 0], duration: 700 }, 800);
+  // the wordmark solidifies: letters rise, unblur, cool from molten amber to white
+  tl.add(".ltr-w", {
+    opacity: [0, 1],
+    translateY: [30, 0],
+    filter: ["blur(8px)", "blur(0px)"],
+    color: ["#ffb454", "#eef1f5"],
+    duration: 950,
+    delay: stagger(46),
+  }, 0);
+  tl.add(".ltr-a", {
+    opacity: [0, 1],
+    translateY: [30, 0],
+    filter: ["blur(8px)", "blur(0px)"],
+    duration: 950,
+    delay: stagger(46),
+  }, 240);
+  tl.add("#heroCopy .tag", { opacity: [0, 1], translateY: [16, 0], duration: 750 }, 500);
+  tl.add("#heroCopy .cta", { opacity: [0, 1], translateY: [14, 0], duration: 700 }, 700);
+  tl.add(".stats", { opacity: [0, 1], translateY: [14, 0], duration: 700 }, 950);
   tl.call(() => {
     document.querySelectorAll<HTMLElement>(".stats b[data-count]").forEach(el => {
       const suffix = el.dataset.suffix ?? "";

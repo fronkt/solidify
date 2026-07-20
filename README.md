@@ -1,6 +1,6 @@
 # SOLIDIFY — watch metal freeze
 
-**Live: [fronkt.github.io/solidify](https://fronkt.github.io/solidify/)** (needs WebGPU — Chrome/Edge, Safari 26+, recent Firefox)
+**Live: [solidify-mu.vercel.app](https://solidify-mu.vercel.app/)** (needs WebGPU — Chrome/Edge, Safari 26+, recent Firefox)
 
 A real-time **phase-field solidification instrument** that runs entirely in your browser on WebGPU.
 Undercool a melt, tap to nucleate crystals, and watch dendrites grow, branch, collide, and become
@@ -73,7 +73,7 @@ gracefully instead of freezing.
   measures secondary-arm spacing by dragging a linear-intercept line, metallographer-style.
 - **Recorder** — one-button ⏺ capture of the canvas to a .webm clip.
 - **Touch** — pinch to zoom, two-finger pan, tap to nucleate.
-- **The science page** — [/science/](https://fronkt.github.io/solidify/science/) documents the
+- **The science page** — [/science/](https://solidify-mu.vercel.app/science/) documents the
   equations, the numerics, what's quantitative vs qualitative, and the references.
 - **Guided tour** — ten chapters from the Mullins–Sekerka instability through twinning,
   casting CET, directional growth, welding, and alloys.

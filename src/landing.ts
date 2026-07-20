@@ -1,16 +1,15 @@
-// Landing scroll-story controller. Three real simulations share one GPU
-// device: the cast wordmark (letter-shaped molds), the pinned ten-lens act,
-// and the materials act. Only the sim currently on screen ticks. GSAP's
-// ScrollTrigger drives the pinned acts; DOM-only motion lives in
+// Landing scroll-story controller. Two real simulations share one GPU device:
+// the pinned ten-lens act and the materials act. Only the sim currently on
+// screen ticks. GSAP's ScrollTrigger drives the pinned acts and the SEM
+// blueprint that draws itself on scroll; DOM-only motion lives in
 // landing-motion.ts. Without WebGPU (or with reduced motion) the page falls
-// back to static text and stills, unpinned.
+// back to stills and a fully-drawn diagram, unpinned.
 
 import "./landing-motion";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Simulation } from "./sim";
 import { Renderer } from "./render";
-import { buildLogoMask } from "./logotype";
 import { MATERIALS } from "./materials";
 import { LENS_NAMES } from "./shaders";
 
@@ -52,11 +51,33 @@ function staticFallback() {
   document.body.classList.add("nogpu");
 }
 
+// the SEM blueprint: strokes draw themselves and the beam descends, scrubbed
+// by scroll; without this running the SVG is simply fully drawn (fallback)
+function initSemAct() {
+  const svg = document.getElementById("semSvg");
+  if (!svg) return;
+  const strokes = [...svg.querySelectorAll<SVGGeometryElement>(".draw:not(.beam):not(g), #sample path")];
+  for (const el of strokes) {
+    const len = el.getTotalLength();
+    el.style.strokeDasharray = String(len);
+    el.style.strokeDashoffset = String(len);
+  }
+  const tl = gsap.timeline({
+    scrollTrigger: { trigger: "#semAct", start: "top top", end: "+=1500", pin: true, scrub: true },
+  });
+  tl.to(strokes, { strokeDashoffset: 0, duration: 5, stagger: 0.14, ease: "none" }, 0);
+  tl.from("#semSvg .lbl", { opacity: 0, duration: 1.2, stagger: 0.55, ease: "none" }, 1.2);
+  tl.from("#semSvg .beam", { opacity: 0, duration: 1, ease: "none" }, 3);
+  tl.fromTo("#beamDot", { attr: { cy: 46 } }, { attr: { cy: 462 }, duration: 4, ease: "power1.in" }, 3.2);
+  tl.to({}, { duration: 0.8 }, ">");   // beat at the bottom before unpinning
+}
+
 async function boot() {
   // a pinned scroll story restored mid-pin on reload is disorienting; start clean
   history.scrollRestoration = "manual";
   buildRail(document.getElementById("lensRail")!, 10);
   buildRail(document.getElementById("matRail")!, MAT_STEPS.length);
+  if (!reduced) initSemAct();   // DOM-only: works even without WebGPU
   if (reduced || !navigator.gpu) return staticFallback();
   let device: GPUDevice;
   try {
@@ -67,72 +88,6 @@ async function boot() {
   } catch {
     return staticFallback();
   }
-
-  // ------------------------------------------------ hero: the cast wordmark
-  const HN = 768;
-  const heroSim = new Simulation(device, HN);
-  // crucible scenario: letters relax toward a heater set-point, mold stays a
-  // cold sink, and the pointer is a torch (weld source reused)
-  Object.assign(heroSim.params, {
-    aniMode: 4, delta: 0.035, noiseAmp: 0.014, latent: 1.5,
-    coolRate: 0, alloyOn: 0, twinProb: 0, meltGlow: 1.0, heatIn: 0,
-    scen: 3, holdT: 0.995, holdRate: 4, weldPow: 0, weldSig: 12,
-    weldX: -9999, weldY: -9999,
-  });
-  const heroCanvas = document.getElementById("logoCast") as HTMLCanvasElement;
-  const heroRen = new Renderer(device, heroCanvas, heroSim);
-  const logo = buildLogoMask(HN, 0.235);
-
-  // molten gloop, then the heater dies over ~30 s and grains claim the letters
-  const MOLTEN_S = 13, HARDEN_S = 17, COLD_S = 9;
-  const HOLD_HOT = 0.985, HOLD_COLD = 0.18;
-  let heroPhase: "molten" | "harden" | "cold" = "molten";
-  let heroClock = 0;
-  let grainAcc = 0;
-  const pour = () => {
-    heroSim.resetMold(logo.mask, 1.25, 0.06);
-    heroSim.params.holdT = HOLD_HOT;
-    heroPhase = "molten";
-    heroClock = 0;
-    grainAcc = 0;
-  };
-  pour();
-  const castBox = document.getElementById("castBox")!;
-  castBox.addEventListener("pointerdown", pour);
-  castBox.addEventListener("pointermove", e => {
-    const g = heroRen.clientToGrid(e.clientX, e.clientY, HN);
-    // gentle: ~+0.06 T at equilibrium — softens the gloop, relaxes back in ~3 s
-    heroSim.params.weldPow = g ? 0.25 : 0;
-    if (g) { heroSim.params.weldX = g.x; heroSim.params.weldY = g.y; }
-  });
-  castBox.addEventListener("pointerleave", () => { heroSim.params.weldPow = 0; });
-
-  const heroScene = (dt: number) => {
-    heroClock += dt;
-    // grains nucleate wherever the melt has cooled enough to take them, so the
-    // gloop is polycrystalline and the hardened word shows real grain contrast
-    if (heroPhase !== "cold") {
-      grainAcc += dt;
-      if (grainAcc > 0.6) {
-        grainAcc = 0;
-        for (let i = 0; i < 2; i++) {
-          const idx = logo.cells[Math.floor(Math.random() * logo.cells.length)];
-          heroSim.addSeed(idx % HN, Math.floor(idx / HN), 2.5, undefined, 0.998);
-        }
-      }
-    }
-    if (heroPhase === "molten") {
-      heroSim.params.holdT = HOLD_HOT;
-      if (heroClock > MOLTEN_S) { heroPhase = "harden"; heroClock = 0; }
-    } else if (heroPhase === "harden") {
-      const f = Math.min(1, heroClock / HARDEN_S);
-      heroSim.params.holdT = HOLD_HOT + (HOLD_COLD - HOLD_HOT) * f;
-      if (heroClock > HARDEN_S) { heroPhase = "cold"; heroClock = 0; }
-    } else if (heroPhase === "cold") {
-      heroSim.params.holdT = HOLD_COLD;
-      if (heroClock > COLD_S) pour();
-    }
-  };
 
   // ------------------------------------------------------- lens act (pinned)
   const LN = 256;
@@ -217,13 +172,12 @@ async function boot() {
   });
 
   // ------------------------------------------- visibility-gated master loop
-  const active = { hero: true, lens: false, mat: false };
+  const active = { lens: false, mat: false };
   const watch = (el: Element, key: keyof typeof active) => {
     new IntersectionObserver(es => {
       for (const e of es) active[key] = e.isIntersecting;
     }, { threshold: 0.02 }).observe(el);
   };
-  watch(heroCanvas, "hero");
   watch(lensCanvas, "lens");
   watch(matCanvas, "mat");
 
@@ -232,11 +186,6 @@ async function boot() {
     const dt = Math.min(0.1, (t - last) / 1000);
     last = t;
     try {
-      if (active.hero) {
-        heroScene(dt);
-        heroSim.step(11);
-        heroRen.render(heroSim, 10, t / 1000);   // 10 = CAST hero lens
-      }
       if (active.lens) {
         lensScene(dt);
         lensSim.step(7);   // slower growth: the dendrites get ~5 s more stage time
@@ -259,9 +208,8 @@ async function boot() {
   // test hook: drive frames manually in occluded windows (rAF is suspended)
   (window as unknown as Record<string, unknown>).__landing = {
     tick(k: number) { for (let i = 0; i < k; i++) frameBody(last + 1000 / 60); },
-    sims: { heroSim, lensSim, matSim },
+    sims: { lensSim, matSim },
     active,
-    pour,
   };
 }
 

@@ -225,9 +225,28 @@ physics model, milestone gates — set in stone before implementation).
       HTML for scrapers; verified), GitHub-issue card w/ bug-report guidance
       (lens/material/scenario + browser/GPU), copy-address button, house style,
       linked from landing topnav+footer, science footer, app rail
-- [ ] Analytics: GoatCounter chosen (free, cookie-free, no consent banner);
-      WAITING on Frank to sign up + send the site code, then add the one-line
-      script to all four pages
+- [x] Analytics: GoatCounter live on all four pages (code frankcai2 →
+      dashboard frankcai2.goatcounter.com); cookie-free, no consent banner
+
+## v1.0 (2026-07-19): Vercel migration + text logo + SEM blueprint
+
+- [x] Migrated to Vercel: prod at solidify-mu.vercel.app (CLI deploys; the old MCP-token
+      403 was token-only). gh-pages replaced with JS redirect stubs that preserve
+      path/query/hash (+404.html). `vercel git connect` blocked until Frank adds a
+      GitHub Login Connection in Vercel account settings.
+- [x] Crucible logo removed (Frank: revert) — clean text wordmark returns with the
+      v0.6 letter-solidify entrance (rise + unblur + amber→white); logotype.ts deleted;
+      solver keeps resetMold/scen-3/CAST as unused engine capabilities
+- [x] NEW: "From beam to grain" SEM blueprint act (Exa-style) — patent-drawing SVG of
+      an electron-microscope column in amber line work; pinned scrub draws every stroke,
+      labels fade in, the beam dot descends to the dendrite sample, and the signal wire
+      hands off into the TEN LENSES act; fully-drawn static fallback for nogpu/reduced
+- [x] Fixed: hero CTAs invisible since v0.7 (container never animated, only its
+      anchors — pre-state kept .cta at opacity 0); fixed: initSemAct threw on the
+      <g> sample (no getTotalLength) which silently killed the whole boot
+- [ ] frankcai.dev purchase: WAITING on registrant contact (street/city/state/zip/phone);
+      then attach solidify.frankcai.dev + apex redirect, re-point gh-pages stubs,
+      update README links
 
 **Known limits / next:**
 - [ ] Grain-boundary lines in ETCH are thin/broken while liquid films persist (partly physical)
