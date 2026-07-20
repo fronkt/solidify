@@ -9,9 +9,16 @@ live ASTM grain number.
 
 ![Four-fold dendrite growing in an undercooled melt](docs/hero-dendrite.jpg)
 
-Switch the crystal symmetry from cubic (×4) to hexagonal (×6) and the same equations grow a snowflake:
+Switch the crystal symmetry from cubic (×4) to hexagonal (×6) and the same equations grow a
+snowflake — shown here in cross-polarised (orientation) view:
 
-![Six-fold dendritic snowflake](docs/hero-snowflake.jpg)
+![Six-fold dendritic snowflake in orientation view](docs/hero-snowflake.jpg)
+
+The landing page opens with a scroll-driven descent — from the GPU running the solver, down
+through the die, an electron column, the specimen, and out to a synchrotron — every scene a live
+3D wireframe:
+
+![Exploded electron-microscope column from the landing dive](docs/dive-column.jpg)
 
 ## What it simulates
 
