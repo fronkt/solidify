@@ -16,7 +16,8 @@ import { Composer } from "./composer";
 import { Analyze } from "./analyze";
 import { Analyze3D } from "./analyze3d";
 
-const TURBO_STEPS = 150;
+/** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
+const SPEED_MULTS = [1, 2, 4] as const;
 
 async function boot() {
   const gate = () => { document.getElementById("gate")!.style.display = "flex"; };
@@ -49,7 +50,7 @@ async function boot() {
   let view: ViewMode = 0;
   let running = true;
   let substeps = 14;
-  let turbo = false;
+  let speedMult = 1;
   let rain = 0;
   let undercool = 1.0;
   let brush = 4;
@@ -271,7 +272,6 @@ async function boot() {
     setSpeed(v) {
       if (mode === "3d") substeps3d = Math.min(22, v);
       else substeps = v;
-      turbo = false;
     },
     // while the optimizer owns the stage, the transport drives IT, not the melt
     setRun(on) {
@@ -300,8 +300,10 @@ async function boot() {
     getSubsteps: () => substeps,
     isRunning: () => (opt.active ? opt.isRunning() : mode === "3d" ? running3d : running),
     isEngineering: () => opt.active,
-    isTurbo: () => turbo,
-    toggleTurbo() { turbo = !turbo; },
+    getSpeedMult: () => speedMult,
+    cycleSpeedMult() {
+      speedMult = SPEED_MULTS[(SPEED_MULTS.indexOf(speedMult as 1 | 2 | 4) + 1) % SPEED_MULTS.length];
+    },
     getMaterial: () => material,
     setMaterial(k) {
       const m = MATERIALS[k];
@@ -406,7 +408,7 @@ async function boot() {
     getView3d: () => view3d,
     setView3d(v) { view3d = Math.max(0, Math.min(LENS3_NAMES.length - 1, v)); },
     getSubsteps3: () => substeps3d,
-    setSpeed3(v) { substeps3d = v; turbo = false; },
+    setSpeed3(v) { substeps3d = v; },
     getSliceAxis: () => slice.axis,
     setSliceAxis(a) { slice.axis = Math.max(0, Math.min(2, a)); },
     getSliceOff: () => slice.off,
@@ -956,7 +958,7 @@ async function boot() {
               if (p3d.weldY > sim3d.n * 0.9) p3d.weldY = sim3d.n * 0.15;
             }
           }
-          sim3d.step(turbo ? 48 : substeps3d);
+          sim3d.step(substeps3d * speedMult);
         } else {
           sim3d.step(0); // stamp queued taps so staging is visible while armed
         }
@@ -1038,7 +1040,7 @@ async function boot() {
             if (sim.params.weldY > sim.n * 0.9) sim.params.weldY = sim.n * 0.15;
           }
         }
-        sim.step(turbo ? TURBO_STEPS : substeps);
+        sim.step(substeps * speedMult);
       } else {
         sim.step(0); // stamp queued taps so staging is visible while armed
       }

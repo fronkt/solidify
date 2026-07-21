@@ -281,7 +281,7 @@ export const CHAPTERS: Chapter[] = [
     part: "THE INSTRUMENT",
     title: "Part II: the instrument",
     body: "The rest of the tour walks every control on the instrument, dropdown by dropdown. Nothing in part II touches your melt — whatever you have growing keeps growing. Close anytime.",
-    watch: "The transport (bottom left): RESET arms a fresh melt so you can stage seeds while paused, RUN/PAUSE is the space bar, TURBO fast-forwards, and ⏺ REC saves a .webm clip of the canvas.",
+    watch: "The transport (bottom left): RESET arms a fresh melt so you can stage seeds while paused, RUN/PAUSE is the space bar, ×1 cycles to ×2 and ×4 to fast-forward (crank the speed slider first, then stack the multiplier), and ⏺ REC saves a .webm clip of the canvas.",
     hl: ["#transport"],
   },
   {

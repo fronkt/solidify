@@ -15,8 +15,8 @@ export interface UIHost extends AppControl {
   isRunning(): boolean;
   isEngineering(): boolean;
   shareLink(): string;
-  isTurbo(): boolean;
-  toggleTurbo(): void;
+  getSpeedMult(): number;
+  cycleSpeedMult(): void;
   getMaterial(): string;
   setMaterial(key: string): void;
   openComposer(): void;
@@ -102,7 +102,7 @@ export class UI {
   private viewBtns: HTMLButtonElement[] = [];
   private viewBtns3: HTMLButtonElement[] = [];
   private runBtn!: HTMLButtonElement;
-  private turboBtn!: HTMLButtonElement;
+  private multBtn!: HTMLButtonElement;
   private recBtn!: HTMLButtonElement;
   private symBtns: HTMLButtonElement[] = [];
   private gridBtns: HTMLButtonElement[] = [];
@@ -176,7 +176,7 @@ export class UI {
     const el = document.getElementById("transport")!;
     this.button(el, "⟲ reset", () => { this.host.resetArmed(); this.sync(); }, "warn");
     this.runBtn = this.button(el, "▶ run", () => { this.host.setRun(!this.host.isRunning()); this.sync(); });
-    this.turboBtn = this.button(el, "turbo", () => { this.host.toggleTurbo(); this.sync(); });
+    this.multBtn = this.button(el, "×1", () => { this.host.cycleSpeedMult(); this.sync(); });
     this.recBtn = this.button(el, "⏺ rec", () => this.host.toggleRec());
   }
 
@@ -648,7 +648,10 @@ export class UI {
 
     this.runBtn.textContent = host.isRunning() ? "⏸ pause" : "▶ run";
     this.runBtn.classList.toggle("accent", !host.isRunning());
-    this.turboBtn.classList.toggle("on", host.isTurbo());
+    const mult = host.getSpeedMult();
+    this.multBtn.textContent = `×${mult}`;
+    this.multBtn.title = mult === 1 ? "fast-forward: ×2, then ×4" : `${mult}× the speed slider`;
+    this.multBtn.classList.toggle("on", mult > 1);
     this.recBtn.textContent = host.isRecording() ? "⏹ stop" : "⏺ rec";
     this.recBtn.classList.toggle("rec", host.isRecording());
     document.getElementById("matline")!.textContent =

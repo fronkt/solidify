@@ -1,7 +1,7 @@
 // Regenerates the demo stills: README hero shots + the landing's no-WebGPU
 // fallback images. Captured from the live app via headless Chrome with WebGPU
 // (--enable-unsafe-webgpu --enable-gpu): hide the UI chrome, grow the crystal
-// large with deterministic __solidify.tick() bursts under turbo, then clip a
+// large with deterministic __solidify.tick() bursts at ×4 speed, then clip a
 // centered region straight to JPEG so the frame is all simulation.
 import puppeteer from "puppeteer-core";
 
@@ -33,7 +33,12 @@ async function appShot(name, setup, { ticks = 22, clip } = {}) {
     await page.waitForFunction("!!window.__solidify", { timeout: 20000 });
   }
   await new Promise(r => setTimeout(r, 1000));
-  await page.evaluate(() => { const a = window.__solidify.app; if (!a.isTurbo()) a.toggleTurbo(); });
+  // fast-forward: max the speed slider, then stack the ×4 multiplier
+  await page.evaluate(() => {
+    const a = window.__solidify.app;
+    a.setSpeed(60);
+    while (a.getSpeedMult() !== 4) a.cycleSpeedMult();
+  });
   if (setup) await page.evaluate(setup);
   for (let i = 0; i < ticks; i++) {
     await page.evaluate(() => window.__solidify.tick(60));

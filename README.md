@@ -108,7 +108,8 @@ Budget: ~396 MB VRAM at 192³ (+57 MB solute while alloy is on) with an OOM ladd
   12-branched snowflake. Twin boundaries etch faint, as in real metallography.
 - **Process controls** — undercooling, cooling rate, activation-gated nucleation rain, chill
   wall, anneal-to-remelt, symmetry, anisotropy, noise, latent heat, brush size, and a pro panel
-  (ε̄, γ, α, τ, k) for power users. Reset arms a staged melt; run/pause/turbo transport.
+  (ε̄, γ, α, τ, k) for power users. Reset arms a staged melt; run/pause plus a ×1/×2/×4
+  fast-forward multiplier on the transport.
 - **Looks & navigation** — scroll-zoom + right-drag pan in any lens, pixel mode (chunky
   nearest-neighbour cells) and an 8-bit dithered palette toggle.
 - **Live metallography** — fraction solid, interface undercooling, grain count, grain-size
