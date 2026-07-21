@@ -89,7 +89,7 @@ export interface StatsResult3D {
   grains: { id: number; vox: number }[];   // retained for IPF / histogram panels
 }
 
-interface Seed3 { x: number; y: number; z: number; r: number; id: number; tact: number }
+interface Seed3 { x: number; y: number; z: number; r: number; id: number; dTact: number }
 
 export class Sim3D {
   readonly device: GPUDevice;
@@ -564,15 +564,16 @@ export class Sim3D {
 
   /**
    * queue a nucleus at voxel (x, y, z); returns the assigned grain id.
-   * tact = activation temperature (2 = always fires; rain passes a distribution)
+   * dTact = activation undercooling below the liquidus (-9 = always fires;
+   * the nucleation model passes a distribution of site potencies)
    */
-  addSeed3D(x: number, y: number, z: number, r = 4, q?: [number, number, number, number], tact = 2.0): number {
+  addSeed3D(x: number, y: number, z: number, r = 4, q?: [number, number, number, number], dTact = -9): number {
     let id = this.nextId++;
     if (id >= MAX_GRAINS3 - 1) { this.nextId = 2; id = 1; }   // top id is PORE_ID
     const quat = q ?? Sim3D.randomQuat();
     this.quatCPU.set(quat, id * 4);
     this.device.queue.writeBuffer(this.quatBuf, id * 16, this.quatCPU, id * 4, 4);
-    this.pendingSeeds.push({ x, y, z, r, id, tact });
+    this.pendingSeeds.push({ x, y, z, r, id, dTact });
     this.lastSeed = { x, y, z };
     return id;
   }
@@ -705,7 +706,7 @@ export class Sim3D {
       batch.forEach((s, i) => {
         const b = i * SEED3_STRIDE;
         sd[b] = s.x; sd[b + 1] = s.y; sd[b + 2] = s.z;
-        sd[b + 3] = s.r; sd[b + 4] = s.id; sd[b + 5] = s.tact;
+        sd[b + 3] = s.r; sd[b + 4] = s.id; sd[b + 5] = s.dTact;
       });
       d.queue.writeBuffer(this.seedBuf, 0, sd);
       seedCount = batch.length;

@@ -125,5 +125,41 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   await page.close();
 }
 
+// 6. seeds gate on activation UNDERCOOLING measured against the LOCAL liquidus:
+//    in an alloy, sites offered above tEq = 1 - m*c0 must not fire at all
+//    (they used to stamp into above-liquidus melt and quietly remelt)
+{
+  const page = await browser.newPage();
+  await boot(page);
+  const read = () => page.evaluate(async () => {
+    const s = window.__solidify.sim();
+    for (let t = 0; t < 80; t++) { const st = await s.readStats(); if (st) return st; await s.device.queue.onSubmittedWorkDone(); }
+    return null;
+  });
+  const settle = async (k) => { for (let i = 0; i < k; i++) { await page.evaluate(() => window.__solidify.tick(3)); await new Promise(r => setTimeout(r, 90)); } };
+  const offer = (u) => page.evaluate((uu) => {
+    const a = window.__solidify.app, s = window.__solidify.sim();
+    a.clearMelt(uu);
+    for (let i = 0; i < 30; i++) s.addSeed(Math.random() * s.n, Math.random() * s.n, 3.5, undefined, 0.05);
+  }, u);
+
+  await page.evaluate(() => {
+    const a = window.__solidify.app;
+    a.setParams({ scen: 0, heatIn: 0, coolRate: 0, alloyOn: 1, c0: 0.3, mLiq: 0.45, kPart: 0.2, dSol: 0.6 });
+    a.setRain(0); a.setRun(false);
+  });
+  await offer(0.07);                    // T = 0.93, above the alloy liquidus 0.865
+  await settle(4);
+  const hot = await read();
+  await offer(0.25);                    // T = 0.75, undercooled 0.115 > 0.05
+  await settle(4);
+  const cold = await read();
+  const ok = hot && cold && hot.fracSolid < 1e-5 && cold.fracSolid > 1e-4;
+  console.log("NUC-GATE", ok ? "OK" : "FAIL",
+    JSON.stringify({ aboveLiquidus: hot && +hot.fracSolid.toFixed(6), belowLiquidus: cold && +cold.fracSolid.toFixed(6) }));
+  if (!ok) process.exitCode = 1;
+  await page.close();
+}
+
 await browser.close();
 console.log("done");

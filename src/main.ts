@@ -945,7 +945,7 @@ async function boot() {
             rainAcc3 -= 1;
             sim3d.addSeed3D(
               Math.random() * sim3d.n, Math.random() * sim3d.n, Math.random() * sim3d.n,
-              3.0, undefined, 0.86 + Math.random() * 0.12);
+              3.0, undefined, 0.02 + Math.random() * 0.12);
           }
           // weld auto-raster on the top face (2D serpentine port)
           if (sim3d.params.scen === 2 && weldAuto) {
@@ -1023,12 +1023,12 @@ async function boot() {
     } else {
       if (running) {
         // nucleation rain with an activation-undercooling distribution:
-        // potent seeds fire near T~0.98, weak ones need a colder melt
+        // potent sites fire just below the liquidus, weak ones need a colder melt
         rainAcc += rain * dt;
         while (rainAcc >= 1) {
           rainAcc -= 1;
           sim.addSeed(Math.random() * sim.n, Math.random() * sim.n, 3.5,
-            undefined, 0.86 + Math.random() * 0.12);
+            undefined, 0.02 + Math.random() * 0.12);
         }
         // weld auto-raster
         if (sim.params.scen === 2 && weldAuto) {

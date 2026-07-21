@@ -132,7 +132,7 @@ async function boot() {
     });
     lensSim.reset(0.12);
     for (let i = 0; i < 9; i++)
-      lensSim.addSeed(Math.random() * LN, Math.random() * LN, 3.5, undefined, 0.9 + Math.random() * 0.08);
+      lensSim.addSeed(Math.random() * LN, Math.random() * LN, 3.5, undefined, 0.02 + Math.random() * 0.08);
   };
   pourLens();
   let lensPoll = 0;

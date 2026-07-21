@@ -88,7 +88,7 @@ export interface StatsResult {
 
 export const DOMAIN_MM = 1.0; // nominal physical width of the domain
 
-interface Seed { x: number; y: number; r: number; id: number; tact: number }
+interface Seed { x: number; y: number; r: number; id: number; dTact: number }
 
 export class Simulation {
   readonly device: GPUDevice;
@@ -288,16 +288,17 @@ export class Simulation {
 
   /**
    * queue a nucleus; x, y in grid cells; returns assigned grain id.
-   * tact = activation temperature: seed only fires where T < tact
-   * (default 2 = always; rain passes a distribution for inoculant potency)
+   * dTact = activation undercooling: the site only fires where the melt is
+   * colder than its local liquidus by more than this (default -9 = always,
+   * for taps and chill walls; the nucleation model passes a distribution).
    */
-  addSeed(x: number, y: number, r = 4, theta0?: number, tact = 2.0): number {
+  addSeed(x: number, y: number, r = 4, theta0?: number, dTact = -9): number {
     let id = this.nextId++;
     if (id >= MAX_GRAINS) { this.nextId = 2; id = 1; }
     const th = theta0 ?? Math.random() * (2 * Math.PI / this.params.aniMode);
     this.theta0CPU[id] = th;
     this.device.queue.writeBuffer(this.theta0Buf, id * 4, this.theta0CPU, id, 1);
-    this.pendingSeeds.push({ x, y, r, id, tact });
+    this.pendingSeeds.push({ x, y, r, id, dTact });
     return id;
   }
 
@@ -377,7 +378,7 @@ export class Simulation {
       const sd = new Float32Array(batch.length * SEED_STRIDE);
       batch.forEach((s, i) => {
         const b = i * SEED_STRIDE;
-        sd[b] = s.x; sd[b + 1] = s.y; sd[b + 2] = s.r; sd[b + 3] = s.id; sd[b + 4] = s.tact;
+        sd[b] = s.x; sd[b + 1] = s.y; sd[b + 2] = s.r; sd[b + 3] = s.id; sd[b + 4] = s.dTact;
       });
       d.queue.writeBuffer(this.seedBuf, 0, sd);
       seedCount = batch.length;

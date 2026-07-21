@@ -15,7 +15,7 @@
 
 export const MAX_GRAINS = 4096;
 export const MAX_SEEDS = 64;
-export const SEED_STRIDE = 6; // floats per seed: x, y, r, id, tact, pad
+export const SEED_STRIDE = 6; // floats per seed: x, y, r, id, dTact, pad
 
 const COMMON = /* wgsl */ `
 struct Params {
@@ -252,8 +252,10 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 `;
 
 // ------------------------------------------------------------- stamp seeds
-// seeds only fire in liquid colder than their activation temperature
-// (free-growth style inoculant potency; user taps carry tact=2 → always fire)
+// A seed only fires where the melt is undercooled past that site's activation
+// undercooling ΔT_act — measured against the LOCAL liquidus, so in an alloy a
+// solute-enriched pocket (lower tEq) resists nucleation the way it should.
+// User taps carry ΔT_act = -9 → always fire.
 export const STAMP_WGSL = /* wgsl */ `
 ${COMMON}
 @group(0) @binding(0) var<uniform> P: Params;
@@ -274,12 +276,13 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let Tq = clamp(s.g - P.quenchDT, -1.0, 2.0);
   if (phi < 0.3) {
     let p = vec2f(gid.xy) + 0.5;
+    let tEqLocal = 1.0 - P.mLiq * s.b * f32(P.alloyOn);
+    let dT = tEqLocal - Tq;
     for (var i = 0u; i < P.seedCount; i++) {
       let b = i * ${SEED_STRIDE}u;
       let pos = vec2f(seeds[b], seeds[b + 1u]);
       let r = seeds[b + 2u];
-      let tact = seeds[b + 4u];
-      if (Tq >= tact) { continue; }
+      if (dT <= seeds[b + 4u]) { continue; }
       let d = distance(p, pos);
       if (d < r) {
         let v = 1.0 - smoothstep(r - 2.0, r, d);

@@ -19,7 +19,7 @@ import { PALETTE_WGSL } from "./shaders";
 
 export const MAX_GRAINS3 = 4096;
 export const MAX_SEEDS3 = 64;
-export const SEED3_STRIDE = 8; // floats per seed: x, y, z, r, id, tact, pad, pad
+export const SEED3_STRIDE = 8; // floats per seed: x, y, z, r, id, dTact, pad, pad
 /** reserved grain id for shrinkage-pore voxels (φ pinned 0 forever) */
 export const PORE_ID = MAX_GRAINS3 - 1;
 
@@ -478,12 +478,15 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let Tq = clamp(s.g - P.quenchDT, -1.0, 2.0);
   if (phi < 0.3 && id != PORE) {
     let p = vec3f(gid) + 0.5;
+    // activation undercooling against the liquidus. STAMP3D binds no solute
+    // texture, so an alloy uses the nominal liquidus (1 - m*c0) rather than
+    // the 2D pass's per-cell one — documented on the science page.
+    let dT = 1.0 - P.mLiq * P.c0 * f32(P.alloyOn) - Tq;
     for (var i = 0u; i < P.seedCount; i++) {
       let b = i * ${SEED3_STRIDE}u;
       let pos = vec3f(seeds[b], seeds[b + 1u], seeds[b + 2u]);
       let r = seeds[b + 3u];
-      let tact = seeds[b + 5u];
-      if (Tq >= tact) { continue; }
+      if (dT <= seeds[b + 5u]) { continue; }
       let d = distance(p, pos);
       if (d < r) {
         let v = 1.0 - smoothstep(r - 2.0, r, d);
