@@ -632,6 +632,7 @@ async function boot() {
   (window as unknown as Record<string, unknown>).__solidify = {
     app, opt, tour, ui, challenge, composer, analyze,
     mode: () => mode,
+    sim: () => sim,
     sim3d: () => sim3d,
     cam3: () => renderer3d?.cam() ?? null,
     vc: () => viewcube,

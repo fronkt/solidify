@@ -80,6 +80,8 @@ export interface StatsResult {
   diamsUm: number[];
   probeT: number | null;   // temperature at the cooling-curve probe cell
   probePhi: number | null;
+  /** mean temperature of the remaining liquid, or null once fully solid */
+  meanLiqT: number | null;
   /** area-weighted grain-orientation histogram over [0, 2pi/j), 18 bins */
   oriRose: number[];
 }
@@ -449,6 +451,8 @@ export class Simulation {
     const interfT = interf > 0 ? data[2] / 1000 / interf : 0;
     const probeT = this.probe ? data[4] / 1000 - 1 : null;
     const probePhi = this.probe ? data[5] / 1000 : null;
+    const liqCount = data[3];
+    const meanLiqT = liqCount > 0 ? data[6] / 500 / liqCount - 1 : null;
     const minPx = Math.max(20, this.n * this.n * 1e-5);
     const umPerPx = (DOMAIN_MM * 1000) / this.n;
     const diams: number[] = [];
@@ -472,7 +476,7 @@ export class Simulation {
       const meanAreaMm2 = meanAreaPx * (umPerPx / 1000) ** 2;
       astm = 3.322 * Math.log10(1 / meanAreaMm2) - 2.954;
     }
-    return { fracSolid: solid / total, grainCount: count, meanAreaPx, astm, interfaceT: interfT, diamsUm: diams, probeT, probePhi, oriRose };
+    return { fracSolid: solid / total, grainCount: count, meanAreaPx, astm, interfaceT: interfT, diamsUm: diams, probeT, probePhi, meanLiqT, oriRose };
   }
 
   /**

@@ -84,6 +84,8 @@ export interface StatsResult3D {
   interfaceT: number;        // mean T over the diffuse interface band
   probeT: number | null;     // cooling-curve probe readings (null when off)
   probePhi: number | null;
+  /** mean temperature of the remaining melt, or null once fully solid */
+  meanLiqT: number | null;
   grains: { id: number; vox: number }[];   // retained for IPF / histogram panels
 }
 
@@ -878,6 +880,7 @@ export class Sim3D {
       poreFrac: data[8 + PORE_ID] / total, interfaceT,
       probeT: this.probe ? data[4] / 1000 - 1 : null,
       probePhi: this.probe ? data[5] / 1000 : null,
+      meanLiqT: data[3] > 0 ? data[6] / 500 / data[3] - 1 : null,
       grains,
     };
   }

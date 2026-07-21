@@ -299,10 +299,10 @@ struct Stats {
   solid: atomic<u32>,
   interf: atomic<u32>,
   interfT: atomic<u32>,   // fixed point x1000
-  pad: u32,
+  liqCount: atomic<u32>,  // liquid cells sampled (stride 2 per axis)
   probeT: u32,            // (T+1) x1000 at the probe cell (single writer)
   probePhi: u32,          // phi x1000 at the probe cell
-  pad2: u32,
+  liqTsum: atomic<u32>,   // sum of (T+1) x500 over the sampled liquid cells
   pad3: u32,
   counts: array<atomic<u32>, ${MAX_GRAINS}>,
 }
@@ -330,6 +330,13 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   if (s.r > 0.2 && s.r < 0.8) {
     atomicAdd(&stats.interf, 1u);
     atomicAdd(&stats.interfT, u32(clamp(s.g, 0.0, 2.0) * 1000.0));
+  }
+  // mean temperature of the remaining melt: the bulk undercooling the
+  // nucleation model reads. Sampled every other cell on each axis and scaled
+  // x500 so the sum stays inside u32 even on a 2048^2 grid.
+  if (s.r < 0.5 && ((gid.x | gid.y) & 1u) == 0u) {
+    atomicAdd(&stats.liqCount, 1u);
+    atomicAdd(&stats.liqTsum, u32(clamp(s.g + 1.0, 0.0, 3.0) * 500.0));
   }
 }
 `;

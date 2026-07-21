@@ -507,10 +507,11 @@ struct Stats3 {
   solid: atomic<u32>,
   interf: atomic<u32>,    // cells with 0.2 < phi < 0.8
   interfT: atomic<u32>,   // their summed (T+1)*1000 — mean interface temperature
-  pad3: u32,
+  liqCount: atomic<u32>,  // liquid voxels sampled (stride 2 per axis)
   probeT: atomic<u32>,    // (T+1)*1000 at the probe voxel (single writer)
   probePhi: atomic<u32>,  // phi*1000 at the probe voxel
-  pad6: u32, pad7: u32,
+  liqTsum: atomic<u32>,   // sum of (T+1)*500 over the sampled liquid voxels
+  pad7: u32,
   counts: array<atomic<u32>, ${MAX_GRAINS3}>,
 }
 @group(0) @binding(0) var<uniform> P: Params3D;
@@ -540,6 +541,12 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     if (id > 0u && id < ${MAX_GRAINS3}u) {
       atomicAdd(&stats.counts[id], 1u);
     }
+  }
+  // mean melt temperature for the nucleation model — pores excluded by the
+  // early return above; stride 2 per axis and x500 keeps the sum inside u32.
+  if (s.r < 0.5 && ((gid.x | gid.y | gid.z) & 1u) == 0u) {
+    atomicAdd(&stats.liqCount, 1u);
+    atomicAdd(&stats.liqTsum, u32(clamp((s.g + 1.0) * 500.0, 0.0, 2000.0)));
   }
 }
 `;
