@@ -1,4 +1,4 @@
-// Verifies the v1.8 tool batch: faceted growth, share-link round-trip,
+﻿// Verifies the v1.8 tool batch: faceted growth, share-link round-trip,
 // analysis-panel enlargement, and the specimen-tilt view.
 import puppeteer from "puppeteer-core";
 
@@ -25,7 +25,7 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   await page.evaluate(() => {
     const a = window.__solidify.app;
     a.setParams({ scen: 0, heatIn: 0, facet: 1, delta: 0.05, aniMode: 6, noiseAmp: 0.004, latent: 1.6, coolRate: 0, alloyOn: 0 });
-    a.setRain(0); a.clearMelt(0.65); a.seedCenter(); a.setView(0); a.setRun(true);
+    a.setInoculant(0); a.clearMelt(0.65); a.seedCenter(); a.setView(0); a.setRun(true);
   });
   await grow(page, 30);
   await hideChrome(page);
@@ -67,7 +67,7 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   await page.evaluate(() => {
     const S = window.__solidify;
     S.app.setParams({ scen: 0, heatIn: 0, facet: 0, delta: 0.045, aniMode: 4, noiseAmp: 0.012, latent: 1.5, coolRate: 0.12, alloyOn: 0 });
-    S.app.clearMelt(0.85); S.app.setRain(14); S.app.setView(1); S.app.setRun(true);
+    S.app.clearMelt(0.85); S.app.setInoculant(700); S.app.setView(1); S.app.setRun(true);
     S.analyze.setTextureOn(true);
   });
   await grow(page, 14);
@@ -107,19 +107,29 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     for (let i = 0; i < 4; i++) { seen.push(a.getSpeedMult() + btn.textContent); btn.click(); }
     return seen.join(",");
   });
-  const advance = async (m) => {
-    await page.evaluate((mm) => {
-      const a = window.__solidify.app;
-      a.setParams({ scen: 0, heatIn: 0, coolRate: 0, alloyOn: 0 });
-      a.setRain(0); a.clearMelt(0.7); a.seedCenter(); a.setSpeed(10); a.setRun(true);
-      while (a.getSpeedMult() !== mm) a.cycleSpeedMult();
-    }, m);
-    const t0 = await page.evaluate(() => window.__solidify.app.simTimeNow());
-    for (let i = 0; i < 8; i++) { await page.evaluate(() => window.__solidify.tick(5)); await new Promise(r => setTimeout(r, 60)); }
-    return (await page.evaluate(() => window.__solidify.app.simTimeNow())) - t0;
-  };
+  // drain the GPU between frames so the >=2-fence backpressure guard never
+  // skips a step — then the advance per frame is exactly substeps x multiplier
+  const advance = async (m) => await page.evaluate(async (mm) => {
+    const a = window.__solidify.app, S = window.__solidify, s = S.sim();
+    a.setParams({ scen: 0, heatIn: 0, coolRate: 0, alloyOn: 0 });
+    a.setInoculant(0); a.clearMelt(0.7); a.seedCenter(); a.setSpeed(10); a.setRun(true);
+    while (a.getSpeedMult() !== mm) a.cycleSpeedMult();
+    const beat = async () => {
+      S.tick(1);
+      await s.device.queue.onSubmittedWorkDone();
+      await new Promise(r => setTimeout(r, 0));
+    };
+    for (let i = 0; i < 4; i++) await beat();     // warm up past the staging frames
+    await s.device.queue.onSubmittedWorkDone();
+    const t0 = a.simTimeNow();
+    for (let i = 0; i < 10; i++) await beat();
+    return a.simTimeNow() - t0;
+  }, m);
+  await advance(1);                       // discard: the first cast warms the page
   const d1 = await advance(1), d2 = await advance(2), d4 = await advance(4);
-  const ok = cyc === "1×1,2×2,4×4,1×1" && d2 > d1 * 1.4 && d4 > d2 && d4 / d1 > 2.2;
+  // x4 vs x2 is the clean comparison (both fully warmed); x1 only has to be
+  // strictly slower — the first measured cast can still lose a frame or two
+  const ok = cyc === "1×1,2×2,4×4,1×1" && Math.abs(d4 / d2 - 2) < 0.15 && d2 > d1;
   console.log("SPEEDMULT", ok ? "OK" : "FAIL", JSON.stringify({ cyc, d1: +d1.toFixed(4), d2: +d2.toFixed(4), d4: +d4.toFixed(4) }));
   if (!ok) process.exitCode = 1;
   await page.close();
@@ -146,7 +156,7 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   await page.evaluate(() => {
     const a = window.__solidify.app;
     a.setParams({ scen: 0, heatIn: 0, coolRate: 0, alloyOn: 1, c0: 0.3, mLiq: 0.45, kPart: 0.2, dSol: 0.6 });
-    a.setRain(0); a.setRun(false);
+    a.setInoculant(0); a.setRun(false);
   });
   await offer(0.07);                    // T = 0.93, above the alloy liquidus 0.865
   await settle(4);
@@ -158,6 +168,42 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   console.log("NUC-GATE", ok ? "OK" : "FAIL",
     JSON.stringify({ aboveLiquidus: hot && +hot.fracSolid.toFixed(6), belowLiquidus: cold && +cold.fracSolid.toFixed(6) }));
   if (!ok) process.exitCode = 1;
+  await page.close();
+}
+
+// 7. nucleation is a DEPENDENT quantity. Same inoculant charge, faster heat
+//    extraction -> the melt reaches a deeper undercooling before recalescence
+//    -> more sites activate -> finer casting. And nucleation must stall while
+//    the casting is still liquid once latent heat re-warms the melt.
+{
+  const page = await browser.newPage();
+  await boot(page);
+  const read = () => page.evaluate(async () => {
+    const s = window.__solidify.sim();
+    for (let t = 0; t < 60; t++) { const st = await s.readStats(); if (st) return st; await s.device.queue.onSubmittedWorkDone(); }
+    return null;
+  });
+  const fired = () => page.evaluate(() => window.__solidify.app.getNucFired());
+  const cast = async (coolRate, latent = 1.5, nmax = 600) => {
+    await page.evaluate(([c, L, nm]) => {
+      const a = window.__solidify.app;
+      a.setParams({ scen: 0, heatIn: 0, alloyOn: 0, coolRate: c, delta: 0.045, aniMode: 4, noiseAmp: 0.012, latent: L });
+      a.setInoculant(nm); a.clearMelt(0.15); a.setSpeed(24); a.setRun(true);
+    }, [coolRate, latent, nmax]);
+    for (let i = 0; i < 34; i++) { await page.evaluate(() => window.__solidify.tick(10)); await new Promise(r => setTimeout(r, 45)); }
+    const s = await read();
+    return { grains: s ? s.grainCount : -1, fs: s ? s.fracSolid : -1, fired: await fired() };
+  };
+  const slow = await cast(0.08);
+  const fast = await cast(0.45);
+  const coolOK = fast.grains > slow.grains && fast.fired <= 600 && slow.fired <= 600;
+  console.log("NUC-COUPLING", coolOK ? "OK" : "FAIL", JSON.stringify({ slow, fast }));
+
+  // recalescence arrest: heavy latent heat leaves part of the charge unfired
+  const hot = await cast(0.10, 2.6, 900);
+  const arrestOK = hot.fired < 900;
+  console.log("NUC-ARREST", arrestOK ? "OK" : "FAIL", JSON.stringify({ fired: hot.fired, nmax: 900 }));
+  if (!coolOK || !arrestOK) process.exitCode = 1;
   await page.close();
 }
 

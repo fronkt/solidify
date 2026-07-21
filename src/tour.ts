@@ -1,4 +1,4 @@
-import type { PhysParams } from "./sim";
+﻿import type { PhysParams } from "./sim";
 import type { Phys3DParams } from "./sim3d";
 
 // Everything a scene/chapter is allowed to do to the instrument.
@@ -11,7 +11,8 @@ export interface AppControl {
   // accepts both solvers' dials; the mode-aware implementation lands each key
   // only on params that actually carry it
   setParams(p: Partial<PhysParams> & Partial<Phys3DParams>): void;
-  setRain(perSec: number): void;
+  /** inoculant charge: how many potential nuclei the melt carries (n_max) */
+  setInoculant(nmax: number): void;
   setView(v: number): void;
   setSpeed(substeps: number): void;
   setRun(on: boolean): void;
@@ -44,58 +45,58 @@ const NO_SCEN: Partial<PhysParams> = { scen: 0, heatIn: 0, facet: 0 };
 export const SCENES: Record<string, (a: AppControl) => void> = {
   dendrite(a) {
     a.setParams({ ...NO_SCEN, delta: 0.05, aniMode: 4, noiseAmp: 0.006, latent: 1.6, coolRate: 0, alloyOn: 0 });
-    a.setRain(0); a.setWeldAuto(false);
+    a.setInoculant(0); a.setWeldAuto(false);
     a.clearMelt(1.0); a.seedCenter();
     a.setView(0); a.setSpeed(16); a.setRun(true);
   },
   snow(a) {
     a.setParams({ ...NO_SCEN, delta: 0.04, aniMode: 6, noiseAmp: 0.014, latent: 1.8, coolRate: 0, alloyOn: 0 });
-    a.setRain(0); a.setWeldAuto(false);
+    a.setInoculant(0); a.setWeldAuto(false);
     a.clearMelt(0.92); a.seedCenter();
     a.setView(0); a.setSpeed(16); a.setRun(true);
   },
   seaweed(a) {
     // near-zero anisotropy: dense-branching / seaweed morphology
     a.setParams({ ...NO_SCEN, delta: 0.004, aniMode: 4, noiseAmp: 0.02, latent: 1.5, coolRate: 0, alloyOn: 0 });
-    a.setRain(0); a.setWeldAuto(false);
+    a.setInoculant(0); a.setWeldAuto(false);
     a.clearMelt(1.0); a.seedCenter();
     a.setView(0); a.setSpeed(18); a.setRun(true);
   },
   quasi(a) {
     // the forbidden five: quasicrystal-style interface-energy symmetry
     a.setParams({ ...NO_SCEN, delta: 0.045, aniMode: 5, noiseAmp: 0.008, latent: 1.7, coolRate: 0, alloyOn: 0 });
-    a.setRain(0); a.setWeldAuto(false);
+    a.setInoculant(0); a.setWeldAuto(false);
     a.clearMelt(1.0); a.seedCenter();
     a.setView(0); a.setSpeed(16); a.setRun(true);
   },
   rain(a) {
     a.setParams({ ...NO_SCEN, delta: 0.045, aniMode: 4, noiseAmp: 0.012, latent: 1.5, coolRate: 0.12, alloyOn: 0 });
     a.setWeldAuto(false);
-    a.clearMelt(0.85); a.setRain(14);
+    a.clearMelt(0.85); a.setInoculant(700);
     a.setView(1); a.setSpeed(22); a.setRun(true);
   },
   casting(a) {
     a.setParams({ ...NO_SCEN, delta: 0.045, aniMode: 4, noiseAmp: 0.014, latent: 1.85, coolRate: 0.28, alloyOn: 0 });
     a.setWeldAuto(false);
-    a.clearMelt(0.62); a.chillWall("auto"); a.setRain(3);
+    a.clearMelt(0.62); a.chillWall("auto"); a.setInoculant(220);
     a.setView(1); a.setSpeed(26); a.setRun(true);
   },
   bridgman(a) {
     a.setParams({ scen: 1, gradG: 0.11, pullV: 3.5, delta: 0.045, aniMode: 4, noiseAmp: 0.012, latent: 1.6, coolRate: 0, heatIn: 0, alloyOn: 0 });
-    a.setRain(0); a.setWeldAuto(false);
+    a.setInoculant(0); a.setWeldAuto(false);
     a.clearMelt(0.5); a.chillWall("left");
     a.setView(1); a.setSpeed(40); a.setRun(true);
   },
   weld(a) {
     a.setParams({ scen: 2, weldPow: 700, weldSig: 4, delta: 0.045, aniMode: 4, noiseAmp: 0.012, latent: 1.6, coolRate: 0.5, heatIn: 0, alloyOn: 0 });
-    a.setRain(0);
+    a.setInoculant(0);
     a.clearMelt(0.6); a.scatterSeeds(70);
     a.setWeldAuto(true);
     a.setView(0); a.setSpeed(30); a.setRun(true);
   },
   alloy(a) {
     a.setParams({ ...NO_SCEN, alloyOn: 1, c0: 0.3, mLiq: 0.45, kPart: 0.2, dSol: 0.8, delta: 0.05, aniMode: 4, noiseAmp: 0.008, latent: 1.2, coolRate: 0 });
-    a.setRain(0); a.setWeldAuto(false);
+    a.setInoculant(0); a.setWeldAuto(false);
     a.clearMelt(0.78); a.seedCenter();
     a.setView(0); a.setSpeed(18); a.setRun(true);
   },
@@ -109,21 +110,21 @@ export const SCENES3: Record<string, (a: TourHost) => void> = {
   dendrite(a) {
     a.setSym3(4);
     a.setParams({ ...NO_SCEN3, delta: 0.05, noiseAmp: 0.006, latent: 1.6, coolRate: 0 });
-    a.setRain(0); a.setWeldAuto(false);
+    a.setInoculant(0); a.setWeldAuto(false);
     a.clearMelt(1.0); a.seedCenter();
     a.setView3d(0); a.setSpeed(14); a.setRun(true);
   },
   snow(a) {
     a.setSym3(6);
     a.setParams({ ...NO_SCEN3, delta: 0.04, deltaZ: 0.05, noiseAmp: 0.014, latent: 1.8, coolRate: 0 });
-    a.setRain(0); a.setWeldAuto(false);
+    a.setInoculant(0); a.setWeldAuto(false);
     a.clearMelt(0.92); a.seedCenter();
     a.setView3d(0); a.setSpeed(16); a.setRun(true);
   },
   seaweed(a) {
     a.setSym3(4);
     a.setParams({ ...NO_SCEN3, delta: 0.004, noiseAmp: 0.02, latent: 1.5, coolRate: 0 });
-    a.setRain(0); a.setWeldAuto(false);
+    a.setInoculant(0); a.setWeldAuto(false);
     a.clearMelt(1.0); a.seedCenter();
     a.setView3d(0); a.setSpeed(18); a.setRun(true);
   },
@@ -131,28 +132,28 @@ export const SCENES3: Record<string, (a: TourHost) => void> = {
     a.setSym3(4);
     a.setParams({ ...NO_SCEN3, delta: 0.045, noiseAmp: 0.012, latent: 1.5, coolRate: 0.12 });
     a.setWeldAuto(false);
-    a.clearMelt(0.85); a.setRain(10);
+    a.clearMelt(0.85); a.setInoculant(500);
     a.setView3d(1); a.setSpeed(22); a.setRun(true);
   },
   casting(a) {
     a.setSym3(4);
     a.setParams({ ...NO_SCEN3, delta: 0.045, noiseAmp: 0.014, latent: 1.85, coolRate: 0.28, pPore: 0.85 });
     a.setWeldAuto(false);
-    a.clearMelt(0.62); a.chillWall("auto"); a.setRain(3);
+    a.clearMelt(0.62); a.chillWall("auto"); a.setInoculant(200);
     a.setView3d(1); a.setSpeed(22); a.setRun(true);
   },
   alloy(a) {
     a.setSym3(4);
     a.setParams({ ...NO_SCEN3, c0: 0.3, mLiq: 0.45, kPart: 0.2, dSol: 0.8, delta: 0.05, noiseAmp: 0.008, latent: 1.2, coolRate: 0 });
     a.setAlloyOn(true);
-    a.setRain(0); a.setWeldAuto(false);
+    a.setInoculant(0); a.setWeldAuto(false);
     a.clearMelt(0.78); a.seedCenter();
     a.setView3d(0); a.setSpeed(18); a.setRun(true);
   },
   bridgman(a) {
     a.setSym3(4);
     a.setParams({ scen: 1, gradG: 0.55, pullV: 3.5, delta: 0.045, noiseAmp: 0.012, latent: 1.6, coolRate: 0, heatIn: 0 });
-    a.setRain(0); a.setWeldAuto(false);
+    a.setInoculant(0); a.setWeldAuto(false);
     a.clearMelt(0.5);
     a.chillWall("auto");     // = chill floor in 3D: the columnar race starts here
     a.setView3d(1); a.setSpeed(22); a.setRun(true);
@@ -160,7 +161,7 @@ export const SCENES3: Record<string, (a: TourHost) => void> = {
   weld(a) {
     a.setSym3(4);
     a.setParams({ scen: 2, weldPow: 950, weldSig: 5, delta: 0.045, noiseAmp: 0.012, latent: 1.6, coolRate: 0.5, heatIn: 0 });
-    a.setRain(0);
+    a.setInoculant(0);
     a.clearMelt(0.6);
     a.scatterSeeds(60);
     a.setWeldAuto(true);
@@ -169,7 +170,7 @@ export const SCENES3: Record<string, (a: TourHost) => void> = {
   quasi(a) {
     a.setSym3(5);   // icosahedral: the genuine 3D forbidden symmetry
     a.setParams({ scen: 0, delta: 0.02, noiseAmp: 0.008, latent: 1.7, coolRate: 0.02, heatIn: 0 });
-    a.setRain(0); a.setWeldAuto(false);
+    a.setInoculant(0); a.setWeldAuto(false);
     a.clearMelt(0.8);
     a.seedCenter();
     a.setView3d(1); a.setSpeed(20); a.setRun(true);
@@ -181,7 +182,7 @@ export const SCENES3: Record<string, (a: TourHost) => void> = {
     // (the climb is growth-limited, not pull-limited); the blade top stays hot
     a.setSym3(4);
     a.setParams({ scen: 3, gradG: 0.5, pullV: 4.0, delta: 0.045, noiseAmp: 0.012, latent: 1.6, coolRate: 0, heatIn: 0, pPore: 0 });
-    a.setRain(0); a.setWeldAuto(false);
+    a.setInoculant(0); a.setWeldAuto(false);
     a.clearMelt(0.5);
     a.chillWall("auto");
     a.setView3d(1); a.setSpeed(22); a.setRun(true);
@@ -205,7 +206,7 @@ export const CHAPTERS: Chapter[] = [
     watch: "Watch the flat front from the wall break into fingers on its own.",
     apply(a) {
       a.setParams({ scen: 0, delta: 0.008, aniMode: 4, noiseAmp: 0.022, latent: 1.7, coolRate: 0, alloyOn: 0, heatIn: 0 });
-      a.setRain(0); a.setWeldAuto(false);
+      a.setInoculant(0); a.setWeldAuto(false);
       a.clearMelt(0.72); a.chillWall("auto");
       a.setView(3); a.setSpeed(18); a.setRun(true);
     },
@@ -234,7 +235,7 @@ export const CHAPTERS: Chapter[] = [
     watch: "One seed, two orientations. Count the arms — twelve. The two twin domains show as two colours split by a faint boundary; real twin boundaries etch faint too. Raise TWIN RATE in CRYSTAL to let twins fire mid-growth.",
     apply(a) {
       a.setParams({ scen: 0, heatIn: 0, delta: 0.042, aniMode: 6, noiseAmp: 0.012, latent: 1.8, coolRate: 0, alloyOn: 0, twinProb: 0 });
-      a.setRain(0); a.setWeldAuto(false);
+      a.setInoculant(0); a.setWeldAuto(false);
       a.clearMelt(0.92); a.twinSeedCenter();
       a.setView(1); a.setSpeed(16); a.setRun(true);
     },
@@ -370,7 +371,7 @@ export const CHAPTERS: Chapter[] = [
     body: "Everything so far was a 2D section of a 3D event. A real cubic dendrite grows six primary arms — one pair per crystal axis — and a real grain is a polyhedron you can only understand by walking around it. This flips the instrument into TRUE 3D: seven million voxels solving the same phase-field equations, drawn by marching rays through the volume.",
     watch: "One seed, six arms, locked to ⟨100⟩. The glow is the same latent heat as chapter two — now escaping in three dimensions, which is exactly why 3D tips grow sharper than 2D theory predicts.",
     apply(a) {
-      a.setRain(0);
+      a.setInoculant(0);
       a.setSym3(4);
       a.setParams({ delta: 0.05, noiseAmp: 0.006, latent: 1.6, coolRate: 0, heatIn: 0 });
       a.clearMelt(1.0);
@@ -397,7 +398,7 @@ export const CHAPTERS: Chapter[] = [
       a.setParams({ delta: 0.045, noiseAmp: 0.012, latent: 1.5, coolRate: 0.1, heatIn: 0 });
       a.clearMelt(0.85);
       a.scatterSeeds(30);
-      a.setRain(6);
+      a.setInoculant(300);
       a.setView3d(2);
       a.setSliceSweep(true);
       a.setCutStyle(4);
@@ -417,7 +418,7 @@ export const CHAPTERS: Chapter[] = [
       a.setParams({ delta: 0.045, noiseAmp: 0.014, latent: 1.85, coolRate: 0.28, heatIn: 0 });
       a.clearMelt(0.62);
       a.chillWall("auto");
-      a.setRain(3);
+      a.setInoculant(200);
       a.setSliceSweep(false);
       a.setCutStyle(5);
       a.setView3d(3);

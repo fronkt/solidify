@@ -1,4 +1,4 @@
-// Verifies "Engineer it" enters ML mode PAUSED, that the transport run/pause
+﻿// Verifies "Engineer it" enters ML mode PAUSED, that the transport run/pause
 // gates the optimization loop, and that exit restores. Drives the exposed
 // __solidify hooks under headless Chrome + WebGPU.
 import puppeteer from "puppeteer-core";
@@ -66,7 +66,7 @@ if (conv.shown) {
     grid: window.__solidify.app.getGrid(),
     undercool: +window.__solidify.app.getUndercool().toFixed(2),
     coolRate: +window.__solidify.app.simParams().coolRate.toFixed(2),
-    rainPerSec: +window.__solidify.app.getRain().toFixed(1),
+    inoculant: +window.__solidify.app.getInoculant().toFixed(1),
     armedShown: document.getElementById("armed")?.style.display,
   }));
   console.log("APPLIED:", JSON.stringify(applied));

@@ -1,4 +1,4 @@
-// Verifies the TRUE-3D mode end-to-end on real headless WebGPU:
+﻿// Verifies the TRUE-3D mode end-to-end on real headless WebGPU:
 // mode entry, growth, grain claiming, all four lenses, orbit + ViewCube snap,
 // tap-at-depth seeding, and fps probes at both grid sizes.
 //   node scripts/verify-3d.mjs [outDir] [port]
@@ -172,7 +172,7 @@ await page.evaluate(() => {
   const S = window.__solidify.app;
   S.setUndercool(0.62); S.resetArmed();
   S.setParams({ coolRate: 0.28, latent: 1.85, noiseAmp: 0.014 });
-  S.chillWall("auto"); S.setRain(3); S.setRun(true);
+  S.chillWall("auto"); S.setInoculant(200); S.setRun(true);
 });
 await grow(6);
 const cast = await stats3();
@@ -203,7 +203,7 @@ await page.evaluate(() => {
   S.setUndercool(0.5); S.setSym3(4);
   S.setParams({ scen: 1, gradG: 0.55, pullV: 1.2, delta: 0.045, noiseAmp: 0.012, latent: 1.6, coolRate: 0, heatIn: 0, twinProb: 0, facet: 0, pPore: 0 });
   S.setSpeed(22);
-  S.resetArmed(); S.chillWall("auto"); S.setRain(0); S.setRun(true);
+  S.resetArmed(); S.chillWall("auto"); S.setInoculant(0); S.setRun(true);
 });
 const slabArea = fr => page.evaluate(async f => {
   const s3 = window.__solidify.sim3d();
@@ -243,7 +243,7 @@ await page.evaluate(() => {
   S.setUndercool(0.85);
   S.setParams({ scen: 0, coolRate: 0.1, twinProb: 0.03, pPore: 0 });
   S.setSpeed(22);
-  S.resetArmed(); S.seedCenter(); S.setRain(0); S.setView3d(1); S.setRun(true);
+  S.resetArmed(); S.seedCenter(); S.setInoculant(0); S.setView3d(1); S.setRun(true);
 });
 await grow(16);
 const sTw = await stats3();
@@ -255,7 +255,7 @@ const stageSym = j => page.evaluate(jj => {
   const S = window.__solidify.app;
   S.setUndercool(0.82);
   S.setParams({ scen: 0, noiseAmp: 0.006, latent: 1.7, coolRate: 0.02, twinProb: 0, facet: 0, pPore: 0 });
-  S.setSym3(jj); S.resetArmed(); S.seedCenter(); S.setRain(0); S.setView3d(1); S.setRun(true);
+  S.setSym3(jj); S.resetArmed(); S.seedCenter(); S.setInoculant(0); S.setView3d(1); S.setRun(true);
 }, j);
 await stageSym(4);
 await grow(6);

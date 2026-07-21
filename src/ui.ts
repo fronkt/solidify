@@ -10,7 +10,12 @@ export interface UIHost extends AppControl {
   simParams(): PhysParams;
   getUndercool(): number;
   setUndercool(v: number): void;
-  getRain(): number;
+  getInoculant(): number;
+  getNucPotency(): number;
+  setNucPotency(v: number): void;
+  getNucSpread(): number;
+  setNucSpread(v: number): void;
+  getNucFired(): number;
   getSubsteps(): number;
   isRunning(): boolean;
   isEngineering(): boolean;
@@ -359,7 +364,21 @@ export class UI {
     const melt = this.section(rail, "MELT · PROCESS", true);
     this.slider(melt, "undercooling", 0.3, 1.0, 0.01, () => host.getUndercool(), v => host.setUndercool(v));
     this.slider(melt, "cooling rate", 0, 0.6, 0.005, () => p().coolRate, v => { p().coolRate = v; });
-    this.slider(melt, "nucleation /s", 0, 30, 0.5, () => host.getRain(), v => host.setRain(v), v => v.toFixed(1));
+    // The inoculant charge — NOT a nucleation rate. How many potential nuclei
+    // the melt carries; how many actually fire is decided by how deeply the
+    // melt undercools before recalescence, i.e. by the two sliders above.
+    this.slider(melt, "inoculant n_max", 0, 1500, 10,
+      () => host.getInoculant(), v => host.setInoculant(v), v => v.toFixed(0));
+    const nucNote = document.createElement("div");
+    nucNote.className = "matnote";
+    melt.append(nucNote);
+    this.binds.push({
+      update: () => {
+        nucNote.textContent = host.getInoculant() === 0
+          ? "no grain refiner — the melt nucleates only on a chill wall or your taps"
+          : "sites fire as the melt undercools past each one; the rate is not a setting";
+      },
+    });
     const mrow = this.btnRow(melt);
     this.button(mrow, "seed", () => host.seedCenter());
     this.button(mrow, "twin seed", () => host.twinSeedCenter());
@@ -589,6 +608,16 @@ export class UI {
     this.slider(adv, "driving α", 0.6, 1.0, 0.01, () => p().alpha, v => { p().alpha = v; });
     this.slider(adv, "relax τ ×10⁻⁴", 1.5, 8, 0.1, () => p().tau * 1e4, v => { p().tau = v * 1e-4; }, v => v.toFixed(1));
     this.only2d.push(this.slider(adv, "partition k", 0.05, 0.9, 0.01, () => p().kPart, v => { p().kPart = v; }));
+    // the inoculant's potency distribution: where the site population sits and
+    // how tightly it clusters. Potent refiners fire just below the liquidus.
+    this.slider(adv, "site ΔT_N", 0.03, 0.6, 0.005,
+      () => host.getNucPotency(), v => host.setNucPotency(v), v => v.toFixed(3));
+    this.slider(adv, "site spread σ", 0.01, 0.15, 0.005,
+      () => host.getNucSpread(), v => host.setNucSpread(v), v => v.toFixed(3));
+    const potNote = document.createElement("div");
+    potNote.className = "matnote";
+    potNote.textContent = "activation undercooling of the inoculant population: ≈0.15 ± 0.045 is a well-refined melt, ≈0.45 ± 0.10 a clean uninoculated one";
+    adv.append(potNote);
     const shareB = this.button(this.btnRow(adv), "⎘ copy setup link", () => {
       void navigator.clipboard.writeText(host.shareLink()).then(() => {
         shareB.textContent = "copied ✓";

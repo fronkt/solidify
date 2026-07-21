@@ -15,6 +15,7 @@ import { Challenge, type ChallengeHost } from "./challenge";
 import { Composer } from "./composer";
 import { Analyze } from "./analyze";
 import { Analyze3D } from "./analyze3d";
+import { Nucleation } from "./nucleation";
 
 /** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
 const SPEED_MULTS = [1, 2, 4] as const;
@@ -51,13 +52,14 @@ async function boot() {
   let running = true;
   let substeps = 14;
   let speedMult = 1;
-  let rain = 0;
   let undercool = 1.0;
   let brush = 4;
   let weldAuto = false;
   let weldSweep = 55;      // cells per second
   let weldDir = 1;
-  let rainAcc = 0;
+  // heterogeneous nucleation: the charge's inoculant site population. The rate
+  // is not a setting — it emerges from how the melt's undercooling deepens.
+  const nuc = new Nucleation();
   let lastStats: StatsResult | null = null;
   let fps = 60;
   let material = "generic";
@@ -75,8 +77,7 @@ async function boot() {
   let view3d = 0;                 // 0 MELT, 1 ORIENT, 2 SLICE, 3 FIELD
   let running3d = true;
   let substeps3d = 8;
-  let rain3d = 0;
-  let rainAcc3 = 0;
+  const nuc3 = new Nucleation();
   let grid3 = caps3d.maxN;
   // section plane: preset axis + depth + free tilt/turn, CT-sweep animation,
   // and the cut-face style (the etch cabinet)
@@ -153,7 +154,7 @@ async function boot() {
       sim3d.reset(1 - undercool);
       sim3d.addSeed3D(sim3d.n / 2, sim3d.n / 2, sim3d.n / 2, brush + 1);
       lastStats3 = null;
-      rainAcc3 = 0;
+      nuc3.stage(sim3d.n, true);
       running3d = !armed;
       renderer3d!.resetView();
       mode = "3d";
@@ -208,6 +209,14 @@ async function boot() {
     }
   };
 
+  /** edit the active mode's inoculant charge and re-draw its site population */
+  const restageNuc = (edit: (N: Nucleation) => void) => {
+    const three = mode === "3d" && !!sim3d;
+    const N = three ? nuc3 : nuc;
+    edit(N);
+    N.restage(three ? sim3d!.n : sim.n, three);
+  };
+
   const app: UIHost & OptHost = {
     // ---- AppControl (scenes / tour)
     clearMelt(u) {
@@ -218,7 +227,7 @@ async function boot() {
         hud.reset();
         an3.reset();
         lastStats3 = null;
-        rainAcc3 = 0;
+        nuc3.stage(sim3d.n, true);
         sim3d.params.weldX = sim3d.n * 0.12;
         sim3d.params.weldY = sim3d.n * 0.2;
         weldDir = 1;
@@ -228,6 +237,7 @@ async function boot() {
       hud.reset();
       analyze.reset();
       lastStats = null;
+      nuc.stage(sim.n, false);
       sim.params.weldX = sim.n * 0.12;
       sim.params.weldY = sim.n * 0.2;
       weldDir = 1;
@@ -267,7 +277,9 @@ async function boot() {
       }
       Object.assign(sim.params, p);
     },
-    setRain(v) { if (mode === "3d") rain3d = v; else rain = v; },
+    // the inoculant addition: how many potential nuclei the charge carries.
+    // Changing it re-draws the site population, keeping already-swept sites spent.
+    setInoculant(v) { restageNuc(N => { N.p.nmax = v; }); },
     setView(v) { view = v as ViewMode; },
     setSpeed(v) {
       if (mode === "3d") substeps3d = Math.min(22, v);
@@ -296,7 +308,12 @@ async function boot() {
     simParams: () => (mode === "3d" && sim3d ? (sim3d.params as unknown as typeof sim.params) : sim.params),
     getUndercool: () => undercool,
     setUndercool(v) { undercool = v; },
-    getRain: () => (mode === "3d" ? rain3d : rain),
+    getInoculant: () => (mode === "3d" ? nuc3 : nuc).p.nmax,
+    getNucPotency: () => (mode === "3d" ? nuc3 : nuc).p.dTN,
+    setNucPotency(v) { restageNuc(N => { N.p.dTN = v; }); },
+    getNucSpread: () => (mode === "3d" ? nuc3 : nuc).p.dTsig,
+    setNucSpread(v) { restageNuc(N => { N.p.dTsig = v; }); },
+    getNucFired: () => (mode === "3d" ? nuc3 : nuc).fired,
     getSubsteps: () => substeps,
     isRunning: () => (opt.active ? opt.isRunning() : mode === "3d" ? running3d : running),
     isEngineering: () => opt.active,
@@ -348,7 +365,7 @@ async function boot() {
       if (mode === "3d" && sim3d) {
         sim3d.reset(1 - undercool);
         lastStats3 = null;
-        rainAcc3 = 0;
+        nuc3.stage(sim3d.n, true);
         running3d = false;
         hud.reset();
         an3.reset();
@@ -361,6 +378,7 @@ async function boot() {
       hud.reset();
       analyze.reset();
       lastStats = null;
+      nuc.stage(sim.n, false);
       running = false;
       sim.params.weldX = sim.n * 0.12;
       sim.params.weldY = sim.n * 0.2;
@@ -503,20 +521,20 @@ async function boot() {
         delete p3.weldX; delete p3.weldY;   // runtime-positional, like the 2D SKIP set
         return location.origin + location.pathname + packShare({
           p: p3, u: undercool, v: view3d, m: material,
-          n: alloyName, rain: rain3d, d: 1, g3: sim3d.n,
+          n: alloyName, nuc: [nuc3.p.nmax, nuc3.p.dTN, nuc3.p.dTsig], d: 1, g3: sim3d.n,
           sl: [slice.axis, +slice.off.toFixed(3), Math.round(slice.tilt), Math.round(slice.turn), slice.style],
         });
       }
       return location.origin + location.pathname + packShare({
         p: { ...sim.params }, u: undercool, v: view, m: material,
-        n: alloyName, rain, sched: recipeSchedule,
+        n: alloyName, nuc: [nuc.p.nmax, nuc.p.dTN, nuc.p.dTsig], sched: recipeSchedule,
       });
     },
     shareRecipeLink(r: Recipe) {
       return location.origin + location.pathname + packShare({
         p: { ...sim.params, coolRate: r.cool[0] },
         u: r.undercool, v: 1, m: material, n: alloyName,
-        rain: r.rain * sim.params.dt * substeps * 60, sched: r.cool,
+        nuc: [r.rain, nuc.p.dTN, nuc.p.dTsig], sched: r.cool,
       });
     },
     applyRecipe(r: Recipe) {
@@ -525,8 +543,7 @@ async function boot() {
       undercool = r.undercool;
       sim.params.coolRate = r.cool[0];
       recipeSchedule = r.cool;
-      // optimizer rain is seeds per unit SIM-time; the app rains per wall-second
-      rain = r.rain * sim.params.dt * substeps * 60;
+      nuc.p.nmax = r.rain;       // the optimizer's nucleation gene, as a site count
       view = 1;
       app.resetArmed();          // does not clear the schedule (clearMelt does)
       ui.sync();
@@ -607,10 +624,11 @@ async function boot() {
       sim.params.noiseAmp = 0.012;
       sim.params.latent = 1.5;
       sim.params.twinProb = 0;
-      rain = 6;
+      nuc.p.nmax = 260;
       sim.reset(1 - u);
       hud.reset();
       lastStats = null;
+      nuc.stage(sim.n, false);
       running = true;
       substeps = 30;
       ui.sync();
@@ -930,6 +948,15 @@ async function boot() {
     requestAnimationFrame(frame);
   }
 
+  // liquidus of the current charge: pure metal melts at 1, an alloy lower by
+  // its liquidus slope. Undercooling is measured from here.
+  const tEq2 = () => (sim.params.alloyOn ? 1 - sim.params.mLiq * sim.params.c0 : 1);
+  const tEq3 = () => (sim3d?.params.alloyOn ? 1 - sim3d.params.mLiq * sim3d.params.c0 : 1);
+  // how fast the melt is losing temperature right now — used only to bridge
+  // between stats readbacks, never as the undercooling itself
+  const coolProxy = () => Math.max(0, sim.params.coolRate);
+  const coolProxy3 = () => Math.max(0, sim3d?.params.coolRate ?? 0);
+
   function frameBody(t: number) {
     const dt = Math.min(0.1, Math.max(0, (t - last) / 1000));
     last = Math.max(last, t);
@@ -940,13 +967,8 @@ async function boot() {
     if (mode === "3d") {
       if (sim3d && renderer3d) {
         if (running3d) {
-          rainAcc3 += rain3d * dt;
-          while (rainAcc3 >= 1) {
-            rainAcc3 -= 1;
-            sim3d.addSeed3D(
-              Math.random() * sim3d.n, Math.random() * sim3d.n, Math.random() * sim3d.n,
-              3.0, undefined, 0.02 + Math.random() * 0.12);
-          }
+          nuc3.update(sim3d.simTime, coolProxy3(), (x, y, z, d) =>
+            sim3d!.addSeed3D(x, y, z, 3.0, undefined, d));
           // weld auto-raster on the top face (2D serpentine port)
           if (sim3d.params.scen === 2 && weldAuto) {
             const p3d = sim3d.params;
@@ -992,11 +1014,20 @@ async function boot() {
         } else probeMark3.style.display = "none";
 
         statsClock += dt;
-        if (statsClock > 0.25) {
-          statsClock = 0;
+        // the nucleation model needs the melt temperature far more often than
+        // the panels do, so poll every frame while sites are still waiting and
+        // let the readback's own in-flight guard throttle it
+        const forPanels3 = statsClock > 0.25;
+        const wantFast3 = running3d && nuc3.fired < nuc3.p.nmax;
+        if (forPanels3) statsClock = 0;
+        if (forPanels3 || wantFast3) {
           void sim3d.readStats().then(s => {
-            if (s && sim3d) { lastStats3 = s; hud.push3(s); an3.onStats3(s, sim3d.simTime); }
+            if (!s || !sim3d) return;
+            nuc3.observe(sim3d.simTime, s.meanLiqT, tEq3());
+            if (forPanels3) { lastStats3 = s; hud.push3(s); an3.onStats3(s, sim3d.simTime); }
           });
+        }
+        if (forPanels3) {
           // GPU-born twins live only in the GPU quat buffer — mirror them back
           // for the IPF/pole panels while the twin rate is nonzero
           if (sim3d.params.twinProb > 0) void sim3d.refreshQuats();
@@ -1008,6 +1039,7 @@ async function boot() {
             ["solid", s ? `${(s.fracSolid * 100).toFixed(1)} %` : "—"],
             ["grains", s ? String(s.grainCount) : "—"],
             ["d̄ eq", s?.eqDiamUm != null ? `${s.eqDiamUm.toFixed(0)} µm` : "—"],
+            ["sites", nuc3.p.nmax > 0 ? `${nuc3.fired}/${nuc3.p.nmax.toFixed(0)}` : "—"],
             ["pores", s ? `${(s.poreFrac * 100).toFixed(2)} %` : "—"],
             ["fps", `${fps.toFixed(0)} · ${sim3d.n}³`],
           ]);
@@ -1022,14 +1054,10 @@ async function boot() {
       if (!opt.isRunning()) renderer.render(sim, 1, t / 1000);
     } else {
       if (running) {
-        // nucleation rain with an activation-undercooling distribution:
-        // potent sites fire just below the liquidus, weak ones need a colder melt
-        rainAcc += rain * dt;
-        while (rainAcc >= 1) {
-          rainAcc -= 1;
-          sim.addSeed(Math.random() * sim.n, Math.random() * sim.n, 3.5,
-            undefined, 0.02 + Math.random() * 0.12);
-        }
+        // heterogeneous nucleation: sites fire as the melt sweeps past their
+        // activation undercooling. No rate is specified anywhere — recalescence
+        // stalls the sweep, so latent heat shuts nucleation off by itself.
+        nuc.update(sim.simTime, coolProxy(), (x, y, _z, d) => sim.addSeed(x, y, 3.5, undefined, d));
         // weld auto-raster
         if (sim.params.scen === 2 && weldAuto) {
           sim.params.weldX += weldDir * weldSweep * dt;
@@ -1051,35 +1079,53 @@ async function boot() {
     analyze.updateOverlay();
 
     statsClock += dt;
-    if (statsClock > 0.25) {
-      statsClock = 0;
+    // as in 3D: the panels want 4 Hz, the nucleation model wants every frame
+    // it can get while sites are still unfired
+    const forPanels = statsClock > 0.25;
+    const wantFast = running && !opt.active && nuc.fired < nuc.p.nmax;
+    if (forPanels) statsClock = 0;
+    if (forPanels || wantFast) {
       void sim.readStats().then(s => {
-        if (s) {
-          lastStats = s;
-          if (!opt.active) {
-            hud.push(s);
-            analyze.onStats(s, sim.simTime);
-            // an applied ML recipe schedules cooling by solid fraction,
-            // exactly as the optimizer's episodes did
-            if (recipeSchedule && running) {
-              sim.params.coolRate =
-                s.fracSolid < 0.33 ? recipeSchedule[0] :
-                s.fracSolid < 0.66 ? recipeSchedule[1] : recipeSchedule[2];
-            }
+        if (!s) return;
+        nuc.observe(sim.simTime, s.meanLiqT, tEq2());
+        if (!forPanels) return;
+        lastStats = s;
+        if (!opt.active) {
+          hud.push(s);
+          analyze.onStats(s, sim.simTime);
+          // an applied ML recipe schedules cooling by solid fraction,
+          // exactly as the optimizer's episodes did
+          if (recipeSchedule && running) {
+            sim.params.coolRate =
+              s.fracSolid < 0.33 ? recipeSchedule[0] :
+              s.fracSolid < 0.66 ? recipeSchedule[1] : recipeSchedule[2];
           }
-          challenge.onStats(s);
         }
+        challenge.onStats(s);
       });
+    }
+    if (forPanels) {
       const s = lastStats;
       ui.setReadouts([
         ["t", sim.simTime.toFixed(3)],
         ["solid", s ? `${(s.fracSolid * 100).toFixed(1)} %` : "—"],
         ["grains", s ? String(s.grainCount) : "—"],
         ["ASTM", s?.astm != null ? `G ${s.astm.toFixed(1)}` : "—"],
-        ["ΔT int", s ? (1 - s.interfaceT).toFixed(3) : "—"],
+        ["sites", nuc.p.nmax > 0 ? `${nuc.fired}/${nuc.p.nmax.toFixed(0)}` : "—"],
+        ["ΔT max", nuc.maxUndercool.toFixed(3)],
         ["fps", `${fps.toFixed(0)} · ${sim.n}²${renderer.zoom > 1.01 ? ` · ${renderer.zoom.toFixed(1)}×` : ""}`],
       ]);
       updateScalebar();
+    }
+  }
+
+  // links made before v4.0 carry a wall-clock "seeds per second" rain; read it
+  // as a site count so old setups still pour something recognisable
+  function applyNucShare(N: Nucleation, s: ShareState) {
+    if (s.nuc) {
+      N.p.nmax = s.nuc[0]; N.p.dTN = s.nuc[1]; N.p.dTsig = s.nuc[2];
+    } else {
+      N.p.nmax = Math.min(1500, Math.round((s.rain ?? 0) * 40));
     }
   }
 
@@ -1101,7 +1147,7 @@ async function boot() {
     if (shared.d !== 1) Object.assign(sim.params, shared.p);
     undercool = shared.u;
     view = Math.max(0, Math.min(9, Math.round(shared.v))) as ViewMode;
-    rain = shared.rain ?? 0;
+    applyNucShare(nuc, shared);
     recipeSchedule = shared.sched ?? null;
     if (shared.n) alloyName = shared.n;
     app.resetArmed();   // stages it ARMED; resetArmed keeps the schedule
@@ -1110,7 +1156,7 @@ async function boot() {
       const g = Math.round(shared.g3 ?? 0);
       if ([128, 160, 192].includes(g) && g <= caps3d.maxN) grid3 = g;
       view3d = Math.max(0, Math.min(LENS3_NAMES.length - 1, Math.round(shared.v)));
-      rain3d = shared.rain ?? 0;
+      applyNucShare(nuc3, shared);
       if (shared.sl) {
         app.setSliceAxis(shared.sl[0]); app.setSliceOff(shared.sl[1]);
         app.setSliceTilt(shared.sl[2]); app.setSliceTurn(shared.sl[3]);

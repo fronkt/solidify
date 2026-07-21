@@ -1,5 +1,5 @@
 // Shareable setup links: the whole instrument state — physics params, material,
-// undercooling, lens, nucleation rain, even an applied ML recipe schedule —
+// undercooling, lens, the inoculant charge, even an applied ML recipe schedule —
 // packed into a #set= hash. Same spirit as the composer's #alloy= links, but
 // for ANY setup, including what the optimizer discovered.
 
@@ -11,7 +11,8 @@ export interface ShareState {
   v: number;                                // lens index
   m: string;                                // material key
   n?: string;                               // display name (composed alloys)
-  rain?: number;                            // nucleation seeds per second
+  rain?: number;                            // LEGACY: pre-v4 seeds per second
+  nuc?: [number, number, number];           // inoculant: n_max, dT_N, dT_sigma
   sched?: [number, number, number] | null;  // applied recipe cooling schedule
   d?: 1;                                    // 1 = the setup lives in TRUE-3D mode
   g3?: number;                              // 3D grid edge (128 / 160 / 192)
