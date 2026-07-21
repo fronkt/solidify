@@ -430,7 +430,7 @@ export const CHAPTERS: Chapter[] = [
     dim: "3d",
     title: "Take it home",
     body: "Everything you grow is yours to keep. STL meshes the crystal into a watertight, printable surface straight from the φ field — closed pore shells included. 360° records a six-second orbit to webm while the physics keeps running. And the share link carries the entire setup, section plane and all, to anyone with a browser.",
-    watch: "That is the whole lab: cast it, orbit it, section it, inspect it, print it. Go fill the volume.",
+    watch: "The whole instrument lives here now: every preset, Bridgman growth, the surface weld, the alloy field and composer, growth twins, facets, the icosahedral quasicrystal — and the SELECTOR preset, which races sixty grains through a helical channel until a single crystal survives, the way real turbine blades are made. Go fill the volume.",
     hl: ["sec:VOLUME · 3D"],
   },
 ];

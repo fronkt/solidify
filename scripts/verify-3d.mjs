@@ -195,6 +195,119 @@ console.log("STEREOLOGY", stereo.sections >= 1 ? "OK" : "FAIL", JSON.stringify(s
 const stl = await page.evaluate(async () => await window.__solidify.stl());
 console.log("STL", stl && stl.bytes === 84 + 50 * stl.tris && stl.tris > 1000 ? "OK" : "FAIL", JSON.stringify(stl));
 
+// ---- v3.0 full-instrument regressions --------------------------------------
+
+// 15a. Bridgman: chill floor + pulled gradient → the front climbs bottom-first
+await page.evaluate(() => {
+  const S = window.__solidify.app;
+  S.setUndercool(0.5); S.setSym3(4);
+  S.setParams({ scen: 1, gradG: 0.55, pullV: 1.2, delta: 0.045, noiseAmp: 0.012, latent: 1.6, coolRate: 0, heatIn: 0, twinProb: 0, facet: 0, pPore: 0 });
+  S.setSpeed(22);
+  S.resetArmed(); S.chillWall("auto"); S.setRain(0); S.setRun(true);
+});
+const slabArea = fr => page.evaluate(async f => {
+  const s3 = window.__solidify.sim3d();
+  let r = null;
+  for (let t = 0; t < 40 && !r; t++) {
+    r = await s3.readStereo({ n: [0, 0, 1], c: Math.round(s3.n * f) });
+    if (!r) await s3.device.queue.onSubmittedWorkDone();
+  }
+  return r ? r.sections.reduce((a, x) => a + x.areaVox, 0) : -1;
+}, fr);
+await grow(4);
+const bLow1 = await slabArea(0.04);
+await grow(8);
+const bLow2 = await slabArea(0.08);
+console.log("BRIDGMAN3", bLow1 > 300 && bLow2 > 300 ? "OK" : "FAIL", JSON.stringify({ bLow1, bLow2 }));
+
+// 15b. alloy toggle: FIELD differs with solute, clean off, no errors
+await page.evaluate(() => {
+  const S = window.__solidify.app;
+  S.setParams({ scen: 0, coolRate: 0.05 });
+  S.resetArmed(); S.seedCenter(); S.setView3d(3); S.setRun(true);
+});
+await grow(4);
+const fPlain = await page.screenshot({ type: "png" });
+await page.evaluate(() => window.__solidify.app.setAlloyOn(true));
+await new Promise(r => setTimeout(r, 500));
+await grow(4);
+const fAlloy = await page.screenshot({ type: "png" });
+await page.evaluate(() => window.__solidify.app.setAlloyOn(false));
+await grow(2);
+console.log("ALLOY3", Buffer.compare(fPlain, fAlloy) !== 0 &&
+  !(await page.evaluate(() => window.__solidify.app.getAlloyOn())) ? "OK" : "FAIL");
+
+// 15c. GPU twins: a lone seed with a hot twin rate multiplies grains
+await page.evaluate(() => {
+  const S = window.__solidify.app;
+  S.setUndercool(0.85);
+  S.setParams({ scen: 0, coolRate: 0.1, twinProb: 0.03, pPore: 0 });
+  S.setSpeed(22);
+  S.resetArmed(); S.seedCenter(); S.setRain(0); S.setView3d(1); S.setRun(true);
+});
+await grow(16);
+const sTw = await stats3();
+await page.evaluate(() => window.__solidify.app.setParams({ twinProb: 0 }));
+console.log("TWINS3", sTw && sTw.grainCount > 1 ? "OK" : "FAIL", JSON.stringify({ grains: sTw?.grainCount }));
+
+// 15d. icosahedral ≠ cubic under identical staging
+const stageSym = j => page.evaluate(jj => {
+  const S = window.__solidify.app;
+  S.setUndercool(0.82);
+  S.setParams({ scen: 0, noiseAmp: 0.006, latent: 1.7, coolRate: 0.02, twinProb: 0, facet: 0, pPore: 0 });
+  S.setSym3(jj); S.resetArmed(); S.seedCenter(); S.setRain(0); S.setView3d(1); S.setRun(true);
+}, j);
+await stageSym(4);
+await grow(6);
+const symCubic = await page.screenshot({ type: "png" });
+await stageSym(5);
+await grow(6);
+const symIco = await page.screenshot({ type: "png" });
+console.log("ICOSA3", Buffer.compare(symCubic, symIco) !== 0 ? "OK" : "FAIL");
+
+// 15e. selector staging smoke: scen 3 arms + the mask rasterizes
+await page.evaluate(async () => {
+  const { SCENES3 } = await import("/src/tour.ts");
+  SCENES3.selector(window.__solidify.app);
+});
+await tick(4);
+const sel = await page.evaluate(() => ({
+  scen: window.__solidify.sim3d().params.scen,
+  fs: 0,
+}));
+console.log("SELECTOR3", sel.scen === 3 ? "OK" : "FAIL");
+await page.evaluate(() => {
+  const S = window.__solidify.app;
+  S.setParams({ scen: 0 }); S.resetArmed();
+});
+
+// 15f. retro voxel + palette flags change frames without breaking cut styles
+await page.evaluate(() => {
+  const S = window.__solidify.app;
+  S.setUndercool(0.8); S.resetArmed(); S.seedCenter(); S.setView3d(1); S.setRun(true);
+});
+await grow(5);
+const rPlain = await page.screenshot({ type: "png" });
+await page.evaluate(() => { window.__solidify.app.setVoxel3(true); window.__solidify.app.setPalette(true); });
+await tick(3);
+const rRetro = await page.screenshot({ type: "png" });
+await page.evaluate(() => { window.__solidify.app.setVoxel3(false); window.__solidify.app.setPalette(false); });
+console.log("RETRO3", Buffer.compare(rPlain, rRetro) !== 0 ? "OK" : "FAIL");
+
+// 15g. 3D share pack carries the 3D dials (in-page pack/unpack, no reload)
+const share3 = await page.evaluate(async () => {
+  const { unpackShare } = await import("/src/share.ts");
+  const S = window.__solidify.app;
+  S.setParams({ scen: 1, gradG: 0.37, twinProb: 0.001 });
+  const link = S.shareLink();
+  const st = unpackShare(link.slice(link.indexOf("#")));
+  S.setParams({ scen: 0, twinProb: 0 });
+  return st ? { d: st.d, scen: st.p.scen, gradG: st.p.gradG, twinProb: st.p.twinProb } : null;
+});
+console.log("SHARE3", share3 && share3.d === 1 && share3.scen === 1 &&
+  Math.abs(share3.gradG - 0.37) < 1e-4 && Math.abs(share3.twinProb - 0.001) < 1e-6 ? "OK" : "FAIL",
+  JSON.stringify(share3));
+
 // 15. ViewCube Fusion zones: hovering the widget yields face AND corner dirs
 await page.evaluate(() => window.__solidify.app.resetZoom());
 await tick(30);

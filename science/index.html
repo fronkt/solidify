@@ -172,6 +172,20 @@
     explicit Euler at dt = 0.53·dx²/6 (the 3D stability bound), two compute passes per substep over
     ping-pong 3D storage textures, ~396 MB of VRAM at 192³, with an out-of-memory ladder down to
     96³ for smaller GPUs.</p>
+    <p>The volume now carries the <b>whole instrument</b>. The dilute-alloy solute field runs in
+    3D (a lazily-allocated ping-pong texture pair — the composer's chemistry included), Bridgman
+    growth pulls a thermal gradient up the z-axis, and a steerable laser welds the top surface
+    with Beer–Lambert depth absorption. Growth twins nucleate <i>at the moving front</i> in true
+    Σ3 registry — 60° about a parent ⟨111⟩, spawned on the GPU inside the grain-claiming pass —
+    and the "forbidden" 5-fold symmetry gets its honest 3D answer: <b>icosahedral</b> interface
+    energy built on the six 5-fold axes, growing twelve-lobed quasicrystal shapes. A cusped
+    {100} energy grows genuinely faceted crystals. The one 3D-only scenario is the
+    <b>single-crystal grain selector</b>: a helical "pigtail" channel mask under the Bridgman
+    pull — dozens of chill-floor grains race in, exactly one orientation exits into the blade
+    cavity, which is how real turbine-blade single crystals are actually made. The foundry
+    instruments follow: the cooling-curve probe (ctrl-tap any voxel), the Scheil overlay, an
+    SDAS ruler that measures λ₂ along any dragged line through the volume, and a stereographic
+    pole figure beside the IPF map.</p>
 
     <h2>7 · WHAT'S QUANTITATIVE, WHAT'S QUALITATIVE</h2>
     <table>
@@ -183,7 +197,9 @@
       <tr><td>Composer chemistry (ΔT<sub>L</sub>, Q, wt%↔at%)</td><td><b>real dilute-limit values</b>, approximate textbook coefficients</td></tr>
       <tr><td>Units</td><td><b>dimensionless</b> — temperature is scaled (T<sub>m</sub> = 1), mapped at ~100 K per unit for the composer</td></tr>
       <tr><td>Dimensionality</td><td><b>2D by default</b> (thin-sample analog) — the TRUE 3D mode solves the full volume, where dendrites genuinely branch out of plane</td></tr>
-      <tr><td>Porosity + Niyama (3D)</td><td><b>mechanistic</b> — feed-path flood + solidify-while-unfed rule; Ny computed at freeze, not calibrated to a specific alloy</td></tr>
+      <tr><td>Porosity + Niyama (3D)</td><td><b>mechanistic</b> — feed-path flood + solidify-while-unfed rule; Ny computed at freeze, not calibrated to a specific alloy (and not calibrated at all in the Bridgman/weld scenarios)</td></tr>
+      <tr><td>Grain selector (3D)</td><td><b>geometric</b> — real selector physics (columnar competition through a constriction); the pigtail shape is procedural, not a specific foundry's</td></tr>
+      <tr><td>Icosahedral quasicrystal (3D)</td><td><b>interface-energy symmetry only</b> — the aperiodic lattice itself is beyond a phase-field order parameter</td></tr>
       <tr><td>Melt glow per material</td><td><b>display only</b> — incandescence scaled to each metal's freezing point</td></tr>
     </table>
     <p>The rule throughout: anything the instrument displays as a number is computed, and anything

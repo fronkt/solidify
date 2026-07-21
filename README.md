@@ -64,8 +64,19 @@ Flip one switch and the instrument solves the **full volumetric phase-field** �
   record a 6-second **360° turntable** webm, or share the whole setup as a link.
 - **Guided tour part III** — "Into the volume": five chapters from the first six-armed dendrite
   to porosity NDT and the STL export.
+- **The full instrument** (v3.0) — everything from 2D now runs in the volume: the dilute-alloy
+  solute field + composer (lazily-allocated solute textures, +57 MB only while on), Bridgman
+  directional growth up the z-axis, a steerable top-surface laser weld, stochastic **Σ3 growth
+  twins spawned GPU-side at the moving front**, cusped {100} **faceted growth**, the
+  **icosahedral quasicrystal** answer to the forbidden 5-fold, all nine presets, the cooling
+  probe / Scheil overlay / SDAS ruler / pole figure instruments, retro voxel + 8-bit looks, and
+  3D share links that carry the whole setup.
+- **The grain selector** (3D-only showpiece) — a helical pigtail channel under the Bridgman
+  pull: dozens of chill-floor grains race in, **exactly one** exits into the blade cavity —
+  the real mechanism behind single-crystal turbine blades, verified headlessly (64 grains → 1).
 
-Budget: ~396 MB VRAM at 192³ with an OOM ladder down to 96³; 2D mode is untouched at 60 fps.
+Budget: ~396 MB VRAM at 192³ (+57 MB solute while alloy is on) with an OOM ladder down to 96³;
+2D mode is untouched at 60 fps.
 
 ## The instrument
 
