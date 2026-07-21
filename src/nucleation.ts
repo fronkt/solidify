@@ -123,12 +123,15 @@ export class Nucleation {
    */
   update(simTime: number, coolProxy: number, emit: (x: number, y: number, z: number, dTact: number) => void) {
     if (this.ptr >= this.sites.length) return;
+    // the measured undercooling fires sites outright — if the melt really is
+    // that cold, those particles really have activated. Only the extrapolated
+    // part is rationed, and never further than two sigma past real data, so a
+    // batch always waits for the next measurement to confirm it. That is what
+    // makes recalescence stop nucleation: the melt warms, the next measurement
+    // comes back shallower than the ratchet, and no more sites fire.
     const drift = Math.max(0, coolProxy) * Math.max(0, simTime - this.measT);
-    const dTEst = this.measDT + Math.min(drift, 2 * this.p.dTsig);
-    if (dTEst <= this.dTMax) return;             // recalescence: the ratchet stalls
-    // sweep at most half a sigma per frame so a plunge still gives the melt a
-    // chance to recalesce between batches
-    const target = Math.min(dTEst, this.dTMax + this.p.dTsig * 0.5);
+    const target = this.measDT + Math.min(drift, 2 * this.p.dTsig);
+    if (target <= this.dTMax) return;
     while (this.ptr < this.sites.length && this.sites[this.ptr].d <= target) {
       const s = this.sites[this.ptr++];
       emit(s.x, s.y, s.z, s.d);

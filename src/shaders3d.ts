@@ -18,7 +18,7 @@
 import { PALETTE_WGSL } from "./shaders";
 
 export const MAX_GRAINS3 = 4096;
-export const MAX_SEEDS3 = 64;
+export const MAX_SEEDS3 = 128;   // as in 2D: a big inoculant burst must land while liquid remains
 export const SEED3_STRIDE = 8; // floats per seed: x, y, z, r, id, dTact, pad, pad
 /** reserved grain id for shrinkage-pore voxels (φ pinned 0 forever) */
 export const PORE_ID = MAX_GRAINS3 - 1;

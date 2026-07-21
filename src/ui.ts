@@ -367,7 +367,7 @@ export class UI {
     // The inoculant charge — NOT a nucleation rate. How many potential nuclei
     // the melt carries; how many actually fire is decided by how deeply the
     // melt undercools before recalescence, i.e. by the two sliders above.
-    this.slider(melt, "inoculant n_max", 0, 1500, 10,
+    this.slider(melt, "inoculant n_max", 0, 3000, 10,
       () => host.getInoculant(), v => host.setInoculant(v), v => v.toFixed(0));
     const nucNote = document.createElement("div");
     nucNote.className = "matnote";

@@ -3,6 +3,7 @@
 // a lab-notebook strip so you can watch the optimizer learn.
 
 import type { Simulation } from "./sim";
+import { Nucleation } from "./nucleation";
 
 export interface OptHost {
   swapSim(n: number): Simulation;
@@ -98,11 +99,13 @@ class SepCMAES {
 // --------------------------------------------------------------- the episode
 // genome (z-space, mapped through logistic bounds):
 //   cool0, cool1, cool2 : cooling rate in early / mid / late solidification
-//   rain               : nucleation seeds per second
-//   undercool          : initial melt undercooling
+//   nmax                : inoculant charge — potential nuclei in the melt
+//   undercool           : initial melt undercooling
+// Note nmax is a site COUNT, not a rate: how many of those sites actually fire
+// is decided by the cooling schedule, so these genes are genuinely coupled.
 const BOUNDS: [number, number][] = [
   [0.0, 0.5], [0.0, 0.5], [0.0, 0.5],
-  [10.0, 600.0],   // nucleation seeds per unit sim-time
+  [8.0, 2000.0],   // inoculant sites available in the charge
   [0.45, 0.95],
 ];
 const map = (z: number, i: number) => {
@@ -123,7 +126,7 @@ export interface OptStartOpts {
 /** the winning casting schedule, in mapped (physical, dimensionless) units */
 export interface Recipe {
   undercool: number;               // initial melt undercooling (fraction of ΔT_melt)
-  rain: number;                    // nucleation seeds per unit sim-time
+  nmax: number;                    // inoculant charge (potential nuclei)
   cool: [number, number, number];  // cooling rate early / mid / late solidification
   astm: number | null;             // grain size this recipe achieved
 }
@@ -147,7 +150,7 @@ export class Optimizer {
   private scores: number[] = [];
   private genome: number[] | null = null;
   private stepsUsed = 0;
-  private rainAcc = 0;
+  private readonly nuc = new Nucleation();
   private polling = false;
   private episode = 0;
   private best = Infinity;
@@ -236,7 +239,7 @@ export class Optimizer {
     head.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:6px;font-size:11px;";
     head.innerHTML = `<span style="letter-spacing:.2em;color:#56d4dd">⚙ ENGINEERING · ML MODE</span>
       <span>target ASTM <b style="color:#ffb454">G ${this.targetASTM}</b></span>
-      <input id="labTarget" type="range" min="1" max="6" step="0.5" value="${this.targetASTM}" style="width:110px;flex:1;max-width:150px">`;
+      <input id="labTarget" type="range" min="1" max="5.5" step="0.5" value="${this.targetASTM}" style="width:110px;flex:1;max-width:150px">`;
     const stop = document.createElement("button");
     stop.textContent = "exit";
     stop.addEventListener("click", () => this.stop());
@@ -244,7 +247,7 @@ export class Optimizer {
     const desc = document.createElement("div");
     desc.style.cssText = "font-size:10.5px;color:#8891a0;line-height:1.55;margin-bottom:8px;";
     desc.innerHTML = "A <b style=\"color:#cfd6df\">CMA-ES optimizer</b> searches for a casting recipe " +
-      "(cooling schedule + nucleation rate) that lands on your target grain size. Each tile below is " +
+      "(cooling schedule + inoculant charge) that lands on your target grain size. Each tile below is " +
       "<b style=\"color:#cfd6df\">one full casting</b> it tried — early runs nucleate heavily and look chaotic while it explores; " +
       "watch <b style=\"color:#cfd6df\">|ΔG|</b> shrink as it learns. When it converges it stops and " +
       "<b style=\"color:#cfd6df\">reports the winning recipe</b>, which you can load into the instrument and run yourself.";
@@ -294,10 +297,11 @@ export class Optimizer {
     }
     this.genome = this.queue.shift()!;
     this.stepsUsed = 0;
-    this.rainAcc = 0;
     this.episode++;
     const g = this.genome.map(map);
     const sim = this.host.getSim();
+    this.nuc.p.nmax = g[3];
+    this.nuc.stage(sim.n, false);
     sim.params.delta = 0.045;
     sim.params.aniMode = 4;
     sim.params.noiseAmp = 0.012;
@@ -328,7 +332,7 @@ export class Optimizer {
       this.best = score;
       this.bestASTM = astm;
       const g = this.genome!.map(map);
-      this.bestRecipe = { undercool: g[4], rain: g[3], cool: [g[0], g[1], g[2]], astm };
+      this.bestRecipe = { undercool: g[4], nmax: g[3], cool: [g[0], g[1], g[2]], astm };
       this.sinceImprove = 0;
     } else {
       this.sinceImprove++;
@@ -384,7 +388,7 @@ export class Optimizer {
       `<div style="color:#c9cdd4">Best casting: <b style="color:#ffb454">G ${r.astm !== null ? r.astm.toFixed(1) : "—"}</b>` +
       ` (target G ${this.targetASTM} · |ΔG| ${this.best.toFixed(2)}) after ${this.episode} castings.</div>` +
       `<div style="color:#8891a0">undercooling <b style="color:#c9cdd4">${f(r.undercool)}</b> · ` +
-      `nucleation <b style="color:#c9cdd4">${r.rain.toFixed(0)}</b> seeds/unit-time · ` +
+      `inoculant <b style="color:#c9cdd4">${r.nmax.toFixed(0)}</b> sites · ` +
       `cooling early <b style="color:#c9cdd4">${f(r.cool[0])}</b> → mid <b style="color:#c9cdd4">${f(r.cool[1])}</b> → late <b style="color:#c9cdd4">${f(r.cool[2])}</b></div>`;
     const row = document.createElement("div");
     row.style.cssText = "display:flex;gap:8px;margin-top:7px";
@@ -427,12 +431,11 @@ export class Optimizer {
     const sim = this.host.getSim();
     const g = this.genome.map(map);
 
-    // rain nucleation, paced by sim-time so episode speed doesn't bias it
-    this.rainAcc += g[3] * STEPS_PER_TICK * sim.params.dt;
-    while (this.rainAcc >= 1) {
-      this.rainAcc -= 1;
-      sim.addSeed(Math.random() * sim.n, Math.random() * sim.n, 3);
-    }
+    // the same heterogeneous-nucleation model the instrument runs: sites fire
+    // as the melt undercools past them, so the cooling genes decide how much of
+    // the inoculant gene the casting actually gets to use
+    this.nuc.update(sim.simTime, Math.max(0, sim.params.coolRate),
+      (x, y, _z, d) => sim.addSeed(x, y, 3, undefined, d));
 
     sim.step(STEPS_PER_TICK);
     this.stepsUsed += STEPS_PER_TICK;
@@ -446,6 +449,7 @@ export class Optimizer {
       sim.readStats().then(s => {
         this.polling = false;
         if (!s || !this.active || !this.genome || ep !== this.episode) return;
+        this.nuc.observe(sim.simTime, s.meanLiqT, 1);
         sim.params.coolRate = s.fracSolid < 0.33 ? g[0] : s.fracSolid < 0.66 ? g[1] : g[2];
         if (s.fracSolid > 0.92 || this.stepsUsed >= EP_MAX_STEPS) void this.finishEpisode();
       });

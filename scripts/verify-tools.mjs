@@ -114,22 +114,25 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     a.setParams({ scen: 0, heatIn: 0, coolRate: 0, alloyOn: 0 });
     a.setInoculant(0); a.clearMelt(0.7); a.seedCenter(); a.setSpeed(10); a.setRun(true);
     while (a.getSpeedMult() !== mm) a.cycleSpeedMult();
-    const beat = async () => {
+    // measure the advance of frames that actually STEPPED: the backpressure
+    // guard skips a frame whenever the GPU is >=2 submissions behind, and a
+    // skipped frame advances sim-time by exactly zero
+    const beats = [];
+    for (let i = 0; i < 14; i++) {
+      const before = a.simTimeNow();
       S.tick(1);
       await s.device.queue.onSubmittedWorkDone();
       await new Promise(r => setTimeout(r, 0));
-    };
-    for (let i = 0; i < 4; i++) await beat();     // warm up past the staging frames
-    await s.device.queue.onSubmittedWorkDone();
-    const t0 = a.simTimeNow();
-    for (let i = 0; i < 10; i++) await beat();
-    return a.simTimeNow() - t0;
+      const d = a.simTimeNow() - before;
+      if (d > 0) beats.push(d);
+    }
+    beats.sort((p, q) => p - q);
+    return beats[Math.floor(beats.length / 2)] ?? 0;   // median stepped frame
   }, m);
-  await advance(1);                       // discard: the first cast warms the page
   const d1 = await advance(1), d2 = await advance(2), d4 = await advance(4);
-  // x4 vs x2 is the clean comparison (both fully warmed); x1 only has to be
-  // strictly slower — the first measured cast can still lose a frame or two
-  const ok = cyc === "1×1,2×2,4×4,1×1" && Math.abs(d4 / d2 - 2) < 0.15 && d2 > d1;
+  // one frame at multiplier m advances exactly m x (speed slider) steps
+  const ok = cyc === "1×1,2×2,4×4,1×1"
+    && Math.abs(d2 / d1 - 2) < 0.02 && Math.abs(d4 / d1 - 4) < 0.04;
   console.log("SPEEDMULT", ok ? "OK" : "FAIL", JSON.stringify({ cyc, d1: +d1.toFixed(4), d2: +d2.toFixed(4), d4: +d4.toFixed(4) }));
   if (!ok) process.exitCode = 1;
   await page.close();

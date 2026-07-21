@@ -534,7 +534,7 @@ async function boot() {
       return location.origin + location.pathname + packShare({
         p: { ...sim.params, coolRate: r.cool[0] },
         u: r.undercool, v: 1, m: material, n: alloyName,
-        nuc: [r.rain, nuc.p.dTN, nuc.p.dTsig], sched: r.cool,
+        nuc: [r.nmax, nuc.p.dTN, nuc.p.dTsig], sched: r.cool,
       });
     },
     applyRecipe(r: Recipe) {
@@ -543,7 +543,7 @@ async function boot() {
       undercool = r.undercool;
       sim.params.coolRate = r.cool[0];
       recipeSchedule = r.cool;
-      nuc.p.nmax = r.rain;       // the optimizer's nucleation gene, as a site count
+      nuc.p.nmax = r.nmax;       // the optimizer's inoculant gene
       view = 1;
       app.resetArmed();          // does not clear the schedule (clearMelt does)
       ui.sync();
@@ -938,6 +938,7 @@ async function boot() {
   // ------------------------------------------------------------------ loop
   let last = performance.now();
   let statsClock = 0;
+  let nucClock = 0;   // faster sub-cadence feeding the nucleation model
 
   function frame(t: number) {
     try {
@@ -1017,9 +1018,13 @@ async function boot() {
         // the nucleation model needs the melt temperature far more often than
         // the panels do, so poll every frame while sites are still waiting and
         // let the readback's own in-flight guard throttle it
+        nucClock += dt;
         const forPanels3 = statsClock > 0.25;
-        const wantFast3 = running3d && nuc3.fired < nuc3.p.nmax;
+        // 20 Hz is five times the panel cadence — enough resolution for the
+        // ratchet without running a 7-million-voxel reduction every frame
+        const wantFast3 = running3d && nuc3.p.nmax > 0 && nuc3.fired < nuc3.p.nmax && nucClock > 0.05;
         if (forPanels3) statsClock = 0;
+        if (wantFast3) nucClock = 0;
         if (forPanels3 || wantFast3) {
           void sim3d.readStats().then(s => {
             if (!s || !sim3d) return;
@@ -1081,9 +1086,12 @@ async function boot() {
     statsClock += dt;
     // as in 3D: the panels want 4 Hz, the nucleation model wants every frame
     // it can get while sites are still unfired
+    nucClock += dt;
     const forPanels = statsClock > 0.25;
-    const wantFast = running && !opt.active && nuc.fired < nuc.p.nmax;
+    const wantFast = running && !opt.active && nuc.p.nmax > 0
+      && nuc.fired < nuc.p.nmax && nucClock > 0.05;
     if (forPanels) statsClock = 0;
+    if (wantFast) nucClock = 0;
     if (forPanels || wantFast) {
       void sim.readStats().then(s => {
         if (!s) return;
@@ -1125,7 +1133,7 @@ async function boot() {
     if (s.nuc) {
       N.p.nmax = s.nuc[0]; N.p.dTN = s.nuc[1]; N.p.dTsig = s.nuc[2];
     } else {
-      N.p.nmax = Math.min(1500, Math.round((s.rain ?? 0) * 40));
+      N.p.nmax = Math.min(3000, Math.round((s.rain ?? 0) * 40));
     }
   }
 

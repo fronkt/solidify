@@ -14,7 +14,10 @@
 // Grain r32uint = grain id (0 = liquid/unclaimed); per-id theta0 buffer.
 
 export const MAX_GRAINS = 4096;
-export const MAX_SEEDS = 64;
+// seeds stamped per step. A heavily inoculated melt activates hundreds of
+// sites in one sweep, and they have to land while there is still liquid to
+// land in — draining them a handful per frame lets the front engulf them.
+export const MAX_SEEDS = 192;
 export const SEED_STRIDE = 6; // floats per seed: x, y, r, id, dTact, pad
 
 const COMMON = /* wgsl */ `
