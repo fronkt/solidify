@@ -325,6 +325,30 @@ for (let i = 1; i <= 4; i++)
   }
 console.log("VC-ZONES", kinds.has(1) && kinds.has(3) ? "OK" : "FAIL", JSON.stringify([...kinds]));
 
+// LAB in the volume: scen 4 set-point cooling, a rasterized mould shell, and
+// the atmosphere proxy's porosity bias (air = dirtier melt = more porosity)
+{
+  await page.evaluate(() => window.__solidify.app.setGrid3(128));
+  await page.waitForFunction("window.__solidify.sim3d()?.n === 128", { timeout: 40000 });
+  const out = await page.evaluate(() => {
+    const L = window.__solidify.lab, S = window.__solidify, p = S.sim3d().params;
+    S.app.startLab();
+    L.setup = { atmosphere: "vacuum", inoculant: 300, superheat: 0.05, moldT: 0.05, moldWalls: true, program: "air" };
+    L.start();
+    const clean = { scen: p.scen, pPore: p.pPore, shell: S.sim3d().moldShell };
+    L.abort();
+    L.setup.atmosphere = "air";
+    L.start();
+    const dirty = p.pPore;
+    L.abort();
+    L.close();
+    return { ...clean, dirty, restored: p.pPore, scenAfter: p.scen };
+  });
+  const ok = out.scen === 4 && out.shell && out.dirty > out.pPore
+    && Math.abs(out.restored - out.pPore) < 1e-6 && out.scenAfter === 0;
+  console.log("LAB3", ok ? "OK" : "FAIL", JSON.stringify(out));
+}
+
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 6) : "none");
 await browser.close();
 console.log("done");

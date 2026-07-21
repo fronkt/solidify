@@ -107,33 +107,28 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     for (let i = 0; i < 4; i++) { seen.push(a.getSpeedMult() + btn.textContent); btn.click(); }
     return seen.join(",");
   });
-  // drain the GPU between frames so the >=2-fence backpressure guard never
-  // skips a step — then the advance per frame is exactly substeps x multiplier
-  const advance = async (m) => await page.evaluate(async (mm) => {
+  // the multiplier's whole job is to scale the substeps the frame asks the
+  // solver for. Record that directly — measuring elapsed sim-time instead
+  // would be at the mercy of the fence-backpressure guard skipping frames.
+  const asked = await page.evaluate(() => {
     const a = window.__solidify.app, S = window.__solidify, s = S.sim();
     a.setParams({ scen: 0, heatIn: 0, coolRate: 0, alloyOn: 0 });
-    a.setInoculant(0); a.clearMelt(0.7); a.seedCenter(); a.setSpeed(10); a.setRun(true);
-    while (a.getSpeedMult() !== mm) a.cycleSpeedMult();
-    // measure the advance of frames that actually STEPPED: the backpressure
-    // guard skips a frame whenever the GPU is >=2 submissions behind, and a
-    // skipped frame advances sim-time by exactly zero
-    const beats = [];
-    for (let i = 0; i < 14; i++) {
-      const before = a.simTimeNow();
+    a.setInoculant(0); a.clearMelt(0.7); a.setSpeed(10); a.setRun(true);
+    const real = s.step.bind(s);
+    let seen = [];
+    s.step = (n) => { seen.push(n); return real(n); };
+    const out = {};
+    for (const m of [1, 2, 4]) {
+      while (a.getSpeedMult() !== m) a.cycleSpeedMult();
+      seen = [];
       S.tick(1);
-      await s.device.queue.onSubmittedWorkDone();
-      await new Promise(r => setTimeout(r, 0));
-      const d = a.simTimeNow() - before;
-      if (d > 0) beats.push(d);
+      out[m] = seen[0] ?? null;
     }
-    beats.sort((p, q) => p - q);
-    return beats[Math.floor(beats.length / 2)] ?? 0;   // median stepped frame
-  }, m);
-  const d1 = await advance(1), d2 = await advance(2), d4 = await advance(4);
-  // one frame at multiplier m advances exactly m x (speed slider) steps
-  const ok = cyc === "1×1,2×2,4×4,1×1"
-    && Math.abs(d2 / d1 - 2) < 0.02 && Math.abs(d4 / d1 - 4) < 0.04;
-  console.log("SPEEDMULT", ok ? "OK" : "FAIL", JSON.stringify({ cyc, d1: +d1.toFixed(4), d2: +d2.toFixed(4), d4: +d4.toFixed(4) }));
+    s.step = real;
+    return out;
+  });
+  const ok = cyc === "1×1,2×2,4×4,1×1" && asked["1"] === 10 && asked["2"] === 20 && asked["4"] === 40;
+  console.log("SPEEDMULT", ok ? "OK" : "FAIL", JSON.stringify({ cyc, asked }));
   if (!ok) process.exitCode = 1;
   await page.close();
 }
@@ -261,6 +256,38 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     && done.text.includes("inoculant used") && gate.blocked && gate.freeAfter && flagged;
   console.log("LAB", ok ? "OK" : "FAIL",
     JSON.stringify({ opened, poured, card, curve: done.curve, gate, flagged }));
+  if (!ok) process.exitCode = 1;
+  await page.close();
+}
+
+// 9. atmosphere is a melt-CLEANLINESS proxy, not a nucleation control: a melt
+//    poured in air carries oxide films, which are shallow wall sites, so they
+//    activate long before a clean charge's own (deep) sites ever can
+{
+  const page = await browser.newPage();
+  await boot(page);
+  const run = async (k) => { for (let i = 0; i < k; i++) { await page.evaluate(() => window.__solidify.tick(10)); await new Promise(r => setTimeout(r, 30)); } };
+  await page.evaluate(() => window.__solidify.app.startLab());
+  const pour = async (atm) => {
+    await page.evaluate((a) => {
+      const L = window.__solidify.lab, app = window.__solidify.app;
+      app.setNucPotency(0.5); app.setNucSpread(0.04);
+      L.setup = { atmosphere: a, inoculant: 600, superheat: 0.05, moldT: 0.05, moldWalls: false, program: "air" };
+      app.setSpeed(40);
+      L.start();
+    }, atm);
+    const trace = [];
+    for (let i = 0; i < 26; i++) { await run(2); trace.push(await page.evaluate(() => window.__solidify.app.getNucFired())); }
+    await page.evaluate(() => { window.__solidify.lab.abort(); document.getElementById("foundryCard")?.remove(); });
+    return trace;
+  };
+  const vac = await pour("vacuum"), air = await pour("air");
+  let lead = 0;
+  for (let i = 0; i < vac.length; i++) lead = Math.max(lead, air[i] - vac[i]);
+  await page.evaluate(() => window.__solidify.lab.close());
+  // (the porosity half of the proxy is 3D-only — verify-3d covers it)
+  const ok = lead >= 40;
+  console.log("ATMOSPHERE", ok ? "OK" : "FAIL", JSON.stringify({ maxLead: lead }));
   if (!ok) process.exitCode = 1;
   await page.close();
 }

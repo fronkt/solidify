@@ -675,6 +675,7 @@ async function boot() {
     nucFired: () => (mode === "3d" ? nuc3 : nuc).fired,
     nucMax: () => (mode === "3d" ? nuc3 : nuc).p.nmax,
     maxUndercool: () => (mode === "3d" ? nuc3 : nuc).maxUndercool,
+    setFilmSites(frac) { nuc.setFilm(frac); nuc3.setFilm(frac); },
     labShareLink: () => app.shareLink(),
   };
   const lab = new Lab(labHost);

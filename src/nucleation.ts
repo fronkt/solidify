@@ -56,11 +56,19 @@ export class Nucleation {
   get maxUndercool(): number { return this.dTMax; }
 
   /**
+   * Fraction of the site population that sits on the mould wall as oxide film
+   * rather than in the bulk. This is the atmosphere proxy: a melt poured in air
+   * carries entrained oxide films, which are wall and defect features — NOT a
+   * change in how readily the bulk liquid nucleates.
+   */
+  setFilm(frac: number) { this.filmFrac = Math.max(0, Math.min(1, frac)); }
+
+  /**
    * Draw a fresh site population for a new melt. `film` (0..1) biases that
    * fraction of sites onto the mould wall with shallow activation — oxide
    * films from a dirty (air) melt, per the atmosphere proxy.
    */
-  stage(n: number, dim3: boolean, film = 0) {
+  stage(n: number, dim3: boolean, film = this.filmFrac) {
     this.n = n;
     this.dim3 = dim3;
     this.filmFrac = film;

@@ -37,6 +37,8 @@ export interface LabHost {
   nucFired(): number;
   nucMax(): number;
   maxUndercool(): number;
+  /** atmosphere proxy: the fraction of sites that are wall oxide films */
+  setFilmSites(frac: number): void;
   labShareLink(): string;
 }
 
@@ -83,6 +85,8 @@ export class Lab {
   private fingerprint = "";
   private lastFs = 0;
   private plateau = 0;
+  /** the sandbox's porosity setting, restored when the lab closes */
+  private porePrev: number | null = null;
 
   constructor(host: LabHost) { this.host = host; }
 
@@ -106,6 +110,8 @@ export class Lab {
     const p = this.host.simParams();
     p.scen = 0;
     p.holdRate = 0;
+    if (this.porePrev !== null) { p.pPore = this.porePrev; this.porePrev = null; }
+    this.host.setFilmSites(0);
     this.host.setMoldWalls(false);
     this.host.syncUI();
   }
@@ -123,6 +129,14 @@ export class Lab {
     p.weldPow = 0;
     p.moldT = this.setup.moldT;
     this.host.setMoldWalls(this.setup.moldWalls);
+    // atmosphere: a melt poured in air entrains oxide films. They give the
+    // walls extra (potent, shallow) nucleation sites and they raise the
+    // porosity — they do NOT make the bulk liquid easier to nucleate.
+    this.host.setFilmSites(this.filmFraction);
+    if (this.porePrev === null) this.porePrev = p.pPore ?? null;
+    if (this.porePrev !== null) {
+      p.pPore = Math.min(1, this.porePrev + (this.setup.atmosphere === "air" ? 0.1 : 0));
+    }
     this.host.setInoculant(this.setup.inoculant);
     // pour ABOVE the liquidus: nothing can freeze until the programme cools it
     this.host.clearMelt(-this.setup.superheat);
