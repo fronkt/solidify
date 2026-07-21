@@ -210,5 +210,60 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   await page.close();
 }
 
+// 8. lab mode: set the experiment up, pour it, and get a report card — plus
+//    the soft-lockdown flag when the operator changes the conditions mid-run
+{
+  const page = await browser.newPage();
+  await boot(page);
+  const run = async (k, per = 10) => { for (let i = 0; i < k; i++) { await page.evaluate(p => window.__solidify.tick(p), per); await new Promise(r => setTimeout(r, 35)); } };
+
+  const opened = await page.evaluate(() => {
+    window.__solidify.app.startLab();
+    return !!document.getElementById("foundry") && window.__solidify.lab.active;
+  });
+  await page.evaluate(() => {
+    const L = window.__solidify.lab, a = window.__solidify.app;
+    L.setup = { atmosphere: "argon", inoculant: 700, superheat: 0.12, moldT: 0.05, moldWalls: false, program: "quench" };
+    a.setSpeed(40);
+    L.start();
+  });
+  const poured = await page.evaluate(() => {
+    const p = window.__solidify.app.simParams();
+    return p.scen === 3 && p.coolRate === 0 && window.__solidify.lab.running;
+  });
+  let card = false;
+  for (let i = 0; i < 60 && !card; i++) {
+    await run(4, 10);
+    card = await page.evaluate(() => !!document.getElementById("foundryCard"));
+  }
+  const done = await page.evaluate(() => ({
+    curve: !!document.getElementById("foundryCurve"),
+    running: window.__solidify.lab.running,
+    text: document.getElementById("foundryCard")?.textContent ?? "",
+  }));
+
+  // the dimension switch is blocked while a pour is in progress
+  const gate = await page.evaluate(() => {
+    const L = window.__solidify.lab, a = window.__solidify.app;
+    L.setup.program = "air";
+    L.start();
+    const blocked = !a.canSwitchMode();
+    return { blocked, freeAfter: (L.abort(), a.canSwitchMode()) };
+  });
+  // touching a physics dial mid-run flags the report
+  await page.evaluate(() => { const L = window.__solidify.lab; L.setup.program = "air"; L.start(); });
+  await run(5, 10);
+  await page.evaluate(() => { window.__solidify.app.simParams().latent = 2.4; });
+  await run(5, 10);
+  const flagged = await page.evaluate(() => { const f = window.__solidify.lab.intervened; window.__solidify.lab.abort(); return f; });
+
+  const ok = opened && poured && card && done.curve && !done.running
+    && done.text.includes("inoculant used") && gate.blocked && gate.freeAfter && flagged;
+  console.log("LAB", ok ? "OK" : "FAIL",
+    JSON.stringify({ opened, poured, card, curve: done.curve, gate, flagged }));
+  if (!ok) process.exitCode = 1;
+  await page.close();
+}
+
 await browser.close();
 console.log("done");

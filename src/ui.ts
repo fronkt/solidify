@@ -16,6 +16,8 @@ export interface UIHost extends AppControl {
   getNucSpread(): number;
   setNucSpread(v: number): void;
   getNucFired(): number;
+  startLab(): void;
+  isLabOpen(): boolean;
   getSubsteps(): number;
   isRunning(): boolean;
   isEngineering(): boolean;
@@ -356,9 +358,14 @@ export class UI {
     // ---- modes
     const modes = this.section(rail, "MODES");
     const mrow0 = this.btnRow(modes);
-    this.button(mrow0, "engineer it (optimizer)", () => { host.startOptimizer(); this.sync(); });
-    this.button(mrow0, "⚔ challenge", () => host.startChallenge());
-    this.only2d.push(this.sections.MODES.root);
+    // the lab runs in both dimensions; the ML modes are 2D-only
+    this.button(mrow0, "⚗ lab mode", () => { host.startLab(); this.sync(); });
+    this.only2d.push(this.button(mrow0, "engineer it (optimizer)", () => { host.startOptimizer(); this.sync(); }));
+    this.only2d.push(this.button(mrow0, "⚔ challenge", () => host.startChallenge()));
+    const modeNote = document.createElement("div");
+    modeNote.className = "matnote";
+    modeNote.textContent = "LAB sets the experiment up first — charge, mould, superheat, cooling programme — then pours it and reports the cooling curve and the microstructure it produced.";
+    modes.append(modeNote);
 
     // ---- melt / process
     const melt = this.section(rail, "MELT · PROCESS", true);

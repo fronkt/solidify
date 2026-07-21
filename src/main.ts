@@ -16,6 +16,7 @@ import { Composer } from "./composer";
 import { Analyze } from "./analyze";
 import { Analyze3D } from "./analyze3d";
 import { Nucleation } from "./nucleation";
+import { Lab, type LabHost, type LabSetup } from "./lab";
 
 /** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
 const SPEED_MULTS = [1, 2, 4] as const;
@@ -292,8 +293,10 @@ async function boot() {
       else running = on;
     },
     setWeldAuto(on) { weldAuto = on; },
-    startOptimizer() { if (!challenge.active) opt.start(sim.n); },
-    startChallenge() { if (!opt.active) challenge.start(); },
+    startOptimizer() { if (!challenge.active && !lab.active) opt.start(sim.n); },
+    startChallenge() { if (!opt.active && !lab.active) challenge.start(); },
+    startLab() { if (!opt.active && !challenge.active) lab.open(); },
+    isLabOpen: () => lab.active,
     syncUI() { ui.sync(); },
     reveal(target) {
       if (target.startsWith("sec:")) ui.reveal(target.slice(4));
@@ -415,7 +418,10 @@ async function boot() {
       exit3D();
     },
     closeTour() { tour.close(); },
-    canSwitchMode: () => caps3d.supported && !opt.active && !challenge.active && !mode3dPending,
+    // a running experiment owns the solver — switching dimension mid-pour would
+    // silently discard the run the report card is about to describe
+    canSwitchMode: () => caps3d.supported && !opt.active && !challenge.active
+      && !mode3dPending && !lab.running,
     caps3dSizes: () => [128, 160, 192].filter(v => v <= caps3d.maxN),
     getGrid3: () => grid3,
     setGrid3(n) {
@@ -521,13 +527,14 @@ async function boot() {
         delete p3.weldX; delete p3.weldY;   // runtime-positional, like the 2D SKIP set
         return location.origin + location.pathname + packShare({
           p: p3, u: undercool, v: view3d, m: material,
-          n: alloyName, nuc: [nuc3.p.nmax, nuc3.p.dTN, nuc3.p.dTsig], d: 1, g3: sim3d.n,
+          n: alloyName, nuc: [nuc3.p.nmax, nuc3.p.dTN, nuc3.p.dTsig], lab: labShare(), d: 1, g3: sim3d.n,
           sl: [slice.axis, +slice.off.toFixed(3), Math.round(slice.tilt), Math.round(slice.turn), slice.style],
         });
       }
       return location.origin + location.pathname + packShare({
         p: { ...sim.params }, u: undercool, v: view, m: material,
-        n: alloyName, nuc: [nuc.p.nmax, nuc.p.dTN, nuc.p.dTsig], sched: recipeSchedule,
+        n: alloyName, nuc: [nuc.p.nmax, nuc.p.dTN, nuc.p.dTsig], lab: labShare(),
+        sched: recipeSchedule,
       });
     },
     shareRecipeLink(r: Recipe) {
@@ -647,8 +654,33 @@ async function boot() {
   };
   const challenge = new Challenge(chHost);
 
+  // ------------------------------------------------------------- LAB MODE
+  const labHost: LabHost = {
+    getMode: () => mode,
+    simParams: () => app.simParams() as unknown as Record<string, number>,
+    simTimeNow: () => app.simTimeNow(),
+    clearMelt: u => app.clearMelt(u),
+    setInoculant: v => app.setInoculant(v),
+    setRun: on => app.setRun(on),
+    setView: v => { if (mode !== "3d") view = v as ViewMode; },
+    setView3d: v => { if (mode === "3d") app.setView3d(v); },
+    resetArmed: () => app.resetArmed(),
+    syncUI: () => ui.sync(),
+    gridN: () => (mode === "3d" && sim3d ? sim3d.n : sim.n),
+    setMoldWalls(on) {
+      // the 3D solver rasterizes a mould shell into its mask; in 2D the walls
+      // are the domain edges, so there is no geometry to switch on
+      if (sim3d) sim3d.moldShell = on;
+    },
+    nucFired: () => (mode === "3d" ? nuc3 : nuc).fired,
+    nucMax: () => (mode === "3d" ? nuc3 : nuc).p.nmax,
+    maxUndercool: () => (mode === "3d" ? nuc3 : nuc).maxUndercool,
+    labShareLink: () => app.shareLink(),
+  };
+  const lab = new Lab(labHost);
+
   (window as unknown as Record<string, unknown>).__solidify = {
-    app, opt, tour, ui, challenge, composer, analyze,
+    app, opt, tour, ui, challenge, composer, analyze, lab,
     mode: () => mode,
     sim: () => sim,
     sim3d: () => sim3d,
@@ -968,6 +1000,7 @@ async function boot() {
     if (mode === "3d") {
       if (sim3d && renderer3d) {
         if (running3d) {
+          if (lab.running) lab.tick(substeps3d * speedMult * sim3d.params.dt);
           nuc3.update(sim3d.simTime, coolProxy3(), (x, y, z, d) =>
             sim3d!.addSeed3D(x, y, z, 3.0, undefined, d));
           // weld auto-raster on the top face (2D serpentine port)
@@ -1029,6 +1062,7 @@ async function boot() {
           void sim3d.readStats().then(s => {
             if (!s || !sim3d) return;
             nuc3.observe(sim3d.simTime, s.meanLiqT, tEq3());
+            lab.onStats(s.meanLiqT, s.fracSolid);
             if (forPanels3) { lastStats3 = s; hud.push3(s); an3.onStats3(s, sim3d.simTime); }
           });
         }
@@ -1062,6 +1096,7 @@ async function boot() {
         // heterogeneous nucleation: sites fire as the melt sweeps past their
         // activation undercooling. No rate is specified anywhere — recalescence
         // stalls the sweep, so latent heat shuts nucleation off by itself.
+        if (lab.running) lab.tick(substeps * speedMult * sim.params.dt);
         nuc.update(sim.simTime, coolProxy(), (x, y, _z, d) => sim.addSeed(x, y, 3.5, undefined, d));
         // weld auto-raster
         if (sim.params.scen === 2 && weldAuto) {
@@ -1096,6 +1131,7 @@ async function boot() {
       void sim.readStats().then(s => {
         if (!s) return;
         nuc.observe(sim.simTime, s.meanLiqT, tEq2());
+        lab.onStats(s.meanLiqT, s.fracSolid);
         if (!forPanels) return;
         lastStats = s;
         if (!opt.active) {
@@ -1127,6 +1163,13 @@ async function boot() {
     }
   }
 
+  /** the lab's experiment sheet, packed only when the lab is open */
+  function labShare(): ShareState["lab"] {
+    if (!lab.active) return undefined;
+    const s = lab.setup;
+    return [s.atmosphere, s.inoculant, s.superheat, s.moldT, s.moldWalls ? 1 : 0, s.program];
+  }
+
   // links made before v4.0 carry a wall-clock "seeds per second" rain; read it
   // as a site count so old setups still pour something recognisable
   function applyNucShare(N: Nucleation, s: ShareState) {
@@ -1156,6 +1199,14 @@ async function boot() {
     undercool = shared.u;
     view = Math.max(0, Math.min(9, Math.round(shared.v))) as ViewMode;
     applyNucShare(nuc, shared);
+    if (shared.lab) {
+      const [atm, ino, sup, mT, walls, prog] = shared.lab;
+      lab.setup = {
+        atmosphere: (["air", "argon", "vacuum"].includes(atm) ? atm : "argon") as LabSetup["atmosphere"],
+        inoculant: ino, superheat: sup, moldT: mT, moldWalls: walls === 1, program: prog,
+      };
+      lab.open();
+    }
     recipeSchedule = shared.sched ?? null;
     if (shared.n) alloyName = shared.n;
     app.resetArmed();   // stages it ARMED; resetArmed keeps the schedule

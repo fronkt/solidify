@@ -112,6 +112,8 @@ export class Sim3D {
   probe: { x: number; y: number; z: number } | null = null;
   /** bridgman/selector: z of the pulled reference isotherm (advances in step) */
   frontZ = 1;
+  /** lab (scen 4): rasterize a mould shell into the mask, or leave it empty */
+  moldShell = true;
 
   private stateTex: GPUTexture[] = [];
   private grainTex: GPUTexture[] = [];
@@ -731,7 +733,13 @@ export class Sim3D {
     // the mask carries one geometry at a time — rasterize on demand when the
     // scenario asking for it isn't the one currently loaded
     if (this.params.scen === 3 && this.maskKind !== 3) this.fillPigtail();
-    else if (this.params.scen === 4 && this.maskKind !== 4) this.fillMoldShell();
+    else if (this.params.scen === 4) {
+      const want = this.moldShell ? 4 : 5;
+      if (this.maskKind !== want) {
+        if (this.moldShell) this.fillMoldShell();
+        else this.writeMask(new Uint8Array(this.n * this.n * this.n), 5);
+      }
+    }
     const d = this.device;
     const cap = Math.max(1, Math.floor(1.6e8 / (this.n * this.n * this.n)));
     const steps = Math.min(substeps, cap);
