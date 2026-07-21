@@ -564,3 +564,77 @@ STL in prod bundle). Zero page errors anywhere.
    kinetic-limited massive growth; warm melt (undercool ~0.7–0.85) is
    diffusion-limited and grows the six-armed star. Same lesson drives the
    capture recipe (128³, undercool 0.7, ~4000 frames @ speed 22).
+8. SLICE cut-face smear (Frank's field report, v2.0.1): with the camera in the
+   removed half, rays that cross the INFINITE plane outside the box and then
+   enter the kept half through a box face still set cutFront — sliceColor then
+   sampled an out-of-box point, clamp-to-border sampling smeared the micrograph
+   across the bottom/top/side faces. Fix: cutFront only when tp >= hit.x (the
+   crossing lies inside the volume). Lesson: in a clamped-sampling raymarcher,
+   gate every analytic sample point (planes, sections) to the box interval —
+   clamping silently invents plausible-looking data outside it.
+
+## v3.0 (2026-07-21): THE FULL INSTRUMENT IN THE VOLUME — deployed
+
+Design: ~/.claude/plans/robust-puzzling-emerson.md (v2.0 plan archived to
+-archive-2026-07-21-charlab-v20.md). Frank: "add everything from 2D to 3D plus
+additional 3D specialties" + kill idle auto-orbit + fix the rough bottom.
+Scope via AskUserQuestion: lazy full-grid alloy · Bridgman/weld/grain-selector ·
+facets/twins/icosa/retro (all four) · probe+Scheil/pole/SDAS (no shaped molds,
+no 3D optimizer). Pre-arc fixes shipped same session: idle auto-orbit removed,
+box-face speckle (entry-snap + face-normal fallback), SLICE plane smear.
+
+- [x] V0 — Params3D 128→192 B (scen/bridgman/weld/alloy/twin/facet/probe slots),
+      STATS3D interf/interfT + probe single-writer in the reserved header pads.
+- [x] V1 — Bridgman 3D (pulled z-isotherm, mode-ranged gradient dial 0.05–0.9 —
+      the 3D domain is 5.3× shorter in physical units) + weld 3D (top-face
+      laser, Beer–Lambert depth, serpentine raster, tap-to-steer). Verified:
+      front climbs bottom-first w/ exactly the 64 chill grains; probe-local
+      melt/refreeze cycle 1.00→0.00→1.00.
+- [x] V2 — alloy end-to-end: lazy r32float solute pair (+57 MB only while on,
+      runtime error scope — the create ladder doesn't cover runtime allocs),
+      WB port in a SECOND UPDATE3D template variant (4 storage textures,
+      device-limit gated ≥4; never dummy-bind storage), stamp-flip solute copy,
+      renderer 1×1×1 dummy + rebindBGs split (rebind3 resets the camera!),
+      FIELD/MELT/SLICE solute rendering, composer routes 3D, swap re-allocates.
+      Emergent: solutal growth restriction (fs 8× slower, same staging).
+- [x] V3 — GPU growth twins in the claim pass (Σ3 60° about parent ⟨111⟩,
+      atomicSub from 4094 — pre-decrement! — guard idFloor<tid<PORE, quats
+      become read_write, quatBuf +COPY_SRC + stats-cadence readback) + faceted
+      growth (regularized Σ√(nᵢ²+ε) — {100} cusp minima). Twin gate retuned
+      0.003→0.0002 (the 3D claim wave re-claims at deeper tails than 2D).
+      Verified: misorientations QUANTIZED on the Σ3-cascade set {0, 31.6, 54.5,
+      60…} — random junk would spread continuously.
+- [x] V4 — icosahedral QC (aniMode3 3): six 5-fold axes, a = 1+δ(7Σ(n·m)⁶−6),
+      δ clamped 0.035 (convexity edge ≈0.029, soak-tested); ternary sym row
+      (×4/×6/icosa), Al–Co–Ni maps supported. Grows a 12-lobed star.
+- [x] V5 — grain selector (scen 3): always-allocated r8uint mask (7 MB kills a
+      class of rebind bugs), lazy pigtail raster (helix r 0.16n, channel r
+      0.055n, 1.75 turns, z 0.12–0.45n), wall early-out FIRST in UPDATE (φ
+      pinned, cold, never claimed), glass-ghost + x-ray render, runs under the
+      scen-1 pull, pPore 0 (FEED would flood through φ=0 walls). VERIFIED THE
+      STORY: 64 floor grains → grain #45 alone in the spiral → alone in the
+      blade. + fixed a REAL v2.0 race: readStereo shared paramBuf with step()
+      — a concurrent writeParams zeroed the plane → full-box census; stereo
+      now owns its uniform buffer.
+- [x] V6 — instruments: probe3 (ctrl-tap voxel, worldToClient crosshair on the
+      shared overlay — append-only, never innerHTML), Scheil vs measured
+      interfaceT, stereographic pole figure (⟨100⟩/c-axis/5-fold by mode),
+      ANALYZE section dispatches per mode, scale bar serves SLICE at the
+      camera-target distance.
+- [x] V7 — SDAS ruler: LINE3D pass (400 φ samples, OWN 32 B uniform — endpoints
+      don't fit P3, and shared buffers are how the stereo race happened),
+      2D hysteresis+λ₂ verbatim, armed drag pre-empts orbit.
+- [x] V8 — retro voxel + 8-bit palette (flags bits 0/1; cut styles own 4–7),
+      3D share links pack sim3d.params (packing sim.params was a BUG — scen/
+      alloy/twins never travelled; restore lands dials after apply3DMaterial,
+      allocates solute), all nine presets staged 3D + selector preset,
+      double-tap seed guard.
+- [x] V9 — science §6 grows the full-instrument story + honesty rows (selector
+      geometric, icosa interface-energy-only, Ny uncalibrated in scen 1/2),
+      README v3.0 block, tour finale names the selector, verify-3d → 23 checks.
+
+**Verified:** 23-check 3D suite + 2D tools suite green through every milestone;
+prod smoke after deploy. Harness lessons: tick-bursts deliver ~1/20 of wall-clock
+physics (busy-guard skips) — quench hard instead of waiting out cooling; seed
+with the identity quaternion when a test needs an arm to hit a known point;
+never round-trip UTF-8 through PS5.1 Get/Set-Content (µ → Âµ).
