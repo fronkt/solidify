@@ -1,5 +1,5 @@
-import type { AppControl } from "./tour";
-import { SCENES } from "./tour";
+import type { AppControl, TourHost } from "./tour";
+import { SCENES, SCENES3 } from "./tour";
 import { LENS_NAMES } from "./shaders";
 import { LENS3_NAMES } from "./shaders3d";
 import { MATERIALS, to3D } from "./materials";
@@ -35,6 +35,8 @@ export interface UIHost extends AppControl {
   setPixel(v: number): void;
   getPalette(): boolean;
   setPalette(b: boolean): void;
+  getVoxel3(): boolean;
+  setVoxel3(b: boolean): void;
   getStain(): number;
   setStain(v: number): void;
   getEbsd(): boolean;
@@ -303,9 +305,15 @@ export class UI {
     const pre = this.section(rail, "PRESETS", true);
     const prow = this.btnRow(pre);
     for (const name of ["dendrite", "snow", "seaweed", "quasi", "rain", "casting", "bridgman", "weld", "alloy"]) {
-      this.button(prow, name, () => { SCENES[name](host); this.sync(); });
+      this.button(prow, name, () => {
+        if (host.getMode() === "3d") SCENES3[name](host as unknown as TourHost);
+        else SCENES[name](host);
+        this.sync();
+      });
     }
-    this.only2d.push(this.sections.PRESETS.root);
+    // 3D-only bonus preset: the single-crystal selector
+    const selBtn = this.button(prow, "selector", () => { SCENES3.selector(host as unknown as TourHost); this.sync(); });
+    this.only3d.push(selBtn);
 
     // ---- material identity (qualitative parameter bundles)
     const mat = this.section(rail, "MATERIAL");
@@ -467,8 +475,9 @@ export class UI {
       () => (host.getPixel() > 0 ? host.getPixel() : this.lastPixel),
       v => { this.lastPixel = v; if (host.getPixel() > 0) host.setPixel(v); },
       v => `${v.toFixed(0)}px`);
-    const palChk = this.check(look, "8-bit palette + dither", () => host.getPalette(), b => host.setPalette(b));
-    this.only2d.push(palChk.parentElement as HTMLElement);
+    this.check(look, "8-bit palette + dither", () => host.getPalette(), b => host.setPalette(b));
+    const voxRow = this.actSwitch(look, "VOXEL MODE", "RENDER MODE", () => host.getVoxel3(), b => host.setVoxel3(b));
+    this.only3d.push(voxRow);
     const tiltRow = this.actSwitch(look, "2.5D RELIEF", "RENDER MODE", () => host.getTilt(), b => host.setTilt(b));
     this.only2d.push(tiltRow);
     const tiltNote = document.createElement("div");

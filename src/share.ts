@@ -3,10 +3,10 @@
 // packed into a #set= hash. Same spirit as the composer's #alloy= links, but
 // for ANY setup, including what the optimizer discovered.
 
-import type { PhysParams } from "./sim";
-
 export interface ShareState {
-  p: Partial<PhysParams>;
+  // physics dials of WHICHEVER solver the link came from (2D PhysParams or
+  // 3D Phys3DParams) — restore routes each key onto the params that carry it
+  p: Record<string, number>;
   u: number;                                // undercooling
   v: number;                                // lens index
   m: string;                                // material key

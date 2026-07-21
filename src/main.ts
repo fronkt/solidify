@@ -371,8 +371,13 @@ async function boot() {
     setWeldSweep(v) { weldSweep = v; },
     getPixel: () => renderer.pixelSize,
     setPixel(v) { renderer.pixelSize = v; },
-    getPalette: () => renderer.paletteOn,
-    setPalette(b) { renderer.paletteOn = b; },
+    getPalette: () => (mode === "3d" && renderer3d ? renderer3d.paletteOn : renderer.paletteOn),
+    setPalette(b) {
+      if (mode === "3d" && renderer3d) renderer3d.paletteOn = b;
+      else renderer.paletteOn = b;
+    },
+    getVoxel3: () => renderer3d?.voxelOn ?? false,
+    setVoxel3(b) { if (renderer3d) renderer3d.voxelOn = b; },
     getStain: () => renderer.stainMode,
     setStain(v) { renderer.stainMode = v; },
     getEbsd: () => renderer.ebsdOn,
@@ -490,8 +495,12 @@ async function boot() {
     onOptimizerDone() { ui.sync(); },
     shareLink() {
       if (mode === "3d" && sim3d) {
+        // pack the 3D solver's own dials (packing sim.params here was a bug —
+        // scen/alloy/twin/facet state never travelled)
+        const p3 = { ...sim3d.params } as unknown as Record<string, number>;
+        delete p3.weldX; delete p3.weldY;   // runtime-positional, like the 2D SKIP set
         return location.origin + location.pathname + packShare({
-          p: { ...sim.params }, u: undercool, v: view3d, m: material,
+          p: p3, u: undercool, v: view3d, m: material,
           n: alloyName, rain: rain3d, d: 1, g3: sim3d.n,
           sl: [slice.axis, +slice.off.toFixed(3), Math.round(slice.tilt), Math.round(slice.turn), slice.style],
         });
@@ -552,6 +561,7 @@ async function boot() {
   rulerText3.style.display = "none";
   document.getElementById("overlay")!.append(rulerLine3, rulerText3);
   let ruler3Start: [number, number, number] | null = null;
+  let lastTap3: { x: number; y: number; z: number; t: number } | null = null;
   const ui = new UI(app, analyze);
   const slicePanelUI = new SlicePanel(app);
   slicePanelUI.addStyle("Niyama map · porosity risk");
@@ -756,6 +766,13 @@ async function boot() {
         e.clientX, e.clientY,
         view3d === 2 && sim3d ? slicePlane(slice, sim3d.n) : null);
       if (g && sim3d) {
+        // double-tap guard (2D lastSeed parity): the same spot within 600 ms
+        // stays one seed — jittery taps don't stack nuclei
+        const nowT = performance.now();
+        const minD = Math.max(4, sim3d.n * 0.03);
+        if (lastTap3 && nowT - lastTap3.t < 600 &&
+            Math.hypot(g[0] - lastTap3.x, g[1] - lastTap3.y, g[2] - lastTap3.z) < minD) return;
+        lastTap3 = { x: g[0], y: g[1], z: g[2], t: nowT };
         if (d.shift || e.shiftKey) sim3d.addTwinSeed3D(g[0], g[1], g[2], brush);
         else sim3d.addSeed3D(g[0], g[1], g[2], brush);
         hideHint();
@@ -1076,7 +1093,9 @@ async function boot() {
   const shared: ShareState | null = location.hash.includes("set=") ? unpackShare(location.hash) : null;
   if (shared) {
     if (MATERIALS[shared.m]) app.setMaterial(shared.m);
-    Object.assign(sim.params, shared.p);
+    // scen numbers mean different things per mode — never cross-assign a 3D
+    // link's params into the 2D solver
+    if (shared.d !== 1) Object.assign(sim.params, shared.p);
     undercool = shared.u;
     view = Math.max(0, Math.min(9, Math.round(shared.v))) as ViewMode;
     rain = shared.rain ?? 0;
@@ -1094,7 +1113,24 @@ async function boot() {
         app.setSliceTilt(shared.sl[2]); app.setSliceTurn(shared.sl[3]);
         app.setCutStyle(shared.sl[4]);
       }
-      void enter3D(true).then(() => { app.setView3d(view3d); ui.sync(); });
+      void enter3D(true).then(() => {
+        // land the packed dials AFTER apply3DMaterial would overwrite them,
+        // then allocate the solute pair if the link carried alloy
+        if (sim3d) {
+          const P = sim3d.params as unknown as Record<string, number>;
+          for (const [k, v] of Object.entries(shared.p))
+            if (k in P && typeof v === "number") P[k] = v;
+          if (sim3d.params.alloyOn === 1) {
+            sim3d.params.alloyOn = 0;
+            void sim3d.enableAlloy().then(() => {
+              if (sim3d && renderer3d) renderer3d.rebindBGs(sim3d);
+              ui.sync();
+            });
+          }
+        }
+        app.setView3d(view3d);
+        ui.sync();
+      });
     }
   }
   ui.sync();

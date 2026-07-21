@@ -35,6 +35,7 @@ export interface TourHost extends AppControl {
   setSliceSweep(b: boolean): void;
   setCutStyle(v: number): void;
   setStereoOn(b: boolean): void;
+  setAlloyOn(b: boolean): void;
 }
 
 const NO_SCEN: Partial<PhysParams> = { scen: 0, heatIn: 0, facet: 0 };
@@ -100,10 +101,54 @@ export const SCENES: Record<string, (a: AppControl) => void> = {
   },
 };
 
-// 3D scene presets — same names as SCENES, staged for the volumetric solver.
-// Filled progressively (bridgman/weld first); the preset row dispatches here
-// in 3D mode once the set is complete.
+// 3D scene presets — same names as SCENES, staged for the volumetric solver;
+// the preset row dispatches here in 3D mode. NO_SCEN3 clears every scenario /
+// crystal residue a previous scene may have left.
+const NO_SCEN3 = { scen: 0, heatIn: 0, twinProb: 0, facet: 0 };
 export const SCENES3: Record<string, (a: TourHost) => void> = {
+  dendrite(a) {
+    a.setSym3(4);
+    a.setParams({ ...NO_SCEN3, delta: 0.05, noiseAmp: 0.006, latent: 1.6, coolRate: 0 });
+    a.setRain(0); a.setWeldAuto(false);
+    a.clearMelt(1.0); a.seedCenter();
+    a.setView3d(0); a.setSpeed(14); a.setRun(true);
+  },
+  snow(a) {
+    a.setSym3(6);
+    a.setParams({ ...NO_SCEN3, delta: 0.04, deltaZ: 0.05, noiseAmp: 0.014, latent: 1.8, coolRate: 0 });
+    a.setRain(0); a.setWeldAuto(false);
+    a.clearMelt(0.92); a.seedCenter();
+    a.setView3d(0); a.setSpeed(16); a.setRun(true);
+  },
+  seaweed(a) {
+    a.setSym3(4);
+    a.setParams({ ...NO_SCEN3, delta: 0.004, noiseAmp: 0.02, latent: 1.5, coolRate: 0 });
+    a.setRain(0); a.setWeldAuto(false);
+    a.clearMelt(1.0); a.seedCenter();
+    a.setView3d(0); a.setSpeed(18); a.setRun(true);
+  },
+  rain(a) {
+    a.setSym3(4);
+    a.setParams({ ...NO_SCEN3, delta: 0.045, noiseAmp: 0.012, latent: 1.5, coolRate: 0.12 });
+    a.setWeldAuto(false);
+    a.clearMelt(0.85); a.setRain(10);
+    a.setView3d(1); a.setSpeed(22); a.setRun(true);
+  },
+  casting(a) {
+    a.setSym3(4);
+    a.setParams({ ...NO_SCEN3, delta: 0.045, noiseAmp: 0.014, latent: 1.85, coolRate: 0.28, pPore: 0.85 });
+    a.setWeldAuto(false);
+    a.clearMelt(0.62); a.chillWall("auto"); a.setRain(3);
+    a.setView3d(1); a.setSpeed(22); a.setRun(true);
+  },
+  alloy(a) {
+    a.setSym3(4);
+    a.setParams({ ...NO_SCEN3, c0: 0.3, mLiq: 0.45, kPart: 0.2, dSol: 0.8, delta: 0.05, noiseAmp: 0.008, latent: 1.2, coolRate: 0 });
+    a.setAlloyOn(true);
+    a.setRain(0); a.setWeldAuto(false);
+    a.clearMelt(0.78); a.seedCenter();
+    a.setView3d(0); a.setSpeed(18); a.setRun(true);
+  },
   bridgman(a) {
     a.setSym3(4);
     a.setParams({ scen: 1, gradG: 0.55, pullV: 3.5, delta: 0.045, noiseAmp: 0.012, latent: 1.6, coolRate: 0, heatIn: 0 });

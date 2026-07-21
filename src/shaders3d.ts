@@ -621,10 +621,14 @@ export function render3dWgsl(filterable: boolean): string {
   const sampleFine = filterable
     ? /* wgsl */ `
 fn phiAt(p: vec3f) -> f32 {
-  return textureSampleLevel(state, samp, p / f32(R.n), 0.0).r;
+  var q = p;
+  if ((R.flags & 1u) != 0u) { q = floor(p) + 0.5; }   // voxel mode: nearest
+  return textureSampleLevel(state, samp, q / f32(R.n), 0.0).r;
 }
 fn stateFine(p: vec3f) -> vec2f {
-  return textureSampleLevel(state, samp, p / f32(R.n), 0.0).rg;
+  var q = p;
+  if ((R.flags & 1u) != 0u) { q = floor(p) + 0.5; }
+  return textureSampleLevel(state, samp, q / f32(R.n), 0.0).rg;
 }`
     : /* wgsl */ `
 fn phiAt(p: vec3f) -> f32 {
@@ -1079,6 +1083,12 @@ fn fmain(in: VOut) -> @location(0) vec4f {
         }
       }
     }
+  }
+
+  // 8-bit palette + ordered dither (retro look, flags bit 1)
+  if ((R.flags & 2u) != 0u) {
+    let dith = (f32((u32(in.pos.x) + u32(in.pos.y) * 2u) % 4u) - 1.5) / 48.0;
+    col = floor((col + vec3f(dith)) * 7.0 + vec3f(0.5)) / 7.0;
   }
 
   // vignette + film grain, matching the 2D instrument's finish

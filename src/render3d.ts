@@ -37,6 +37,9 @@ export class Renderer3D {
   private rdata = new ArrayBuffer(R3.BYTES);
   private sampler: GPUSampler | null = null;
   private dummyTex!: GPUTexture;
+  // retro looks (flags bits 0/1) — the 2D renderer's pixel/palette identity
+  voxelOn = false;
+  paletteOn = false;
   readonly filterable: boolean;
 
   // orbit camera: targets + eased actuals
@@ -273,7 +276,8 @@ export class Renderer3D {
     f[R3.canvasW] = this.canvas.width;
     f[R3.canvasH] = this.canvas.height;
     f[R3.time] = time;
-    u[R3.flags] = ((cutStyle & 15) << 4) | (sim3.alloyActive ? 4 : 0) | (sim3.params.scen === 3 ? 8 : 0);
+    u[R3.flags] = ((cutStyle & 15) << 4) | (sim3.alloyActive ? 4 : 0) | (sim3.params.scen === 3 ? 8 : 0)
+      | (this.voxelOn ? 1 : 0) | (this.paletteOn ? 2 : 0);
     f[R3.meltGlow] = sim3.params.meltGlow;
     f[R3.tFar] = sim3.params.tFar;
     f[R3.stepScale] = 0.7;
