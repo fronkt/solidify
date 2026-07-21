@@ -31,15 +31,31 @@ suite. If you want to run the physics/UI verification yourself, do it locally.
 - **`verify-optimizer.mjs`** — confirms "Engineer it" enters ML mode paused, that the run/pause
   transport gates the CMA-ES loop (it doesn't auto-start), and that exiting the mode restores
   normal transport.
-- **`verify-tools.mjs`** — the v1.8 tool batch: faceted growth, `#set=` share-link round-trip,
-  the analysis-panel enlarge modal, and the specimen-tilt view.
+- **`verify-tools.mjs`** — the v1.8 tool batch (faceted growth, `#set=` share-link round-trip,
+  the analysis-panel enlarge modal, the specimen-tilt view) plus the v4.0 physics checks below.
 
-None of these are physics-correctness tests in the numerical-PDE sense (no reference-solution
-comparison) — they're behavioral/regression checks on the UI and scroll choreography, which is
-where nearly every bug in this codebase has actually occurred (see `tasks/todo.md` for the
-postmortems). Physics correctness is checked by eye against the published Kobayashi figures and
-documented in `tasks/todo.md`'s M1 verification note, and by the one in-instrument measured
-claim on the `/science/` page (A356+TiB vs. Al–1Zn grain count under identical nucleation).
+**Physics-behaviour tests (v4.0).** These are the first checks in the suite that assert a
+*physical* relationship rather than a UI one, and they exist because the nucleation model was
+rebuilt to make that relationship emergent:
+
+- **`NUC-COUPLING`** — the reviewer's point, as a regression: with the inoculant charge held
+  fixed, raising the cooling rate must produce *more* grains. Nothing in the code says so; it
+  follows from the melt reaching a deeper undercooling before recalescence.
+- **`NUC-ARREST`** — with heavy latent heat, part of the charge must go unfired: recalescence
+  has to stop nucleation while the casting is still freezing.
+- **`NUC-GATE`** — a seed offered to alloy melt that sits *above* its (depressed) liquidus must
+  not stamp at all. This one encodes a real bug that shipped for months.
+- **`ATMOSPHERE`** — oxide-film sites from a dirty melt must activate before a clean charge's
+  own deep sites can.
+- **`SPEEDMULT`** — asserts the step count the frame requests, not elapsed sim-time; the
+  fence-backpressure guard skips frames, so timing-based versions of this test are flaky.
+- **`LAB` / `LAB3`** — an experiment can be configured, poured, and produces a report card; the
+  dimension switch is blocked mid-pour; touching a physics dial sets the intervention flag.
+
+The rest are behavioural/regression checks on the UI and scroll choreography, which is where
+nearly every bug in this codebase has actually occurred (see `tasks/todo.md` for the
+postmortems). Morphology correctness is still checked by eye against the published Kobayashi
+figures and documented in `tasks/todo.md`'s M1 verification note.
 
 `npm run build` (Vite + `tsc`) is the one check anyone on any OS can run without a GPU, and is
 what CI actually gates on.

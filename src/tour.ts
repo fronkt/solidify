@@ -19,6 +19,7 @@ export interface AppControl {
   setWeldAuto(on: boolean): void;
   startOptimizer(): void;
   startChallenge(): void;
+  startLab(): void;
   syncUI(): void;
   /** tour part II: "sec:TITLE" opens+highlights a rail section, else a CSS selector */
   reveal(target: string): void;
@@ -242,9 +243,10 @@ export const CHAPTERS: Chapter[] = [
   },
   {
     title: "Many grains",
-    body: "Real melts nucleate everywhere at once. Each nucleus is a crystal with its own random orientation; where they collide, growth stops and a grain boundary is frozen in. This is why metal is made of grains.",
-    watch: "Each colour is one crystal orientation. When the last liquid vanishes, switch to ETCH — that is a micrograph.",
+    body: "Real melts nucleate everywhere at once. Each nucleus is a crystal with its own random orientation; where they collide, growth stops and a grain boundary is frozen in. This is why metal is made of grains. What you set is the INOCULANT — how many potential nuclei the melt carries. How many of them actually fire is decided by how deeply the melt undercools, which is why there is no nucleation-rate slider anywhere in this instrument.",
+    watch: "Each colour is one crystal orientation. Watch the SITES readout: it climbs while the melt is still getting colder, then stops dead once the latent heat of the growing grains warms it back up. Nucleation shuts itself off. Now raise the COOLING RATE and re-pour — the melt gets deeper before that happens, more of the same inoculant fires, and the casting comes out finer.",
     apply: SCENES.rain,
+    hl: ["sec:MELT · PROCESS"],
   },
   {
     title: "The casting",
@@ -273,8 +275,15 @@ export const CHAPTERS: Chapter[] = [
   {
     title: "Engineer it",
     body: "Grain size sets strength — finer is stronger (Hall–Petch). A process engineer tunes cooling and inoculation to hit a target grain size. This opens ENGINEERING · ML MODE, where a CMA-ES optimizer does that job: it runs one casting after another, measures the ASTM grain number, and learns the recipe. It starts paused — press ▶ RUN to set it going, PAUSE to freeze any casting and inspect it.",
-    watch: "Once running it replays dozens of fast castings back to back. Early ones nucleate heavily and look like a chaotic blizzard of grains — that is the optimizer exploring, not a glitch: grain count and nucleation are the same knob, so it tries a lot before it homes in. Watch |ΔG| shrink in the panel as it converges; drag the target toward G 1 and the grains thin out, toward G 6 and they multiply. Or fight it yourself with CHALLENGE.",
+    watch: "Once running it replays dozens of fast castings back to back. Early ones nucleate heavily and look like a chaotic blizzard of grains — that is the optimizer exploring, not a glitch. Its genes are the inoculant charge and a three-stage cooling schedule, and those are coupled: the schedule decides how much of the charge ever fires, so it cannot tune one without disturbing the other. Watch |ΔG| shrink as it converges; drag the target toward G 1 and the grains thin out, toward G 5 and they multiply. Or fight it yourself with CHALLENGE.",
     apply(a) { a.startOptimizer(); },
+  },
+  {
+    title: "Run it like a lab",
+    body: "Everything so far has been a sandbox: you drag a slider and the melt answers. That is a fine way to learn the terms and a poor model of how the measurement is made. LAB MODE inverts it. You specify the experiment first — the charge and its inoculant, the atmosphere, the pour superheat, the mould temperature, and a cooling programme — then you pour it and you get what you get.",
+    watch: "Pick a programme and press POUR AND RUN. The melt is poured above its liquidus, so nothing can freeze until the programme takes it down. When the casting is solid you get a report card: the cooling curve with the recalescence arrest marked, the deepest undercooling reached, and how much of the inoculant the run actually used. Touch a physics dial while it is pouring and the card will say so.",
+    apply(a) { a.startLab(); },
+    hl: ["sec:MODES"],
   },
 
   // ---- part II: a control-by-control walk through the instrument ----------
@@ -309,7 +318,7 @@ export const CHAPTERS: Chapter[] = [
   {
     part: "THE INSTRUMENT",
     title: "Melt · process",
-    body: "The foundry dials: UNDERCOOLING is how cold the melt starts, COOLING RATE keeps pulling heat out, and NUCLEATION rains in seeds gated by local temperature, like inoculant particles of varying potency.",
+    body: "The foundry dials: UNDERCOOLING is how cold the melt starts, COOLING RATE keeps pulling heat out, and INOCULANT is how many potential nuclei the charge carries — a site population with a spread of activation undercoolings, set in ADVANCED. There is deliberately no nucleation-rate control: the rate is what those three produce between them.",
     watch: "The buttons: SEED and TWIN SEED drop nuclei, CHILL WALL lines an edge, QUENCH ⚡ plunges the whole melt colder, and holding ANNEAL ⌛ remelts and coarsens.",
     hl: ["sec:MELT · PROCESS"],
   },
@@ -324,7 +333,7 @@ export const CHAPTERS: Chapter[] = [
     part: "THE INSTRUMENT",
     title: "Alloy",
     body: "The dilute-solute field: composition, liquidus slope, and diffusivity sliders, plus partition k in ADVANCED. The ⚗ COMPOSE ALLOY builder goes further — pick a base metal, add elements in wt%, and read the real chemistry: liquidus shift and the growth restriction factor Q that foundries use to predict grain refinement.",
-    watch: "Pour A356 + TiB against Al–1Zn under the same nucleation: composition alone refines the grains eight-fold. Compositions are shareable as #alloy links.",
+    watch: "Pour A356 + TiB against Al–1Zn on the same charge and cooling and the structures really do differ — though not only through growth restriction: an alloy's liquidus is depressed, which changes how far its melt undercools before its inoculant fires. The science page works through what that did to an older result. Compositions are shareable as #alloy links.",
     hl: ["sec:ALLOY"],
   },
   {

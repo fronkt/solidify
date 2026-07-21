@@ -99,14 +99,24 @@ Budget: ~396 MB VRAM at 192³ (+57 MB solute while alloy is on) with an OOM ladd
   chemistry — liquidus shift ΔT_L = Σmᵢcᵢ and growth restriction factor Q = Σmᵢcᵢ(kᵢ−1) —
   then collapses the mix onto the model's pseudo-binary solute field (k_eff = the mᵢcᵢ-weighted
   mean partition), with every clamp labelled. Famous-alloy quick-fills (A356, AA2024, 4340,
-  IN718, AZ91, bronze…) and shareable `#alloy=…` deep links. Verified: A356+TiB (Q ≈ 71 K)
-  vs Al–1Zn (Q ≈ 1 K) under identical nucleation gives 369 vs 46 grains — composition alone
-  refines the structure, the Easton–StJohn mechanism emerging from the phase-field.
+  IN718, AZ91, bronze…) and shareable `#alloy=…` deep links.
 - **Twinning** — stochastic growth twins nucleate at the front in twin registry (θ₀ + π/j) and
   must out-grow their parent to survive, like real feathery grains in aluminum DC casting;
   Shift+click stamps a twinned seed pair — in hexagonal mode that grows the rare
   12-branched snowflake. Twin boundaries etch faint, as in real metallography.
-- **Process controls** — undercooling, cooling rate, activation-gated nucleation rain, chill
+- **Nucleation you cannot cheat** — there is no "nuclei per second" slider, because that is not
+  a thing you set. You charge the melt with an **inoculant**: n_max potential sites, each with
+  its own activation undercooling drawn from a Gaussian, each firing once when the melt first
+  gets that cold (Thévoz–Rappaz site distribution + Greer free-growth activation). Sites only
+  fire on a *new* maximum undercooling, so recalescence stops nucleation by itself, and cooling
+  the same charge faster reaches a deeper undercooling before that happens — more sites fire,
+  finer casting. The test suite asserts exactly that coupling.
+- **Lab mode** — the instrument's other half: instead of dragging sliders at a running melt, you
+  specify the experiment first (charge + inoculant, atmosphere, pour superheat, mould temperature,
+  and a furnace/air/quench/soak cooling programme), pour it, and read a **report card** —
+  cooling curve with the recalescence arrest marked, deepest undercooling, and how much of the
+  inoculant the run actually used. Change a dial mid-pour and the card says so.
+- **Process controls** — undercooling, cooling rate, inoculant charge (+ potency and spread), chill
   wall, anneal-to-remelt, symmetry, anisotropy, noise, latent heat, brush size, and a pro panel
   (ε̄, γ, α, τ, k) for power users. Reset arms a staged melt; run/pause plus a ×1/×2/×4
   fast-forward multiplier on the transport.

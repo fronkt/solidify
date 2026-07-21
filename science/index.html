@@ -121,11 +121,21 @@
     Q are preserved (k<sub>eff</sub> = 1 − Q/|ΔT<sub>L</sub>|, the m·c-weighted mean partition),
     and labels every clamp it has to make.</p>
     <div class="note">
-      <div class="t">MEASURED IN THIS INSTRUMENT</div>
-      Under identical nucleation (12 seeds/s) and cooling, grain-refined A356+TiB
-      (Q ≈ 71 K) froze into <b>369 grains at ASTM G 6.2</b>, while nearly-pure Al–1Zn
-      (Q ≈ 0.9 K) gave <b>46 coarse grains at G 2.8</b>. Composition alone refined the
-      structure — the Easton–StJohn mechanism emerging from the phase-field, not scripted.
+      <div class="t">A RESULT THAT CHANGED WHEN THE PHYSICS DID</div>
+      Before v4.0, this page reported a clean demonstration: under identical nucleation
+      (a fixed 12 seeds/s rain) and cooling, grain-refined A356+TiB froze into 369 grains
+      at ASTM G 6.2 while nearly-pure Al–1Zn gave 46 coarse grains at G 2.8 — composition
+      alone refining the structure. That experiment is no longer valid, and it is worth
+      saying why. It relied on nucleation being a fixed external rate, identical for both
+      melts. Now that nucleation responds to the melt's own undercooling, the two alloys
+      no longer start from the same place: A356's liquidus is depressed far below pure
+      aluminium's, so at the same bath temperature it is <i>less</i> undercooled relative
+      to its own liquidus and fires fewer of its inoculant sites. Re-run under the site
+      model, the lean alloy now produces the finer structure (567 vs 277 grains at the
+      same cooling and inoculant charge). Growth restriction is still in the solver and
+      still real; it is simply no longer separable from the nucleation response by this
+      particular two-alloy comparison. The composer's reported chemistry — ΔT<sub>L</sub>,
+      Q, k<sub>eff</sub> — is unaffected and still computed from the textbook coefficients.
     </div>
     <p>The ANALYZE section adds foundry instruments: a <b>cooling-curve probe</b> (a thermal-analysis
     cup test — recalescence shows as the dip-and-rise), a <b>Scheil overlay</b> comparing the
@@ -187,7 +197,44 @@
     SDAS ruler that measures λ₂ along any dragged line through the volume, and a stereographic
     pole figure beside the IPF map.</p>
 
-    <h2>7 · WHAT'S QUANTITATIVE, WHAT'S QUALITATIVE</h2>
+    <h2>7 · NUCLEATION, AND THE LAB</h2>
+    <p>Earlier versions of this instrument let you set the undercooling, the cooling rate
+    <i>and</i> a nucleation rate in nuclei per second. That last slider was wrong, and a reader
+    with a solidification background spotted it immediately: <b>the nucleation rate is not
+    something you set</b>. It is a consequence of the other two. A melt nucleates when it is
+    undercooled enough for the particles it happens to contain to become growth centres, and how
+    deeply it undercools is decided by the competition between the heat you pull out and the
+    latent heat the growing solid gives back.</p>
+
+    <p>So the rate is gone, and what remains is what a foundry actually controls — the
+    <b>inoculant</b>. The charge carries n<sub>max</sub> potential sites; each one has its own
+    activation undercooling drawn from a Gaussian N(ΔT<sub>N</sub>, ΔT<sub>σ</sub>), and each
+    fires exactly once, when the melt first gets that cold. This is the Gaussian site-distribution
+    model that Thévoz, Desbiolles and Rappaz introduced for equiaxed casting and that CA-FE codes
+    still use; the "fires once, when the melt first reaches its threshold" rule is the athermal
+    picture Greer's free-growth model makes precise, where a particle's threshold is set by its
+    diameter, ΔT<sub>fg</sub> = 4γ/(ΔS<sub>v</sub>d).</p>
+
+    <p>The consequence is the part worth watching. Sites only activate on a <i>new</i> maximum
+    undercooling, so when recalescence sets in — latent heat warming the melt back up — the
+    sweep stalls and <b>nucleation shuts itself off</b>, exactly as it does in a real casting.
+    Cool the same charge faster and the melt reaches a deeper undercooling before recalescence
+    catches it, so more of the same inoculant activates and the casting comes out finer. That
+    coupling is not scripted anywhere in the code; it falls out, and the instrument's own test
+    suite asserts it: identical charge, cooling rate 0.08 vs 0.45, roughly 300 vs 420 grains.</p>
+
+    <p><b>Lab mode</b> exists because the rest of the instrument is a sandbox — you drag sliders
+    and the melt answers. That is a good way to learn what each term does and a bad model of how
+    the measurement is actually made. In the lab you fix the experiment first: the charge and its
+    inoculant, the atmosphere, the pour superheat, the mould temperature, and a cooling programme
+    (furnace, air, quench, or a soak-then-cool hold). Then you pour it and watch. The solver
+    follows the programme's set-point with Newtonian shell coupling rather than a constant heat
+    sink, which is what lets a hold really hold. At the end you get a report card: the melt's
+    cooling curve with the recalescence arrest marked, the deepest undercooling reached, and how
+    much of the inoculant the run actually used. Change a physics dial while it is pouring and the
+    card says so — a run with the conditions moved under it is a demonstration, not a measurement.</p>
+
+    <h2>8 · WHAT'S QUANTITATIVE, WHAT'S QUALITATIVE</h2>
     <table>
       <tr><th>CLAIM</th><th>STATUS</th></tr>
       <tr><td>Dendrite/seaweed/snowflake morphology, tip selection, side-branching</td><td><b>canonical</b> — matches the published Kobayashi figures</td></tr>
@@ -201,13 +248,25 @@
       <tr><td>Grain selector (3D)</td><td><b>geometric</b> — real selector physics (columnar competition through a constriction); the pigtail shape is procedural, not a specific foundry's</td></tr>
       <tr><td>Icosahedral quasicrystal (3D)</td><td><b>interface-energy symmetry only</b> — the aperiodic lattice itself is beyond a phase-field order parameter</td></tr>
       <tr><td>Melt glow per material</td><td><b>display only</b> — incandescence scaled to each metal's freezing point</td></tr>
+      <tr><td>Nucleation site model (n<sub>max</sub>, ΔT<sub>N</sub>, ΔT<sub>σ</sub>)</td><td><b>mechanistic, not derived</b> — the Rappaz/Greer structure (Gaussian activation undercoolings, fire-once, recalescence ratchet) with thresholds chosen to be watchable, not computed from interfacial energies. Real inoculated aluminium activates within a few kelvin of the liquidus; here the distribution is stretched across the range you can actually drive</td></tr>
+      <tr><td>Where the undercooling is measured</td><td><b>global sweep, local firing</b> — the ratchet reads the mean melt temperature, so in a strong gradient a site can be spent while its own neighbourhood is still hot; whether it actually nucleates is then checked cell-by-cell against the local liquidus, and in the volume that liquidus is the nominal one (the 3D stamp pass carries no solute field)</td></tr>
+      <tr><td>Atmosphere (air / argon / vacuum)</td><td><b>cleanliness proxy — NOT a nucleation control</b>. Atmosphere does not change how readily bulk liquid nucleates. What it changes in reality is oxidation: a melt poured in air entrains oxide films, which are wall and defect features. Here air adds shallow-threshold sites in the wall band and biases the porosity; nothing else. Bifilms form even under cover gas, so "argon" is cleaner, not clean</td></tr>
+      <tr><td>Cooling programmes (furnace / air / quench)</td><td><b>Newtonian shell coupling</b> in dimensionless temperature — the ordering of the three (roughly 0.2, 1–10 and 100+ K/s in a real shop) is preserved; the absolute rates are not</td></tr>
+      <tr><td>Pour superheat, mould temperature</td><td><b>qualitative boundary conditions</b> — superheat is a real thermal load and the mould is a real cold boundary, but nucleant "fading" at high superheat is not modelled: n<sub>max</sub> does not fall when you overheat the charge</td></tr>
+      <tr><td>Stirring, convection, melt flow</td><td><b>not modelled at all</b> — grain multiplication by dendrite fragmentation is a real and important refining mechanism, and it needs a flow field this solver does not have</td></tr>
     </table>
     <p>The rule throughout: anything the instrument displays as a number is computed, and anything
     that is a stylistic choice is labelled as one.</p>
 
-    <h2>8 · REFERENCES</h2>
+    <h2>9 · REFERENCES</h2>
     <ul class="refs">
       <li>R. Kobayashi, “Modeling and numerical simulations of dendritic crystal growth,” <i>Physica D</i> 63 (1993) 410–423.</li>
+      <li>Ph. Thévoz, J.L. Desbiolles &amp; M. Rappaz, “Modeling of equiaxed microstructure formation in casting,” <i>Metall. Trans. A</i> 20 (1989) 311–322 — the Gaussian site-distribution nucleation model.</li>
+      <li>Ch.-A. Gandin &amp; M. Rappaz, “A coupled finite element–cellular automaton model for the prediction of dendritic grain structures in solidification processes,” <i>Acta Metall. Mater.</i> 42 (1994) 2233–2246.</li>
+      <li>A.L. Greer, A.M. Bunn, A. Tronche, P.V. Evans &amp; D.J. Bristow, “Modelling of inoculation of metallic melts: application to grain refinement of aluminium by Al–Ti–B,” <i>Acta Mater.</i> 48 (2000) 2823–2835 — free growth, and why only a small fraction of particles ever become grains.</li>
+      <li>W. Oldfield, “A quantitative approach to casting solidification: freezing of cast iron,” <i>Trans. ASM</i> 59 (1966) 945–961 — nucleation count as a function of undercooling.</li>
+      <li>J.A. Dantzig &amp; M. Rappaz, <i>Solidification</i>, EPFL Press (2009) — recalescence and the heat-extraction / latent-heat competition that sets grain density.</li>
+      <li>J. Campbell, <i>Castings</i>, Butterworth-Heinemann (2003) — entrained oxide films (bifilms) and what melt atmosphere actually governs.</li>
       <li>A. Karma &amp; W.-J. Rappel, “Quantitative phase-field modeling of dendritic growth in two and three dimensions,” <i>Phys. Rev. E</i> 57 (1998) 4323–4349.</li>
       <li>E. Niyama, T. Uchida, M. Morikawa &amp; S. Saito, “A method of shrinkage prediction and its application to steel casting practice,” <i>AFS Int. Cast Metals J.</i> 7 (1982) 52–63 — the Niyama criterion.</li>
       <li>J.A. Warren &amp; W.J. Boettinger, “Prediction of dendritic growth and microsegregation patterns in a binary alloy using the phase-field method,” <i>Acta Metall. Mater.</i> 43 (1995) 689–703.</li>

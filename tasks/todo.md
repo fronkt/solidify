@@ -638,3 +638,58 @@ prod smoke after deploy. Harness lessons: tick-bursts deliver ~1/20 of wall-cloc
 physics (busy-guard skips) — quench hard instead of waiting out cooling; seed
 with the identity quaternion when a test needs an arm to hit a known point;
 never round-trip UTF-8 through PS5.1 Get/Set-Content (µ → Âµ).
+
+## v4.0 — REAL PHYSICS: EMERGENT NUCLEATION + THE LAB (2026-07-21)
+
+Prompted by a PhD reviewer's critique: the sim exposed undercooling, cooling rate AND a
+"nucleation /s" slider as three independent knobs, but nucleation rate is a *dependent*
+quantity — a consequence of the other two through recalescence. He also asked for a
+realism-first mode (set the environment, then watch), and Frank asked for turbo → 2×/4×.
+
+- [x] **L0** — `turbo` → a ×1/×2/×4 multiplier on the speed slider (`SPEED_MULTS`).
+      `sim.step(substeps * speedMult)`; the fence cap already bounds the product.
+- [x] **L1** — both stats passes reduce **meanLiquidT** (free header slots; stride-2 sampling
+      + ×500 fixed point keeps the sum inside u32 at 2048²/192³). Mould cells excluded.
+- [x] **L2** — STAMP seed slot 4/5 becomes activation **UNDERCOOLING** measured against the
+      LOCAL liquidus. Fixed a real shipped bug: rain seeds were stamping into alloy melt that
+      sat *above* its liquidus and silently remelting, wasting grain ids every frame.
+- [x] **L3** — `src/nucleation.ts`: a site population (n_max thresholds ~ N(ΔT_N, ΔT_σ), sorted,
+      fire-once, ratcheted on max undercooling). Rate is now emergent; recalescence stalls the
+      ratchet by itself. Rail slider became "inoculant n_max"; ΔT_N/σ live in ADVANCED.
+- [x] **L4** — optimizer genome g[3] rain → inoculant charge [8, 2000]; episodes run the same
+      executor. Target slider capped at G 5.5 (the honestly reachable band, measured).
+- [x] **L5** — `src/program.ts` + set-point (Newtonian shell) cooling: 2D reuses the dormant
+      crucible scen 3 (+ a real `moldT`), 3D gets scen 4 and a rasterized mould shell.
+- [x] **L6** — `src/lab.ts` LAB MODE (`#foundry`): configure charge/atmosphere/superheat/mould/
+      programme, pour, live status, report card (cooling curve + recalescence arrest + sites
+      used + intervention flag), share round-trip, dimension switch blocked mid-pour.
+- [x] **L7** — atmosphere as an honest cleanliness proxy: air → wall oxide-film sites (shallow
+      thresholds, fire early) + porosity bias in 3D. Not a bulk-nucleation control, and the
+      science page says so.
+- [x] **L8** — science §7 "NUCLEATION, AND THE LAB" + 6 new honesty rows + 6 references
+      (Thévoz–Rappaz, Gandin, Greer, Oldfield, Dantzig–Rappaz, Campbell); tour chapters
+      rewritten + a lab chapter; README; TESTING.md documents the new physics-behaviour tests.
+
+### Postmortems / findings
+
+1. **The 2D stats struct grew by one slot** when liqCount was added without removing the old
+   `pad` — WebGPU reported it only as a *warning* ("binding size 16416 < minimum 16420") and
+   every stats readback silently returned zeros. Same class as the v1.9 WGSL-warning bug:
+   capture console warnings in headless tests, not just errors.
+2. **`clearMelt(u)` takes UNDERCOOLING, not temperature** (T = 1 − u). Cost one wrong test.
+3. **Deeply-undercooled pours nucleate less than expected** because seeds drain MAX_SEEDS per
+   step and the front engulfs the late ones. Raised to 192 (2D) / 128 (3D). Only ~15 % of a
+   large charge ever becomes grains — which is what Greer's free-growth model predicts anyway.
+4. **Per-frame stats polling cost 20 % of the 3D frame rate.** Throttled the nucleation poll to
+   20 Hz (still 5× the panel cadence). Confirmed by stashing the change and re-measuring.
+5. **The A356+TiB vs Al–1Zn refinement claim no longer reproduces** under the site model
+   (567 grains for the *lean* alloy vs 277 for the refined one). Not a bug: the old experiment
+   held nucleation fixed and external, so it isolated growth restriction. Now an alloy's
+   depressed liquidus also sets how far its melt undercools before its inoculant fires, so the
+   two effects are entangled. The science-page note was rewritten to say exactly this rather
+   than keep a stale number. **Open question for Frank**: whether nucleation undercooling should
+   be measured from the alloy liquidus (as CNT/Rappaz do, and as it is now) is a real modelling
+   choice worth revisiting if he wants that demonstration back.
+6. **Timing-based headless tests of the speed multiplier are inherently flaky** — the ≥2-fence
+   backpressure guard skips frames unpredictably under GPU contention. Assert the *step count
+   requested* instead. (Frank's own Chrome, 94 processes, was also skewing fps probes.)
