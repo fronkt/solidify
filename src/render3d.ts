@@ -276,7 +276,8 @@ export class Renderer3D {
     f[R3.canvasW] = this.canvas.width;
     f[R3.canvasH] = this.canvas.height;
     f[R3.time] = time;
-    u[R3.flags] = ((cutStyle & 15) << 4) | (sim3.alloyActive ? 4 : 0) | (sim3.params.scen === 3 ? 8 : 0)
+    const masked = sim3.params.scen === 3 || sim3.params.scen === 4;   // pigtail / mould shell
+    u[R3.flags] = ((cutStyle & 15) << 4) | (sim3.alloyActive ? 4 : 0) | (masked ? 8 : 0)
       | (this.voxelOn ? 1 : 0) | (this.paletteOn ? 2 : 0);
     f[R3.meltGlow] = sim3.params.meltGlow;
     f[R3.tFar] = sim3.params.tFar;

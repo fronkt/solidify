@@ -31,10 +31,11 @@ export interface PhysParams {
   // crystallography / material identity
   twinProb: number;   // per-claim growth-twin probability (0 = off)
   meltGlow: number;   // display-only incandescence scale (1 = steel-bright)
-  // crucible scenario (scen 3, cast logo)
-  holdT: number;      // heater set-point for non-mold cells
-  holdRate: number;   // relax rate toward the set-point
+  // set-point cooling (scen 3): the lab's thermal programs and the cast logo
+  holdT: number;      // set-point the charge relaxes toward
+  holdRate: number;   // Newtonian relax rate toward the set-point
   facet: number;      // 0 smooth cos anisotropy · 1 regularized-cusp (faceted)
+  moldT: number;      // temperature the mould wall holds (age sentinel -1)
 }
 
 export const DEFAULTS: PhysParams = {
@@ -69,6 +70,7 @@ export const DEFAULTS: PhysParams = {
   holdT: 0,
   holdRate: 0,
   facet: 0,
+  moldT: 0.06,
 };
 
 export interface StatsResult {
@@ -353,6 +355,7 @@ export class Simulation {
     f[34] = p.holdT;
     f[35] = p.holdRate;
     f[36] = p.facet;
+    f[37] = p.moldT;
     this.device.queue.writeBuffer(this.paramBuf, 0, this.paramData);
   }
 

@@ -40,6 +40,10 @@ export interface Phys3DParams {
   dSol: number;
   twinProb: number;   // stochastic growth-twin rate at the claim front
   facet: number;      // >0.5 = cusped {100} interface energy
+  // set-point cooling (scen 4): the lab's thermal programs
+  holdT: number;      // set-point the charge relaxes toward
+  holdRate: number;   // Newtonian relax rate toward the set-point
+  moldT: number;      // temperature the mould shell holds
 }
 
 export const DEFAULTS3D: Phys3DParams = {
@@ -73,6 +77,9 @@ export const DEFAULTS3D: Phys3DParams = {
   dSol: 0.8,
   twinProb: 0,
   facet: 0,
+  holdT: 0,
+  holdRate: 0,
+  moldT: 0.06,
 };
 
 export interface StatsResult3D {
@@ -130,7 +137,8 @@ export class Sim3D {
   private updateAlloyBG: GPUBindGroup[] = [];
   private soluteTex: GPUTexture[] = [];
   private maskTex!: GPUTexture;   // r8uint mold walls (always n³ — 7 MB @192³)
-  private maskReady = false;
+  /** which geometry the mask currently holds: 0 none, 3 pigtail, 4 mould shell */
+  private maskKind = 0;
   private stampPipe!: GPUComputePipeline;
   private statsPipe!: GPUComputePipeline;
   private feedPipe!: GPUComputePipeline;
@@ -312,6 +320,7 @@ export class Sim3D {
           { binding: 1, resource: s },
           { binding: 2, resource: g },
           { binding: 3, resource: { buffer: this.statsBuf } },
+          { binding: 4, resource: this.maskTex.createView() },
         ],
       });
       this.stereoBG[dir] = d.createBindGroup({
@@ -414,9 +423,32 @@ export class Sim3D {
           m[(z * n + y) * n + x] = d2 < rCh * rCh ? 0 : 1;
         }
     }
+    this.writeMask(m, 3);
+  }
+
+  /**
+   * Rasterize the lab's mould: a shell around the four sides and the floor,
+   * open at the top so the charge is poured in and fed from above. The shell
+   * holds moldT, so the casting really does freeze from its walls inward.
+   */
+  private fillMoldShell() {
+    const n = this.n;
+    const m = new Uint8Array(n * n * n);
+    const t = Math.max(2, Math.round(0.03 * n));
+    for (let z = 0; z < n; z++)
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          const wall = z < t || x < t || x >= n - t || y < t || y >= n - t;
+          if (wall) m[(z * n + y) * n + x] = 1;
+        }
+    this.writeMask(m, 4);
+  }
+
+  private writeMask(m: Uint8Array<ArrayBuffer>, kind: number) {
+    const n = this.n;
     this.device.queue.writeTexture(
       { texture: this.maskTex }, m, { bytesPerRow: n, rowsPerImage: n }, [n, n, n]);
-    this.maskReady = true;
+    this.maskKind = kind;
   }
 
   disableAlloy() {
@@ -676,6 +708,9 @@ export class Sim3D {
     u[P3.probeX] = this.probe ? Math.floor(this.probe.x) : 0xffffffff;
     u[P3.probeY] = this.probe ? Math.floor(this.probe.y) : 0xffffffff;
     u[P3.probeZ] = this.probe ? Math.floor(this.probe.z) : 0xffffffff;
+    f[P3.holdT] = p.holdT;
+    f[P3.holdRate] = p.holdRate;
+    f[P3.moldT] = p.moldT;
     this.device.queue.writeBuffer(target ?? this.paramBuf, 0, this.paramData);
   }
 
@@ -693,8 +728,10 @@ export class Sim3D {
     // bridgman + selector: the reference isotherm rides sim time (2D frontX port)
     if (this.params.scen === 1 || this.params.scen === 3)
       this.frontZ = 1 + this.params.pullV * this.simTime;
-    // entering the selector scenario rasterizes the pigtail on demand
-    if (this.params.scen === 3 && !this.maskReady) this.fillPigtail();
+    // the mask carries one geometry at a time — rasterize on demand when the
+    // scenario asking for it isn't the one currently loaded
+    if (this.params.scen === 3 && this.maskKind !== 3) this.fillPigtail();
+    else if (this.params.scen === 4 && this.maskKind !== 4) this.fillMoldShell();
     const d = this.device;
     const cap = Math.max(1, Math.floor(1.6e8 / (this.n * this.n * this.n)));
     const steps = Math.min(substeps, cap);

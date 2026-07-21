@@ -43,6 +43,7 @@ export const P3 = {
   idFloor: 38,    // u32: CPU seed ids live below this — GPU twins spawn above
   facet: 39,
   probeX: 40, probeY: 41, probeZ: 42,   // u32, 0xffffffff = probe off
+  holdT: 43, holdRate: 44, moldT: 45,   // scen 4: set-point (lab) cooling
   BYTES: 192,
 } as const;
 
@@ -88,8 +89,11 @@ struct Params3D {
   probeX: u32,     // cooling-curve probe voxel (0xffffffff = off)
   probeY: u32,
   probeZ: u32,
-  _s43: f32,
-  _pad3: vec4f,
+  holdT: f32,      // scen 4: set-point the charge relaxes toward
+  holdRate: f32,   // scen 4: Newtonian relax rate
+  moldT: f32,      // scen 4: temperature the mould shell holds
+  _s46: f32,
+  _s47: f32,
 }
 const PORE = ${PORE_ID}u;
 const PI = 3.14159265359;
@@ -259,11 +263,13 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let lapT   = (sE.g + sW.g + sN.g + sS.g + sU.g + sD.g - 6.0 * T) * invdx2;
   let gph = vec3f(sE.r - sW.r, sN.r - sS.r, sU.r - sD.r) * inv2dx;
 
-  // grain-selector mold wall: dead geometry — φ pinned 0, held cold, never
-  // claimed (walls keep id 0, so the claim loop needs no extra guard); taps
-  // stamped into a wall self-heal next step
-  if (P.scen == 3u && textureLoad(mask, c, 0).r == 1u) {
-    textureStore(stateOut, c, vec4f(0.0, mix(T + P.dt * lapT, 0.12, min(1.0, P.dt * 30.0)), 0.0, 0.0));
+  // mould wall: dead geometry — φ pinned 0, held at the mould temperature,
+  // never claimed (walls keep id 0, so the claim loop needs no extra guard);
+  // taps stamped into a wall self-heal next step. Used by the grain-selector
+  // pigtail (scen 3) and the lab's mould shell (scen 4).
+  if ((P.scen == 3u || P.scen == 4u) && textureLoad(mask, c, 0).r == 1u) {
+    let wallT = select(0.12, P.moldT, P.scen == 4u);
+    textureStore(stateOut, c, vec4f(0.0, mix(T + P.dt * lapT, wallT, min(1.0, P.dt * 30.0)), 0.0, 0.0));
     textureStore(grainOut, c, vec4u(0u, 0u, 0u, 0u));
     ${alloy ? "textureStore(soluteOut, c, vec4f(conc, 0.0, 0.0, 0.0));" : ""}
     return;
@@ -327,6 +333,9 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     let zu = f32(gid.z) * P.dx;
     let tProf = clamp(0.7 + P.gradG * (zu - P.frontZ), -0.6, 1.5);
     TNew = mix(TNew, tProf, min(1.0, P.dt * 150.0));
+  } else if (P.scen == 4u) {
+    // lab: Newtonian shell cooling toward the program's set-point
+    TNew = mix(TNew, P.holdT, min(1.0, P.dt * P.holdRate));
   } else if (P.scen == 2u) {
     // weld: laser on the TOP face — xy gaussian, Beer-Lambert decay in depth
     let dxy = distance(vec2f(gid.xy), vec2f(P.weldX, P.weldY));
@@ -521,6 +530,7 @@ struct Stats3 {
 @group(0) @binding(1) var state: texture_3d<f32>;
 @group(0) @binding(2) var grain: texture_3d<u32>;
 @group(0) @binding(3) var<storage, read_write> stats: Stats3;
+@group(0) @binding(4) var mask: texture_3d<u32>;
 
 @compute @workgroup_size(4, 4, 4)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -547,7 +557,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   }
   // mean melt temperature for the nucleation model — pores excluded by the
   // early return above; stride 2 per axis and x500 keeps the sum inside u32.
-  if (s.r < 0.5 && ((gid.x | gid.y | gid.z) & 1u) == 0u) {
+  let wall = (P.scen == 3u || P.scen == 4u) && textureLoad(mask, vec3i(gid), 0).r == 1u;
+  if (s.r < 0.5 && !wall && ((gid.x | gid.y | gid.z) & 1u) == 0u) {
     atomicAdd(&stats.liqCount, 1u);
     atomicAdd(&stats.liqTsum, u32(clamp((s.g + 1.0) * 500.0, 0.0, 2000.0)));
   }

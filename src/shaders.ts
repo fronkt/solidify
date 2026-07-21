@@ -59,7 +59,7 @@ struct Params {
   holdT: f32,      // crucible (scen 3): heater set-point for non-mold cells
   holdRate: f32,   // crucible: relax rate toward the set-point
   facet: f32,      // 0 = smooth cos anisotropy, 1 = regularized-cusp (faceted growth)
-  _pad0: f32,
+  moldT: f32,      // scen 3: temperature the mould wall holds
   _pad1: f32,
   _pad2: f32,
 }
@@ -194,9 +194,11 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     let tProf = clamp(0.7 + P.gradG * (xu - P.frontX) / P.dx * P.dx / 1.0, -0.6, 1.5);
     TNew = mix(TNew, tProf, min(1.0, P.dt * 150.0));
   } else if (P.scen == 3u) {
-    // crucible (cast logo): non-mold cells relax toward the heater set-point,
-    // the mold stays a cold sink, and the pointer is a small torch
-    let tGoal = select(P.holdT, 0.06, s.a < -0.5);
+    // Newtonian shell cooling: the charge relaxes toward a controlled
+    // set-point while mould cells (age sentinel -1) hold the mould
+    // temperature. The lab's furnace/air/quench programs drive holdT; the
+    // cast-logo scenario adds a pointer torch through weldPow.
+    let tGoal = select(P.holdT, P.moldT, s.a < -0.5);
     TNew = mix(TNew, tGoal, min(1.0, P.dt * P.holdRate));
     let d2 = distance(vec2f(gid.xy), vec2f(P.weldX, P.weldY));
     TNew += P.dt * P.weldPow * exp(-(d2 * d2) / (2.0 * P.weldSig * P.weldSig));
@@ -340,7 +342,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   // mean temperature of the remaining melt: the bulk undercooling the
   // nucleation model reads. Sampled every other cell on each axis and scaled
   // x500 so the sum stays inside u32 even on a 2048^2 grid.
-  if (s.r < 0.5 && ((gid.x | gid.y) & 1u) == 0u) {
+  // (mould cells carry the age sentinel -1 and are not melt)
+  if (s.r < 0.5 && s.a > -0.5 && ((gid.x | gid.y) & 1u) == 0u) {
     atomicAdd(&stats.liqCount, 1u);
     atomicAdd(&stats.liqTsum, u32(clamp(s.g + 1.0, 0.0, 3.0) * 500.0));
   }
