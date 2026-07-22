@@ -308,6 +308,49 @@ export function segregationDecay(dtProduct: number, lambdaM: number): number {
  * and the report card says so. Matching the endpoint is the honest half; claiming
  * the path would not be.
  */
+/**
+ * The MODEL's growth exponent, `m` in `D^m − D₀^m = K_MC·S`.
+ *
+ * **Measured, not assumed, and emphatically not 2.** `GG-EXPONENT` in
+ * `scripts/verify-heattreat-gpu.mjs` is the provenance: a 512² polycrystal cast
+ * to ~1600 grains and annealed down to ~100, fitted over the regime where the
+ * law is supposed to hold. Three independent casts gave 2.38, 2.44 and 2.61 with
+ * uncertainty bands that overlap around 2.4–2.5.
+ *
+ * It is worth recording that this coincides with the canonical result for
+ * two-dimensional Potts grain growth (R ∝ t^0.41, i.e. m ≈ 2.44) — measured here
+ * independently rather than looked up and adopted. Ideal curvature-driven growth
+ * would give 2; a Monte Carlo lattice does not, because it pins.
+ *
+ * Two estimators were wrong before this one, and both are recorded in the gate:
+ * fitting through the measured d₀ made the early transient drag m down until it
+ * railed at the bottom of the scan, and freeing the intercept instead made the
+ * fit degenerate — r² > 0.99 on every cast while m wandered 2.41 → 3.41 with
+ * non-overlapping bands. The physics pins the intercept; the transient is
+ * excluded instead.
+ */
+export const M_MODEL = 2.44;
+
+/**
+ * The one calibration constant: cells^M_MODEL of grain growth per Monte Carlo
+ * sweep. Measured at the shipped `M_MODEL` by `GG-KMC`, because K carries units
+ * of cells^m and is therefore violently coupled to the exponent — measuring it
+ * at a free-fit m would be measuring a different quantity on every cast.
+ *
+ * A property of the lattice, the neighbourhood and the Monte Carlo temperature.
+ * NOT of any material, and NOT of the schedule: the furnace enters only through
+ * how many sweeps `sweepsFor` asks for.
+ */
+export const K_MC = 4.79;
+
+/**
+ * How far `K_MC` may drift before the gate calls it a regression. Three casts
+ * measured 4.781, 4.858 and 4.740 — a 2.5 % spread once the exponent is pinned,
+ * against 80 % when it was not. 15 % is comfortably outside that scatter and
+ * comfortably inside "something about the pass changed".
+ */
+export const K_MC_TOL = 0.15;
+
 export function sweepsFor(
   d0Um: number, dTargetUm: number, umPerCell: number, kMC: number, mModel: number,
 ): number {

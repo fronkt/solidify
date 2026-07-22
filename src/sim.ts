@@ -1,5 +1,6 @@
 import {
   FLUX_WGSL, UPDATE_WGSL, PHI_WGSL, TRANSPORT_WGSL, STAMP_WGSL, STATS_WGSL,
+  HTMASK_WGSL, ANNEAL_WGSL, H2U, HT_COLOURS_2D, HT_STRIDE, HT_KT_DEFAULT,
   MAX_GRAINS, MAX_SEEDS, SEED_STRIDE, P2, SOLVER, shaderModule,
 } from "./shaders";
 import { DEFAULT_UM_PER_CELL } from "./units";
@@ -177,6 +178,27 @@ export class Simulation {
   private stampBG: GPUBindGroup[] = [];
   private statsBG: GPUBindGroup[] = [];
 
+  // ---- heat treatment (v6.0). Inert until a treatment runs; see shaders.ts.
+  /** r8uint "this cell is treatable" — one auditable place for the rule */
+  private htMaskTex!: GPUTexture;
+  /**
+   * HT_COLOURS_2D uniform structs at 256 B stride, one per sublattice.
+   *
+   * They live in ONE buffer at static offsets rather than being rewritten
+   * between dispatches, because `queue.writeBuffer` is ordered against
+   * `submit()` and not interleaved with dispatches — a single struct rewritten
+   * per colour would give every dispatch in the submit the LAST colour written,
+   * and every sweep in a batch the same random numbers. That failure looks
+   * exactly like Potts lattice pinning: coarsening that starts, slows and stops.
+   */
+  private htBuf!: GPUBuffer;
+  private htMaskPipe!: GPUComputePipeline;
+  private annealPipe!: GPUComputePipeline;
+  private htMaskBG: GPUBindGroup[] = [];
+  /** [grain ping-pong dir][colour] */
+  private annealBG: GPUBindGroup[][] = [];
+  private htData = new ArrayBuffer(HT_STRIDE * HT_COLOURS_2D);
+
   private pendingSeeds: Seed[] = [];
   private pendingQuench = 0;
   private statsInFlight = false;
@@ -213,6 +235,12 @@ export class Simulation {
     this.grainTex = [d.createTexture(texDesc("r32uint")), d.createTexture(texDesc("r32uint"))];
     this.fluxTex = d.createTexture(texDesc("rgba32float"));
     this.phiAuxTex = d.createTexture(texDesc("rg32float"));
+    // always allocated rather than lazily — the 3D grain selector established
+    // that paying a few MB to delete a whole class of rebind bugs is the right
+    // trade. r32uint, not the r8uint the 3D mould mask uses: that one is only
+    // ever CPU-written and sampled, whereas this is written by a compute pass,
+    // and r8uint cannot be a storage texture in WebGPU at all.
+    this.htMaskTex = d.createTexture(texDesc("r32uint"));
 
     this.paramBuf = d.createBuffer({ size: P2.BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.theta0Buf = d.createBuffer({ size: MAX_GRAINS * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
@@ -231,6 +259,12 @@ export class Simulation {
     this.transportPipe = mk(TRANSPORT_WGSL);
     this.stampPipe = mk(STAMP_WGSL);
     this.statsPipe = mk(STATS_WGSL);
+    this.htMaskPipe = mk(HTMASK_WGSL, "htmask");
+    this.annealPipe = mk(ANNEAL_WGSL, "anneal");
+    this.htBuf = d.createBuffer({
+      size: HT_STRIDE * HT_COLOURS_2D,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
 
     for (const dir of [0, 1]) {
       const s = this.stateTex[dir].createView();
@@ -302,6 +336,30 @@ export class Simulation {
           { binding: 3, resource: { buffer: this.statsBuf } },
         ],
       });
+      this.htMaskBG[dir] = d.createBindGroup({
+        layout: this.htMaskPipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.htBuf, offset: 0, size: H2U.BYTES } },
+          { binding: 1, resource: s },
+          { binding: 2, resource: g },
+          { binding: 3, resource: this.htMaskTex.createView() },
+        ],
+      });
+      // one bind group per (grain direction, colour): the colour selects the
+      // uniform struct by STATIC offset, which is what lets a whole sweep be one
+      // submit without any dispatch seeing another's colour
+      this.annealBG[dir] = [];
+      for (let c = 0; c < HT_COLOURS_2D; c++) {
+        this.annealBG[dir][c] = d.createBindGroup({
+          layout: this.annealPipe.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: this.htBuf, offset: c * HT_STRIDE, size: H2U.BYTES } },
+            { binding: 1, resource: g },
+            { binding: 2, resource: this.htMaskTex.createView() },
+            { binding: 3, resource: go },
+          ],
+        });
+      }
     }
     this.reset();
   }
@@ -499,6 +557,89 @@ export class Simulation {
     return done;
   }
 
+  // ------------------------------------------------------ heat treatment
+
+  /** write one HT uniform struct per colour, sharing a per-sweep RNG salt */
+  private writeHt(salt: number, kT: number, twinProb = 0) {
+    const u = new Uint32Array(this.htData);
+    const f = new Float32Array(this.htData);
+    for (let c = 0; c < HT_COLOURS_2D; c++) {
+      const b = (c * HT_STRIDE) / 4;
+      u[b + H2U.n] = this.n;
+      u[b + H2U.colour] = c;
+      u[b + H2U.salt] = salt >>> 0;
+      f[b + H2U.kT] = kT;
+      u[b + H2U.flags] = 1;
+      f[b + H2U.twinProb] = twinProb;
+    }
+    this.device.queue.writeBuffer(this.htBuf, 0, this.htData);
+  }
+
+  /**
+   * Rebuild the "which cells may be treated" mask from the current state.
+   * Cheap, and run once at the start of a treatment rather than every sweep —
+   * φ does not move during a heat treatment, which is the definition of one.
+   */
+  private buildHtMask(kT: number) {
+    this.writeHt(0, kT);
+    const enc = this.device.createCommandEncoder();
+    const pass = enc.beginComputePass();
+    pass.setPipeline(this.htMaskPipe);
+    pass.setBindGroup(0, this.htMaskBG[this.dir]);
+    this.dispatch(pass);
+    pass.end();
+    this.device.queue.submit([enc.finish()]);
+  }
+
+  /**
+   * Run `sweeps` Monte Carlo sweeps of grain-boundary migration.
+   *
+   * **One submit per sweep, with a fresh salt written between submits.** Queue
+   * operations are ordered, so each submit sees its own `writeBuffer` — but only
+   * because they are separate submits. Batching many sweeps into one command
+   * buffer would hand every one of them the same random numbers, and the
+   * resulting stall is indistinguishable by eye from lattice pinning.
+   *
+   * The four colour dispatches inside a sweep flip the grain ping-pong, so `dir`
+   * would end up moved if the count were odd — and `dir` also indexes the STATE
+   * ping-pong, which this pass never writes. An odd count would therefore pair a
+   * current state field with a stale grain field. `HT_COLOURS_2D` is even and
+   * asserted to be; the local `gdir` lands back where it started and `this.dir`
+   * is never touched.
+   *
+   * Nothing here reads or writes φ, T, c or age. That is not an optimisation —
+   * a solid-state treatment that moved the phase field would not be one.
+   */
+  async anneal(sweeps: number, kT = HT_KT_DEFAULT, onProgress?: (done: number) => void): Promise<number> {
+    if (HT_COLOURS_2D % 2 !== 0) throw new Error("HT_COLOURS_2D must be even — see anneal()");
+    const total = Math.max(0, Math.floor(sweeps));
+    if (total === 0) return 0;
+    this.buildHtMask(kT);
+    for (let s = 0; s < total; s++) {
+      // salt 0 is the mask pass; start sweeps at 1 so no sweep shares its stream
+      this.writeHt(s + 1, kT);
+      const enc = this.device.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(this.annealPipe);
+      let gdir = this.dir;
+      for (let c = 0; c < HT_COLOURS_2D; c++) {
+        pass.setBindGroup(0, this.annealBG[gdir][c]);
+        this.dispatch(pass);
+        gdir = 1 - gdir;
+      }
+      pass.end();
+      this.device.queue.submit([enc.finish()]);
+      // drain periodically: keeps the queue bounded and gives the panel a pulse
+      if ((s & 31) === 31) {
+        await this.device.queue.onSubmittedWorkDone();
+        onProgress?.(s + 1);
+      }
+    }
+    await this.device.queue.onSubmittedWorkDone();
+    onProgress?.(total);
+    return total;
+  }
+
   /**
    * Encode and submit one command buffer. Returns the substeps advanced, or -1
    * when there was nothing at all to do. Shared by `step` and `stepSync` so the
@@ -657,6 +798,41 @@ export class Simulation {
       return null;
     }
     const data = new Float32Array(buf.getMappedRange().slice(0));
+    buf.unmap();
+    buf.destroy();
+    return data;
+  }
+
+  /**
+   * One-shot readback of the grain-id texture over a band of rows — `h * n`
+   * u32s, row-major from `y0`.
+   *
+   * The stats census answers "how many grains and how big", which is what the
+   * panels need, but it cannot answer "did this particular cell change id, and
+   * to what". The heat-treatment gates are all about the second question: that a
+   * sweep never invents an id, never touches a mould or liquid cell, and flips a
+   * *different* set of cells on the next sweep. `n * 4` is a multiple of 256 at
+   * every grid the app offers, so like `readRows` this needs no row padding.
+   */
+  async readGrainRows(y0: number, h: number): Promise<Uint32Array | null> {
+    const n = this.n;
+    y0 = Math.min(n - 1, Math.max(0, Math.floor(y0)));
+    h = Math.min(n - y0, Math.max(1, Math.ceil(h)));
+    const bpr = n * 4;
+    const buf = this.device.createBuffer({ size: bpr * h, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    const enc = this.device.createCommandEncoder();
+    enc.copyTextureToBuffer(
+      { texture: this.grainTex[this.dir], origin: { x: 0, y: y0 } },
+      { buffer: buf, bytesPerRow: bpr },
+      { width: n, height: h });
+    this.device.queue.submit([enc.finish()]);
+    try {
+      await buf.mapAsync(GPUMapMode.READ);
+    } catch {
+      buf.destroy();
+      return null;
+    }
+    const data = new Uint32Array(buf.getMappedRange().slice(0));
     buf.unmap();
     buf.destroy();
     return data;

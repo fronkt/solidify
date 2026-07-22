@@ -701,6 +701,223 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 }
 `;
 
+// ---------------------------------------------------- heat treatment (v6.0)
+//
+// Grain growth is boundary migration among cells that are ALREADY solid, so it
+// is a separate pass from the solidification claim — which only ever grows into
+// liquid and never changes an id once set (`TRANSPORT_CORE` above). This one
+// never touches φ, T or c at all.
+//
+// The model is Monte Carlo Potts (Anderson–Srolovitz): a boundary costs energy
+// proportional to its area, so a cell adopting a neighbour's id is accepted when
+// it lowers the count of unlike neighbours. Curvature falls out — a convex grain
+// has more unlike neighbours on its outside than its inside, so it shrinks — and
+// so does the fact that grains coarsen rather than dissolve.
+//
+// **The Monte Carlo temperature is NOT the physical temperature.** `kT` here is a
+// numerical parameter that keeps the lattice from pinning; the furnace
+// temperature enters this model ONLY through how many sweeps `heattreat.ts`
+// budgets, via Arrhenius. Confusing the two would be the single easiest way to
+// make this whole feature quietly wrong, so it is said here, in the science page,
+// and asserted by `HT-TEMP-SENSITIVITY`.
+
+/**
+ * The heat-treat passes own their own uniform, rather than taking slots in `P2`.
+ *
+ * Three reasons, in order of weight. (1) `colour` and the RNG salt MUST vary
+ * between dispatches, and `queue.writeBuffer` is ordered against `submit()`
+ * rather than interleaved with dispatches — so a shared buffer written once per
+ * submit would hand every sweep the same random numbers and freeze the dynamics
+ * in a way that looks exactly like lattice pinning. (2) `writeParams()` is called
+ * by `readStats()`, not only by `step()`, so a stats poll landing mid-anneal
+ * would rewrite a shared buffer underneath the pass — literally the V5 stereology
+ * race with a different victim. (3) `P3` has two free slots and this needs more.
+ *
+ * The cost is that `n` and the id range are duplicated here, which is the
+ * two-names-for-one-value footgun. Mitigated the same way `P2` is: one slot
+ * table, one writer, and the values are only read while the solver is paused and
+ * therefore cannot change under the pass.
+ */
+export const H2U = {
+  n: 0,
+  colour: 1,      // u32: which sublattice may flip this dispatch
+  salt: 2,        // u32: per-sweep RNG salt — the whole reason this is not in P2
+  kT: 3,          // MC temperature (numerical, NOT the furnace)
+  flags: 4,       // bit 0: eligible cells only; bit 1: (H3) spawn annealing twins
+  twinProb: 5,
+  pad6: 6,
+  pad7: 7,
+  BYTES: 32,
+} as const;
+
+/**
+ * Sublattice colours. 2D uses an 8-neighbour (Moore) stencil to match the claim
+ * pass, and stride-2 in x and y gives four classes: two cells of one class differ
+ * by ≥2 on some axis, so their Chebyshev distance is ≥2 and they are never each
+ * other's neighbours. Simultaneous update within a class is therefore identical
+ * to sequential update in random order, which is what keeps detailed balance.
+ *
+ * **It must stay EVEN.** `dir` is one index shared by the state and grain
+ * ping-pongs (`sim.ts:236-239`), and the anneal flips only the grain pair — so an
+ * odd dispatch count would leave a stale grain field paired with a current state
+ * field, which renders as grains lagging the front by one step, i.e. as nothing
+ * visible at all in a paused casting. `Simulation` asserts this.
+ */
+export const HT_COLOURS_2D = 4;
+
+/**
+ * Stride between the per-colour uniform structs. WebGPU's
+ * `minUniformBufferOffsetAlignment` is 256 on every implementation that matters,
+ * and a bind group's buffer offset must be a multiple of it — so the 32-byte
+ * struct is padded out rather than packed.
+ */
+export const HT_STRIDE = 256;
+
+/**
+ * Monte Carlo temperature — a NUMERICAL parameter, not the furnace.
+ *
+ * At kT = 0 a Potts lattice pins: flat boundary segments have no downhill move
+ * available and the microstructure freezes with grains still small, which reads
+ * as "the anneal finished" and is the single most misleading artefact this model
+ * has. A small positive kT lets boundaries step; too large and the boundaries
+ * roughen into noise.
+ *
+ * The furnace temperature enters this model ONLY through how many sweeps
+ * `heattreat.ts` budgets via Arrhenius — never through this number, which is why
+ * `HT-TEMP-SENSITIVITY` asserts that two schedules at different temperatures
+ * produce byte-identical `kT` and differ only in the sweep count. The value here
+ * is a starting point to be confirmed against `GG-STAGNATION` (flips per boundary
+ * cell must not decay to zero) rather than a measured constant.
+ */
+export const HT_KT_DEFAULT = 0.6;
+
+const HT_COMMON = /* wgsl */ `
+struct HT {
+  n: u32,
+  colour: u32,
+  salt: u32,
+  kT: f32,
+  flags: u32,
+  twinProb: f32,
+  pad6: u32,
+  pad7: u32,
+}
+fn htHash(x: u32, y: u32, z: u32) -> f32 {
+  var v = x * 747796405u + y * 2891336453u + z * 3546859427u + 2654435769u;
+  v ^= v >> 16u; v *= 2246822519u; v ^= v >> 13u; v *= 3266489917u; v ^= v >> 16u;
+  return f32(v) * (1.0 / 4294967295.0);
+}
+`;
+
+/**
+ * Eligibility mask — built once per treatment, read every sweep.
+ *
+ * Puts "what is treatable" in exactly one auditable place instead of repeating a
+ * four-clause predicate inside the hot loop, and drops the per-dispatch read from
+ * 16 B/cell (the rgba32float state) to 4. A cell is treatable when it is solid,
+ * carries a real grain id, and is not mould (the age = −1 sentinel).
+ *
+ * `r32uint` rather than the `r8uint` the 3D mould mask uses, because **r8uint is
+ * not a storage-capable format in WebGPU** — `maskTex` in sim3d.ts gets away with
+ * it by being CPU-written through `writeTexture` and only ever sampled. This one
+ * is written by a compute pass, so it needs a format that can be a storage
+ * texture at all.
+ */
+export const HTMASK_WGSL = /* wgsl */ `
+${HT_COMMON}
+@group(0) @binding(0) var<uniform> H: HT;
+@group(0) @binding(1) var state: texture_2d<f32>;
+@group(0) @binding(2) var grain: texture_2d<u32>;
+@group(0) @binding(3) var maskOut: texture_storage_2d<r32uint, write>;
+
+@compute @workgroup_size(8, 8)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= H.n || gid.y >= H.n) { return; }
+  let c = vec2i(i32(gid.x), i32(gid.y));
+  let s = textureLoad(state, c, 0);
+  let id = textureLoad(grain, c, 0).r;
+  // solid, claimed, and not the mould (age -1)
+  let ok = s.r >= 0.5 && id != 0u && s.a > -0.5;
+  textureStore(maskOut, c, vec4u(select(0u, 1u, ok), 0u, 0u, 0u));
+}
+`;
+
+/**
+ * One sublattice's worth of Potts boundary migration.
+ *
+ * Every invocation writes — cells of the active colour may change, every other
+ * cell copies its own id through — because the pass ping-pongs the grain texture
+ * and a cell left unwritten would come back as whatever the other buffer held
+ * before the sweep. That is the difference between coarsening and confetti.
+ *
+ * Ineligible neighbours (liquid, mould) are EXCLUDED from the energy rather than
+ * counted as unlike. Counting them would make every free surface look like a
+ * boundary the cell wants to escape, and the pass would eat the casting inward
+ * from its own edge for reasons that have nothing to do with grain growth.
+ *
+ * The candidate id is drawn only from an eligible neighbour, never from the id
+ * space at large — a random id would invent an orientation that no grain ever
+ * grew with, and `theta0` would happily give it one.
+ */
+export const ANNEAL_WGSL = /* wgsl */ `
+${HT_COMMON}
+@group(0) @binding(0) var<uniform> H: HT;
+@group(0) @binding(1) var grain: texture_2d<u32>;
+@group(0) @binding(2) var mask: texture_2d<u32>;
+@group(0) @binding(3) var grainOut: texture_storage_2d<r32uint, write>;
+
+@compute @workgroup_size(8, 8)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= H.n || gid.y >= H.n) { return; }
+  let c = vec2i(i32(gid.x), i32(gid.y));
+  let mineId = textureLoad(grain, c, 0).r;
+
+  // every cell writes, every dispatch — see the note above
+  var out = mineId;
+
+  // only this dispatch's sublattice may move, and only treatable cells
+  let mine = (gid.x & 1u) | ((gid.y & 1u) << 1u);
+  if (mine == H.colour && textureLoad(mask, c, 0).r == 1u) {
+    // gather the eligible 8-neighbourhood once
+    var nid: array<u32, 8>;
+    var nOk: array<bool, 8>;
+    var k = 0;
+    for (var dy = -1; dy <= 1; dy++) {
+      for (var dx = -1; dx <= 1; dx++) {
+        if (dx == 0 && dy == 0) { continue; }
+        let nc = clamp(c + vec2i(dx, dy), vec2i(0), vec2i(i32(H.n) - 1));
+        nid[k] = textureLoad(grain, nc, 0).r;
+        nOk[k] = textureLoad(mask, nc, 0).r == 1u;
+        k++;
+      }
+    }
+    // one Metropolis move: propose adopting a random eligible neighbour's id
+    let pick = i32(htHash(gid.x + 17u, gid.y + 91u, H.salt) * 7.999);
+    if (nOk[pick] && nid[pick] != mineId) {
+      let cand = nid[pick];
+      var eNow = 0.0;
+      var eNew = 0.0;
+      for (var j = 0; j < 8; j++) {
+        if (!nOk[j]) { continue; }          // excluded, not counted as unlike
+        if (nid[j] != mineId) { eNow += 1.0; }
+        if (nid[j] != cand) { eNew += 1.0; }
+      }
+      let dE = eNew - eNow;
+      // downhill and flat moves are taken; uphill costs the Boltzmann factor.
+      // Flat moves matter: without them a flat boundary segment can never step
+      // and the whole lattice pins, which is the artefact most easily mistaken
+      // for "the anneal finished".
+      var accept = dE <= 0.0;
+      if (!accept && H.kT > 0.0) {
+        accept = htHash(gid.x + 613u, gid.y + 7u, H.salt ^ 0x9e3779b9u) < exp(-dE / H.kT);
+      }
+      if (accept) { out = cand; }
+    }
+  }
+  textureStore(grainOut, c, vec4u(out, 0u, 0u, 0u));
+}
+`;
+
 // -------------------------------------------------------------- render pass
 // Lenses: 0 MELT 1 ORIENT 2 ETCH 3 FIELD 4 RINGS 5 THERM 6 SEM 7 NEON 8 XRAY 9 CURV
 export const LENS_NAMES = ["MELT", "ORIENT", "ETCH", "FIELD", "RINGS", "THERM", "SEM", "NEON", "XRAY", "CURV"];
