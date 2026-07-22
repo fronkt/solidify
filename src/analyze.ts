@@ -1,5 +1,4 @@
 import type { Simulation, StatsResult, PhysParams } from "./sim";
-import { DOMAIN_MM } from "./sim";
 import type { Renderer } from "./render";
 
 // Foundry-style analysis instruments:
@@ -171,7 +170,7 @@ export class Analyze {
       else if (inSolid && phi[i] < 0.4) { inSolid = false; }
     }
     if (inSolid && arms === 0) arms = 1;
-    const umPerCell = (DOMAIN_MM * 1000) / sim.n;
+    const umPerCell = sim.umPerCell;
     const lenUm = lenCells * umPerCell;
     const label = arms >= 2
       ? `λ₂ ≈ ${(lenUm / arms).toFixed(1)} µm  ·  ${arms} arms over ${lenUm.toFixed(0)} µm`

@@ -736,3 +736,59 @@ heat-treatment processes, all four lab-realism additions, and three of four 3D g
       guard is a hard prerequisite for the param-table growth the quantitative solver needs.
       `npm run typecheck` promoted to a CI gate — the two `noUnusedLocals` exemptions its
       comment cited were stale, both symbols are live imports.
+- [x] **U1** — `src/units.ts`: the one owner of the dimensionless↔SI map. Real SI blocks on
+      nine materials (`Material.si`, added *additively* so no morphology could shift), three
+      conversion factors with provenance, and a similarity report. The key realisation is that
+      only one factor is free: kelvin-per-unit is **forced** by the heat equation's own latent
+      coupling `(L/c_p)/K` — a real per-material number (Al ≈249 K, water ≈44 K) that had been
+      sitting unused in the solver since M0 — and seconds-per-unit is then forced by whichever
+      diffusivity transports (solute when the alloy is on, heat when it is not). Gated by
+      `scripts/verify-units.mjs`, 8 checks, **no browser needed**, so it is the first part of
+      the suite CI can actually run.
+- [x] **U2** — real units everywhere, and the two bugs that fell out of having an owner.
+      **(a) The µm anchor was inverted.** `umPerPx = DOMAIN_MM*1000/n` fixed a 1 mm domain and
+      derived the cell pitch, so the *same physics* at 512² and 2048² reported grain diameters
+      4× apart, and 2D (`/n`) disagreed with 3D (`/1024`) at every grid but the default. The
+      pitch is the anchor — the phase-field interface is a fixed number of cells wide — so
+      `umPerCell` now lives on both solvers and the domain is derived. `UNITS-GRID-INVARIANT`
+      locks it. **(b) The composer contradicted the solver**: `TSCALE = 100` K/unit, flat
+      across every metal, where the model's own factor is ~249 K for aluminium. Now
+      `tScaleFor(base)`. Impact is narrower than expected — alloys already clamped by
+      `DEPR_CAP` are unchanged; the dilute ones move (AA2024 2.3×, A356 ~12%).
+      Readouts, rail dials, nucleation dials and the scale bar all read in °C/K/K/s/s/µm;
+      a regime line names the process ("274 K/s — permanent mould · die casting"); the
+      undercooling dial turns red past the Turnbull limit, which for aluminium is *inside*
+      its own range. New SCALE rail section shows all three factors, their provenance, the
+      derived domain size, and the groups the model fails.
+
+### The refinement result: measured wrong twice, and nearly a third time
+
+v4.0 postmortem #5 recorded the A356+TiB vs Al-1Zn demonstration as no longer reproducing
+(567 lean vs 277 refined). Re-measured after U2, the **inversion turns out to be an artefact
+too**. Two measurement flaws, neither of them physics:
+
+1. **Equal bath temperature is not equal undercooling.** A356's liquidus sits at 0.821 where
+   the lean alloy's is 0.993, so at a common start temperature the refined charge began
+   *above its own liquidus* and could not nucleate until it cooled further.
+2. **Equal time is not equal progress.** Growth restriction left the refined charge with 25x
+   less solid at the comparison instant (fs 0.004 vs 0.106) - and grain *count* is counted on
+   solid that exists.
+
+Control both and the answer is **equivalence**: across four runs at two inoculant charges the
+grain counts agree to better than 8 % (1434/1380, 1431/1445, 305/313, 351/327). Growth
+restriction is plainly there - the refined charge takes ~2x as long to reach 20 % solid - but
+at these site densities it does not become a finer grain count. Neither the original claim nor
+its inversion survives a controlled comparison. Test: `REFINE-FAIR`.
+
+**Postmortem — I nearly shipped a third wrong answer.** A first pass appeared to show the
+textbook mechanism beautifully: the slower alloy recalescing less, holding its undercooling and
+firing 3000/3000 sites against the lean charge's 1640. It was written into the science page as
+a restored result. Running it inside the suite gave 1709 vs 1728 — no effect at all. The cause
+is exactly **postmortem #6 from the previous release**: the harness advances the solver against
+wall-clock frames and the >=2-fence guard skips them unpredictably, so the two casts had not
+received the same amount of physics. Anything derived from *how far a cast got* (sites fired,
+ticks elapsed) is not a controlled variable in this harness; only quantities read at a matched
+physical state are. The lesson generalises past this test: a standalone measurement on an idle
+machine is not a result until it reproduces under load. Settling the mechanism properly needs a
+`stepSync(n)` harness entry point that awaits GPU completion, which is worth building before any
+future claim rests on rate comparisons.

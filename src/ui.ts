@@ -4,10 +4,16 @@ import { LENS_NAMES } from "./shaders";
 import { LENS3_NAMES, ICOSA_DELTA_MAX } from "./shaders3d";
 import { MATERIALS, to3D } from "./materials";
 import type { PhysParams } from "./sim";
+import type { Units } from "./units";
 import type { Analyze } from "./analyze";
 
 export interface UIHost extends AppControl {
   simParams(): PhysParams;
+  /** the live dimensionless<->SI scaling (units.ts) */
+  units(): Units;
+  /** model resolution — the one free factor of the three */
+  getUmPerCell(): number;
+  setUmPerCell(v: number): void;
   getUndercool(): number;
   setUndercool(v: number): void;
   getInoculant(): number;
@@ -123,6 +129,10 @@ export class UI {
   private habitNote!: HTMLElement;
   private facetRow!: HTMLElement;
   private facetNote!: HTMLElement;
+  private undercoolRow!: HTMLElement;
+  private regimeNote!: HTMLElement;
+  private potNote!: HTMLElement;
+  private scaleBody!: HTMLElement;
   private only2d: HTMLElement[] = [];
   private only3d: HTMLElement[] = [];
   private readouts = document.getElementById("readouts")!;
@@ -386,8 +396,19 @@ export class UI {
 
     // ---- melt / process
     const melt = this.section(rail, "MELT · PROCESS", true);
-    this.slider(melt, "undercooling", 0.3, 1.0, 0.01, () => host.getUndercool(), v => host.setUndercool(v));
-    this.slider(melt, "cooling rate", 0, 0.6, 0.005, () => p().coolRate, v => { p().coolRate = v; });
+    // These read in real units now. When the material has no SI identity (the
+    // model metal, the quasicrystal) they fall back to the dimensionless value
+    // rather than printing an em dash — the number the solver uses is still
+    // worth seeing, it just is not a temperature.
+    const uK = (v: number) => { const u = host.units(); return u.known ? u.fmtK(v) : v.toFixed(2); };
+    const uRate = (v: number) => { const u = host.units(); return u.known ? u.fmtRate(v) : v.toFixed(3); };
+    this.undercoolRow = this.slider(melt, "undercooling", 0.3, 1.0, 0.01,
+      () => host.getUndercool(), v => host.setUndercool(v), uK);
+    this.slider(melt, "cooling rate", 0, 0.6, 0.005, () => p().coolRate, v => { p().coolRate = v; }, uRate);
+    // what that cooling rate is actually called in a shop
+    this.regimeNote = document.createElement("div");
+    this.regimeNote.className = "matnote";
+    melt.append(this.regimeNote);
     // The inoculant charge — NOT a nucleation rate. How many potential nuclei
     // the melt carries; how many actually fire is decided by how deeply the
     // melt undercools before recalescence, i.e. by the two sliders above.
@@ -644,13 +665,27 @@ export class UI {
     // the inoculant's potency distribution: where the site population sits and
     // how tightly it clusters. Potent refiners fire just below the liquidus.
     this.slider(adv, "site ΔT_N", 0.03, 0.6, 0.005,
-      () => host.getNucPotency(), v => host.setNucPotency(v), v => v.toFixed(3));
+      () => host.getNucPotency(), v => host.setNucPotency(v), uK);
     this.slider(adv, "site spread σ", 0.01, 0.15, 0.005,
-      () => host.getNucSpread(), v => host.setNucSpread(v), v => v.toFixed(3));
-    const potNote = document.createElement("div");
-    potNote.className = "matnote";
-    potNote.textContent = "activation undercooling of the inoculant population: ≈0.15 ± 0.045 is a well-refined melt, ≈0.45 ± 0.10 a clean uninoculated one";
-    adv.append(potNote);
+      () => host.getNucSpread(), v => host.setNucSpread(v), uK);
+    this.potNote = document.createElement("div");
+    this.potNote.className = "matnote";
+    adv.append(this.potNote);
+
+    // ---- scale
+    // The whole dimensionless<->SI map, with its provenance and its mismatches,
+    // in one place. It is a rail section rather than a tooltip because it is the
+    // thing that makes every other number in the app either trustworthy or
+    // decorative, and a reader deserves to see which.
+    const sc = this.section(rail, "SCALE");
+    this.scaleBody = document.createElement("div");
+    this.scaleBody.className = "matnote";
+    this.scaleBody.style.lineHeight = "1.7";
+    sc.append(this.scaleBody);
+    // model resolution is the ONE free choice among the three factors
+    this.slider(sc, "µm per cell", 0.05, 20, 0.05,
+      () => host.getUmPerCell(), v => host.setUmPerCell(v),
+      v => v < 1 ? `${v.toFixed(2)} µm` : `${v.toFixed(1)} µm`);
     const shareB = this.button(this.btnRow(adv), "⎘ copy setup link", () => {
       void navigator.clipboard.writeText(host.shareLink()).then(() => {
         shareB.textContent = "copied ✓";
@@ -741,6 +776,36 @@ export class UI {
     // keyed off the lens index of the mode that is actually on screen. Keying
     // all three off the 2D index left the volume's THERM and SEM lenses
     // rendering with no scale beside them.
+    // real-unit annotations: what the cooling rate is called in a shop, what the
+    // inoculant's activation window is in kelvin, and whether the undercooling
+    // dial has been pushed past anything a real melt reaches
+    const u = host.units();
+    if (u.known) {
+      this.regimeNote.textContent =
+        `${u.fmtRate(p.coolRate)} — ${u.regime(p.coolRate)}`;
+      const dn = u.kelvin(host.getNucPotency()), sg = u.kelvin(host.getNucSpread());
+      this.potNote.textContent =
+        `the inoculant fires around ${dn.toFixed(1)} K ± ${sg.toFixed(1)} K below the liquidus. `
+        + "A well-inoculated foundry melt activates within a few kelvin; tens of kelvin is a "
+        + "clean, uninoculated charge.";
+    } else {
+      this.regimeNote.textContent =
+        "dimensionless — pick a real material to put a clock and a thermometer on this";
+      this.potNote.textContent =
+        "activation undercooling of the inoculant population, in model units";
+    }
+    this.drawScale(u);
+
+    const uc = this.undercoolRow.querySelector(".val") as HTMLElement | null;
+    if (uc) {
+      const past = u.beyondReal(host.getUndercool());
+      uc.classList.toggle("unreal", past);
+      uc.title = past
+        ? "deeper than any real melt of this material reaches — past roughly 0.2·T_m the liquid "
+          + "nucleates homogeneously however clean it is. Still a valid model run, just not an experiment."
+        : "";
+    }
+
     const v = m3 ? host.getView3d() : host.getView();
     const thermLens = m3 ? 6 : 5;
     const semLens = m3 ? 4 : 6;
@@ -748,6 +813,51 @@ export class UI {
     document.getElementById("scalebar")!.style.display = v === 2 ? "flex" : "none";
     document.getElementById("thermbar")!.style.display = v === thermLens ? "block" : "none";
     document.getElementById("sembar")!.style.display = v === semLens ? "block" : "none";
+  }
+
+  /**
+   * The SCALE report: the three conversion factors with their provenance, the
+   * domain size they imply, and the dimensionless groups the model does and does
+   * not match. A row that says "forced" is not a setting the reader can change,
+   * and a group marked mismatched is a number they should not trust — saying so
+   * here is the whole point of the panel.
+   */
+  private drawScale(u: Units) {
+    if (!this.scaleBody) return;
+    const s = u.scale;
+    const dim = (t: string) => `<span style="color:#6b7280">${t}</span>`;
+    const row = (k: string, v: string, prov: string) =>
+      `<div style="display:flex;gap:6px"><span style="flex:0 0 74px">${k}</span>`
+      + `<b style="color:#cfd6df;flex:0 0 82px">${v}</b>${dim(prov)}</div>`;
+
+    if (!u.known) {
+      this.scaleBody.innerHTML =
+        row("µm / cell", `${s.umPerCell.toFixed(2)}`, s.prov.umPerCell)
+        + row("domain", `${s.domainUm.toFixed(0)} µm`, "derived: n × µm/cell")
+        + `<div style="margin-top:5px">${s.note}</div>`;
+      return;
+    }
+    const groups = s.groups.map(g => {
+      const val = g.model == null
+        ? "—"
+        : `${g.model < 0.01 || g.model > 1e3 ? g.model.toExponential(1) : g.model.toFixed(2)}`
+          + (g.real != null && !g.ok ? ` vs ${g.real > 1e3 ? g.real.toExponential(1) : g.real.toFixed(2)}` : "");
+      const mark = g.ok ? "<span style=\"color:#7fd18b\">✓</span>" : "<span style=\"color:#e06c60\">✗</span>";
+      return `<div style="margin-top:4px">${mark} <b style="color:#cfd6df">${g.name}</b> ${dim(val)}`
+        + `<div style="margin-left:14px">${g.note}</div></div>`;
+    }).join("");
+
+    this.scaleBody.innerHTML =
+      row("K / unit", s.kelvinPerUnit.toFixed(1), s.prov.kelvinPerUnit)
+      + row("s / unit", s.secondsPerUnit < 1e-3
+        ? s.secondsPerUnit.toExponential(2)
+        : s.secondsPerUnit.toPrecision(3), s.prov.secondsPerUnit)
+      + row("µm / cell", s.umPerCell.toFixed(2), s.prov.umPerCell)
+      + row("domain", `${s.domainUm < 1000 ? s.domainUm.toFixed(0) + " µm" : (s.domainUm / 1000).toFixed(2) + " mm"}`,
+        "derived: n × µm/cell")
+      + row("melting pt", `${u.meltC.toFixed(0)} °C`, "T = 1")
+      + `<div style="margin-top:6px">${groups}</div>`
+      + `<div style="margin-top:6px;color:#6b7280">${s.note}</div>`;
   }
 
   setReadouts(rows: [string, string][]) {

@@ -157,4 +157,29 @@ No frameworks, no external assets: Vite + TypeScript + raw WebGPU, ~2.5k lines.
   side-branches only with noise, arm count follows j).
 - Liquid is metastable: no growth without a nucleus; homogeneous noise cannot freeze the melt.
 - Slider ranges are clamped to the numerically stable envelope of the explicit scheme.
-- ASTM G from mean grain area (E112), on a nominal 1 mm domain scale, honestly labelled.
+- ASTM G from mean grain area (E112), measured against the model resolution set in the
+  SCALE panel.
+
+## Real units, and what they cost
+
+The solver is dimensionless. Three factors convert it to SI, and only one of them is a
+choice:
+
+| factor | value | where it comes from |
+|---|---|---|
+| kelvin per unit | ≈249 K for Al, ≈44 K for water | **forced** — it is `(L/c_p)/K`, the heat equation's own latent coupling |
+| µm per cell | you set it | the model's physical resolution; the domain is `n × µm/cell` |
+| seconds per unit | derived | **forced** by whichever diffusivity is transporting |
+
+So the app reads in °C, K, K/s, seconds and µm, and the SCALE panel shows each factor with
+its provenance — nothing is presented as a result when it was a choice, or as a choice when
+it was pinned. It also names the dimensionless groups the model *fails*: the Stefan number
+is matched by construction, but the Lewis number is ~1 where a real alloy is ~10⁴, and the
+capillary ratio is undefined because the Kobayashi interface has no calibrated surface
+energy. That last one is why tip radius and arm spacing here are shapes rather than
+predictions.
+
+Two consequences worth knowing. The undercooling slider's own maximum is deeper than any
+real aluminium melt reaches (249 K against a Turnbull limit near 187 K) — it turns red
+there. And the same dial on water tops out at 44 K, which is essentially exactly water's
+homogeneous nucleation limit.

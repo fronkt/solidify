@@ -121,21 +121,41 @@
     Q are preserved (k<sub>eff</sub> = 1 − Q/|ΔT<sub>L</sub>|, the m·c-weighted mean partition),
     and labels every clamp it has to make.</p>
     <div class="note">
-      <div class="t">A RESULT THAT CHANGED WHEN THE PHYSICS DID</div>
-      Before v4.0, this page reported a clean demonstration: under identical nucleation
+      <div class="t">A RESULT THAT WAS MEASURED WRONG TWICE</div>
+      Before v4.0 this page reported a clean demonstration: under identical nucleation
       (a fixed 12 seeds/s rain) and cooling, grain-refined A356+TiB froze into 369 grains
-      at ASTM G 6.2 while nearly-pure Al–1Zn gave 46 coarse grains at G 2.8 — composition
-      alone refining the structure. That experiment is no longer valid, and it is worth
-      saying why. It relied on nucleation being a fixed external rate, identical for both
-      melts. Now that nucleation responds to the melt's own undercooling, the two alloys
-      no longer start from the same place: A356's liquidus is depressed far below pure
-      aluminium's, so at the same bath temperature it is <i>less</i> undercooled relative
-      to its own liquidus and fires fewer of its inoculant sites. Re-run under the site
-      model, the lean alloy now produces the finer structure (567 vs 277 grains at the
-      same cooling and inoculant charge). Growth restriction is still in the solver and
-      still real; it is simply no longer separable from the nucleation response by this
-      particular two-alloy comparison. The composer's reported chemistry — ΔT<sub>L</sub>,
-      Q, k<sub>eff</sub> — is unaffected and still computed from the textbook coefficients.
+      while nearly-pure Al–1Zn gave 46 coarse ones. Under the site model that comparison
+      inverted — the lean alloy came out finer — and v4.0 withdrew the claim. v5.0 went
+      back to it and found that <b>the inversion was an artefact too</b>. Two flaws, and
+      neither is physics:
+      <p><b>Equal bath temperature is not equal undercooling.</b> A356's liquidus sits at
+      0.821 where the lean alloy's is 0.993, so at a common start temperature the refined
+      charge began <i>above its own liquidus</i> and could not nucleate at all until it had
+      cooled further. <b>Equal time is not equal progress.</b> Growth restriction left the
+      refined charge with 25× less solid at the moment of comparison (f<sub>s</sub> 0.004 vs
+      0.106) — and grain <i>count</i> is counted on solid that exists.</p>
+      <p>Control both — start each charge at the same undercooling below its own liquidus,
+      read both at the same solid fraction — and the honest answer is that <b>the two alloys
+      come out the same within noise</b>. Across four independent runs at two inoculant
+      charges the grain counts agree to better than 8 % (1434/1380, 1431/1445, 305/313,
+      351/327). Growth restriction is unmistakably present — the refined charge takes about
+      twice as long to reach 20 % solid — but at these site densities it does not translate
+      into a finer grain count. Neither the original claim nor its inversion survives a
+      controlled comparison.</p>
+      <p>One further caution, recorded because it nearly became a third wrong answer. An
+      early v5.0 measurement appeared to show the textbook mechanism — the slower alloy
+      recalescing less, holding its undercooling, and firing every one of its 3000 sites
+      against the lean charge's 1640. It did not reproduce. The harness advances the solver
+      against wall-clock frames, and a GPU-backpressure guard skips frames unpredictably, so
+      the two casts had not received the same amount of physics. Site-firing counts from this
+      harness are <b>not a controlled variable</b>; grain count at matched solid fraction is,
+      which is why that is what the suite asserts (<code>REFINE-FAIR</code>). Settling the
+      mechanism needs a solver that can be stepped a fixed number of substeps regardless of
+      frame pacing, which this one cannot yet do.</p>
+      The composer's reported chemistry — ΔT<sub>L</sub>, Q, k<sub>eff</sub> — is computed
+      from the textbook coefficients throughout. Its conversion into the solver's units was
+      itself wrong until v5.0: it used a flat 100 K per dimensionless degree for every metal,
+      where the model's own factor is (L/c<sub>p</sub>)/K — about 249 K for aluminium.
     </div>
     <p>The ANALYZE section adds foundry instruments: a <b>cooling-curve probe</b> (a thermal-analysis
     cup test — recalescence shows as the dip-and-rise), a <b>Scheil overlay</b> comparing the
@@ -243,7 +263,9 @@
       <tr><td>Grain impingement, ASTM E112 grain number, linear-intercept SDAS</td><td><b>measured honestly</b> on a nominal 1 mm domain</td></tr>
       <tr><td>Alloy solute field</td><td><b>qualitative</b> — WB-type dilute model, not CALPHAD-coupled</td></tr>
       <tr><td>Composer chemistry (ΔT<sub>L</sub>, Q, wt%↔at%)</td><td><b>real dilute-limit values</b>, approximate textbook coefficients</td></tr>
-      <tr><td>Units</td><td><b>dimensionless</b> — temperature is scaled (T<sub>m</sub> = 1), mapped at ~100 K per unit for the composer</td></tr>
+      <tr><td>Units</td><td><b>a stated similarity scaling</b> — the solver is dimensionless, and three factors convert it to SI: kelvin per unit, seconds per unit, µm per cell. Only the third is a free choice. Kelvin per unit is <i>forced</i> by the heat equation's own latent coupling, (L/c<sub>p</sub>)/K — a real per-material number (≈249 K for aluminium, ≈44 K for water), not the flat ~100 K this row used to claim. Seconds per unit is then forced by whichever diffusivity is transporting. Every panel shows which factor was chosen and which were forced, and the SCALE report names the dimensionless groups the model does <i>not</i> match</td></tr>
+      <tr><td>Lewis number α/D (the load-bearing mismatch)</td><td><b>not matched, and it cannot be</b> — a real alloy separates heat and solute by four orders of magnitude; one explicit grid at one timestep cannot carry both. With the solute anchor the temperature field diffuses far too slowly, so read it as the imposed macroscopic temperature rather than real heat conduction at this scale. That is the direction a micro-scale casting model errs in anyway, and it is reported rather than hidden</td></tr>
+      <tr><td>Grain size and arm spacing in µm</td><td><b>measured against the model resolution</b>, which is now the anchor: the domain is <i>n</i> × µm-per-cell wide, not a fixed 1 mm. It was the other way round until v5.0, which meant the same dendrite measured four times larger at 512² than at 2048². Every µm figure printed before that fix is wrong by the grid ratio unless it was taken at the default grid</td></tr>
       <tr><td>Dimensionality</td><td><b>2D by default</b> (thin-sample analog) — the TRUE 3D mode solves the full volume, where dendrites genuinely branch out of plane</td></tr>
       <tr><td>Porosity + Niyama (3D)</td><td><b>mechanistic</b> — feed-path flood + solidify-while-unfed rule; Ny computed at freeze, not calibrated to a specific alloy (and not calibrated at all in the Bridgman/weld scenarios)</td></tr>
       <tr><td>Grain selector (3D)</td><td><b>geometric</b> — real selector physics (columnar competition through a constriction); the pigtail shape is procedural, not a specific foundry's</td></tr>

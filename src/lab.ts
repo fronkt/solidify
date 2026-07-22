@@ -16,9 +16,12 @@
  */
 
 import { PROGRAMS, ProgramRun, type Program } from "./program";
+import type { Units } from "./units";
 
 export interface LabHost {
   getMode(): "2d" | "3d";
+  /** the live dimensionless<->SI scaling (units.ts) */
+  units(): Units;
   /** the active solver's params — same field names in both dimensions */
   simParams(): Record<string, number>;
   simTimeNow(): number;
@@ -232,13 +235,18 @@ export class Lab {
     exit.addEventListener("click", () => this.close());
     head.append(exit);
 
+    const u = this.host.units();
     const form = document.createElement("div");
     form.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:6px 16px;margin-bottom:8px;";
     form.append(
       this.select("atmosphere", ["argon", "vacuum", "air"], this.setup.atmosphere, v => { this.setup.atmosphere = v as LabSetup["atmosphere"]; this.refresh(); }),
       this.range("inoculant (sites)", 0, 3000, 10, this.setup.inoculant, v => { this.setup.inoculant = v; }),
-      this.range("pour superheat", 0, 0.35, 0.01, this.setup.superheat, v => { this.setup.superheat = v; }, 2),
-      this.range("mould temperature", -0.2, 0.6, 0.02, this.setup.moldT, v => { this.setup.moldT = v; }, 2),
+      // shown in real units: a superheat is kelvin above the liquidus and a mould
+      // sits at a temperature, and neither means anything as a bare 0.12
+      this.range("pour superheat", 0, 0.35, 0.01, this.setup.superheat, v => { this.setup.superheat = v; }, 2,
+        v => u.known ? `${u.kelvin(v).toFixed(0)} K` : v.toFixed(2)),
+      this.range("mould temperature", -0.2, 0.6, 0.02, this.setup.moldT, v => { this.setup.moldT = v; }, 2,
+        v => u.known ? `${u.celsius(v).toFixed(0)} °C` : v.toFixed(2)),
       this.select("cooling programme", ["furnace", "air", "quench", "soak"], this.setup.program, v => { this.setup.program = v; this.refresh(); }),
       this.moldRow = this.check("mould walls", this.setup.moldWalls, v => { this.setup.moldWalls = v; }),
     );
@@ -293,12 +301,14 @@ export class Lab {
       return;
     }
     const last = this.series[this.series.length - 1];
+    const uu = this.host.units();
+    const T = (v: number) => (uu.known ? uu.fmtC(v) : v.toFixed(2));
     this.statusEl.innerHTML =
       `<b style="color:#cfd6df">${this.run.name}</b> · stage ${this.run.stageIndex + 1}/${this.run.stageCount} ` +
-      `(${this.run.stageLabel}) · set-point <b style="color:#cfd6df">${this.run.setpoint.toFixed(2)}</b>` +
-      (last ? ` · melt <b style="color:#cfd6df">${last.T.toFixed(2)}</b> · solid ${(last.fs * 100).toFixed(1)} %` : "") +
+      `(${this.run.stageLabel}) · set-point <b style="color:#cfd6df">${T(this.run.setpoint)}</b>` +
+      (last ? ` · melt <b style="color:#cfd6df">${T(last.T)}</b> · solid ${(last.fs * 100).toFixed(1)} %` : "") +
       ` · sites <b style="color:#cfd6df">${this.host.nucFired()}</b>/${this.host.nucMax().toFixed(0)}` +
-      ` · ΔT max ${this.host.maxUndercool().toFixed(3)}` +
+      ` · ΔT max ${uu.known ? uu.fmtK(this.host.maxUndercool()) : this.host.maxUndercool().toFixed(3)}` +
       (this.intervened ? " · <span style=\"color:#ffb454\">operator intervened</span>" : "");
   }
 
@@ -316,15 +326,21 @@ export class Lab {
     const p = this.host.simParams();
     const rows: string[] = [];
     rows.push(`<div style="letter-spacing:.2em;color:#56d4dd;margin-bottom:8px">⚗ RUN REPORT</div>`);
-    rows.push(`<div style="color:#8891a0">${this.setup.program} · ${this.setup.atmosphere} · superheat ${this.setup.superheat.toFixed(2)} · mould ${this.setup.moldT.toFixed(2)}</div>`);
+    const uu = this.host.units();
+    rows.push(`<div style="color:#8891a0">${this.setup.program} · ${this.setup.atmosphere} · superheat `
+      + `${uu.known ? uu.kelvin(this.setup.superheat).toFixed(0) + " K" : this.setup.superheat.toFixed(2)}`
+      + ` · mould ${uu.known ? uu.fmtC(this.setup.moldT) : this.setup.moldT.toFixed(2)}</div>`);
     const canvas = document.createElement("canvas");
     canvas.id = "foundryCurve";
     canvas.width = 520; canvas.height = 150;
     canvas.style.cssText = "width:100%;height:150px;margin:10px 0;background:#0b0d11;border:1px solid #1d222a;border-radius:5px;";
     const stats = document.createElement("div");
     stats.innerHTML =
-      `<div>deepest undercooling <b style="color:#ffb454">ΔT ${this.host.maxUndercool().toFixed(3)}</b>` +
-      (arrest ? ` · recalescence arrest at t ${arrest.t.toFixed(2)}` : " · no recalescence arrest recorded") + `</div>` +
+      `<div>deepest undercooling <b style="color:#ffb454">`
+      + `${uu.known ? uu.fmtK(this.host.maxUndercool()) : "ΔT " + this.host.maxUndercool().toFixed(3)}</b>` +
+      (arrest
+        ? ` · recalescence arrest at ${uu.known ? uu.fmtTime(arrest.t) : "t " + arrest.t.toFixed(2)}`
+        : " · no recalescence arrest recorded") + `</div>` +
       `<div>inoculant used <b style="color:#cfd6df">${this.host.nucFired()}</b> of ${this.host.nucMax().toFixed(0)} sites ` +
       `(${this.host.nucMax() > 0 ? ((this.host.nucFired() / this.host.nucMax()) * 100).toFixed(0) : "0"} %)</div>` +
       `<div>final solid fraction <b style="color:#cfd6df">${last ? (last.fs * 100).toFixed(1) : "—"} %</b>` +
@@ -419,18 +435,19 @@ export class Lab {
   }
 
   private range(label: string, min: number, max: number, step: number, val: number,
-    set: (v: number) => void, digits = 0) {
+    set: (v: number) => void, digits = 0, fmt?: (v: number) => string) {
     const [row] = this.field(label);
     const inp = document.createElement("input");
     inp.type = "range";
     inp.min = String(min); inp.max = String(max); inp.step = String(step); inp.value = String(val);
     inp.style.cssText = "flex:1;min-width:60px;";
     const out = document.createElement("span");
-    out.textContent = val.toFixed(digits);
-    out.style.cssText = "flex:0 0 42px;text-align:right;color:#cfd6df;";
+    const show = (v: number) => (fmt ? fmt(v) : v.toFixed(digits));
+    out.textContent = show(val);
+    out.style.cssText = "flex:0 0 58px;text-align:right;color:#cfd6df;";
     inp.addEventListener("input", () => {
       const v = parseFloat(inp.value);
-      out.textContent = v.toFixed(digits);
+      out.textContent = show(v);
       set(v);
     });
     row.append(inp, out);

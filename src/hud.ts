@@ -1,6 +1,5 @@
 import type { StatsResult } from "./sim";
 import type { StatsResult3D } from "./sim3d";
-import { DOMAIN_MM } from "./sim";
 
 /** ring-buffer sparklines + grain-size histogram (2D and TRUE-3D modes) */
 export class Hud {
@@ -66,13 +65,13 @@ export class Hud {
   }
 
   /** TRUE-3D mode: fs, porosity %, grain count, eq-diameter histogram */
-  push3(s: StatsResult3D) {
+  push3(s: StatsResult3D, umPerVox: number) {
     this.series.fs.push(s.fracSolid);
     this.series.dt.push(s.poreFrac * 100);
     this.series.grains.push(s.grainCount);
     for (const k of Object.keys(this.series))
       if (this.series[k].length > this.cap) this.series[k].shift();
-    const umPerVox = (DOMAIN_MM * 1000) / 1024;
+    // resolution is passed in from the solver — units.ts owns the anchor
     const diams = s.grains.map(g => Math.cbrt((6 * g.vox) / Math.PI) * umPerVox);
     this.spark("fs", "#ffb454", 1);
     this.spark("dt", "#e06c60");

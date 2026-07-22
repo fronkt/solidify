@@ -38,6 +38,11 @@ suite. If you want to run the physics/UI verification yourself, do it locally.
   normal transport.
 - **`verify-tools.mjs`** — the v1.8 tool batch (faceted growth, `#set=` share-link round-trip,
   the analysis-panel enlarge modal, the specimen-tilt view) plus the v4.0 physics checks below.
+- **`verify-scale3d.mjs`** — the 3D half of the v5.0 length-anchor change, on its own so it
+  does not need the full 23-check volume suite to re-run: both solvers carry one resolution,
+  the volume's `eqDiamUm` actually follows it (doubling the pitch doubles the reported diameter
+  for the same voxel count — the check the old hardcoded `1 mm / 1024` could never pass), and
+  the SCALE panel reports the volume's derived domain rather than the 2D grid's.
 - **`verify-3d.mjs`** — the TRUE-3D mode end to end: entry, growth, grain claiming, all nine
   lenses, orbit + ViewCube, tap-at-depth seeding, alloy, twins, icosahedral symmetry, the grain
   selector, stereology, STL export, the share round-trip and the 3D lab.
@@ -59,6 +64,39 @@ rebuilt to make that relationship emergent:
   fence-backpressure guard skips frames, so timing-based versions of this test are flaky.
 - **`LAB` / `LAB3`** — an experiment can be configured, poured, and produces a report card; the
   dimension switch is blocked mid-pour; touching a physics dial sets the intervention flag.
+
+**Physics-behaviour tests (v5.0).**
+
+- **`UNITS-*`** (`verify-units.mjs`) — the scaling layer, checked without a browser, so it is
+  the one part of the suite CI can gate. Eight checks: that kelvin-per-unit really is the heat
+  equation's own `(L/c_p)/K` for four materials computed independently in the test; that the
+  time factor is forced by whichever diffusivity is anchoring; that every converter round-trips;
+  that an abstract material reads as *unknown* rather than as zero; that the undercooling dial's
+  own maximum is past the Turnbull limit for aluminium and inside it for water. Two carry more
+  weight than the rest:
+  - **`UNITS-GRID-INVARIANT`** — the same dendrite must measure the same in µm at 512², 1024²
+    and 2048², with the *domain* growing instead. This is the inverted-anchor regression: the
+    old code fixed a 1 mm domain and derived the pitch as `1000/n`, so one dendrite read four
+    different sizes at four different grids.
+  - **`UNITS-HONESTY`** — the report must *name* what it cannot match. Lewis is flagged (model
+    ≈1.1, real ≈9200) and the capillary ratio is `null`, "not defined", rather than asserted
+    as 1.0.
+- **`REFINE-FAIR`** — two alloys of very different growth restriction, compared *fairly*, come
+  out the same within noise. Fair means both conditions: each charge starts at the same
+  undercooling **below its own liquidus** (equal bath temperature is not equal undercooling when
+  one liquidus is depressed 170 K further) and both are read at the same **solid fraction**
+  (equal time is not equal progress when one grows twice as slowly). Getting either wrong flips
+  the answer, in opposite directions — which is how both the pre-v4.0 claim and the v4.0
+  inversion happened.
+
+  It asserts equivalence rather than an effect on purpose. An earlier version of this test
+  asserted the textbook mechanism — more sites firing in the slower alloy — from a measurement
+  that looked convincing and **did not reproduce**: the harness paces the solver against
+  wall-clock frames and the ≥2-fence backpressure guard skips them unpredictably, so the two
+  casts had not run the same amount of physics. Anything derived from *how far a cast got* is
+  not a controlled variable here (see postmortem #6 in `tasks/todo.md`, which records the same
+  trap one release earlier). Grain count at matched solid fraction is stable to <8 % across
+  four independent runs, so that is what is asserted.
 
 **Harness guard (v5.0).**
 

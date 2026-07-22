@@ -1,4 +1,5 @@
 import type { PhysParams } from "./sim";
+import { MATERIALS } from "./materials";
 
 // Alloy composer chemistry: approximate textbook dilute-limit binary
 // coefficients (liquidus slope m in K/wt%, equilibrium partition k), Kurz &
@@ -6,8 +7,14 @@ import type { PhysParams } from "./sim";
 //   dT_L = sum(m_i c_i)                (liquidus shift)
 //   Q    = sum(m_i c_i (k_i - 1))      (growth restriction factor)
 // and the mix maps onto an equivalent pseudo-binary for the one solute field
-// the model carries: k_eff is the m_i*c_i-weighted mean partition, and the
-// dimensionless liquidus depression is scaled at TSCALE kelvin per unit.
+// the model carries: k_eff is the m_i*c_i-weighted mean partition.
+//
+// The kelvin-per-unit conversion is the base metal's OWN scale, from units.ts.
+// It used to be a hardcoded, material-independent 100 K per unit, which
+// contradicted the solver: the heat equation's latent coupling makes that number
+// (L/c_p)/K, and for aluminium that is ~249 K. Every composed aluminium alloy was
+// therefore carrying about 2.5x too much liquidus depression, and the error was a
+// different size for every base metal.
 
 export interface Solute {
   m: number;      // liquidus slope, K per wt% (negative = depression)
@@ -98,7 +105,17 @@ export const FAMOUS: { label: string; mix: Mix }[] = [
   { label: "galv. bath", mix: { base: "zn", wt: { Al: 0.2 } } },
 ];
 
-const TSCALE = 100;   // kelvin per dimensionless temperature unit
+/**
+ * Kelvin per dimensionless temperature unit for a base metal — the solver's own
+ * factor, (L/c_p)/K, not a constant. Falls back to 100 only if a base ever ships
+ * without SI properties, which none currently do.
+ */
+function tScaleFor(base: AlloyBase): number {
+  const mat = MATERIALS[base.materialKey];
+  const si = mat?.si;
+  const latent = mat?.params.latent;
+  return si && latent ? (si.L / si.cp) / latent : 100;
+}
 const WT_PER_C0 = 15; // wt% total solute mapping to c0 = 1
 const DEPR_CAP = 0.22; // max dimensionless liquidus depression (keeps growth watchable)
 
@@ -139,7 +156,7 @@ export function derive(mix: Mix): Derived {
   const c0 = Math.min(0.7, Math.max(0.05, c0raw));
   if (c0raw > 0.7) clamps.push("composition saturates the model solute field");
 
-  const deprDim = depression / TSCALE;
+  const deprDim = depression / tScaleFor(base);
   if (deprDim > DEPR_CAP) clamps.push("strong alloy — model depression capped so growth stays watchable");
   const mRaw = Math.min(deprDim, DEPR_CAP) / c0;
   const mLiq = Math.min(0.8, Math.max(0.1, mRaw));

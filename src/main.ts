@@ -1,4 +1,4 @@
-import { Simulation, DOMAIN_MM, type StatsResult } from "./sim";
+import { Simulation, type StatsResult } from "./sim";
 import { MATERIALS, to3D } from "./materials";
 import { Renderer, type ViewMode } from "./render";
 import { Sim3D, GRID3_LADDER, type StatsResult3D } from "./sim3d";
@@ -13,10 +13,12 @@ import { Optimizer, type OptHost, type Recipe } from "./optimizer";
 import { packShare, unpackShare, type ShareState } from "./share";
 import { Challenge, type ChallengeHost } from "./challenge";
 import { Composer } from "./composer";
+import { derive as deriveAlloy, type Mix } from "./alloy";
 import { Analyze } from "./analyze";
 import { Analyze3D } from "./analyze3d";
 import { Nucleation } from "./nucleation";
 import { Lab, type LabHost, type LabSetup } from "./lab";
+import { Units, scaleOf, DEFAULT_UM_PER_CELL } from "./units";
 
 /** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
 const SPEED_MULTS = [1, 2, 4] as const;
@@ -69,6 +71,8 @@ async function boot() {
   // an applied optimizer recipe: phase-scheduled cooling driven off fracSolid,
   // exactly the way the optimizer's episodes ran it
   let recipeSchedule: [number, number, number] | null = null;
+  // model resolution — the length anchor for BOTH solvers (units.ts)
+  let umPerCell = DEFAULT_UM_PER_CELL;
 
   // ------------------------------------------------------- TRUE-3D mode state
   let mode: "2d" | "3d" = "2d";
@@ -117,6 +121,28 @@ async function boot() {
     const h = document.getElementById("hint")!;
     h.textContent = m3 ? HINT_3D : HINT_2D;
     if (m3) h.classList.remove("gone");
+  };
+
+  /**
+   * The live scaling. Rebuilt on demand rather than cached: it depends on the
+   * material, the active solver's dx/latent/dSol, whether the solute field is
+   * on, and the resolution — and a stale scale prints confidently wrong numbers,
+   * which is the one failure mode this whole layer exists to prevent. It is a
+   * few flops and one small object, called at panel cadence.
+   */
+  const unitsNow = (): Units => {
+    const three = mode === "3d" && sim3d != null;
+    const si = (MATERIALS[material] ?? MATERIALS.generic).si ?? null;
+    const p = three ? sim3d!.params : sim.params;
+    return new Units(scaleOf({
+      si,
+      n: three ? sim3d!.n : sim.n,
+      dx: p.dx,
+      latent: p.latent,
+      dSol: p.dSol,
+      alloy: three ? sim3d!.alloyActive : sim.params.alloyOn === 1,
+      umPerCell,
+    }), si);
   };
 
   /** carry the current material + shared dials onto the 3D solver */
@@ -314,6 +340,15 @@ async function boot() {
     // in 3D mode the shared dial rows (δ, noise, latent, ε̄, γ, α, τ, cooling)
     // drive the 3D solver's params — same field names by design
     simParams: () => (mode === "3d" && sim3d ? (sim3d.params as unknown as typeof sim.params) : sim.params),
+    units: () => unitsNow(),
+    getUmPerCell: () => umPerCell,
+    setUmPerCell(v) {
+      umPerCell = Math.max(0.01, v);
+      // both solvers measure in the same physical units — that they did not
+      // was the 2D-vs-3D discrepancy this release removed
+      sim.umPerCell = umPerCell;
+      if (sim3d) sim3d.umPerCell = umPerCell;
+    },
     getUndercool: () => undercool,
     setUndercool(v) { undercool = v; },
     getInoculant: () => (mode === "3d" ? nuc3 : nuc).p.nmax,
@@ -668,6 +703,7 @@ async function boot() {
   // ------------------------------------------------------------- LAB MODE
   const labHost: LabHost = {
     getMode: () => mode,
+    units: () => unitsNow(),
     simParams: () => app.simParams() as unknown as Record<string, number>,
     simTimeNow: () => app.simTimeNow(),
     clearMelt: u => app.clearMelt(u),
@@ -693,6 +729,9 @@ async function boot() {
 
   (window as unknown as Record<string, unknown>).__solidify = {
     app, opt, tour, ui, challenge, composer, analyze, lab,
+    // the composer's chemistry, for headless physics checks that need to set
+    // up a named alloy exactly as the UI would
+    alloy: (mix: Mix) => deriveAlloy(mix),
     mode: () => mode,
     sim: () => sim,
     sim3d: () => sim3d,
@@ -961,12 +1000,12 @@ async function boot() {
     if (mode === "3d") {
       // 3D: shown for the SLICE lens (a section micrograph earns a scale bar);
       // scale taken at the camera-target distance, voxel = the 2D cell pitch
-      if (view3d !== 2 || !renderer3d) return;
-      umPerCssPx = (DOMAIN_MM * 1000 / 1024) / renderer3d.cssPerVoxel();
+      if (view3d !== 2 || !renderer3d || !sim3d) return;
+      umPerCssPx = sim3d.umPerCell / renderer3d.cssPerVoxel();
     } else {
       if (view !== 2) return;
       const cssPxPerCell = renderer.cssPxPerCell(sim.n);
-      umPerCssPx = (DOMAIN_MM * 1000 / sim.n) / cssPxPerCell;
+      umPerCssPx = sim.umPerCell / cssPxPerCell;
     }
     let bestUm = 100;
     let bestErr = Infinity;
@@ -1075,7 +1114,7 @@ async function boot() {
             if (!s || !sim3d) return;
             nuc3.observe(sim3d.simTime, s.meanLiqT, tEq3());
             lab.onStats(s.meanLiqT, s.fracSolid);
-            if (forPanels3) { lastStats3 = s; hud.push3(s); an3.onStats3(s, sim3d.simTime); }
+            if (forPanels3) { lastStats3 = s; hud.push3(s, sim3d.umPerCell); an3.onStats3(s, sim3d.simTime); }
           });
         }
         if (forPanels3) {
@@ -1085,8 +1124,10 @@ async function boot() {
           an3.tick(0.25);
           updateScalebar();
           const s = lastStats3;
+          const u = unitsNow();
           ui.setReadouts([
-            ["t", sim3d.simTime.toFixed(3)],
+            ["t", u.fmtTime(sim3d.simTime)],
+            ["melt", s?.meanLiqT != null ? u.fmtC(s.meanLiqT) : "—"],
             ["solid", s ? `${(s.fracSolid * 100).toFixed(1)} %` : "—"],
             ["grains", s ? String(s.grainCount) : "—"],
             ["d̄ eq", s?.eqDiamUm != null ? `${s.eqDiamUm.toFixed(0)} µm` : "—"],
@@ -1162,13 +1203,15 @@ async function boot() {
     }
     if (forPanels) {
       const s = lastStats;
+      const u = unitsNow();
       ui.setReadouts([
-        ["t", sim.simTime.toFixed(3)],
+        ["t", u.fmtTime(sim.simTime)],
+        ["melt", s?.meanLiqT != null ? u.fmtC(s.meanLiqT) : "—"],
         ["solid", s ? `${(s.fracSolid * 100).toFixed(1)} %` : "—"],
         ["grains", s ? String(s.grainCount) : "—"],
         ["ASTM", s?.astm != null ? `G ${s.astm.toFixed(1)}` : "—"],
         ["sites", nuc.p.nmax > 0 ? `${nuc.fired}/${nuc.p.nmax.toFixed(0)}` : "—"],
-        ["ΔT max", nuc.maxUndercool.toFixed(3)],
+        ["ΔT max", u.fmtK(nuc.maxUndercool)],
         ["fps", `${fps.toFixed(0)} · ${sim.n}²${renderer.zoom > 1.01 ? ` · ${renderer.zoom.toFixed(1)}×` : ""}`],
       ]);
       updateScalebar();

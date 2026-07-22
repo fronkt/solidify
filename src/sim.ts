@@ -1,4 +1,5 @@
 import { FLUX_WGSL, UPDATE_WGSL, STAMP_WGSL, STATS_WGSL, MAX_GRAINS, MAX_SEEDS, SEED_STRIDE } from "./shaders";
+import { DEFAULT_UM_PER_CELL } from "./units";
 
 export interface PhysParams {
   dx: number;
@@ -88,7 +89,8 @@ export interface StatsResult {
   oriRose: number[];
 }
 
-export const DOMAIN_MM = 1.0; // nominal physical width of the domain
+// (physical scale lives in units.ts — the solver carries only `umPerCell`, set
+// from there, because µm-per-cell is the anchor and the domain width is derived)
 
 interface Seed { x: number; y: number; r: number; id: number; dTact: number }
 
@@ -104,6 +106,13 @@ export class Simulation {
   frontX = 0;
   /** cooling-curve probe cell, or null = off */
   probe: { x: number; y: number } | null = null;
+  /**
+   * Physical model resolution. This is the length ANCHOR (see units.ts): the
+   * domain is `n × umPerCell` wide, not the other way round. The previous code
+   * asserted a fixed 1 mm domain and derived the pitch, which made the same
+   * dendrite measure four different sizes at four different grid sizes.
+   */
+  umPerCell = DEFAULT_UM_PER_CELL;
 
   private stateTex: GPUTexture[] = [];
   private grainTex: GPUTexture[] = [];
@@ -463,7 +472,7 @@ export class Simulation {
     const liqCount = data[3];
     const meanLiqT = liqCount > 0 ? data[6] / 500 / liqCount - 1 : null;
     const minPx = Math.max(20, this.n * this.n * 1e-5);
-    const umPerPx = (DOMAIN_MM * 1000) / this.n;
+    const umPerPx = this.umPerCell;
     const diams: number[] = [];
     const period = 2 * Math.PI / this.params.aniMode;
     const oriRose = new Array<number>(18).fill(0);

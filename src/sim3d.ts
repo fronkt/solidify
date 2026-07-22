@@ -7,7 +7,7 @@ import {
   FLUX3D_WGSL, update3dWgsl, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL, STEREO3D_WGSL,
   LINE3D_WGSL, MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
 } from "./shaders3d";
-import { DOMAIN_MM } from "./sim";
+import { DEFAULT_UM_PER_CELL } from "./units";
 
 /**
  * Grid rungs, largest first — the out-of-memory creation ladder walks this and
@@ -122,6 +122,12 @@ export class Sim3D {
   frontZ = 1;
   /** lab (scen 4): rasterize a mould shell into the mask, or leave it empty */
   moldShell = true;
+  /**
+   * Physical model resolution — the length anchor (units.ts). The volume used to
+   * divide by a hardcoded 1024 while 2D divided by its own grid size, so the two
+   * dimensions disagreed about how big a micron was at every grid but the default.
+   */
+  umPerCell = DEFAULT_UM_PER_CELL;
 
   private stateTex: GPUTexture[] = [];
   private grainTex: GPUTexture[] = [];
@@ -925,7 +931,7 @@ export class Sim3D {
     const count = grains.length;
     const meanVolVox = count > 0 ? volSum / count : 0;
     // same dx as the 2D reference grid (1024 cells / mm) → same physical voxel
-    const umPerVox = (DOMAIN_MM * 1000) / 1024;
+    const umPerVox = this.umPerCell;
     const eqDiamUm = meanVolVox > 0
       ? Math.cbrt((6 * meanVolVox) / Math.PI) * umPerVox
       : null;

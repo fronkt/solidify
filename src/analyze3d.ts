@@ -6,7 +6,7 @@
 
 import type { Sim3D, StatsResult3D } from "./sim3d";
 import type { SlicePlane } from "./render3d";
-import { DOMAIN_MM } from "./sim";
+import { DEFAULT_UM_PER_CELL } from "./units";
 
 export interface An3Host {
   sim3d(): Sim3D | null;
@@ -14,7 +14,10 @@ export interface An3Host {
   lastStats(): StatsResult3D | null;
 }
 
-const UM_PER_VOX = (DOMAIN_MM * 1000) / 1024;
+// resolution comes from the solver now (units.ts owns the anchor) — this used
+// to be a hardcoded 1 mm / 1024 that disagreed with the 2D side at every grid
+// size but the default
+const umPerVox = (sim: Sim3D | null) => sim?.umPerCell ?? DEFAULT_UM_PER_CELL;
 
 // CPU ports of the shader palette helpers (grain hue parity with ORIENT)
 function qrotV(q: [number, number, number, number], v: [number, number, number]): [number, number, number] {
@@ -157,7 +160,7 @@ export class Analyze3D {
       else if (inSolid && phi[i] < 0.4) inSolid = false;
     }
     if (arms === 0 && inSolid) arms = 1;
-    const lenUm = Math.hypot(p[0] - a[0], p[1] - a[1], p[2] - a[2]) * UM_PER_VOX;
+    const lenUm = Math.hypot(p[0] - a[0], p[1] - a[1], p[2] - a[2]) * umPerVox(s3);
     return arms >= 2
       ? `λ₂ ≈ ${(lenUm / arms).toFixed(1)} µm · ${arms} arms / ${lenUm.toFixed(0)} µm`
       : `${arms} intercept${arms === 1 ? "" : "s"} — drag across more arms`;
@@ -225,8 +228,9 @@ export class Analyze3D {
     if (!sec) { this.stereoBody.innerHTML = "<i>measuring the section…</i>"; return; }
     const n2 = sec.sections.length;
     const meanA = n2 ? sec.sections.reduce((a, s) => a + s.areaVox, 0) / n2 : 0;
-    const d2 = meanA > 0 ? Math.sqrt((4 * meanA) / Math.PI) * UM_PER_VOX : 0;
-    const meanAmm = meanA * (UM_PER_VOX / 1000) ** 2;
+    const uv = umPerVox(this.host.sim3d());
+    const d2 = meanA > 0 ? Math.sqrt((4 * meanA) / Math.PI) * uv : 0;
+    const meanAmm = meanA * (uv / 1000) ** 2;
     const g2 = n2 >= 3 && meanAmm > 0 ? 3.322 * Math.log10(1 / meanAmm) - 2.954 : null;
     const d3 = st?.eqDiamUm ?? 0;
     const ratio = d3 > 0 && d2 > 0 ? d2 / d3 : null;

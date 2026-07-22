@@ -14,11 +14,13 @@ const OUT = "verify-out";
 // second server; it belongs in the suite like everything else, and now that its
 // checks actually set an exit code, including it is meaningful.
 const SUITE = [
+  ["scripts/verify-units.mjs"],   // no browser — runs first because it is instant
   ["scripts/verify-dive.mjs"],
   ["scripts/verify-dive-fallbacks.mjs"],
   ["scripts/verify-scroll-order.mjs"],
   ["scripts/verify-optimizer.mjs"],
   ["scripts/verify-tools.mjs"],
+  ["scripts/verify-scale3d.mjs", String(PORT)],
   ["scripts/verify-3d.mjs", String(PORT)],
 ];
 

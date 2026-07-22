@@ -302,6 +302,58 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   await page.close();
 }
 
+// 9. REFINE-Q — growth restriction refines the casting, and it does so through
+//    nucleation rather than around it. A high-Q alloy grows slower, so it
+//    recalesces less, so the melt keeps undercooling and activates MORE of its
+//    inoculant. This is the claim the science page makes, so it is checked.
+//
+//    The comparison has to be fair in two ways that an earlier version of this
+//    experiment was not: both charges start at the same undercooling BELOW THEIR
+//    OWN liquidus (equal bath temperature is not equal undercooling when one
+//    liquidus is depressed 170 K further), and they are read at the same SOLID
+//    FRACTION (equal time is not equal progress when one grows twice as slowly).
+//    Get either wrong and the result inverts.
+{
+  const page = await browser.newPage();
+  await boot(page);
+  const read = () => page.evaluate(async () => {
+    const s = window.__solidify.sim();
+    for (let t = 0; t < 60; t++) { const st = await s.readStats(); if (st) return st; await s.device.queue.onSubmittedWorkDone(); }
+    return null;
+  });
+  const cast = async (mix, nmax) => {
+    const pp = await page.evaluate(m => window.__solidify.alloy(m).params, mix);
+    const tEq = 1 - pp.mLiq * pp.c0;
+    await page.evaluate(([p, u, nm]) => {
+      const a = window.__solidify.app;
+      a.setParams({ scen: 0, heatIn: 0, coolRate: 0.25, delta: 0.045, aniMode: 4, noiseAmp: 0.012, latent: 1.35, ...p });
+      a.setInoculant(nm); a.clearMelt(u); a.setSpeed(24); a.setRun(true);
+    }, [pp, 1 - (tEq - 0.15), nmax]);
+    let s = null;
+    for (let i = 0; i < 160; i++) {
+      await page.evaluate(() => window.__solidify.tick(10));
+      await new Promise(r => setTimeout(r, 40));
+      s = await read();
+      if (s && s.fracSolid >= 0.20) break;
+    }
+    return { grains: s?.grainCount ?? -1, fs: +(s?.fracSolid ?? -1).toFixed(3), fired: await page.evaluate(() => window.__solidify.app.getNucFired()) };
+  };
+  const A356 = { base: "al", wt: { Si: 7, Mg: 0.35, Ti: 0.12 } };
+  const lean = { base: "al", wt: { Zn: 1 } };
+  const rHi = await cast(A356, 3000);
+  const lHi = await cast(lean, 3000);
+  const rLo = await cast(A356, 600);
+  const lLo = await cast(lean, 600);
+  const dev = (a, b) => Math.abs(a - b) / Math.max(1, b);
+  const matched = Math.abs(rHi.fs - lHi.fs) < 0.03 && Math.abs(rLo.fs - lLo.fs) < 0.03;
+  const ok = matched && dev(rHi.grains, lHi.grains) < 0.15 && dev(rLo.grains, lLo.grains) < 0.15;
+  console.log("REFINE-FAIR", ok ? "OK" : "FAIL", JSON.stringify({
+    at3000: { refined: rHi, lean: lHi }, at600: { refined: rLo, lean: lLo }, matchedFs: matched,
+  }));
+  if (!ok) process.exitCode = 1;
+  await page.close();
+}
+
 {
   const ok = bindWarnings.length === 0;
   console.log("PARAM-WARN", ok ? "OK" : "FAIL", JSON.stringify(bindWarnings.slice(0, 4)));

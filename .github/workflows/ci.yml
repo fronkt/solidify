@@ -17,9 +17,13 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
+      # The scaling layer is pure arithmetic — no browser, no GPU — so unlike the
+      # rest of the verification suite it can be gated here.
+      - run: node scripts/verify-units.mjs
 
-# The headless verify-*.mjs suite (npm test) needs a WebGPU-capable Chrome at a
-# hardcoded local path and is not portable to this runner — see TESTING.md.
+# The rest of the headless verify-*.mjs suite (npm test) needs a WebGPU-capable
+# Chrome at a hardcoded local path and is not portable to this runner — see
+# TESTING.md.
 # `npm run typecheck` IS gated here: the two noUnusedLocals exemptions this note
 # used to cite (LENS3_NAMES, to3D in src/ui.ts) are both live imports now, so
 # `tsc --noEmit` is clean and there is no reason to let it drift.

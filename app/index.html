@@ -73,8 +73,11 @@
     .sec h2 { font-size: 10px; letter-spacing: 0.25em; color: var(--dim); margin-bottom: 8px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
     .sec h2 .tog { margin-left: auto; cursor: pointer; color: var(--dim); font-size: 11px; }
     .row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
-    .row label { flex: 0 0 92px; color: var(--text); font-size: 11.5px; }
-    .row .val { flex: 0 0 46px; text-align: right; color: var(--amber); font-size: 11px; }
+    .row label { flex: 0 0 84px; color: var(--text); font-size: 11.5px; }
+    /* wider than it used to be: these read in real units now ("1.8e3 K/s"), not
+       as bare two-decimal numbers */
+    .row .val { flex: 0 0 62px; text-align: right; color: var(--amber); font-size: 11px; }
+    .row .val.unreal { color: #e06c60; }
     input[type="range"] { flex: 1; appearance: none; height: 2px; background: #333a45; border-radius: 1px; outline: none; }
     input[type="range"]::-webkit-slider-thumb { appearance: none; width: 11px; height: 11px; border-radius: 50%; background: var(--amber); border: 2px solid #0a0b0d; box-shadow: 0 0 0 1px #4a4235; cursor: ew-resize; }
     button { font-family: var(--font); font-size: 11px; letter-spacing: 0.06em; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 6px 9px; cursor: pointer; }
