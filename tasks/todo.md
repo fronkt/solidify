@@ -995,3 +995,92 @@ reproducible and looks like physics (the refinement result). Being more careful 
 making the channel loud is. So: `PARAM-WARN` watches the warning channel, and `shaderModule()`
 now polls `getCompilationInfo()` and logs every WGSL error in both dimensions. Any future
 silent-failure class should get the same treatment rather than a resolution to concentrate.
+
+## v6.0 — HEAT TREATMENT: THE SECOND CLOCK (2026-07-22)
+
+Plan: `~/.claude/plans/misty-marinating-sun.md`. Phase H of the v5.0 plan, which shipped U and
+Q and stopped. Frank's v5.0 question — *"why is annealing just a button"* — was still unanswered:
+`host.anneal(on)` set `heatIn = 1.1` while held, a uniform heat source with no time base, no
+temperature target and no solid-state physics. It does not anneal, it **remelts**.
+
+Meanwhile U1 had quietly landed the entire heat-treatment data layer and **nothing read a byte
+of it**: `ggA0/ggQ/ggN`, `Ds0/Qs`, `oxA0/oxQ`, `s0/kHP` on all nine materials with an `si` block,
+each with its own `source:` provenance, plus `R_GAS` whose comment already said *"the
+heat-treatment Arrhenius laws use it"*. Scope was set by what that data supports: everything
+except precipitate aging, which is deferred because `MaterialSI` has no precipitate kinetics and
+inventing them is the one thing this instrument does not do.
+
+**The organising idea.** Heat treatment runs on a clock ~10 orders of magnitude longer than
+solidification — order 10⁻⁷ s per calibrated timestep against 1.4·10⁴ s for a four-hour soak. The
+phase-field solver can never be integrated through one. So heat treatment is a separate model on
+a separate clock and `src/heattreat.ts` owns the map, exactly as `units.ts` owns the
+dimensionless↔SI map: real schedule → Arrhenius integral → a budget → a GPU pass that consumes
+it. φ is frozen throughout, which is what solid-state means, so the two clocks never have to be
+reconciled.
+
+- [x] **H1** — `src/heattreat.ts`, the pure-TS owner: real-seconds `HeatStage`/`HeatSchedule`
+      (deliberately NOT `program.ts`'s sim-time `Stage` — keeping them separate types is what
+      stops either clock reaching the other's executor), Simpson integration of every rate law
+      over the whole trajectory, `grainAfter`/`hallPetch`/`scaleThickness`/`decarbDepth`/
+      `segregationDecay`, the budget→sweeps inversion, and `canTreat` as the single place that
+      decides what may run and the single place that says why not.
+      **Design change from the plan: there is no process switch.** The user sets an environment
+      (a temperature schedule and an atmosphere) and the model reports what happened — grain
+      growth, homogenization, oxidation and twinning all fall out of the same schedule through
+      their own integrals. "Stress relief" is not a mode; it is what you get when you pick 200 °C
+      and every integral comes back negligible, and the card says so *because the arithmetic said
+      so*. `SCHEDULES` are presets that fill in a schedule, not switches that select a physics.
+      This is the same move v4.0 L3 made when it deleted the nucleation-rate slider, and it is
+      strictly better than the dropdown the plan sketched.
+      Preset temperatures are fractions of each material's **absolute** melting point, because
+      "600 °C" is a solution treatment for aluminium and a melt for zinc.
+      Two optional additions to `MaterialSI` (`sfe`, `twinNote`) landed as *types only* so H1
+      compiles standalone; H3 populates the values with sources.
+      Gate: **`scripts/verify-heattreat.mjs`, browser-free**, in the `verify-units.mjs` style
+      (vite middleware + `ssrLoadModule` — a test that re-implements the thing it tests proves
+      nothing). Ten checks, all green, and it is now **the second suite member
+      GitHub CI can actually run**: `HT-ARRH-HOLD` (against the exact closed form, rel err
+      3e-15) · `HT-ARRH-RAMP` (a ramp has no elementary integral, so the reference is the same
+      routine at 64× the samples — 3e-8) · `HT-RAMP-COUNTS` (a slow ramp to temperature must
+      contribute; charging only the hold is a plausible-looking bug that would under-report every
+      treatment — measured +31.5 % over hold-alone) · `HT-LAWS` · `HT-HOMOG-ANALYTIC` (the
+      reference the GPU pass will be measured against, known-good *before* the solver exists) ·
+      `HT-SWEEPS` (the inversion only — **not** `K_MC`, which H2 measures) · `HT-REFUSE`
+      (15 cases, 10 refusals, and it asserts the reasons are all *distinct* — a generic "not
+      available" would be the dead-knob class in a different costume) · `HT-INCIPIENT`.
+      `HT-DEMO` prints the headline rather than asserting it, so a regression stays visible:
+      a 1 h anneal at 0.85 T_m takes Al 12 → 20.1 µm (40 → 36 MPa), Cu 12 → 46.2 µm (57 → 41 MPa),
+      steel 12 → **295.9 µm** (243 → 105 MPa).
+      That steel figure makes risk 4 — grains coarsening past the specimen — a **reachable** case
+      rather than a hypothetical: 296 µm is three grains across a 1000 µm domain, and *wider than
+      the entire 188 µm volume* at 192³. So `domainLimitUm()` landed in H1 too: a schedule past
+      the limit is **refused while its analytic answer is still printed** (`HT-DOMAIN-LIMIT`
+      measures 342 µm in 2D and 64 µm in 3D — steel's anneal is legal in the plane and refused in
+      the volume).
+
+### The exponent that is not 2 — caught by a design review before it shipped
+
+The first draft of `sweepsFor` inverted `D² − D₀² = K_MC·S`, on the reasoning that curvature-driven
+grain growth is parabolic and all nine materials ship `ggN = 2`. **Ideal curvature-driven growth is
+parabolic; Monte Carlo Potts is not.** The lattice pins and the state count is finite, so the
+measured Potts growth law comes out meaningfully slower than the theoretical `R ∝ t^½`.
+
+There are two exponents and the draft had conflated them:
+
+- **n** — the MATERIAL's, `si.ggN`, in `D^n − D₀^n = ∫k dt`;
+- **m** — the MODEL's, in `D^m − D₀^m = K_MC·S`, which is a *measured property of this
+  implementation* exactly like `K_MC` and comes from the same gate.
+
+They meet at the ENDPOINT and nowhere else: the material law says where the grain finishes, the
+model spends whatever sweeps its own kinetics need to get there, and the trajectory between is the
+model's. `HT-SWEEPS` now makes the two disagree on purpose and requires the answers to differ,
+because an implementation that silently assumed 2 would have passed every other check. The cost of
+the assumption, measured: **9 499 sweeps against 1 980 — a 4.8× error**, in a number nothing else
+in the app would have contradicted. Same shape as v5.0's four wrong comparisons: the arithmetic was
+right and the variable was wrong.
+- [ ] **H2** — GPU grain growth, 2D + 3D (sublattice Potts, own uniform buffer, no UI)
+- [ ] **H3** — annealing twins (Σ3 on migrating boundaries, 3D, low-SFE cubic only)
+- [ ] **H4** — homogenization (solute diffusion at frozen φ)
+- [ ] **H5** — oxidation and decarburization
+- [ ] **H6** — Hall–Petch and the report-card verdict
+- [ ] **H7** — the panel, the `reheat` rename, science §9, README, TESTING, tour

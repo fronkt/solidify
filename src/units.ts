@@ -92,6 +92,21 @@ export interface MaterialSI {
   /** Hall–Petch σ_y = s0 + kHP/√d — MPa, MPa·√m */
   s0: number;
   kHP: number;
+  /**
+   * stacking-fault energy, mJ/m² — what decides whether ANNEALING twins form.
+   * Optional because it is only meaningful for the cubic metals: low-SFE copper
+   * anneals full of Σ3 twins and high-SFE aluminium grows none, and that
+   * contrast is the point. Absent = the material refuses annealing twins by
+   * name rather than on a guess (see `heattreat.canTreat`).
+   */
+  sfe?: number;
+  /**
+   * why this material cannot form annealing twins even though its lattice is
+   * cubic — set only where the reason is structural rather than energetic
+   * (steel is modelled here as δ-ferrite, and annealing twins are an austenite
+   * phenomenon this solver has no phase for).
+   */
+  twinNote?: string;
   /** provenance, shown in the scale panel */
   source: string;
 }
