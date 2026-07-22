@@ -20,7 +20,7 @@ import { Nucleation } from "./nucleation";
 import { Lab, type LabHost, type LabSetup } from "./lab";
 import { Units, scaleOf, DEFAULT_UM_PER_CELL } from "./units";
 import { SOLVER } from "./shaders";
-import { calibrate, A_T, type QuantSetup } from "./quant";
+import { calibrate, defaultLambda, A_T, type QuantSetup } from "./quant";
 import { WT_PER_C0 } from "./alloy";
 
 /** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
@@ -187,7 +187,10 @@ async function boot() {
   const setSolver = (kind: number, lambda?: number): QuantSetup | null => {
     const P = sim.params as unknown as Record<string, number>;
     if (kind === SOLVER.QUANT) {
-      const q = calibrateNow(lambda ?? sim.params.lambda);
+      // entering the mode picks the λ the material can afford; changing λ later
+      // passes it explicitly and this default steps aside
+      const want = lambda ?? (kobSnapshot ? sim.params.lambda : defaultLambda(sim.params.alloyOn === 1));
+      const q = calibrateNow(want);
       if (!q) return null;
       const si = MATERIALS[material].si!;
       if (!kobSnapshot) {
@@ -416,6 +419,26 @@ async function boot() {
     // drive the 3D solver's params — same field names by design
     simParams: () => (mode === "3d" && sim3d ? (sim3d.params as unknown as typeof sim.params) : sim.params),
     units: () => unitsNow(),
+    // ---- calibrated mode (Phase Q). 2D only for now: the volume still runs
+    // the Kobayashi solver, and offering a switch that silently did nothing
+    // there would be exactly the dead-knob class U0 spent a milestone removing.
+    canCalibrate: () => mode === "2d" && !!(MATERIALS[material] ?? {}).si,
+    isCalibrated: () => sim.params.solver === SOLVER.QUANT,
+    setCalibrated(on) {
+      if (on && !app.canCalibrate()) return;
+      setSolver(on ? SOLVER.QUANT : SOLVER.KOB);
+      // dx, dt and the cell pitch all just changed, so the field in the
+      // textures is no longer a solution of the equations being solved
+      app.resetArmed();
+      ui.sync();
+    },
+    getLambda: () => sim.params.lambda,
+    setLambda(v) {
+      if (sim.params.solver !== SOLVER.QUANT) { sim.params.lambda = v; return; }
+      setSolver(SOLVER.QUANT, v);
+      app.resetArmed();
+    },
+    calibration: () => (sim.params.solver === SOLVER.QUANT ? calibrateNow(sim.params.lambda) : null),
     getUmPerCell: () => umPerCell,
     setUmPerCell(v) {
       umPerCell = Math.max(0.01, v);
@@ -1332,7 +1355,15 @@ async function boot() {
     if (MATERIALS[shared.m]) app.setMaterial(shared.m);
     // scen numbers mean different things per mode — never cross-assign a 3D
     // link's params into the 2D solver
-    if (shared.d !== 1) Object.assign(sim.params, shared.p);
+    if (shared.d !== 1) {
+      Object.assign(sim.params, shared.p);
+      // A calibrated link carries λ and the material, and NOTHING else it needs:
+      // dx and dt are on the share blacklist (they are grid-derived), and under
+      // this solver they are also material-derived. Re-running the calibration
+      // is therefore both necessary and sufficient — and it is the only route
+      // that cannot restore a solver flag onto a Kobayashi timestep.
+      if (sim.params.solver === SOLVER.QUANT) setSolver(SOLVER.QUANT, sim.params.lambda);
+    }
     undercool = shared.u;
     view = Math.max(0, Math.min(9, Math.round(shared.v))) as ViewMode;
     applyNucShare(nuc, shared);

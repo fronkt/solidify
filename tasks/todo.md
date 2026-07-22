@@ -858,6 +858,33 @@ future claim rests on rate comparisons.
       +24 %/+40 % without it, *growing with the interface width* · **QPF-MASS** 1.65e-3 over
       20 000 substeps of dendritic growth.
 
+- [x] **Q4** — calibrated mode becomes something the app offers, and the dials it takes over
+      say so. A switch in the SCALE rail section (2D only, and hidden with a reason when the
+      material has no SI identity or the volume is up — a switch that silently did nothing is
+      the dead-knob class U0 spent a whole milestone removing). ε̄, τ, α, γ, δ, dSol and the
+      cell pitch grey out with a tooltip saying they are derived, and are **kept, not deleted**:
+      share links, presets and every scene still write them, and a mode switch that quietly
+      discarded a user's ε̄ would be a worse surprise than a locked slider. λ is the one control
+      that appears, labelled with the W₀/d₀ it implies, because it is a convergence knob.
+      **λ's default is a product decision with a physics reason.** W₀ = λd₀/a₁ sets the domain,
+      and for Al–4.5Cu (d₀ = 3.2 nm) λ = 3 spans **5 µm** — a correct calibration of nothing
+      anyone can see. λ = 30 gives W₀ = 109 nm, a 0.087 µm cell and an 89 µm domain at 1024²,
+      which is a micrograph; W₀/d₀ = 34 sits inside the range dilute-alloy phase-field work has
+      used for twenty years. A pure melt cannot have that and the reason is physics, not
+      caution: its tip runs fast enough to hit τV/W ≈ 0.2 by λ ≈ 4. Hence `defaultLambda(alloy)`
+      = 30 / 3. The plan predicted W₀ ≈ 119 nm, dx ≈ 95 nm and a ~97 µm domain from its own
+      arithmetic; measured, 109 nm, 87 nm and 89 µm.
+      **Share links restore it correctly by re-deriving it.** `dx` and `dt` are on the share
+      blacklist as grid-derived, and under this solver they are material-derived too — so a
+      restore re-runs the calibration from λ and the material rather than trusting the packed
+      numbers, which is the only route that cannot land a solver flag on a Kobayashi timestep.
+      Gates: **CALIB-BAND** the app's own shipped site potency of 0.15 is 37.4 K under Kobayashi
+      scaling and **11.2 K** calibrated (3.73 K at a potency of 0.05, against the plan's
+      predicted 3.9 K) — the foundry band, with the nucleation model untouched, purely because
+      one dimensionless degree is now a freezing range instead of a latent-heat interval ·
+      **CALIB-LOCK** ε̄ = τ = 1, the anti-trapping current on, δ taken from the material's
+      measured ε₄, and the capillary group reading 0.0295 instead of "not defined".
+
 **Three things the plan asked for that the measurements would not support, each replaced by
 what is actually true.**
 

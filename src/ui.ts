@@ -13,6 +13,14 @@ export interface UIHost extends AppControl {
   units(): Units;
   /** model resolution — the one free factor of the three */
   getUmPerCell(): number;
+  /** calibrated (Karma–Rappel) mode: available, on, and its one knob */
+  canCalibrate(): boolean;
+  isCalibrated(): boolean;
+  setCalibrated(on: boolean): void;
+  getLambda(): number;
+  setLambda(v: number): void;
+  /** what the calibration works out to, or null when it is not running */
+  calibration(): { d0: number; W0: number; tau0: number; wOverD0: number; dT0: number; umPerCell: number } | null;
   setUmPerCell(v: number): void;
   getUndercool(): number;
   setUndercool(v: number): void;
@@ -133,6 +141,12 @@ export class UI {
   private regimeNote!: HTMLElement;
   private potNote!: HTMLElement;
   private scaleBody!: HTMLElement;
+  private calSwitch!: HTMLElement;
+  private calNote!: HTMLElement;
+  private lamRow!: HTMLElement;
+  private umRow!: HTMLElement;
+  /** rows the calibrated solver DERIVES — greyed, never deleted */
+  private derived: HTMLElement[] = [];
   private only2d: HTMLElement[] = [];
   private only3d: HTMLElement[] = [];
   private readouts = document.getElementById("readouts")!;
@@ -657,11 +671,19 @@ export class UI {
 
     // ---- advanced
     const adv = this.section(rail, "ADVANCED");
-    this.slider(adv, "interface ε̄", 0.006, 0.016, 0.0005, () => p().epsBar, v => { p().epsBar = v; }, v => v.toFixed(4));
-    this.slider(adv, "kinetics γ", 4, 25, 0.5, () => p().gamma, v => { p().gamma = v; }, v => v.toFixed(1));
-    this.slider(adv, "driving α", 0.6, 1.0, 0.01, () => p().alpha, v => { p().alpha = v; });
-    this.slider(adv, "relax τ ×10⁻⁴", 1.5, 8, 0.1, () => p().tau * 1e4, v => { p().tau = v * 1e-4; }, v => v.toFixed(1));
-    this.only2d.push(this.slider(adv, "partition k", 0.05, 0.9, 0.01, () => p().kPart, v => { p().kPart = v; }));
+    // Every one of these is a free dial under Kobayashi and a DERIVED quantity
+    // under the calibrated solver. They are greyed rather than removed: share
+    // links, presets and every scene still write them, and a mode switch that
+    // silently discarded a user's ε̄ would be a worse surprise than a dial that
+    // says why it is locked.
+    this.derived.push(
+      this.slider(adv, "interface ε̄", 0.006, 0.016, 0.0005, () => p().epsBar, v => { p().epsBar = v; }, v => v.toFixed(4)),
+      this.slider(adv, "kinetics γ", 4, 25, 0.5, () => p().gamma, v => { p().gamma = v; }, v => v.toFixed(1)),
+      this.slider(adv, "driving α", 0.6, 1.0, 0.01, () => p().alpha, v => { p().alpha = v; }),
+      this.slider(adv, "relax τ ×10⁻⁴", 1.5, 8, 0.1, () => p().tau * 1e4, v => { p().tau = v * 1e-4; }, v => v.toFixed(1)),
+    );
+    const kRow = this.slider(adv, "partition k", 0.05, 0.9, 0.01, () => p().kPart, v => { p().kPart = v; });
+    this.only2d.push(kRow);
     // the inoculant's potency distribution: where the site population sits and
     // how tightly it clusters. Potent refiners fire just below the liquidus.
     this.slider(adv, "site ΔT_N", 0.03, 0.6, 0.005,
@@ -678,14 +700,32 @@ export class UI {
     // thing that makes every other number in the app either trustworthy or
     // decorative, and a reader deserves to see which.
     const sc = this.section(rail, "SCALE");
+    // CALIBRATED MODE. Under Kobayashi the interface width and the relaxation
+    // time are dials and the tip radius is a shape; here they are derived from
+    // the material's own capillary length and diffusivity, and the tip radius
+    // becomes a prediction. The switch lives beside the SCALE report because
+    // that report is where the difference shows: the capillary row stops
+    // reading "not defined".
+    this.calSwitch = this.actSwitch(sc, "calibrated solver", "Karma–Rappel",
+      () => host.isCalibrated(), b => host.setCalibrated(b));
+    this.calNote = document.createElement("div");
+    this.calNote.className = "matnote";
+    sc.append(this.calNote);
+    // λ is the ONLY free parameter left, and it is a convergence knob: every
+    // quantitative claim has to be shown not to depend on it.
+    this.lamRow = this.slider(sc, "coupling λ", 1, 40, 0.5,
+      () => host.getLambda(), v => host.setLambda(v),
+      v => `${v.toFixed(1)} · W₀/d₀ ${(v / 0.8839).toFixed(1)}`);
     this.scaleBody = document.createElement("div");
     this.scaleBody.className = "matnote";
     this.scaleBody.style.lineHeight = "1.7";
     sc.append(this.scaleBody);
-    // model resolution is the ONE free choice among the three factors
-    this.slider(sc, "µm per cell", 0.05, 20, 0.05,
+    // model resolution is the ONE free choice among the three factors — until
+    // the calibrated solver takes it over, at which point it is derived from W₀
+    this.umRow = this.slider(sc, "µm per cell", 0.05, 20, 0.05,
       () => host.getUmPerCell(), v => host.setUmPerCell(v),
       v => v < 1 ? `${v.toFixed(2)} µm` : `${v.toFixed(1)} µm`);
+    this.derived.push(this.umRow);
     const shareB = this.button(this.btnRow(adv), "⎘ copy setup link", () => {
       void navigator.clipboard.writeText(host.shareLink()).then(() => {
         shareB.textContent = "copied ✓";
@@ -716,6 +756,31 @@ export class UI {
     const host = this.host;
     const p = host.simParams();
     const m3 = host.getMode() === "3d";
+
+    // ---- calibrated mode: what it takes over, and what it now knows
+    const cal = host.calibration();
+    const on = !!cal;
+    this.calSwitch.style.display = host.canCalibrate() || on ? "" : "none";
+    this.lamRow.style.display = on ? "" : "none";
+    for (const el of this.derived) {
+      el.style.opacity = on ? "0.42" : "";
+      el.style.pointerEvents = on ? "none" : "";
+      el.title = on ? "derived by the calibration — not a choice in this mode" : "";
+    }
+    const nm = (m: number) => (m < 1e-6 ? `${(m * 1e9).toFixed(1)} nm` : `${(m * 1e6).toFixed(2)} µm`);
+    this.calNote.innerHTML = on
+      // the numbers a reader needs to judge the calibration, not just trust it:
+      // d₀ is the material's, W₀ follows from λ, and W₀/d₀ is the thing every
+      // quantitative claim has to be shown independent of
+      ? `d₀ ${nm(cal.d0)} · W₀ ${nm(cal.W0)} · τ₀ ${cal.tau0 < 1e-3
+          ? cal.tau0.toExponential(1) + " s" : cal.tau0.toPrecision(2) + " s"}`
+        + `<br>one degree = ${cal.dT0.toFixed(1)} K · cell ${cal.umPerCell.toFixed(3)} µm`
+        + `<br><span style="color:#7fd18b">W₀ and τ₀ are derived from Γ and D — ε̄, τ, α, γ, δ and the cell pitch are no longer choices.</span>`
+      : host.canCalibrate()
+        ? "derive W₀ and τ₀ from this material's real capillary length and diffusivity — tip radius and arm spacing stop being shapes and start being predictions"
+        : m3
+          ? "calibrated mode is 2D for now — the volume still runs the Kobayashi solver"
+          : "this material has no SI identity to calibrate against — pick a real one";
 
     // mode gating: 2D-only vs 3D-only rows, sections and buttons
     for (const el of this.only2d) el.style.display = m3 ? "none" : "";

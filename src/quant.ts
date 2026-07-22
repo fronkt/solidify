@@ -153,6 +153,26 @@ export function calibrate(inp: QuantInput): QuantSetup {
 }
 
 /**
+ * Where to start λ, which is a question about what the instrument is FOR.
+ *
+ * λ sets the domain: W₀ = λd₀/a₁ and a cell is 0.8 W₀, so a 1024² grid spans
+ * 819·λ·d₀/a₁. For Al–4.5Cu, d₀ is 3.2 nm — at λ = 3 the whole domain is **5 µm**,
+ * which is a correct calibration of nothing anyone can see. At λ = 30 it is
+ * 89 µm, which is a micrograph, and W₀/d₀ = 34 sits inside the range dilute-alloy
+ * phase-field work has used for two decades (Echebarria et al. report W/d₀ ≤ 50
+ * as well converged, and use up to 72).
+ *
+ * A pure melt cannot have that, and the reason is physics rather than caution:
+ * the thin-interface limit needs W₀ ≪ D/V, and a deeply undercooled pure melt
+ * grows fast enough that the bound τ₀V/W₀ ≲ 0.2 is reached by λ ≈ 4. An alloy
+ * dendrite at a realistic undercooling runs orders slower, which is precisely
+ * why it can afford an interface that a pure melt cannot.
+ */
+export function defaultLambda(alloy: boolean): number {
+  return alloy ? 30 : 3;
+}
+
+/**
  * The physical ceiling on λ at a given growth velocity.
  *
  * The thin-interface asymptotics assume the interface is thin compared with the
