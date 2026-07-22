@@ -1,8 +1,8 @@
 import { Simulation, DOMAIN_MM, type StatsResult } from "./sim";
 import { MATERIALS, to3D } from "./materials";
 import { Renderer, type ViewMode } from "./render";
-import { Sim3D, type StatsResult3D } from "./sim3d";
-import { LENS3_NAMES } from "./shaders3d";
+import { Sim3D, GRID3_LADDER, type StatsResult3D } from "./sim3d";
+import { LENS3_NAMES, ICOSA_DELTA_MAX } from "./shaders3d";
 import { Renderer3D, slicePlane } from "./render3d";
 import { SlicePanel } from "./slicepanel";
 import { ViewCube } from "./viewcube";
@@ -34,7 +34,7 @@ async function boot() {
   device.lost.then(info => { if (info.reason !== "destroyed") gate(); });
 
   // TRUE-3D capability gate: limits first; real memory gating happens in the
-  // Sim3D.create OOM ladder (192 -> 160 -> 128) and is remembered
+  // Sim3D.create OOM ladder (GRID3_LADDER: 192 -> 160 -> 128 -> 96) and is remembered
   const caps3d = {
     supported:
       adapter.limits.maxTextureDimension3D >= 128 &&
@@ -181,7 +181,7 @@ async function boot() {
     ui.sync();
   };
 
-  /** rebuild the 3D solver at a new grid edge (destroy first — ~283 MB at 192³) */
+  /** rebuild the 3D solver at a new grid edge (destroy first — ~403 MB at 192³) */
   const swapSim3D = async (n: number) => {
     if (!sim3d || mode3dPending) return;
     mode3dPending = true;
@@ -293,8 +293,13 @@ async function boot() {
       else running = on;
     },
     setWeldAuto(on) { weldAuto = on; },
-    startOptimizer() { if (!challenge.active && !lab.active) opt.start(sim.n); },
-    startChallenge() { if (!opt.active && !lab.active) challenge.start(); },
+    // Both are 2D-only: the frame loop's 3D branch returns before opt.tick()
+    // and challenge.onStats(), so starting either from the volume would leave a
+    // mode that never advances. The buttons are already only2d and the tour
+    // forces 2D first, but a share link, the console or a future caller can
+    // reach these — guard at the host rather than rely on the UI.
+    startOptimizer() { if (mode === "2d" && !challenge.active && !lab.active) opt.start(sim.n); },
+    startChallenge() { if (mode === "2d" && !opt.active && !lab.active) challenge.start(); },
     startLab() { if (!opt.active && !challenge.active) lab.open(); },
     isLabOpen: () => lab.active,
     syncUI() { ui.sync(); },
@@ -422,7 +427,13 @@ async function boot() {
     // silently discard the run the report card is about to describe
     canSwitchMode: () => caps3d.supported && !opt.active && !challenge.active
       && !mode3dPending && !lab.running,
-    caps3dSizes: () => [128, 160, 192].filter(v => v <= caps3d.maxN),
+    // ascending, and always including whatever rung the OOM ladder actually
+    // landed on — otherwise a GPU that fell back shows an empty selection
+    caps3dSizes: () => {
+      const rungs = [...GRID3_LADDER].filter(v => v <= caps3d.maxN);
+      if (!rungs.includes(grid3)) rungs.push(grid3);
+      return rungs.sort((a, b) => a - b);
+    },
     getGrid3: () => grid3,
     setGrid3(n) {
       if (n === grid3 || !caps3d.supported) return;
@@ -451,7 +462,7 @@ async function boot() {
       sim3d.params.aniMode3 = j === 6 ? 2 : j === 5 ? 3 : 1;
       sim3d.params.deltaZ = j === 6 ? 0.03 : 0;
       // icosahedral convexity edge sits lower than the cubic δ range
-      if (j === 5) sim3d.params.delta = Math.min(sim3d.params.delta, 0.02);
+      if (j === 5) sim3d.params.delta = Math.min(sim3d.params.delta, ICOSA_DELTA_MAX);
     },
     getHabit: () => sim3d ? sim3d.params.deltaZ : NaN,
     setHabit(v) { if (sim3d) sim3d.params.deltaZ = v; },

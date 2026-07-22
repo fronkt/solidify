@@ -51,9 +51,10 @@
     body.mode3d #viewcube { display: block; }
     /* 2D-only chrome folds away in TRUE-3D mode (the HUD, tour, overlay and
        scale bar stay — the 3D probe crosshair and SLICE scale bar live there);
-       only the 2D-owned overlay marks hide */
-    body.mode3d #thermbar,
-    body.mode3d #sembar, body.mode3d #apanels { display: none !important; }
+       only the 2D-owned overlay marks hide. The THERM and SEM legends are NOT
+       2D-owned: both lenses exist in the volume too (LENS3 6 and 4), so their
+       scales are driven by ui.sync() per mode rather than blanked here. */
+    body.mode3d #apanels { display: none !important; }
     body.mode3d #probeMark, body.mode3d #rulerLine, body.mode3d #rulerText { display: none !important; }
     /* floating SECTION PLANE panel (SLICE lens) */
     #slicePop { position: absolute; left: 18px; bottom: 62px; width: 252px; display: none; z-index: 6;

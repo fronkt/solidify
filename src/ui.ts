@@ -1,7 +1,7 @@
 import type { AppControl, TourHost } from "./tour";
 import { SCENES, SCENES3 } from "./tour";
 import { LENS_NAMES } from "./shaders";
-import { LENS3_NAMES } from "./shaders3d";
+import { LENS3_NAMES, ICOSA_DELTA_MAX } from "./shaders3d";
 import { MATERIALS, to3D } from "./materials";
 import type { PhysParams } from "./sim";
 import type { Analyze } from "./analyze";
@@ -121,6 +121,8 @@ export class UI {
   private pixelRow!: HTMLElement;
   private habitRow!: HTMLElement;
   private habitNote!: HTMLElement;
+  private facetRow!: HTMLElement;
+  private facetNote!: HTMLElement;
   private only2d: HTMLElement[] = [];
   private only3d: HTMLElement[] = [];
   private readouts = document.getElementById("readouts")!;
@@ -232,9 +234,16 @@ export class UI {
     sec.root.classList.add("hl");
   }
 
+  /**
+   * `dynRange` lets a row narrow itself as state changes — the anisotropy δ
+   * slider spans 0–0.08, but the icosahedral energy is only convex to ≈0.035
+   * and the shader silently clamps there, so without this the dial reads a
+   * value the solver is not using.
+   */
   private slider(
     parent: HTMLElement, label: string, min: number, max: number, step: number,
     get: () => number, set: (v: number) => void, fmt: (v: number) => string = v => v.toFixed(2),
+    dynRange?: () => [number, number],
   ) {
     const row = document.createElement("div");
     row.className = "row";
@@ -247,9 +256,17 @@ export class UI {
     val.className = "val";
     // rows bound to params the other mode doesn't have read undefined — show a dash
     const update = () => {
+      let lo = min, hi = max;
+      if (dynRange) {
+        [lo, hi] = dynRange();
+        inp.min = String(lo); inp.max = String(hi);
+      }
       const v = get();
-      inp.value = String(Number.isFinite(v) ? v : min);
-      val.textContent = Number.isFinite(v) ? fmt(v) : "—";
+      // show the value the SOLVER will use, not the one the param happens to
+      // hold — a dial parked outside a narrowed range is clamped downstream
+      const vc = Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo;
+      inp.value = String(vc);
+      val.textContent = Number.isFinite(v) ? fmt(vc) : "—";
     };
     inp.addEventListener("input", () => { set(parseFloat(inp.value)); update(); });
     row.append(lab, inp, val);
@@ -445,7 +462,11 @@ export class UI {
 
     // ---- crystal
     const cr = this.section(rail, "CRYSTAL");
-    this.slider(cr, "anisotropy δ", 0, 0.08, 0.001, () => p().delta, v => { p().delta = v; }, v => v.toFixed(3));
+    this.slider(cr, "anisotropy δ", 0, 0.08, 0.001, () => p().delta, v => { p().delta = v; }, v => v.toFixed(3),
+      // the icosahedral energy loses convexity well below the cubic range, and
+      // the shader clamps there — so the dial narrows rather than reading a
+      // value the solver is quietly ignoring
+      () => [0, host.getMode() === "3d" && host.getSym3() === 5 ? ICOSA_DELTA_MAX : 0.08]);
     // in 2D, a periodic lattice permits exactly 2-, 3-, 4- and 6-fold rotational
     // symmetry (the crystallographic restriction theorem); 5- and 10-fold are the
     // "forbidden" symmetries only quasicrystals achieve
@@ -472,11 +493,16 @@ export class UI {
     symNote.className = "matnote";
     symNote.textContent = "2·3·4·6 are the only symmetries a periodic lattice allows — 5 and 10 are quasicrystal territory";
     cr.append(symNote);
-    this.check(cr, "faceted growth (cusped ε)", () => p().facet > 0.5, b => { p().facet = b ? 1 : 0; });
-    const facNote = document.createElement("div");
-    facNote.className = "matnote";
-    facNote.textContent = "cusped interface energy pins flat facets — silicon and intermetallics grow this way";
-    cr.append(facNote);
+    // the volume only implements the cusped energy for the cubic ⟨100⟩ family
+    // (shaders3d.ts aniso3, aniMode3 == 1) — the hex and icosahedral branches
+    // ignore `facet` entirely, so the control hides there rather than sitting
+    // on screen doing nothing
+    const facChk = this.check(cr, "faceted growth (cusped ε)", () => p().facet > 0.5, b => { p().facet = b ? 1 : 0; });
+    this.facetRow = facChk.parentElement as HTMLElement;
+    this.facetNote = document.createElement("div");
+    this.facetNote.className = "matnote";
+    this.facetNote.textContent = "cusped interface energy pins flat facets — silicon and intermetallics grow this way";
+    cr.append(this.facetNote);
     this.slider(cr, "tip noise", 0, 0.04, 0.001, () => p().noiseAmp, v => { p().noiseAmp = v; }, v => v.toFixed(3));
     this.slider(cr, "latent heat K", 0.8, 2.2, 0.01, () => p().latent, v => { p().latent = v; });
     this.slider(cr, "twin rate", 0, 0.004, 0.0001, () => p().twinProb, v => { p().twinProb = v; },
@@ -662,6 +688,11 @@ export class UI {
     const hex3 = m3 && host.getSym3() === 6;
     this.habitRow.style.display = hex3 ? "" : "none";
     this.habitNote.style.display = hex3 ? "" : "none";
+    // faceting is implemented for every 2D symmetry, but in the volume only for
+    // cubic — see the note where the control is built
+    const facetOn = !m3 || host.getSym3() === 4;
+    this.facetRow.style.display = facetOn ? "" : "none";
+    this.facetNote.style.display = facetOn ? "" : "none";
 
     this.viewBtns.forEach((b, i) => {
       b.style.display = m3 ? "none" : "";
@@ -704,12 +735,19 @@ export class UI {
       armed.style.display = "none";
     }
 
-    // lens overlays (the scale bar also serves the 3D SLICE lens)
-    const v = host.getView();
-    const barOn = m3 ? host.getView3d() === 2 : v === 2;
-    document.getElementById("scalebar")!.style.display = barOn ? "flex" : "none";
-    document.getElementById("thermbar")!.style.display = v === 5 ? "block" : "none";
-    document.getElementById("sembar")!.style.display = v === 6 ? "block" : "none";
+    // Lens overlays. The two lens tables are ordered differently — 2D is
+    // [MELT ORIENT ETCH FIELD RINGS THERM SEM …], 3D is
+    // [MELT ORIENT SLICE FIELD SEM RINGS THERM …] — so every legend has to be
+    // keyed off the lens index of the mode that is actually on screen. Keying
+    // all three off the 2D index left the volume's THERM and SEM lenses
+    // rendering with no scale beside them.
+    const v = m3 ? host.getView3d() : host.getView();
+    const thermLens = m3 ? 6 : 5;
+    const semLens = m3 ? 4 : 6;
+    // lens 2 carries the scale bar in both tables: 3D SLICE, 2D ETCH
+    document.getElementById("scalebar")!.style.display = v === 2 ? "flex" : "none";
+    document.getElementById("thermbar")!.style.display = v === thermLens ? "block" : "none";
+    document.getElementById("sembar")!.style.display = v === semLens ? "block" : "none";
   }
 
   setReadouts(rows: [string, string][]) {

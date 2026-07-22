@@ -62,10 +62,13 @@ export const LAB_DEFAULT: LabSetup = {
 
 interface Sample { t: number; T: number; fs: number; fired: number }
 
-const ATMO_NOTE: Record<string, string> = {
-  air: "oxide films on the melt surface — extra wall nucleation sites, and more porosity",
-  argon: "clean cover gas: no oxide films",
-  vacuum: "clean melt: no oxide films",
+/** `three` gates the porosity clause — porosity is a 3D field only */
+const atmoNote = (atmo: string, three: boolean): string => {
+  if (atmo === "air") {
+    return "oxide films on the melt surface — extra wall nucleation sites"
+      + (three ? ", and more porosity" : "");
+  }
+  return atmo === "argon" ? "clean cover gas: no oxide films" : "clean melt: no oxide films";
 };
 
 export class Lab {
@@ -78,6 +81,8 @@ export class Lab {
   private host: LabHost;
   private panel: HTMLElement | null = null;
   private statusEl: HTMLElement | null = null;
+  /** mould-walls row — only the volume has mould geometry, so it hides in 2D */
+  private moldRow: HTMLElement | null = null;
   private card: HTMLElement | null = null;
   private run = new ProgramRun();
   private series: Sample[] = [];
@@ -235,7 +240,7 @@ export class Lab {
       this.range("pour superheat", 0, 0.35, 0.01, this.setup.superheat, v => { this.setup.superheat = v; }, 2),
       this.range("mould temperature", -0.2, 0.6, 0.02, this.setup.moldT, v => { this.setup.moldT = v; }, 2),
       this.select("cooling programme", ["furnace", "air", "quench", "soak"], this.setup.program, v => { this.setup.program = v; this.refresh(); }),
-      this.check("mould walls", this.setup.moldWalls, v => { this.setup.moldWalls = v; }),
+      this.moldRow = this.check("mould walls", this.setup.moldWalls, v => { this.setup.moldWalls = v; }),
     );
 
     const note = document.createElement("div");
@@ -265,10 +270,20 @@ export class Lab {
     if (!this.panel) return;
     const note = this.panel.querySelector("#foundryNote") as HTMLElement;
     const go = this.panel.querySelector("#foundryRun") as HTMLButtonElement;
+    // Two of the setup fields only mean anything in the volume: the mould shell
+    // is rasterized 3D geometry, and porosity is a 3D field. Rather than leave
+    // a checkbox that does nothing and a note promising porosity that cannot
+    // change, the panel says which half of the atmosphere model is live.
+    const three = this.host.getMode() === "3d";
+    if (this.moldRow) this.moldRow.style.display = three ? "" : "none";
+    const atmoScope = three
+      ? "only what the walls and the porosity look like."
+      : "only what the walls look like — porosity is a 3D field, so in 2D the atmosphere "
+        + "changes wall nucleation and nothing else.";
     note.innerHTML =
-      `<b style="color:#cfd6df">${this.setup.atmosphere}</b> — ${ATMO_NOTE[this.setup.atmosphere]}. ` +
+      `<b style="color:#cfd6df">${this.setup.atmosphere}</b> — ${atmoNote(this.setup.atmosphere, three)}. ` +
       "Atmosphere is a melt-cleanliness proxy here, not a nucleation control: it cannot change how " +
-      "readily the bulk liquid nucleates, only what the walls and the porosity look like.";
+      "readily the bulk liquid nucleates, " + atmoScope;
     go.textContent = this.running ? "■ abort" : "▶ pour and run";
     if (!this.statusEl) return;
     if (!this.running) {

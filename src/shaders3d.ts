@@ -25,6 +25,15 @@ export const PORE_ID = MAX_GRAINS3 - 1;
 
 export const LENS3_NAMES = ["MELT", "ORIENT", "SLICE", "FIELD", "SEM", "RINGS", "THERM", "NEON", "CURV"];
 
+/**
+ * Largest δ the icosahedral energy stays convex at. The theoretical edge is
+ * ≈0.029; this is the soak-tested cap the shader enforces. Single source of
+ * truth — the WGSL clamps to it, `setSym3` snaps to it, and the δ slider
+ * narrows its range to it, so the dial can never read a value the solver is
+ * not using.
+ */
+export const ICOSA_DELTA_MAX = 0.035;
+
 // Params3D slot map — single source of truth shared with sim3d.writeParams
 // (u = u32 view, f = f32 view over one 192-byte buffer)
 export const P3 = {
@@ -153,7 +162,7 @@ fn aniso3(np: vec3f, P: Params3D) -> Ani {
     // built on the six 5-fold axes (0, ±1, φ)/√(1+φ²) + cyclic. K=7, c₀=6
     // zero-mean Σ(n̂·mᵢ)⁶ (sphere mean 6/7, max 1.04 on the 5-fold axes);
     // δ clamped to the convexity-safe range (soak-tested at the slider max)
-    let dI = min(P.delta, 0.035);
+    let dI = min(P.delta, ${ICOSA_DELTA_MAX});
     var fsum = 0.0;
     var gsum = vec3f(0.0);
     for (var i = 0; i < 6; i++) {

@@ -10,12 +10,16 @@ import { setTimeout as sleep } from "node:timers/promises";
 const PORT = 5199;
 const URL = `http://localhost:${PORT}/`;
 const OUT = "verify-out";
+// verify-3d takes an explicit port because it used to be run by hand against a
+// second server; it belongs in the suite like everything else, and now that its
+// checks actually set an exit code, including it is meaningful.
 const SUITE = [
-  "scripts/verify-dive.mjs",
-  "scripts/verify-dive-fallbacks.mjs",
-  "scripts/verify-scroll-order.mjs",
-  "scripts/verify-optimizer.mjs",
-  "scripts/verify-tools.mjs",
+  ["scripts/verify-dive.mjs"],
+  ["scripts/verify-dive-fallbacks.mjs"],
+  ["scripts/verify-scroll-order.mjs"],
+  ["scripts/verify-optimizer.mjs"],
+  ["scripts/verify-tools.mjs"],
+  ["scripts/verify-3d.mjs", String(PORT)],
 ];
 
 function run(cmd, args, opts = {}) {
@@ -43,9 +47,9 @@ const server = spawn("npx", ["vite", "--port", String(PORT), "--strictPort"], { 
 let failed = false;
 try {
   await waitForServer();
-  for (const script of SUITE) {
+  for (const [script, ...extra] of SUITE) {
     console.log(`\n=== ${script} ===`);
-    await run("node", [script, OUT]);
+    await run("node", [script, OUT, ...extra]);
   }
 } catch (err) {
   console.error(err.message);

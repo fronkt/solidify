@@ -9,6 +9,14 @@ import {
 } from "./shaders3d";
 import { DOMAIN_MM } from "./sim";
 
+/**
+ * Grid rungs, largest first — the out-of-memory creation ladder walks this and
+ * the ENGINE grid row offers it. One source of truth: when these disagreed, a
+ * GPU that fell back to 96³ landed on a size the row could not display, so the
+ * selection silently showed nothing.
+ */
+export const GRID3_LADDER: readonly number[] = [192, 160, 128, 96];
+
 export interface Phys3DParams {
   dx: number;
   dt: number;
@@ -178,13 +186,15 @@ export class Sim3D {
   }
 
   /**
-   * Create at grid n, falling back down the ladder on out-of-memory
-   * (192³ ≈ 283 MB of VRAM; 128³ ≈ 84 MB). Resolves null if even the
-   * smallest rung fails.
+   * Create at grid n, falling back down the ladder on out-of-memory.
+   * Seven textures cost 57 B/voxel (state ×2 rg32f, grain ×2 r32u, flux rgba32f,
+   * age rg32f, fed ×2 r32u, mask r8u), so 192³ ≈ 403 MB, 160³ ≈ 234 MB,
+   * 128³ ≈ 120 MB, 96³ ≈ 50 MB — plus 57 MB for the solute pair while the alloy
+   * is on. Resolves null if even the smallest rung fails.
    */
   static async create(device: GPUDevice, n: number): Promise<Sim3D | null> {
     // 96 is the landing-demo size and the last-chance rung for tight GPUs
-    const ladder = [192, 160, 128, 96].filter(v => v <= n);
+    const ladder = [...GRID3_LADDER].filter(v => v <= n);
     if (!ladder.length) ladder.push(96);
     for (const rung of ladder) {
       const sim = new Sim3D(device, rung);

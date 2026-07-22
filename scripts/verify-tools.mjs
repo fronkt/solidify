@@ -9,7 +9,17 @@ const browser = await puppeteer.launch({
   defaultViewport: { width: 1400, height: 950 },
 });
 
+// PARAM-WARN: a uniform/storage struct that outgrows its binding surfaces as a
+// WebGPU WARNING while every readback through it silently returns zeros — the
+// shape of todo.md postmortem #1. Watched on every page this suite opens.
+const bindWarnings = [];
+
 async function boot(page, hash = "") {
+  page.on("console", m => {
+    const t = m.type();
+    if ((t === "warning" || t === "warn") && /binding size|minimum (buffer )?binding size/i.test(m.text()))
+      bindWarnings.push(m.text());
+  });
   await page.goto("http://localhost:5199/app/" + hash, { waitUntil: "networkidle0", timeout: 30000 });
   try { await page.waitForFunction("!!window.__solidify", { timeout: 15000 }); }
   catch { await page.reload({ waitUntil: "networkidle0" }); await page.waitForFunction("!!window.__solidify", { timeout: 20000 }); }
@@ -290,6 +300,12 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   console.log("ATMOSPHERE", ok ? "OK" : "FAIL", JSON.stringify({ maxLead: lead }));
   if (!ok) process.exitCode = 1;
   await page.close();
+}
+
+{
+  const ok = bindWarnings.length === 0;
+  console.log("PARAM-WARN", ok ? "OK" : "FAIL", JSON.stringify(bindWarnings.slice(0, 4)));
+  if (!ok) process.exitCode = 1;
 }
 
 await browser.close();

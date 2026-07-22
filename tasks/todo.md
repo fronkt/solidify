@@ -693,3 +693,46 @@ realism-first mode (set the environment, then watch), and Frank asked for turbo 
 6. **Timing-based headless tests of the speed multiplier are inherently flaky** — the ≥2-fence
    backpressure guard skips frames unpredictably under GPU contention. Assert the *step count
    requested* instead. (Frank's own Chrome, 94 processes, was also skewing fps probes.)
+
+## v5.0 — REAL UNITS, A QUANTITATIVE ALLOY SOLVER, HEAT TREATMENT (2026-07-21)
+
+Plan: `~/.claude/plans/sequential-stargazing-conway.md` (v4.0 plan archived to
+`robust-puzzling-emerson-archive-2026-07-21-v40-real-physics.md`). Frank asked four
+questions — is 3D complete, does it adhere to real physics, why are undercooling and
+cooling rate bare numbers instead of °C and K/s, and why is annealing just a button.
+Each had a real defect behind it. Scope settled via AskUserQuestion: the full-fidelity
+route (similarity scaling **and** the quantitative Karma–Rappel alloy solver), all four
+heat-treatment processes, all four lab-realism additions, and three of four 3D gaps
+(shaped moulds, convection/freckles, Niyama + hot tearing; 3D optimizer stays deferred).
+
+- [x] **U0** — hygiene, so the honesty claim survives contact with the rail.
+      **Six dead knobs fixed**: the faceted-growth checkbox now hides in 3D unless the
+      symmetry is cubic (the hex and icosahedral branches of `aniso3` ignore `facet`
+      entirely); the lab's mould-walls row hides in 2D and its atmosphere note stops
+      promising porosity there (porosity is a 3D field); THERM and SEM legend bars were
+      keyed off the **2D** lens index in both modes *and* blanked by a `body.mode3d` CSS
+      rule, so the volume's own THERM and SEM lenses rendered with no scale — both tables
+      are ordered differently (2D THERM 5/SEM 6, 3D SEM 4/THERM 6) and each is now keyed
+      per mode; the δ slider narrows to the icosahedral convexity cap instead of reading a
+      value the shader silently clamps (new `ICOSA_DELTA_MAX`, one source of truth across
+      WGSL, `setSym3` and the dial, plus a general `dynRange` on `UI.slider`); the ENGINE
+      grid row exposes the whole OOM ladder via a shared `GRID3_LADDER` and always includes
+      the rung the ladder actually landed on (a GPU that fell back to 96³ previously showed
+      an empty selection, and 96³ was unreachable despite being advertised);
+      `startOptimizer`/`startChallenge` gained mode guards (the 3D frame branch returns
+      before `opt.tick()`, so either would have hung silently).
+      **`Simulation.resetMold()`** kept but documented as reserved for the shaped-mould
+      work rather than left looking dead.
+      **Doc drift**: the VRAM figure was wrong in *both* directions — science and README
+      said ~396 MB, the code comments said ~283 MB; it is 57 B/voxel over seven textures =
+      **403 MB at 192³** (160³ 234 · 128³ 120 · 96³ 50), now stated once and correctly.
+      **Harness**: `verify-3d.mjs` printed `FAIL` but always exited 0 — twenty-three
+      assertions that could not break a build. Every check now routes through a failure
+      counter that sets the exit code, page errors count, and the script joined the `npm
+      test` suite (it had never been in it, despite TESTING.md saying every `verify-*.mjs`
+      ran). **`PARAM-WARN`** landed in both `verify-tools` and `verify-3d`: it watches the
+      browser *warning* channel for `binding size … < minimum …`, which is how postmortem
+      #1 (stats struct grew a slot, every readback silently returned zeros) presented. This
+      guard is a hard prerequisite for the param-table growth the quantitative solver needs.
+      `npm run typecheck` promoted to a CI gate — the two `noUnusedLocals` exemptions its
+      comment cited were stale, both symbols are live imports.

@@ -180,8 +180,9 @@
     freezing voxel the instrument also records the <b>Niyama criterion</b> Ny = |∇T|/√Ṫ — the
     foundry's standard porosity-risk index — and can paint it on the section plane. Numerics:
     explicit Euler at dt = 0.53·dx²/6 (the 3D stability bound), two compute passes per substep over
-    ping-pong 3D storage textures, ~396 MB of VRAM at 192³, with an out-of-memory ladder down to
-    96³ for smaller GPUs.</p>
+    ping-pong 3D storage textures, and 57 bytes of VRAM per voxel across seven textures — ~403 MB
+    at 192³, with an out-of-memory ladder down through 160³, 128³ and 96³ (~50 MB) for smaller
+    GPUs, every rung of it selectable from the ENGINE row.</p>
     <p>The volume now carries the <b>whole instrument</b>. The dilute-alloy solute field runs in
     3D (a lazily-allocated ping-pong texture pair — the composer's chemistry included), Bridgman
     growth pulls a thermal gradient up the z-axis, and a steerable laser welds the top surface

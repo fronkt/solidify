@@ -260,6 +260,11 @@ export class Simulation {
    * mask=0 cells become cold solid mold sharing one grain. Age sentinel:
    * mold cells stay -1 forever, so the CAST lens can tell cast metal from
    * mold whatever its grain id.
+   *
+   * NOTE — currently uncalled. This is the mask-reset mechanism the 2D side
+   * needs for real mould geometry (today only the volume rasterizes a shell,
+   * which is why the lab's "mould walls" control hides in 2D). Kept, not
+   * deleted: the shaped-mould work is what wires it up.
    */
   resetMold(mask: Uint8Array, tLiquid = 1.15, tMold = 0.06) {
     const n = this.n;

@@ -12,10 +12,26 @@ const browser = await puppeteer.launch({
   defaultViewport: { width: 1400, height: 950 },
 });
 
+// Every check prints "OK" or FAIL(); FAIL() records, so a failing check
+// actually fails the run. Before this the script printed FAIL and exited 0,
+// which meant twenty-three assertions that could never break a build.
+let failures = 0;
+const FAIL = () => { failures++; return "FAIL"; };
+
 const page = await browser.newPage();
 const errors = [];
+// PARAM-WARN: a uniform/storage struct that outgrows its binding is reported by
+// WebGPU as a WARNING, not an error, while every readback through it silently
+// returns zeros. That exact failure shipped once (todo.md postmortem #1), so the
+// warning channel is watched with the same weight as the error channel.
+const bindWarnings = [];
 page.on("pageerror", e => errors.push(String(e)));
-page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
+page.on("console", m => {
+  const t = m.type();
+  if (t === "error") errors.push(m.text());
+  if ((t === "warning" || t === "warn") && /binding size|minimum (buffer )?binding size/i.test(m.text()))
+    bindWarnings.push(m.text());
+});
 
 await page.goto(`http://localhost:${PORT}/app/`, { waitUntil: "networkidle0", timeout: 30000 });
 try { await page.waitForFunction("!!window.__solidify", { timeout: 15000 }); }
@@ -49,7 +65,7 @@ await grow(2);
 const sA = await stats3();
 await grow(4);
 const sB = await stats3();
-console.log("GROWTH", sA && sB && sB.fracSolid > sA.fracSolid && sA.fracSolid > 0 ? "OK" : "FAIL",
+console.log("GROWTH", sA && sB && sB.fracSolid > sA.fracSolid && sA.fracSolid > 0 ? "OK" : FAIL(),
   JSON.stringify({ a: sA?.fracSolid?.toFixed(4), b: sB?.fracSolid?.toFixed(4) }));
 
 // 3. two-seed claiming: distinct grains
@@ -63,7 +79,7 @@ await page.evaluate(() => {
 });
 await grow(5);
 const s2 = await stats3();
-console.log("TWO-SEED", s2 && s2.grainCount === 2 ? "OK" : "FAIL", JSON.stringify(s2));
+console.log("TWO-SEED", s2 && s2.grainCount === 2 ? "OK" : FAIL(), JSON.stringify(s2));
 
 // 4. four lenses
 const LENS = ["melt", "orient", "slice", "field"];
@@ -84,7 +100,7 @@ for (let i = 1; i <= 10; i++) await page.mouse.move(600 + i * 22, 480 - i * 8);
 await page.mouse.up();
 await tick(20);
 const after = await page.screenshot({ type: "png" });
-console.log("ORBIT", Buffer.compare(before, after) !== 0 ? "OK" : "FAIL");
+console.log("ORBIT", Buffer.compare(before, after) !== 0 ? "OK" : FAIL());
 
 // 6. tap-at-depth: quick click seeds near the view-facing mid-plane
 const tap = await page.evaluate(() => {
@@ -100,7 +116,7 @@ const tapRes = await page.evaluate(() => {
   return { g1: s3.nextId, last: s3.lastSeed };
 });
 const seeded = tapRes.g1 > tap.g0 && tapRes.last != null;
-console.log("TAP-SEED", seeded ? "OK" : "FAIL", JSON.stringify(tapRes.last));
+console.log("TAP-SEED", seeded ? "OK" : FAIL(), JSON.stringify(tapRes.last));
 
 // 7. ViewCube TOP snap: camera elevation must ease to +max
 await page.evaluate(() => window.__solidify.app.resetZoom());   // home view: TOP visible
@@ -114,7 +130,7 @@ const elBefore = await page.evaluate(() => window.__solidify.cam3().el);
 await page.mouse.click(vc.x + vc.w / 2, vc.y + vc.h * 0.26);
 await tick(40);
 const camAfter = await page.evaluate(() => window.__solidify.cam3());
-console.log("VIEWCUBE TOP", camAfter.el > 1.2 ? "OK" : "FAIL",
+console.log("VIEWCUBE TOP", camAfter.el > 1.2 ? "OK" : FAIL(),
   JSON.stringify({ elBefore: +elBefore.toFixed(2), elAfter: +camAfter.el.toFixed(2) }));
 await hideChrome();
 await page.screenshot({ path: `${OUT}/3d-top.jpg`, type: "jpeg", quality: 85 });
@@ -135,7 +151,7 @@ if (grid > 128) {
 
 // 9. share round-trip
 const link = await page.evaluate(() => window.__solidify.app.shareLink());
-console.log("SHARE LINK len", link.length, link.includes("set=") ? "OK" : "FAIL");
+console.log("SHARE LINK len", link.length, link.includes("set=") ? "OK" : FAIL());
 
 // ---- v2.0 characterization-lab regressions ---------------------------------
 
@@ -148,7 +164,7 @@ for (let v = 0; v < 9; v++) {
 }
 let distinct = true;
 for (let v = 1; v < 9; v++) if (Buffer.compare(shots[0], shots[v]) === 0) distinct = false;
-console.log("NINE-LENSES", distinct ? "OK" : "FAIL");
+console.log("NINE-LENSES", distinct ? "OK" : FAIL());
 
 // 11. tilted slice plane still accepts a tap (pick lands on the plane)
 await page.evaluate(() => {
@@ -161,7 +177,7 @@ await page.mouse.click(700, 475);
 await tick(3);
 const tap11 = await page.evaluate(() => ({
   id: window.__solidify.sim3d().nextId, last: window.__solidify.sim3d().lastSeed }));
-console.log("SLICE-TAP", tap11.id > before11 && tap11.last ? "OK" : "FAIL", JSON.stringify(tap11.last));
+console.log("SLICE-TAP", tap11.id > before11 && tap11.last ? "OK" : FAIL(), JSON.stringify(tap11.last));
 await page.evaluate(() => {
   const a = window.__solidify.app;
   a.setSliceTilt(0); a.setSliceTurn(0); a.setView3d(1);
@@ -176,7 +192,7 @@ await page.evaluate(() => {
 });
 await grow(6);
 const cast = await stats3();
-console.log("CAST-SMOKE", cast && cast.fracSolid > 0.001 && Number.isFinite(cast.poreFrac) && cast.grainCount > 20 ? "OK" : "FAIL",
+console.log("CAST-SMOKE", cast && cast.fracSolid > 0.001 && Number.isFinite(cast.poreFrac) && cast.grainCount > 20 ? "OK" : FAIL(),
   JSON.stringify({ fs: cast?.fracSolid?.toFixed(4), pores: cast?.poreFrac, grains: cast?.grainCount }));
 
 // 13. stereology: a z-mid section of that casting cuts real grains
@@ -189,11 +205,11 @@ const stereo = await page.evaluate(async () => {
   }
   return { sections: r?.sections.length ?? 0 };
 });
-console.log("STEREOLOGY", stereo.sections >= 1 ? "OK" : "FAIL", JSON.stringify(stereo));
+console.log("STEREOLOGY", stereo.sections >= 1 ? "OK" : FAIL(), JSON.stringify(stereo));
 
 // 14. STL export: exact binary size, watertight-scale triangle count
 const stl = await page.evaluate(async () => await window.__solidify.stl());
-console.log("STL", stl && stl.bytes === 84 + 50 * stl.tris && stl.tris > 1000 ? "OK" : "FAIL", JSON.stringify(stl));
+console.log("STL", stl && stl.bytes === 84 + 50 * stl.tris && stl.tris > 1000 ? "OK" : FAIL(), JSON.stringify(stl));
 
 // ---- v3.0 full-instrument regressions --------------------------------------
 
@@ -218,7 +234,7 @@ await grow(4);
 const bLow1 = await slabArea(0.04);
 await grow(8);
 const bLow2 = await slabArea(0.08);
-console.log("BRIDGMAN3", bLow1 > 300 && bLow2 > 300 ? "OK" : "FAIL", JSON.stringify({ bLow1, bLow2 }));
+console.log("BRIDGMAN3", bLow1 > 300 && bLow2 > 300 ? "OK" : FAIL(), JSON.stringify({ bLow1, bLow2 }));
 
 // 15b. alloy toggle: FIELD differs with solute, clean off, no errors
 await page.evaluate(() => {
@@ -235,7 +251,7 @@ const fAlloy = await page.screenshot({ type: "png" });
 await page.evaluate(() => window.__solidify.app.setAlloyOn(false));
 await grow(2);
 console.log("ALLOY3", Buffer.compare(fPlain, fAlloy) !== 0 &&
-  !(await page.evaluate(() => window.__solidify.app.getAlloyOn())) ? "OK" : "FAIL");
+  !(await page.evaluate(() => window.__solidify.app.getAlloyOn())) ? "OK" : FAIL());
 
 // 15c. GPU twins: a lone seed with a hot twin rate multiplies grains
 await page.evaluate(() => {
@@ -248,7 +264,7 @@ await page.evaluate(() => {
 await grow(16);
 const sTw = await stats3();
 await page.evaluate(() => window.__solidify.app.setParams({ twinProb: 0 }));
-console.log("TWINS3", sTw && sTw.grainCount > 1 ? "OK" : "FAIL", JSON.stringify({ grains: sTw?.grainCount }));
+console.log("TWINS3", sTw && sTw.grainCount > 1 ? "OK" : FAIL(), JSON.stringify({ grains: sTw?.grainCount }));
 
 // 15d. icosahedral ≠ cubic under identical staging
 const stageSym = j => page.evaluate(jj => {
@@ -263,7 +279,7 @@ const symCubic = await page.screenshot({ type: "png" });
 await stageSym(5);
 await grow(6);
 const symIco = await page.screenshot({ type: "png" });
-console.log("ICOSA3", Buffer.compare(symCubic, symIco) !== 0 ? "OK" : "FAIL");
+console.log("ICOSA3", Buffer.compare(symCubic, symIco) !== 0 ? "OK" : FAIL());
 
 // 15e. selector staging smoke: scen 3 arms + the mask rasterizes
 await page.evaluate(async () => {
@@ -275,7 +291,7 @@ const sel = await page.evaluate(() => ({
   scen: window.__solidify.sim3d().params.scen,
   fs: 0,
 }));
-console.log("SELECTOR3", sel.scen === 3 ? "OK" : "FAIL");
+console.log("SELECTOR3", sel.scen === 3 ? "OK" : FAIL());
 await page.evaluate(() => {
   const S = window.__solidify.app;
   S.setParams({ scen: 0 }); S.resetArmed();
@@ -292,7 +308,7 @@ await page.evaluate(() => { window.__solidify.app.setVoxel3(true); window.__soli
 await tick(3);
 const rRetro = await page.screenshot({ type: "png" });
 await page.evaluate(() => { window.__solidify.app.setVoxel3(false); window.__solidify.app.setPalette(false); });
-console.log("RETRO3", Buffer.compare(rPlain, rRetro) !== 0 ? "OK" : "FAIL");
+console.log("RETRO3", Buffer.compare(rPlain, rRetro) !== 0 ? "OK" : FAIL());
 
 // 15g. 3D share pack carries the 3D dials (in-page pack/unpack, no reload)
 const share3 = await page.evaluate(async () => {
@@ -305,7 +321,7 @@ const share3 = await page.evaluate(async () => {
   return st ? { d: st.d, scen: st.p.scen, gradG: st.p.gradG, twinProb: st.p.twinProb } : null;
 });
 console.log("SHARE3", share3 && share3.d === 1 && share3.scen === 1 &&
-  Math.abs(share3.gradG - 0.37) < 1e-4 && Math.abs(share3.twinProb - 0.001) < 1e-6 ? "OK" : "FAIL",
+  Math.abs(share3.gradG - 0.37) < 1e-4 && Math.abs(share3.twinProb - 0.001) < 1e-6 ? "OK" : FAIL(),
   JSON.stringify(share3));
 
 // 15. ViewCube Fusion zones: hovering the widget yields face AND corner dirs
@@ -323,7 +339,7 @@ for (let i = 1; i <= 4; i++)
     const d = await page.evaluate(() => window.__solidify.vc().hoverDir);
     if (d) kinds.add(d.filter(c => Math.abs(c) > 0.01).length);
   }
-console.log("VC-ZONES", kinds.has(1) && kinds.has(3) ? "OK" : "FAIL", JSON.stringify([...kinds]));
+console.log("VC-ZONES", kinds.has(1) && kinds.has(3) ? "OK" : FAIL(), JSON.stringify([...kinds]));
 
 // LAB in the volume: scen 4 set-point cooling, a rasterized mould shell, and
 // the atmosphere proxy's porosity bias (air = dirtier melt = more porosity)
@@ -346,9 +362,12 @@ console.log("VC-ZONES", kinds.has(1) && kinds.has(3) ? "OK" : "FAIL", JSON.strin
   });
   const ok = out.scen === 4 && out.shell && out.dirty > out.pPore
     && Math.abs(out.restored - out.pPore) < 1e-6 && out.scenAfter === 0;
-  console.log("LAB3", ok ? "OK" : "FAIL", JSON.stringify(out));
+  console.log("LAB3", ok ? "OK" : FAIL(), JSON.stringify(out));
 }
 
+console.log("PARAM-WARN", bindWarnings.length === 0 ? "OK" : FAIL(), JSON.stringify(bindWarnings.slice(0, 4)));
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 6) : "none");
+if (errors.length) failures++;
 await browser.close();
-console.log("done");
+console.log(failures ? `done — ${failures} FAILED` : "done");
+if (failures) process.exitCode = 1;

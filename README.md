@@ -75,7 +75,8 @@ Flip one switch and the instrument solves the **full volumetric phase-field** �
   pull: dozens of chill-floor grains race in, **exactly one** exits into the blade cavity —
   the real mechanism behind single-crystal turbine blades, verified headlessly (64 grains → 1).
 
-Budget: ~396 MB VRAM at 192³ (+57 MB solute while alloy is on) with an OOM ladder down to 96³;
+Budget: 57 B/voxel over seven textures — ~403 MB VRAM at 192³ (+57 MB solute while alloy is on),
+with an OOM ladder down through 160³/128³/96³, all four selectable in the ENGINE row;
 2D mode is untouched at 60 fps.
 
 ## The instrument
