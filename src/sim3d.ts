@@ -7,6 +7,7 @@ import {
   FLUX3D_WGSL, update3dWgsl, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL, STEREO3D_WGSL,
   LINE3D_WGSL, MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
 } from "./shaders3d";
+import { shaderModule } from "./shaders";
 import { DEFAULT_UM_PER_CELL } from "./units";
 
 /**
@@ -264,8 +265,8 @@ export class Sim3D {
     this.lineBuf = d.createBuffer({ size: 400 * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
     this.lineStaging = d.createBuffer({ size: 400 * 4, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
 
-    const mk = (code: string) =>
-      d.createComputePipeline({ layout: "auto", compute: { module: d.createShaderModule({ code }), entryPoint: "main" } });
+    const mk = (code: string, label = "pass") =>
+      d.createComputePipeline({ layout: "auto", compute: { module: shaderModule(d, code, label), entryPoint: "main" } });
     this.fluxPipe = mk(FLUX3D_WGSL);
     this.updatePipe = mk(update3dWgsl(false));
     // the alloy variant compiles up front (no VRAM cost) so toggling never

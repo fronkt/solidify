@@ -98,7 +98,27 @@ rebuilt to make that relationship emergent:
   trap one release earlier). Grain count at matched solid fraction is stable to <8 % across
   four independent runs, so that is what is asserted.
 
-**Harness guard (v5.0).**
+- **`PASSSPLIT`** — the solidification step exists in two shapes, fused
+  `FLUX → UPDATE` (what ships) and split `FLUX → PHI → TRANSPORT` (what the quantitative
+  solver needs, because its anti-trapping current wants `∂φ/∂t` at cell *faces* and a fused
+  pass only knows it at its own cell). Both are composed from **one** copy of the physics text
+  in `shaders.ts` — `LOADS` / `PHI_CORE` / `TRANSPORT_CORE` — so they cannot drift apart, and
+  this test A/Bs them on identical initial conditions (`reset()` zeroes `frame`, so both arms
+  draw the same noise stream) over 2000 substeps, pure and alloy. It also *measures* the cost
+  of the extra dispatch rather than assuming it: ~1.25×, which is why fused remains the default.
+
+  It earned its place immediately. The fragment split left one `let` declared in both halves,
+  which is harmless for either split pipeline but a duplicate declaration in the fused shader —
+  so `UPDATE_WGSL` stopped compiling, its dispatches silently did nothing, and the shipped
+  solver produced no solid at all **with a clean console**.
+
+**Harness guards (v5.0).**
+
+- **WGSL compile errors** — a shader that fails to compile does not throw, does not log, and
+  still yields a pipeline whose dispatches quietly do nothing; the only symptom is a field that
+  never changes. `shaderModule()` in `src/shaders.ts` polls `getCompilationInfo()` and logs
+  `[solidify] WGSL <pass>:<line> <message>` on any error, in both dimensions, so the suite's
+  error channel catches it. Added after exactly that bug cost an afternoon.
 
 - **`PARAM-WARN`** — runs in both `verify-tools` and `verify-3d`, and watches the browser's
   **warning** channel, not just its errors. A uniform or storage struct that outgrows its

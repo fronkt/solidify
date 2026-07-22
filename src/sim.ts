@@ -1,4 +1,7 @@
-import { FLUX_WGSL, UPDATE_WGSL, STAMP_WGSL, STATS_WGSL, MAX_GRAINS, MAX_SEEDS, SEED_STRIDE } from "./shaders";
+import {
+  FLUX_WGSL, UPDATE_WGSL, PHI_WGSL, TRANSPORT_WGSL, STAMP_WGSL, STATS_WGSL,
+  MAX_GRAINS, MAX_SEEDS, SEED_STRIDE, shaderModule,
+} from "./shaders";
 import { DEFAULT_UM_PER_CELL } from "./units";
 
 export interface PhysParams {
@@ -113,10 +116,22 @@ export class Simulation {
    * dendrite measure four different sizes at four different grid sizes.
    */
   umPerCell = DEFAULT_UM_PER_CELL;
+  /**
+   * Run the solidification step as FLUX -> PHI -> TRANSPORT instead of the fused
+   * FLUX -> UPDATE. Identical physics — the two shapes are composed from the same
+   * WGSL fragments — but the split writes phi^{n+1} and dphi/dt into `phiAux`,
+   * which is what a face-evaluated anti-trapping current needs. Off by default:
+   * the fused path costs one dispatch fewer and is what ships until the
+   * quantitative solver lands.
+   */
+  splitPasses = false;
 
   private stateTex: GPUTexture[] = [];
   private grainTex: GPUTexture[] = [];
   private fluxTex!: GPUTexture;
+  /** rg32float (phi^{n+1}, dphi/dt) — single-buffered: written and consumed
+   *  inside one substep, never read across the ping-pong flip */
+  private phiAuxTex!: GPUTexture;
   private paramBuf!: GPUBuffer;
   private theta0Buf!: GPUBuffer;
   private twinCtrBuf!: GPUBuffer;
@@ -127,10 +142,14 @@ export class Simulation {
 
   private fluxPipe!: GPUComputePipeline;
   private updatePipe!: GPUComputePipeline;
+  private phiPipe!: GPUComputePipeline;
+  private transportPipe!: GPUComputePipeline;
   private stampPipe!: GPUComputePipeline;
   private statsPipe!: GPUComputePipeline;
   private fluxBG: GPUBindGroup[] = [];
   private updateBG: GPUBindGroup[] = [];
+  private phiBG: GPUBindGroup[] = [];
+  private transportBG: GPUBindGroup[] = [];
   private stampBG: GPUBindGroup[] = [];
   private statsBG: GPUBindGroup[] = [];
 
@@ -169,6 +188,7 @@ export class Simulation {
     this.stateTex = [d.createTexture(texDesc("rgba32float")), d.createTexture(texDesc("rgba32float"))];
     this.grainTex = [d.createTexture(texDesc("r32uint")), d.createTexture(texDesc("r32uint"))];
     this.fluxTex = d.createTexture(texDesc("rgba32float"));
+    this.phiAuxTex = d.createTexture(texDesc("rg32float"));
 
     this.paramBuf = d.createBuffer({ size: 160, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.theta0Buf = d.createBuffer({ size: MAX_GRAINS * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
@@ -179,10 +199,12 @@ export class Simulation {
     // staging carries the stats block plus a theta0 snapshot (for the texture rose)
     this.statsStaging = d.createBuffer({ size: statsSize + MAX_GRAINS * 4, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
 
-    const mk = (code: string) =>
-      d.createComputePipeline({ layout: "auto", compute: { module: d.createShaderModule({ code }), entryPoint: "main" } });
+    const mk = (code: string, label = "pass") =>
+      d.createComputePipeline({ layout: "auto", compute: { module: shaderModule(d, code, label), entryPoint: "main" } });
     this.fluxPipe = mk(FLUX_WGSL);
     this.updatePipe = mk(UPDATE_WGSL);
+    this.phiPipe = mk(PHI_WGSL);
+    this.transportPipe = mk(TRANSPORT_WGSL);
     this.stampPipe = mk(STAMP_WGSL);
     this.statsPipe = mk(STATS_WGSL);
 
@@ -208,6 +230,28 @@ export class Simulation {
           { binding: 1, resource: s },
           { binding: 2, resource: g },
           { binding: 3, resource: this.fluxTex.createView() },
+          { binding: 4, resource: so },
+          { binding: 5, resource: go },
+          { binding: 6, resource: { buffer: this.theta0Buf } },
+          { binding: 7, resource: { buffer: this.twinCtrBuf } },
+        ],
+      });
+      this.phiBG[dir] = d.createBindGroup({
+        layout: this.phiPipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.paramBuf } },
+          { binding: 1, resource: s },
+          { binding: 2, resource: this.fluxTex.createView() },
+          { binding: 3, resource: this.phiAuxTex.createView() },
+        ],
+      });
+      this.transportBG[dir] = d.createBindGroup({
+        layout: this.transportPipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.paramBuf } },
+          { binding: 1, resource: s },
+          { binding: 2, resource: g },
+          { binding: 3, resource: this.phiAuxTex.createView() },
           { binding: 4, resource: so },
           { binding: 5, resource: go },
           { binding: 6, resource: { buffer: this.theta0Buf } },
@@ -421,9 +465,21 @@ export class Simulation {
       pass.setPipeline(this.fluxPipe);
       pass.setBindGroup(0, this.fluxBG[dir]);
       this.dispatch(pass);
-      pass.setPipeline(this.updatePipe);
-      pass.setBindGroup(0, this.updateBG[dir]);
-      this.dispatch(pass);
+      if (this.splitPasses) {
+        // WebGPU inserts an implicit barrier between dispatches in one compute
+        // pass, which is what the existing FLUX -> UPDATE chain already relies
+        // on; PHI -> TRANSPORT is the same contract with one more link.
+        pass.setPipeline(this.phiPipe);
+        pass.setBindGroup(0, this.phiBG[dir]);
+        this.dispatch(pass);
+        pass.setPipeline(this.transportPipe);
+        pass.setBindGroup(0, this.transportBG[dir]);
+        this.dispatch(pass);
+      } else {
+        pass.setPipeline(this.updatePipe);
+        pass.setBindGroup(0, this.updateBG[dir]);
+        this.dispatch(pass);
+      }
       dir = 1 - dir;
     }
     pass.end();

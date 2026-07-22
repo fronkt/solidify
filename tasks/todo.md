@@ -792,3 +792,32 @@ physical state are. The lesson generalises past this test: a standalone measurem
 machine is not a result until it reproduces under load. Settling the mechanism properly needs a
 `stepSync(n)` harness entry point that awaits GPU completion, which is worth building before any
 future claim rests on rate comparisons.
+
+### Phase Q — the quantitative alloy solver
+
+- [x] **Q0** — the solidification step split into `FLUX → PHI → TRANSPORT` alongside the fused
+      `FLUX → UPDATE`, with **zero physics change**. The split exists because the anti-trapping
+      current the quantitative solver needs is evaluated at cell FACES, and a fused pass only
+      knows `∂φ/∂t` at its own cell — recomputing φ for every neighbour costs more than a second
+      dispatch. `phiAux` (rg32float, single-buffered — written and consumed inside one substep,
+      never read across the ping-pong flip) carries φ^{n+1} and ∂φ/∂t between the halves.
+      Composed from ONE copy of the physics (`LOADS` / `PHI_CORE` / `TRANSPORT_CORE`), because
+      two copies of the same equations is how a "refactor with no behaviour change" quietly
+      stops being one. Fused stays the default: the measured cost of the third dispatch is
+      **1.25×**, real but not free. `PASSSPLIT` A/Bs the shapes (worst deviation 4e-5 against a
+      1e-3 tolerance, identical grain counts, pure and alloy).
+
+**Postmortem — the third silent failure of the release.** The fragment split left `inv6dx2`
+declared in *both* halves. Each split pipeline includes one, so both compiled; the fused shader
+concatenates both, so `UPDATE_WGSL` hit a duplicate declaration, **failed to compile, and its
+dispatches did nothing** — the shipped solver produced zero solid, with an entirely clean
+console. The A/B test caught it in its first run, and the bogus "6-8x slower" cost figure it
+produced was just a no-op being timed against real work.
+
+The pattern is now unmistakable across this release: **WebGPU fails quietly by default.** A
+struct that outgrows its binding is a *warning* and returns zeros (postmortem #1). A shader that
+fails to compile is silent and does nothing (this one). A frame-paced measurement is not
+reproducible and looks like physics (the refinement result). Being more careful is not the fix —
+making the channel loud is. So: `PARAM-WARN` watches the warning channel, and `shaderModule()`
+now polls `getCompilationInfo()` and logs every WGSL error in both dimensions. Any future
+silent-failure class should get the same treatment rather than a resolution to concentrate.

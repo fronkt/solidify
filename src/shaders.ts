@@ -122,28 +122,51 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 }
 `;
 
-// -------------------------------------------------------------- update pass
-export const UPDATE_WGSL = /* wgsl */ `
-${COMMON}
-@group(0) @binding(0) var<uniform> P: Params;
-@group(0) @binding(1) var state: texture_2d<f32>;
-@group(0) @binding(2) var grain: texture_2d<u32>;
-@group(0) @binding(3) var flux: texture_2d<f32>;
-@group(0) @binding(4) var stateOut: texture_storage_2d<rgba32float, write>;
-@group(0) @binding(5) var grainOut: texture_storage_2d<r32uint, write>;
-@group(0) @binding(6) var<storage, read_write> theta0: array<f32>;
-@group(0) @binding(7) var<storage, read_write> twinCtr: atomic<u32>;
+/**
+ * Create a shader module and SHOUT if it failed to compile.
+ *
+ * A WGSL compile error does not throw and does not reach the console on its own:
+ * the pipeline is created anyway, its dispatches quietly do nothing, and the
+ * symptom is a field that never changes. That is the same silent-failure shape
+ * as the stats-struct postmortem, and it cost real time when a refactor left one
+ * `let` declared twice — the fused update pass stopped compiling and simply
+ * produced no solid at all, with a clean console. Compilation info is async, so
+ * this reports rather than throws; the headless suite fails on the error line.
+ */
+export function shaderModule(d: GPUDevice, code: string, label: string): GPUShaderModule {
+  const mod = d.createShaderModule({ code, label });
+  void mod.getCompilationInfo().then(info => {
+    for (const m of info.messages) {
+      if (m.type !== "error") continue;
+      console.error(`[solidify] WGSL ${label}:${m.lineNum}:${m.linePos} ${m.message}`);
+    }
+  });
+  return mod;
+}
 
-@compute @workgroup_size(8, 8)
-fn main(@builtin(global_invocation_id) gid: vec3u) {
-  if (gid.x >= P.n || gid.y >= P.n) { return; }
+// -------------------------------------------------------------- update pass
+//
+// The solidification step exists in two shapes that share their physics text
+// verbatim:
+//
+//   fused   FLUX -> UPDATE                 one dispatch, what the app runs
+//   split   FLUX -> PHI -> TRANSPORT       phi^{n+1} and dphi/dt land in phiAux
+//
+// The split exists because the quantitative solver's anti-trapping current needs
+// dphi/dt at cell FACES, and a fused pass only knows it at its own cell —
+// recomputing phi for each neighbour costs more than a second dispatch. Rather
+// than let two copies of the physics drift apart (the classic way a "refactor
+// with no behaviour change" stops being one), LOADS / PHI_CORE / TRANSPORT_CORE
+// below are the only copies, and all three pipelines are composed from them.
+// `PASSPLIT` asserts the two shapes produce the same trajectory.
+
+const LOADS = /* wgsl */ `
   let c = vec2i(gid.xy);
   let inv2dx = 1.0 / (2.0 * P.dx);
   let s = textureLoad(state, c, 0);
   let phi = s.r;
   let T = s.g;
   let conc = s.b;
-  var age = s.a;
 
   // 8 neighbours
   let sE = textureLoad(state, cid(P, c + vec2i(1, 0)), 0);
@@ -154,11 +177,13 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let sNW = textureLoad(state, cid(P, c + vec2i(-1, 1)), 0);
   let sSE = textureLoad(state, cid(P, c + vec2i(1, -1)), 0);
   let sSW = textureLoad(state, cid(P, c + vec2i(-1, -1)), 0);
-
   let inv6dx2 = 1.0 / (6.0 * P.dx * P.dx);
+
+`;
+
+const PHI_CORE = /* wgsl */ `
   // compact 9-point Laplacians (no checkerboard decoupling)
   let lapPhi = (4.0 * (sE.r + sW.r + sN.r + sS.r) + sNE.r + sNW.r + sSE.r + sSW.r - 20.0 * phi) * inv6dx2;
-  let lapT   = (4.0 * (sE.g + sW.g + sN.g + sS.g) + sNE.g + sNW.g + sSE.g + sSW.g - 20.0 * T) * inv6dx2;
 
   let px = (sE.r - sW.r) * inv2dx;
   let py = (sN.r - sS.r) * inv2dx;
@@ -182,6 +207,11 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let phiNew = clamp(phi + (P.dt / P.tau) * (aniso + react), 0.0, 1.0);
   let dPhi = phiNew - phi;
 
+`;
+
+const TRANSPORT_CORE = /* wgsl */ `
+  let lapT   = (4.0 * (sE.g + sW.g + sN.g + sS.g) + sNE.g + sNW.g + sSE.g + sSW.g - 20.0 * T) * inv6dx2;
+  var age = s.a;
   // temperature
   var TNew = T + P.dt * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn;
   if (P.scen == 2u) {
@@ -251,9 +281,67 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     }
   }
 
+`;
+
+const STORES = /* wgsl */ `
   textureStore(stateOut, c, vec4f(phiNew, TNew, cNew, age));
   textureStore(grainOut, c, vec4u(id, 0u, 0u, 0u));
+`;
+
+/** fused: the shipped path, unchanged */
+export const UPDATE_WGSL = /* wgsl */ `
+${COMMON}
+@group(0) @binding(0) var<uniform> P: Params;
+@group(0) @binding(1) var state: texture_2d<f32>;
+@group(0) @binding(2) var grain: texture_2d<u32>;
+@group(0) @binding(3) var flux: texture_2d<f32>;
+@group(0) @binding(4) var stateOut: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(5) var grainOut: texture_storage_2d<r32uint, write>;
+@group(0) @binding(6) var<storage, read_write> theta0: array<f32>;
+@group(0) @binding(7) var<storage, read_write> twinCtr: atomic<u32>;
+
+@compute @workgroup_size(8, 8)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= P.n || gid.y >= P.n) { return; }
+${LOADS}${PHI_CORE}${TRANSPORT_CORE}${STORES}}
+`;
+
+/** split, half one: phi only, plus the dphi/dt the face terms need */
+export const PHI_WGSL = /* wgsl */ `
+${COMMON}
+@group(0) @binding(0) var<uniform> P: Params;
+@group(0) @binding(1) var state: texture_2d<f32>;
+@group(0) @binding(2) var flux: texture_2d<f32>;
+@group(0) @binding(3) var phiOut: texture_storage_2d<rg32float, write>;
+
+@compute @workgroup_size(8, 8)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= P.n || gid.y >= P.n) { return; }
+${LOADS}${PHI_CORE}
+  textureStore(phiOut, c, vec4f(phiNew, dPhi, 0.0, 0.0));
 }
+`;
+
+/** split, half two: temperature, solute, age and grain identity */
+export const TRANSPORT_WGSL = /* wgsl */ `
+${COMMON}
+@group(0) @binding(0) var<uniform> P: Params;
+@group(0) @binding(1) var state: texture_2d<f32>;
+@group(0) @binding(2) var grain: texture_2d<u32>;
+@group(0) @binding(3) var phiAux: texture_2d<f32>;
+@group(0) @binding(4) var stateOut: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(5) var grainOut: texture_storage_2d<r32uint, write>;
+@group(0) @binding(6) var<storage, read_write> theta0: array<f32>;
+@group(0) @binding(7) var<storage, read_write> twinCtr: atomic<u32>;
+
+@compute @workgroup_size(8, 8)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= P.n || gid.y >= P.n) { return; }
+${LOADS}
+  let aux = textureLoad(phiAux, c, 0);
+  let phiNew = aux.r;
+  let dPhi = aux.g;
+${TRANSPORT_CORE}${STORES}}
 `;
 
 // ------------------------------------------------------------- stamp seeds
