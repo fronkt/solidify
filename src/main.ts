@@ -20,7 +20,7 @@ import { Nucleation } from "./nucleation";
 import { Lab, type LabHost, type LabSetup } from "./lab";
 import { Units, scaleOf, DEFAULT_UM_PER_CELL } from "./units";
 import { SOLVER } from "./shaders";
-import { calibrate, type QuantSetup } from "./quant";
+import { calibrate, A_T, type QuantSetup } from "./quant";
 import { WT_PER_C0 } from "./alloy";
 
 /** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
@@ -173,7 +173,7 @@ async function boot() {
    * discarded a user's ε̄ would be a worse surprise than a greyed-out slider.
    */
   let kobSnapshot: Record<string, number> | null = null;
-  const KOB_OWNED = ["dx", "dt", "epsBar", "tau", "latent", "delta", "dTherm", "dSol", "lambda"] as const;
+  const KOB_OWNED = ["dx", "dt", "epsBar", "tau", "latent", "delta", "dTherm", "dSol", "lambda", "atCoef"] as const;
 
   /**
    * Switch solver. Under `SOLVER.QUANT` seven dials stop being choices: W₀ and
@@ -202,6 +202,10 @@ async function boot() {
         latent: q.latent,
         delta: si.eps4,
         dTherm: q.dTilde, dSol: q.dTilde,
+        // the anti-trapping current is not optional in calibrated mode: without
+        // it k_eff drifts with the interface width and the model stops being
+        // quantitative in exactly the way it claims to be
+        atCoef: A_T,
       });
       app.setUmPerCell(q.umPerCell);
       return q;

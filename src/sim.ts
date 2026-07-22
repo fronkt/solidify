@@ -102,6 +102,12 @@ export interface StatsResult {
   meanLiqT: number | null;
   /** area-weighted grain-orientation histogram over [0, 2pi/j), 18 bins */
   oriRose: number[];
+  /**
+   * total solute in the domain, in model concentration units × cells. The
+   * quantitative alloy model's conservation gate reads this: the anti-trapping
+   * current is a face sum precisely so that this number is flat.
+   */
+  soluteSum: number;
 }
 
 // (physical scale lives in units.ts — the solver carries only `umPerCell`, set
@@ -595,6 +601,7 @@ export class Simulation {
     const probePhi = this.probe ? data[5] / 1000 : null;
     const liqCount = data[3];
     const meanLiqT = liqCount > 0 ? data[6] / 500 / liqCount - 1 : null;
+    const soluteSum = data[7] / 200;
     const minPx = Math.max(20, this.n * this.n * 1e-5);
     const umPerPx = this.umPerCell;
     const diams: number[] = [];
@@ -618,7 +625,7 @@ export class Simulation {
       const meanAreaMm2 = meanAreaPx * (umPerPx / 1000) ** 2;
       astm = 3.322 * Math.log10(1 / meanAreaMm2) - 2.954;
     }
-    return { fracSolid: solid / total, grainCount: count, meanAreaPx, astm, interfaceT: interfT, diamsUm: diams, probeT, probePhi, meanLiqT, oriRose };
+    return { fracSolid: solid / total, grainCount: count, meanAreaPx, astm, interfaceT: interfT, diamsUm: diams, probeT, probePhi, meanLiqT, oriRose, soluteSum };
   }
 
   /**

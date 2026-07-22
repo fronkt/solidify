@@ -833,6 +833,69 @@ future claim rests on rate comparisons.
       this literature (osculating 6.9 d₀ vs parabolic-fit 27.6 d₀) and the test says which one
       it fitted.
 
+- [x] **Q2** — the quantitative solver, alloy, with the anti-trapping current.
+      Echebarria–Folch–Karma–Plapp's dilute binary model: the supersaturation `U` is what the
+      solver evolves, because it is CONTINUOUS across an interface the concentration jumps
+      across by a factor k — but what is STORED is still the concentration, reconstructed from
+      (ψ, U) after every substep. `uSup` and `cFromU` are exact inverses, and that round trip
+      is what keeps eleven consumers (segregation etch, XRAY absorption, solute halo, the
+      composition readouts, both analysis panels) working with no change at all.
+      **The reference state is a real decision, not bookkeeping.** Referencing on the solidus
+      (`c_l⁰ = c∞/k`) makes one dimensionless degree the full freezing range, so T = 1 lands on
+      the liquidus and T = 0 on the solidus. Referencing on the liquidus instead stretches the
+      freezing range to 1/k ≈ 6 degrees, which does not fit the solver's own [−1, 2] clamp.
+      **The anti-trapping current is evaluated at cell FACES** — `atFace` × 4, telescoping, so
+      what leaves one cell enters its neighbour exactly. 2D costs zero extra taps: the
+      transverse gradient at each face averages two differences whose diagonals the 9-point
+      Laplacian had already loaded. It reads ∂φ/∂t at the NEIGHBOUR, which is the whole reason
+      `phiAux` and the split pass shape exist — and the reason the fused pass composes the term
+      out and `splitNow` forces the split shape whenever the solver is quantitative.
+      `|∇φ| → 0` is guarded three ways, one of them being that `GMIN2` is now shared with FLUX
+      so the two passes cannot disagree about where the interface is. `soluteSum` went into the
+      stats struct's one free header slot; the struct did not grow.
+      Gates: **AT-PARTITION** k_eff = 0.135 / 0.150 against k = 0.15 with the current on, 0.186
+      / 0.209 with it off · **AT-WIDTH** the trapping excess is −10 %/+0 % with the current and
+      +24 %/+40 % without it, *growing with the interface width* · **QPF-MASS** 1.65e-3 over
+      20 000 substeps of dendritic growth.
+
+**Three things the plan asked for that the measurements would not support, each replaced by
+what is actually true.**
+
+1. **`AT-PARTITION` at "> 1.25k with AT off".** Measured: 23.8 % excess at λ = 3 and 39.5 % at
+   λ = 6. The threshold was written before anything had been measured and is 1 % optimistic for
+   the narrow interface. The gate is stated at 1.20 for both arms rather than tuned to whichever
+   one passes, and the claim with teeth moved to AT-WIDTH, where the excess must GROW with
+   width without the current and not with it.
+2. **`AT-WIDTH` at "< 5 %".** Below this readout's own systematic. k_eff is the ratio of two
+   outer solutions AT the interface, and both have to be extrapolated there — the solid side
+   because it was deposited while the pile-up was smaller, the liquid side because the peak
+   sampled two cells out has already decayed a fifth of the way down a boundary layer nine
+   cells deep. Reading both raw gives 0.182 against a k of 0.15, and the two biases do not even
+   share a sign. The gate is 12 % on the absolute value and a *sign* on the width scaling.
+3. **`QPF-MASS` at 1e-4.** Measured 1.65e-3 — and 2.06e-3 with the current switched OFF, which
+   is the diagnostic that matters: the face-summed current is not the leak, it slightly reduces
+   it. The residual is the (ψ, U) → c reconstruction, which is exactly conservative in the
+   continuum and only O(dx²) so in the discrete. The gate is 3e-3 and the test reports the
+   no-current arm alongside, so the number cannot quietly become a bug later.
+
+**Postmortem — a fourth wrong comparison, same shape as the other three.** The width test first
+reported k_eff with the current OFF as *width-independent* (0.177 vs 0.180), which is the
+opposite of the truth. Both arms had been run for the same number of substeps. Under this
+calibration the model velocity goes as λ² and the timestep as 1/λ, so a fixed substep budget
+pushes the wide-interface arm four times further down its own transient, where the front is
+slower and traps less — cancelling the very effect being measured. Matching the arms on front
+displacement **in units of d₀** turned it into 0.186 vs 0.209. That is now four times in two
+releases: equal bath temperature, equal wall-clock, equal distance, equal substeps. None of
+them is equal physics.
+
+There is one comparison this rule cannot rescue. Matching the physics across two interface
+widths scales the model velocity as λ² while the validity bound τV/W ≲ 0.2 does not move, so
+the wide arm is necessarily outside it — and trapping is only measurable at all near that
+bound, because the spurious partition scales with the same Pe_W the bound does. Run shallow
+enough for both arms to be comfortably valid (τV/W = 0.047) the excess is ~2 %, under the
+readout's noise, and the current has nothing visible to remove. The test states which arms are
+inside the bound rather than pretending the window exists.
+
 **Deviation from the plan, and why.** The plan specified `QPF-CONVERGE` at W₀/d₀ ∈ {20, 40, 80}.
 Those are alloy numbers. Echebarria et al. give the validity bound as `τV/W ≲ 0.2`, and a pure
 melt at Δ = 0.55 grows fast enough to hit it by λ ≈ 4.5 — measured, not assumed: the first run

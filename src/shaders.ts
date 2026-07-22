@@ -124,6 +124,47 @@ fn hash3(x: u32, y: u32, z: u32) -> f32 {
   v ^= v >> 16u; v *= 2246822519u; v ^= v >> 13u; v *= 3266489917u; v ^= v >> 16u;
   return f32(v) * (1.0 / 4294967295.0);
 }
+
+// ---------------------------------------------------------------------------
+// The dilute-alloy supersaturation U (Echebarria, Folch, Karma & Plapp 2004).
+//
+// U is the variable the quantitative alloy model actually evolves, because it is
+// CONTINUOUS across the interface at equilibrium where the concentration jumps
+// by a factor k. What is STORED is still the concentration, so every consumer
+// that reads state.b — the segregation etch, the XRAY absorption, the solute
+// halo, the composition readouts, the analysis panels — keeps working unchanged;
+// U is reconstructed from (ψ, c) at each tap and converted back after the step.
+// The two functions below are exact inverses, which is the only reason that
+// round trip is safe to do every substep.
+//
+// Reference state: c_l⁰ = c∞/k and T₀ = the SOLIDUS of the nominal alloy, so one
+// dimensionless degree is the full freezing range and T = 1 lands on the
+// liquidus, T = 0 on the solidus. That choice is not cosmetic — referencing on
+// the liquidus instead (c_l⁰ = c∞) stretches the freezing range to 1/k ≈ 6
+// dimensionless degrees, which does not fit the solver's own [−1, 2] clamp.
+fn uSup(psi: f32, conc: f32, c0: f32, k: f32) -> f32 {
+  let q = 2.0 * psi - 1.0;
+  let den = c0 * (1.0 + k - (1.0 - k) * q);
+  return ((2.0 * k * conc) / max(1e-12, den) - 1.0) / max(1e-6, 1.0 - k);
+}
+fn cFromU(psi: f32, U: f32, c0: f32, k: f32) -> f32 {
+  let q = 2.0 * psi - 1.0;
+  return (c0 * (1.0 + k - (1.0 - k) * q) * (1.0 + (1.0 - k) * U)) / max(1e-6, 2.0 * k);
+}
+
+/**
+ * One face's share of the anti-trapping current, projected on the face normal.
+ * dpA and dpB are the two cells' ψ increments over this substep — ∂φ/∂t is
+ * 2·∂ψ/∂t and the face value averages the pair, so the 2 and the ½ cancel and
+ * the sum of the two increments over dt is exactly ∂φ/∂t at the face.
+ */
+fn atFace(dpA: f32, dpB: f32, uA: f32, uB: f32, gn: f32, gt: f32, om: f32, P: Params) -> f32 {
+  let g2 = gn * gn + gt * gt;
+  let gate = smoothstep(GMIN2, 64.0 * GMIN2, g2);
+  let inv = inverseSqrt(max(g2, GMIN2));
+  let dphidt = (dpA + dpB) / P.dt;
+  return P.atCoef * P.epsBar * (1.0 + om * 0.5 * (uA + uB)) * dphidt * gn * inv * gate;
+}
 `;
 
 // ---------------------------------------------------------------- flux pass
@@ -267,7 +308,11 @@ const PHI_CORE = /* wgsl */ `
     // drive = (T − T_liquidus)/ΔT₀. One dimensionless degree IS ΔT₀ here — for a
     // pure melt L/c_p, for an alloy the freezing range — so T = 1 is the
     // liquidus and an undercooled melt makes this negative, which pushes ψ up.
-    let drive = T - 1.0;
+    // In an alloy the supersaturation carries the other half of the driving
+    // force, and it vanishes together with the thermal half at the nominal
+    // liquidus: U = −1 there, so U + T = 0 exactly.
+    var drive = T - 1.0;
+    if (P.alloyOn == 1u) { drive = uSup(phi, conc, P.c0, clamp(P.kPart, 1e-3, 0.999)) + T; }
     react = 0.5 * (q - q * q * q - P.lambda * well * well * drive)
           + P.noiseAmp * phi * (1.0 - phi) * chi;
     // τ(n) = τ₀·a(n)², and a(n)² is already sitting in the flux texture as
@@ -287,7 +332,65 @@ const PHI_CORE = /* wgsl */ `
 
 `;
 
-const TRANSPORT_CORE = /* wgsl */ `
+/**
+ * The anti-trapping current, evaluated at cell FACES.
+ *
+ *   j_at = a_t·W₀·[1 + (1−k)U]·(∂φ/∂t)·∇φ/|∇φ|
+ *
+ * Why it exists: with no diffusion in the solid, a moving interface of finite
+ * width traps solute it should have rejected, and the error looks exactly like
+ * an interface-width-dependent partition coefficient. The current cancels it to
+ * the order the thin-interface analysis works at, which is what makes k_eff
+ * equal the real k instead of drifting with W₀.
+ *
+ * Why FACES: a telescoping face sum is discretely conservative to round-off, so
+ * the solute budget closes rather than nearly closing. And why it cannot ride
+ * the FLUX pass, or a fused update: it needs ∂φ/∂t at the face, which means at
+ * the NEIGHBOUR — FLUX runs before φ is updated and does not have it, and
+ * lagging it one substep reintroduces an O(dt·V) residual that is
+ * indistinguishable from a slightly wrong k. That is the entire reason `phiAux`
+ * and the split pass shape exist.
+ *
+ * 2D costs zero extra taps: the transverse gradient at each face averages two
+ * cell-centred differences whose diagonals the 9-point Laplacian already loaded.
+ *
+ * |∇φ| → 0 is guarded three ways: the shared GMIN2 floor inside inverseSqrt (the
+ * SAME constant FLUX uses, so the two passes cannot disagree about where the
+ * interface is), a smoothstep gate rather than a hard `if` (a branch leaves a
+ * stationary ring of spurious solute at its threshold), and the physical
+ * redundancy that ∂φ/∂t already vanishes in both bulks.
+ */
+const AT_FACES = /* wgsl */ `
+      let auxC = textureLoad(phiAux, c, 0).g;
+      let auxE = textureLoad(phiAux, cid(P, c + vec2i(1, 0)), 0).g;
+      let auxW = textureLoad(phiAux, cid(P, c - vec2i(1, 0)), 0).g;
+      let auxN = textureLoad(phiAux, cid(P, c + vec2i(0, 1)), 0).g;
+      let auxS = textureLoad(phiAux, cid(P, c - vec2i(0, 1)), 0).g;
+      let invdx = 1.0 / P.dx;
+      let q4 = 0.25 * invdx;
+      // normal gradients at the four faces
+      let gE = (sE.r - phi) * invdx;
+      let gW = (phi - sW.r) * invdx;
+      let gN = (sN.r - phi) * invdx;
+      let gS = (phi - sS.r) * invdx;
+      // transverse gradients at the same faces, from the diagonals already loaded
+      let tE = ((sN.r - sS.r) + (sNE.r - sSE.r)) * q4;
+      let tW = ((sN.r - sS.r) + (sNW.r - sSW.r)) * q4;
+      let tN = ((sE.r - sW.r) + (sNE.r - sNW.r)) * q4;
+      let tS = ((sE.r - sW.r) + (sSE.r - sSW.r)) * q4;
+      let jE = atFace(auxC, auxE, Uc, UE, gE, tE, om, P);
+      let jW = atFace(auxW, auxC, Uc, UW, gW, tW, om, P);
+      let jN = atFace(auxC, auxN, Uc, UN, gN, tN, om, P);
+      let jS = atFace(auxS, auxC, Uc, US, gS, tS, om, P);
+      let atDiv = ((jE - jW) + (jN - jS)) * invdx;
+`;
+
+/** the fused pass has no `phiAux` binding, so it has no quantitative alloy */
+const AT_NONE = /* wgsl */ `
+      let atDiv = 0.0;
+`;
+
+const TRANSPORT_CORE = (at: string) => /* wgsl */ `
   let lapT   = (4.0 * (sE.g + sW.g + sN.g + sS.g) + sNE.g + sNW.g + sSE.g + sSW.g - 20.0 * T) * inv6dx2;
   var age = s.a;
   // temperature. dTherm is 1 under Kobayashi (where the heat equation carries a
@@ -332,16 +435,49 @@ const TRANSPORT_CORE = /* wgsl */ `
   }
   TNew = clamp(TNew, -1.0, 2.0);
 
-  // solute (alloy mode): variable-diffusivity face scheme + interface rejection
+  // solute (alloy mode)
   var cNew = conc;
   if (P.alloyOn == 1u) {
-    let dHere = mix(P.dSol, P.dSol * 0.02, phi);
-    let dE = 0.5 * (dHere + mix(P.dSol, P.dSol * 0.02, sE.r));
-    let dW = 0.5 * (dHere + mix(P.dSol, P.dSol * 0.02, sW.r));
-    let dN = 0.5 * (dHere + mix(P.dSol, P.dSol * 0.02, sN.r));
-    let dS = 0.5 * (dHere + mix(P.dSol, P.dSol * 0.02, sS.r));
-    let divC = (dE * (sE.b - conc) + dW * (sW.b - conc) + dN * (sN.b - conc) + dS * (sS.b - conc)) / (P.dx * P.dx);
-    cNew = clamp(conc + P.dt * divC + (1.0 - P.kPart) * conc * dPhi, 0.0, 2.0);
+    if (P.solver == 1u) {
+      // ---- quantitative dilute binary alloy, one-sided (EFKP 2004) ----------
+      //
+      //   [(1+k)/2 − (1−k)φ/2] ∂U/∂t
+      //       = ∇·( D q(φ)∇U + j_at ) + [1 + (1−k)U]·½·∂φ/∂t
+      //
+      // with q(φ) = (1−φ)/2 = 1 − ψ: NO diffusion in the solid, which is the
+      // physically right limit for a substitutional solute and the reason an
+      // anti-trapping current is needed at all. The stored ψ = (1+φ)/2 turns
+      // ∂φ/∂t into 2∂ψ/∂t, and the source's ½ cancels one of those factors.
+      let kk = clamp(P.kPart, 1e-3, 0.999);
+      let om = 1.0 - kk;
+      let Uc = uSup(phi, conc, P.c0, kk);
+      let UE = uSup(sE.r, sE.b, P.c0, kk);
+      let UW = uSup(sW.r, sW.b, P.c0, kk);
+      let UN = uSup(sN.r, sN.b, P.c0, kk);
+      let US = uSup(sS.r, sS.b, P.c0, kk);
+      // face diffusivities from q(φ) = 1 − ψ, arithmetic mean at the face
+      let dqE = 0.5 * P.dSol * (2.0 - phi - sE.r);
+      let dqW = 0.5 * P.dSol * (2.0 - phi - sW.r);
+      let dqN = 0.5 * P.dSol * (2.0 - phi - sN.r);
+      let dqS = 0.5 * P.dSol * (2.0 - phi - sS.r);
+      let divU = (dqE * (UE - Uc) + dqW * (UW - Uc) + dqN * (UN - Uc) + dqS * (US - Uc))
+               / (P.dx * P.dx);
+${at}
+      let pre = max(1e-6, 0.5 * (1.0 + kk - om * (2.0 * phi - 1.0)));
+      let Unew = Uc + (P.dt * (divU + atDiv) + (1.0 + om * Uc) * dPhi) / pre;
+      // c is a function of the state, so it is rebuilt at the NEW ψ
+      cNew = clamp(cFromU(phiNew, Unew, P.c0, kk), 0.0, 4.0);
+    } else {
+      // ---- Warren–Boettinger-type, qualitative: unchanged --------------------
+      // variable-diffusivity face scheme + interface rejection
+      let dHere = mix(P.dSol, P.dSol * 0.02, phi);
+      let dE = 0.5 * (dHere + mix(P.dSol, P.dSol * 0.02, sE.r));
+      let dW = 0.5 * (dHere + mix(P.dSol, P.dSol * 0.02, sW.r));
+      let dN = 0.5 * (dHere + mix(P.dSol, P.dSol * 0.02, sN.r));
+      let dS = 0.5 * (dHere + mix(P.dSol, P.dSol * 0.02, sS.r));
+      let divC = (dE * (sE.b - conc) + dW * (sW.b - conc) + dN * (sN.b - conc) + dS * (sS.b - conc)) / (P.dx * P.dx);
+      cNew = clamp(conc + P.dt * divC + (1.0 - P.kPart) * conc * dPhi, 0.0, 2.0);
+    }
   }
 
   // solidification age (for the growth-rings lens)
@@ -385,7 +521,16 @@ const STORES = /* wgsl */ `
   textureStore(grainOut, c, vec4u(id, 0u, 0u, 0u));
 `;
 
-/** fused: the shipped path, unchanged */
+/**
+ * fused: the shipped Kobayashi path, unchanged.
+ *
+ * It carries the quantitative φ branch (which needs nothing it does not already
+ * have) but composes the anti-trapping current OUT, because there is no
+ * `phiAux` binding here to evaluate it from. That is why `Simulation.splitNow`
+ * forces the split shape whenever the solver is quantitative, and why that
+ * forcing lives in the one place that encodes a substep rather than at any
+ * call site.
+ */
 export const UPDATE_WGSL = /* wgsl */ `
 ${COMMON}
 @group(0) @binding(0) var<uniform> P: Params;
@@ -400,7 +545,7 @@ ${COMMON}
 @compute @workgroup_size(8, 8)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
   if (gid.x >= P.n || gid.y >= P.n) { return; }
-${LOADS}${PHI_CORE}${TRANSPORT_CORE}${STORES}}
+${LOADS}${PHI_CORE}${TRANSPORT_CORE(AT_NONE)}${STORES}}
 `;
 
 /** split, half one: phi only, plus the dphi/dt the face terms need */
@@ -438,7 +583,7 @@ ${LOADS}
   let aux = textureLoad(phiAux, c, 0);
   let phiNew = aux.r;
   let dPhi = aux.g;
-${TRANSPORT_CORE}${STORES}}
+${TRANSPORT_CORE(AT_FACES)}${STORES}}
 `;
 
 // ------------------------------------------------------------- stamp seeds
@@ -507,7 +652,14 @@ struct Stats {
   probeT: u32,            // (T+1) x1000 at the probe cell (single writer)
   probePhi: u32,          // phi x1000 at the probe cell
   liqTsum: atomic<u32>,   // sum of (T+1) x500 over the sampled liquid cells
-  pad3: u32,
+  // total solute in the domain, fixed point x200. The scale is set by the
+  // largest grid the app offers: 2048² cells at the c clamp of 4 is 3.4e9,
+  // which still fits a u32, and 4 more cells' worth would not. Rounded rather
+  // than truncated so the quantisation error is random and cancels over a
+  // million cells instead of biasing the total by half a count each.
+  // Occupies the struct's one free header slot — this table must NOT grow
+  // (postmortem #1: a struct that outgrows its binding returns zeros, quietly).
+  soluteSum: atomic<u32>,
   counts: array<atomic<u32>, ${MAX_GRAINS}>,
 }
 @group(0) @binding(0) var<uniform> P: Params;
@@ -534,6 +686,9 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   if (s.r > 0.2 && s.r < 0.8) {
     atomicAdd(&stats.interf, 1u);
     atomicAdd(&stats.interfT, u32(clamp(s.g, 0.0, 2.0) * 1000.0));
+  }
+  if (P.alloyOn == 1u) {
+    atomicAdd(&stats.soluteSum, u32(clamp(s.b, 0.0, 4.0) * 200.0 + 0.5));
   }
   // mean temperature of the remaining melt: the bulk undercooling the
   // nucleation model reads. Sampled every other cell on each axis and scaled
