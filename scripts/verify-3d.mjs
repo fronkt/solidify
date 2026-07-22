@@ -365,6 +365,32 @@ console.log("VC-ZONES", kinds.has(1) && kinds.has(3) ? "OK" : FAIL(), JSON.strin
   console.log("LAB3", ok ? "OK" : FAIL(), JSON.stringify(out));
 }
 
+// STEPSYNC3 (v6.0 H0) — the volume finally has the measurement entry point 2D
+// got in Q1. `step()` is frame-paced and refuses while the queue is two deep, so
+// the number of substeps it delivers is a race; that is postmortem #6 and it is
+// how a "restored" refinement result got written up twice before evaporating
+// under load. Every 3D heat-treatment claim is about how far a process got, so
+// the amount of physics delivered has to be an argument rather than a race.
+//
+// Two assertions: stepSync returns EXACTLY what was asked (step() cannot), and
+// it advances simTime by exactly that many dt. The second catches a submit()
+// that silently caps without saying so.
+{
+  const out = await page.evaluate(async () => {
+    const s = window.__solidify.sim3d();
+    window.__solidify.app.setRun(false);
+    const t0 = s.simTime, dt = s.params.dt;
+    const got = await s.stepSync(40);
+    const dTime = s.simTime - t0;
+    // and a frame-paced burst for contrast: hammer step() and see it refuse
+    let paced = 0;
+    for (let i = 0; i < 40; i++) paced += s.step(1);
+    return { got, want: 40, dTime, wantTime: 40 * dt, paced, dir: s.dir };
+  });
+  const ok = out.got === 40 && Math.abs(out.dTime - out.wantTime) < 1e-9 * Math.max(1, out.wantTime);
+  console.log("STEPSYNC3", ok ? "OK" : FAIL(), JSON.stringify(out));
+}
+
 console.log("PARAM-WARN", bindWarnings.length === 0 ? "OK" : FAIL(), JSON.stringify(bindWarnings.slice(0, 4)));
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 6) : "none");
 if (errors.length) failures++;

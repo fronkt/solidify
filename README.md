@@ -118,7 +118,7 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   cooling curve with the recalescence arrest marked, deepest undercooling, and how much of the
   inoculant the run actually used. Change a dial mid-pour and the card says so.
 - **Process controls** — undercooling, cooling rate, inoculant charge (+ potency and spread), chill
-  wall, anneal-to-remelt, symmetry, anisotropy, noise, latent heat, brush size, and a pro panel
+  wall, reheat-to-remelt, symmetry, anisotropy, noise, latent heat, brush size, and a pro panel
   (ε̄, γ, α, τ, k) for power users. Reset arms a staged melt; run/pause plus a ×1/×2/×4
   fast-forward multiplier on the transport.
 - **Looks & navigation** — scroll-zoom + right-drag pan in any lens, pixel mode (chunky

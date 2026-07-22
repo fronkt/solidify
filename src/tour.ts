@@ -319,7 +319,7 @@ export const CHAPTERS: Chapter[] = [
     part: "THE INSTRUMENT",
     title: "Melt · process",
     body: "The foundry dials: UNDERCOOLING is how cold the melt starts, COOLING RATE keeps pulling heat out, and INOCULANT is how many potential nuclei the charge carries — a site population with a spread of activation undercoolings, set in ADVANCED. There is deliberately no nucleation-rate control: the rate is what those three produce between them.",
-    watch: "The buttons: SEED and TWIN SEED drop nuclei, CHILL WALL lines an edge, QUENCH ⚡ plunges the whole melt colder, and holding ANNEAL ⌛ remelts and coarsens.",
+    watch: "The buttons: SEED and TWIN SEED drop nuclei, CHILL WALL lines an edge, QUENCH ⚡ plunges the whole melt colder, and holding REHEAT ⌛ pours heat back in and melts solid back to liquid — it is a brush, not a heat treatment.",
     hl: ["sec:MELT · PROCESS"],
   },
   {

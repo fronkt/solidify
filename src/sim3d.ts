@@ -744,6 +744,51 @@ export class Sim3D {
    */
   step(substeps: number): number {
     if (this.busy) return 0;
+    const steps = this.submit(substeps);
+    if (steps < 0) return 0;
+    this.inFlight++;
+    this.device.queue.onSubmittedWorkDone().then(() => { this.inFlight = Math.max(0, this.inFlight - 1); });
+    return steps;
+  }
+
+  /**
+   * Advance by EXACTLY `substeps`, awaiting the GPU between submissions —
+   * the volume's counterpart to `Simulation.stepSync`, which 2D got in Q1.
+   *
+   * `step()` is frame-paced and refuses while the queue is two submissions deep,
+   * so a caller driving it from rAF gets an unpredictable amount of physics per
+   * wall-clock second. That is right for an interactive app and fatal for a
+   * measurement: it is postmortem #6, and it is how a "restored" grain-refinement
+   * result got written up twice before running under load and evaporating.
+   *
+   * The volume went without one until v6.0 because nothing had needed to measure
+   * 3D physics rather than watch it. Heat treatment does — every claim it makes is
+   * about how far a process got — so the entry point exists here now for the same
+   * reason it exists in 2D.
+   */
+  async stepSync(substeps: number): Promise<number> {
+    if (substeps <= 0) {
+      this.submit(0);
+      await this.device.queue.onSubmittedWorkDone();
+      return 0;
+    }
+    let done = 0;
+    while (done < substeps) {
+      const got = this.submit(substeps - done);   // submit applies its own cap
+      await this.device.queue.onSubmittedWorkDone();
+      if (got <= 0) break;
+      done += got;
+    }
+    return done;
+  }
+
+  /**
+   * Encode and submit one command buffer. Returns the substeps advanced, or -1
+   * when there was nothing at all to do. Shared by `step` and `stepSync` so the
+   * scenario prep, the feed flood, the stamp interaction and the ping-pong
+   * bookkeeping exist exactly once.
+   */
+  private submit(substeps: number): number {
     // bridgman + selector: the reference isotherm rides sim time (2D frontX port)
     if (this.params.scen === 1 || this.params.scen === 3)
       this.frontZ = 1 + this.params.pullV * this.simTime;
@@ -774,7 +819,7 @@ export class Sim3D {
       seedCount = batch.length;
     }
     const doStamp = seedCount > 0 || this.pendingQuench !== 0;
-    if (steps === 0 && !doStamp) return 0;
+    if (steps === 0 && !doStamp) return -1;
     this.frame++;
     // generations advance in PHYSICS time (2n substeps), and flood iterations
     // scale with substeps, so each generation always accumulates ≥ n iterations
@@ -822,8 +867,6 @@ export class Sim3D {
     d.queue.submit([enc.finish()]);
     this.dir = dir;
     this.simTime += steps * this.params.dt;
-    this.inFlight++;
-    d.queue.onSubmittedWorkDone().then(() => { this.inFlight = Math.max(0, this.inFlight - 1); });
     return steps;
   }
 

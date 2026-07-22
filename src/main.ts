@@ -497,7 +497,10 @@ async function boot() {
     getGrid: () => sim.n,
     setGrid(n) { if (n !== sim.n && !opt.active && !challenge.active) app.swapSim(n); },
     getView: () => view,
-    anneal(on) {
+    // a uniform volumetric heat source held while the button is down: it warms
+    // the melt and remelts what has frozen. Named `anneal` until v6.0, which was
+    // the wrong word for it — see the button in ui.ts.
+    reheat(on) {
       if (mode === "3d" && sim3d) sim3d.params.heatIn = on ? 1.1 : 0;
       else sim.params.heatIn = on ? 1.1 : 0;
     },
