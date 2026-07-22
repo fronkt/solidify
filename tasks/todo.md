@@ -1078,7 +1078,58 @@ because an implementation that silently assumed 2 would have passed every other 
 the assumption, measured: **9 499 sweeps against 1 980 — a 4.8× error**, in a number nothing else
 in the app would have contradicted. Same shape as v5.0's four wrong comparisons: the arithmetic was
 right and the variable was wrong.
-- [ ] **H2** — GPU grain growth, 2D + 3D (sublattice Potts, own uniform buffer, no UI)
+- [x] **H0** — prerequisites, no new physics. **`Sim3D.stepSync()`, which did not exist** — only
+      2D got one, in Q1 — so the volume's delivered physics was always a race. Split into
+      `submit()`/`step()`/`stepSync()` mirroring `sim.ts:486-566`. `STEPSYNC3` measures the gap it
+      closes: **`stepSync(40)` delivers exactly 40 substeps where forty consecutive `step(1)` calls
+      deliver TWO**, the backpressure guard refusing the rest. The whole 23-check 3D suite green
+      through the refactor is the real assertion that behaviour did not change.
+      Plus the rename: `anneal ⌛` → **`reheat ⌛`**. It drove a uniform volumetric heat source for
+      as long as it was held — no time base, no set-point, no solid-state physics. It warms the
+      melt and *remelts* what has frozen. Calling it "anneal" was the dishonest-label class U0
+      spent a milestone removing, sitting in the rail the whole time real annealing was planned.
+- [x] **H2a (solver)** — `HTMASK_WGSL` + `ANNEAL_WGSL`, the sublattice Potts pass, `Simulation.anneal()`,
+      `readGrainRows()`, and **`scripts/verify-heattreat-gpu.mjs`** (7 GPU checks).
+      The pass owns its own uniform buffer, and **not for the reason the plan gave**: `colour` and
+      the RNG salt must vary *between dispatches*, and `queue.writeBuffer` is ordered against
+      `submit()` rather than interleaved with it — so one shared struct would hand every sweep the
+      same random numbers, and that stall is indistinguishable by eye from lattice pinning. Four
+      structs at 256 B stride, a bind group per colour, one write + one submit per sweep. The colour
+      count must stay **even**: `dir` indexes the state ping-pong too and this pass never writes
+      state, so an odd count would pair a current state field with a stale grain field.
+
+### Measuring K_MC and the exponent: three estimators, and the first two were wrong
+
+**Shipped: m = 2.44, K_MC = 4.79.** Both measured by `GG-EXPONENT`/`GG-KMC`, which are named in
+`heattreat.ts` as their provenance.
+
+1. **Fit through the measured d₀** — railed at the bottom of the scan. An as-cast boundary network
+   spends its first ~45 sweeps smoothing its own solidification roughness before any grain can
+   vanish, and forcing the line through the origin makes the exponent pay for that transient.
+2. **Free the intercept** — and it looked *excellent*: r² > 0.99 on every cast. It was degenerate.
+   Three casts returned m = 2.41, 3.41 and 2.905 with **bands that did not overlap**, while the
+   fitted d₀ wandered 3.9 → 13.6 against a measured 14.5. Three free parameters on eight points:
+   the intercept and the exponent simply traded off, and the high r² meant nothing at all.
+3. **Pin the intercept (the physics requires it — at S = 0 the grain size *is* d₀) and exclude the
+   transient instead.** Three casts then gave 2.38 / 2.44 / 2.61 with overlapping bands.
+
+`K` is then measured at the **shipped** exponent, never the free-fit one, because it carries units
+of cells^m and is violently coupled to it: at a wandering m it swung 2.79–5.03 (80 %), and pinned it
+reproduces 4.78 / 4.86 / 4.74 (2.5 %). Shipped with a 15 % drift gate, so changing the pass fails.
+
+Two things worth keeping. **m ≈ 2.44 is the canonical 2D Potts exponent** (R ∝ t^0.41) — measured
+here independently rather than looked up and adopted, and decisively *not* the ideal 2. And the
+ladder **saturates** at ~8 grains across the domain, which is `domainLimitUm()` confirmed
+empirically; those points are excluded from the fit and *printed* rather than dropped silently.
+
+**Two bugs, both caught by the gates on their first run.** `self` is a WGSL reserved keyword — the
+v0.8 `target` bug again, except this time the compile-info guard v5.0 built shouted it immediately
+instead of leaving a silently dead pass. And **r8uint cannot be a storage texture in WebGPU at
+all** (`sim3d`'s mould mask gets away with it by being CPU-written and only sampled); that one hid
+behind a warning filter tuned to one known phrase, so the filter is now loud by default with two
+environmental warnings named and excluded.
+
+- [ ] **H2a (panel)** — the minimal HEAT TREAT panel + solver-paused interlock
 - [ ] **H3** — annealing twins (Σ3 on migrating boundaries, 3D, low-SFE cubic only)
 - [ ] **H4** — homogenization (solute diffusion at frozen φ)
 - [ ] **H5** — oxidation and decarburization
