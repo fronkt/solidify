@@ -47,6 +47,30 @@ suite. If you want to run the physics/UI verification yourself, do it locally.
   lenses, orbit + ViewCube, tap-at-depth seeding, alloy, twins, icosahedral symmetry, the grain
   selector, stereology, STL export, the share round-trip and the 3D lab.
 
+- **`verify-quant.mjs`** — the calibrated (Karma–Rappel) solver, checked against physics it did
+  not get to choose. The Kobayashi path can only be tested for self-consistency, because it has
+  no calibrated surface energy and therefore no independent number to be right or wrong about;
+  once `W0` and `τ0` are *derived* from a real `d0` and `D`, the model owes you a specific
+  critical radius, a specific tip velocity, and an answer that does not depend on how wide the
+  diffuse interface was made. Ten checks: `QPF-EQUIL` (equilibrium profile width and a flat
+  front that does not drift), `QPF-GIBBS-THOMSON` (`R* = d0/Δ`), `QPF-CONVERGE` (steady tip
+  velocity at three interface widths), `QPF-TIP-KR` and `QPF-TIP-RADIUS` (both against published
+  values), `AT-PARTITION` and `AT-WIDTH` (the anti-trapping current, on and off),
+  `QPF-MASS` (solute conservation), `CALIB-BAND` and `CALIB-LOCK` (the mode as the app offers it).
+
+  Three things about this file are worth copying rather than rediscovering. **Every measurement
+  goes through `sim.stepSync()`, never the frame loop** — a frame-paced arm receives an
+  unpredictable number of substeps, and every rate here would otherwise be a race. **The
+  reference values are looked up, not remembered**, and the file says which paper and which
+  table. And **the tolerances that the plan wrote before anything was measured were replaced by
+  what the measurements support**, with the reason recorded in `tasks/todo.md` rather than the
+  numbers quietly relaxed.
+
+  It is also where four separate wrong comparisons were caught, all of the same shape: equal
+  wall-clock, equal distance travelled, equal substep count and equal bath temperature are all
+  proxies, and each of them produced a confident wrong answer here. Before comparing two runs,
+  name the variable being held fixed and check it is the one the physics is measured against.
+
 **Physics-behaviour tests (v4.0).** These are the first checks in the suite that assert a
 *physical* relationship rather than a UI one, and they exist because the nucleation model was
 rebuilt to make that relationship emergent:

@@ -177,7 +177,54 @@ it was pinned. It also names the dimensionless groups the model *fails*: the Ste
 is matched by construction, but the Lewis number is ~1 where a real alloy is ~10⁴, and the
 capillary ratio is undefined because the Kobayashi interface has no calibrated surface
 energy. That last one is why tip radius and arm spacing here are shapes rather than
-predictions.
+predictions — under the default solver.
+
+## The calibrated solver
+
+There is a second solver, and you turn it on in the SCALE panel. Karma–Rappel thin-interface
+asymptotics tie the phase-field parameters to two numbers the material actually has, the
+capillary length `d0 = Γ/ΔT0` and the diffusivity `D`:
+
+```
+d0 = a1 · W0 / λ          a1 = 5√2/8 = 0.8839
+τ0 = a2 · λ · W0² / D     a2 = 0.6267
+```
+
+Pick λ and everything else is *forced* — the interface width, the relaxation time, the physical
+size of a cell, the length of a timestep. Seven dials grey out, because they are no longer
+choices. For Al–4.5Cu that is `d0 = 3.2 nm`, `W0 = 109 nm`, a 0.087 µm cell and an 89 µm field
+of view at 1024², so the SDAS ruler reports arm spacings a micrograph would give.
+
+λ is the one control left, and it is a **convergence** knob rather than a physics one: it sets
+how many capillary lengths wide the diffuse interface is, and the asymptotics are exact only as
+that goes to zero. So the app prints `W0/d0` next to it, and the test suite checks that the
+answer does not depend on it.
+
+In an alloy the model also carries an **anti-trapping current**. Without it, an interface of
+finite width traps solute it should have rejected, which looks exactly like a larger partition
+coefficient and grows a completely convincing dendrite anyway. Measured here: with the current,
+`k_eff` sits on the real `k` and does not care about the interface width; without it, `k_eff`
+runs 24–40 % high and the excess *grows* with the width.
+
+What it is checked against — real numbers from the literature, not self-consistency:
+
+| measurement | reference | result |
+|---|---|---|
+| steady tip velocity `V·d0/D` | Karma–Rappel 1998, 2D solvability, Δ = 0.55, ε₄ = 0.05: **0.0170** | **0.01679** (1.2 %) |
+| parabolic tip radius `ρ/d0` | Tong, Beckermann, Karma & Li 2001: 27.6 | 28.8 (4.4 %) |
+| critical nucleus radius | Gibbs–Thomson `R* = d0/Δ` | 0.5 % |
+| independence of interface width | same answer at `W0/d0` = 1.8 → 3.6 | 6.4 % spread |
+| effective partition coefficient | the real `k`, width-independent | 0.135–0.150 vs `k` = 0.15 |
+
+One consequence arrives free. Under the calibrated alloy path one dimensionless degree is the
+alloy's **freezing range** instead of `L/c_p`, so the app's own shipped nucleation potency —
+the same dial, untouched — reads 11 K where the Kobayashi scaling made it 37 K. That is the
+band real castings occupy, reached by fixing the temperature scale rather than by tuning
+nucleation.
+
+Limits, stated: it is **2D only** (the volume still runs Kobayashi, and the switch says so
+instead of appearing and doing nothing), the Lewis mismatch is unchanged, and the expansion has
+its own validity bound `τ0·V/W0 ≲ 0.2` that a deeply undercooled *pure* melt reaches by λ ≈ 4.
 
 Two consequences worth knowing. The undercooling slider's own maximum is deeper than any
 real aluminium melt reaches (249 K against a Turnbull limit near 187 K) — it turns red

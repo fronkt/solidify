@@ -255,16 +255,77 @@
     much of the inoculant the run actually used. Change a physics dial while it is pouring and the
     card says so — a run with the conditions moved under it is a demonstration, not a measurement.</p>
 
-    <h2>8 · WHAT'S QUANTITATIVE, WHAT'S QUALITATIVE</h2>
+    <h2>8 · THE CALIBRATED SOLVER</h2>
+    <p>Everything above this point is a <i>similarity</i> model. It grows the right shapes for the
+    right reasons, but its interface width and relaxation time are dials — you pick ε̄ and τ, a
+    dendrite appears, and its tip radius is a shape rather than a prediction. The SCALE panel has
+    always said so: the capillary ratio d<sub>0</sub>/W reads <b>not defined</b>, because there is
+    no calibrated surface energy anywhere in the Kobayashi model to define it with.</p>
+
+    <p>The <b>calibrated solver</b> closes that hole. Karma and Rappel's thin-interface asymptotics
+    relate the phase-field parameters to the two numbers a material actually has — the capillary
+    length d<sub>0</sub> = Γ/ΔT<sub>0</sub> and the diffusivity D — through</p>
+    <div class="eq">
+      d<sub>0</sub> = a<sub>1</sub> W<sub>0</sub> / λ &nbsp;&nbsp;·&nbsp;&nbsp;
+      τ<sub>0</sub> = a<sub>2</sub> λ W<sub>0</sub>² / D
+      <div class="c">a<sub>1</sub> = 5√2/8 = 0.8839 and a<sub>2</sub> = 0.6267 are properties of the chosen interpolation functions, not of any material — and a<sub>2</sub> holds only for h(φ) = φ, which is the heat source this solver uses</div>
+    </div>
+    <p>so once λ is chosen, W<sub>0</sub> and τ<sub>0</sub> are <i>forced</i>, and with them the
+    physical size of a cell and the physical length of a timestep. Seven dials stop being choices.
+    For Al–4.5Cu that works out to d<sub>0</sub> = 3.2 nm, W<sub>0</sub> = 109 nm and a cell of
+    0.087 µm, so a 1024² grid is a 89 µm field of view — and the SDAS ruler starts reporting arm
+    spacings a micrograph of the same alloy would give, rather than whatever a declared 1 mm domain
+    happened to imply.</p>
+
+    <p><b>λ is the only knob left, and it is a convergence knob, not a physics one.</b> It sets
+    W<sub>0</sub>/d<sub>0</sub>: how many capillary lengths wide the diffuse interface is. The
+    asymptotics are exact as that ratio goes to zero, so every quantitative claim has to be shown
+    independent of it — which is a test, not a promise, and it is the test a pretty dendrite cannot
+    pass by looking pretty.</p>
+
+    <p>In an alloy the model also carries an <b>anti-trapping current</b>. With no diffusion in the
+    solid, an interface of finite width traps solute it should have rejected; the error is not small
+    and not random, it looks exactly like a larger partition coefficient, and a dendrite grown with
+    it is entirely convincing. The current cancels it. Measured here: with the current on the
+    effective partition coefficient sits on the real k and does not care how wide the interface is;
+    with it off, k<sub>eff</sub> runs 24–40 % high and the excess <i>grows</i> with the width.</p>
+
+    <p>One consequence arrives for free. Under the calibrated alloy path one dimensionless degree is
+    the alloy's <b>freezing range</b> rather than the latent-heat interval L/c<sub>p</sub>, and the
+    app's own shipped nucleation potency — the same dial, unchanged — reads 11 K instead of 37 K.
+    That is the band real castings occupy, reached by fixing the temperature scale rather than by
+    touching the nucleation model.</p>
+
+    <p>What it is checked against, and what it measured:</p>
+    <table>
+      <tr><th>TEST</th><th>AGAINST</th><th>RESULT</th></tr>
+      <tr><td>Equilibrium interface profile</td><td>tanh of half-width √2·W<sub>0</sub></td><td>0.997 W<sub>0</sub></td></tr>
+      <tr><td>Critical nucleus radius</td><td>Gibbs–Thomson R* = d<sub>0</sub>/Δ</td><td>22.21 vs 22.10 W<sub>0</sub> (0.5 %)</td></tr>
+      <tr><td>Steady tip velocity V·d<sub>0</sub>/D</td><td>Karma–Rappel 1998, 2D microscopic solvability at Δ = 0.55, ε₄ = 0.05: <b>0.0170</b></td><td><b>0.01679</b> (1.2 %)</td></tr>
+      <tr><td>Independence of interface width</td><td>same answer at W<sub>0</sub>/d<sub>0</sub> = 1.8 → 3.6</td><td>6.4 % spread</td></tr>
+      <tr><td>Parabolic tip radius ρ/d<sub>0</sub></td><td>Tong, Beckermann, Karma &amp; Li 2001: 27.6</td><td>28.8 (4.4 %)</td></tr>
+      <tr><td>Effective partition coefficient</td><td>the real k, independent of interface width</td><td>k<sub>eff</sub> = 0.135–0.150 against k = 0.15; 0.186–0.209 with the current off</td></tr>
+      <tr><td>Solute conservation</td><td>flat over 20 000 substeps of growth</td><td>1.6×10⁻³</td></tr>
+    </table>
+
+    <p>And what it does <i>not</i> fix. The Lewis mismatch is unchanged — one explicit grid at one
+    timestep still cannot carry heat and solute four orders apart, and the alloy path anchors on
+    solute. The calibrated solver is <b>2D only</b>; the volume still runs the Kobayashi model, and
+    the switch says so rather than appearing and doing nothing. And the thin-interface expansion has
+    a validity bound of its own, τ<sub>0</sub>V/W<sub>0</sub> ≲ 0.2, which a deeply undercooled pure
+    melt reaches by λ ≈ 4 — the app reports λ and the ratio it implies so that stays visible.</p>
+
+    <h2>9 · WHAT'S QUANTITATIVE, WHAT'S QUALITATIVE</h2>
     <table>
       <tr><th>CLAIM</th><th>STATUS</th></tr>
       <tr><td>Dendrite/seaweed/snowflake morphology, tip selection, side-branching</td><td><b>canonical</b> — matches the published Kobayashi figures</td></tr>
       <tr><td>Mullins–Sekerka breakup, CET, columnar growth, weld epitaxy</td><td><b>emergent physics</b>, qualitatively correct</td></tr>
       <tr><td>Grain impingement, ASTM E112 grain number, linear-intercept SDAS</td><td><b>measured honestly</b> on a nominal 1 mm domain</td></tr>
-      <tr><td>Alloy solute field</td><td><b>qualitative</b> — WB-type dilute model, not CALPHAD-coupled</td></tr>
+      <tr><td>Alloy solute field</td><td><b>two solvers, and the app says which is running.</b> The default is a WB-type dilute model, qualitative and not CALPHAD-coupled. The calibrated solver is the Echebarria–Folch–Karma–Plapp dilute binary model with an anti-trapping current, where the partition coefficient is the real one and is independent of the interface width — still dilute-binary and still not CALPHAD-coupled</td></tr>
       <tr><td>Composer chemistry (ΔT<sub>L</sub>, Q, wt%↔at%)</td><td><b>real dilute-limit values</b>, approximate textbook coefficients</td></tr>
       <tr><td>Units</td><td><b>a stated similarity scaling</b> — the solver is dimensionless, and three factors convert it to SI: kelvin per unit, seconds per unit, µm per cell. Only the third is a free choice. Kelvin per unit is <i>forced</i> by the heat equation's own latent coupling, (L/c<sub>p</sub>)/K — a real per-material number (≈249 K for aluminium, ≈44 K for water), not the flat ~100 K this row used to claim. Seconds per unit is then forced by whichever diffusivity is transporting. Every panel shows which factor was chosen and which were forced, and the SCALE report names the dimensionless groups the model does <i>not</i> match</td></tr>
       <tr><td>Lewis number α/D (the load-bearing mismatch)</td><td><b>not matched, and it cannot be</b> — a real alloy separates heat and solute by four orders of magnitude; one explicit grid at one timestep cannot carry both. With the solute anchor the temperature field diffuses far too slowly, so read it as the imposed macroscopic temperature rather than real heat conduction at this scale. That is the direction a micro-scale casting model errs in anyway, and it is reported rather than hidden</td></tr>
+      <tr><td>Tip radius, tip velocity, arm spacing</td><td><b>shapes under the default solver, predictions under the calibrated one.</b> Kobayashi has no calibrated surface energy, so there is no length to compare a tip radius against; the calibrated solver derives W<sub>0</sub> from the material's own d<sub>0</sub> and reproduces the published 2D solvability tip velocity to 1.2 % and the parabolic tip radius to 4.4 %</td></tr>
       <tr><td>Grain size and arm spacing in µm</td><td><b>measured against the model resolution</b>, which is now the anchor: the domain is <i>n</i> × µm-per-cell wide, not a fixed 1 mm. It was the other way round until v5.0, which meant the same dendrite measured four times larger at 512² than at 2048². Every µm figure printed before that fix is wrong by the grid ratio unless it was taken at the default grid</td></tr>
       <tr><td>Dimensionality</td><td><b>2D by default</b> (thin-sample analog) — the TRUE 3D mode solves the full volume, where dendrites genuinely branch out of plane</td></tr>
       <tr><td>Porosity + Niyama (3D)</td><td><b>mechanistic</b> — feed-path flood + solidify-while-unfed rule; Ny computed at freeze, not calibrated to a specific alloy (and not calibrated at all in the Bridgman/weld scenarios)</td></tr>
@@ -281,7 +342,7 @@
     <p>The rule throughout: anything the instrument displays as a number is computed, and anything
     that is a stylistic choice is labelled as one.</p>
 
-    <h2>9 · REFERENCES</h2>
+    <h2>10 · REFERENCES</h2>
     <ul class="refs">
       <li>R. Kobayashi, “Modeling and numerical simulations of dendritic crystal growth,” <i>Physica D</i> 63 (1993) 410–423.</li>
       <li>Ph. Thévoz, J.L. Desbiolles &amp; M. Rappaz, “Modeling of equiaxed microstructure formation in casting,” <i>Metall. Trans. A</i> 20 (1989) 311–322 — the Gaussian site-distribution nucleation model.</li>
@@ -291,6 +352,9 @@
       <li>J.A. Dantzig &amp; M. Rappaz, <i>Solidification</i>, EPFL Press (2009) — recalescence and the heat-extraction / latent-heat competition that sets grain density.</li>
       <li>J. Campbell, <i>Castings</i>, Butterworth-Heinemann (2003) — entrained oxide films (bifilms) and what melt atmosphere actually governs.</li>
       <li>A. Karma &amp; W.-J. Rappel, “Quantitative phase-field modeling of dendritic growth in two and three dimensions,” <i>Phys. Rev. E</i> 57 (1998) 4323–4349.</li>
+      <li>B. Echebarria, R. Folch, A. Karma &amp; M. Plapp, “Quantitative phase-field model of alloy solidification,” <i>Phys. Rev. E</i> 70 (2004) 061604 — the dilute binary model and the anti-trapping current.</li>
+      <li>A. Karma, “Phase-field formulation for quantitative modeling of alloy solidification,” <i>Phys. Rev. Lett.</i> 87 (2001) 115701.</li>
+      <li>X. Tong, C. Beckermann, A. Karma &amp; Q. Li, “Phase-field simulations of dendritic crystal growth in a forced flow,” <i>Phys. Rev. E</i> 63 (2001) 061601 — the 2D tip-radius benchmark this app is checked against.</li>
       <li>E. Niyama, T. Uchida, M. Morikawa &amp; S. Saito, “A method of shrinkage prediction and its application to steel casting practice,” <i>AFS Int. Cast Metals J.</i> 7 (1982) 52–63 — the Niyama criterion.</li>
       <li>J.A. Warren &amp; W.J. Boettinger, “Prediction of dendritic growth and microsegregation patterns in a binary alloy using the phase-field method,” <i>Acta Metall. Mater.</i> 43 (1995) 689–703.</li>
       <li>W.W. Mullins &amp; R.F. Sekerka, “Stability of a planar interface during solidification of a dilute binary alloy,” <i>J. Appl. Phys.</i> 35 (1964) 444–451.</li>

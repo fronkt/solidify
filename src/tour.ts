@@ -366,6 +366,13 @@ export const CHAPTERS: Chapter[] = [
   },
   {
     part: "THE INSTRUMENT",
+    title: "Calibrate it",
+    body: "SCALE holds the map from the solver's dimensionless numbers to real SI, with a provenance badge on every factor — and a switch. Turn on the calibrated solver and the interface width and relaxation time stop being dials: they are derived from this material's own capillary length and diffusivity, which is what turns tip radius and arm spacing from shapes into predictions. Seven sliders grey out because they are no longer choices.",
+    watch: "The one control left is λ, and it is a convergence knob: it sets how many capillary lengths wide the interface is, and the answer has to not depend on it. The app prints W₀/d₀ beside it so you can check.",
+    hl: ["sec:SCALE"],
+  },
+  {
+    part: "THE INSTRUMENT",
     title: "Your hands",
     body: "On the canvas itself: tap to nucleate a crystal, shift-tap for a twinned pair, scroll or pinch to zoom, right-drag (or two fingers) to pan, and ctrl-tap to move the cooling probe.",
     watch: "That is the whole instrument. Go freeze something.",

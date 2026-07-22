@@ -885,6 +885,36 @@ future claim rests on rate comparisons.
       **CALIB-LOCK** ε̄ = τ = 1, the anti-trapping current on, δ taken from the material's
       measured ε₄, and the capillary group reading 0.0295 instead of "not defined".
 
+- [x] **Q5** — the documentation, which for this release is most of the point. Science page §8
+      **THE CALIBRATED SOLVER**: what the thin-interface relations buy, that λ is a convergence
+      knob and not a physics one, the anti-trapping current and why an interface of finite width
+      traps solute it should have rejected, and a results table carrying the *measured* numbers
+      against the *published* ones rather than a claim of quantitativeness. Three honesty rows
+      rewritten — the alloy row now names two solvers and says which is running, and a new row
+      separates "tip radius is a shape" (default solver) from "tip radius is a prediction"
+      (calibrated). Three references added (EFKP 2004, Karma 2001, Tong et al. 2001). §8 and §9
+      renumbered to 9 and 10. README gains the same in short form with the reference table.
+      TESTING.md documents `verify-quant`'s ten checks and — more usefully — the three things
+      about it worth copying: every measurement goes through `stepSync`, the reference values
+      are looked up with the paper and table named, and the plan's pre-measurement tolerances
+      were replaced by what the measurements support with the reasons recorded rather than the
+      numbers quietly relaxed. New tour chapter "Calibrate it" between ADVANCED and the finale.
+
+### Phase Q — what is left
+
+**Q3 (the 3D port) is not done, and is the honest place to stop.** The volume has no split pass
+shape at all — Q0 split only the 2D solver — so porting the quantitative model there is Q0, Q1
+and Q2 again in three dimensions: a second param-table growth (192 → 224 B), a lazily allocated
+`phiAux3` through the *runtime* error-scope ladder rather than the create-time OOM ladder that
+already exists, twelve extra taps per face for the anti-trapping current (2D needed zero — the
+diagonals were already loaded), and its own gate set, since none of the 2D benchmarks transfer.
+Shipping it half-built would put a solver in the volume that grows convincing dendrites with an
+uncalibrated `k_eff`, which is precisely the failure mode this whole phase exists to rule out.
+
+The release is coherent without it: calibrated mode is 2D, the switch **says so** when the
+volume is up rather than appearing and doing nothing, and the science page and README state the
+limit in the same breath as the capability.
+
 **Three things the plan asked for that the measurements would not support, each replaced by
 what is actually true.**
 
