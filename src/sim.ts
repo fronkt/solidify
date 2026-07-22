@@ -1,6 +1,6 @@
 import {
   FLUX_WGSL, UPDATE_WGSL, PHI_WGSL, TRANSPORT_WGSL, STAMP_WGSL, STATS_WGSL,
-  MAX_GRAINS, MAX_SEEDS, SEED_STRIDE, shaderModule,
+  MAX_GRAINS, MAX_SEEDS, SEED_STRIDE, P2, SOLVER, shaderModule,
 } from "./shaders";
 import { DEFAULT_UM_PER_CELL } from "./units";
 
@@ -40,6 +40,13 @@ export interface PhysParams {
   holdRate: number;   // Newtonian relax rate toward the set-point
   facet: number;      // 0 smooth cos anisotropy · 1 regularized-cusp (faceted)
   moldT: number;      // temperature the mould wall holds (age sentinel -1)
+  // ---- v5.0 Phase Q: the quantitative solver. Every one of these is a no-op
+  // at its default, so the Kobayashi path is bit-identical to what shipped.
+  solver: number;     // SOLVER.KOB | SOLVER.QUANT
+  lambda: number;     // KR coupling — W₀/d₀ = λ/a₁ (quantitative only)
+  dTherm: number;     // dimensionless thermal diffusivity (1 = Kobayashi)
+  atCoef: number;     // anti-trapping coefficient (0 = current off)
+  frozenT: number;    // 1 = temperature imposed by the scenario, never solved
 }
 
 export const DEFAULTS: PhysParams = {
@@ -75,6 +82,11 @@ export const DEFAULTS: PhysParams = {
   holdRate: 0,
   facet: 0,
   moldT: 0.06,
+  solver: SOLVER.KOB,
+  lambda: 3.0,
+  dTherm: 1.0,
+  atCoef: 0,
+  frozenT: 0,
 };
 
 export interface StatsResult {
@@ -123,8 +135,14 @@ export class Simulation {
    * which is what a face-evaluated anti-trapping current needs. Off by default:
    * the fused path costs one dispatch fewer and is what ships until the
    * quantitative solver lands.
+   *
+   * The quantitative solver forces it on regardless (`splitNow`): its
+   * anti-trapping current lives in the split shape only.
    */
   splitPasses = false;
+
+  /** the shape this step will actually run — QUANT has no fused variant */
+  private get splitNow() { return this.splitPasses || this.params.solver === SOLVER.QUANT; }
 
   private stateTex: GPUTexture[] = [];
   private grainTex: GPUTexture[] = [];
@@ -156,7 +174,7 @@ export class Simulation {
   private pendingSeeds: Seed[] = [];
   private pendingQuench = 0;
   private statsInFlight = false;
-  private paramData = new ArrayBuffer(160);
+  private paramData = new ArrayBuffer(P2.BYTES);
   private inFlight = 0;
 
   /** true when the GPU is >= 2 submitted frames behind — callers should skip stepping */
@@ -190,7 +208,7 @@ export class Simulation {
     this.fluxTex = d.createTexture(texDesc("rgba32float"));
     this.phiAuxTex = d.createTexture(texDesc("rg32float"));
 
-    this.paramBuf = d.createBuffer({ size: 160, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.paramBuf = d.createBuffer({ size: P2.BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.theta0Buf = d.createBuffer({ size: MAX_GRAINS * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
     this.twinCtrBuf = d.createBuffer({ size: 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     this.seedBuf = d.createBuffer({ size: MAX_SEEDS * SEED_STRIDE * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
@@ -391,29 +409,37 @@ export class Simulation {
     const p = this.params;
     const u = new Uint32Array(this.paramData);
     const f = new Float32Array(this.paramData);
-    u[0] = this.n;
-    u[1] = this.frame;
-    f[2] = p.dx; f[3] = p.dt;
-    f[4] = p.epsBar; f[5] = p.delta; f[6] = p.aniMode; f[7] = p.tau;
-    f[8] = p.alpha; f[9] = p.gamma; f[10] = p.latent; f[11] = p.noiseAmp;
-    f[12] = p.tFar; f[13] = p.coolRate; f[14] = p.heatIn;
-    u[15] = seedCount;
-    f[16] = this.simTime;
-    u[17] = p.scen;
-    f[18] = p.gradG;
-    f[19] = this.frontX;
-    f[20] = p.weldX; f[21] = p.weldY; f[22] = p.weldPow; f[23] = p.weldSig;
-    u[24] = p.alloyOn;
-    f[25] = p.c0; f[26] = p.mLiq; f[27] = p.kPart; f[28] = p.dSol;
-    f[29] = this.pendingQuench;
-    f[30] = p.twinProb;
-    u[31] = this.nextId;
-    u[32] = this.probe ? Math.round(this.probe.x) : 0xffffffff;
-    u[33] = this.probe ? Math.round(this.probe.y) : 0xffffffff;
-    f[34] = p.holdT;
-    f[35] = p.holdRate;
-    f[36] = p.facet;
-    f[37] = p.moldT;
+    u[P2.n] = this.n;
+    u[P2.frame] = this.frame;
+    f[P2.dx] = p.dx; f[P2.dt] = p.dt;
+    f[P2.epsBar] = p.epsBar; f[P2.delta] = p.delta;
+    f[P2.aniMode] = p.aniMode; f[P2.tau] = p.tau;
+    f[P2.alpha] = p.alpha; f[P2.gamma] = p.gamma;
+    f[P2.latent] = p.latent; f[P2.noiseAmp] = p.noiseAmp;
+    f[P2.tFar] = p.tFar; f[P2.coolRate] = p.coolRate; f[P2.heatIn] = p.heatIn;
+    u[P2.seedCount] = seedCount;
+    f[P2.time] = this.simTime;
+    u[P2.scen] = p.scen;
+    f[P2.gradG] = p.gradG;
+    f[P2.frontX] = this.frontX;
+    f[P2.weldX] = p.weldX; f[P2.weldY] = p.weldY;
+    f[P2.weldPow] = p.weldPow; f[P2.weldSig] = p.weldSig;
+    u[P2.alloyOn] = p.alloyOn;
+    f[P2.c0] = p.c0; f[P2.mLiq] = p.mLiq; f[P2.kPart] = p.kPart; f[P2.dSol] = p.dSol;
+    f[P2.quenchDT] = this.pendingQuench;
+    f[P2.twinProb] = p.twinProb;
+    u[P2.idFloor] = this.nextId;
+    u[P2.probeX] = this.probe ? Math.round(this.probe.x) : 0xffffffff;
+    u[P2.probeY] = this.probe ? Math.round(this.probe.y) : 0xffffffff;
+    f[P2.holdT] = p.holdT;
+    f[P2.holdRate] = p.holdRate;
+    f[P2.facet] = p.facet;
+    f[P2.moldT] = p.moldT;
+    u[P2.solver] = p.solver;
+    f[P2.lambda] = p.lambda;
+    f[P2.dTherm] = p.dTherm;
+    f[P2.atCoef] = p.atCoef;
+    u[P2.frozenT] = p.frozenT;
     this.device.queue.writeBuffer(this.paramBuf, 0, this.paramData);
   }
 
@@ -422,6 +448,9 @@ export class Simulation {
     pass.dispatchWorkgroups(wg, wg);
   }
 
+  /** substeps one command buffer is allowed to carry at this grid size */
+  private get stepCap() { return Math.max(1, Math.floor(1.6e8 / (this.n * this.n))); }
+
   /**
    * Advance the field by `substeps` explicit Euler steps (0 = stamp seeds
    * only, so taps show up while paused). Single command submission; skips
@@ -429,9 +458,49 @@ export class Simulation {
    */
   step(substeps: number): number {
     if (this.busy) return 0;
+    const steps = this.submit(substeps);
+    if (steps < 0) return 0;
+    this.inFlight++;
+    this.device.queue.onSubmittedWorkDone().then(() => { this.inFlight = Math.max(0, this.inFlight - 1); });
+    return steps;
+  }
+
+  /**
+   * Advance by EXACTLY `substeps`, awaiting the GPU between submissions.
+   *
+   * `step()` is frame-paced: it refuses while the queue is two submissions deep,
+   * so a caller that drives it from rAF gets an unpredictable number of
+   * substeps per wall-clock second. That is correct for an interactive app and
+   * fatal for a measurement — it is postmortem #6, and it is how a "restored"
+   * grain-refinement result got written up twice before running under load and
+   * evaporating. Anything derived from HOW FAR a cast got — tip velocity, sites
+   * fired, ticks elapsed — must come through here, where the amount of physics
+   * delivered is an argument rather than a race.
+   */
+  async stepSync(substeps: number): Promise<number> {
+    if (substeps <= 0) {
+      this.submit(0);
+      await this.device.queue.onSubmittedWorkDone();
+      return 0;
+    }
+    let done = 0;
+    while (done < substeps) {
+      const got = this.submit(Math.min(this.stepCap, substeps - done));
+      await this.device.queue.onSubmittedWorkDone();
+      if (got <= 0) break;
+      done += got;
+    }
+    return done;
+  }
+
+  /**
+   * Encode and submit one command buffer. Returns the substeps advanced, or -1
+   * when there was nothing at all to do. Shared by `step` and `stepSync` so the
+   * pass order, the stamp interaction and the ping-pong bookkeeping exist once.
+   */
+  private submit(substeps: number): number {
     const d = this.device;
-    const cap = Math.max(1, Math.floor(1.6e8 / (this.n * this.n)));
-    const steps = Math.min(substeps, cap);
+    const steps = Math.min(substeps, this.stepCap);
 
     let seedCount = 0;
     if (this.pendingSeeds.length > 0) {
@@ -445,7 +514,7 @@ export class Simulation {
       seedCount = batch.length;
     }
     const doStamp = seedCount > 0 || this.pendingQuench !== 0;
-    if (steps === 0 && !doStamp) return 0;
+    if (steps <= 0 && !doStamp) return -1;
     this.frame++;
     // bridgman frame advances with sim time
     if (this.params.scen === 1) this.frontX = 1.0 + this.params.pullV * this.simTime;
@@ -461,11 +530,12 @@ export class Simulation {
       this.dispatch(pass);
       dir = 1 - dir;
     }
+    const split = this.splitNow;
     for (let i = 0; i < steps; i++) {
       pass.setPipeline(this.fluxPipe);
       pass.setBindGroup(0, this.fluxBG[dir]);
       this.dispatch(pass);
-      if (this.splitPasses) {
+      if (split) {
         // WebGPU inserts an implicit barrier between dispatches in one compute
         // pass, which is what the existing FLUX -> UPDATE chain already relies
         // on; PHI -> TRANSPORT is the same contract with one more link.
@@ -486,8 +556,6 @@ export class Simulation {
     d.queue.submit([enc.finish()]);
     this.dir = dir;
     this.simTime += steps * this.params.dt;
-    this.inFlight++;
-    d.queue.onSubmittedWorkDone().then(() => { this.inFlight = Math.max(0, this.inFlight - 1); });
     return steps;
   }
 
@@ -554,22 +622,26 @@ export class Simulation {
   }
 
   /**
-   * one-shot readback of phi sampled along a line (grid coords) — the SDAS
-   * ruler's linear-intercept trace. Copies only the rows the line spans.
+   * One-shot readback of the whole state texture over a band of rows —
+   * (phi, T, c, age) interleaved, `h * n * 4` floats, row-major from `y0`.
+   *
+   * Full rows rather than a rectangle because `copyTextureToBuffer` wants a
+   * bytesPerRow that is a multiple of 256, and `n * 16` already is at every grid
+   * size the app offers; a sub-width copy would need padding arithmetic for no
+   * saving worth having. This is the primitive under both the SDAS ruler and the
+   * tip-shape fit the quantitative gates measure against.
    */
-  async readLine(ax: number, ay: number, bx: number, by: number, samples = 400): Promise<Float32Array | null> {
+  async readRows(y0: number, h: number): Promise<Float32Array | null> {
     const n = this.n;
-    const cl = (v: number) => Math.min(n - 1, Math.max(0, v));
-    ax = cl(ax); ay = cl(ay); bx = cl(bx); by = cl(by);
-    const y0 = Math.floor(Math.min(ay, by));
-    const rows = Math.ceil(Math.max(ay, by)) - y0 + 1;
+    y0 = Math.min(n - 1, Math.max(0, Math.floor(y0)));
+    h = Math.min(n - y0, Math.max(1, Math.ceil(h)));
     const bpr = n * 16; // multiple of 256 for all grid sizes
-    const buf = this.device.createBuffer({ size: bpr * rows, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    const buf = this.device.createBuffer({ size: bpr * h, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
     const enc = this.device.createCommandEncoder();
     enc.copyTextureToBuffer(
       { texture: this.stateTex[this.dir], origin: { x: 0, y: y0 } },
       { buffer: buf, bytesPerRow: bpr },
-      { width: n, height: rows });
+      { width: n, height: h });
     this.device.queue.submit([enc.finish()]);
     try {
       await buf.mapAsync(GPUMapMode.READ);
@@ -580,6 +652,21 @@ export class Simulation {
     const data = new Float32Array(buf.getMappedRange().slice(0));
     buf.unmap();
     buf.destroy();
+    return data;
+  }
+
+  /**
+   * one-shot readback of phi sampled along a line (grid coords) — the SDAS
+   * ruler's linear-intercept trace. Copies only the rows the line spans.
+   */
+  async readLine(ax: number, ay: number, bx: number, by: number, samples = 400): Promise<Float32Array | null> {
+    const n = this.n;
+    const cl = (v: number) => Math.min(n - 1, Math.max(0, v));
+    ax = cl(ax); ay = cl(ay); bx = cl(bx); by = cl(by);
+    const y0 = Math.floor(Math.min(ay, by));
+    const rows = Math.ceil(Math.max(ay, by)) - y0 + 1;
+    const data = await this.readRows(y0, rows);
+    if (!data) return null;
     const out = new Float32Array(samples);
     for (let i = 0; i < samples; i++) {
       const t = i / (samples - 1);

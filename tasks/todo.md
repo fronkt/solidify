@@ -807,6 +807,60 @@ future claim rests on rate comparisons.
       **1.25×**, real but not free. `PASSSPLIT` A/Bs the shapes (worst deviation 4e-5 against a
       1e-3 tolerance, identical grain counts, pure and alloy).
 
+- [x] **Q1** — the 2D quantitative solver, pure. `src/quant.ts` owns the thin-interface
+      calibration: given a material's real Γ and D, `d₀ = Γ/ΔT₀`, `W₀ = λd₀/a₁` and
+      `τ₀ = a₂λW₀²/D` **force** the cell pitch and the timestep, so `ε̄`, `τ`, `latent`,
+      `delta`, `dx` and `dt` stop being dials. λ is the only thing left to choose and it is a
+      *convergence* knob, not a physics one. `a₁ = 5√2/8 = 0.8839` and `a₂ = 0.6267` were
+      looked up rather than remembered, and the lookup mattered: **`a₂ = 0.6267` holds only
+      for `h(φ) = φ`** — the other common interpolation gives 0.3981, and this solver's heat
+      source is `½∂φ/∂t`, so 0.6267 is the right one for the right reason.
+      **The solver itself is a branch inside `PHI_CORE`, not a second copy of it.** The FLUX
+      pass was already assembling Karma–Rappel's divergence form verbatim, and `τ(n) = τ₀a(n)²`
+      was already sitting unused in the flux texture; the whole quantitative φ equation is
+      seven lines, written on the stored `ψ = (1+φ)/2` and halved, because the operator is
+      linear and ψ has eleven consumers that storing −1..1 would have broken.
+      New: `frozenT` (the temperature is imposed, never solved — what the tip benchmarks are
+      themselves derived under), `dTherm` (the heat equation's dimensionless diffusivity,
+      hardcoded to 1 since M0 and now `a₂λ` when it needs to be), a tanh seed profile, and a
+      `P2` slot table so the param buffer's size lives in one place while it grows 160 → 192 B.
+      `Simulation.stepSync()` finally exists: the harness entry point postmortem #6 asked for.
+      Gates (`scripts/verify-quant.mjs`, all green): **QPF-EQUIL** profile width 0.997 W₀ ·
+      **QPF-GIBBS-THOMSON** R* = 22.21 W₀ against a predicted 22.10 (0.5 %) ·
+      **QPF-CONVERGE** 6.4 % spread over W₀/d₀ = 1.81 → 3.62 · **QPF-TIP-KR** V·d₀/D = 0.01679
+      against Karma–Rappel's solvability 0.0170 (**1.2 %**) · **QPF-TIP-RADIUS** ρ_p/d₀ = 28.8
+      against Tong et al.'s 27.6 (4.4 %). Tip radius has two definitions four times apart in
+      this literature (osculating 6.9 d₀ vs parabolic-fit 27.6 d₀) and the test says which one
+      it fitted.
+
+**Deviation from the plan, and why.** The plan specified `QPF-CONVERGE` at W₀/d₀ ∈ {20, 40, 80}.
+Those are alloy numbers. Echebarria et al. give the validity bound as `τV/W ≲ 0.2`, and a pure
+melt at Δ = 0.55 grows fast enough to hit it by λ ≈ 4.5 — measured, not assumed: the first run
+of this ladder returned 0.0149 at λ = 4.8 against a reference of 0.0170, which is that criterion
+being correct rather than the code being wrong. The ladder that tests the solver instead of the
+asymptotics is {1.6, 2.4, 3.2}, and the bound is now a reported column.
+
+**Postmortem — two measurement bugs, and neither was in the solver.** The convergence test
+failed twice before it passed, both times for reasons in the *harness*:
+
+1. **`addSeed` defaults to a random orientation.** Correct for a cast, ruinous for this
+   measurement: the tip is tracked along the horizontal centre row, so a grain rotated by
+   anything up to 22.5° puts the *groove between two arms* on that row instead of an arm.
+   Every velocity came out low, by a different amount per arm — which reads precisely like a
+   solver that fails to converge in λ. Passing `theta0 = 0` moved the mean from 0.0129 to
+   0.0171.
+2. **Equal distance is not equal progress.** A 2D dendrite approaches steady state on a clock
+   of ℓ_D/V, and ℓ_D/V differs 4× across the ladder — so scheduling every arm to travel the
+   same distance parked each at a different point on its own transient, and the 20 % spread
+   that produced was an artefact. Normalising the window to **eight diffusion lengths** for
+   every arm collapsed it to 6.4 %. This is the same shape as the v5.0 refinement result
+   (equal bath temperature is not equal undercooling; equal time is not equal progress) — the
+   third instance in two releases of a comparison that controlled the wrong variable.
+
+The rule these keep pointing at: **before comparing two runs, name the variable being held
+fixed and check it is the one the physics is measured against.** Wall-clock, substep count and
+travelled distance are all proxies, and all three have now produced a wrong answer here.
+
 **Postmortem — the third silent failure of the release.** The fragment split left `inv6dx2`
 declared in *both* halves. Each split pipeline includes one, so both compiled; the fused shader
 concatenates both, so `UPDATE_WGSL` hit a duplicate declaration, **failed to compile, and its

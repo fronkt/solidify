@@ -19,6 +19,9 @@ import { Analyze3D } from "./analyze3d";
 import { Nucleation } from "./nucleation";
 import { Lab, type LabHost, type LabSetup } from "./lab";
 import { Units, scaleOf, DEFAULT_UM_PER_CELL } from "./units";
+import { SOLVER } from "./shaders";
+import { calibrate, type QuantSetup } from "./quant";
+import { WT_PER_C0 } from "./alloy";
 
 /** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
 const SPEED_MULTS = [1, 2, 4] as const;
@@ -142,7 +145,75 @@ async function boot() {
       dSol: p.dSol,
       alloy: three ? sim3d!.alloyActive : sim.params.alloyOn === 1,
       umPerCell,
+      dTherm: (p as { dTherm?: number }).dTherm ?? 1,
+      // λ only exists while the quantitative solver is the one running; passing
+      // it under Kobayashi would print a capillary ratio the solver is not using
+      lambda: (p as { solver?: number }).solver === SOLVER.QUANT
+        ? (p as { lambda?: number }).lambda ?? null
+        : null,
     }), si);
+  };
+
+  /**
+   * The calibration the current material and composition imply at this λ, or
+   * null for a material with no SI identity (there is nothing to calibrate a
+   * reference crystal against).
+   */
+  const calibrateNow = (lambda: number): QuantSetup | null => {
+    const si = (MATERIALS[material] ?? MATERIALS.generic).si;
+    if (!si) return null;
+    const alloy = sim.params.alloyOn === 1;
+    return calibrate({ si, alloy, c0wt: sim.params.c0 * WT_PER_C0, lambda });
+  };
+
+  /**
+   * The dials calibrated mode takes over, stashed so leaving it restores the
+   * Kobayashi setup exactly. They are not deleted while it runs — share links,
+   * presets and every scene still write them, and a mode switch that silently
+   * discarded a user's ε̄ would be a worse surprise than a greyed-out slider.
+   */
+  let kobSnapshot: Record<string, number> | null = null;
+  const KOB_OWNED = ["dx", "dt", "epsBar", "tau", "latent", "delta", "dTherm", "dSol", "lambda"] as const;
+
+  /**
+   * Switch solver. Under `SOLVER.QUANT` seven dials stop being choices: W₀ and
+   * τ₀ follow from the material's own d₀ and D through the thin-interface
+   * relations, the cell pitch follows from W₀, the latent coupling follows from
+   * whichever reference interval the model is measuring temperature in, and the
+   * anisotropy becomes the material's MEASURED ε₄ rather than the value its
+   * morphology was tuned with. λ is the only thing left to pick, and it is a
+   * convergence knob. Returns the calibration so a caller can print it.
+   */
+  const setSolver = (kind: number, lambda?: number): QuantSetup | null => {
+    const P = sim.params as unknown as Record<string, number>;
+    if (kind === SOLVER.QUANT) {
+      const q = calibrateNow(lambda ?? sim.params.lambda);
+      if (!q) return null;
+      const si = MATERIALS[material].si!;
+      if (!kobSnapshot) {
+        kobSnapshot = { umPerCell };
+        for (const k of KOB_OWNED) kobSnapshot[k] = P[k];
+      }
+      Object.assign(sim.params, {
+        solver: SOLVER.QUANT,
+        lambda: q.lambda,
+        dx: q.dx, dt: q.dt,
+        epsBar: 1, tau: 1,          // length in W₀, time in τ₀ — that IS the calibration
+        latent: q.latent,
+        delta: si.eps4,
+        dTherm: q.dTilde, dSol: q.dTilde,
+      });
+      app.setUmPerCell(q.umPerCell);
+      return q;
+    }
+    sim.params.solver = SOLVER.KOB;
+    if (kobSnapshot) {
+      const { umPerCell: um, ...dials } = kobSnapshot;
+      Object.assign(sim.params, dials);
+      app.setUmPerCell(um);
+      kobSnapshot = null;
+    }
+    return null;
   };
 
   /** carry the current material + shared dials onto the 3D solver */
@@ -547,6 +618,10 @@ async function boot() {
       const params = { ...sim.params };
       sim = new Simulation(device, n);
       sim.params = params;
+      // a fresh Simulation starts at the DEFAULT pitch — carrying the params
+      // over but not the scale would silently re-anchor every length readout to
+      // 0.98 µm/cell, which under calibrated mode is not a cosmetic difference
+      sim.umPerCell = umPerCell;
       sim.reset(1 - undercool);
       renderer.rebind(sim);
       renderer.resetView();
@@ -740,6 +815,9 @@ async function boot() {
     fps: () => fps,
     stl: () => exportSTL(false),
     tick(k: number) { for (let i = 0; i < k; i++) frameBody(last + 1000 / 60); },
+    units: () => unitsNow(),
+    calibrate: (lambda: number) => calibrateNow(lambda),
+    setSolver: (kind: number, lambda?: number) => setSolver(kind, lambda),
   };
 
   // --------------------------------------------------------------- pointer

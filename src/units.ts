@@ -34,6 +34,11 @@
  * separates them by four orders of magnitude. That is stated, not buried.
  */
 
+// quant.ts owns the thin-interface constants (it is what derives W₀ from them);
+// this module only reports the ratio they imply. The dependency is one-way at
+// runtime — quant.ts takes nothing from here but a type.
+import { A1 } from "./quant";
+
 /** kelvin ↔ celsius */
 export const K0 = 273.15;
 /** gas constant, J/mol/K — the heat-treatment Arrhenius laws use it */
@@ -143,6 +148,19 @@ export interface ScaleInput {
   alloy: boolean;
   /** the anchor: model resolution in µm per cell */
   umPerCell: number;
+  /**
+   * dimensionless thermal diffusivity (`PhysParams.dTherm`). One under
+   * Kobayashi — the heat equation there carries a diffusivity of exactly 1,
+   * which is what made the old hardcoded 1 correct rather than lucky. Under the
+   * quantitative solver it is D̃ = a₂λ, and the time anchor has to follow.
+   */
+  dTherm?: number;
+  /**
+   * the Karma–Rappel coupling when the quantitative solver is running, else
+   * null. Its only job here is to turn the capillary group from "not defined"
+   * into a real number: W₀/d₀ = λ/a₁.
+   */
+  lambda?: number | null;
 }
 
 /**
@@ -151,6 +169,8 @@ export interface ScaleInput {
  */
 export function scaleOf(inp: ScaleInput): Scale {
   const { si, n, dx, latent, dSol, alloy, umPerCell } = inp;
+  const dTherm = Math.max(1e-9, inp.dTherm ?? 1);
+  const lambda = inp.lambda ?? null;
   const metresPerUnit = (umPerCell * 1e-6) / Math.max(1e-9, dx);
   const domainUm = umPerCell * Math.max(1, n);
 
@@ -183,9 +203,9 @@ export function scaleOf(inp: ScaleInput): Scale {
   // solute, so heat is the only transport there is and the anchor is exact.
   const secondsPerUnit = alloy
     ? (Math.max(1e-6, dSol) * metresPerUnit * metresPerUnit) / si.Dl
-    : (metresPerUnit * metresPerUnit) / si.alphaTh;
+    : (dTherm * metresPerUnit * metresPerUnit) / si.alphaTh;
 
-  const leModel = 1 / Math.max(1e-6, dSol);
+  const leModel = dTherm / Math.max(1e-6, dSol);
   const leReal = si.alphaTh / si.Dl;
   const leRatio = Math.max(leReal / leModel, leModel / leReal);
 
@@ -210,13 +230,31 @@ export function scaleOf(inp: ScaleInput): Scale {
               + "solute field to disagree with.")
         : "close to matched at these settings",
     },
-    {
-      name: "capillary  d₀/W",
-      model: null, real: null, ok: false,
-      note: "not defined — the Kobayashi interface has no calibrated surface energy, so "
-        + "there is no capillary length to compare a width against. This is exactly why "
-        + "tip radius and arm spacing are shapes rather than predictions here.",
-    },
+    lambda == null
+      ? {
+        name: "capillary  d₀/W",
+        model: null, real: null, ok: false,
+        note: "not defined — the Kobayashi interface has no calibrated surface energy, so "
+          + "there is no capillary length to compare a width against. This is exactly why "
+          + "tip radius and arm spacing are shapes rather than predictions here.",
+      }
+      : {
+        // W₀ = λd₀/a₁ by construction, so this ratio is exactly what was chosen —
+        // and unlike the other two rows it is a CONVERGENCE parameter, not a
+        // mismatch. The asymptotics are exact as it goes to zero, so the honest
+        // statement is not "matched" or "not matched" but "check that your answer
+        // does not depend on it", which is what QPF-CONVERGE does.
+        name: "capillary  d₀/W",
+        model: A1 / lambda, real: 0, ok: lambda <= 40,
+        note: lambda <= 40
+          ? "defined, because the interface now has a calibrated surface energy: W₀ = λd₀/a₁. "
+            + "This is a convergence parameter rather than a mismatch — the thin-interface "
+            + "asymptotics are exact as it approaches zero, and every quantitative claim has "
+            + "to be shown independent of it."
+          : "defined but LARGE: at this λ the diffuse interface is more than 45 capillary "
+            + "lengths wide, and the thin-interface correction is no longer small. Treat tip "
+            + "radius and velocity as indicative until a convergence run says otherwise.",
+      },
   ];
 
   return {

@@ -116,7 +116,12 @@ function tScaleFor(base: AlloyBase): number {
   const latent = mat?.params.latent;
   return si && latent ? (si.L / si.cp) / latent : 100;
 }
-const WT_PER_C0 = 15; // wt% total solute mapping to c0 = 1
+/**
+ * wt% total solute mapping to c0 = 1. Exported because the quantitative
+ * calibration needs the inverse: it reads a real c∞ in wt% out of the model's
+ * dimensionless c0 to build the freezing range ΔT₀ = |m|c∞(1−k)/k.
+ */
+export const WT_PER_C0 = 15;
 const DEPR_CAP = 0.22; // max dimensionless liquidus depression (keeps growth watchable)
 
 export interface Derived {

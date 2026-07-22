@@ -21,6 +21,7 @@ const SUITE = [
   ["scripts/verify-optimizer.mjs"],
   ["scripts/verify-tools.mjs"],
   ["scripts/verify-passsplit.mjs", String(PORT)],
+  ["scripts/verify-quant.mjs", String(PORT)],
   ["scripts/verify-scale3d.mjs", String(PORT)],
   ["scripts/verify-3d.mjs", String(PORT)],
 ];

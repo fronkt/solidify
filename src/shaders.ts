@@ -20,6 +20,40 @@ export const MAX_GRAINS = 4096;
 export const MAX_SEEDS = 192;
 export const SEED_STRIDE = 6; // floats per seed: x, y, r, id, dTact, pad
 
+/** solver variant, shared by the WGSL and `PhysParams.solver` */
+export const SOLVER = { KOB: 0, QUANT: 1 } as const;
+
+/**
+ * Params slot map — single source of truth shared with `sim.writeParams`
+ * (u = u32 view, f = f32 view over one buffer of `BYTES`).
+ *
+ * This table exists because the two places that sized this buffer both wrote
+ * the literal `160`, and a param struct that outgrows its binding is the exact
+ * shape of postmortem #1: WebGPU reports it as a *warning*, the readback
+ * silently returns zeros, and the symptom shows up somewhere else entirely.
+ * `PARAM-WARN` watches for that warning; this table makes it not happen.
+ * Mirrors `P3` in shaders3d.ts, deliberately — one shape, two dimensions.
+ */
+export const P2 = {
+  n: 0, frame: 1, dx: 2, dt: 3,
+  epsBar: 4, delta: 5, aniMode: 6, tau: 7,
+  alpha: 8, gamma: 9, latent: 10, noiseAmp: 11,
+  tFar: 12, coolRate: 13, heatIn: 14, seedCount: 15,
+  time: 16, scen: 17, gradG: 18, frontX: 19,
+  weldX: 20, weldY: 21, weldPow: 22, weldSig: 23,
+  alloyOn: 24, c0: 25, mLiq: 26, kPart: 27,
+  dSol: 28, quenchDT: 29, twinProb: 30, idFloor: 31,
+  probeX: 32, probeY: 33, holdT: 34, holdRate: 35,
+  facet: 36, moldT: 37,
+  // ---- v5.0 Phase Q: the quantitative solver
+  solver: 38,     // u32: 0 Kobayashi · 1 Karma–Rappel quantitative
+  lambda: 39,     // KR coupling — sets W₀/d₀ = λ/a₁
+  dTherm: 40,     // dimensionless thermal diffusivity (1 under Kobayashi)
+  atCoef: 41,     // anti-trapping coefficient (0 = current off)
+  frozenT: 42,    // u32: 1 = temperature is imposed, never solved
+  BYTES: 192,     // 48 slots — five spare after the pads below
+} as const;
+
 const COMMON = /* wgsl */ `
 struct Params {
   n: u32,
@@ -60,10 +94,26 @@ struct Params {
   holdRate: f32,   // crucible: relax rate toward the set-point
   facet: f32,      // 0 = smooth cos anisotropy, 1 = regularized-cusp (faceted growth)
   moldT: f32,      // scen 3: temperature the mould wall holds
+  solver: u32,     // 0 Kobayashi · 1 Karma–Rappel quantitative
+  lambda: f32,     // KR coupling (solver 1)
+  dTherm: f32,     // dimensionless thermal diffusivity — 1 under Kobayashi
+  atCoef: f32,     // anti-trapping coefficient (0 = off)
+  frozenT: u32,    // 1 = temperature imposed by the scenario, never solved
   _pad1: f32,
   _pad2: f32,
+  _pad3: f32,
+  _pad4: f32,
+  _pad5: f32,
 }
 const PI = 3.14159265359;
+const SQRT2 = 1.41421356237;
+/**
+ * Shared |∇φ|² floor. FLUX falls back to the isotropic branch below this, and
+ * the anti-trapping current gates on the same number — if the two passes
+ * disagreed about where the interface is, the current would be evaluated at
+ * cells FLUX had already declared featureless.
+ */
+const GMIN2 = 1e-12;
 
 fn cid(p: Params, c: vec2i) -> vec2i {
   return clamp(c, vec2i(0), vec2i(i32(p.n) - 1));
@@ -97,7 +147,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let pD = textureLoad(state, cid(P, c - vec2i(0, 1)), 0).r;
   let px = (pR - pL) * inv2dx;
   let py = (pU - pD) * inv2dx;
-  if (px * px + py * py < 1e-12) {
+  if (px * px + py * py < GMIN2) {
     textureStore(flux, c, vec4f(0.0, 0.0, P.epsBar * P.epsBar, 0.0));
     return;
   }
@@ -198,13 +248,41 @@ const PHI_CORE = /* wgsl */ `
   let ge2 = vec2f(fE.z - fW.z, fN.z - fS.z) * inv2dx;
   let aniso = fC.z * lapPhi + dot(ge2, vec2f(px, py)) + cross;
 
-  // liquidus depression by solute: Teq = 1 - mLiq*c (constitutional undercooling)
-  var tEq = 1.0;
-  if (P.alloyOn == 1u) { tEq = 1.0 - P.mLiq * conc; }
-  let m = (P.alpha / PI) * atan(P.gamma * (tEq - T));
   let chi = hash3(gid.x, gid.y, P.frame) - 0.5;
-  let react = phi * (1.0 - phi) * (phi - 0.5 + m) + P.noiseAmp * phi * (1.0 - phi) * chi;
-  let phiNew = clamp(phi + (P.dt / P.tau) * (aniso + react), 0.0, 1.0);
+  var react: f32;
+  var tauLoc = P.tau;
+  if (P.solver == 1u) {
+    // ---- Karma–Rappel quantitative model ------------------------------------
+    //
+    //   τ(n) ∂φ/∂t = ∇·(W(n)²∇φ) + [cross terms] + φ − φ³ − λ(1−φ²)²·drive
+    //
+    // written on the STORED field ψ = (1+φ)/2 ∈ [0,1]. The mapping is affine, so
+    // the gradient operator FLUX already assembles is the right one untouched
+    // (it is linear, and it halves along with ∂ψ/∂t); only the local reaction
+    // has to be written in φ and halved. Storing −1..1 instead would have been
+    // algebraically tidier and would have broken eleven display and analysis
+    // consumers, several of them silently.
+    let q = 2.0 * phi - 1.0;
+    let well = 1.0 - q * q;
+    // drive = (T − T_liquidus)/ΔT₀. One dimensionless degree IS ΔT₀ here — for a
+    // pure melt L/c_p, for an alloy the freezing range — so T = 1 is the
+    // liquidus and an undercooled melt makes this negative, which pushes ψ up.
+    let drive = T - 1.0;
+    react = 0.5 * (q - q * q * q - P.lambda * well * well * drive)
+          + P.noiseAmp * phi * (1.0 - phi) * chi;
+    // τ(n) = τ₀·a(n)², and a(n)² is already sitting in the flux texture as
+    // ε²/ε̄². The degenerate branch stores ε̄² there, so a = 1 far from any
+    // interface and this is exactly τ₀.
+    tauLoc = P.tau * fC.z / max(1e-20, P.epsBar * P.epsBar);
+  } else {
+    // ---- Kobayashi 1993, unchanged -------------------------------------------
+    // liquidus depression by solute: Teq = 1 - mLiq*c (constitutional undercooling)
+    var tEq = 1.0;
+    if (P.alloyOn == 1u) { tEq = 1.0 - P.mLiq * conc; }
+    let m = (P.alpha / PI) * atan(P.gamma * (tEq - T));
+    react = phi * (1.0 - phi) * (phi - 0.5 + m) + P.noiseAmp * phi * (1.0 - phi) * chi;
+  }
+  let phiNew = clamp(phi + (P.dt / tauLoc) * (aniso + react), 0.0, 1.0);
   let dPhi = phiNew - phi;
 
 `;
@@ -212,8 +290,11 @@ const PHI_CORE = /* wgsl */ `
 const TRANSPORT_CORE = /* wgsl */ `
   let lapT   = (4.0 * (sE.g + sW.g + sN.g + sS.g) + sNE.g + sNW.g + sSE.g + sSW.g - 20.0 * T) * inv6dx2;
   var age = s.a;
-  // temperature
-  var TNew = T + P.dt * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn;
+  // temperature. dTherm is 1 under Kobayashi (where the heat equation carries a
+  // dimensionless diffusivity of exactly one, which is what units.ts reads it
+  // as); under the quantitative solver it is D̃ = a₂λ, the same number the
+  // solute field transports at, because both are measured in W₀²/τ₀.
+  var TNew = T + P.dt * P.dTherm * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn;
   if (P.scen == 2u) {
     // moving weld heat source (gaussian)
     let d2 = distance(vec2f(gid.xy), vec2f(P.weldX, P.weldY));
@@ -232,6 +313,22 @@ const TRANSPORT_CORE = /* wgsl */ `
     TNew = mix(TNew, tGoal, min(1.0, P.dt * P.holdRate));
     let d2 = distance(vec2f(gid.xy), vec2f(P.weldX, P.weldY));
     TNew += P.dt * P.weldPow * exp(-(d2 * d2) / (2.0 * P.weldSig * P.weldSig));
+  }
+  // FROZEN-TEMPERATURE mode. A single explicit grid at one dt cannot carry both
+  // α_th and D_l when they differ by four orders of magnitude, so the validation
+  // configuration stops pretending: the temperature field is whatever the
+  // scenario imposes and is never solved. This is the assumption the LGK and
+  // Karma–Rappel tip comparisons are themselves derived under, which is what
+  // makes those tests mean anything. A scenario that IMPOSES a frame (Bridgman)
+  // still imposes it — frozen-T is an absence of a solved field, not an absence
+  // of a field.
+  if (P.frozenT == 1u) {
+    TNew = T;
+    if (P.scen == 1u) {
+      let xu2 = f32(gid.x) * P.dx;
+      let tProf2 = clamp(0.7 + P.gradG * (xu2 - P.frontX) / P.dx * P.dx / 1.0, -0.6, 1.5);
+      TNew = mix(T, tProf2, min(1.0, P.dt * 150.0));
+    }
   }
   TNew = clamp(TNew, -1.0, 2.0);
 
@@ -371,14 +468,25 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     let p = vec2f(gid.xy) + 0.5;
     let tEqLocal = 1.0 - P.mLiq * s.b * f32(P.alloyOn);
     let dT = tEqLocal - Tq;
+    // the quantitative solver's equilibrium profile is a tanh of width W₀ (=
+    // epsBar), and it needs room for the tail — a smoothstep blob is not a
+    // solution of the model and a seed stamped as one radiates a transient that
+    // corrupts exactly the early tip measurements the calibration is for
+    let wCell = P.epsBar / P.dx;
+    let margin = select(0.0, 3.0 * wCell, P.solver == 1u);
     for (var i = 0u; i < P.seedCount; i++) {
       let b = i * ${SEED_STRIDE}u;
       let pos = vec2f(seeds[b], seeds[b + 1u]);
       let r = seeds[b + 2u];
       if (dT <= seeds[b + 4u]) { continue; }
       let d = distance(p, pos);
-      if (d < r) {
-        let v = 1.0 - smoothstep(r - 2.0, r, d);
+      if (d < r + margin) {
+        var v: f32;
+        if (P.solver == 1u) {
+          v = 0.5 * (1.0 - tanh((d - r) / (SQRT2 * wCell)));
+        } else {
+          v = 1.0 - smoothstep(r - 2.0, r, d);
+        }
         if (v > phi) { phi = v; id = u32(seeds[b + 3u]); age = P.time; }
       }
     }
