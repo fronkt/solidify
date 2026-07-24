@@ -454,13 +454,13 @@ export class UI {
     this.binds.push({
       update: () => { chillBtn.textContent = host.getMode() === "3d" ? "chill floor" : "chill wall"; },
     });
-    this.button(mrow, "quench ⚡", () => host.quench());
+    this.button(mrow, "quench", () => host.quench());
     // Called "anneal" until v6.0, which was simply the wrong word: it drives a
     // uniform volumetric heat source for as long as it is held, so it warms the
     // melt and REMELTS what has frozen. Nothing about it anneals — no time base,
     // no set-point, no solid-state physics. Real heat treatment is its own panel
     // on its own clock; this is a reheat brush, and it now says so.
-    const reheatBtn = this.button(mrow, "reheat ⌛", () => {});
+    const reheatBtn = this.button(mrow, "reheat", () => {});
     reheatBtn.title = "hold to pour heat back in — melts solid back into liquid. "
       + "For a real heat treatment (grain growth, homogenization) use HEAT TREAT.";
     reheatBtn.addEventListener("pointerdown", () => host.reheat(true));

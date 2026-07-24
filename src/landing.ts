@@ -204,7 +204,10 @@ async function boot() {
   // dynamic import: the volumetric solver + raymarcher only load when the
   // device can host them; any failure leaves the still-image fallback
   const d3Canvas = document.getElementById("d3Sim") as HTMLCanvasElement;
-  let d3: { sim: import("./sim3d").Sim3D; ren: import("./render3d").Renderer3D; poll: number } | null = null;
+  // `sub` carries the fractional substep budget (see the master loop) and `done`
+  // latches once the crystal is grown — the volume holds its finished shape
+  // instead of re-pouring, so a visitor who scrolls back finds the same crystal.
+  let d3: { sim: import("./sim3d").Sim3D; ren: import("./render3d").Renderer3D; poll: number; sub: number; done: boolean } | null = null;
   const D3_PLANE = { n: [0, 0, 1] as [number, number, number], c: 48 };
   const pourD3 = () => {
     if (!d3) return;
@@ -223,7 +226,7 @@ async function boot() {
       const [{ Sim3D }, { Renderer3D }] = await Promise.all([import("./sim3d"), import("./render3d")]);
       const s3 = await Sim3D.create(device, 96);
       if (s3) {
-        d3 = { sim: s3, ren: new Renderer3D(device, d3Canvas, s3), poll: 0 };
+        d3 = { sim: s3, ren: new Renderer3D(device, d3Canvas, s3), poll: 0, sub: 0, done: false };
         pourD3();
       }
     } catch {
@@ -258,12 +261,23 @@ async function boot() {
         matRen.render(matSim, 0, t / 1000);
       }
       if (active.d3 && d3) {
-        d3.poll += dt;
-        if (d3.poll > 0.7) {
-          d3.poll = 0;
-          void d3.sim.readStats().then(s => { if (s && s.fracSolid > 0.45) pourD3(); });
+        if (!d3.done) {
+          d3.poll += dt;
+          if (d3.poll > 0.7) {
+            d3.poll = 0;
+            // grown: freeze the solver here rather than re-pouring. Past this
+            // solid fraction the arms merge into a featureless block anyway,
+            // so the finished crystal is the thing worth keeping on screen.
+            void d3.sim.readStats().then(s => { if (s && s.fracSolid > 0.45) d3!.done = true; });
+          }
+          // a third of the old rate (was a flat 10 substeps/frame), so the
+          // crystal takes 3x as long to grow. The budget is carried as a
+          // fraction because 10/3 is not an integer number of Euler steps.
+          d3.sub += 10 / 3;
+          const sub = Math.floor(d3.sub);
+          d3.sub -= sub;
+          if (sub > 0) d3.sim.step(sub);
         }
-        d3.sim.step(10);
         d3.ren.tick(dt);
         d3.ren.spinTo(-0.95 + t * 0.00012);   // one slow orbit ≈ 52 s
         d3.ren.render(d3.sim, 0, t / 1000, D3_PLANE);
