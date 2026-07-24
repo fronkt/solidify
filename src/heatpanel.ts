@@ -50,6 +50,8 @@ export interface HeatHost {
   materialLabel(): string;
   si(): MaterialSI | null;
   alloyOn(): boolean;
+  /** does the material grow on a cubic lattice in 3D? (the Σ3 gate) */
+  cubic(): boolean;
   gridN(): number;
   umPerCell(): number;
   /** a guaranteed-fresh census (retries until the readback wins) */
@@ -59,6 +61,13 @@ export interface HeatHost {
    * aborts at the next drain. Resolves to the sweeps actually delivered.
    */
   anneal(sweeps: number, onProgress: (done: number) => boolean): Promise<number>;
+  /**
+   * 3D only: the same sweeps with Σ3 annealing-twin spawning enabled — the
+   * host budgets the per-flip probability from the remaining id range and
+   * reports what was actually delivered, including allocator saturation.
+   */
+  annealTwins?(sweeps: number, onProgress: (done: number) => boolean):
+    Promise<{ delivered: number; spawned: number; saturated: boolean }>;
   setRun(on: boolean): void;
   getView(): number;
   setView(v: number): void;
@@ -222,19 +231,24 @@ export class HeatPanel {
    * census and the current dials. Refusals come back as sentences because
    * every one of them is a teaching point, not an error code.
    */
+  /** the refusal context, built the same way for every process */
+  private ctx(c: Census): TreatContext {
+    return {
+      si: this.host.si(),
+      key: this.host.materialKey(),
+      alloy: this.host.alloyOn(),
+      dim: this.host.getMode(),
+      cubic: this.host.cubic(),
+      solidFraction: c.fracSolid,
+    };
+  }
+
   private plan(c: Census | null): Plan {
     // no census yet is NOT "nothing solid" — before the first measurement
     // lands, the panel does not know what is on stage and must not claim to
     if (!c) return { ok: false, why: "waiting for the first grain census…" };
     const si = this.host.si();
-    const ctx: TreatContext = {
-      si,
-      key: this.host.materialKey(),
-      alloy: this.host.alloyOn(),
-      dim: this.host.getMode(),
-      cubic: false, // the Σ3 question does not arise until H3 offers twins
-      solidFraction: c.fracSolid,
-    };
+    const ctx = this.ctx(c);
     const v = canTreat("grain", ctx);
     if (!v.ok) return { ok: false, why: v.why };
     if (!si) return { ok: false, why: "no SI identity." }; // canTreat already said it better
@@ -413,13 +427,31 @@ export class HeatPanel {
 
     const total = Math.min(plan.sweeps, this.consts().cap);
     const setStatus = (s: string) => { if (this.statusEl) this.statusEl.textContent = s; };
+    // annealing twins are not a dial: the environment decides. Boundaries are
+    // about to migrate; on a low-SFE cubic lattice in the volume they deposit
+    // Σ3 twins as they go. The card explains a refusal only in 3D — in the
+    // plane the question does not arise, and repeating "a Σ3 is a 3D rotation"
+    // on every 2D report card would be noise, not teaching.
+    const twinV = m3 ? canTreat("twins", this.ctx(before)) : null;
+    const wantTwins = twinV?.ok === true && !!this.host.annealTwins;
     let delivered = 0;
+    let twinLine = twinV && !twinV.ok ? twinV.why : "";
     try {
       if (total > 0) {
-        delivered = await this.host.anneal(total, done => {
+        const onProg = (done: number) => {
           setStatus(`sweep ${done.toLocaleString()} / ${total.toLocaleString()} — hold is isothermal by construction`);
           return !this.abortReq;
-        });
+        };
+        if (wantTwins) {
+          const r = await this.host.annealTwins!(total, onProg);
+          delivered = r.delivered;
+          twinLine = r.spawned > 0
+            ? `${r.spawned.toLocaleString()} Σ3 annealing twins nucleated on migrating boundaries`
+              + (r.saturated ? " — the grain-id range ran out mid-anneal, so this is the delivered count, not the requested rate" : "")
+            : "no annealing twins this run — boundaries migrated too little to deposit any";
+        } else {
+          delivered = await this.host.anneal(total, onProg);
+        }
       }
     } finally {
       this.busy = false;
@@ -429,11 +461,11 @@ export class HeatPanel {
     setStatus("");
     this.host.syncUI();
     if (this.closeReq) { this.closeReq = false; this.close(); return; }
-    this.report(plan, before, after, delivered, total);
+    this.report(plan, before, after, delivered, total, twinLine);
     this.refresh();
   }
 
-  private report(plan: Plan & { ok: true }, before: Census, after: Census | null, delivered: number, total: number) {
+  private report(plan: Plan & { ok: true }, before: Census, after: Census | null, delivered: number, total: number, twinLine = "") {
     if (!this.reportEl) return;
     const dim = (s: string) => `<span style="color:#6b7280">${s}</span>`;
     const strong = (s: string) => `<b style="color:#cfd6df">${s}</b>`;
@@ -450,6 +482,7 @@ export class HeatPanel {
     rows.push(line("before", before));
     rows.push(after ? line("after ", after) : `${dim("after")} census readback failed`);
     rows.push(`${dim("law endpoint")} ${fmtUm(plan.dPredUm)} ${dim("— the trajectory between endpoints is the Potts model's, not the material's")}`);
+    if (twinLine) rows.push(`${dim("twins")} ${twinLine}`);
     if (delivered < total) {
       rows.push(`<span style="color:#ffb454">aborted at sweep ${delivered.toLocaleString()} / ${total.toLocaleString()} — the microstructure is wherever the boundaries were</span>`);
     } else if (plan.capped) {

@@ -886,6 +886,45 @@ async function boot() {
       mode === "3d" && sim3d
         ? sim3d.anneal(sweeps, undefined, onProgress)
         : sim.anneal(sweeps, undefined, onProgress),
+    cubic: () => to3D(MATERIALS[material] ?? MATERIALS.generic).aniMode3 === 1,
+    // Σ3 twinning: plate-nucleation events interleaved with the sweep chunks.
+    // The host's job is the BUDGET — events target ~0.8 per existing grain
+    // (annealed FCC metals carry a few twins per grain, and some plates get
+    // swallowed), bounded by the remaining id range — and the honest count:
+    // spawned is what the allocator actually delivered, and saturation is
+    // reported rather than silently truncating the twin density.
+    async annealTwins(sweeps, onProgress) {
+      if (!(mode === "3d" && sim3d)) {
+        return { delivered: await sim.anneal(sweeps, undefined, onProgress), spawned: 0, saturated: false };
+      }
+      const s3 = sim3d;
+      const ctr0 = await s3.readTwinCtr();
+      const avail = Math.max(0, (ctr0 ?? s3.nextId) - s3.nextId - 4);
+      const grains = lastStats3?.grainCount ?? 500;
+      const events = Math.min(Math.round(grains * 0.8), 400, avail);
+      // 24 chunks bounds the readback stalls; events spread evenly, stamped
+      // BEFORE each chunk so every plate faces the anneal that follows it
+      const chunks = Math.max(1, Math.min(24, events));
+      let delivered = 0, spawned = 0, saturated = false;
+      for (let ci = 0; ci < chunks; ci++) {
+        if (!saturated) {
+          const per = Math.round(((ci + 1) * events) / chunks) - Math.round((ci * events) / chunks);
+          for (let e = 0; e < per; e++) {
+            const r = await s3.twinEvent();
+            if (r === 1) spawned++;
+            else if (r === -1) { saturated = true; break; }
+          }
+        }
+        const share = Math.round(((ci + 1) * sweeps) / chunks) - Math.round((ci * sweeps) / chunks);
+        if (share > 0) {
+          const base = delivered;
+          const got = await s3.anneal(share, undefined, done => onProgress(base + done));
+          delivered += got;
+          if (got < share) break;   // aborted mid-chunk — report what landed
+        }
+      }
+      return { delivered, spawned, saturated };
+    },
     setRun: on => app.setRun(on),
     getView: () => (mode === "3d" ? view3d : view),
     setView: v => { if (mode === "3d") app.setView3d(v); else app.setView(v); },

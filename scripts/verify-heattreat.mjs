@@ -224,7 +224,10 @@ const CU = M.MATERIALS.cu.si;
   want("homogenize, alloy", "homogenize", base, true);
   want("twins in 2D", "twins", { ...base, dim: "2d" }, false, "3D");
   want("twins, non-cubic", "twins", { ...base, cubic: false }, false, "cubic");
-  want("twins, no SFE", "twins", base, false, "stacking-fault");
+  // H3 landed a real sfe on al — strip it so this case still tests the
+  // "never looked up" path rather than silently becoming a duplicate of the
+  // too-high case below
+  want("twins, no SFE", "twins", { ...base, si: { ...AL, sfe: undefined } }, false, "stacking-fault");
   want("twins, high SFE (Al)", "twins", { ...base, si: { ...AL, sfe: 166 } }, false, "too high");
   want("twins, low SFE (Cu)", "twins", { ...base, si: { ...CU, sfe: 45 }, key: "cu" }, true);
   want("twins, structural veto", "twins", { ...base, si: { ...STEEL, sfe: 20, twinNote: "modelled as delta-ferrite here." }, key: "steel" }, false, "ferrite");
@@ -238,6 +241,40 @@ const CU = M.MATERIALS.cu.si;
   const distinct = reasons.size === rows.filter(r => !r.ok).length;
   ok = ok && distinct;
   check("HT-REFUSE", ok, { cases: rows.length, refusals: reasons.size, distinct });
+}
+
+// ---------------------------------------------------------------------------
+// 6b. The SHIPPED material data drives the intended twin matrix (H3).
+//
+// HT-REFUSE above tests the refusal machinery on synthetic contexts; this one
+// tests the DATA — the sfe/twinNote values looked up in H3, with sources named
+// in materials.ts, must land each material on the right side of the gate. The
+// teaching contrast is the whole point: annealed copper is full of Σ3 twins
+// and annealed aluminium has none, from the same machinery and two numbers.
+{
+  const expect = [
+    ["cu", true, ""],                  // SFE 78 (Murr 1975) — twins
+    ["co", true, ""],                  // SFE ~20 — twins profusely
+    ["al", false, "too high"],         // SFE 166 — the textbook refusal
+    ["ni", false, "too high"],         // SFE 128
+    ["steel", false, "ferrite"],       // modelled as delta-ferrite, no gamma phase
+    ["scn", false, "FCC phenomenon"],  // BCC plastic crystal
+    ["mg", false, "cubic"],            // HCP — refused before SFE is even consulted
+    ["zn", false, "cubic"],
+  ];
+  const rows = [];
+  let ok = true;
+  for (const [key, shouldPass, mustSay] of expect) {
+    const m = M.MATERIALS[key];
+    const v = H.canTreat("twins", {
+      si: m.si ?? null, key, alloy: true, dim: "3d",
+      cubic: M.to3D(m).aniMode3 === 1, solidFraction: 0.8,
+    });
+    const good = v.ok === shouldPass && (shouldPass || v.why.includes(mustSay));
+    ok = ok && good;
+    rows.push({ key, ok: v.ok, why: v.ok ? "" : v.why.slice(0, 44) });
+  }
+  check("HT-TWIN-MATRIX", ok, rows);
 }
 
 // ---------------------------------------------------------------------------

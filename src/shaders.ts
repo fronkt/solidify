@@ -743,9 +743,9 @@ export const H2U = {
   colour: 1,      // u32: which sublattice may flip this dispatch
   salt: 2,        // u32: per-sweep RNG salt — the whole reason this is not in P2
   kT: 3,          // MC temperature (numerical, NOT the furnace)
-  flags: 4,       // bit 0: eligible cells only; bit 1: (H3) spawn annealing twins
-  twinProb: 5,
-  pad6: 6,
+  flags: 4,       // bit 0: eligible cells only; bit 1: spawn annealing twins (3D)
+  twinProb: 5,    // per-accepted-flip Σ3 spawn probability (3D; CPU-budgeted)
+  idFloor: 6,     // u32: GPU twin ids stay above this (3D; 2D leaves it 0)
   pad7: 7,
   BYTES: 32,
 } as const;
@@ -799,7 +799,7 @@ struct HT {
   kT: f32,
   flags: u32,
   twinProb: f32,
-  pad6: u32,
+  idFloor: u32,
   pad7: u32,
 }
 fn htHash(x: u32, y: u32, z: u32) -> f32 {

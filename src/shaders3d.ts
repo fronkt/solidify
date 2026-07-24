@@ -688,6 +688,45 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 `;
 
 /**
+ * A coherent Σ3 boundary's energy as a fraction of a general high-angle
+ * boundary's: the measured copper ratio, ≈ 24 mJ/m² coherent twin against
+ * ≈ 625 mJ/m² random boundary (Murr 1975) ≈ 0.04.
+ *
+ * The value is load-bearing and the first draft got it wrong by trying to be
+ * conservative: at 0.15 a cell adopting a nascent single-cell twin paid
+ * ~12 neighbours × 0.15 of Σ3 energy against adopting the parent at ~0.15
+ * total — an artificial nucleation barrier, and the twin was swallowed
+ * laterally before it could become a lamella (measured: 15 of 493 spawns
+ * surviving 300 sweeps). At the physical 0.04 the two adoptions are within
+ * ~half a kT of each other, so a twin extends alongside its parent behind the
+ * migrating front, which is the actual growth-accident picture.
+ *
+ * **The cusp is why annealing twins survive the anneal at all**: under a
+ * uniform boundary energy the Hamiltonian has no reason to keep a Σ3 and eats
+ * twins at the same rate as everything else. A single cusp, deliberately NOT
+ * full Read–Shockley — that would change the energy of every boundary and
+ * re-open the K_MC calibration for a milestone's worth of gain nothing needs.
+ */
+export const SIGMA3_COST = 0.04;
+
+/**
+ * Relative mobility of a Σ3 boundary against a general one. Coherent twin
+ * interfaces are LOW-MOBILITY as well as low-energy — they cannot migrate by
+ * the single-atom shuffles a general boundary uses, which is precisely why
+ * twins survive recrystallization and grain growth in real FCC metals.
+ *
+ * The cusp alone is not enough, and that was measured, not argued: with
+ * energy-only Σ3 physics, 3 of 512 spawned twins survived 300 sweeps and none
+ * survived 450 — a nascent single-cell twin's revert to its parent is a
+ * Σ3-boundary move that is always downhill by TWIN_COST per shared face, so it
+ * is accepted whenever proposed. Suppressing Σ3-boundary MOVES (this factor)
+ * leaves the revert almost never accepted while lateral growth into the
+ * shrinking grain — a general boundary at full mobility — extends the twin
+ * behind the migrating front. The value is a modelling choice, stated as such.
+ */
+export const SIGMA3_MOBILITY = 0.02;
+
+/**
  * One sublattice's worth of Potts boundary migration in the volume.
  *
  * Every invocation writes — the pass ping-pongs the grain texture, and a cell
@@ -697,6 +736,27 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
  * inward from its own free surface. The candidate id is drawn only from an
  * eligible neighbour, never from the id space at large — a random id would
  * invent an orientation and the quaternion table would happily give it one.
+ *
+ * H3 adds the Σ3 physics, gated so the H2b calibration stands:
+ *
+ * **The Σ3 cusp.** A neighbour pair whose misorientation is a 60° rotation
+ * about a ⟨111⟩ axis contributes `SIGMA3_COST` instead of 1. The detector is
+ * exact-construction: every Σ3 in this app is built as q_t = q60 ∘ q_p, so the
+ * relative quaternion has |w| = cos 30° and its axis, rotated into either
+ * grain's frame, is ⟨111⟩ (a rotation fixes its own axis, so both frames give
+ * the same answer). Random-texture pairs hit this within tolerance with
+ * measure ≈ 0, which is why `GG3-KMC` re-measured within drift after the cusp
+ * landed. Second-generation pairs (twin-of-twin, Σ9) rightly pay full price.
+ *
+ * **The Σ3 mobility gate.** A flip whose mine↔candidate pair is Σ3-related is
+ * a coherent-interface migration and is suppressed to `SIGMA3_MOBILITY`.
+ *
+ * Twin NUCLEATION does not live in this pass. Two in-pass mechanisms were
+ * built and measured dead first — see the H3 postmortem: a per-flip
+ * single-cell spawn cannot cross the Potts nucleation geometry whatever the
+ * cusp does, because a plate is sub-grid physics at spawn time. Nucleation is
+ * `Sim3D.twinEvent()` — a plate stamped in exact Σ3 registry on a probed
+ * migrating boundary — and everything AFTER birth is this pass's physics.
  */
 export const ANNEAL3_WGSL = /* wgsl */ `
 ${HT_COMMON}
@@ -704,6 +764,28 @@ ${HT_COMMON}
 @group(0) @binding(1) var grain: texture_3d<u32>;
 @group(0) @binding(2) var mask: texture_3d<u32>;
 @group(0) @binding(3) var grainOut: texture_storage_3d<r32uint, write>;
+@group(0) @binding(4) var<storage, read> quats: array<vec4f>;
+const PORE = ${PORE_ID}u;
+const TWIN_COST = ${SIGMA3_COST};
+const TWIN_MOB = ${SIGMA3_MOBILITY};
+
+fn qmulHT(a: vec4f, b: vec4f) -> vec4f {
+  return vec4f(a.w * b.xyz + b.w * a.xyz + cross(a.xyz, b.xyz), a.w * b.w - dot(a.xyz, b.xyz));
+}
+
+// Σ3 test: relative rotation is 60° (|w| = cos 30°) about a ⟨111⟩ axis.
+// The axis is checked in b's grain frame; for a true Σ3 pair either frame
+// works because the twin rotation fixes its own axis.
+fn sigma3(qa: vec4f, qb: vec4f) -> bool {
+  let qr = qmulHT(qa, vec4f(-qb.xyz, qb.w));
+  if (abs(abs(qr.w) - 0.8660254) > 0.02) { return false; }
+  let len = length(qr.xyz);
+  if (len < 1e-5) { return false; }
+  let al = qr.xyz / len;
+  let t = 2.0 * cross(-qb.xyz, al);
+  let ag = abs(al + qb.w * t + cross(-qb.xyz, t));
+  return min(ag.x, min(ag.y, ag.z)) > 0.5;
+}
 
 @compute @workgroup_size(4, 4, 4)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -736,12 +818,17 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     let pick = i32(htHash(gid.x + 17u, gid.y + 91u, gid.z * 131u + H.salt) * 25.999);
     if (nOk[pick] && nid[pick] != mineId) {
       let cand = nid[pick];
+      let qm = quats[min(mineId, PORE)];
+      let qc = quats[min(cand, PORE)];
       var eNow = 0.0;
       var eNew = 0.0;
       for (var j = 0; j < 26; j++) {
         if (!nOk[j]) { continue; }          // excluded, not counted as unlike
-        if (nid[j] != mineId) { eNow += 1.0; }
-        if (nid[j] != cand) { eNew += 1.0; }
+        if (nid[j] != mineId || nid[j] != cand) {
+          let qn = quats[min(nid[j], PORE)];
+          if (nid[j] != mineId) { eNow += select(1.0, TWIN_COST, sigma3(qm, qn)); }
+          if (nid[j] != cand)   { eNew += select(1.0, TWIN_COST, sigma3(qc, qn)); }
+        }
       }
       let dE = eNew - eNow;
       // downhill and flat moves are taken; uphill costs the Boltzmann factor.
@@ -750,10 +837,63 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
       if (!accept && H.kT > 0.0) {
         accept = htHash(gid.x + 613u, gid.y + 7u, gid.z * 977u + (H.salt ^ 0x9e3779b9u)) < exp(-dE / H.kT);
       }
+      // a mine↔cand flip that crosses a Σ3 boundary is a coherent-interface
+      // migration — near-immobile in real FCC metals, and the reason twins
+      // survive at all (see SIGMA3_MOBILITY: the cusp alone was measured
+      // insufficient — nascent twins died within sweeps)
+      if (accept && sigma3(qm, qc)) {
+        accept = htHash(gid.z + 811u, gid.x + 409u, H.salt ^ 0x7f4a7c15u) < TWIN_MOB;
+      }
       if (accept) { out = cand; }
     }
   }
   textureStore(grainOut, c, vec4u(out, 0u, 0u, 0u));
+}
+`;
+
+/**
+ * Annealing-twin nucleation: stamp a thin plate of a fresh Σ3 id into its
+ * parent grain.
+ *
+ * Real annealing twins are born as atomic-scale stacking events across a
+ * {111} facet of a migrating boundary — they arrive as PLATES, and that
+ * geometry is sub-grid for a per-cell Potts flip. Two in-pass single-cell
+ * spawn mechanisms were built and measured dead (3/512 then 29/520 survivors;
+ * the adopting neighbour pays an artificial nucleation barrier however the
+ * cusp is tuned), so the plate is inserted whole — the shape mesoscale models
+ * in the literature use — and the anneal pass owns everything after birth.
+ *
+ * The plate normal IS the twin axis: a Σ3 is a 60° rotation about ⟨111⟩ and
+ * its coherent plane is the {111} normal to that same axis, so `nrm` arrives
+ * as the parent's rotation axis in lab frame. Only voxels still belonging to
+ * `pid` are claimed, so a plate can never cross into a third grain.
+ *
+ * `grainRW` is a READ-WRITE storage texture — r32uint is one of the three
+ * formats core WebGPU allows that for — so the stamp works in place: no
+ * ping-pong flip, no `dir` parity to break between sweeps.
+ */
+export const TWINSTAMP3_WGSL = /* wgsl */ `
+struct TS {
+  seed: vec4f,   // xyz: plate centre (voxels) · w: grid n
+  nrm: vec4f,    // xyz: unit plate normal (lab ⟨111⟩ of the parent) · w: unused
+  tid: u32,      // the freshly allocated twin id
+  pid: u32,      // the parent id — the only id the plate may overwrite
+  r: f32,        // plate radius, voxels
+  halfT: f32,    // half-thickness, voxels
+}
+@group(0) @binding(0) var<uniform> T: TS;
+@group(0) @binding(1) var grainRW: texture_storage_3d<r32uint, read_write>;
+
+@compute @workgroup_size(4, 4, 4)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  let n = u32(T.seed.w);
+  if (gid.x >= n || gid.y >= n || gid.z >= n) { return; }
+  let d = vec3f(gid) + 0.5 - T.seed.xyz;
+  if (abs(dot(d, T.nrm.xyz)) > T.halfT || dot(d, d) > T.r * T.r) { return; }
+  let c = vec3i(gid);
+  if (textureLoad(grainRW, c).r == T.pid) {
+    textureStore(grainRW, c, vec4u(T.tid, 0u, 0u, 0u));
+  }
 }
 `;
 

@@ -1245,7 +1245,43 @@ exponent over the reachable band, not a claimed asymptotic Potts exponent.
    wall-anchored window, 1.8 % measured spread) rather than importing the loosening
    unearned.
 
-- [ ] **H3** — annealing twins (Σ3 on migrating boundaries, 3D, low-SFE cubic only)
+- [x] **H3** — annealing twins. The DATA first: `sfe` landed with sources on the four cubic
+      FCC identities (Al 166 / Ni 128 / Cu 78 — Murr 1975 compilation; Co ≈ 20 — the Co–Ni/
+      Co–Cr low-SFE literature) and `twinNote` on the two cubic non-FCC ones (steel: δ-ferrite
+      is BCC and annealing twins are an austenite phenomenon; SCN: BCC plastic crystal), so
+      `canTreat("twins")` now runs the real matrix — Cu and Co twin, Al and Ni refuse with
+      their numbers printed, steel and SCN refuse structurally, HCP refuses before SFE is
+      consulted (`HT-TWIN-MATRIX`, browser-free). The PHYSICS: a Σ3 energy cusp in ANNEAL3 at
+      the measured copper ratio (coherent ≈ 24 / general ≈ 625 mJ/m² → `SIGMA3_COST` 0.04),
+      a Σ3 MOBILITY gate (`SIGMA3_MOBILITY` 0.02 — coherent interfaces cannot migrate by
+      single-atom shuffles, which is why twins survive recrystallization), and nucleation as
+      **plate events** (`Sim3D.twinEvent`): a thin disc of a fresh id in exact Σ3 registry,
+      stamped on a PROBED boundary site into a CPU-known parent, its normal the parent's own
+      lab ⟨111⟩ (the coherent habit plane IS the rotation axis's plane), via a read_write
+      r32uint storage texture so no ping-pong parity is touched. The host budgets events
+      (~0.8/grain, id-range-bounded, 24 chunks max) and the card reports twins spawned or the
+      per-material refusal — in the volume only, where the question arises. Gates:
+      `HT-TWIN-SIGMA3` (38 plates → 26 survive interleaved annealing, 25/26 exact Σ3 against
+      their real volume adjacency, median 107 vox — visible — and 22 alive after 150 more
+      sweeps) + the aluminium arm in HT3-PANEL (allocator frozen, the SFE sentence on the
+      card) + `GG3-KMC` re-measured at 1.049 with all the cusp/mobility code live.
+
+### Postmortem — two dead spawn mechanisms, and the measurement that named the barrier
+
+The plan's growth-accident spawn — per-flip, single-cell, in-pass, the V3 claim idiom — was
+built exactly as designed and measured dead: **3 of 512 spawned twins survived 300 sweeps and
+none survived 450.** The first diagnosis (Σ3 boundaries need low MOBILITY as well as low
+energy, which is true physics) helped by 5× and was still dead: 15/493, then 29/520 after
+setting the cusp to the physical 0.04. The real killer was geometric: a cell adopting a
+1-voxel twin pays ~12 neighbours of Σ3 energy where adopting the parent pays ~one — an
+artificial nucleation barrier that no cusp value removes, because a {111} stacking event is
+**sub-grid** for a per-cell Potts flip. Real twins are born as plates; mesoscale models in the
+literature insert them. So nucleation moved out of the pass into `twinEvent` — site probed,
+parent measured, crystallography exact, geometry inserted — and everything after birth stays
+the pass's physics. The division is stated in the source and will be stated on the science
+page: the plate is the one inserted thing, for the same reason the 2D solver does not claim
+to resolve capillary-length nucleation.
+
 - [ ] **H4** — homogenization (solute diffusion at frozen φ)
 - [ ] **H5** — oxidation and decarburization
 - [ ] **H6** — Hall–Petch and the report-card verdict

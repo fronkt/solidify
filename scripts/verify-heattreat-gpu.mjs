@@ -29,7 +29,10 @@
 // MC3-RNG-DECORRELATION / GG3-EXPONENT / GG3-KMC / GG3-STAGNATION measure the
 // 26-neighbour 8-colour pass and its own (M_MODEL_3D, K_MC_3D) pair, and
 // HT3-PANEL drives a treatment end-to-end at 128³ — where the domain-limit
-// refusal is the COMMON case, and is asserted as such.
+// refusal is the COMMON case, and is asserted as such. H3 adds
+// HT-TWIN-SIGMA3: spawned annealing twins must be exact Σ3 crystallography
+// against their real neighbours and must survive further annealing (the
+// cusp), while HT3-PANEL's aluminium run must not move the twin allocator.
 //
 //   node scripts/verify-heattreat-gpu.mjs [outDir] [port]
 import puppeteer from "puppeteer-core";
@@ -719,11 +722,135 @@ if (!cast3 || cast3.grains < 100) { console.log("3D cast produced too few grains
 }
 
 // ---------------------------------------------------------------------------
+// HT-TWIN-SIGMA3 — annealing twins are real crystallography or they are noise.
+//
+// Copper cast, plate-nucleation events interleaved with sweeps (the
+// annealTwins shape): the allocator must move by exactly the stamped count,
+// every surviving twin must sit in exact Σ3 registry with at least one of its
+// neighbours — 60° about a ⟨111⟩ axis, checked CPU-side from the refreshed
+// quaternion mirror against the actual adjacency in the grain volume — the
+// survivors must be metallographically visible plates rather than single-cell
+// debris, and they must SURVIVE further annealing rather than be eaten at the
+// general-boundary rate (the cusp + Σ3-mobility physics, which two dead
+// in-pass spawn mechanisms taught this file the hard way). (The zero-twin arm
+// for aluminium lives in HT3-PANEL below, where canTreat is what blocks it.)
+{
+  const out = await page.evaluate(async () => {
+    const S = window.__solidify;
+    S.app.setMaterial("cu");
+    await window.__ht3.cast3(1500, 0);
+    const s3 = S.sim3d();
+    const ctr0 = await s3.readTwinCtr();
+    // the annealTwins shape: plate events stamped before each sweep chunk, so
+    // every plate faces annealing — survival is the cusp+mobility physics
+    let spawned = 0, noSite = 0;
+    for (let round = 0; round < 6; round++) {
+      for (let e = 0; e < 8; e++) {
+        const r = await s3.twinEvent();
+        if (r === 1) spawned++;
+        else if (r === 0) noSite++;
+        else break;
+      }
+      await s3.anneal(50);
+    }
+    const ctr1 = await s3.readTwinCtr();
+
+    const q = s3.quats;
+    const n = s3.n;
+    const vol = await s3.readGrainVolume();
+    const isTwin = id => id > ctr1 && id <= ctr0;
+
+    // survivors and their adjacent grains, one linear pass over the volume
+    const adj = new Map();   // twin id -> Set of neighbour ids
+    const touch = (a, b) => {
+      if (isTwin(a) && b !== 0 && b !== 4095 && b !== a) {
+        if (!adj.has(a)) adj.set(a, new Set());
+        adj.get(a).add(b);
+      }
+    };
+    for (let z = 0; z < n; z++)
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n - 1; x++) {
+          const i = (z * n + y) * n + x;
+          const a = vol[i], b = vol[i + 1];
+          if (a !== b) { touch(a, b); touch(b, a); }
+        }
+
+    const qmul = (a, b) => [
+      a[3] * b[0] + b[3] * a[0] + (a[1] * b[2] - a[2] * b[1]),
+      a[3] * b[1] + b[3] * a[1] + (a[2] * b[0] - a[0] * b[2]),
+      a[3] * b[2] + b[3] * a[2] + (a[0] * b[1] - a[1] * b[0]),
+      a[3] * b[3] - (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]),
+    ];
+    const qrotInv = (Q, v) => {
+      const c = [-Q[0], -Q[1], -Q[2]];
+      const t = [2 * (c[1] * v[2] - c[2] * v[1]), 2 * (c[2] * v[0] - c[0] * v[2]), 2 * (c[0] * v[1] - c[1] * v[0])];
+      return [
+        v[0] + Q[3] * t[0] + (c[1] * t[2] - c[2] * t[1]),
+        v[1] + Q[3] * t[1] + (c[2] * t[0] - c[0] * t[2]),
+        v[2] + Q[3] * t[2] + (c[0] * t[1] - c[1] * t[0]),
+      ];
+    };
+    const sigma3 = (idA, idB) => {
+      const qa = Array.from(q.slice(idA * 4, idA * 4 + 4));
+      const qb = Array.from(q.slice(idB * 4, idB * 4 + 4));
+      const qr = qmul(qa, [-qb[0], -qb[1], -qb[2], qb[3]]);
+      const ang = 2 * Math.acos(Math.min(1, Math.abs(qr[3]))) * 180 / Math.PI;
+      if (Math.abs(ang - 60) > 2) return false;
+      const len = Math.hypot(qr[0], qr[1], qr[2]);
+      if (len < 1e-6) return false;
+      const ax = qrotInv(qb, [qr[0] / len, qr[1] / len, qr[2] / len]).map(Math.abs);
+      return Math.min(...ax) > 0.5;
+    };
+
+    let checked = 0, withSigma3 = 0;
+    for (const [tid, neigh] of adj) {
+      if (checked >= 40) break;
+      checked++;
+      if ([...neigh].some(nb => sigma3(tid, nb))) withSigma3++;
+    }
+    const survivors0 = adj.size;
+    // are the survivors metallographically VISIBLE, or single-cell debris?
+    const voxOf = new Map();
+    for (let i = 0; i < vol.length; i++)
+      if (isTwin(vol[i])) voxOf.set(vol[i], (voxOf.get(vol[i]) ?? 0) + 1);
+    const sizes = [...voxOf.values()].sort((a, b) => b - a);
+    const medianVox = sizes.length ? sizes[Math.floor(sizes.length / 2)] : 0;
+
+    // the cusp+mobility payoff: more annealing, no fresh plates — the twins
+    // must persist rather than evaporate at the general-boundary rate
+    await s3.anneal(150);
+    const vol2 = await s3.readGrainVolume();
+    const alive = new Set();
+    for (let i = 0; i < vol2.length; i++) if (isTwin(vol2[i])) alive.add(vol2[i]);
+
+    return {
+      ctr0, ctr1, spawned, noSite, survivors0, checked, withSigma3,
+      medianVox, biggestVox: sizes[0] ?? 0, survivorsAfter: alive.size,
+    };
+  });
+  // Rails, not knife edges (the GG-KMC lesson): first run measured 38 spawned
+  // / 26 survivors (0.68) / 22 after more annealing (0.58) / median 107 vox /
+  // sigma3Frac 0.962 — each bound sits at roughly half the measured value, far
+  // above what a dead mechanism produces (the single-cell spawn measured
+  // 3/512 ≈ 0.006 survival, and random misorientations give frac ≈ 0).
+  const frac = out.checked > 0 ? out.withSigma3 / out.checked : 0;
+  const ok = out.spawned >= 20 && out.spawned <= 60
+    && out.survivors0 >= out.spawned * 0.4
+    && out.checked >= 10 && frac >= 0.85
+    && out.medianVox >= 25
+    && out.survivorsAfter >= out.spawned * 0.25;
+  check("HT-TWIN-SIGMA3", ok, { ...out, sigma3Frac: +frac.toFixed(3) });
+}
+
+// ---------------------------------------------------------------------------
 // HT3-PANEL — the panel in the volume, driven through the DOM. Two things are
 // specific to 3D and both are asserted: the DOMAIN-LIMIT refusal is the common
 // case (a 12 h anneal legal on the 500 µm 2D specimen is refused on the 125 µm
 // volume, with the law's analytic answer still printed), and a modest schedule
 // still runs end-to-end with the census landing near the law endpoint.
+// Since H3, the report card must also carry the aluminium twin refusal — the
+// SFE sentence — and the allocator must not have moved during an Al treatment.
 {
   const out = await page.evaluate(async () => {
     const S = window.__solidify;
@@ -758,6 +885,7 @@ if (!cast3 || cast3.grains < 100) { console.log("3D cast produced too few grains
     const dPred = parseFloat((planNote.match(/→\s*([\d.]+)\s*µm/) ?? [])[1] ?? "NaN");
 
     const before = await window.__ht3.stats();
+    const twinCtrBefore = await S.sim3d().readTwinCtr();
     btn.click();
     for (let i = 0; i < 100 && !S.heat.busy; i++) await new Promise(r => setTimeout(r, 50));
     const busyDuring = S.heat.busy;
@@ -766,6 +894,7 @@ if (!cast3 || cast3.grains < 100) { console.log("3D cast produced too few grains
     for (let i = 0; i < 1200 && S.heat.busy; i++) await new Promise(r => setTimeout(r, 100));
     const stillBusy = S.heat.busy;
     const after = await window.__ht3.stats();
+    const twinCtrAfter = await S.sim3d().readTwinCtr();
     const report = document.getElementById("htReport").textContent;
     S.heat.close();
 
@@ -776,9 +905,10 @@ if (!cast3 || cast3.grains < 100) { console.log("3D cast produced too few grains
       grainsBefore: before.grainCount, grainsAfter: after.grainCount,
       dBefore: +dOf(before).toFixed(1), dAfter: +dOf(after).toFixed(1), dPred,
       ratioToLaw: +(dOf(after) / dPred).toFixed(3),
-      // 320, not 2D's 220 — the volume's ASTM-n/a note is longer and "law
-      // endpoint" must survive the slice for the assertion below to see it
-      report: report.replace(/\s+/g, " ").slice(0, 320),
+      twinCtrBefore, twinCtrAfter,
+      // 520: the volume's ASTM-n/a note AND the H3 twin-refusal sentence must
+      // both survive the slice for the assertions below to see them
+      report: report.replace(/\s+/g, " ").slice(0, 520),
     };
   });
   const ok = out.opened && out.armed
@@ -787,6 +917,10 @@ if (!cast3 || cast3.grains < 100) { console.log("3D cast produced too few grains
     && out.busyDuring && !out.runDuring && !out.stillBusy
     && out.grainsAfter < out.grainsBefore * 0.8
     && out.ratioToLaw > 0.65 && out.ratioToLaw < 1.35
+    // the aluminium arm of HT-TWIN-SIGMA3: canTreat blocks twinning (the card
+    // says why — the SFE sentence) and the allocator must not have moved
+    && out.twinCtrBefore === out.twinCtrAfter
+    && /stacking-fault/.test(out.report)
     && /before/.test(out.report) && /after/.test(out.report) && /law endpoint/.test(out.report);
   check("HT3-PANEL", ok, out);
 }

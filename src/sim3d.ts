@@ -5,7 +5,7 @@
 
 import {
   FLUX3D_WGSL, update3dWgsl, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL, STEREO3D_WGSL,
-  LINE3D_WGSL, HTMASK3_WGSL, ANNEAL3_WGSL, HT_COLOURS_3D,
+  LINE3D_WGSL, HTMASK3_WGSL, ANNEAL3_WGSL, TWINSTAMP3_WGSL, HT_COLOURS_3D,
   MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
 } from "./shaders3d";
 import { shaderModule, H2U, HT_STRIDE, HT_KT_DEFAULT } from "./shaders";
@@ -188,6 +188,9 @@ export class Sim3D {
   private htMaskBG: GPUBindGroup[] = [];
   private annealBG: GPUBindGroup[][] = [];
   private htData = new ArrayBuffer(HT_STRIDE * HT_COLOURS_3D);
+  private twinStampPipe: GPUComputePipeline | null = null;
+  private twinStampBG: GPUBindGroup[] = [];
+  private tsBuf: GPUBuffer | null = null;
 
   private pendingSeeds: Seed3[] = [];
   private pendingQuench = 0;
@@ -262,7 +265,9 @@ export class Sim3D {
     this.paramBuf = d.createBuffer({ size: P3.BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.quatBuf = d.createBuffer({ size: MAX_GRAINS3 * 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
     this.quatStaging = d.createBuffer({ size: MAX_GRAINS3 * 16, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
-    this.twinCtrBuf = d.createBuffer({ size: 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    // COPY_SRC: the heat-treat panel reads the counter to budget annealing-twin
+    // spawns from the remaining id range and to report saturation honestly
+    this.twinCtrBuf = d.createBuffer({ size: 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
     this.seedBuf = d.createBuffer({ size: MAX_SEEDS3 * SEED3_STRIDE * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     const statsSize = (8 + MAX_GRAINS3) * 4;
     this.statsBuf = d.createBuffer({ size: statsSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
@@ -525,6 +530,7 @@ export class Sim3D {
     this.lineStaging?.destroy();
     this.htMaskTex?.destroy();
     this.htBuf?.destroy();
+    this.tsBuf?.destroy();
   }
 
   /** per-grain quaternions (CPU mirror) — read-only, for the IPF panel */
@@ -667,11 +673,13 @@ export class Sim3D {
   }
 
   /**
-   * Σ3 coherent twin: two half-offset seeds, the second rotated 60° about one
-   * of the FIRST grain's ⟨111⟩ axes — real cubic twin crystallography.
+   * Σ3 partner of q1: 60° about a random ⟨111⟩ of q1's lattice, returned with
+   * the lab-frame axis — which is also the coherent twin PLANE normal, since a
+   * Σ3's {111} habit plane is normal to its rotation axis. Shared by the
+   * seeded twin pair and the annealing-twin plate (twinEvent).
    */
-  addTwinSeed3D(x: number, y: number, z: number, r = 4) {
-    const q1 = Sim3D.randomQuat();
+  private static sigma3Of(q1: [number, number, number, number]):
+    { q2: [number, number, number, number]; axLab: [number, number, number] } {
     const s = 1 / Math.sqrt(3);
     const axC = [
       (Math.random() < 0.5 ? -1 : 1) * s,
@@ -682,6 +690,17 @@ export class Sim3D {
     const half = Math.PI / 6;   // 60° rotation
     const q60 = [Math.sin(half) * axLab[0], Math.sin(half) * axLab[1], Math.sin(half) * axLab[2], Math.cos(half)];
     const q2 = Sim3D.qmul(q60, q1);
+    const L = Math.hypot(q2[0], q2[1], q2[2], q2[3]);
+    return { q2: [q2[0] / L, q2[1] / L, q2[2] / L, q2[3] / L], axLab };
+  }
+
+  /**
+   * Σ3 coherent twin: two half-offset seeds, the second rotated 60° about one
+   * of the FIRST grain's ⟨111⟩ axes — real cubic twin crystallography.
+   */
+  addTwinSeed3D(x: number, y: number, z: number, r = 4) {
+    const q1 = Sim3D.randomQuat();
+    const { q2 } = Sim3D.sigma3Of(q1);
     const th = Math.random() * Math.PI * 2;
     const ph = Math.acos(2 * Math.random() - 1);
     const off = r * 0.45;
@@ -846,15 +865,28 @@ export class Sim3D {
             { binding: 1, resource: this.grainTex[dir].createView() },
             { binding: 2, resource: this.htMaskTex.createView() },
             { binding: 3, resource: this.grainTex[1 - dir].createView() },
+            { binding: 4, resource: { buffer: this.quatBuf } },
           ],
         });
       }
+    }
+    // twin-plate nucleation (H3): in-place read_write stamp, one bind per dir
+    this.tsBuf = d.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.twinStampPipe = mk(TWINSTAMP3_WGSL, "twinstamp3");
+    for (const dir of [0, 1]) {
+      this.twinStampBG[dir] = d.createBindGroup({
+        layout: this.twinStampPipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.tsBuf } },
+          { binding: 1, resource: this.grainTex[dir].createView() },
+        ],
+      });
     }
     return true;
   }
 
   /** write one HT uniform struct per colour, sharing a per-sweep RNG salt */
-  private writeHt(salt: number, kT: number, twinProb = 0) {
+  private writeHt(salt: number, kT: number) {
     const u = new Uint32Array(this.htData);
     const f = new Float32Array(this.htData);
     for (let c = 0; c < HT_COLOURS_3D; c++) {
@@ -864,7 +896,7 @@ export class Sim3D {
       u[b + H2U.salt] = salt >>> 0;
       f[b + H2U.kT] = kT;
       u[b + H2U.flags] = 1;
-      f[b + H2U.twinProb] = twinProb;
+      u[b + H2U.idFloor] = this.nextId;
     }
     this.device.queue.writeBuffer(this.htBuf!, 0, this.htData);
   }
@@ -965,6 +997,109 @@ export class Sim3D {
     for (let r = 0; r < n * n; r++)
       out.set(raw.subarray(r * rowU32, r * rowU32 + n), r * n);
     return out;
+  }
+
+  /**
+   * Current value of the GPU twin-id allocator. Ids count DOWN from
+   * MAX_GRAINS3−2, so (before − after) across a treatment is the number of
+   * annealing twins spawned, and a value at/under `nextId` means the range is
+   * exhausted — the card must report delivered twinning, not requested.
+   */
+  async readTwinCtr(): Promise<number | null> {
+    const buf = this.device.createBuffer({ size: 4, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    const enc = this.device.createCommandEncoder();
+    enc.copyBufferToBuffer(this.twinCtrBuf, 0, buf, 0, 4);
+    this.device.queue.submit([enc.finish()]);
+    try {
+      await buf.mapAsync(GPUMapMode.READ);
+    } catch {
+      buf.destroy();
+      return null;
+    }
+    const v = new Uint32Array(buf.getMappedRange())[0];
+    buf.unmap();
+    buf.destroy();
+    return v;
+  }
+
+  /** one voxel's grain id (256 B staging — the copy-row alignment minimum) */
+  async readGrainAt(x: number, y: number, z: number): Promise<number | null> {
+    const buf = this.device.createBuffer({ size: 256, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    const enc = this.device.createCommandEncoder();
+    enc.copyTextureToBuffer(
+      { texture: this.grainTex[this.dir], origin: [Math.floor(x), Math.floor(y), Math.floor(z)] },
+      { buffer: buf, bytesPerRow: 256 },
+      [1, 1, 1]);
+    this.device.queue.submit([enc.finish()]);
+    try {
+      await buf.mapAsync(GPUMapMode.READ);
+    } catch {
+      buf.destroy();
+      return null;
+    }
+    const v = new Uint32Array(buf.getMappedRange())[0];
+    buf.unmap();
+    buf.destroy();
+    return v;
+  }
+
+  /**
+   * One annealing-twin nucleation event: probe for a migrating boundary, and
+   * stamp a thin Σ3 plate of a fresh id into the parent grain there.
+   *
+   * The division of labour, earned by two dead in-pass mechanisms (see the H3
+   * postmortem): nucleation-scale physics — the plate — is inserted, because a
+   * {111} stacking event is sub-grid for a per-cell Potts flip; everything
+   * after birth (extension, interaction, survival, being swallowed) belongs to
+   * the anneal pass's cusp + mobility physics. The site is a real boundary
+   * (probed, up to 6 attempts), the parent is a CPU-seeded grain so the
+   * quaternion mirror is exact, the twin id comes from the same counter the
+   * GPU allocator uses (queue-ordered, so the two never race), and the plate
+   * normal is the parent's own lab-frame ⟨111⟩ — the coherent habit plane.
+   *
+   * Returns 1 (plate stamped) · 0 (no boundary site found this round) ·
+   * −1 (id range exhausted — the caller must report saturation, not silence).
+   */
+  async twinEvent(rPlate = 7, halfT = 1.2): Promise<1 | 0 | -1> {
+    if (!(await this.ensureHt())) return 0;
+    const n = this.n;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const x = 2 + Math.floor(Math.random() * (n - 4));
+      const y = 2 + Math.floor(Math.random() * (n - 4));
+      const z = 2 + Math.floor(Math.random() * (n - 4));
+      const pid = await this.readGrainAt(x, y, z);
+      // the parent must be a CPU-seeded cast grain: its mirror quat is exact,
+      // and skipping GPU-born ids also keeps plates off other twins (no Σ9
+      // chains from a stale parent orientation)
+      if (pid == null || pid === 0 || pid >= this.nextId) continue;
+      const nb = await this.readGrainAt(Math.min(n - 1, x + 2), y, z);
+      if (nb == null || nb === pid || nb === 0 || nb === PORE_ID) continue;
+      const ctr = await this.readTwinCtr();
+      if (ctr == null) return 0;
+      if (ctr <= this.nextId + 2) return -1;
+      const tid = ctr;
+      this.device.queue.writeBuffer(this.twinCtrBuf, 0, new Uint32Array([ctr - 1]));
+      const q1 = Array.from(this.quatCPU.subarray(pid * 4, pid * 4 + 4)) as [number, number, number, number];
+      const { q2, axLab } = Sim3D.sigma3Of(q1);
+      this.quatCPU.set(q2, tid * 4);
+      this.device.queue.writeBuffer(this.quatBuf, tid * 16, this.quatCPU, tid * 4, 4);
+      const ts = new ArrayBuffer(48);
+      const f = new Float32Array(ts);
+      const u = new Uint32Array(ts);
+      f[0] = x + 0.5; f[1] = y + 0.5; f[2] = z + 0.5; f[3] = n;
+      f[4] = axLab[0]; f[5] = axLab[1]; f[6] = axLab[2]; f[7] = 0;
+      u[8] = tid; u[9] = pid; f[10] = rPlate; f[11] = halfT;
+      this.device.queue.writeBuffer(this.tsBuf!, 0, ts);
+      const enc = this.device.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(this.twinStampPipe!);
+      pass.setBindGroup(0, this.twinStampBG[this.dir]);
+      this.dispatch(pass);
+      pass.end();
+      this.device.queue.submit([enc.finish()]);
+      return 1;
+    }
+    return 0;
   }
 
   /**
