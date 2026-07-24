@@ -609,8 +609,13 @@ export class Simulation {
    *
    * Nothing here reads or writes φ, T, c or age. That is not an optimisation —
    * a solid-state treatment that moved the phase field would not be one.
+   *
+   * `onProgress` returning `false` aborts at the next drain (every 32 sweeps)
+   * and the call resolves to the sweeps actually delivered — the abort path
+   * the panel needs, without a second entry point that could drift from this
+   * one's ping-pong bookkeeping.
    */
-  async anneal(sweeps: number, kT = HT_KT_DEFAULT, onProgress?: (done: number) => void): Promise<number> {
+  async anneal(sweeps: number, kT = HT_KT_DEFAULT, onProgress?: (done: number) => boolean | void): Promise<number> {
     if (HT_COLOURS_2D % 2 !== 0) throw new Error("HT_COLOURS_2D must be even — see anneal()");
     const total = Math.max(0, Math.floor(sweeps));
     if (total === 0) return 0;
@@ -632,7 +637,7 @@ export class Simulation {
       // drain periodically: keeps the queue bounded and gives the panel a pulse
       if ((s & 31) === 31) {
         await this.device.queue.onSubmittedWorkDone();
-        onProgress?.(s + 1);
+        if (onProgress?.(s + 1) === false) return s + 1;
       }
     }
     await this.device.queue.onSubmittedWorkDone();

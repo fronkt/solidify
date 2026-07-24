@@ -32,6 +32,8 @@ export interface UIHost extends AppControl {
   getNucFired(): number;
   startLab(): void;
   isLabOpen(): boolean;
+  /** open the HEAT TREAT panel — the second clock (2D until H2b) */
+  startHeat(): void;
   getSubsteps(): number;
   isRunning(): boolean;
   isEngineering(): boolean;
@@ -400,13 +402,18 @@ export class UI {
     // ---- modes
     const modes = this.section(rail, "MODES");
     const mrow0 = this.btnRow(modes);
-    // the lab runs in both dimensions; the ML modes are 2D-only
+    // the lab runs in both dimensions; the ML modes and (until H2b lands the
+    // volume's Potts pass) the heat-treat panel are 2D-only
     this.button(mrow0, "⚗ lab mode", () => { host.startLab(); this.sync(); });
+    const heatBtn = this.button(mrow0, "♨ heat treat", () => { host.startHeat(); this.sync(); });
+    heatBtn.title = "solid-state heat treatment on the casting on screen — real hours on the second clock. "
+      + "Grain growth runs on the material's own sourced Arrhenius law.";
+    this.only2d.push(heatBtn);
     this.only2d.push(this.button(mrow0, "engineer it (optimizer)", () => { host.startOptimizer(); this.sync(); }));
     this.only2d.push(this.button(mrow0, "⚔ challenge", () => host.startChallenge()));
     const modeNote = document.createElement("div");
     modeNote.className = "matnote";
-    modeNote.textContent = "LAB sets the experiment up first — charge, mould, superheat, cooling programme — then pours it and reports the cooling curve and the microstructure it produced.";
+    modeNote.textContent = "LAB sets the experiment up first — charge, mould, superheat, cooling programme — then pours it and reports the cooling curve and the microstructure it produced. HEAT TREAT takes whatever has already frozen and soaks it on a real-seconds clock.";
     modes.append(modeNote);
 
     // ---- melt / process

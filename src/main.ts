@@ -18,6 +18,7 @@ import { Analyze } from "./analyze";
 import { Analyze3D } from "./analyze3d";
 import { Nucleation } from "./nucleation";
 import { Lab, type LabHost, type LabSetup } from "./lab";
+import { HeatPanel, type HeatHost } from "./heatpanel";
 import { Units, scaleOf, DEFAULT_UM_PER_CELL } from "./units";
 import { SOLVER } from "./shaders";
 import { calibrate, defaultLambda, A_T, type QuantSetup } from "./quant";
@@ -322,9 +323,14 @@ async function boot() {
     N.restage(three ? sim3d!.n : sim.n, three);
   };
 
+  // Declared before `app` so its guards can read `heat?.busy` without a TDZ
+  // (the v2.0 boot-order lesson); constructed after the host adapters below.
+  let heat: HeatPanel | null = null;
+
   const app: UIHost & OptHost = {
     // ---- AppControl (scenes / tour)
     clearMelt(u) {
+      if (heat?.busy) return;   // a treatment owns the field until it finishes
       undercool = u;
       recipeSchedule = null;   // a new scene retires any applied recipe
       if (mode === "3d" && sim3d) {
@@ -392,6 +398,10 @@ async function boot() {
     },
     // while the optimizer owns the stage, the transport drives IT, not the melt
     setRun(on) {
+      // the solver-paused interlock: a heat treatment freezes φ by definition,
+      // so nothing — space bar, transport button, a tour scene — may restart
+      // the solidification loop until the sweeps are spent
+      if (on && heat?.busy) return;
       if (opt.active) opt.setRunning(on);
       else if (mode === "3d") running3d = on;
       else running = on;
@@ -402,10 +412,14 @@ async function boot() {
     // mode that never advances. The buttons are already only2d and the tour
     // forces 2D first, but a share link, the console or a future caller can
     // reach these — guard at the host rather than rely on the UI.
-    startOptimizer() { if (mode === "2d" && !challenge.active && !lab.active) opt.start(sim.n); },
-    startChallenge() { if (mode === "2d" && !opt.active && !lab.active) challenge.start(); },
-    startLab() { if (!opt.active && !challenge.active) lab.open(); },
+    startOptimizer() { if (mode === "2d" && !challenge.active && !lab.active && !heat?.active) opt.start(sim.n); },
+    startChallenge() { if (mode === "2d" && !opt.active && !lab.active && !heat?.active) challenge.start(); },
+    // lab and heat treat share the bottom-centre panel slot — one at a time
+    startLab() { if (!opt.active && !challenge.active && !heat?.active) lab.open(); },
     isLabOpen: () => lab.active,
+    // 2D only until H2b lands the volume's Potts pass — the button rides the
+    // rail's only2d gating, the same mechanism the ML modes use
+    startHeat() { if (mode === "2d" && !opt.active && !challenge.active && !lab.active) heat?.open(); },
     syncUI() { ui.sync(); },
     reveal(target) {
       if (target.startsWith("sec:")) ui.reveal(target.slice(4));
@@ -495,7 +509,7 @@ async function boot() {
       ui.sync();
     },
     getGrid: () => sim.n,
-    setGrid(n) { if (n !== sim.n && !opt.active && !challenge.active) app.swapSim(n); },
+    setGrid(n) { if (n !== sim.n && !opt.active && !challenge.active && !heat?.busy) app.swapSim(n); },
     getView: () => view,
     // a uniform volumetric heat source held while the button is down: it warms
     // the melt and remelts what has frozen. Named `anneal` until v6.0, which was
@@ -506,6 +520,7 @@ async function boot() {
     },
     quench() { if (mode === "3d" && sim3d) sim3d.quench(0.25); else sim.quench(0.25); },
     resetArmed() {
+      if (heat?.busy) return;  // a treatment owns the field until it finishes
       if (mode === "3d" && sim3d) {
         sim3d.reset(1 - undercool);
         lastStats3 = null;
@@ -555,6 +570,9 @@ async function boot() {
     // returns the enter promise so the tour can await the switch before staging
     setMode(m) {
       if (m === mode) return;
+      // the heat panel is 2D-only until H2b — close it rather than leave a
+      // panel whose run button drives a solver that is no longer on stage
+      if (heat?.active) heat.close();
       if (m === "3d") return enter3D();
       exit3D();
     },
@@ -562,7 +580,7 @@ async function boot() {
     // a running experiment owns the solver — switching dimension mid-pour would
     // silently discard the run the report card is about to describe
     canSwitchMode: () => caps3d.supported && !opt.active && !challenge.active
-      && !mode3dPending && !lab.running,
+      && !mode3dPending && !lab.running && !heat?.busy,
     // ascending, and always including whatever rung the OOM ladder actually
     // landed on — otherwise a GPU that fell back shows an empty selection
     caps3dSizes: () => {
@@ -832,8 +850,34 @@ async function boot() {
   };
   const lab = new Lab(labHost);
 
+  // ---------------------------------------------------------- HEAT TREAT
+  const heatHost: HeatHost = {
+    getMode: () => mode,
+    materialKey: () => material,
+    materialLabel: () => alloyName,
+    si: () => (MATERIALS[material] ?? MATERIALS.generic).si ?? null,
+    alloyOn: () => sim.params.alloyOn > 0,
+    gridN: () => sim.n,
+    umPerCell: () => umPerCell,
+    // StatsResult carries the Census fields structurally — no adapter needed
+    async measure() {
+      let s: StatsResult | null = null;
+      for (let tries = 0; tries < 40 && !s; tries++) {
+        s = await sim.readStats();
+        if (!s) await sim.device.queue.onSubmittedWorkDone();
+      }
+      return s;
+    },
+    anneal: (sweeps, onProgress) => sim.anneal(sweeps, undefined, onProgress),
+    setRun: on => app.setRun(on),
+    getView: () => view,
+    setView: v => app.setView(v),
+    syncUI: () => ui.sync(),
+  };
+  heat = new HeatPanel(heatHost);
+
   (window as unknown as Record<string, unknown>).__solidify = {
-    app, opt, tour, ui, challenge, composer, analyze, lab,
+    app, opt, tour, ui, challenge, composer, analyze, lab, heat,
     // the composer's chemistry, for headless physics checks that need to set
     // up a named alloy exactly as the UI would
     alloy: (mix: Mix) => deriveAlloy(mix),
@@ -1271,8 +1315,10 @@ async function boot() {
           }
         }
         sim.step(substeps * speedMult);
-      } else {
-        sim.step(0); // stamp queued taps so staging is visible while armed
+      } else if (!heat?.busy) {
+        // stamp queued taps so staging is visible while armed — but never
+        // during a treatment: a stamp writes φ, and solid state means it can't
+        sim.step(0);
       }
       renderer.render(sim, view, t / 1000);
     }
@@ -1307,6 +1353,7 @@ async function boot() {
           }
         }
         challenge.onStats(s);
+        heat?.onCensus(s);
       });
     }
     if (forPanels) {

@@ -25,6 +25,11 @@ const SUITE = [
   ["scripts/verify-tools.mjs"],
   ["scripts/verify-passsplit.mjs", String(PORT)],
   ["scripts/verify-quant.mjs", String(PORT)],
+  // the GPU half of the heat-treatment gates — it re-measures K_MC's drift and
+  // runs the panel end-to-end, so a change to the Potts pass fails the build
+  // rather than quietly shipping a wrong sweep budget (the U0 lesson: a FAIL
+  // that cannot break a build is not a gate)
+  ["scripts/verify-heattreat-gpu.mjs", String(PORT)],
   ["scripts/verify-scale3d.mjs", String(PORT)],
   ["scripts/verify-3d.mjs", String(PORT)],
 ];

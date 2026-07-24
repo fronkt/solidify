@@ -16,6 +16,7 @@
  */
 
 import { PROGRAMS, ProgramRun, type Program } from "./program";
+import { check, range, select } from "./formbits";
 import type { Units } from "./units";
 
 export interface LabHost {
@@ -239,16 +240,16 @@ export class Lab {
     const form = document.createElement("div");
     form.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:6px 16px;margin-bottom:8px;";
     form.append(
-      this.select("atmosphere", ["argon", "vacuum", "air"], this.setup.atmosphere, v => { this.setup.atmosphere = v as LabSetup["atmosphere"]; this.refresh(); }),
-      this.range("inoculant (sites)", 0, 3000, 10, this.setup.inoculant, v => { this.setup.inoculant = v; }),
+      select("atmosphere", ["argon", "vacuum", "air"], this.setup.atmosphere, v => { this.setup.atmosphere = v as LabSetup["atmosphere"]; this.refresh(); }),
+      range("inoculant (sites)", 0, 3000, 10, this.setup.inoculant, v => { this.setup.inoculant = v; }),
       // shown in real units: a superheat is kelvin above the liquidus and a mould
       // sits at a temperature, and neither means anything as a bare 0.12
-      this.range("pour superheat", 0, 0.35, 0.01, this.setup.superheat, v => { this.setup.superheat = v; }, 2,
+      range("pour superheat", 0, 0.35, 0.01, this.setup.superheat, v => { this.setup.superheat = v; }, 2,
         v => u.known ? `${u.kelvin(v).toFixed(0)} K` : v.toFixed(2)),
-      this.range("mould temperature", -0.2, 0.6, 0.02, this.setup.moldT, v => { this.setup.moldT = v; }, 2,
+      range("mould temperature", -0.2, 0.6, 0.02, this.setup.moldT, v => { this.setup.moldT = v; }, 2,
         v => u.known ? `${u.celsius(v).toFixed(0)} °C` : v.toFixed(2)),
-      this.select("cooling programme", ["furnace", "air", "quench", "soak"], this.setup.program, v => { this.setup.program = v; this.refresh(); }),
-      this.moldRow = this.check("mould walls", this.setup.moldWalls, v => { this.setup.moldWalls = v; }),
+      select("cooling programme", ["furnace", "air", "quench", "soak"], this.setup.program, v => { this.setup.program = v; this.refresh(); }),
+      this.moldRow = check("mould walls", this.setup.moldWalls, v => { this.setup.moldWalls = v; }),
     );
 
     const note = document.createElement("div");
@@ -423,59 +424,4 @@ export class Lab {
     ctx.fillText("melt temperature vs time", pad, 12);
   }
 
-  // ------------------------------------------------------------- form bits
-  private field(label: string): [HTMLElement, HTMLElement] {
-    const row = document.createElement("label");
-    row.style.cssText = "display:flex;align-items:center;gap:8px;color:#8891a0;";
-    const l = document.createElement("span");
-    l.textContent = label;
-    l.style.cssText = "flex:0 0 118px;";
-    row.append(l);
-    return [row, row];
-  }
-
-  private range(label: string, min: number, max: number, step: number, val: number,
-    set: (v: number) => void, digits = 0, fmt?: (v: number) => string) {
-    const [row] = this.field(label);
-    const inp = document.createElement("input");
-    inp.type = "range";
-    inp.min = String(min); inp.max = String(max); inp.step = String(step); inp.value = String(val);
-    inp.style.cssText = "flex:1;min-width:60px;";
-    const out = document.createElement("span");
-    const show = (v: number) => (fmt ? fmt(v) : v.toFixed(digits));
-    out.textContent = show(val);
-    out.style.cssText = "flex:0 0 58px;text-align:right;color:#cfd6df;";
-    inp.addEventListener("input", () => {
-      const v = parseFloat(inp.value);
-      out.textContent = show(v);
-      set(v);
-    });
-    row.append(inp, out);
-    return row;
-  }
-
-  private select(label: string, opts: string[], val: string, set: (v: string) => void) {
-    const [row] = this.field(label);
-    const sel = document.createElement("select");
-    sel.style.cssText = "flex:1;background:#12151a;color:#cfd6df;border:1px solid #262b33;border-radius:4px;padding:2px 4px;";
-    for (const o of opts) {
-      const op = document.createElement("option");
-      op.value = o; op.textContent = o;
-      if (o === val) op.selected = true;
-      sel.append(op);
-    }
-    sel.addEventListener("change", () => set(sel.value));
-    row.append(sel);
-    return row;
-  }
-
-  private check(label: string, val: boolean, set: (v: boolean) => void) {
-    const [row] = this.field(label);
-    const inp = document.createElement("input");
-    inp.type = "checkbox";
-    inp.checked = val;
-    inp.addEventListener("change", () => set(inp.checked));
-    row.append(inp);
-    return row;
-  }
 }
