@@ -1129,7 +1129,66 @@ all** (`sim3d`'s mould mask gets away with it by being CPU-written and only samp
 behind a warning filter tuned to one known phrase, so the filter is now loud by default with two
 environmental warnings named and excluded.
 
-- [ ] **H2a (panel)** — the minimal HEAT TREAT panel + solver-paused interlock
+- [x] **H2a (panel)** — `src/heatpanel.ts` + the interlock, opened from MODES (2D via the
+      rail's `only2d` gating until H2b unhides it). `lab.ts`'s four form widgets moved to a
+      shared `src/formbits.ts` per the plan, not copied. The panel owns nothing but the
+      conversation: temperature + hold dials (°C and minutes, material-relative defaults at
+      0.85 T_m), a live prediction line (`integrate → grainAfter → sweepsFor` on every dial
+      move against the casting's own census), run/abort with a per-32-sweep progress pulse,
+      and a report card of measured before/after d̄ + ASTM against the law endpoint — with the
+      standing caveat printed that the trajectory between endpoints is the Potts model's.
+      **Refusals, each with its own sentence**: `canTreat` (abstract material, nothing solid),
+      fewer than 3 grains (no starting size to measure), incipient melting straight off the
+      temperature dial (≥0.97 T_m), and the domain limit — refused *with the analytic answer
+      still printed*, per H1's doctrine. The stress-relief case is announced BEFORE the run
+      ("predicts no measurable grain growth — run it if you want the report card to say so"),
+      and a schedule past the 20 000-sweep budget says it will be truncated, at what fraction,
+      and what the model endpoint of the truncated run is.
+      **The interlock is in the host, not the panel**: `app.setRun` refuses `on` while
+      `heat.busy`, so the space bar, the transport and a tour scene are all caught; `clearMelt`,
+      `resetArmed`, `setGrid`, `canSwitchMode` and the opt/challenge/lab entries are guarded the
+      same way, and the paused frame loop's `step(0)` tap-stamping is gated off during a
+      treatment (a stamp writes φ, and solid state means it can't). Thermal lenses (MELT/FIELD/
+      THERM) are parked to ETCH for the duration — the T field is the as-cast record, not the
+      furnace (risk 10), and ETCH is where boundary migration is visible anyway.
+      **`sim.anneal` gained an abort path instead of a second entry point**: `onProgress`
+      returning `false` stops at the next drain and resolves to the sweeps delivered.
+      Gate: **HT-PANEL** in `verify-heattreat-gpu.mjs`, driven through the DOM the way a user
+      would (dial events, button clicks). End-to-end on a 1 595-grain Al cast, a 12 h/520 °C
+      anneal measured **d̄ 14.0 → 48.6 µm against a law endpoint of 50.4 µm — ratio 0.963** —
+      through schedule → integral → endpoint → sweep budget → Potts pass → census, ASTM G 9.7
+      → 6.1; the interlock and the incipient refusal asserted in the same run. And
+      `verify-heattreat-gpu.mjs` **joined `npm test`** — it re-measures K_MC's drift (0.948 of
+      shipped, tol 15 %) on every suite run, because a gate that no build runs is not a gate
+      (the U0 lesson, which this file had already repeated once).
+
+### Postmortem — joining the suite caught the gate's own flaky assertions, twice in two runs
+
+The first full `npm test` with the GPU gates in it FAILED — not the panel (HT-PANEL passed
+again, ratio 1.003) but **GG-KMC**, whose free-fit exponent band came out [2.65, 3.05] on a
+fifth independent cast, excluding the shipped m = 2.44, while K at the shipped exponent moved
+only 8 % and the fit at the shipped exponent held r² 0.996. The three H2a-solver casts
+(2.38/2.44/2.61, overlapping bands) had made band-containment look like the reproducible
+assertion; casts four and five showed the band is an **r²-window statistic within one cast**,
+and cast-to-cast variance of a 5-point exponent fit exceeds it. Band demoted to a printed
+readout with a wide sanity rail (2.0–3.5); the gate is K-drift ≤ 15 % and r² > 0.99 at the
+shipped exponent.
+
+The rerun then failed **the same check a different way**, and this one was the real find: the
+fit's POINT SET was itself stochastic. Points entered by measured thresholds — grains ≥ 100,
+d ≥ 1.5·d₀ — and this cast landed **102 grains at the 5 200-sweep rung**, one grain-count over
+the floor, so a saturation-shoulder point entered the fit: the exponent bent 2.85 → 3.61 and K
+at the shipped m fell 17 %, a FAIL produced entirely by which points got fitted. A threshold
+keyed to a stochastic measurement is a knife edge; three runs cut it three ways (94, 94, 102
+grains at the same rung). The window is now **fixed in sweeps, [300, 3200]** — the same regime
+fitted every run, its bounds chosen once from the measured ladder shape and recorded in the
+test — while the outer rungs still run and print as the empirical saturation demonstration.
+Same family as the estimator lessons above, one level up: **first the uncertainty statistic,
+then the sample-selection rule, were themselves unmeasured estimators.** Meanwhile HT-PANEL's
+endpoint check — an integral over the whole trajectory rather than a differentiated fit — came
+in at 0.963 / 1.003 / 0.983 of the law across three runs. And this is the U0 doctrine paying
+out immediately: a gate that is not in the suite does not get the run-count that finds its own
+knife edges.
 - [ ] **H3** — annealing twins (Σ3 on migrating boundaries, 3D, low-SFE cubic only)
 - [ ] **H4** — homogenization (solute diffusion at frozen φ)
 - [ ] **H5** — oxidation and decarburization
