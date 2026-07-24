@@ -20,6 +20,7 @@ import { check, range, select } from "./formbits";
 import type { Units } from "./units";
 import { analyseCurve, retain, type ThermalAnalysis } from "./thermal";
 import { fadeFactor } from "./nucleation";
+import { hydrogenPorosity, type PorosityResult } from "./porosity";
 
 export interface LabHost {
   getMode(): "2d" | "3d";
@@ -100,6 +101,8 @@ export class Lab {
   /** grain-refiner fade applied at the last pour, and the sites it left active */
   private fadeF = 1;
   private effInoc = 0;
+  /** hydrogen porosity computed at the last pour */
+  private porosity: PorosityResult | null = null;
   private fingerprint = "";
   private lastFs = 0;
   private plateau = 0;
@@ -151,9 +154,13 @@ export class Lab {
     // walls extra (potent, shallow) nucleation sites and they raise the
     // porosity — they do NOT make the bulk liquid easier to nucleate.
     this.host.setFilmSites(this.filmFraction);
+    // gas porosity from dissolved hydrogen, via Sievert's law — the atmosphere
+    // sets the hydrogen the melt picks up, the liquid→solid solubility drop sets
+    // what is rejected on freezing (porosity.ts). Replaces a flat +0.1 air bias.
     if (this.porePrev === null) this.porePrev = p.pPore ?? null;
+    this.porosity = hydrogenPorosity(this.host.units().props, this.setup.atmosphere);
     if (this.porePrev !== null) {
-      p.pPore = Math.min(1, this.porePrev + (this.setup.atmosphere === "air" ? 0.1 : 0));
+      p.pPore = Math.min(1, this.porePrev + this.porosity.pPore);
     }
     // grain-refiner fade: a charge held above its liquidus loses effective
     // nucleant sites to settling and agglomeration before it is even poured
@@ -333,6 +340,22 @@ export class Lab {
       (this.intervened ? " · <span style=\"color:#ffb454\">operator intervened</span>" : "");
   }
 
+  /** the report-card line for hydrogen gas porosity — the real chemistry always,
+   *  plus the note that the resulting pore field only appears in the volume */
+  private porosityLine(three: boolean): string {
+    const por = this.porosity;
+    if (!por) return "";
+    if (por.note) return `<div style="color:#8891a0">gas porosity: ${por.note}</div>`;
+    const cav = three
+      ? ""
+      : " <span style=\"color:#6b7280\">— the pore field itself is 3D, so run this in the volume to see it</span>";
+    return `<div>dissolved hydrogen <b style="color:#cfd6df">${por.cLiquid.toFixed(2)}</b> `
+      + `cm³/100 g (Sievert √p, ${this.setup.atmosphere}) → `
+      + `<b style="color:#ffb454">${por.cRejected.toFixed(2)}</b> rejected on freezing`
+      + (por.pPore > 0.005 ? `, pore bias <b style="color:#cfd6df">${por.pPore.toFixed(3)}</b>` : ", below the pore threshold")
+      + cav + `</div>`;
+  }
+
   // ------------------------------------------------------------ report card
   private showCard() {
     this.card?.remove();
@@ -400,6 +423,7 @@ export class Lab {
       `(${this.host.nucMax() > 0 ? ((this.host.nucFired() / this.host.nucMax()) * 100).toFixed(0) : "0"} %)</div>` +
       `<div>final solid fraction <b style="color:#cfd6df">${last ? (last.fs * 100).toFixed(1) : "—"} %</b>` +
       (p.scen === 4 ? " · volume census in the VOLUME · 3D panels" : "") + `</div>` +
+      this.porosityLine(p.scen === 4) +
       (this.intervened
         ? `<div style="color:#ffb454">⚠ the operator changed the conditions while this run was in progress — treat it as a demonstration, not a measurement</div>`
         : `<div style="color:#6b7280">conditions held for the whole run</div>`);

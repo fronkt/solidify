@@ -62,7 +62,8 @@ export const MATERIALS: Record<string, Material> = {
       ggA0: 1.2e-4, ggQ: 142e3, ggN: 2,
       oxA0: 1e-14, oxQ: 120e3,
       s0: 20, kHP: 0.07,
-      source: "Al–4Cu. Solid-state diffusion and the liquidus slope are Cu in Al; Γ and ε₄ are the standard Al–Cu values. Alumina is protective, so the oxidation constant is deliberately tiny — aluminium does not scale.",
+      hL: 0.69, hS: 0.036,
+      source: "Al–4Cu. Solid-state diffusion and the liquidus slope are Cu in Al; Γ and ε₄ are the standard Al–Cu values. Alumina is protective, so the oxidation constant is deliberately tiny — aluminium does not scale. Hydrogen solubility hL/hS are the Ransley–Neufeld values at the melting point (liquid ≈0.69, solid ≈0.036 cm³/100 g at 1 atm) — the ~19× drop on freezing is why aluminium is the classic gas-porosity casting.",
     },
   },
   steel: {

@@ -1272,8 +1272,27 @@ sessions don't mint two different verdicts from the same `hallPetch()`.
       Materials 2022 settling ref added. Verified: `tsc`/build/all four browser-free gates green;
       **live DOM pour** (Al, 1500 sites, 60 min hold) → card reads "21 % survived settling (312
       active at pour)" = `round(1500·fadeFactor(60))`, fade confirmed reaching the site model.
-- [ ] **L2** — hydrogen porosity via Sievert's law: `C = K√p_H2` with real solubility data
-      replaces `lab.ts`'s admitted `+0.1` porosity hack; feeds the existing `pPore` param (no
-      shader change). Materials without H data refuse honestly.
+- [x] **L2** — hydrogen porosity via Sievert's law: the atmosphere→porosity link was a single
+      admitted hack (`p.pPore = porePrev + (air ? 0.1 : 0)`). `src/porosity.ts` (new, pure)
+      replaces it with the mechanism: a melt dissolves hydrogen as C = S·√p, the solubility
+      collapses on freezing (Al liquid holds ~19× the solid), and the rejected difference feeds
+      the **existing** `pPore` field — **no shader change, no new binding**. `materials.ts` si
+      gains `hL`/`hS` for Al (Ransley–Neufeld 0.69/0.036 cm³/100 g at 1 atm, sourced); materials
+      without the data **refuse by name** (steel has an si block but no H data → note, generic has
+      no si → note), exactly the `canTreat` doctrine. Honest split baked in and printed: REAL =
+      the solubilities, the √p dependence, the liquid→solid drop; PROXY = the atmosphere→p_H2
+      ordering (air 1.0 / argon 0.06 / vacuum 0.0) and the rejected→pore-field gain (calibrated so
+      dirty Al lands near the old +0.1 but now ordered by atmosphere and zeroed by a clean one).
+      Report card prints "dissolved hydrogen X cm³/100 g (Sievert √p, {atmo}) → Y rejected → pore
+      bias Z", with a 2D note that the pore field is 3D. Share link needs no change (atmosphere
+      already round-trips). **`scripts/verify-porosity.mjs`** — the fifth CI-runnable gate:
+      `POR-SIEVERT` (C = hL·√p; the air/argon ratio is √(p₁/p₂) not p₁/p₂), `POR-REJECT`
+      ((hL−hS)·√p, >90 % of dissolved for Al), `POR-ORDER` (air>argon>vacuum, vacuum exactly 0,
+      all in [0,1]), `POR-REFUSE` (steel + generic refuse with a note), `POR-KNOWN` (the
+      Ransley–Neufeld numbers as a drift tripwire). Science: dedicated gas-porosity honesty row +
+      atmosphere row updated + Ransley–Neufeld 1948 ref. Verified: `tsc`/build/all five
+      browser-free gates green; **live DOM pours** read air 0.69→0.65→bias 0.122, argon
+      0.17→0.16→0.013, vacuum 0.00→degassed/below threshold — the atmosphere ordering confirmed
+      through the card.
 - [ ] **L4** — Hall–Petch yield + spec pass/fail verdict — **deferred until H6 lands**, reusing
       its verdict logic rather than minting a second one.
