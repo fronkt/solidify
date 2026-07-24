@@ -228,7 +228,7 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   });
   await page.evaluate(() => {
     const L = window.__solidify.lab, a = window.__solidify.app;
-    L.setup = { atmosphere: "argon", inoculant: 700, superheat: 0.12, moldT: 0.05, moldWalls: false, program: "quench" };
+    L.setup = { atmosphere: "argon", inoculant: 700, holdMin: 0, superheat: 0.12, moldT: 0.05, moldWalls: false, program: "quench" };
     a.setSpeed(40);
     L.start();
   });
@@ -282,7 +282,7 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     await page.evaluate((a) => {
       const L = window.__solidify.lab, app = window.__solidify.app;
       app.setNucPotency(0.5); app.setNucSpread(0.04);
-      L.setup = { atmosphere: a, inoculant: 600, superheat: 0.05, moldT: 0.05, moldWalls: false, program: "air" };
+      L.setup = { atmosphere: a, inoculant: 600, holdMin: 0, superheat: 0.05, moldT: 0.05, moldWalls: false, program: "air" };
       app.setSpeed(40);
       L.start();
     }, atm);
