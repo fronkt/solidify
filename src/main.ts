@@ -18,7 +18,7 @@ import { Analyze } from "./analyze";
 import { Analyze3D } from "./analyze3d";
 import { Nucleation } from "./nucleation";
 import { Lab, type LabHost, type LabSetup } from "./lab";
-import { HeatPanel, type HeatHost } from "./heatpanel";
+import { HeatPanel, type HeatHost, type Census } from "./heatpanel";
 import { Units, scaleOf, DEFAULT_UM_PER_CELL } from "./units";
 import { SOLVER } from "./shaders";
 import { calibrate, defaultLambda, A_T, type QuantSetup } from "./quant";
@@ -417,9 +417,8 @@ async function boot() {
     // lab and heat treat share the bottom-centre panel slot — one at a time
     startLab() { if (!opt.active && !challenge.active && !heat?.active) lab.open(); },
     isLabOpen: () => lab.active,
-    // 2D only until H2b lands the volume's Potts pass — the button rides the
-    // rail's only2d gating, the same mechanism the ML modes use
-    startHeat() { if (mode === "2d" && !opt.active && !challenge.active && !lab.active) heat?.open(); },
+    // both dimensions since H2b — the volume runs the 26-neighbour Potts pass
+    startHeat() { if (!opt.active && !challenge.active && !lab.active) heat?.open(); },
     syncUI() { ui.sync(); },
     reveal(target) {
       if (target.startsWith("sec:")) ui.reveal(target.slice(4));
@@ -570,8 +569,9 @@ async function boot() {
     // returns the enter promise so the tour can await the switch before staging
     setMode(m) {
       if (m === mode) return;
-      // the heat panel is 2D-only until H2b — close it rather than leave a
-      // panel whose run button drives a solver that is no longer on stage
+      // the panel treats the specimen ON STAGE — a dimension switch swaps the
+      // specimen, its census and its model constants, so close rather than
+      // leave a run button aimed at a solver that is no longer there
       if (heat?.active) heat.close();
       if (m === "3d") return enter3D();
       exit3D();
@@ -590,7 +590,7 @@ async function boot() {
     },
     getGrid3: () => grid3,
     setGrid3(n) {
-      if (n === grid3 || !caps3d.supported) return;
+      if (n === grid3 || !caps3d.supported || heat?.busy) return;
       grid3 = n;
       if (mode === "3d") void swapSim3D(n);
     },
@@ -851,16 +851,30 @@ async function boot() {
   const lab = new Lab(labHost);
 
   // ---------------------------------------------------------- HEAT TREAT
+  // the volume's census in the panel's shape: no plane areas, no plane ASTM —
+  // the ⟨V⟩-equivalent diameter comes from meanVolVox instead
+  const census3 = (s: StatsResult3D): Census => ({
+    fracSolid: s.fracSolid, grainCount: s.grainCount,
+    meanAreaPx: 0, meanVolVox: s.meanVolVox, astm: null,
+  });
   const heatHost: HeatHost = {
     getMode: () => mode,
     materialKey: () => material,
     materialLabel: () => alloyName,
     si: () => (MATERIALS[material] ?? MATERIALS.generic).si ?? null,
-    alloyOn: () => sim.params.alloyOn > 0,
-    gridN: () => sim.n,
+    alloyOn: () => (mode === "3d" && sim3d ? sim3d.params.alloyOn > 0 : sim.params.alloyOn > 0),
+    gridN: () => (mode === "3d" && sim3d ? sim3d.n : sim.n),
     umPerCell: () => umPerCell,
-    // StatsResult carries the Census fields structurally — no adapter needed
+    // 2D StatsResult carries the Census fields structurally; 3D is adapted
     async measure() {
+      if (mode === "3d" && sim3d) {
+        let s3: StatsResult3D | null = null;
+        for (let tries = 0; tries < 40 && !s3; tries++) {
+          s3 = await sim3d.readStats();
+          if (!s3) await sim3d.device.queue.onSubmittedWorkDone();
+        }
+        return s3 ? census3(s3) : null;
+      }
       let s: StatsResult | null = null;
       for (let tries = 0; tries < 40 && !s; tries++) {
         s = await sim.readStats();
@@ -868,10 +882,13 @@ async function boot() {
       }
       return s;
     },
-    anneal: (sweeps, onProgress) => sim.anneal(sweeps, undefined, onProgress),
+    anneal: (sweeps, onProgress) =>
+      mode === "3d" && sim3d
+        ? sim3d.anneal(sweeps, undefined, onProgress)
+        : sim.anneal(sweeps, undefined, onProgress),
     setRun: on => app.setRun(on),
-    getView: () => view,
-    setView: v => app.setView(v),
+    getView: () => (mode === "3d" ? view3d : view),
+    setView: v => { if (mode === "3d") app.setView3d(v); else app.setView(v); },
     syncUI: () => ui.sync(),
   };
   heat = new HeatPanel(heatHost);
@@ -1219,8 +1236,10 @@ async function boot() {
             }
           }
           sim3d.step(substeps3d * speedMult);
-        } else {
-          sim3d.step(0); // stamp queued taps so staging is visible while armed
+        } else if (!heat?.busy) {
+          // stamp queued taps so staging is visible while armed — but never
+          // during a treatment: a stamp writes φ, and solid state means it can't
+          sim3d.step(0);
         }
         // 360° turntable: constant-rate spin while the recorder runs
         if (turntable) {
@@ -1266,7 +1285,10 @@ async function boot() {
             if (!s || !sim3d) return;
             nuc3.observe(sim3d.simTime, s.meanLiqT, tEq3());
             lab.onStats(s.meanLiqT, s.fracSolid);
-            if (forPanels3) { lastStats3 = s; hud.push3(s, sim3d.umPerCell); an3.onStats3(s, sim3d.simTime); }
+            if (forPanels3) {
+              lastStats3 = s; hud.push3(s, sim3d.umPerCell); an3.onStats3(s, sim3d.simTime);
+              heat?.onCensus(census3(s));
+            }
           });
         }
         if (forPanels3) {

@@ -15,7 +15,7 @@
 // assembles  aniso = w·lapφ + ∇w·∇φ + div A  — the same compact structure the
 // 2D solver uses, which avoids the checkerboard mode of a naive div(F).
 
-import { PALETTE_WGSL } from "./shaders";
+import { HT_COMMON, PALETTE_WGSL } from "./shaders";
 
 export const MAX_GRAINS3 = 4096;
 export const MAX_SEEDS3 = 128;   // as in 2D: a big inoculant burst must land while liquid remains
@@ -626,6 +626,134 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   if (id > 0u && textureLoad(state, c, 0).r > 0.5) {
     atomicAdd(&stats.counts[id], 1u);
   }
+}
+`;
+
+// ------------------------------------------------------- heat treatment (H2b)
+// The volume's Monte Carlo Potts pass — the 2D pair in shaders.ts ported to
+// 26 neighbours and 8 sublattice colours. The HT uniform struct, the 256 B
+// stride and the MC-temperature doctrine (kT is numerical, the furnace enters
+// only through the sweep count) are all shared with 2D via HT_COMMON/H2U.
+
+/**
+ * Sublattice colours, 3D: stride-2 in x, y AND z gives eight classes. Two cells
+ * of one class differ by ≥2 on some axis, so their Chebyshev distance is ≥2 and
+ * they are never 26-neighbours — simultaneous update within a class is identical
+ * to sequential update in random order, which is what keeps detailed balance.
+ *
+ * **26 neighbours, deliberately not the claim pass's 6-face stencil.** 6-neighbour
+ * Potts pins hard on the cubic lattice — flat {100} boundary segments have no
+ * downhill or flat move at all — and the stall is indistinguishable by eye from
+ * a finished anneal. 26 is the standard 3D Potts choice for exactly this reason.
+ *
+ * **Even, and it must stay even** — the same `dir`-parity argument as 2D: the
+ * anneal flips only the grain ping-pong, `dir` also indexes the state pair, and
+ * an odd dispatch count would pair a current state field with a stale grain
+ * field. `Sim3D.anneal` asserts it.
+ */
+export const HT_COLOURS_3D = 8;
+
+/**
+ * Eligibility mask — built once per treatment, read every sweep (φ does not move
+ * during a heat treatment; that is the definition of one). A voxel is treatable
+ * when it is solid, carries a real grain id, is not a shrinkage pore (PORE is a
+ * census id, not a grain — `shaders3d.ts:288` promised "anneal never heals it"
+ * and this keeps the promise), and is not mould wall.
+ *
+ * r32uint for the same reason as 2D: r8uint cannot be a storage texture in
+ * WebGPU at all (the mould mask gets away with r8uint by being CPU-written and
+ * only sampled). Costs 4 B/voxel — 28 MB at 192³ — which is why the resources
+ * are lazily allocated on the first treatment rather than riding the create
+ * ladder of every 3D session that never heat-treats anything.
+ */
+export const HTMASK3_WGSL = /* wgsl */ `
+${HT_COMMON}
+@group(0) @binding(0) var<uniform> H: HT;
+@group(0) @binding(1) var state: texture_3d<f32>;
+@group(0) @binding(2) var grain: texture_3d<u32>;
+@group(0) @binding(3) var mould: texture_3d<u32>;
+@group(0) @binding(4) var maskOut: texture_storage_3d<r32uint, write>;
+const PORE = ${PORE_ID}u;
+
+@compute @workgroup_size(4, 4, 4)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= H.n || gid.y >= H.n || gid.z >= H.n) { return; }
+  let c = vec3i(gid);
+  let phi = textureLoad(state, c, 0).r;
+  let id = textureLoad(grain, c, 0).r;
+  let wall = textureLoad(mould, c, 0).r;
+  let ok = phi >= 0.5 && id != 0u && id != PORE && wall == 0u;
+  textureStore(maskOut, c, vec4u(select(0u, 1u, ok), 0u, 0u, 0u));
+}
+`;
+
+/**
+ * One sublattice's worth of Potts boundary migration in the volume.
+ *
+ * Every invocation writes — the pass ping-pongs the grain texture, and a cell
+ * left unwritten would come back as whatever the other buffer held before the
+ * sweep. Ineligible neighbours (liquid, pore, mould) are EXCLUDED from both
+ * energies rather than counted as unlike, or the pass would eat the casting
+ * inward from its own free surface. The candidate id is drawn only from an
+ * eligible neighbour, never from the id space at large — a random id would
+ * invent an orientation and the quaternion table would happily give it one.
+ */
+export const ANNEAL3_WGSL = /* wgsl */ `
+${HT_COMMON}
+@group(0) @binding(0) var<uniform> H: HT;
+@group(0) @binding(1) var grain: texture_3d<u32>;
+@group(0) @binding(2) var mask: texture_3d<u32>;
+@group(0) @binding(3) var grainOut: texture_storage_3d<r32uint, write>;
+
+@compute @workgroup_size(4, 4, 4)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= H.n || gid.y >= H.n || gid.z >= H.n) { return; }
+  let c = vec3i(gid);
+  let mineId = textureLoad(grain, c, 0).r;
+
+  // every cell writes, every dispatch — see the note above
+  var out = mineId;
+
+  // only this dispatch's sublattice may move, and only treatable cells
+  let mine = (gid.x & 1u) | ((gid.y & 1u) << 1u) | ((gid.z & 1u) << 2u);
+  if (mine == H.colour && textureLoad(mask, c, 0).r == 1u) {
+    // gather the eligible 26-neighbourhood once
+    var nid: array<u32, 26>;
+    var nOk: array<bool, 26>;
+    var k = 0;
+    for (var dz = -1; dz <= 1; dz++) {
+      for (var dy = -1; dy <= 1; dy++) {
+        for (var dx = -1; dx <= 1; dx++) {
+          if (dx == 0 && dy == 0 && dz == 0) { continue; }
+          let nc = clamp(c + vec3i(dx, dy, dz), vec3i(0), vec3i(i32(H.n) - 1));
+          nid[k] = textureLoad(grain, nc, 0).r;
+          nOk[k] = textureLoad(mask, nc, 0).r == 1u;
+          k++;
+        }
+      }
+    }
+    // one Metropolis move: propose adopting a random eligible neighbour's id
+    let pick = i32(htHash(gid.x + 17u, gid.y + 91u, gid.z * 131u + H.salt) * 25.999);
+    if (nOk[pick] && nid[pick] != mineId) {
+      let cand = nid[pick];
+      var eNow = 0.0;
+      var eNew = 0.0;
+      for (var j = 0; j < 26; j++) {
+        if (!nOk[j]) { continue; }          // excluded, not counted as unlike
+        if (nid[j] != mineId) { eNow += 1.0; }
+        if (nid[j] != cand) { eNew += 1.0; }
+      }
+      let dE = eNew - eNow;
+      // downhill and flat moves are taken; uphill costs the Boltzmann factor.
+      // Flat moves matter doubly here — 3D lattice pinning is harsher than 2D.
+      var accept = dE <= 0.0;
+      if (!accept && H.kT > 0.0) {
+        accept = htHash(gid.x + 613u, gid.y + 7u, gid.z * 977u + (H.salt ^ 0x9e3779b9u)) < exp(-dE / H.kT);
+      }
+      if (accept) { out = cand; }
+    }
+  }
+  textureStore(grainOut, c, vec4u(out, 0u, 0u, 0u));
 }
 `;
 

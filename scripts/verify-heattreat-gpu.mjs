@@ -25,6 +25,12 @@
 //   GG-STAGNATION         flips per boundary cell must not decay to zero, which
 //                         is what a pinned lattice does while looking finished.
 //
+// The H2b half runs the same doctrine in the volume: MC3-COHERENCE /
+// MC3-RNG-DECORRELATION / GG3-EXPONENT / GG3-KMC / GG3-STAGNATION measure the
+// 26-neighbour 8-colour pass and its own (M_MODEL_3D, K_MC_3D) pair, and
+// HT3-PANEL drives a treatment end-to-end at 128³ — where the domain-limit
+// refusal is the COMMON case, and is asserted as such.
+//
 //   node scripts/verify-heattreat-gpu.mjs [outDir] [port]
 import puppeteer from "puppeteer-core";
 import { createServer } from "vite";
@@ -457,6 +463,332 @@ if (cast0.grains < 20) { console.log("cast produced too few grains to anneal"); 
     && out.ratioToLaw > 0.65 && out.ratioToLaw < 1.35
     && /before/.test(out.report) && /after/.test(out.report) && /law endpoint/.test(out.report);
   check("HT-PANEL", ok, out);
+}
+
+// ===========================================================================
+// H2b — the volume. Same physics doctrine, different lattice: 26 neighbours,
+// 8 sublattice colours, and a domain only 125 µm across at 128³ — which makes
+// the domain-limit refusal the COMMON case in 3D, and the panel test asserts
+// it as such. The model constants are measured HERE (GG3-EXPONENT / GG3-KMC),
+// separately from 2D, because the neighbourhood, the colouring and the
+// lattice-pinning geometry all differ.
+
+await page.evaluate(() => window.__solidify.app.setMode("3d"));
+await page.waitForFunction("window.__solidify.mode() === '3d'", { timeout: 30000 });
+await page.evaluate(() => window.__solidify.app.setGrid3(128));
+await page.waitForFunction("window.__solidify.sim3d()?.n === 128", { timeout: 40000 });
+console.log("ENTERED 3D at 128³");
+
+await page.evaluate(() => {
+  const S = window.__solidify;
+  window.__ht3 = {
+    stats: async () => {
+      for (let i = 0; i < 40; i++) {
+        const st = await S.sim3d().readStats();
+        if (st) return st;
+        await new Promise(r => setTimeout(r, 25));
+      }
+      return null;
+    },
+    // equivalent-SPHERE diameter in cells, from the same census the panel reads
+    dCells: st => Math.cbrt((6 * st.meanVolVox) / Math.PI),
+    async cast3(seeds = 2600, pPore = 0) {
+      S.app.setRun(false);
+      const s3 = S.sim3d();
+      Object.assign(s3.params, {
+        scen: 0, heatIn: 0, coolRate: 0.5, alloyOn: 0, twinProb: 0,
+        pPore, noiseAmp: 0.01, aniMode3: 1, facet: 0,
+      });
+      s3.reset(1 - 0.9);
+      for (let i = 0; i < seeds; i++)
+        s3.addSeed3D(Math.random() * s3.n, Math.random() * s3.n, Math.random() * s3.n, 2.5);
+      // drain the seed queue first: submit() stamps at most MAX_SEEDS3 = 128
+      // per command buffer, and a seed stamped into half-frozen melt is a
+      // different experiment from one stamped into the pour
+      for (let i = 0; i < Math.ceil(seeds / 128) + 2; i++) await s3.stepSync(0);
+      // freeze FULLY — an 80 %-solid cast leaves liquid films between grains
+      // that pin the Potts boundaries and contaminate the calibration. Quench
+      // pulses hurry the tail (the v3.0 harness lesson: quench hard rather
+      // than wait out cooling that recalescence keeps un-doing).
+      for (let k = 0; k < 250; k++) {
+        await s3.stepSync(76);
+        if (k % 10 === 9) s3.quench(0.15);
+        const st = await window.__ht3.stats();
+        if (st && st.fracSolid > 0.985) break;
+      }
+      return await window.__ht3.stats();
+    },
+  };
+});
+
+const cast3 = await page.evaluate(async () => {
+  const st = await window.__ht3.cast3(2600, 0.85);
+  return st ? { fs: +st.fracSolid.toFixed(4), grains: st.grainCount, pore: +st.poreFrac.toFixed(4) } : null;
+});
+console.log("CAST3", JSON.stringify(cast3));
+if (!cast3 || cast3.grains < 100) { console.log("3D cast produced too few grains to anneal"); FAIL(); }
+
+// ---------------------------------------------------------------------------
+// MC3-COHERENCE — the invariants, asserted against full volume readbacks: the
+// pass must move boundaries and must not invent an id, heal a pore, touch
+// liquid, move φ, or leave `dir` flipped (8 colours is even by construction,
+// and must stay so).
+{
+  const out = await page.evaluate(async () => {
+    const s3 = window.__solidify.sim3d();
+    const PORE = 4095;   // MAX_GRAINS3 - 1, the reserved shrinkage-pore id
+    const before = await s3.readGrainVolume();
+    const phiB = await s3.readPhiVolume();
+    const dirBefore = s3.dir;
+    await s3.anneal(4);
+    const after = await s3.readGrainVolume();
+    const phiA = await s3.readPhiVolume();
+    const ids = new Set(before);
+    let changed = 0, invented = 0, zeroed = 0, movedLiquid = 0, movedPore = 0, poreVox = 0;
+    for (let i = 0; i < before.length; i++) {
+      const a = before[i], b = after[i];
+      if (a === PORE) poreVox++;
+      if (a !== b) {
+        changed++;
+        if (b === 0) zeroed++;
+        if (!ids.has(b)) invented++;
+        if (phiB[i] < 0.5) movedLiquid++;
+        if (a === PORE) movedPore++;
+      }
+    }
+    let phiDiff = 0;
+    for (let i = 0; i < phiB.length; i++)
+      if (phiB[i] !== phiA[i]) { phiDiff++; if (phiDiff > 4) break; }
+    return {
+      changed, invented, zeroed, movedLiquid, movedPore, poreVox, phiDiff,
+      dirBefore, dirAfter: s3.dir, cells: before.length,
+    };
+  });
+  const ok = out.changed > 0 && out.invented === 0 && out.zeroed === 0
+    && out.movedLiquid === 0 && out.movedPore === 0
+    && out.phiDiff === 0 && out.dirBefore === out.dirAfter;
+  check("MC3-COHERENCE", ok, { ...out, changedPct: +((out.changed / out.cells) * 100).toFixed(3) });
+}
+
+// ---------------------------------------------------------------------------
+// MC3-RNG-DECORRELATION — same trap, bigger lattice: one submit per sweep or
+// every sweep shares its random numbers and the dynamics freeze.
+{
+  const out = await page.evaluate(async () => {
+    const s3 = window.__solidify.sim3d();
+    const a = await s3.readGrainVolume();
+    await s3.anneal(1);
+    const b = await s3.readGrainVolume();
+    await s3.anneal(1);
+    const c = await s3.readGrainVolume();
+    const set1 = [], set2 = new Set();
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) set1.push(i);
+      if (b[i] !== c[i]) set2.add(i);
+    }
+    let overlap = 0;
+    for (const i of set1) if (set2.has(i)) overlap++;
+    return { flips1: set1.length, flips2: set2.size, overlap };
+  });
+  const frac = out.flips1 > 0 ? out.overlap / out.flips1 : 1;
+  const ok = out.flips1 > 0 && out.flips2 > 0 && frac < 0.9;
+  check("MC3-RNG-DECORRELATION", ok, { ...out, overlapFrac: +frac.toFixed(3) });
+}
+
+// ---------------------------------------------------------------------------
+// GG3-EXPONENT / GG3-KMC — measure the volume's m and K_MC. The estimator is
+// the one the 2D gate earned through two wrong versions and a flaky point set:
+// intercept PINNED to the measured d0 (at S = 0 the grain size IS d0), the
+// early transient excluded by a fit window FIXED IN SWEEPS, saturation rungs
+// printed rather than silently dropped, and K measured at the SHIPPED
+// exponent because its units are coupled to m.
+{
+  const out = await page.evaluate(async () => {
+    const S = window.__solidify, s3 = S.sim3d();
+    await window.__ht3.cast3(2600, 0);   // clean cast: no pores in the census
+    const pts = [];
+    const measure = async sweeps => {
+      const st = await window.__ht3.stats();
+      pts.push({ S: sweeps, d: window.__ht3.dCells(st), grains: st.grainCount });
+    };
+    await measure(0);
+    let done = 0;
+    for (const target of [15, 40, 90, 180, 320, 550, 900, 1400, 2000, 2800, 3800]) {
+      await s3.anneal(target - done);
+      done = target;
+      await measure(done);
+    }
+    return pts;
+  });
+  console.log("GG3-LADDER", JSON.stringify(out.map(p => ({ S: p.S, d: +p.d.toFixed(2), grains: p.grains }))));
+
+  // The fit window, fixed in sweeps — the knife-edge lesson from the 2D gate —
+  // and chosen once from three measured ladders (probe, 2026-07-24). It is NOT
+  // the 2D window's shape: at 128³ the domain limit sits at ~44 cells, so the
+  // specimen's whole legal dial range is d ≈ 11 → 44 cells and the window
+  // covers exactly that band. The lower bound clears the as-cast smoothing
+  // transient (d ≳ 1.65·d0, same phenomenon 2D excludes); the upper bound is
+  // the wall itself, INCLUDED on purpose: `domainLimitUm` allows treatments to
+  // run to ~47 grains, so the calibration must be honest exactly as far as the
+  // panel's dials can legally reach. The cost, measured across three casts:
+  // the free-fit exponent alone is poorly determined over so short a lever
+  // (2.25 / 1.89 / 2.77) while K at a pinned m is stable to ~2 % — which is
+  // why the shipped constant is the PAIR, gated by K-drift and HT3-PANEL's
+  // endpoint check rather than by exponent-band containment.
+  const S_FIT3 = [550, 3800];
+  const d0 = out[0].d;
+  const wallD = 128 / Math.cbrt(25);   // the domainLimitUm geometry, in cells
+  const atWall = out.filter(p => p.d > wallD * 0.95);
+  if (atWall.length) {
+    console.log("GG3-WALL  (rungs at the domain limit — inside the fit on purpose, see above)",
+      JSON.stringify(atWall.map(p => ({ S: p.S, d: +p.d.toFixed(1), grains: p.grains }))));
+  }
+  const use = out.filter(p => p.S >= S_FIT3[0] && p.S <= S_FIT3[1]);
+  const fitAt = m => {
+    const y0 = Math.pow(d0, m);
+    let sxy = 0, sxx = 0;
+    for (const p of use) { const y = Math.pow(p.d, m) - y0; sxy += p.S * y; sxx += p.S * p.S; }
+    const K = sxy / sxx;
+    let ssRes = 0, ssTot = 0;
+    for (const p of use) {
+      const y = Math.pow(p.d, m) - y0;
+      ssRes += (y - K * p.S) ** 2; ssTot += y * y;
+    }
+    return { K, r2: ssTot > 0 ? 1 - ssRes / ssTot : 0 };
+  };
+  let best = null;
+  for (let m = 1.0; m <= 4.5; m += 0.005) {
+    const f = fitAt(m);
+    if (f.K > 0 && (!best || f.r2 > best.r2)) best = { m: +m.toFixed(3), ...f };
+  }
+  let lo = best.m, hi = best.m;
+  for (let m = 1.0; m <= 4.5; m += 0.005) {
+    const f = fitAt(m);
+    if (f.K > 0 && f.r2 >= best.r2 - 0.0005) { lo = Math.min(lo, m); hi = Math.max(hi, m); }
+  }
+  best.band = [+lo.toFixed(2), +hi.toFixed(2)];
+
+  const ok = best !== null && best.r2 >= 0.97 && best.m > 1.05 && best.m < 4.45 && best.K > 0;
+  check("GG3-EXPONENT", ok, {
+    m: best?.m, K_MC: best ? +best.K.toExponential(4) : null, r2: best ? +best.r2.toFixed(4) : null,
+    mBand: best?.band, d0: +d0.toFixed(2), points: use.length,
+    dRange: [+out[0].d.toFixed(1), +out[out.length - 1].d.toFixed(1)],
+  });
+  {
+    const M3 = HT.M_MODEL_3D;
+    const f = fitAt(M3);
+    const drift = Math.abs(f.K / HT.K_MC_3D - 1);
+    // the same gate shape as GG-KMC: the free fit is printed with a sanity
+    // rail, and the assertion is the law fitted AT the shipped exponent plus
+    // K-drift. The rail is [1.6, 3.2] rather than 2D's [2.0, 3.5] and the r²
+    // floor 0.985 rather than 0.99 — both measured, not relaxed on a diff:
+    // three probe casts free-fitted 1.89–2.77 and held r² 0.993–0.997 at the
+    // shipped m, because the window deliberately spans to the domain wall
+    // (see above) where the trajectory bends off the pure law.
+    const mSane = best.m >= 1.6 && best.m <= 3.2;
+    check("GG3-KMC", mSane && f.r2 > 0.985 && f.K > 0 && drift <= HT.K_MC_TOL_3D, {
+      shippedM: M3, freeFitBand: best.band,
+      K_MC_at_shipped_m: +f.K.toFixed(4), shippedK: HT.K_MC_3D,
+      ratioToShipped: +(f.K / HT.K_MC_3D).toFixed(3), driftTol: HT.K_MC_TOL_3D, r2: +f.r2.toFixed(5),
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// GG3-STAGNATION — 3D lattice pinning is harsher than 2D (that is why the
+// neighbourhood is 26 and not 6); flips per sweep must not decay to zero.
+{
+  const out = await page.evaluate(async () => {
+    const s3 = window.__solidify.sim3d();
+    const one = async () => {
+      const a = await s3.readGrainVolume();
+      await s3.anneal(1);
+      const b = await s3.readGrainVolume();
+      let f = 0;
+      for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) f++;
+      return f;
+    };
+    const late = await one();
+    await s3.anneal(200);
+    const later = await one();
+    const st = await window.__ht3.stats();
+    return { late, later, grains: st?.grainCount ?? 0 };
+  });
+  const ok = out.later > 0 && out.late > 0;
+  check("GG3-STAGNATION", ok, out);
+}
+
+// ---------------------------------------------------------------------------
+// HT3-PANEL — the panel in the volume, driven through the DOM. Two things are
+// specific to 3D and both are asserted: the DOMAIN-LIMIT refusal is the common
+// case (a 12 h anneal legal on the 500 µm 2D specimen is refused on the 125 µm
+// volume, with the law's analytic answer still printed), and a modest schedule
+// still runs end-to-end with the census landing near the law endpoint.
+{
+  const out = await page.evaluate(async () => {
+    const S = window.__solidify;
+    S.app.setMaterial("al");
+    await window.__ht3.cast3(2600, 0);
+    S.app.startHeat();
+    const panel = document.getElementById("heattreat");
+    if (!panel) return { opened: false };
+    const btn = document.getElementById("htRun");
+    const note = () => document.getElementById("htNote").textContent;
+    // open() fetches its own census async — wait for the plan to exist at all
+    // (the panel keeps its dial state across open/close, so it may open
+    // already-refused rather than armed: the 2D test left a 12 h hold dialled)
+    for (let i = 0; i < 40 && /waiting/.test(note()); i++) await new Promise(r => setTimeout(r, 100));
+
+    const dials = panel.querySelectorAll('input[type="range"]');
+    const set = (i, v) => {
+      dials[i].value = String(v);
+      dials[i].dispatchEvent(new Event("input", { bubbles: true }));
+    };
+
+    // the domain-limit refusal — in the volume, the COMMON case: this exact
+    // 12 h anneal ran legally on the 500 µm 2D specimen a moment ago
+    set(1, 720);
+    const refuse = { note: note().slice(0, 260), disabled: btn.disabled };
+
+    // a modest anneal fits the 125 µm specimen
+    set(1, 60);
+    for (let i = 0; i < 40 && btn.disabled; i++) await new Promise(r => setTimeout(r, 100));
+    if (btn.disabled) return { opened: true, armed: false, note: note() };
+    const planNote = note();
+    const dPred = parseFloat((planNote.match(/→\s*([\d.]+)\s*µm/) ?? [])[1] ?? "NaN");
+
+    const before = await window.__ht3.stats();
+    btn.click();
+    for (let i = 0; i < 100 && !S.heat.busy; i++) await new Promise(r => setTimeout(r, 50));
+    const busyDuring = S.heat.busy;
+    S.app.setRun(true);                          // the interlock must refuse this
+    const runDuring = S.app.isRunning();
+    for (let i = 0; i < 1200 && S.heat.busy; i++) await new Promise(r => setTimeout(r, 100));
+    const stillBusy = S.heat.busy;
+    const after = await window.__ht3.stats();
+    const report = document.getElementById("htReport").textContent;
+    S.heat.close();
+
+    const um = S.app.getUmPerCell();
+    const dOf = st => window.__ht3.dCells(st) * um;
+    return {
+      opened: true, armed: true, refuse, busyDuring, runDuring, stillBusy,
+      grainsBefore: before.grainCount, grainsAfter: after.grainCount,
+      dBefore: +dOf(before).toFixed(1), dAfter: +dOf(after).toFixed(1), dPred,
+      ratioToLaw: +(dOf(after) / dPred).toFixed(3),
+      // 320, not 2D's 220 — the volume's ASTM-n/a note is longer and "law
+      // endpoint" must survive the slice for the assertion below to see it
+      report: report.replace(/\s+/g, " ").slice(0, 320),
+    };
+  });
+  const ok = out.opened && out.armed
+    && out.refuse.disabled && /refused/.test(out.refuse.note) && /law says/.test(out.refuse.note)
+    && !/\b0\.0 µm/.test(out.refuse.note)
+    && out.busyDuring && !out.runDuring && !out.stillBusy
+    && out.grainsAfter < out.grainsBefore * 0.8
+    && out.ratioToLaw > 0.65 && out.ratioToLaw < 1.35
+    && /before/.test(out.report) && /after/.test(out.report) && /law endpoint/.test(out.report);
+  check("HT3-PANEL", ok, out);
 }
 
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 5) : "none");

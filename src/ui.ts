@@ -32,7 +32,7 @@ export interface UIHost extends AppControl {
   getNucFired(): number;
   startLab(): void;
   isLabOpen(): boolean;
-  /** open the HEAT TREAT panel — the second clock (2D until H2b) */
+  /** open the HEAT TREAT panel — the second clock, in either dimension */
   startHeat(): void;
   getSubsteps(): number;
   isRunning(): boolean;
@@ -402,13 +402,12 @@ export class UI {
     // ---- modes
     const modes = this.section(rail, "MODES");
     const mrow0 = this.btnRow(modes);
-    // the lab runs in both dimensions; the ML modes and (until H2b lands the
-    // volume's Potts pass) the heat-treat panel are 2D-only
+    // the lab and (since H2b) the heat-treat panel run in both dimensions;
+    // the ML modes are 2D-only
     this.button(mrow0, "⚗ lab mode", () => { host.startLab(); this.sync(); });
     const heatBtn = this.button(mrow0, "♨ heat treat", () => { host.startHeat(); this.sync(); });
     heatBtn.title = "solid-state heat treatment on the casting on screen — real hours on the second clock. "
       + "Grain growth runs on the material's own sourced Arrhenius law.";
-    this.only2d.push(heatBtn);
     this.only2d.push(this.button(mrow0, "engineer it (optimizer)", () => { host.startOptimizer(); this.sync(); }));
     this.only2d.push(this.button(mrow0, "⚔ challenge", () => host.startChallenge()));
     const modeNote = document.createElement("div");

@@ -5,9 +5,10 @@
 
 import {
   FLUX3D_WGSL, update3dWgsl, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL, STEREO3D_WGSL,
-  LINE3D_WGSL, MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
+  LINE3D_WGSL, HTMASK3_WGSL, ANNEAL3_WGSL, HT_COLOURS_3D,
+  MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
 } from "./shaders3d";
-import { shaderModule } from "./shaders";
+import { shaderModule, H2U, HT_STRIDE, HT_KT_DEFAULT } from "./shaders";
 import { DEFAULT_UM_PER_CELL } from "./units";
 
 /**
@@ -176,6 +177,17 @@ export class Sim3D {
   private lineBuf!: GPUBuffer;
   private lineStaging!: GPUBuffer;
   private lineInFlight = false;
+  // ---- heat treatment (H2b): lazily allocated on the first anneal — the
+  // eligibility mask is r32uint (r8uint cannot be a storage texture), which is
+  // 4 B/voxel = 28 MB at 192³, too much to charge every session that never
+  // heat-treats anything. Same runtime-error-scope pattern as enableAlloy.
+  private htMaskTex: GPUTexture | null = null;
+  private htBuf: GPUBuffer | null = null;
+  private htMaskPipe: GPUComputePipeline | null = null;
+  private annealPipe: GPUComputePipeline | null = null;
+  private htMaskBG: GPUBindGroup[] = [];
+  private annealBG: GPUBindGroup[][] = [];
+  private htData = new ArrayBuffer(HT_STRIDE * HT_COLOURS_3D);
 
   private pendingSeeds: Seed3[] = [];
   private pendingQuench = 0;
@@ -511,6 +523,8 @@ export class Sim3D {
     this.lineUBuf?.destroy();
     this.lineBuf?.destroy();
     this.lineStaging?.destroy();
+    this.htMaskTex?.destroy();
+    this.htBuf?.destroy();
   }
 
   /** per-grain quaternions (CPU mirror) — read-only, for the IPF panel */
@@ -780,6 +794,177 @@ export class Sim3D {
       done += got;
     }
     return done;
+  }
+
+  // ------------------------------------------------------ heat treatment
+
+  /**
+   * Allocate the heat-treat resources on first use. The pipelines are cheap and
+   * could compile eagerly, but the mask texture is 28 MB at 192³ and sits
+   * OUTSIDE the create-time OOM ladder — so it gets its own error scope, and a
+   * GPU that cannot afford it reports false rather than dying mid-treatment.
+   * The bind groups are used only inside `anneal()` (never by the frame loop),
+   * so lazy construction cannot reintroduce the renderer rebind-race class.
+   */
+  private async ensureHt(): Promise<boolean> {
+    if (this.htMaskTex) return true;
+    const d = this.device;
+    const n = this.n;
+    d.pushErrorScope("out-of-memory");
+    const mask = d.createTexture({
+      size: [n, n, n], dimension: "3d", format: "r32uint",
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
+    });
+    const err = await d.popErrorScope();
+    if (err) { mask.destroy(); return false; }
+    this.htMaskTex = mask;
+    this.htBuf = d.createBuffer({
+      size: HT_STRIDE * HT_COLOURS_3D,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    const mk = (code: string, label: string) =>
+      d.createComputePipeline({ layout: "auto", compute: { module: shaderModule(d, code, label), entryPoint: "main" } });
+    this.htMaskPipe = mk(HTMASK3_WGSL, "htmask3");
+    this.annealPipe = mk(ANNEAL3_WGSL, "anneal3");
+    for (const dir of [0, 1]) {
+      this.htMaskBG[dir] = d.createBindGroup({
+        layout: this.htMaskPipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.htBuf, offset: 0, size: H2U.BYTES } },
+          { binding: 1, resource: this.stateTex[dir].createView() },
+          { binding: 2, resource: this.grainTex[dir].createView() },
+          { binding: 3, resource: this.maskTex.createView() },
+          { binding: 4, resource: this.htMaskTex.createView() },
+        ],
+      });
+      this.annealBG[dir] = [];
+      for (let c = 0; c < HT_COLOURS_3D; c++) {
+        this.annealBG[dir][c] = d.createBindGroup({
+          layout: this.annealPipe.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: this.htBuf, offset: c * HT_STRIDE, size: H2U.BYTES } },
+            { binding: 1, resource: this.grainTex[dir].createView() },
+            { binding: 2, resource: this.htMaskTex.createView() },
+            { binding: 3, resource: this.grainTex[1 - dir].createView() },
+          ],
+        });
+      }
+    }
+    return true;
+  }
+
+  /** write one HT uniform struct per colour, sharing a per-sweep RNG salt */
+  private writeHt(salt: number, kT: number, twinProb = 0) {
+    const u = new Uint32Array(this.htData);
+    const f = new Float32Array(this.htData);
+    for (let c = 0; c < HT_COLOURS_3D; c++) {
+      const b = (c * HT_STRIDE) / 4;
+      u[b + H2U.n] = this.n;
+      u[b + H2U.colour] = c;
+      u[b + H2U.salt] = salt >>> 0;
+      f[b + H2U.kT] = kT;
+      u[b + H2U.flags] = 1;
+      f[b + H2U.twinProb] = twinProb;
+    }
+    this.device.queue.writeBuffer(this.htBuf!, 0, this.htData);
+  }
+
+  /**
+   * Run `sweeps` Monte Carlo sweeps of grain-boundary migration in the volume.
+   *
+   * The 2D contract, verbatim (`sim.ts:anneal`): one submit per sweep with a
+   * fresh salt between submits (a shared salt freezes the dynamics in a way
+   * that looks exactly like lattice pinning); the eight colour dispatches flip
+   * the grain ping-pong an EVEN number of times so `dir` — which also indexes
+   * the state pair this pass never writes — lands back where it started;
+   * nothing reads or writes φ, T, c or age; `onProgress` returning false
+   * aborts at the next drain and the call resolves to the sweeps delivered.
+   *
+   * The drain cadence is 8 rather than 2D's 32: a 3D sweep is 8 dispatches
+   * over up to 7 M voxels, so 8 sweeps is comparable wall-clock to 2D's 32.
+   *
+   * Ends by refreshing the CPU quaternion mirror. In H2b the pass invents no
+   * ids so the mirror cannot be stale — but H3 spawns twin ids GPU-side, and a
+   * panel plotting a stale identity quaternion as fact is the trap the plan
+   * calls out. The refresh is cheap once per treatment and lands the invariant
+   * where it belongs: leaving `anneal`, the mirror is current.
+   */
+  async anneal(sweeps: number, kT = HT_KT_DEFAULT, onProgress?: (done: number) => boolean | void): Promise<number> {
+    if (HT_COLOURS_3D % 2 !== 0) throw new Error("HT_COLOURS_3D must be even — see anneal()");
+    const total = Math.max(0, Math.floor(sweeps));
+    if (total === 0) return 0;
+    if (!(await this.ensureHt())) return 0;
+    // rebuild the "which voxels may be treated" mask from the current state —
+    // once per treatment, not per sweep: φ is frozen for the duration
+    this.writeHt(0, kT);
+    {
+      const enc = this.device.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(this.htMaskPipe!);
+      pass.setBindGroup(0, this.htMaskBG[this.dir]);
+      this.dispatch(pass);
+      pass.end();
+      this.device.queue.submit([enc.finish()]);
+    }
+    let delivered = total;
+    for (let s = 0; s < total; s++) {
+      // salt 0 is the mask pass; start sweeps at 1 so no sweep shares its stream
+      this.writeHt(s + 1, kT);
+      const enc = this.device.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(this.annealPipe!);
+      let gdir = this.dir;
+      for (let c = 0; c < HT_COLOURS_3D; c++) {
+        pass.setBindGroup(0, this.annealBG[gdir][c]);
+        this.dispatch(pass);
+        gdir = 1 - gdir;
+      }
+      pass.end();
+      this.device.queue.submit([enc.finish()]);
+      if ((s & 7) === 7) {
+        await this.device.queue.onSubmittedWorkDone();
+        if (onProgress?.(s + 1) === false) { delivered = s + 1; break; }
+      }
+    }
+    await this.device.queue.onSubmittedWorkDone();
+    await this.refreshQuats();
+    if (delivered === total) onProgress?.(total);
+    return delivered;
+  }
+
+  /**
+   * One-shot grain-id volume readback (n³ u32) — the heat-treat gates' witness.
+   * `copyTextureToBuffer` rows must be 256-byte aligned, and n·4 is not at every
+   * rung (96·4 = 384), so rows are padded in the staging buffer and de-strided.
+   */
+  async readGrainVolume(): Promise<Uint32Array | null> {
+    const n = this.n;
+    const bpr = Math.ceil((n * 4) / 256) * 256;
+    const buf = this.device.createBuffer({
+      size: bpr * n * n,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+    const enc = this.device.createCommandEncoder();
+    enc.copyTextureToBuffer(
+      { texture: this.grainTex[this.dir] },
+      { buffer: buf, bytesPerRow: bpr, rowsPerImage: n },
+      [n, n, n]);
+    this.device.queue.submit([enc.finish()]);
+    try {
+      await buf.mapAsync(GPUMapMode.READ);
+    } catch {
+      buf.destroy();
+      return null;
+    }
+    const raw = new Uint32Array(buf.getMappedRange().slice(0));
+    buf.unmap();
+    buf.destroy();
+    if (bpr === n * 4) return raw;
+    const out = new Uint32Array(n * n * n);
+    const rowU32 = bpr / 4;
+    for (let r = 0; r < n * n; r++)
+      out.set(raw.subarray(r * rowU32, r * rowU32 + n), r * n);
+    return out;
   }
 
   /**

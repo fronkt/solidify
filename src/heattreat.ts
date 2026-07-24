@@ -344,12 +344,58 @@ export const M_MODEL = 2.44;
 export const K_MC = 4.79;
 
 /**
- * How far `K_MC` may drift before the gate calls it a regression. Three casts
- * measured 4.781, 4.858 and 4.740 — a 2.5 % spread once the exponent is pinned,
- * against 80 % when it was not. 15 % is comfortably outside that scatter and
- * comfortably inside "something about the pass changed".
+ * How far the 2D `K_MC` may drift before the gate calls it a regression.
+ *
+ * Originally 15 %, set from three same-day casts (4.781 / 4.858 / 4.740, a
+ * 2.5 % spread) — and that turned out to be one more unmeasured estimator: the
+ * within-day trio underestimates CROSS-RUN variance. The drift series across
+ * suite runs is now −5 %, −2 %, −19 %: the through-origin fit weights points
+ * by S², so the top rung carries roughly half the fit, and its d̄ moves ~9 %
+ * between casts, which alone swings K by ±20 %. 25 % sits outside that measured
+ * scatter and still far inside the failure classes the gate exists to catch —
+ * the assumed-exponent error was 4.8×, and a changed neighbourhood, colouring
+ * or kT moves K by integer factors, not fifths.
  */
-export const K_MC_TOL = 0.15;
+export const K_MC_TOL = 0.25;
+
+/**
+ * The volume's own drift tolerance, kept at the original 15 %: the 3D census
+ * fits over ~2 600 grains (four times the 2D window's), and its fit window is
+ * anchored at the domain wall, so the measured cast-to-cast spread of K at the
+ * shipped exponent is 1.8 % — the 2D loosening is not imported unearned.
+ */
+export const K_MC_TOL_3D = 0.15;
+
+/**
+ * The VOLUME's model exponent — measured by `GG3-EXPONENT`, separately from the
+ * 2D pair, because every ingredient the constant depends on differs: 26
+ * neighbours instead of 8, eight sublattice colours instead of four, and a
+ * cubic lattice whose pinning geometry is its own. Sharing the 2D number would
+ * be assuming exactly the thing H2a proved has to be measured (the assumed
+ * m = 2 cost a 4.8× sweep-budget error there).
+ *
+ * **This is an effective endpoint-inversion exponent over the specimen's legal
+ * range, not a claimed asymptotic Potts exponent** — and that distinction is
+ * forced by geometry, not chosen. The 128³ specimen puts its domain limit at
+ * ~44 cells, so the whole honest dial range is d ≈ 11 → 44 cells; the fit
+ * window [550, 3800] sweeps covers exactly that band (as-cast smoothing
+ * transient excluded below ~1.65·d₀, the wall INCLUDED because the panel may
+ * legally drive a treatment to it). Free fits over that window scatter
+ * 2.25 / 1.89 / 2.77 across three independent casts — the short lever arm
+ * between transient and wall is why the exponent alone is poorly determined —
+ * while K at any pinned m is stable to ~2 %. The shipped value is the median
+ * free fit; what the budget actually consumes is the (m, K) PAIR, and the
+ * pair's endpoint accuracy is what `HT3-PANEL` gates.
+ */
+export const M_MODEL_3D = 2.25;
+
+/**
+ * cells^M_MODEL_3D of grain growth per 3D Monte Carlo sweep, measured at the
+ * shipped `M_MODEL_3D` by `GG3-KMC` (same reasoning as `K_MC`: K's units are
+ * coupled to the exponent, so it is only a stable number with m pinned).
+ * Three casts: 1.281 / 1.273 / 1.296 — a 1.8 % spread.
+ */
+export const K_MC_3D = 1.28;
 
 export function sweepsFor(
   d0Um: number, dTargetUm: number, umPerCell: number, kMC: number, mModel: number,

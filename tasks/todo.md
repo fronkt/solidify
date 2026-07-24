@@ -1189,6 +1189,62 @@ endpoint check — an integral over the whole trajectory rather than a different
 in at 0.963 / 1.003 / 0.983 of the law across three runs. And this is the U0 doctrine paying
 out immediately: a gate that is not in the suite does not get the run-count that finds its own
 knife edges.
+- [x] **H2b** — the volume's grain growth: `HTMASK3_WGSL`/`ANNEAL3_WGSL` (26 neighbours —
+      6-face Potts pins hard on the cubic lattice — and 8 sublattice colours, stride-2 in
+      x,y,z; the HT uniform struct, the 256 B stride and the kT doctrine all shared with 2D
+      via `HT_COMMON`/`H2U`), `Sim3D.anneal()` under the 2D contract verbatim (one submit
+      per sweep, even colour count so `dir` survives, φ/T/c/age untouched, abort at the
+      drain), and `readGrainVolume()` as the gates' witness (rows padded to the 256 B
+      alignment — n·4 is not aligned at every rung). **The mask is lazy**: r32uint because
+      r8uint cannot be a storage texture (the H2a lesson), which is 28 MB at 192³ — too much
+      to charge every session that never heat-treats, so it allocates on first use behind
+      its own error scope (the V2 runtime-alloc pattern) and its bind groups never touch the
+      frame loop. `anneal()` ends with `refreshQuats()` — no ids spawn in H2b, but H3 will,
+      and the invariant belongs at the exit: leaving `anneal`, the CPU mirror is current.
+      Panel in both dimensions: `census3` adapter (⟨V⟩-equivalent sphere d̄ from
+      `meanVolVox`), `SWEEP_CAP_3D` 2 000 (arithmetic-bound where 2D is submit-bound),
+      thermal lenses park to ORIENT (FIELD is x-ray in 3D, not temperature), and the
+      **domain-limit refusal asserted as the volume's COMMON case** — the same 12 h anneal
+      that legally ran on the 500 µm 2D specimen is refused on the 125 µm volume with the
+      law's answer still printed (11.2 → 49.7 µm, limit ~42.7 µm).
+
+### Measuring the volume's constants: the exponent is not the deliverable, the pair is
+
+**Shipped: `M_MODEL_3D` = 2.25, `K_MC_3D` = 1.28**, measured by `GG3-EXPONENT`/`GG3-KMC` on
+three independent 128³ casts (~2 600 grains, fully frozen). The geometry forces a different
+shape from 2D's measurement: the 128³ domain limit sits at ~44 cells, so the specimen's whole
+legal dial range is d ≈ 11 → 44 cells and the fit window [550, 3800] sweeps covers exactly
+that band — transient excluded below ~1.65·d₀ (2D's own lesson), the wall INCLUDED because
+`domainLimitUm` allows treatments to run to it. Over so short a lever the free-fit exponent
+alone is poorly determined — 2.25 / 1.89 / 2.77 across casts — while **K at any pinned m is
+stable to 1.8 %** (1.281 / 1.273 / 1.296). So the shipped number is the (m, K) PAIR, the
+gate is K-drift + the fit's r² at the shipped m + `HT3-PANEL`'s endpoint check (measured
+0.912 of the law), and the source says out loud that m is an effective endpoint-inversion
+exponent over the reachable band, not a claimed asymptotic Potts exponent.
+
+### Postmortems (H2b)
+
+1. **The first calibration cast was 83 % solid, and the kinetics were visibly wrong** —
+   liquid films between grains pin the Potts boundaries (the mask rightly excludes liquid,
+   so films are walls), and the measured "exponent" was a property of the films. Freezing
+   fully (quench pulses on the cast tail — the v3.0 harness lesson again) changed the free
+   fit from 2.7 to ~1.9. Same family as every wrong comparison in this file: the variable
+   held fixed (cast recipe) was not the one the physics is measured against (a boundary
+   network free to move).
+2. **The panel's census cache survived a dimension switch** — a 3D plan reading the 2D
+   census (no `meanVolVox`) computed d₀ = 0.0 µm and printed it with a straight face.
+   `HT3-PANEL` caught it on its first run; the cache now dies with `close()`.
+3. **`plan(null)` claimed "nothing solid to treat yet"** before the first census had
+   landed — factually wrong with a fully solid casting on stage. The waiting branch now
+   comes first: no census is *not measured*, not *nothing solid*.
+4. **`K_MC_TOL` was itself one more unmeasured estimator.** The 15 % was set from a
+   within-day trio (2.5 % spread); the cross-run drift series is now −5 %, −2 %, −19 % —
+   the through-origin fit weights points by S², the top rung carries ~half the fit, and its
+   d̄ moves ~9 % between casts, which alone swings K by ±20 %. Widened to 25 % with that
+   arithmetic recorded; the volume keeps its own `K_MC_TOL_3D` = 15 % (2 600-grain census,
+   wall-anchored window, 1.8 % measured spread) rather than importing the loosening
+   unearned.
+
 - [ ] **H3** — annealing twins (Σ3 on migrating boundaries, 3D, low-SFE cubic only)
 - [ ] **H4** — homogenization (solute diffusion at frozen φ)
 - [ ] **H5** — oxidation and decarburization

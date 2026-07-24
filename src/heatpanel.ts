@@ -27,7 +27,7 @@
 
 import {
   canTreat, domainLimitUm, grainAfter, integrate, sweepsFor, frac,
-  INCIPIENT_FRAC, K_MC, M_MODEL, ROOM_C,
+  INCIPIENT_FRAC, K_MC, M_MODEL, K_MC_3D, M_MODEL_3D, ROOM_C,
   type HeatSchedule, type TreatContext, type Integrals,
 } from "./heattreat";
 import { K0, type MaterialSI } from "./units";
@@ -37,8 +37,10 @@ import { range } from "./formbits";
 export interface Census {
   fracSolid: number;
   grainCount: number;
-  /** mean grain area, px² — the ⟨A⟩-equivalent diameter comes from this */
+  /** 2D: mean grain area, px² — the ⟨A⟩-equivalent diameter comes from this */
   meanAreaPx: number;
+  /** 3D: mean grain volume, vox³ — the ⟨V⟩-equivalent diameter comes from this */
+  meanVolVox?: number;
   astm: number | null;
 }
 
@@ -72,13 +74,32 @@ export interface HeatHost {
  */
 export const SWEEP_CAP_2D = 20_000;
 
+/**
+ * The volume's ceiling is 10× lower: a 3D sweep is eight dispatches over up to
+ * 7 M voxels, so arithmetic — not submit overhead — is the cost, and 2 000
+ * sweeps is the same few seconds of wall clock. The truncation doctrine is
+ * identical. In practice the DOMAIN limit bites first: the 192³ specimen is
+ * 188 µm across, so most real anneal schedules are refused with their analytic
+ * answer printed rather than truncated.
+ */
+export const SWEEP_CAP_3D = 2_000;
+
 /** heating and cooling ramps the panel's schedule uses, °C/min — furnace-realistic */
 const RAMP_UP = 10;
 const RAMP_DOWN = 5;
 
-/** thermal lenses (MELT / FIELD / THERM) — parked during a treatment, see rule 3 */
-const THERMAL_LENSES = [0, 3, 5];
+/**
+ * Lenses parked during a treatment, per dimension — rule 3. 2D: MELT/FIELD/
+ * THERM read the T field, which is the as-cast record, not the furnace; the
+ * treatment parks them on ETCH, where boundary migration is visible anyway.
+ * 3D: MELT's surface ember and THERM's emission are the thermal readouts
+ * (FIELD is x-ray transmittance there, not temperature); parked to ORIENT,
+ * where the grains carry their id hues and migration is visible.
+ */
+const THERMAL_LENSES_2D = [0, 3, 5];
 const ETCH = 2;
+const THERMAL_LENSES_3D = [0, 6];
+const ORIENT3 = 1;
 
 type Plan =
   | { ok: false; why: string }
@@ -144,6 +165,10 @@ export class HeatPanel {
     this.active = false;
     this.panel?.remove();
     this.panel = null;
+    // the cache dies with the panel: a census outliving a close can belong to
+    // the OTHER dimension after a mode switch, and a 3D plan reading a 2D
+    // census computes d₀ = 0 µm with a straight face (caught by HT3-PANEL)
+    this.census = null;
     this.host.syncUI();
   }
 
@@ -158,9 +183,26 @@ export class HeatPanel {
 
   // -------------------------------------------------------------- the plan
 
-  /** ⟨A⟩-equivalent circle diameter, µm — the same measure the census reports */
+  /**
+   * Mean grain diameter, µm, in the measure each dimension's census reports:
+   * ⟨A⟩-equivalent circle in the plane, ⟨V⟩-equivalent sphere in the volume.
+   * The two differ by an O(1) stereological factor from the mean linear
+   * intercept the tabulated laws use — the honesty row the plan names.
+   */
   private dBar(c: Census): number {
+    if (this.host.getMode() === "3d") {
+      const v = c.meanVolVox ?? 0;
+      return v > 0 ? Math.cbrt((6 * v) / Math.PI) * this.host.umPerCell() : 0;
+    }
     return c.meanAreaPx > 0 ? 2 * Math.sqrt(c.meanAreaPx / Math.PI) * this.host.umPerCell() : 0;
+  }
+
+  /** the model constants and the compute ceiling for the dimension on stage */
+  private consts() {
+    const m3 = this.host.getMode() === "3d";
+    return m3
+      ? { kMC: K_MC_3D, mModel: M_MODEL_3D, cap: SWEEP_CAP_3D }
+      : { kMC: K_MC, mModel: M_MODEL, cap: SWEEP_CAP_2D };
   }
 
   private schedule(): HeatSchedule {
@@ -181,19 +223,21 @@ export class HeatPanel {
    * every one of them is a teaching point, not an error code.
    */
   private plan(c: Census | null): Plan {
+    // no census yet is NOT "nothing solid" — before the first measurement
+    // lands, the panel does not know what is on stage and must not claim to
+    if (!c) return { ok: false, why: "waiting for the first grain census…" };
     const si = this.host.si();
     const ctx: TreatContext = {
       si,
       key: this.host.materialKey(),
       alloy: this.host.alloyOn(),
       dim: this.host.getMode(),
-      cubic: false, // 2D — the Σ3 question does not arise until H2b/H3
-      solidFraction: c?.fracSolid ?? 0,
+      cubic: false, // the Σ3 question does not arise until H3 offers twins
+      solidFraction: c.fracSolid,
     };
     const v = canTreat("grain", ctx);
     if (!v.ok) return { ok: false, why: v.why };
     if (!si) return { ok: false, why: "no SI identity." }; // canTreat already said it better
-    if (!c) return { ok: false, why: "waiting for the first grain census…" };
     if (c.grainCount < 3) {
       return {
         ok: false,
@@ -227,13 +271,14 @@ export class HeatPanel {
       };
     }
 
-    const sweepsExact = sweepsFor(d0Um, dPredUm, this.host.umPerCell(), K_MC, M_MODEL);
+    const { kMC, mModel, cap } = this.consts();
+    const sweepsExact = sweepsFor(d0Um, dPredUm, this.host.umPerCell(), kMC, mModel);
     const sweeps = Math.round(sweepsExact);
-    const capped = sweeps > SWEEP_CAP_2D;
+    const capped = sweeps > cap;
     // the model endpoint the truncated run reaches — its own law, inverted
     const d0Cells = d0Um / this.host.umPerCell();
     const dCapUm = capped
-      ? Math.pow(Math.pow(d0Cells, M_MODEL) + K_MC * SWEEP_CAP_2D, 1 / M_MODEL) * this.host.umPerCell()
+      ? Math.pow(Math.pow(d0Cells, mModel) + kMC * cap, 1 / mModel) * this.host.umPerCell()
       : dPredUm;
     return { ok: true, sch, ints, d0Um, dPredUm, sweeps, capped, dCapUm };
   }
@@ -333,8 +378,8 @@ export class HeatPanel {
       + `<b style="color:#cfd6df">${fmtUm(d0Um)} → ${fmtUm(dPredUm)}</b>`
       + ` · ${sweeps.toLocaleString()} MC sweeps`
       + (capped
-        ? ` — <span style="color:#ffb454">past the ${SWEEP_CAP_2D.toLocaleString()}-sweep budget: the run will be `
-        + `truncated at ${((SWEEP_CAP_2D / sweeps) * 100).toFixed(0)} % and reach ~${fmtUm(dCapUm)}</span>`
+        ? ` — <span style="color:#ffb454">past the ${this.consts().cap.toLocaleString()}-sweep budget: the run will be `
+        + `truncated at ${((this.consts().cap / sweeps) * 100).toFixed(0)} % and reach ~${fmtUm(dCapUm)}</span>`
         : "");
   }
 
@@ -360,11 +405,13 @@ export class HeatPanel {
     }
     // rule 3: the T field is the as-cast record, not the furnace — park the
     // view where the treatment is actually visible
-    if (THERMAL_LENSES.includes(this.host.getView())) this.host.setView(ETCH);
+    const m3 = this.host.getMode() === "3d";
+    if ((m3 ? THERMAL_LENSES_3D : THERMAL_LENSES_2D).includes(this.host.getView()))
+      this.host.setView(m3 ? ORIENT3 : ETCH);
     this.host.syncUI();
     this.refresh();
 
-    const total = Math.min(plan.sweeps, SWEEP_CAP_2D);
+    const total = Math.min(plan.sweeps, this.consts().cap);
     const setStatus = (s: string) => { if (this.statusEl) this.statusEl.textContent = s; };
     let delivered = 0;
     try {
@@ -390,9 +437,12 @@ export class HeatPanel {
     if (!this.reportEl) return;
     const dim = (s: string) => `<span style="color:#6b7280">${s}</span>`;
     const strong = (s: string) => `<b style="color:#cfd6df">${s}</b>`;
+    const astmNA = this.host.getMode() === "3d"
+      ? "ASTM — (a plane-section statistic; see STEREOLOGY)"
+      : "ASTM — (fewer than 3 grains)";
     const line = (label: string, c: Census) =>
       `${dim(label)} d̄ ${strong(fmtUm(this.dBar(c)))} · `
-      + `${c.astm != null ? `ASTM ${strong("G " + c.astm.toFixed(1))}` : dim("ASTM — (fewer than 3 grains)")} · `
+      + `${c.astm != null ? `ASTM ${strong("G " + c.astm.toFixed(1))}` : dim(astmNA)} · `
       + `${strong(String(c.grainCount))} grains`;
 
     const rows: string[] = [];
@@ -403,7 +453,7 @@ export class HeatPanel {
     if (delivered < total) {
       rows.push(`<span style="color:#ffb454">aborted at sweep ${delivered.toLocaleString()} / ${total.toLocaleString()} — the microstructure is wherever the boundaries were</span>`);
     } else if (plan.capped) {
-      rows.push(`<span style="color:#ffb454">truncated: the schedule asked for ${plan.sweeps.toLocaleString()} sweeps, the budget allows ${SWEEP_CAP_2D.toLocaleString()} `
+      rows.push(`<span style="color:#ffb454">truncated: the schedule asked for ${plan.sweeps.toLocaleString()} sweeps, the budget allows ${this.consts().cap.toLocaleString()} `
         + `(${((total / plan.sweeps) * 100).toFixed(0)} %) — the model endpoint for the delivered sweeps is ~${fmtUm(plan.dCapUm)}</span>`);
     } else if (after && this.dBar(after) - this.dBar(before) < 0.05) {
       rows.push(dim("nothing microstructural happened — which is what the arithmetic predicted. That is what a stress relief is."));

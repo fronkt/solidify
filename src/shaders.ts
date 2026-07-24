@@ -791,7 +791,7 @@ export const HT_STRIDE = 256;
  */
 export const HT_KT_DEFAULT = 0.6;
 
-const HT_COMMON = /* wgsl */ `
+export const HT_COMMON = /* wgsl */ `
 struct HT {
   n: u32,
   colour: u32,
