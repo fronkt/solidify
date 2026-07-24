@@ -43,6 +43,10 @@ import { createServer } from "vite";
 const viteServer = await createServer({ server: { middlewareMode: true }, appType: "custom", logLevel: "error" });
 const HT = await viteServer.ssrLoadModule("/src/heattreat.ts");
 const { M_MODEL, K_MC } = HT;
+// the homogenization gates test against the DISCRETE stencil eigenvalue at
+// the shipped numerical diffusivities — loaded, not retyped
+const SH = await viteServer.ssrLoadModule("/src/shaders.ts");
+const SH3 = await viteServer.ssrLoadModule("/src/shaders3d.ts");
 
 const PORT = process.argv[3] ?? "5199";
 let failures = 0;
@@ -456,7 +460,7 @@ if (cast0.grains < 20) { console.log("cast produced too few grains to anneal"); 
       grainsBefore: before.grainCount, grainsAfter: after.grainCount,
       dBefore: +dOf(before).toFixed(1), dAfter: +dOf(after).toFixed(1), dPred,
       ratioToLaw: +(dOf(after) / dPred).toFixed(3),
-      report: report.replace(/\s+/g, " ").slice(0, 220),
+      report: report.replace(/\s+/g, " ").slice(0, 800),
     };
   });
   const ok = out.opened && out.armed
@@ -464,8 +468,77 @@ if (cast0.grains < 20) { console.log("cast produced too few grains to anneal"); 
     && out.busyDuring && !out.runDuring && !out.stillBusy
     && out.grainsAfter < out.grainsBefore * 0.8
     && out.ratioToLaw > 0.65 && out.ratioToLaw < 1.35
+    // H4/H5 wiring on the 2D card: alloy is off in this cast so the homog
+    // line is the canTreat hint, and Al's oxide line is passive-film nm
+    && /solute field/.test(out.report) && /scale .*nm/.test(out.report)
     && /before/.test(out.report) && /after/.test(out.report) && /law endpoint/.test(out.report);
   check("HT-PANEL", ok, out);
+}
+
+// ---------------------------------------------------------------------------
+// HT-HOMOG-2D — homogenization against the DISCRETE stencil eigenvalue, exact.
+//
+// A fully synthetic solid block (φ = 1 everywhere — the gate writes the state
+// textures directly, so no cast roughness pollutes the mode) seeded with a
+// DCT-II mode cos(πM(x+0.5)/n), which is an exact eigenvector of the
+// clamp-edge 5-point Laplacian: its amplitude after I iterations is
+// (1 − 2D(1 − cos πM/n))^I to machine precision, no boundary artefacts, no
+// free constant. The continuum exp(−Dk²I) is printed alongside with the gap —
+// that gap is the model's own discretization error and belongs on the science
+// page, not swept into a tolerance. Also asserted: solute is conserved (the
+// masked exchange is antisymmetric pair-by-pair) and φ is untouched.
+{
+  const out = await page.evaluate(async () => {
+    const S = window.__solidify, s = S.sim();
+    const n = s.n;
+    const M = 16;
+    const data = new Float32Array(n * n * 4);
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        const i = (y * n + x) * 4;
+        data[i] = 1; data[i + 1] = 0.2;
+        data[i + 2] = 0.3 + 0.1 * Math.cos(Math.PI * M * (x + 0.5) / n);
+        data[i + 3] = 0.1;
+      }
+    for (const dir of [0, 1])
+      s.device.queue.writeTexture({ texture: s.stateTexture(dir) }, data, { bytesPerRow: n * 16 }, [n, n]);
+    const read = async () => {
+      let r = null;
+      for (let t = 0; t < 40 && !r; t++) { r = await s.readRows(0, n); if (!r) await s.device.queue.onSubmittedWorkDone(); }
+      return r;
+    };
+    const proj = rows => {
+      let a = 0, mean = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          const c = rows[(y * n + x) * 4 + 2];
+          a += c * Math.cos(Math.PI * M * (x + 0.5) / n);
+          mean += c;
+        }
+      return { a, mean: mean / (n * n) };
+    };
+    const r0 = await read();
+    const p0 = proj(r0);
+    const I = 400;
+    const got = await s.homogenize(I);
+    const r1 = await read();
+    const p1 = proj(r1);
+    let phiDiff = 0;
+    for (let i = 0; i < r0.length; i += 4) if (r0[i] !== r1[i]) { phiDiff++; break; }
+    return { n, M, I, got, a0: p0.a, a1: p1.a, mean0: p0.mean, mean1: p1.mean, phiDiff };
+  });
+  const k = Math.PI * out.M / out.n;
+  const mu = 1 - 2 * SH.HOMOG_D2 * (1 - Math.cos(k));
+  const discrete = Math.pow(mu, out.I);
+  const continuum = Math.exp(-SH.HOMOG_D2 * k * k * out.I);
+  const meas = out.a1 / out.a0;
+  const err = Math.abs(meas - discrete) / discrete;
+  const consErr = Math.abs(out.mean1 - out.mean0) / out.mean0;
+  check("HT-HOMOG-2D", out.got === out.I && err < 2e-3 && consErr < 1e-6 && out.phiDiff === 0, {
+    measured: +meas.toFixed(6), discrete: +discrete.toFixed(6), continuum: +continuum.toFixed(6),
+    discretizationGapPct: +((continuum / discrete - 1) * 100).toFixed(3),
+    relErr: +err.toExponential(2), consErr: +consErr.toExponential(2), phiDiff: out.phiDiff,
+  });
 }
 
 // ===========================================================================
@@ -906,9 +979,9 @@ if (!cast3 || cast3.grains < 100) { console.log("3D cast produced too few grains
       dBefore: +dOf(before).toFixed(1), dAfter: +dOf(after).toFixed(1), dPred,
       ratioToLaw: +(dOf(after) / dPred).toFixed(3),
       twinCtrBefore, twinCtrAfter,
-      // 520: the volume's ASTM-n/a note AND the H3 twin-refusal sentence must
-      // both survive the slice for the assertions below to see them
-      report: report.replace(/\s+/g, " ").slice(0, 520),
+      // 1000: the volume's ASTM-n/a note, the H3 twin-refusal sentence AND
+      // the H4/H5 homog + oxide rows must all survive the slice
+      report: report.replace(/\s+/g, " ").slice(0, 1000),
     };
   });
   const ok = out.opened && out.armed
@@ -921,8 +994,68 @@ if (!cast3 || cast3.grains < 100) { console.log("3D cast produced too few grains
     // says why — the SFE sentence) and the allocator must not have moved
     && out.twinCtrBefore === out.twinCtrAfter
     && /stacking-fault/.test(out.report)
+    // H4/H5 wiring: the alloy is off in this cast, so the homog line is the
+    // canTreat hint, and aluminium's oxide line is its passive-film nanometres
+    && /solute field/.test(out.report) && /scale .*nm/.test(out.report)
     && /before/.test(out.report) && /after/.test(out.report) && /law endpoint/.test(out.report);
   check("HT3-PANEL", ok, out);
+}
+
+// ---------------------------------------------------------------------------
+// HT-HOMOG-3D — the same exact-eigenvalue check on the volume's solute pair:
+// alloy enabled the UI way (lazy allocation), synthetic φ = 1 block, DCT-II
+// mode along x (an exact eigenvector of the clamp-edge 7-point stencil, since
+// the y/z terms vanish for an x-only field), decay (1 − 2D(1 − cos k))^I.
+{
+  const out = await page.evaluate(async () => {
+    const S = window.__solidify, s3 = S.sim3d();
+    const n = s3.n;
+    S.app.setAlloyOn(true);
+    for (let t = 0; t < 60 && !s3.soluteTexture(0); t++) await new Promise(r => setTimeout(r, 50));
+    if (!s3.soluteTexture(0)) return { alloc: false };
+    const M = 8;
+    const st = new Float32Array(n * n * n * 2);
+    for (let i = 0; i < n * n * n; i++) { st[i * 2] = 1; st[i * 2 + 1] = 0.2; }
+    for (const dir of [0, 1])
+      s3.device.queue.writeTexture({ texture: s3.stateTexture(dir) }, st, { bytesPerRow: n * 8, rowsPerImage: n }, [n, n, n]);
+    const c = new Float32Array(n * n * n);
+    for (let i = 0; i < c.length; i++)
+      c[i] = 0.3 + 0.1 * Math.cos(Math.PI * M * ((i % n) + 0.5) / n);
+    for (const dir of [0, 1])
+      s3.device.queue.writeTexture({ texture: s3.soluteTexture(dir) }, c, { bytesPerRow: n * 4, rowsPerImage: n }, [n, n, n]);
+    const proj = vol => {
+      let a = 0, mean = 0;
+      for (let i = 0; i < vol.length; i++) {
+        a += vol[i] * Math.cos(Math.PI * M * ((i % n) + 0.5) / n);
+        mean += vol[i];
+      }
+      return { a, mean: mean / vol.length };
+    };
+    const v0 = await s3.readSoluteVolume();
+    if (!v0) return { alloc: true, read: false };
+    const p0 = proj(v0);
+    const I = 120;
+    const got = await s3.homogenize(I);
+    const v1 = await s3.readSoluteVolume();
+    const p1 = proj(v1);
+    return { alloc: true, read: true, n, M, I, got, a0: p0.a, a1: p1.a, mean0: p0.mean, mean1: p1.mean };
+  });
+  if (!out.alloc || !out.read) {
+    check("HT-HOMOG-3D", false, out);
+  } else {
+    const k = Math.PI * out.M / out.n;
+    const mu = 1 - 2 * SH3.HOMOG_D3 * (1 - Math.cos(k));
+    const discrete = Math.pow(mu, out.I);
+    const continuum = Math.exp(-SH3.HOMOG_D3 * k * k * out.I);
+    const meas = out.a1 / out.a0;
+    const err = Math.abs(meas - discrete) / discrete;
+    const consErr = Math.abs(out.mean1 - out.mean0) / out.mean0;
+    check("HT-HOMOG-3D", out.got === out.I && err < 2e-3 && consErr < 1e-6, {
+      measured: +meas.toFixed(6), discrete: +discrete.toFixed(6), continuum: +continuum.toFixed(6),
+      discretizationGapPct: +((continuum / discrete - 1) * 100).toFixed(3),
+      relErr: +err.toExponential(2), consErr: +consErr.toExponential(2),
+    });
+  }
 }
 
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 5) : "none");

@@ -897,6 +897,55 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 }
 `;
 
+/**
+ * Homogenization, 3D (H4): numerical diffusivity per iteration, cells²/iter.
+ * The explicit 7-point stability bound is 1/6; 0.14 keeps a margin. Numerical,
+ * not physical — D_s enters only through the iteration budget.
+ */
+export const HOMOG_D3 = 0.14;
+
+/**
+ * Solute diffusion at frozen φ in the volume — the 2D pass's contract on the
+ * lazily allocated solute pair: c diffuses through the solid skeleton only,
+ * every non-solid face (liquid, pore via its pinned φ = 0, mould, the domain
+ * edge via clamp) is zero-flux, and nothing else is read or written. The
+ * solute pair ping-pongs on its own; an even iteration count lands the data
+ * back in the slot `dir` expects, so the solver's own bookkeeping never sees
+ * the treatment happened.
+ */
+export const HOMOG3_WGSL = /* wgsl */ `
+struct HG { n: u32, d: f32, p2: u32, p3: u32 }
+@group(0) @binding(0) var<uniform> G: HG;
+@group(0) @binding(1) var state: texture_3d<f32>;
+@group(0) @binding(2) var mould: texture_3d<u32>;
+@group(0) @binding(3) var cIn: texture_3d<f32>;
+@group(0) @binding(4) var cOut: texture_storage_3d<r32float, write>;
+
+@compute @workgroup_size(4, 4, 4)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= G.n || gid.y >= G.n || gid.z >= G.n) { return; }
+  let c = vec3i(gid);
+  var cv = textureLoad(cIn, c, 0).r;
+  if (textureLoad(state, c, 0).r >= 0.5 && textureLoad(mould, c, 0).r == 0u) {
+    var lap = 0.0;
+    for (var k = 0; k < 6; k++) {
+      var dv = vec3i(1, 0, 0);
+      if (k == 1) { dv = vec3i(-1, 0, 0); }
+      if (k == 2) { dv = vec3i(0, 1, 0); }
+      if (k == 3) { dv = vec3i(0, -1, 0); }
+      if (k == 4) { dv = vec3i(0, 0, 1); }
+      if (k == 5) { dv = vec3i(0, 0, -1); }
+      let nc = clamp(c + dv, vec3i(0), vec3i(i32(G.n) - 1));
+      if (textureLoad(state, nc, 0).r >= 0.5 && textureLoad(mould, nc, 0).r == 0u) {
+        lap += textureLoad(cIn, nc, 0).r - cv;
+      }
+    }
+    cv += G.d * lap;
+  }
+  textureStore(cOut, c, vec4f(cv, 0.0, 0.0, 0.0));
+}
+`;
+
 // ------------------------------------------------------------- render pass
 // RParams3D slot map (144 B; vec4s at byte offsets 48/64/80/96/112/128)
 // flags bits 4–7 = cut-face style: 0 orientation tint · 1 Nital · 2 Klemm's ·

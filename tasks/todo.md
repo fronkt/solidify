@@ -1282,7 +1282,33 @@ the pass's physics. The division is stated in the source and will be stated on t
 page: the plate is the one inserted thing, for the same reason the 2D solver does not claim
 to resolve capillary-length nucleation.
 
-- [ ] **H4** — homogenization (solute diffusion at frozen φ)
-- [ ] **H5** — oxidation and decarburization
+- [x] **H4** — homogenization: `HOMOG_WGSL`/`HOMOG3_WGSL`, masked isotropic diffusion on c at
+      frozen φ through the solid skeleton only — its own pass in both dimensions because under
+      EFKP the solid diffusivity is exactly zero, so there is nothing to reuse. Every non-solid
+      face (liquid, pore via its pinned φ, mould, domain edge via clamp) is zero-flux, which
+      makes the exchange conservative pair-by-pair; iterations are deterministic so they batch
+      hundreds per submit (unlike the Potts pass there is no RNG to decorrelate), and the count
+      is forced even so the ping-pongs land home. The physical map is the whole point:
+      `iterations = Dt/(cell²·D_h)` with Dt from the schedule's Arrhenius integral — no
+      wavelength, no fitted constant — and the cost wall is budgeted honestly
+      (`HOMOG_CAP` 40 000/4 000; the card reports the delivered fraction of the requested Dt).
+      `readSoluteVolume()` landed for the volume (the plan's (d): no 3D solute readback
+      existed). The card measures segregation as RMS over solid — a statistic, never compared
+      against a single-mode law. **Gates `HT-HOMOG-2D/3D` are exact**: a synthetic φ=1 block
+      seeded with a DCT-II mode cos(πM(x+0.5)/n) — an exact eigenvector of the clamp-edge
+      stencil, which kills the boundary-artefact problem the plan's cos(2πx/λ) sketch had —
+      must decay as (1−2D(1−cos k))^I: measured rel-err 9·10⁻⁷ (2D) and 9·10⁻⁷ (3D),
+      conservation to 10⁻⁷, φ byte-identical, with the continuum exp(−Dk²I) and its gap
+      (+0.012 % / −0.034 % at these modes) PRINTED as the model's own discretization error.
+- [x] **H5** — oxidation and decarburization: the analytic parabolic laws over the whole
+      schedule land on the report card — `scale x = √(∫k_p dt)` for every material with a
+      sourced constant, `decarb x = 2√(D_C t)` for steel alone (its Ds IS carbon in ferrite),
+      with `fmtLen` spanning Al's passive-film nanometres (2.3 nm after 14.5 h at 520 °C —
+      "aluminium does not scale" made visible) to steel's mill-scale millimetres. Ice and SCN
+      refuse by name (`oxA0: 0` means "no constant in the table", not "0 µm of scale").
+      **The scale is deliberately not painted into the fields** — T/c/age are the as-cast
+      record, and a render layer would have cost a struct-growth risk for a film that spans
+      six orders of magnitude — so the card is where the number lives, and the science page
+      (H7) will say so. Both panel gates assert the homog and oxide rows end-to-end.
 - [ ] **H6** — Hall–Petch and the report-card verdict
 - [ ] **H7** — the panel, the `reheat` rename, science §9, README, TESTING, tour

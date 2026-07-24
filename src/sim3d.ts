@@ -5,8 +5,8 @@
 
 import {
   FLUX3D_WGSL, update3dWgsl, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL, STEREO3D_WGSL,
-  LINE3D_WGSL, HTMASK3_WGSL, ANNEAL3_WGSL, TWINSTAMP3_WGSL, HT_COLOURS_3D,
-  MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
+  LINE3D_WGSL, HTMASK3_WGSL, ANNEAL3_WGSL, TWINSTAMP3_WGSL, HOMOG3_WGSL, HOMOG_D3,
+  HT_COLOURS_3D, MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
 } from "./shaders3d";
 import { shaderModule, H2U, HT_STRIDE, HT_KT_DEFAULT } from "./shaders";
 import { DEFAULT_UM_PER_CELL } from "./units";
@@ -191,6 +191,11 @@ export class Sim3D {
   private twinStampPipe: GPUComputePipeline | null = null;
   private twinStampBG: GPUBindGroup[] = [];
   private tsBuf: GPUBuffer | null = null;
+  // homogenization (H4): pipe compiled up front (no VRAM); bind groups exist
+  // only while the solute pair does — built in enableAlloy, dropped with it
+  private homogPipe!: GPUComputePipeline;
+  private homogBG: GPUBindGroup[][] = [];   // [state dir][solute pingpong]
+  private hgBuf!: GPUBuffer;
 
   private pendingSeeds: Seed3[] = [];
   private pendingQuench = 0;
@@ -295,6 +300,8 @@ export class Sim3D {
     this.feedPipe = mk(FEED3D_WGSL);
     this.stereoPipe = mk(STEREO3D_WGSL);
     this.linePipe = mk(LINE3D_WGSL);
+    this.homogPipe = mk(HOMOG3_WGSL, "homog3");
+    this.hgBuf = d.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 
     for (const dir of [0, 1]) {
       const s = this.stateTex[dir].createView();
@@ -410,6 +417,16 @@ export class Sim3D {
     this.soluteTex = pair;
     this.fillSolute();
     for (const dir of [0, 1]) {
+      this.homogBG[dir] = [0, 1].map(pp => d.createBindGroup({
+        layout: this.homogPipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.hgBuf } },
+          { binding: 1, resource: this.stateTex[dir].createView() },
+          { binding: 2, resource: this.maskTex.createView() },
+          { binding: 3, resource: this.soluteTex[pp].createView() },
+          { binding: 4, resource: this.soluteTex[1 - pp].createView() },
+        ],
+      }));
       this.updateAlloyBG[dir] = d.createBindGroup({
         layout: this.updateAlloyPipe.getBindGroupLayout(0),
         entries: [
@@ -492,6 +509,7 @@ export class Sim3D {
     const old = this.soluteTex;
     this.soluteTex = [];
     this.updateAlloyBG = [];
+    this.homogBG = [];
     // the caller rebinds the renderer synchronously after this call; deferring
     // the destroy one microtask means no frame ever binds a dead texture
     queueMicrotask(() => { for (const t of old) t.destroy(); });
@@ -531,6 +549,7 @@ export class Sim3D {
     this.htMaskTex?.destroy();
     this.htBuf?.destroy();
     this.tsBuf?.destroy();
+    this.hgBuf?.destroy();
   }
 
   /** per-grain quaternions (CPU mirror) — read-only, for the IPF panel */
@@ -1100,6 +1119,73 @@ export class Sim3D {
       return 1;
     }
     return 0;
+  }
+
+  /**
+   * Homogenization in the volume: `iters` masked-diffusion iterations on the
+   * solute pair at frozen φ — the 2D contract (deterministic, batched, even
+   * count so the pair lands back in the slot `dir` expects). Resolves 0 when
+   * there is no solute field; `canTreat` should have refused before this.
+   */
+  async homogenize(iters: number, onProgress?: (done: number) => boolean | void): Promise<number> {
+    if (this.soluteTex.length !== 2 || this.homogBG.length === 0) return 0;
+    const total = 2 * Math.ceil(Math.max(0, iters) / 2);
+    if (total === 0) return 0;
+    const u = new ArrayBuffer(16);
+    new Uint32Array(u)[0] = this.n;
+    new Float32Array(u)[1] = HOMOG_D3;
+    this.device.queue.writeBuffer(this.hgBuf, 0, u);
+    let done = 0;
+    let pp = this.dir;   // the current solute field rides the state dir
+    while (done < total) {
+      const batch = Math.min(64, total - done);   // 3D iterations are ~30× heavier
+      const enc = this.device.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(this.homogPipe);
+      for (let i = 0; i < batch; i++) {
+        pass.setBindGroup(0, this.homogBG[this.dir][pp]);
+        this.dispatch(pass);
+        pp = 1 - pp;
+      }
+      pass.end();
+      this.device.queue.submit([enc.finish()]);
+      await this.device.queue.onSubmittedWorkDone();
+      done += batch;
+      if (onProgress?.(done) === false) break;
+    }
+    return done;
+  }
+
+  /** one-shot solute volume readback (n³ f32, padded rows de-strided) */
+  async readSoluteVolume(): Promise<Float32Array | null> {
+    if (this.soluteTex.length !== 2) return null;
+    const n = this.n;
+    const bpr = Math.ceil((n * 4) / 256) * 256;
+    const buf = this.device.createBuffer({
+      size: bpr * n * n,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+    const enc = this.device.createCommandEncoder();
+    enc.copyTextureToBuffer(
+      { texture: this.soluteTex[this.dir] },
+      { buffer: buf, bytesPerRow: bpr, rowsPerImage: n },
+      [n, n, n]);
+    this.device.queue.submit([enc.finish()]);
+    try {
+      await buf.mapAsync(GPUMapMode.READ);
+    } catch {
+      buf.destroy();
+      return null;
+    }
+    const raw = new Float32Array(buf.getMappedRange().slice(0));
+    buf.unmap();
+    buf.destroy();
+    if (bpr === n * 4) return raw;
+    const out = new Float32Array(n * n * n);
+    const rowF32 = bpr / 4;
+    for (let r = 0; r < n * n; r++)
+      out.set(raw.subarray(r * rowF32, r * rowF32 + n), r * n);
+    return out;
   }
 
   /**

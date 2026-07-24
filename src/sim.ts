@@ -1,6 +1,7 @@
 import {
   FLUX_WGSL, UPDATE_WGSL, PHI_WGSL, TRANSPORT_WGSL, STAMP_WGSL, STATS_WGSL,
-  HTMASK_WGSL, ANNEAL_WGSL, H2U, HT_COLOURS_2D, HT_STRIDE, HT_KT_DEFAULT,
+  HTMASK_WGSL, ANNEAL_WGSL, HOMOG_WGSL, HOMOG_D2,
+  H2U, HT_COLOURS_2D, HT_STRIDE, HT_KT_DEFAULT,
   MAX_GRAINS, MAX_SEEDS, SEED_STRIDE, P2, SOLVER, shaderModule,
 } from "./shaders";
 import { DEFAULT_UM_PER_CELL } from "./units";
@@ -198,6 +199,9 @@ export class Simulation {
   /** [grain ping-pong dir][colour] */
   private annealBG: GPUBindGroup[][] = [];
   private htData = new ArrayBuffer(HT_STRIDE * HT_COLOURS_2D);
+  private homogPipe!: GPUComputePipeline;
+  private homogBG: GPUBindGroup[] = [];
+  private hgBuf!: GPUBuffer;
 
   private pendingSeeds: Seed[] = [];
   private pendingQuench = 0;
@@ -261,10 +265,12 @@ export class Simulation {
     this.statsPipe = mk(STATS_WGSL);
     this.htMaskPipe = mk(HTMASK_WGSL, "htmask");
     this.annealPipe = mk(ANNEAL_WGSL, "anneal");
+    this.homogPipe = mk(HOMOG_WGSL, "homog");
     this.htBuf = d.createBuffer({
       size: HT_STRIDE * HT_COLOURS_2D,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
+    this.hgBuf = d.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 
     for (const dir of [0, 1]) {
       const s = this.stateTex[dir].createView();
@@ -360,6 +366,14 @@ export class Simulation {
           ],
         });
       }
+      this.homogBG[dir] = d.createBindGroup({
+        layout: this.homogPipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.hgBuf } },
+          { binding: 1, resource: s },
+          { binding: 2, resource: so },
+        ],
+      });
     }
     this.reset();
   }
@@ -643,6 +657,45 @@ export class Simulation {
     await this.device.queue.onSubmittedWorkDone();
     onProgress?.(total);
     return total;
+  }
+
+  /**
+   * Run `iters` explicit diffusion iterations on the solute channel at frozen
+   * φ — the homogenization soak. Unlike the Potts pass there is no RNG to
+   * decorrelate between iterations, so batching hundreds into one submit is
+   * safe and fast; the batch size only paces the progress pulse and abort.
+   *
+   * Each iteration flips the state ping-pong, so the count is forced EVEN —
+   * an odd count would leave `this.dir`'s state paired with a stale grain
+   * field, the same parity argument the anneal makes. `this.dir` itself is
+   * never touched; the data lands back where it started.
+   */
+  async homogenize(iters: number, onProgress?: (done: number) => boolean | void): Promise<number> {
+    const total = 2 * Math.ceil(Math.max(0, iters) / 2);
+    if (total === 0) return 0;
+    const u = new ArrayBuffer(16);
+    new Uint32Array(u)[0] = this.n;
+    new Float32Array(u)[1] = HOMOG_D2;
+    this.device.queue.writeBuffer(this.hgBuf, 0, u);
+    let done = 0;
+    while (done < total) {
+      const batch = Math.min(512, total - done);   // even: 512 and the remainder both are
+      const enc = this.device.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(this.homogPipe);
+      let gdir = this.dir;
+      for (let i = 0; i < batch; i++) {
+        pass.setBindGroup(0, this.homogBG[gdir]);
+        this.dispatch(pass);
+        gdir = 1 - gdir;
+      }
+      pass.end();
+      this.device.queue.submit([enc.finish()]);
+      await this.device.queue.onSubmittedWorkDone();
+      done += batch;
+      if (onProgress?.(done) === false) break;
+    }
+    return done;
   }
 
   /**

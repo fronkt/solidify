@@ -925,6 +925,45 @@ async function boot() {
       }
       return { delivered, spawned, saturated };
     },
+    homogenize: (iters, onProgress) =>
+      mode === "3d" && sim3d
+        ? sim3d.homogenize(iters, onProgress)
+        : sim.homogenize(iters, onProgress),
+    // the measured segregation: RMS deviation of c over the solid skeleton.
+    // A statistic, not a single-mode comparison — the exact-decay check lives
+    // in HT-HOMOG, where the mode is seeded and the reference is the discrete
+    // stencil eigenvalue
+    async segregation() {
+      if (mode === "3d" && sim3d) {
+        if (!(sim3d.params.alloyOn > 0)) return null;
+        const c = await sim3d.readSoluteVolume();
+        const phi = await sim3d.readPhiVolume();
+        if (!c || !phi) return null;
+        let sum = 0, k = 0;
+        for (let i = 0; i < c.length; i++) if (phi[i] >= 0.5) { sum += c[i]; k++; }
+        if (!k) return null;
+        const mean = sum / k;
+        let ss = 0;
+        for (let i = 0; i < c.length; i++) if (phi[i] >= 0.5) { const d = c[i] - mean; ss += d * d; }
+        return { rms: Math.sqrt(ss / k), mean };
+      }
+      let rows: Float32Array | null = null;
+      for (let t = 0; t < 40 && !rows; t++) {
+        rows = await sim.readRows(0, sim.n);
+        if (!rows) await sim.device.queue.onSubmittedWorkDone();
+      }
+      if (!rows) return null;
+      // (φ, T, c, age) interleaved; solid and not mould
+      let sum = 0, k = 0;
+      for (let i = 0; i < rows.length; i += 4)
+        if (rows[i] >= 0.5 && rows[i + 3] > -0.5) { sum += rows[i + 2]; k++; }
+      if (!k) return null;
+      const mean = sum / k;
+      let ss = 0;
+      for (let i = 0; i < rows.length; i += 4)
+        if (rows[i] >= 0.5 && rows[i + 3] > -0.5) { const d = rows[i + 2] - mean; ss += d * d; }
+      return { rms: Math.sqrt(ss / k), mean };
+    },
     setRun: on => app.setRun(on),
     getView: () => (mode === "3d" ? view3d : view),
     setView: v => { if (mode === "3d") app.setView3d(v); else app.setView(v); },

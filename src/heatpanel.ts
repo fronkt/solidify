@@ -27,10 +27,13 @@
 
 import {
   canTreat, domainLimitUm, grainAfter, integrate, sweepsFor, frac,
+  scaleThickness, decarbDepth,
   INCIPIENT_FRAC, K_MC, M_MODEL, K_MC_3D, M_MODEL_3D, ROOM_C,
   type HeatSchedule, type TreatContext, type Integrals,
 } from "./heattreat";
 import { K0, type MaterialSI } from "./units";
+import { HOMOG_D2 } from "./shaders";
+import { HOMOG_D3 } from "./shaders3d";
 import { range } from "./formbits";
 
 /** the slice of a stats readback the panel needs — both dimensions can fill it */
@@ -68,6 +71,10 @@ export interface HeatHost {
    */
   annealTwins?(sweeps: number, onProgress: (done: number) => boolean):
     Promise<{ delivered: number; spawned: number; saturated: boolean }>;
+  /** masked solute diffusion at frozen φ; resolves iterations delivered */
+  homogenize(iters: number, onProgress: (done: number) => boolean): Promise<number>;
+  /** RMS deviation of the solute field over solid — the measured segregation */
+  segregation(): Promise<{ rms: number; mean: number } | null>;
   setRun(on: boolean): void;
   getView(): number;
   setView(v: number): void;
@@ -92,6 +99,15 @@ export const SWEEP_CAP_2D = 20_000;
  * answer printed rather than truncated.
  */
 export const SWEEP_CAP_3D = 2_000;
+
+/**
+ * Homogenization iteration ceilings. The explicit-diffusion cost wall the plan
+ * names: iterations go as Dt/(cell²·D_h), which is thousands at the Kobayashi
+ * pitch and millions under calibrated mode's 0.087 µm cell. Run what fits and
+ * report the achieved fraction beside the requested — never silently fewer.
+ */
+export const HOMOG_CAP_2D = 40_000;
+export const HOMOG_CAP_3D = 4_000;
 
 /** heating and cooling ramps the panel's schedule uses, °C/min — furnace-realistic */
 const RAMP_UP = 10;
@@ -206,12 +222,12 @@ export class HeatPanel {
     return c.meanAreaPx > 0 ? 2 * Math.sqrt(c.meanAreaPx / Math.PI) * this.host.umPerCell() : 0;
   }
 
-  /** the model constants and the compute ceiling for the dimension on stage */
+  /** the model constants and the compute ceilings for the dimension on stage */
   private consts() {
     const m3 = this.host.getMode() === "3d";
     return m3
-      ? { kMC: K_MC_3D, mModel: M_MODEL_3D, cap: SWEEP_CAP_3D }
-      : { kMC: K_MC, mModel: M_MODEL, cap: SWEEP_CAP_2D };
+      ? { kMC: K_MC_3D, mModel: M_MODEL_3D, cap: SWEEP_CAP_3D, dH: HOMOG_D3, iterCap: HOMOG_CAP_3D }
+      : { kMC: K_MC, mModel: M_MODEL, cap: SWEEP_CAP_2D, dH: HOMOG_D2, iterCap: HOMOG_CAP_2D };
   }
 
   private schedule(): HeatSchedule {
@@ -436,6 +452,7 @@ export class HeatPanel {
     const wantTwins = twinV?.ok === true && !!this.host.annealTwins;
     let delivered = 0;
     let twinLine = twinV && !twinV.ok ? twinV.why : "";
+    let homogLine = "";
     try {
       if (total > 0) {
         const onProg = (done: number) => {
@@ -453,6 +470,35 @@ export class HeatPanel {
           delivered = await this.host.anneal(total, onProg);
         }
       }
+      // homogenization rides the same treatment: the schedule's Dt product,
+      // spent as masked diffusion iterations through the solid skeleton
+      const hv = canTreat("homogenize", this.ctx(before));
+      if (!hv.ok) {
+        homogLine = hv.why;
+      } else if (!this.abortReq) {
+        const { dH, iterCap } = this.consts();
+        const cellM = this.host.umPerCell() * 1e-6;
+        const need = Math.round(plan.ints.dt / (cellM * cellM * dH));
+        if (need < 2) {
+          homogLine = `Dt ${fmtDt(plan.ints.dt)} — under one cell² of diffusion; nothing measurable at this resolution`;
+        } else {
+          const run = Math.min(need, iterCap);
+          const segB = await this.host.segregation();
+          const gotI = await this.host.homogenize(run, done => {
+            setStatus(`diffusion ${done.toLocaleString()} / ${run.toLocaleString()} iterations — solute through the solid skeleton`);
+            return !this.abortReq;
+          });
+          const segA = await this.host.segregation();
+          homogLine = `Dt ${fmtDt(plan.ints.dt)} · ${gotI.toLocaleString()} iterations`
+            + (need > iterCap
+              ? ` — the schedule asked ${need.toLocaleString()}, the budget allows ${iterCap.toLocaleString()} `
+                + `(${((iterCap / need) * 100).toFixed(0)} % of the requested Dt delivered)`
+              : "")
+            + (segB && segA
+              ? ` · segregation RMS ${segB.rms.toPrecision(3)} → ${segA.rms.toPrecision(3)}`
+              : "");
+        }
+      }
     } finally {
       this.busy = false;
     }
@@ -461,11 +507,11 @@ export class HeatPanel {
     setStatus("");
     this.host.syncUI();
     if (this.closeReq) { this.closeReq = false; this.close(); return; }
-    this.report(plan, before, after, delivered, total, twinLine);
+    this.report(plan, before, after, delivered, total, twinLine, homogLine);
     this.refresh();
   }
 
-  private report(plan: Plan & { ok: true }, before: Census, after: Census | null, delivered: number, total: number, twinLine = "") {
+  private report(plan: Plan & { ok: true }, before: Census, after: Census | null, delivered: number, total: number, twinLine = "", homogLine = "") {
     if (!this.reportEl) return;
     const dim = (s: string) => `<span style="color:#6b7280">${s}</span>`;
     const strong = (s: string) => `<b style="color:#cfd6df">${s}</b>`;
@@ -483,6 +529,20 @@ export class HeatPanel {
     rows.push(after ? line("after ", after) : `${dim("after")} census readback failed`);
     rows.push(`${dim("law endpoint")} ${fmtUm(plan.dPredUm)} ${dim("— the trajectory between endpoints is the Potts model's, not the material's")}`);
     if (twinLine) rows.push(`${dim("twins")} ${twinLine}`);
+    if (homogLine) rows.push(`${dim("homog")} ${homogLine}`);
+    // oxidation and decarburization (H5): analytic parabolic laws over the
+    // whole schedule. The scale is NOT painted into the fields — T/c/age are
+    // the as-cast record — so the card is where the number lives.
+    const ov = canTreat("oxide", this.ctx(before));
+    if (ov.ok) {
+      let ox = `scale ${fmtLen(scaleThickness(plan.ints.ox))} grew on the free surface (parabolic, ∫k_p·dt over the whole schedule)`;
+      if (canTreat("decarb", this.ctx(before)).ok) {
+        ox += ` · decarburized to ${fmtLen(decarbDepth(plan.ints.dt))} (x = 2√(D_C·t))`;
+      }
+      rows.push(`${dim("oxide")} ${ox}`);
+    } else {
+      rows.push(`${dim("oxide")} ${ov.why}`);
+    }
     if (delivered < total) {
       rows.push(`<span style="color:#ffb454">aborted at sweep ${delivered.toLocaleString()} / ${total.toLocaleString()} — the microstructure is wherever the boundaries were</span>`);
     } else if (plan.capped) {
@@ -499,6 +559,20 @@ export class HeatPanel {
 
 function fmtUm(um: number): string {
   return um >= 100 ? `${um.toFixed(0)} µm` : `${um.toFixed(1)} µm`;
+}
+
+/** a length that honestly spans Al's nanometre passive film to steel's mm scale */
+function fmtLen(m: number): string {
+  if (!(m > 0)) return "0";
+  if (m < 1e-6) return `${(m * 1e9).toPrecision(2)} nm`;
+  if (m < 1e-3) return `${(m * 1e6).toPrecision(3)} µm`;
+  return `${(m * 1e3).toPrecision(3)} mm`;
+}
+
+/** the Dt product, µm² — the group every homogenization is measured in */
+function fmtDt(m2: number): string {
+  const um2 = m2 * 1e12;
+  return um2 >= 1 ? `${um2.toPrecision(3)} µm²` : `${um2.toExponential(1)} µm²`;
 }
 
 function fmtDur(s: number): string {

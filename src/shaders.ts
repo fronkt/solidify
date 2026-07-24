@@ -918,6 +918,52 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 }
 `;
 
+/**
+ * Homogenization (H4): the numerical diffusivity per iteration, cells²/iter.
+ * The explicit 5-point stability bound is 0.25; 0.2 keeps a margin. It is a
+ * NUMERICAL parameter exactly as the MC temperature is — the physical D_s
+ * enters only through how many iterations `heattreat`'s Dt budget buys.
+ */
+export const HOMOG_D2 = 0.2;
+
+/**
+ * Solute diffusion at frozen φ — what a homogenization soak does and a
+ * solidifying melt cannot: under EFKP the SOLID diffusivity is exactly zero
+ * (the transport pass at shaders.ts:447), so this is its own pass rather than
+ * a reuse. c diffuses through the solid skeleton only; every non-solid face
+ * (liquid, mould, the domain edge via clamp) is zero-flux — the clamped ghost
+ * equals the centre, so edges contribute nothing and the exchange is
+ * conservative pair-by-pair. φ, T and age are copied through untouched: a
+ * treatment that moved them would not be solid-state.
+ */
+export const HOMOG_WGSL = /* wgsl */ `
+struct HG { n: u32, d: f32, p2: u32, p3: u32 }
+@group(0) @binding(0) var<uniform> G: HG;
+@group(0) @binding(1) var state: texture_2d<f32>;
+@group(0) @binding(2) var stateOut: texture_storage_2d<rgba32float, write>;
+
+@compute @workgroup_size(8, 8)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= G.n || gid.y >= G.n) { return; }
+  let c = vec2i(gid.xy);
+  var s = textureLoad(state, c, 0);
+  if (s.r >= 0.5 && s.a > -0.5) {
+    var lap = 0.0;
+    for (var k = 0; k < 4; k++) {
+      var dv = vec2i(1, 0);
+      if (k == 1) { dv = vec2i(-1, 0); }
+      if (k == 2) { dv = vec2i(0, 1); }
+      if (k == 3) { dv = vec2i(0, -1); }
+      let nc = clamp(c + dv, vec2i(0), vec2i(i32(G.n) - 1));
+      let ns = textureLoad(state, nc, 0);
+      if (ns.r >= 0.5 && ns.a > -0.5) { lap += ns.b - s.b; }
+    }
+    s.b += G.d * lap;
+  }
+  textureStore(stateOut, c, s);
+}
+`;
+
 // -------------------------------------------------------------- render pass
 // Lenses: 0 MELT 1 ORIENT 2 ETCH 3 FIELD 4 RINGS 5 THERM 6 SEM 7 NEON 8 XRAY 9 CURV
 export const LENS_NAMES = ["MELT", "ORIENT", "ETCH", "FIELD", "RINGS", "THERM", "SEM", "NEON", "XRAY", "CURV"];
