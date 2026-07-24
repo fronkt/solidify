@@ -19,6 +19,7 @@ const SUITE = [
   ["scripts/verify-units.mjs"],
   ["scripts/verify-heattreat.mjs"],
   ["scripts/verify-thermal.mjs"],
+  ["scripts/verify-fade.mjs"],
   ["scripts/verify-dive.mjs"],
   ["scripts/verify-dive-fallbacks.mjs"],
   ["scripts/verify-scroll-order.mjs"],

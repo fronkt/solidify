@@ -1252,11 +1252,26 @@ sessions don't mint two different verdicts from the same `hallPetch()`.
       on a mean-of-remaining-liquid probe is poor, and the card *says so* (a note now fires when
       the RMS is wide) rather than tuning until it agrees. A near-quench correctly shows every
       arrest landmark as *unresolved* with its reason.
-- [ ] **L3** — refiner fade: `n_max` decays with the hold above the liquidus (settling +
-      agglomeration + oxide, faster than Stokes alone; grain size falls to a minimum then
-      rises), deleting the science row "n_max does not fall when you overheat the charge".
-      `nucleation.ts` + a "hold before pour" lab field + a browser-free gate; fade at zero hold
-      is byte-identically today's behaviour.
+- [x] **L3** — refiner fade: an inoculated charge held above its liquidus loses effective
+      nucleant sites, which the science honesty table admitted was "not modelled". `nucleation.ts`
+      gains `fadeFactor(holdMin)` — a short potent plateau then exponential decay to a residual
+      floor (settling + agglomeration + oxide, faster than Stokes alone; the settling literature
+      puts most of the loss inside the first ~30 min, so the curve is 1.0 → 0.38 at 30 min →
+      0.15 floor by ~2 h). **`fadeFactor(0) === 1` exactly**, so a charge poured immediately is
+      byte-identical to before this existed — the load-bearing property, gated by `FADE-IDENTITY`.
+      `lab.ts` gains a "hold before pour" dial (live survived-% readout) that multiplies the
+      inoculant before `setInoculant`, and a report-card line "N added, held M min → X % survived
+      (Y active at pour)". Share links round-trip `holdMin` as an optional 7th tuple element
+      (`share.ts` + `main.ts` labShare/restore — the `LabSetup` shape change forced the main.ts
+      touch anyway, so the round-trip is done properly; old 6-element links still decode).
+      **`scripts/verify-fade.mjs`** — the fourth CI-runnable gate (wired into `run-tests.mjs` +
+      `ci.yml`): `FADE-IDENTITY` (0 and the whole plateau fade by nothing), `FADE-SHOULDER` (full
+      potency to lagMin then a strict drop — a decay-from-t0 model has no shoulder and fails it),
+      `FADE-MONOTONE` (non-increasing across the dial), `FADE-FLOOR` (bottoms at the residual, not
+      zero), `FADE-FAST` (<½ survive 30 min, matching the settling data). Science row rewritten +
+      Materials 2022 settling ref added. Verified: `tsc`/build/all four browser-free gates green;
+      **live DOM pour** (Al, 1500 sites, 60 min hold) → card reads "21 % survived settling (312
+      active at pour)" = `round(1500·fadeFactor(60))`, fade confirmed reaching the site model.
 - [ ] **L2** — hydrogen porosity via Sievert's law: `C = K√p_H2` with real solubility data
       replaces `lab.ts`'s admitted `+0.1` porosity hack; feeds the existing `pPore` param (no
       shader change). Materials without H data refuse honestly.

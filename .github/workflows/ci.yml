@@ -23,6 +23,7 @@ jobs:
       - run: node scripts/verify-units.mjs
       - run: node scripts/verify-heattreat.mjs
       - run: node scripts/verify-thermal.mjs
+      - run: node scripts/verify-fade.mjs
 
 # The rest of the headless verify-*.mjs suite (npm test) needs a WebGPU-capable
 # Chrome at a hardcoded local path and is not portable to this runner — see

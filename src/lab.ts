@@ -19,6 +19,7 @@ import { PROGRAMS, ProgramRun, type Program } from "./program";
 import { check, range, select } from "./formbits";
 import type { Units } from "./units";
 import { analyseCurve, retain, type ThermalAnalysis } from "./thermal";
+import { fadeFactor } from "./nucleation";
 
 export interface LabHost {
   getMode(): "2d" | "3d";
@@ -50,6 +51,9 @@ export interface LabHost {
 export interface LabSetup {
   atmosphere: "air" | "argon" | "vacuum";
   inoculant: number;
+  /** minutes the charge is held above its liquidus before pouring — the refiner
+   *  fades over this time (nucleation.ts:fadeFactor) */
+  holdMin: number;
   superheat: number;
   moldT: number;
   moldWalls: boolean;
@@ -59,6 +63,7 @@ export interface LabSetup {
 export const LAB_DEFAULT: LabSetup = {
   atmosphere: "argon",
   inoculant: 600,
+  holdMin: 0,
   superheat: 0.12,
   moldT: 0.06,
   moldWalls: true,
@@ -92,6 +97,9 @@ export class Lab {
   private run = new ProgramRun();
   private series: Sample[] = [];
   private t0 = 0;
+  /** grain-refiner fade applied at the last pour, and the sites it left active */
+  private fadeF = 1;
+  private effInoc = 0;
   private fingerprint = "";
   private lastFs = 0;
   private plateau = 0;
@@ -147,7 +155,11 @@ export class Lab {
     if (this.porePrev !== null) {
       p.pPore = Math.min(1, this.porePrev + (this.setup.atmosphere === "air" ? 0.1 : 0));
     }
-    this.host.setInoculant(this.setup.inoculant);
+    // grain-refiner fade: a charge held above its liquidus loses effective
+    // nucleant sites to settling and agglomeration before it is even poured
+    this.fadeF = fadeFactor(this.setup.holdMin);
+    this.effInoc = Math.round(this.setup.inoculant * this.fadeF);
+    this.host.setInoculant(this.effInoc);
     // pour ABOVE the liquidus: nothing can freeze until the programme cools it
     this.host.clearMelt(-this.setup.superheat);
     const prog: Program = (PROGRAMS[this.setup.program] ?? PROGRAMS.air)(0.55);
@@ -246,6 +258,10 @@ export class Lab {
     form.append(
       select("atmosphere", ["argon", "vacuum", "air"], this.setup.atmosphere, v => { this.setup.atmosphere = v as LabSetup["atmosphere"]; this.refresh(); }),
       range("inoculant (sites)", 0, 3000, 10, this.setup.inoculant, v => { this.setup.inoculant = v; }),
+      // hold above the liquidus fades the refiner: the live readout is the
+      // fraction of the added sites that survive settling to the pour
+      range("hold before pour", 0, 120, 5, this.setup.holdMin, v => { this.setup.holdMin = v; }, 0,
+        v => v <= 0 ? "0 min" : `${v} min · ${(fadeFactor(v) * 100).toFixed(0)} %`),
       // shown in real units: a superheat is kelvin above the liquidus and a mould
       // sits at a temperature, and neither means anything as a bare 0.12
       range("pour superheat", 0, 0.35, 0.01, this.setup.superheat, v => { this.setup.superheat = v; }, 2,
@@ -374,6 +390,12 @@ export class Lab {
       `<div>nucleation-model ratchet: deepest undercooling <b style="color:#ffb454">`
       + `${uu.known ? uu.fmtK(this.host.maxUndercool()) : "ΔT " + this.host.maxUndercool().toFixed(3)}</b>` +
       ` <span style="color:#6b7280">(the site model's own global measure, alongside the curve's ΔT<sub>N</sub> above)</span></div>` +
+      (this.setup.holdMin > 0
+        ? `<div>grain refiner: <b style="color:#cfd6df">${this.setup.inoculant}</b> sites added, held `
+          + `<b style="color:#cfd6df">${this.setup.holdMin} min</b> above the liquidus → `
+          + `<b style="color:#ffb454">${(this.fadeF * 100).toFixed(0)} %</b> survived settling `
+          + `(<b style="color:#cfd6df">${this.effInoc}</b> active at pour)</div>`
+        : "") +
       `<div>inoculant used <b style="color:#cfd6df">${this.host.nucFired()}</b> of ${this.host.nucMax().toFixed(0)} sites ` +
       `(${this.host.nucMax() > 0 ? ((this.host.nucFired() / this.host.nucMax()) * 100).toFixed(0) : "0"} %)</div>` +
       `<div>final solid fraction <b style="color:#cfd6df">${last ? (last.fs * 100).toFixed(1) : "—"} %</b>` +

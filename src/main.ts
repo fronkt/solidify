@@ -1377,7 +1377,7 @@ async function boot() {
   function labShare(): ShareState["lab"] {
     if (!lab.active) return undefined;
     const s = lab.setup;
-    return [s.atmosphere, s.inoculant, s.superheat, s.moldT, s.moldWalls ? 1 : 0, s.program];
+    return [s.atmosphere, s.inoculant, s.superheat, s.moldT, s.moldWalls ? 1 : 0, s.program, s.holdMin];
   }
 
   // links made before v4.0 carry a wall-clock "seeds per second" rain; read it
@@ -1418,10 +1418,10 @@ async function boot() {
     view = Math.max(0, Math.min(9, Math.round(shared.v))) as ViewMode;
     applyNucShare(nuc, shared);
     if (shared.lab) {
-      const [atm, ino, sup, mT, walls, prog] = shared.lab;
+      const [atm, ino, sup, mT, walls, prog, hold] = shared.lab;
       lab.setup = {
         atmosphere: (["air", "argon", "vacuum"].includes(atm) ? atm : "argon") as LabSetup["atmosphere"],
-        inoculant: ino, superheat: sup, moldT: mT, moldWalls: walls === 1, program: prog,
+        inoculant: ino, holdMin: hold ?? 0, superheat: sup, moldT: mT, moldWalls: walls === 1, program: prog,
       };
       lab.open();
     }

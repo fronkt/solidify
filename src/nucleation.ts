@@ -34,6 +34,38 @@ export interface NucState {
 
 export const NUC_DEFAULT: NucState = { nmax: 0, dTN: 0.15, dTsig: 0.045 };
 
+/**
+ * Grain-refiner fade. An inoculated charge held above its liquidus loses
+ * effective nucleant sites over time: the refining particles (TiB₂ and Al₃Ti in
+ * the Al–Ti–B system) are denser than the melt and settle out of it — and they
+ * do it FASTER than Stokes' law alone predicts, because they agglomerate and get
+ * caught on oxide films. Most of the loss happens in the first ~30 min of
+ * holding, after which the settled fraction is roughly constant, so the model is
+ * a short potent plateau followed by an exponential decay to a residual floor of
+ * heterogeneous sites that are always present.
+ *
+ * This is empirical, not derived — the timescale is the Al–Ti–B holding picture,
+ * applied to whatever inoculant the charge carries, and the science page says so.
+ * At zero hold the factor is exactly 1, so a charge poured immediately behaves
+ * identically to before this existed: no shipped result moves.
+ *
+ * Sources: settling faster than Stokes by agglomeration — "Grain refiner settling
+ * and its effect on the melt quality of aluminium casting alloys," Materials 15
+ * (2022) 7679; M. Easton & D. StJohn, Metall. Mater. Trans. A 30 (1999) 1613.
+ */
+export const FADE = { lagMin: 2, halfMin: 15, floor: 0.15 };
+
+/**
+ * Fraction of the added inoculant still active after `holdMin` minutes held
+ * above the liquidus. 1 during the initial plateau, decaying toward FADE.floor.
+ * Monotonically non-increasing, and exactly 1 at zero hold.
+ */
+export function fadeFactor(holdMin: number): number {
+  if (!(holdMin > FADE.lagMin)) return 1;
+  const tau = FADE.halfMin / Math.LN2;
+  return FADE.floor + (1 - FADE.floor) * Math.exp(-(holdMin - FADE.lagMin) / tau);
+}
+
 interface Site { d: number; x: number; y: number; z: number }
 
 export class Nucleation {
