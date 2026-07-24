@@ -14,10 +14,11 @@ const OUT = "verify-out";
 // second server; it belongs in the suite like everything else, and now that its
 // checks actually set an exit code, including it is meaningful.
 const SUITE = [
-  // the two browser-free ones run first because they are instant, and they are
-  // the only two the GitHub workflow can also run
+  // the browser-free ones run first because they are instant, and they are the
+  // only ones the GitHub workflow can also run
   ["scripts/verify-units.mjs"],
   ["scripts/verify-heattreat.mjs"],
+  ["scripts/verify-thermal.mjs"],
   ["scripts/verify-dive.mjs"],
   ["scripts/verify-dive-fallbacks.mjs"],
   ["scripts/verify-scroll-order.mjs"],
