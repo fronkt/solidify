@@ -14,8 +14,9 @@ export interface ShareState {
   rain?: number;                            // LEGACY: pre-v4 seeds per second
   nuc?: [number, number, number];           // inoculant: n_max, dT_N, dT_sigma
   /** lab experiment: atmosphere, inoculant, superheat, mould T, walls, programme,
-   *  and (optional, added v6.1) minutes held above the liquidus for refiner fade */
-  lab?: [string, number, number, number, number, string, number?];
+   *  (optional, added v6.1) minutes held above the liquidus for refiner fade, and
+   *  (optional, v6.1 L4) the pre-pour spec σ_y in MPa (0 = no spec) */
+  lab?: [string, number, number, number, number, string, number?, number?];
   sched?: [number, number, number] | null;  // applied recipe cooling schedule
   d?: 1;                                    // 1 = the setup lives in TRUE-3D mode
   g3?: number;                              // 3D grid edge (128 / 160 / 192)

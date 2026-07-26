@@ -19,13 +19,20 @@ paid for twice), and joining the suite is what found the GPU gate's own flaky as
 within two runs. `K_MC`'s drift is re-measured on every suite run, so a change to the Potts
 pass fails the build rather than quietly shipping a wrong sweep budget.
 
+**Three more browser-free members joined in v6.1** — `verify-thermal.mjs`, `verify-fade.mjs`
+and `verify-porosity.mjs`, the arithmetic halves of the lab's cooling-curve analysis, refiner
+fade and Sievert gas porosity — bringing the CI-runnable set to five. They run first in the
+suite for the same reason the first two do: they are instant, and a failure there means the
+GPU half is not worth starting.
+
 **Requirements**: a WebGPU-capable Chrome/Chromium at the path hardcoded in each verify script
 (`C:\Program Files\Google\Chrome\Application\chrome.exe`) — Windows with a real GPU, or the
 `--use-angle=swiftshader` software-rendering path the scripts themselves fall back to for
 GPU-less environments. **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
-only the OS-agnostic steps — typecheck, build, and the two browser-free scripts
-`verify-units.mjs` and `verify-heattreat.mjs` (see `.github/workflows/ci.yml`) — rather than
+only the OS-agnostic steps — typecheck, build, and the five browser-free scripts
+(`verify-units.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
+`verify-porosity.mjs`; see `.github/workflows/ci.yml`) — rather than
 this suite. If you want to run the physics/UI verification yourself, do it locally.
 
 ## What each script checks
@@ -37,6 +44,22 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   limit, the shipped twin matrix and the incipient-melting catch — and the second suite member
   GitHub CI can actually run. `HT-DEMO` prints the headline numbers (a 1 h anneal takes steel
   12 → ~296 µm) rather than asserting them, so a regression stays visible in the log.
+  `HT-VERDICT` (v6.1, L4) gates the MPa formatter's three bands and the printed-precision
+  doctrine itself — a spec missed by less than the display's own rounding must judge as met —
+  which became gateable here when `fmtMPa`/`shownMPa` moved into pure `heattreat.ts` so the
+  furnace card and the lab card share one verdict.
+- **`verify-thermal.mjs`** (browser-free, v6.1) — the cooling-curve analysis against synthetic
+  curves with prescribed landmarks: recovery clean and at the readback's real noise, the
+  20 Hz→4 Hz resampling identity that fails an index-based derivative, "no arrest" honestly
+  reported on a monotonic quench, derived f_s vs prescribed, and `retain()`'s span-preserving
+  decimation — the check that gates the old head-dropping `splice` bug directly.
+- **`verify-fade.mjs`** (browser-free, v6.1) — refiner fade: identity at zero hold (nothing
+  shipped moves), the incubation shoulder a decay-from-t0 model cannot produce, monotone
+  non-increase, the residual floor, and <½ surviving 30 min per the settling data.
+- **`verify-porosity.mjs`** (browser-free, v6.1) — Sievert's law: C = h_L·√p (the air/argon
+  ratio is √(p₁/p₂), not p₁/p₂), the rejected fraction, the atmosphere ordering with vacuum
+  exactly zero, refusal by name for materials without hydrogen data, and the Ransley–Neufeld
+  numbers as a drift tripwire.
 - **`verify-dive.mjs`** — boots the landing page, confirms the Three.js scroll-dive engaged
   (not the 2.5D SVG fallback), scrubs through a set of scroll progresses, and captures
   screenshots + console errors at each one.
@@ -51,7 +74,11 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   transport gates the CMA-ES loop (it doesn't auto-start), and that exiting the mode restores
   normal transport.
 - **`verify-tools.mjs`** — the v1.8 tool batch (faceted growth, `#set=` share-link round-trip,
-  the analysis-panel enlarge modal, the specimen-tilt view) plus the v4.0 physics checks below.
+  the analysis-panel enlarge modal, the specimen-tilt view) plus the v4.0 physics checks below,
+  the lab gates (`LAB`, and v6.1's `LAB4` — the σ_y row must BE Hall–Petch on the gate's own
+  census to the printed decimal, the verdict must judge the spec as dialled at the pour even
+  when the dial is shoved to 999 mid-run, a no-spec pour must carry no verdict row, and the
+  model metal must refuse by name) and the heat-treat share-link gates.
 - **`verify-scale3d.mjs`** — the 3D half of the v5.0 length-anchor change, on its own so it
   does not need the full 23-check volume suite to re-run: both solvers carry one resolution,
   the volume's `eqDiamUm` actually follows it (doubling the pitch doubles the reported diameter
@@ -281,6 +308,7 @@ nearly every bug in this codebase has actually occurred (see `tasks/todo.md` for
 postmortems). Morphology correctness is still checked by eye against the published Kobayashi
 figures and documented in `tasks/todo.md`'s M1 verification note.
 
-`npm run build` (Vite + `tsc`) plus the two browser-free scripts — `verify-units.mjs` and
-`verify-heattreat.mjs` — are the checks anyone on any OS can run without a GPU, and are what
-CI actually gates on (`.github/workflows/ci.yml`).
+`npm run build` (Vite + `tsc`) plus the five browser-free scripts — `verify-units.mjs`,
+`verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs` and `verify-porosity.mjs` —
+are the checks anyone on any OS can run without a GPU, and are what CI actually gates on
+(`.github/workflows/ci.yml`).

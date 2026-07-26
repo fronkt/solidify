@@ -113,10 +113,16 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   the same charge faster reaches a deeper undercooling before that happens — more sites fire,
   finer casting. The test suite asserts exactly that coupling.
 - **Lab mode** — the instrument's other half: instead of dragging sliders at a running melt, you
-  specify the experiment first (charge + inoculant, atmosphere, pour superheat, mould temperature,
-  and a furnace/air/quench/soak cooling programme), pour it, and read a **report card** —
-  cooling curve with the recalescence arrest marked, deepest undercooling, and how much of the
-  inoculant the run actually used. Change a dial mid-pour and the card says so.
+  specify the experiment first (charge + inoculant, hold time above the liquidus, atmosphere,
+  pour superheat, mould temperature, a furnace/air/quench/soak cooling programme, and optionally
+  a pre-pour strength spec), pour it, and read a **report card**. As of v6.1 the card is read
+  the way a foundry reads a cast cup: T_L / T_N / recalescence / T_S extracted from the cooling
+  curve by real thermal analysis (with the method's own error against the measured f_s printed,
+  not tuned away), dissolved hydrogen by Sievert's law with the Ransley–Neufeld solubilities
+  (atmosphere-ordered, zero under vacuum), refiner fade over the hold (settling is why you pour
+  promptly), and the as-cast census with its Hall–Petch σ_y — **judged pass/fail against the
+  spec as dialled at the pour**, at the precision the card prints, with the same one verdict
+  logic the furnace card uses. Change a dial mid-pour and the card says so.
 - **Heat treatment — the second clock** — a real schedule (°C, hours) on a separate clock ~11
   orders longer than solidification: Arrhenius integrals over the whole trajectory set a budget,
   measured Potts kinetics spend it; annealing twins in the volume (Cu and Co twin, Al and Ni

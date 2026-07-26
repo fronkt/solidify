@@ -27,7 +27,7 @@
 
 import {
   canTreat, domainLimitUm, grainAfter, hallPetch, integrate, sweepsFor, frac,
-  scaleThickness, decarbDepth,
+  scaleThickness, decarbDepth, fmtMPa, shownMPa,
   INCIPIENT_FRAC, K_MC, M_MODEL, K_MC_3D, M_MODEL_3D, ROOM_C,
   type HeatSchedule, type TreatContext, type Integrals,
 } from "./heattreat";
@@ -35,6 +35,20 @@ import { K0, type MaterialSI } from "./units";
 import { HOMOG_D2 } from "./shaders";
 import { HOMOG_D3 } from "./shaders3d";
 import { range } from "./formbits";
+
+/**
+ * The one definition of d̄ the H6 verdict stands on — ⟨A⟩-equivalent circle in
+ * the plane, ⟨V⟩-equivalent sphere in the volume — exported so the lab's L4
+ * verdict judges the same diameter. Two of these is how one census yields two
+ * strengths on one screen.
+ */
+export function censusDbarUm(c: Census, mode: "2d" | "3d", umPerCell: number): number {
+  if (mode === "3d") {
+    const v = c.meanVolVox ?? 0;
+    return v > 0 ? Math.cbrt((6 * v) / Math.PI) * umPerCell : 0;
+  }
+  return c.meanAreaPx > 0 ? 2 * Math.sqrt(c.meanAreaPx / Math.PI) * umPerCell : 0;
+}
 
 /** the slice of a stats readback the panel needs — both dimensions can fill it */
 export interface Census {
@@ -237,11 +251,7 @@ export class HeatPanel {
    * intercept the tabulated laws use — the honesty row the plan names.
    */
   private dBar(c: Census): number {
-    if (this.host.getMode() === "3d") {
-      const v = c.meanVolVox ?? 0;
-      return v > 0 ? Math.cbrt((6 * v) / Math.PI) * this.host.umPerCell() : 0;
-    }
-    return c.meanAreaPx > 0 ? 2 * Math.sqrt(c.meanAreaPx / Math.PI) * this.host.umPerCell() : 0;
+    return censusDbarUm(c, this.host.getMode(), this.host.umPerCell());
   }
 
   /** the model constants and the compute ceilings for the dimension on stage */
@@ -676,25 +686,8 @@ function fmtUm(um: number): string {
   return um >= 100 ? `${um.toFixed(0)} µm` : `${um.toFixed(1)} µm`;
 }
 
-/**
- * A yield strength, number only — the caller places the unit, so a range like
- * "38.7 → 30.1 MPa" says it once. Spans succinonitrile's fractions of an MPa
- * to a superalloy's hundreds without pretending to more digits than Hall–Petch
- * on a census deserves.
- */
-function fmtMPa(mpa: number): string {
-  return mpa >= 100 ? mpa.toFixed(0) : mpa >= 3 ? mpa.toFixed(1) : mpa.toPrecision(2);
-}
-
-/**
- * The verdict is judged at the precision the card PRINTS. A spec missed by a
- * hair's width the display already rounded away would put "missed" beside two
- * identical printed numbers — a label lying about a difference the card
- * itself declines to show.
- */
-function shownMPa(mpa: number): number {
-  return Number(fmtMPa(mpa));
-}
+// fmtMPa and shownMPa moved to heattreat.ts (pure, browser-free-gated) when
+// L4 gave the lab card the same verdict: one formatter, one printed precision.
 
 /** a length that honestly spans Al's nanometre passive film to steel's mm scale */
 function fmtLen(m: number): string {

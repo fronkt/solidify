@@ -847,6 +847,10 @@ async function boot() {
     maxUndercool: () => (mode === "3d" ? nuc3 : nuc).maxUndercool,
     setFilmSites(frac) { nuc.setFilm(frac); nuc3.setFilm(frac); },
     labShareLink: () => app.shareLink(),
+    // L4: the same guaranteed-fresh census the heat-treat verdict stands on —
+    // one measure() (declared below, resolved at call time), so the two cards
+    // can never disagree about what was measured
+    measureCensus: () => heatHost.measure(),
   };
   const lab = new Lab(labHost);
 
@@ -1477,7 +1481,7 @@ async function boot() {
   function labShare(): ShareState["lab"] {
     if (!lab.active) return undefined;
     const s = lab.setup;
-    return [s.atmosphere, s.inoculant, s.superheat, s.moldT, s.moldWalls ? 1 : 0, s.program, s.holdMin];
+    return [s.atmosphere, s.inoculant, s.superheat, s.moldT, s.moldWalls ? 1 : 0, s.program, s.holdMin, s.specMPa];
   }
 
   /** the heat-treat setup — same doctrine: packed only while the panel is open */
@@ -1523,10 +1527,15 @@ async function boot() {
     view = Math.max(0, Math.min(9, Math.round(shared.v))) as ViewMode;
     applyNucShare(nuc, shared);
     if (shared.lab) {
-      const [atm, ino, sup, mT, walls, prog, hold] = shared.lab;
+      const [atm, ino, sup, mT, walls, prog, hold, spec] = shared.lab;
+      // the optional tail elements carry the g3-style Number.isFinite whitelist:
+      // a hand-built link with a string hold or spec must not seed a NaN fade
+      // or a NaN verdict — it decodes as "not set"
       lab.setup = {
         atmosphere: (["air", "argon", "vacuum"].includes(atm) ? atm : "argon") as LabSetup["atmosphere"],
-        inoculant: ino, holdMin: hold ?? 0, superheat: sup, moldT: mT, moldWalls: walls === 1, program: prog,
+        inoculant: ino, superheat: sup, moldT: mT, moldWalls: walls === 1, program: prog,
+        holdMin: typeof hold === "number" && Number.isFinite(hold) ? hold : 0,
+        specMPa: typeof spec === "number" && Number.isFinite(spec) ? Math.max(0, spec) : 0,
       };
       lab.open();
     }

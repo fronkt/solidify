@@ -22,6 +22,8 @@
 //               only checks that the arithmetic inverts.
 //   HT-REFUSE   every refusal path fires, and names its own reason.
 //   HT-INCIPIENT  a schedule that would melt the specimen is caught.
+//   HT-VERDICT  the MPa formatter's three bands, and the printed-precision
+//               doctrine: a miss the display rounds away judges as met.
 //
 //   node scripts/verify-heattreat.mjs
 import { createServer } from "vite";
@@ -295,6 +297,30 @@ const CU = M.MATERIALS.cu.si;
   }, AL);
   const caught = tooHot.peakFracTm > H.INCIPIENT_FRAC;
   check("HT-INCIPIENT", allSafe && caught, { shipped, tooHotFracTm: +tooHot.peakFracTm.toFixed(4), limit: H.INCIPIENT_FRAC });
+}
+
+// ---------------------------------------------------------------------------
+// 7b. HT-VERDICT — the verdict is judged at the PRINTED precision.
+//
+// fmtMPa/shownMPa moved into heattreat.ts when L4 gave the lab card the same
+// verdict as the furnace's, which is what makes them gateable here. Two claims:
+// the formatter's three bands (a superalloy's hundreds, a casting's tens, and
+// succinonitrile's fractions each get the digits Hall–Petch on a census
+// deserves), and the doctrine itself — a spec missed by less than the display's
+// own rounding must judge as met, because "missed" beside two identical printed
+// numbers is a label lying about a difference the card declines to show.
+{
+  const bands = H.fmtMPa(250.4) === "250" && H.fmtMPa(45.67) === "45.7" && H.fmtMPa(1.234) === "1.2";
+  // 30.04 prints "30.0" — a miss the display rounded away, judged met.
+  // 29.94 prints "29.9" — a real printed shortfall, judged missed.
+  // 29.96 prints "30.0" — rounding recovers it, judged met.
+  const met = H.shownMPa(30.04) >= H.shownMPa(30);
+  const missed = !(H.shownMPa(29.94) >= H.shownMPa(30));
+  const rounded = H.shownMPa(29.96) >= H.shownMPa(30);
+  check("HT-VERDICT", bands && met && missed && rounded, {
+    bands: [H.fmtMPa(250.4), H.fmtMPa(45.67), H.fmtMPa(1.234)],
+    at30: [H.shownMPa(30.04), H.shownMPa(29.94), H.shownMPa(29.96)],
+  });
 }
 
 // ---------------------------------------------------------------------------

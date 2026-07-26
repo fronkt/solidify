@@ -17,10 +17,12 @@
 
 import { PROGRAMS, ProgramRun, type Program } from "./program";
 import { check, range, select } from "./formbits";
-import type { Units } from "./units";
+import type { MaterialSI, Units } from "./units";
 import { analyseCurve, retain, type ThermalAnalysis } from "./thermal";
 import { fadeFactor } from "./nucleation";
 import { hydrogenPorosity, type PorosityResult } from "./porosity";
+import { hallPetch, fmtMPa, shownMPa } from "./heattreat";
+import { censusDbarUm, type Census } from "./heatpanel";
 
 export interface LabHost {
   getMode(): "2d" | "3d";
@@ -47,6 +49,9 @@ export interface LabHost {
   /** atmosphere proxy: the fraction of sites that are wall oxide films */
   setFilmSites(frac: number): void;
   labShareLink(): string;
+  /** a guaranteed-fresh grain census (retries until the readback wins) — the
+   *  same measurement the heat-treat panel's verdict stands on */
+  measureCensus(): Promise<Census | null>;
 }
 
 export interface LabSetup {
@@ -59,6 +64,11 @@ export interface LabSetup {
   moldT: number;
   moldWalls: boolean;
   program: string;
+  /** the pre-pour spec: the yield strength the casting must make as-cast, MPa.
+   *  0 means no spec was dialled, and the card then prints measurements without
+   *  a verdict — a pass/fail against a spec nobody set would be an invented
+   *  judgement (the H6 doctrine, shared with the furnace's dial). */
+  specMPa: number;
 }
 
 export const LAB_DEFAULT: LabSetup = {
@@ -69,6 +79,7 @@ export const LAB_DEFAULT: LabSetup = {
   moldT: 0.06,
   moldWalls: true,
   program: "air",
+  specMPa: 0,
 };
 
 interface Sample { t: number; T: number; fs: number; fired: number }
@@ -103,6 +114,17 @@ export class Lab {
   private effInoc = 0;
   /** hydrogen porosity computed at the last pour */
   private porosity: PorosityResult | null = null;
+  /** L4: the spec and the material's strength identity as they stood AT THE
+   *  POUR. The dials stay live during a run, and a spec moved after the metal
+   *  is in the mould must not rewrite the verdict this charge was committed
+   *  to — the same latch H6 gives the furnace. */
+  private specAtPour = 0;
+  private siAtPour: MaterialSI | null = null;
+  private umAtPour = 0;
+  /** the material identity the panel's dial ranges were derived from — a swap
+   *  while the panel is open rebuilds it, so the spec ceiling is never another
+   *  material's (the H7 buildPanel doctrine) */
+  private propsAtBuild: MaterialSI | null = null;
   private fingerprint = "";
   private lastFs = 0;
   private plateau = 0;
@@ -167,6 +189,11 @@ export class Lab {
     this.fadeF = fadeFactor(this.setup.holdMin);
     this.effInoc = Math.round(this.setup.inoculant * this.fadeF);
     this.host.setInoculant(this.effInoc);
+    // L4: latch the spec and the strength identity of the charge being poured
+    const u0 = this.host.units();
+    this.specAtPour = this.setup.specMPa > 0 ? this.setup.specMPa : 0;
+    this.siAtPour = u0.props;
+    this.umAtPour = u0.micron(1);
     // pour ABOVE the liquidus: nothing can freeze until the programme cools it
     this.host.clearMelt(-this.setup.superheat);
     const prog: Program = (PROGRAMS[this.setup.program] ?? PROGRAMS.air)(0.55);
@@ -238,7 +265,7 @@ export class Lab {
     this.running = false;
     this.host.setRun(false);
     this.refresh();
-    this.showCard();
+    void this.showCard();
   }
 
   // ------------------------------------------------------------------ panel
@@ -260,6 +287,15 @@ export class Lab {
     head.append(exit);
 
     const u = this.host.units();
+    this.propsAtBuild = u.props;
+    // L4: the spec dial's ceiling is material-relative at the strength of a
+    // 4 µm casting — the furnace dial's own reasoning (a fixed 100 MPa cap is
+    // 3× short for steel and 50× too coarse for succinonitrile). A spec dialled
+    // under another material's ceiling is clamped into this one's, the H7
+    // restore doctrine.
+    const specMax = u.props ? Math.ceil(hallPetch(u.props, 4e-6)) : 100;
+    const specStep = specMax <= 5 ? 0.1 : specMax <= 100 ? 1 : 5;
+    this.setup.specMPa = Math.min(this.setup.specMPa, specMax);
     const form = document.createElement("div");
     form.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:6px 16px;margin-bottom:8px;";
     form.append(
@@ -276,6 +312,11 @@ export class Lab {
       range("mould temperature", -0.2, 0.6, 0.02, this.setup.moldT, v => { this.setup.moldT = v; }, 2,
         v => u.known ? `${u.celsius(v).toFixed(0)} °C` : v.toFixed(2)),
       select("cooling programme", ["furnace", "air", "quench", "soak"], this.setup.program, v => { this.setup.program = v; this.refresh(); }),
+      // L4: the pre-pour spec — 0 means no spec, and the card then measures
+      // without judging (a verdict against a spec nobody set would be invented)
+      range("spec σ_y (as-cast)", 0, specMax, specStep, this.setup.specMPa,
+        v => { this.setup.specMPa = v; this.refresh(); }, 0,
+        v => v > 0 ? `≥ ${fmtMPa(v)} MPa` : "no spec"),
       this.moldRow = check("mould walls", this.setup.moldWalls, v => { this.setup.moldWalls = v; }),
     );
 
@@ -304,6 +345,15 @@ export class Lab {
 
   private refresh() {
     if (!this.panel) return;
+    // L4: the spec ceiling is material-relative, and the lab panel — unlike the
+    // furnace's, which rebuilds on every open — stays open across a material
+    // swap. Rebuild it so the dial ranges are the new material's. Never
+    // mid-run: dials must not jump under the operator, and the verdict is
+    // latched at the pour anyway.
+    if (this.host.units().props !== this.propsAtBuild && !this.running) {
+      this.buildPanel();
+      return;
+    }
     const note = this.panel.querySelector("#foundryNote") as HTMLElement;
     const go = this.panel.querySelector("#foundryRun") as HTMLButtonElement;
     // Two of the setup fields only mean anything in the volume: the mould shell
@@ -319,7 +369,7 @@ export class Lab {
     note.innerHTML =
       `<b style="color:#cfd6df">${this.setup.atmosphere}</b> — ${atmoNote(this.setup.atmosphere, three)}. ` +
       "Atmosphere is a melt-cleanliness proxy here, not a nucleation control: it cannot change how " +
-      "readily the bulk liquid nucleates, " + atmoScope;
+      "readily the bulk liquid nucleates, " + atmoScope + this.specNote();
     go.textContent = this.running ? "■ abort" : "▶ pour and run";
     if (!this.statusEl) return;
     if (!this.running) {
@@ -356,8 +406,89 @@ export class Lab {
       + cav + `</div>`;
   }
 
+  /**
+   * L4, the pre-pour half of the verdict: what the dialled spec demands, said
+   * BEFORE any metal is poured. The furnace's specNote pre-judges an endpoint
+   * its law predicts; the lab cannot predict its own census, so it states the
+   * requirement instead — Hall–Petch inverted is a target grain size, and
+   * every dial that reaches it is in this panel. A spec no honest grain size
+   * can meet is named now, not after the charge is spent.
+   */
+  private specNote(): string {
+    const spec = this.setup.specMPa;
+    if (!(spec > 0)) return "";
+    const u = this.host.units();
+    const si = u.props;
+    if (!si) {
+      return `<br>A spec of ≥ ${fmtMPa(spec)} MPa is dialled, but this material carries no strength `
+        + `constants (σ₀, k_HP) — the card will refuse the verdict rather than judge from invented numbers.`;
+    }
+    if (shownMPa(spec) <= shownMPa(si.s0)) {
+      return `<br>The ≥ ${fmtMPa(spec)} MPa spec sits at or under the friction stress σ₀ = `
+        + `${fmtMPa(si.s0)} MPa — any grain size meets it.`;
+    }
+    const dNeedUm = ((si.kHP / (spec - si.s0)) ** 2) * 1e6;
+    const fine = dNeedUm < u.micron(2)
+      ? ` — finer than this grid resolves (2 cells = ${u.fmtLen(2)}), so at this resolution the spec cannot honestly be met`
+      : "";
+    return `<br>The ≥ ${fmtMPa(spec)} MPa spec needs d̄ ≤ ${u.fmtLen(u.fromMicron(dNeedUm))} `
+      + `(Hall–Petch inverted) — more inoculant, a shorter hold and a faster programme all push finer${fine}.`;
+  }
+
+  /**
+   * L4: the lab finally judges. σ_y = σ₀ + k_HP/√d̄ on the MEASURED census —
+   * the same hallPetch, the same ⟨A⟩/⟨V⟩-equivalent d̄ and the same
+   * printed-precision verdict the furnace card stands on (heattreat.ts /
+   * heatpanel.ts), so one casting can never carry two strengths. The verdict
+   * only appears when a spec was dialled at the pour; the arrow on a miss is
+   * the lab's own — the furnace can only soften a casting, so a missed as-cast
+   * spec is closed by a finer pour, and every lever that pours finer is a dial
+   * on this panel.
+   */
+  private strengthBlock(census: Census | null, three: boolean): string {
+    const si = this.siAtPour;
+    const spec = this.specAtPour;
+    const dim = (s: string) => `<span style="color:#6b7280">${s}</span>`;
+    if (!si) {
+      // canTreat doctrine: refuse by name rather than judge from invented numbers
+      return spec > 0
+        ? `<div style="color:#8891a0">spec σ_y ≥ ${fmtMPa(spec)} MPa — this material carries no strength `
+          + `constants (σ₀, k_HP), so a Hall–Petch verdict is not modelled here</div>`
+        : "";
+    }
+    const dUm = census ? censusDbarUm(census, three ? "3d" : "2d", this.umAtPour) : 0;
+    if (!(dUm > 0)) {
+      return spec > 0
+        ? `<div style="color:#8891a0">spec σ_y ≥ ${fmtMPa(spec)} MPa — no grain census landed, so there `
+          + `is nothing measured to judge it against</div>`
+        : "";
+    }
+    const sig = hallPetch(si, dUm * 1e-6);
+    const est = three ? "⟨V⟩-equivalent" : "⟨A⟩-equivalent";
+    const u = this.host.units();
+    const rows: string[] = [];
+    rows.push(`<div>as-cast census: <b style="color:#cfd6df">${census!.grainCount}</b> grains · `
+      + `d̄ <b style="color:#cfd6df">${u.fmtLen(u.fromMicron(dUm))}</b>`
+      + (census!.astm != null ? ` · ASTM <b style="color:#cfd6df">G ${census!.astm.toFixed(1)}</b>` : "")
+      + `</div>`);
+    rows.push(`<div>σ_y (Hall–Petch) <b style="color:#cfd6df">${fmtMPa(sig)} MPa</b> `
+      + dim(`— grain-size strengthening alone on the measured ${est} d̄: no precipitates, no work `
+        + `hardening, and the µm under the √d̄ are the declared resolution`) + `</div>`);
+    if (spec > 0) {
+      rows.push(shownMPa(sig) >= shownMPa(spec)
+        ? `<div>spec σ_y ≥ ${fmtMPa(spec)} MPa — <b style="color:#8fe38f">met</b>: the casting stands at ${fmtMPa(sig)} MPa</div>`
+        : `<div>spec σ_y ≥ ${fmtMPa(spec)} MPa — <span style="color:#c96a5b">missed</span>: the casting stands at `
+          + `${fmtMPa(sig)} MPa ` + dim(`— a finer pour closes it (more inoculant, a shorter hold, a faster `
+            + `programme), and the furnace can only move it further away`) + `</div>`);
+    }
+    return rows.join("");
+  }
+
   // ------------------------------------------------------------ report card
-  private showCard() {
+  private async showCard() {
+    // L4: the census the verdict stands on — measured now, once, the same
+    // guaranteed-fresh readback the furnace card uses
+    const census = await this.host.measureCensus();
     this.card?.remove();
     const c = document.createElement("div");
     c.id = "foundryCard";
@@ -408,6 +539,10 @@ export class Lab {
       + `fixed probe: as cold cells freeze they leave the average, so part of any recalescence shown is that selection effect. `
       + `The trace ends at the solidus — past it there is no liquid left to read.</div>`;
 
+    // L4: census, strength and — if a spec was dialled at the pour — the verdict
+    const strength = document.createElement("div");
+    strength.innerHTML = this.strengthBlock(census, p.scen === 4);
+
     const stats = document.createElement("div");
     stats.innerHTML =
       `<div>nucleation-model ratchet: deepest undercooling <b style="color:#ffb454">`
@@ -442,7 +577,7 @@ export class Lab {
     done.addEventListener("click", () => { this.card?.remove(); this.card = null; });
     row.append(copy, done);
     c.innerHTML = rows.join("");
-    c.append(canvas, thermal, stats, row);
+    c.append(canvas, thermal, strength, stats, row);
     document.getElementById("app")!.append(c);
     this.card = c;
     this.drawCurve(canvas, ta);

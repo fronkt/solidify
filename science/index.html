@@ -250,9 +250,16 @@
     inoculant, the atmosphere, the pour superheat, the mould temperature, and a cooling programme
     (furnace, air, quench, or a soak-then-cool hold). Then you pour it and watch. The solver
     follows the programme's set-point with Newtonian shell coupling rather than a constant heat
-    sink, which is what lets a hold really hold. At the end you get a report card: the melt's
-    cooling curve with the recalescence arrest marked, the deepest undercooling reached, and how
-    much of the inoculant the run actually used. Change a physics dial while it is pouring and the
+    sink, which is what lets a hold really hold. At the end you get a report card: the cooling
+    curve read the way a foundry reads a cast cup (T<sub>L</sub>, T<sub>N</sub>, recalescence,
+    T<sub>S</sub> — the thermal-analysis row below says what that extraction can and cannot
+    resolve), the deepest undercooling reached, how much of the inoculant survived the hold and
+    fired, the dissolved-hydrogen ledger, and — since the lab judges as well as measures — the
+    as-cast grain census with its Hall–Petch yield strength, held against a pre-pour spec if you
+    dialled one. The spec is latched at the pour, so moving it after the metal is in the mould
+    cannot rewrite the verdict; a miss points back at this panel, because a finer pour closes it
+    (more inoculant, a shorter hold, a faster programme) where the furnace can only move it
+    further away. Change a physics dial while it is pouring and the
     card says so — a run with the conditions moved under it is a demonstration, not a measurement.</p>
 
     <h2>8 · THE CALIBRATED SOLVER</h2>
@@ -472,7 +479,7 @@
       <tr><td>Annealing twins (3D)</td><td><b>real crystallography, inserted birth</b> — exact Σ3 registry, survival by a measured-ratio energy cusp plus a mobility gate; but the nucleus is a stamped {111} plate, because a per-cell spawn was built twice and measured dead — a stacking event is sub-grid for a Potts flip. Who twins is decided by sourced stacking-fault energies (Murr 1975)</td></tr>
       <tr><td>Homogenization</td><td><b>exact, and gated as an equality</b> — masked diffusion at frozen φ whose iteration count is the schedule's own Dt product, no fitted constant; the discrete-vs-continuum gap is printed as the model's own discretization error, and the delivered fraction of a budget-capped soak is reported, never silently fewer</td></tr>
       <tr><td>Oxide scale, decarburization</td><td><b>analytic card lines</b> — parabolic laws over the whole schedule from sourced constants; never painted into the fields, which are the as-cast record. Ice and SCN refuse by name rather than draw a confident 0 µm</td></tr>
-      <tr><td>Yield strength σ<sub>y</sub> (Hall–Petch)</td><td><b>grain-size term only</b> — σ₀ + k<sub>HP</sub>/√d̄ on the measured census, no precipitates, no work hardening; d̄ is the equivalent diameter (an O(1) factor from E112's mean intercept), and the µm under the root are the declared resolution. The spec verdict judges this number and names these limits</td></tr>
+      <tr><td>Yield strength σ<sub>y</sub> (Hall–Petch)</td><td><b>grain-size term only</b> — σ₀ + k<sub>HP</sub>/√d̄ on the measured census, no precipitates, no work hardening; d̄ is the equivalent diameter (an O(1) factor from E112's mean intercept), and the µm under the root are the declared resolution. The spec verdict judges this number and names these limits — on both cards: the furnace's post-treatment verdict and the lab's as-cast one share one d̄ definition, one formatter and one printed-precision rule, so a casting can never carry two strengths</td></tr>
       <tr><td>Precipitate aging / T6</td><td><b>not modelled at all</b> — the material table has no precipitate kinetics, and a JMAK curve drawn from invented per-material numbers would be a prediction this instrument has no right to make</td></tr>
     </table>
     <p>The rule throughout: anything the instrument displays as a number is computed, and anything

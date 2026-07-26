@@ -354,7 +354,7 @@ console.log("VC-ZONES", kinds.has(1) && kinds.has(3) ? "OK" : FAIL(), JSON.strin
     const L = window.__solidify.lab, S = window.__solidify, p = S.sim3d().params;
     S.app.setMaterial("al");
     S.app.startLab();
-    L.setup = { atmosphere: "vacuum", inoculant: 300, holdMin: 0, superheat: 0.05, moldT: 0.05, moldWalls: true, program: "air" };
+    L.setup = { atmosphere: "vacuum", inoculant: 300, holdMin: 0, superheat: 0.05, moldT: 0.05, moldWalls: true, program: "air", specMPa: 0 };
     L.start();
     const clean = { scen: p.scen, pPore: p.pPore, shell: S.sim3d().moldShell };
     L.abort();

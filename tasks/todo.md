@@ -1487,5 +1487,51 @@ sessions don't mint two different verdicts from the same `hallPetch()`.
       browser-free gates green; **live DOM pours** read air 0.69→0.65→bias 0.122, argon
       0.17→0.16→0.013, vacuum 0.00→degassed/below threshold — the atmosphere ordering confirmed
       through the card.
-- [ ] **L4** — Hall–Petch yield + spec pass/fail verdict — **deferred until H6 lands**, reusing
-      its verdict logic rather than minting a second one.
+- [x] **L4** — the lab judges (2026-07-26, after the v6-lab merge): Hall–Petch yield + a
+      pass/fail verdict against a PRE-POUR spec, built by **reusing H6's verdict logic rather
+      than minting a second one** — which forced the one refactor worth doing first:
+      `fmtMPa`/`shownMPa` moved from `heatpanel.ts` into pure `heattreat.ts` (heatpanel now
+      imports them; new browser-free `HT-VERDICT` gates the three formatter bands and the
+      printed-precision doctrine directly — a miss the display rounds away judges as met), and
+      the ⟨A⟩/⟨V⟩-equivalent d̄ became exported `censusDbarUm()` with the panel's private
+      `dBar` delegating. One law, one d̄, one formatter, one precision rule: a casting cannot
+      carry two strengths.
+      - **`lab.ts`**: `LabSetup.specMPa` (0 = no spec — a verdict against a spec nobody set is
+        an invented judgement), dial ceiling material-relative at `hallPetch(si, 4 µm)` exactly
+        like the furnace's; the spec AND the material's strength identity (si, µm/cell) are
+        **latched at the pour** — dials stay live, the verdict does not move. The card gains an
+        as-cast census row (grains · d̄ · ASTM), the σ_y row naming its three limits in the H6
+        breath, and the verdict row whose missed-arrow is the lab's own: a finer pour closes it
+        (more inoculant, a shorter hold, a faster programme) **and the furnace can only move it
+        further away** — the exact complement of H6's one-way sentence. Materials without
+        strength constants refuse by name (`canTreat` doctrine); a dead census refuses as "no
+        grain census landed". The panel note pre-judges what it honestly can: Hall–Petch
+        inverted is a target d̄ (with "finer than this grid resolves" called out), a spec at or
+        under σ₀ is "any grain size meets it" — the furnace pre-judges its law's endpoint, the
+        lab cannot predict its census, so it states the requirement instead. The panel now also
+        REBUILDS on material swap (the H7 buildPanel doctrine — the lab panel, unlike the
+        furnace's, stays open across a swap, and a stale ceiling was another material's).
+      - **Census plumbing**: `LabHost.measureCensus()` delegates to the heatHost's `measure()`
+        — one guaranteed-fresh readback path for both cards. `showCard()` went async to await
+        it.
+      - **Share link**: the lab tuple gains the spec as an optional 8th element; old 6/7-element
+        links decode; both optional tail elements (holdMin too — a latent L3 gap) now carry the
+        g3-style `Number.isFinite` whitelist, so a hand-built link of strings cannot seed a NaN
+        fade or a NaN verdict.
+      - **`LAB4`** (verify-tools, sixth lab-family GPU gate): the σ_y row must BE
+        `hallPetch(censusDbarUm(own census))` to the printed decimal (measured 30.6→30.64,
+        29.5→29.48, 31.9→31.88 across runs — both verdict branches exercised organically); the
+        latch is probed by shoving the dial to 999 the moment the metal is in (the card must
+        keep judging the committed 30.0); a no-spec pour must print measurements with NO
+        verdict row; the model metal with a spec must refuse by name. Plus `specMPa: 0` joined
+        the three existing gate setup literals (the 38e67c0 lesson). **Postmortem — the gate
+        caught two of its own defects before it ever gated the app**: the latch assertion
+        looked for "≥ 30 MPa" where the card prints through `fmtMPa` ("≥ 30.0 MPa") — an
+        assertion string that bypasses the formatter under test is wrong the moment the
+        formatter is right; and one run read dUm 0 with the pour still going at poll
+        exhaustion, so the pour was re-cut for the gate's business (shallow superheat, heavy
+        charge, wider budget) — a gate that can outlive its own patience reads as a flake.
+      - Science: §7's lab paragraph finally describes the v6.1 card (curve read like a cast
+        cup, hydrogen ledger, census + verdict, the latch, the finer-pour arrow) and the σ_y
+        honesty row now names BOTH cards sharing one d̄/formatter/precision. Verified: tsc,
+        build, HT-VERDICT + LAB4 green ×3 consecutive, full suite before commit.

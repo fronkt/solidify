@@ -238,6 +238,28 @@ export function hallPetch(si: MaterialSI, dm: number): number {
 }
 
 /**
+ * A yield strength, number only — the caller places the unit, so a range like
+ * "38.7 → 30.1 MPa" says it once. Spans succinonitrile's fractions of an MPa
+ * to a superalloy's hundreds without pretending to more digits than Hall–Petch
+ * on a census deserves. Lives here rather than in a panel because the furnace
+ * card (H6) and the lab card (L4) both judge with it, and two formatters is
+ * how one screen prints two different strengths for one casting.
+ */
+export function fmtMPa(mpa: number): string {
+  return mpa >= 100 ? mpa.toFixed(0) : mpa >= 3 ? mpa.toFixed(1) : mpa.toPrecision(2);
+}
+
+/**
+ * The verdict is judged at the precision the card PRINTS. A spec missed by a
+ * hair's width the display already rounded away would put "missed" beside two
+ * identical printed numbers — a label lying about a difference the card
+ * itself declines to show.
+ */
+export function shownMPa(mpa: number): number {
+  return Number(fmtMPa(mpa));
+}
+
+/**
  * Oxide scale thickness, metres, from the parabolic budget. `x = √(k_p t)` with
  * the integral standing in for `k_p t`, so a ramp is charged correctly.
  *

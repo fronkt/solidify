@@ -285,7 +285,7 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   });
   await page.evaluate(() => {
     const L = window.__solidify.lab, a = window.__solidify.app;
-    L.setup = { atmosphere: "argon", inoculant: 700, holdMin: 0, superheat: 0.12, moldT: 0.05, moldWalls: false, program: "quench" };
+    L.setup = { atmosphere: "argon", inoculant: 700, holdMin: 0, superheat: 0.12, moldT: 0.05, moldWalls: false, program: "quench", specMPa: 0 };
     a.setSpeed(40);
     L.start();
   });
@@ -327,6 +327,83 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   await page.close();
 }
 
+// 8b. LAB4 — the lab judges (L4). Three requirements, through the DOM on a
+//     material with strength constants: the card's σ_y row must BE hallPetch
+//     on the gate's OWN census (the HT-PANEL doctrine — same d̄ definition,
+//     same law, one verdict logic for both cards); the pass/fail must be the
+//     printed-precision comparison against the spec AS DIALLED AT THE POUR —
+//     the dial is shoved to 999 the moment the metal is in, and the card must
+//     not notice; and a pour with no spec must measure WITHOUT a verdict row,
+//     because a pass/fail against a spec nobody set is an invented judgement.
+{
+  const page = await browser.newPage();
+  await boot(page);
+  const run = async (k, per = 10) => { for (let i = 0; i < k; i++) { await page.evaluate(p => window.__solidify.tick(p), per); await new Promise(r => setTimeout(r, 35)); } };
+  // Al's shipped strength constants — anchors, not a second source of truth:
+  // drift in the table is caught browser-free by HT-LAWS/HT-DEMO
+  const AL = { s0: 20, kHP: 0.07 };
+  const fmtMPa = m => (m >= 100 ? m.toFixed(0) : m >= 3 ? m.toFixed(1) : m.toPrecision(2));
+  const shown = m => Number(fmtMPa(m));
+
+  const pour = async (spec, mat = "al") => {
+    await page.evaluate(([s, m]) => {
+      const S = window.__solidify, L = S.lab;
+      S.app.setMaterial(m);
+      if (!L.active) S.app.startLab();
+      // a shallow superheat and a heavy charge: the gate's business is the
+      // verdict, not a marathon freeze, and a pour that outlives the poll
+      // budget reads as a flake (it did once — dUm 0 with the run still going)
+      L.setup = { atmosphere: "argon", inoculant: 1200, holdMin: 0, superheat: 0.06, moldT: 0.05, moldWalls: false, program: "quench", specMPa: s };
+      S.app.setSpeed(40);
+      L.start();
+      if (s > 0) L.setup.specMPa = 999;   // the latch probe: moved AFTER the pour
+    }, [spec, mat]);
+    let card = false;
+    for (let i = 0; i < 140 && !card; i++) {
+      await run(4, 10);
+      card = await page.evaluate(() => !!document.getElementById("foundryCard"));
+    }
+    return page.evaluate(async () => {
+      const S = window.__solidify, s = S.sim();
+      let st = null;
+      for (let t = 0; t < 60 && !st; t++) { st = await s.readStats(); if (!st) await s.device.queue.onSubmittedWorkDone(); }
+      const um = S.app.getUmPerCell();
+      const d = st && st.meanAreaPx > 0 ? 2 * Math.sqrt(st.meanAreaPx / Math.PI) * um : 0;
+      const el = document.getElementById("foundryCard");
+      const text = (el ? el.textContent : "").replace(/\s+/g, " ");
+      if (el) el.remove();                 // clean slate for the next pour
+      return { text, dUm: d };
+    });
+  };
+
+  const a = await pour(30);
+  const sigA = (a.text.match(/σ_y \(Hall–Petch\) ([\d.]+) MPa/) ?? [])[1];
+  const sigExp = a.dUm > 0 ? AL.s0 + AL.kHP / Math.sqrt(a.dUm * 1e-6) : NaN;
+  const rowOK = sigA != null && Math.abs(Number(sigA) - sigExp) < 0.2;
+  const estOK = a.text.includes("⟨A⟩-equivalent");
+  // the card prints the spec through fmtMPa — assert with the same formatter
+  const latchOK = a.text.includes(`spec σ_y ≥ ${fmtMPa(30)} MPa`) && !a.text.includes("≥ 999 MPa");
+  const verdictWord = / — met: /.test(a.text) ? "met" : /missed/.test(a.text) ? "missed" : "none";
+  const verdictOK = sigA != null && verdictWord === (shown(Number(sigA)) >= shown(30) ? "met" : "missed");
+
+  const b = await pour(0);
+  const sigRowB = /σ_y \(Hall–Petch\)/.test(b.text);
+  const noSpecRowB = !/spec σ_y/.test(b.text);
+
+  // the model metal has no si block: a dialled spec must come back refused by
+  // name — a Hall–Petch verdict from invented constants would be worse than none
+  const c = await pour(30, "generic");
+  const refuseC = /no strength\s?constants/.test(c.text) && !/ — met: |missed: /.test(c.text);
+
+  const ok = rowOK && estOK && latchOK && verdictOK && sigRowB && noSpecRowB && refuseC;
+  console.log("LAB4", ok ? "OK" : "FAIL", JSON.stringify({
+    dUm: +a.dUm.toFixed(1), sigRow: sigA ?? null, sigExp: Number.isFinite(sigExp) ? +sigExp.toFixed(2) : null,
+    verdictWord, latchOK, estOK, sigRowB, noSpecRowB, refuseC,
+  }));
+  if (!ok) process.exitCode = 1;
+  await page.close();
+}
+
 // 9. atmosphere is a melt-CLEANLINESS proxy, not a nucleation control: a melt
 //    poured in air carries oxide films, which are shallow wall sites, so they
 //    activate long before a clean charge's own (deep) sites ever can
@@ -339,7 +416,7 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     await page.evaluate((a) => {
       const L = window.__solidify.lab, app = window.__solidify.app;
       app.setNucPotency(0.5); app.setNucSpread(0.04);
-      L.setup = { atmosphere: a, inoculant: 600, holdMin: 0, superheat: 0.05, moldT: 0.05, moldWalls: false, program: "air" };
+      L.setup = { atmosphere: a, inoculant: 600, holdMin: 0, superheat: 0.05, moldT: 0.05, moldWalls: false, program: "air", specMPa: 0 };
       app.setSpeed(40);
       L.start();
     }, atm);

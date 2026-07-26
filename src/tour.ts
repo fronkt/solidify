@@ -281,8 +281,8 @@ export const CHAPTERS: Chapter[] = [
   },
   {
     title: "Run it like a lab",
-    body: "Everything so far has been a sandbox: you drag a slider and the melt answers. That is a fine way to learn the terms and a poor model of how the measurement is made. LAB MODE inverts it. You specify the experiment first — the charge and its inoculant, the atmosphere, the pour superheat, the mould temperature, and a cooling programme — then you pour it and you get what you get.",
-    watch: "Pick a programme and press POUR AND RUN. The melt is poured above its liquidus, so nothing can freeze until the programme takes it down. When the casting is solid you get a report card: the cooling curve with the recalescence arrest marked, the deepest undercooling reached, and how much of the inoculant the run actually used. Touch a physics dial while it is pouring and the card will say so.",
+    body: "Everything so far has been a sandbox: you drag a slider and the melt answers. That is a fine way to learn the terms and a poor model of how the measurement is made. LAB MODE inverts it. You specify the experiment first — the charge and its inoculant, how long it waits above the liquidus (the refiner settles out while it does), the atmosphere (a clean cover gas or the hydrogen a dirty melt drinks), the pour superheat, the mould temperature, a cooling programme, and if you like a strength spec the casting must make — then you pour it and you get what you get.",
+    watch: "Pick a programme and press POUR AND RUN. The melt is poured above its liquidus, so nothing can freeze until the programme takes it down. When the casting is solid you get a report card read the way a foundry reads a cast cup: liquidus arrest, nucleation nadir, recalescence and solidus extracted off the cooling curve, the dissolved-hydrogen ledger, how much of the inoculant survived the hold and fired — and the as-cast census with its Hall–Petch strength, judged against your spec if you set one. Touch a physics dial while it is pouring and the card will say so.",
     apply(a) { a.startLab(); },
     hl: ["sec:MODES"],
   },
