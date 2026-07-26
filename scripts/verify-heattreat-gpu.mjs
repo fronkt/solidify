@@ -47,6 +47,10 @@ const { M_MODEL, K_MC } = HT;
 // the shipped numerical diffusivities — loaded, not retyped
 const SH = await viteServer.ssrLoadModule("/src/shaders.ts");
 const SH3 = await viteServer.ssrLoadModule("/src/shaders3d.ts");
+// H6: the panel gates re-derive the card's σ_y from the same census they read,
+// so the Hall–Petch constants come from the table that ships them
+const MAT = await viteServer.ssrLoadModule("/src/materials.ts");
+const AL_HP = { s0: MAT.MATERIALS.al.si.s0, kHP: MAT.MATERIALS.al.si.kHP };
 
 const PORT = process.argv[3] ?? "5199";
 let failures = 0;
@@ -410,7 +414,7 @@ if (cast0.grains < 20) { console.log("cast produced too few grains to anneal"); 
 // solver-paused interlock (setRun(true) refused mid-treatment) and the
 // incipient-melting refusal straight off the temperature dial.
 {
-  const out = await page.evaluate(async () => {
+  const out = await page.evaluate(async hp => {
     const S = window.__solidify;
     S.app.setMaterial("al");                     // a material with an si block
     await window.__ht.cast(1600, 512);           // fresh fine cast: room to coarsen
@@ -429,6 +433,10 @@ if (cast0.grains < 20) { console.log("cast produced too few grains to anneal"); 
       dials[i].dispatchEvent(new Event("input", { bubbles: true }));
     };
     const t0 = parseFloat(dials[0].value);       // the 0.85 T_m default
+    const um = S.app.getUmPerCell();
+    const dOf = st => 2 * Math.sqrt(st.meanAreaPx / Math.PI) * um;
+    // the card's own law, from the shipped constants — what the σ_y row must BE
+    const sigOf = st => hp.s0 + hp.kHP / Math.sqrt(dOf(st) * 1e-6);
 
     // the incipient-melting refusal, from the dial like a user would find it
     set(0, parseFloat(dials[0].max));
@@ -441,6 +449,13 @@ if (cast0.grains < 20) { console.log("cast produced too few grains to anneal"); 
     const dPred = parseFloat((planNote.match(/→\s*([\d.]+)\s*µm/) ?? [])[1] ?? "NaN");
 
     const before = await window.__ht.stats();
+    // H6: a pre-treatment spec this anneal must MISS. A full anneal softens —
+    // that is its point — so a spec 2 MPa under the as-cast strength is
+    // committed before the run, census-relative rather than hardcoded, and
+    // the card is required to say "missed" about it afterwards
+    const spec = Math.round(sigOf(before) - 2);
+    set(2, spec);
+    const specNote = note();
     btn.click();
     // run() measures first, then flags busy — wait for it rather than sleep
     for (let i = 0; i < 100 && !S.heat.busy; i++) await new Promise(r => setTimeout(r, 50));
@@ -450,19 +465,43 @@ if (cast0.grains < 20) { console.log("cast produced too few grains to anneal"); 
     for (let i = 0; i < 1200 && S.heat.busy; i++) await new Promise(r => setTimeout(r, 100));
     const stillBusy = S.heat.busy;
     const after = await window.__ht.stats();
-    const report = document.getElementById("htReport").textContent;
+    const report = document.getElementById("htReport").textContent.replace(/\s+/g, " ");
+    // the σ_y row parsed off the card, to be matched against hallPetch on the
+    // same census this gate reads
+    const sig = report.match(/σ_y\s+([\d.]+)\s*→\s*([\d.]+)\s*MPa/);
+
+    // H6, the other verdict: a near-noop treatment (1 min at the dial floor —
+    // the stress-relief case) leaves the strength standing, so a spec dialled
+    // under it must come back "met". Nearly free: zero sweeps are spent.
+    set(0, 100);
+    set(1, 1);
+    const specPass = Math.max(1, Math.floor(sigOf(after) - 2));
+    set(2, specPass);
+    btn.click();
+    // a zero-sweep run can finish between two polls of `busy`, so wait on the
+    // card itself: it still says "missed" until the second report() lands
+    for (let i = 0; i < 200; i++) {
+      if (/met: the treated casting/.test(document.getElementById("htReport").textContent)) break;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    const report2 = document.getElementById("htReport").textContent.replace(/\s+/g, " ");
     S.heat.close();
 
-    const um = S.app.getUmPerCell();
-    const dOf = st => 2 * Math.sqrt(st.meanAreaPx / Math.PI) * um;
     return {
       opened: true, armed: true, refuse, busyDuring, runDuring, stillBusy,
       grainsBefore: before.grainCount, grainsAfter: after.grainCount,
       dBefore: +dOf(before).toFixed(1), dAfter: +dOf(after).toFixed(1), dPred,
       ratioToLaw: +(dOf(after) / dPred).toFixed(3),
-      report: report.replace(/\s+/g, " ").slice(0, 800),
+      spec, specPass,
+      specNoteMiss: /misses the ≥/.test(specNote),
+      sigRow: sig ? { b: +sig[1], a: +sig[2] } : null,
+      sigBExp: +sigOf(before).toFixed(1), sigAExp: +sigOf(after).toFixed(1),
+      missedInFirst: /missed: the treated casting/.test(report),
+      metInSecond: /met: the treated casting/.test(report2),
+      report: report.slice(0, 1400),
+      report2: report2.slice(0, 500),
     };
-  });
+  }, AL_HP);
   const ok = out.opened && out.armed
     && out.refuse.disabled && /refused/.test(out.refuse.note)
     && out.busyDuring && !out.runDuring && !out.stillBusy
@@ -471,7 +510,12 @@ if (cast0.grains < 20) { console.log("cast produced too few grains to anneal"); 
     // H4/H5 wiring on the 2D card: alloy is off in this cast so the homog
     // line is the canTreat hint, and Al's oxide line is passive-film nm
     && /solute field/.test(out.report) && /scale .*nm/.test(out.report)
-    && /before/.test(out.report) && /after/.test(out.report) && /law endpoint/.test(out.report);
+    && /before/.test(out.report) && /after/.test(out.report) && /law endpoint/.test(out.report)
+    // H6: the card's σ_y row must BE hallPetch on the measured d̄ (0.2 MPa
+    // covers the one-decimal formatting), the note must pre-judge the doomed
+    // spec, the anneal must miss it, and the near-noop run must meet its own
+    && out.sigRow && Math.abs(out.sigRow.b - out.sigBExp) < 0.2 && Math.abs(out.sigRow.a - out.sigAExp) < 0.2
+    && out.specNoteMiss && out.missedInFirst && out.metInSecond;
   check("HT-PANEL", ok, out);
 }
 
@@ -925,7 +969,7 @@ if (!cast3 || cast3.grains < 100) { console.log("3D cast produced too few grains
 // Since H3, the report card must also carry the aluminium twin refusal — the
 // SFE sentence — and the allocator must not have moved during an Al treatment.
 {
-  const out = await page.evaluate(async () => {
+  const out = await page.evaluate(async hp => {
     const S = window.__solidify;
     S.app.setMaterial("al");
     await window.__ht3.cast3(2600, 0);
@@ -973,17 +1017,30 @@ if (!cast3 || cast3.grains < 100) { console.log("3D cast produced too few grains
 
     const um = S.app.getUmPerCell();
     const dOf = st => window.__ht3.dCells(st) * um;
+    const sigOf = st => hp.s0 + hp.kHP / Math.sqrt(dOf(st) * 1e-6);
+    const rep = report.replace(/\s+/g, " ");
+    // H6 in the volume: the σ_y row must ride the ⟨V⟩-equivalent d̄ — the
+    // dimension switch is exactly where a cached 2D census once printed
+    // d₀ = 0.0 µm with a straight face
+    const sig = rep.match(/σ_y\s+([\d.]+)\s*→\s*([\d.]+)\s*MPa/);
     return {
       opened: true, armed: true, refuse, busyDuring, runDuring, stillBusy,
       grainsBefore: before.grainCount, grainsAfter: after.grainCount,
       dBefore: +dOf(before).toFixed(1), dAfter: +dOf(after).toFixed(1), dPred,
       ratioToLaw: +(dOf(after) / dPred).toFixed(3),
       twinCtrBefore, twinCtrAfter,
-      // 1000: the volume's ASTM-n/a note, the H3 twin-refusal sentence AND
-      // the H4/H5 homog + oxide rows must all survive the slice
-      report: report.replace(/\s+/g, " ").slice(0, 1000),
+      sigRow: sig ? { b: +sig[1], a: +sig[2] } : null,
+      sigBExp: +sigOf(before).toFixed(1), sigAExp: +sigOf(after).toFixed(1),
+      vEquiv: /⟨V⟩-equivalent/.test(rep),
+      // no spec was dialled, so the card must carry σ_y WITHOUT a verdict —
+      // a pass/fail against a spec nobody set would be an invented judgement
+      specRow: /spec σ_y/.test(rep),
+      // 1600: the volume's ASTM-n/a note, the H3 twin-refusal sentence, the
+      // H4/H5 homog + oxide rows AND the H6 strength row must all survive
+      // the slice
+      report: rep.slice(0, 1600),
     };
-  });
+  }, AL_HP);
   const ok = out.opened && out.armed
     && out.refuse.disabled && /refused/.test(out.refuse.note) && /law says/.test(out.refuse.note)
     && !/\b0\.0 µm/.test(out.refuse.note)
@@ -997,7 +1054,12 @@ if (!cast3 || cast3.grains < 100) { console.log("3D cast produced too few grains
     // H4/H5 wiring: the alloy is off in this cast, so the homog line is the
     // canTreat hint, and aluminium's oxide line is its passive-film nanometres
     && /solute field/.test(out.report) && /scale .*nm/.test(out.report)
-    && /before/.test(out.report) && /after/.test(out.report) && /law endpoint/.test(out.report);
+    && /before/.test(out.report) && /after/.test(out.report) && /law endpoint/.test(out.report)
+    // H6: hallPetch on the measured ⟨V⟩ d̄, named as such, and no verdict row
+    // for a spec nobody set (the verdict logic itself is gated in HT-PANEL —
+    // report() is one code path for both dimensions)
+    && out.sigRow && Math.abs(out.sigRow.b - out.sigBExp) < 0.2 && Math.abs(out.sigRow.a - out.sigAExp) < 0.2
+    && out.vEquiv && !out.specRow;
   check("HT3-PANEL", ok, out);
 }
 

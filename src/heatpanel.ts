@@ -26,7 +26,7 @@
  */
 
 import {
-  canTreat, domainLimitUm, grainAfter, integrate, sweepsFor, frac,
+  canTreat, domainLimitUm, grainAfter, hallPetch, integrate, sweepsFor, frac,
   scaleThickness, decarbDepth,
   INCIPIENT_FRAC, K_MC, M_MODEL, K_MC_3D, M_MODEL_3D, ROOM_C,
   type HeatSchedule, type TreatContext, type Integrals,
@@ -168,6 +168,14 @@ export class HeatPanel {
   private census: Census | null = null;
   private tC = 500;
   private holdMin = 60;
+  /**
+   * The pre-treatment spec, MPa — the yield strength the part must still make
+   * when it leaves the furnace. 0 means no spec was set, and the card then
+   * reports σ_y without sitting in judgement. It is a dial rather than a
+   * constant because a spec is an engineering requirement, not a material
+   * property: the same anneal passes a 25 MPa spec and fails a 40 MPa one.
+   */
+  private specMPa = 0;
   private abortReq = false;
   /** exit pressed mid-run: abort first, close when the run loop hands back */
   private closeReq = false;
@@ -342,6 +350,13 @@ export class HeatPanel {
 
     const form = document.createElement("div");
     form.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:6px 16px;margin-bottom:8px;";
+    // the spec dial's ceiling is material-relative for the same reason the
+    // temperature's is: σ_y at a 4 µm grain — finer than any casting this
+    // instrument pours — is the strongest number Hall–Petch can honestly ask
+    // for here, and it spans SCN's 1 MPa to a superalloy's ~600
+    const specMax = si ? Math.ceil(hallPetch(si, 4e-6)) : 100;
+    const specStep = specMax <= 5 ? 0.1 : specMax <= 100 ? 1 : 5;
+    this.specMPa = 0;
     form.append(
       range("temperature", 100, Math.round(tmC), 5, this.tC,
         v => { this.tC = v; this.refresh(); }, 0,
@@ -349,6 +364,9 @@ export class HeatPanel {
       range("hold time", 1, 720, 1, this.holdMin,
         v => { this.holdMin = v; this.refresh(); }, 0,
         v => v < 120 ? `${v.toFixed(0)} min` : `${(v / 60).toFixed(1)} h`),
+      range("spec σ_y", 0, specMax, specStep, this.specMPa,
+        v => { this.specMPa = v; this.refresh(); }, 0,
+        v => v > 0 ? `≥ ${fmtMPa(v)} MPa` : "no spec"),
     );
 
     const note = document.createElement("div");
@@ -401,7 +419,8 @@ export class HeatPanel {
       // panel says it BEFORE the run rather than selling a dud treatment
       this.noteEl.innerHTML = `${head}<br>predicts <b style="color:#cfd6df">no measurable grain growth</b> `
         + `(${fmtUm(d0Um)} → ${fmtUm(dPredUm)}) — at this temperature every Arrhenius integral is negligible. `
-        + `Run it if you want the report card to say so.`;
+        + `Run it if you want the report card to say so.`
+        + this.specNote(d0Um, dPredUm);
       return;
     }
     this.noteEl.innerHTML = `${head}<br>the sourced law predicts d̄ `
@@ -410,7 +429,38 @@ export class HeatPanel {
       + (capped
         ? ` — <span style="color:#ffb454">past the ${this.consts().cap.toLocaleString()}-sweep budget: the run will be `
         + `truncated at ${((this.consts().cap / sweeps) * 100).toFixed(0)} % and reach ~${fmtUm(dCapUm)}</span>`
-        : "");
+        : "")
+      + this.specNote(d0Um, capped ? dCapUm : dPredUm);
+  }
+
+  /**
+   * The pre-run half of the H6 verdict: what the dialled spec demands against
+   * what the schedule's own endpoint predicts — judged BEFORE any sweeps are
+   * spent, because a spec you can only check after the furnace is a spec you
+   * find out about too late. The endpoint used is the one THIS run will reach
+   * (the capped one when the budget bites), and the card then judges the
+   * measurement rather than the prediction.
+   *
+   * One direction deserves its own sentence: this model's furnace can only
+   * coarsen, and Hall–Petch says coarser is softer, so a spec above the
+   * casting's current strength is unreachable by any schedule — the honest
+   * advice is a finer pour, not a hotter furnace.
+   */
+  private specNote(d0Um: number, dEndUm: number): string {
+    const si = this.host.si();
+    if (!(this.specMPa > 0) || !si) return "";
+    const s = this.specMPa;
+    const s0 = hallPetch(si, d0Um * 1e-6);
+    const s1 = hallPetch(si, dEndUm * 1e-6);
+    if (s > s0) {
+      return `<br><span style="color:#c96a5b">the ≥ ${fmtMPa(s)} MPa spec is above the casting's current `
+        + `${fmtMPa(s0)} MPa — an anneal only coarsens, and coarser is softer, so no schedule meets it. `
+        + `A finer casting would.</span>`;
+    }
+    return s1 >= s
+      ? `<br>σ_y (Hall–Petch) ${fmtMPa(s0)} → ~${fmtMPa(s1)} MPa — the predicted endpoint meets the ≥ ${fmtMPa(s)} MPa spec.`
+      : `<br><span style="color:#ffb454">σ_y (Hall–Petch) ${fmtMPa(s0)} → ~${fmtMPa(s1)} MPa — the predicted endpoint `
+      + `misses the ≥ ${fmtMPa(s)} MPa spec.</span>`;
   }
 
   // ---------------------------------------------------------------- the run
@@ -433,6 +483,10 @@ export class HeatPanel {
       this.refresh();
       return;
     }
+    // the spec as dialled when the run STARTED — a PRE-treatment spec. The
+    // dials stay live during a run, and a spec moved after the sweeps are
+    // spent must not rewrite the verdict the schedule was committed to.
+    const spec = this.specMPa;
     // rule 3: the T field is the as-cast record, not the furnace — park the
     // view where the treatment is actually visible
     const m3 = this.host.getMode() === "3d";
@@ -507,11 +561,11 @@ export class HeatPanel {
     setStatus("");
     this.host.syncUI();
     if (this.closeReq) { this.closeReq = false; this.close(); return; }
-    this.report(plan, before, after, delivered, total, twinLine, homogLine);
+    this.report(plan, before, after, delivered, total, twinLine, homogLine, spec);
     this.refresh();
   }
 
-  private report(plan: Plan & { ok: true }, before: Census, after: Census | null, delivered: number, total: number, twinLine = "", homogLine = "") {
+  private report(plan: Plan & { ok: true }, before: Census, after: Census | null, delivered: number, total: number, twinLine = "", homogLine = "", spec = 0) {
     if (!this.reportEl) return;
     const dim = (s: string) => `<span style="color:#6b7280">${s}</span>`;
     const strong = (s: string) => `<b style="color:#cfd6df">${s}</b>`;
@@ -528,6 +582,35 @@ export class HeatPanel {
     rows.push(line("before", before));
     rows.push(after ? line("after ", after) : `${dim("after")} census readback failed`);
     rows.push(`${dim("law endpoint")} ${fmtUm(plan.dPredUm)} ${dim("— the trajectory between endpoints is the Potts model's, not the material's")}`);
+    // H6: Hall–Petch on the MEASURED grain sizes — the same σ_y = s0 + k_HP/√d̄
+    // the note predicted from the law endpoint, now standing on the census.
+    // The row names its own limits, because this number is the one a visitor
+    // is most tempted to over-read: it is grain-size strengthening alone
+    // (precipitates and work hardening are not modelled and the science page
+    // says why), d̄ is the census's equivalent diameter rather than E112's
+    // mean intercept, and the µm under the √d are the declared resolution —
+    // "you set it" is the anchor's provenance, and √d inherits it.
+    const si = this.host.si();
+    if (si) {
+      const est = this.host.getMode() === "3d" ? "⟨V⟩-equivalent" : "⟨A⟩-equivalent";
+      const sb = hallPetch(si, this.dBar(before) * 1e-6);
+      if (after) {
+        const sa = hallPetch(si, this.dBar(after) * 1e-6);
+        rows.push(`${dim("σ_y")} ${strong(fmtMPa(sb))} → ${strong(fmtMPa(sa) + " MPa")} `
+          + dim(`— Hall–Petch on the measured ${est} d̄, grain-size strengthening alone: no precipitates, `
+            + `no work hardening, and the µm under the √d̄ are the declared resolution`));
+        if (spec > 0) {
+          rows.push(sa >= spec
+            ? `${dim("spec")} σ_y ≥ ${fmtMPa(spec)} MPa — ${strong("met")}: the treated casting stands at ${fmtMPa(sa)} MPa`
+            : `${dim("spec")} σ_y ≥ ${fmtMPa(spec)} MPa — <span style="color:#c96a5b">missed</span>: the treated casting stands at ${fmtMPa(sa)} MPa`
+            + dim(sb < spec
+              ? " — it was under the spec before the furnace too, and an anneal only softens: meeting it takes a finer pour, not a schedule"
+              : " — the anneal traded this strength for its grain size, which is exactly the trade Hall–Petch prices"));
+        }
+      } else if (spec > 0) {
+        rows.push(`${dim("spec")} σ_y ≥ ${fmtMPa(spec)} MPa — no after-census landed, so there is nothing measured to judge it against`);
+      }
+    }
     if (twinLine) rows.push(`${dim("twins")} ${twinLine}`);
     if (homogLine) rows.push(`${dim("homog")} ${homogLine}`);
     // oxidation and decarburization (H5): analytic parabolic laws over the
@@ -559,6 +642,16 @@ export class HeatPanel {
 
 function fmtUm(um: number): string {
   return um >= 100 ? `${um.toFixed(0)} µm` : `${um.toFixed(1)} µm`;
+}
+
+/**
+ * A yield strength, number only — the caller places the unit, so a range like
+ * "38.7 → 30.1 MPa" says it once. Spans succinonitrile's fractions of an MPa
+ * to a superalloy's hundreds without pretending to more digits than Hall–Petch
+ * on a census deserves.
+ */
+function fmtMPa(mpa: number): string {
+  return mpa >= 100 ? mpa.toFixed(0) : mpa >= 3 ? mpa.toFixed(1) : mpa.toPrecision(2);
 }
 
 /** a length that honestly spans Al's nanometre passive film to steel's mm scale */

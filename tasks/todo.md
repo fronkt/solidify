@@ -1310,5 +1310,30 @@ to resolve capillary-length nucleation.
       record, and a render layer would have cost a struct-growth risk for a film that spans
       six orders of magnitude — so the card is where the number lives, and the science page
       (H7) will say so. Both panel gates assert the homog and oxide rows end-to-end.
-- [ ] **H6** — Hall–Petch and the report-card verdict
+- [x] **H6** — Hall–Petch and the report-card verdict. `hallPetch` was the last unread piece of
+      the U1 data layer — measured by `HT-LAWS` since H1, called by nothing in `src/`. The card now
+      closes with strength: **σ_y = s0 + k_HP/√d̄ on the MEASURED census**, before and after, and
+      the row names its own three limits in one breath — grain-size strengthening alone (no
+      precipitates, no work hardening; the aging row stays deliberately unbuilt), d̄ is the
+      ⟨A⟩/⟨V⟩-equivalent diameter (an O(1) stereological factor off E112's mean intercept), and the
+      µm under the √d̄ are the declared resolution, so σ_y inherits the "you set it" anchor (risk
+      11, landed as a sentence on the card rather than a badge). The **spec is the third dial**: a
+      PRE-treatment spec, σ_y ≥ X MPa with 0 = no spec, ceiling material-relative at hallPetch(4 µm)
+      so one dial spans SCN's 1 MPa and a superalloy's ~600 — and it is **latched at run start**,
+      because the dials stay live during a run and a spec moved after the sweeps are spent must not
+      rewrite the verdict the schedule was committed to. The note pre-judges it before any sweeps
+      are spent (a spec you can only check after the furnace is one you find out about too late),
+      and one direction gets its own sentence: **this furnace only coarsens, and coarser is
+      softer**, so a spec above the casting's current strength is unreachable by any schedule — the
+      honest advice is a finer pour, printed in refusal red without disabling the run.
+      Gates: inside the existing panel gates rather than new ones, because `report()` is one code
+      path for both dimensions. HT-PANEL parses the σ_y row off the card and requires it to BE
+      hallPetch on the same census the gate reads — measured **38.7 → 30.0 MPa against 38.7 / 30.0
+      expected, exact to the printed decimal** — with a census-relative spec (σ_before − 2 → 37)
+      coming back **missed**, then a near-noop second run (1 min at the dial floor, zero sweeps —
+      the stress-relief case) meeting its own spec of 28: both verdict branches exercised at the
+      cost of one free rerun. HT3-PANEL requires the row to ride the **⟨V⟩-equivalent d̄ by name**,
+      consistent to 0.2 MPa, and **no verdict row when no spec was dialled** — a pass/fail against
+      a spec nobody set would be an invented judgement. Report slices raised 800 → 1400 and
+      1000 → 1600 so the new rows cannot silently fall off the asserted text.
 - [ ] **H7** — the panel, the `reheat` rename, science §9, README, TESTING, tour
