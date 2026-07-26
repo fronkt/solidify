@@ -1387,3 +1387,105 @@ to resolve capillary-length nucleation.
       15/493 middle rung restored to the TESTING record, and the analytic-answer clause
       reattached to the one refusal that actually prints it (the domain limit — incipient
       melting refuses with the %-of-T_m sentence alone).
+
+## v6.1 — PHASE L: THE LAB LEARNS TO READ ITS OWN COOLING CURVE (2026-07-24)
+
+Plan: `~/.claude/plans/twinkling-herding-iverson.md`. Built in the `v6-lab` worktree, disjoint
+from the parallel Phase-H session — L1/L3 touch only `lab.ts`/`nucleation.ts`/new files, so
+none of H's eight WIP files are in scope. Phase L is the next gated-open phase on the v5.0
+roadmap (`sequential-stargazing-conway.md`), its U2 gate already shipped. Order L1 → L3 → L2,
+each deleting a printed caveat; **L4 (Hall–Petch verdict) deferred until H6 lands** so the two
+sessions don't mint two different verdicts from the same `hallPetch()`.
+
+- [x] **L1** — thermal analysis: the lab reads its cooling curve the way a foundry reads a
+      cast cup. `src/lab.ts` recorded the whole experiment (`series` of `{t, T, fs}`, fed from
+      `main.ts:1341/1268` every readback) and read exactly one thing off it — `arrestPoint()`,
+      a three-point local minimum that finds a "recalescence" in ANY noisy curve, including
+      quenches that never recalesce. Two latent defects fell out of looking: the record was
+      **silently truncated** (`series.splice(0, 400)` on overflow dropped the OLDEST samples,
+      so a long run deleted its own liquidus arrest — the single most important feature — with
+      nothing said), and `arrestPoint()` **could not report "no arrest"**.
+      - **`src/thermal.ts`** (new, pure, no DOM — loads through vite SSR like `units.ts`):
+        `analyseCurve()` extracts T_L (first departure of a *time-windowed*, not index-windowed,
+        derivative from the liquid-cooling baseline), T_N/T_G/ΔT_r (recalescence = a local min
+        the melt *recovers* from, found by a dT/dt sign crossing — never the global minimum,
+        which is the colder solidus), T_S (last liquid), freezing range, t_f, liquid cooling
+        rate. Solid fraction is reconstructed from a **single-sided Newtonian zero curve** and
+        reported *against* the solver's measured census — the method's own error, not asserted.
+        Every landmark it cannot resolve is a `note`, never a fabricated point. `retain()`
+        replaces the splice: decimate the whole span, always keep the first, last and
+        running-minimum samples.
+        The single-sided baseline (not the textbook two-sided form) is forced by the probe: the
+        "thermocouple" is the mean of the *remaining liquid*, which vanishes at the solidus, so
+        there is no post-solidus branch to fit. Both facts are printed on the card. Refs:
+        Fras–Kapturkiewicz–Burbielko–Lopez 1993; Stefanescu 2015.
+      - **`scripts/verify-thermal.mjs`** — the **third CI-runnable gate** (units + heattreat
+        are the other two; wired into `run-tests.mjs` and `ci.yml`). Six checks on synthetic
+        curves with prescribed landmarks: `TA-SYNTH`/`TA-NOISE` (recovery, clean and at the
+        readback's 0.004 noise), `TA-UNEVEN` (the SAME curve at 20 Hz→4 Hz must match the even
+        sampling — the check that fails an index-based derivative), `TA-NOARREST` (a monotonic
+        quench returns `nadir = null` + a note, not a fished minimum), `TA-FS` (derived vs
+        prescribed f_s, RMS < 0.08 on a Newtonian-generated curve), `TA-RETENTION` (5 000
+        streamed samples thinned to a 1 200 cap: span + nadir preserved, landmarks unchanged —
+        gates the splice bug directly). **Both bug-catching checks proven to have teeth**: the
+        old splice drops the record head to t = 13.6 and reads liquidus 0.764 vs the true 1.017
+        (arrest lost); `retain()` keeps it.
+      - **`src/lab.ts`** — `arrestPoint()` deleted for `analyseCurve()`; `onStats` uses
+        `retain()`; the report card gains a COOLING-CURVE ANALYSIS block (landmarks in °C, K,
+        K/s, ms via the existing `Units.fmt*`), the curve canvas gains T_L/T_N/T_G/T_S markers
+        and the dT/dt trace, and both honesty caveats print. The nucleation-model ratchet's
+        ΔT stays, reframed as the site model's global measure alongside the curve's ΔT_N.
+      - **`science/index.html`** — the "not modelled" cooling-curve gap replaced by an honest
+        row for what the analysis extracts and its two limits; the two references added.
+      Verified: `tsc` clean, all six TA checks green, units/heattreat gates unregressed, build
+      clean. **End-to-end live pour** (Al, furnace cool, argon, ×1, own vite on a port
+      clear of the suite's 5199): report card renders T_L 574 °C, T_S 439 °C, freezing range
+      135.7 K, t_f 736 ms, liquid rate −270 K/s. The **f_s-from-curve error came in at ±43 %** —
+      exactly the honest finding the plan's risk 4 anticipated: single-sided Newtonian analysis
+      on a mean-of-remaining-liquid probe is poor, and the card *says so* (a note now fires when
+      the RMS is wide) rather than tuning until it agrees. A near-quench correctly shows every
+      arrest landmark as *unresolved* with its reason.
+- [x] **L3** — refiner fade: an inoculated charge held above its liquidus loses effective
+      nucleant sites, which the science honesty table admitted was "not modelled". `nucleation.ts`
+      gains `fadeFactor(holdMin)` — a short potent plateau then exponential decay to a residual
+      floor (settling + agglomeration + oxide, faster than Stokes alone; the settling literature
+      puts most of the loss inside the first ~30 min, so the curve is 1.0 → 0.38 at 30 min →
+      0.15 floor by ~2 h). **`fadeFactor(0) === 1` exactly**, so a charge poured immediately is
+      byte-identical to before this existed — the load-bearing property, gated by `FADE-IDENTITY`.
+      `lab.ts` gains a "hold before pour" dial (live survived-% readout) that multiplies the
+      inoculant before `setInoculant`, and a report-card line "N added, held M min → X % survived
+      (Y active at pour)". Share links round-trip `holdMin` as an optional 7th tuple element
+      (`share.ts` + `main.ts` labShare/restore — the `LabSetup` shape change forced the main.ts
+      touch anyway, so the round-trip is done properly; old 6-element links still decode).
+      **`scripts/verify-fade.mjs`** — the fourth CI-runnable gate (wired into `run-tests.mjs` +
+      `ci.yml`): `FADE-IDENTITY` (0 and the whole plateau fade by nothing), `FADE-SHOULDER` (full
+      potency to lagMin then a strict drop — a decay-from-t0 model has no shoulder and fails it),
+      `FADE-MONOTONE` (non-increasing across the dial), `FADE-FLOOR` (bottoms at the residual, not
+      zero), `FADE-FAST` (<½ survive 30 min, matching the settling data). Science row rewritten +
+      Materials 2022 settling ref added. Verified: `tsc`/build/all four browser-free gates green;
+      **live DOM pour** (Al, 1500 sites, 60 min hold) → card reads "21 % survived settling (312
+      active at pour)" = `round(1500·fadeFactor(60))`, fade confirmed reaching the site model.
+- [x] **L2** — hydrogen porosity via Sievert's law: the atmosphere→porosity link was a single
+      admitted hack (`p.pPore = porePrev + (air ? 0.1 : 0)`). `src/porosity.ts` (new, pure)
+      replaces it with the mechanism: a melt dissolves hydrogen as C = S·√p, the solubility
+      collapses on freezing (Al liquid holds ~19× the solid), and the rejected difference feeds
+      the **existing** `pPore` field — **no shader change, no new binding**. `materials.ts` si
+      gains `hL`/`hS` for Al (Ransley–Neufeld 0.69/0.036 cm³/100 g at 1 atm, sourced); materials
+      without the data **refuse by name** (steel has an si block but no H data → note, generic has
+      no si → note), exactly the `canTreat` doctrine. Honest split baked in and printed: REAL =
+      the solubilities, the √p dependence, the liquid→solid drop; PROXY = the atmosphere→p_H2
+      ordering (air 1.0 / argon 0.06 / vacuum 0.0) and the rejected→pore-field gain (calibrated so
+      dirty Al lands near the old +0.1 but now ordered by atmosphere and zeroed by a clean one).
+      Report card prints "dissolved hydrogen X cm³/100 g (Sievert √p, {atmo}) → Y rejected → pore
+      bias Z", with a 2D note that the pore field is 3D. Share link needs no change (atmosphere
+      already round-trips). **`scripts/verify-porosity.mjs`** — the fifth CI-runnable gate:
+      `POR-SIEVERT` (C = hL·√p; the air/argon ratio is √(p₁/p₂) not p₁/p₂), `POR-REJECT`
+      ((hL−hS)·√p, >90 % of dissolved for Al), `POR-ORDER` (air>argon>vacuum, vacuum exactly 0,
+      all in [0,1]), `POR-REFUSE` (steel + generic refuse with a note), `POR-KNOWN` (the
+      Ransley–Neufeld numbers as a drift tripwire). Science: dedicated gas-porosity honesty row +
+      atmosphere row updated + Ransley–Neufeld 1948 ref. Verified: `tsc`/build/all five
+      browser-free gates green; **live DOM pours** read air 0.69→0.65→bias 0.122, argon
+      0.17→0.16→0.013, vacuum 0.00→degassed/below threshold — the atmosphere ordering confirmed
+      through the card.
+- [ ] **L4** — Hall–Petch yield + spec pass/fail verdict — **deferred until H6 lands**, reusing
+      its verdict logic rather than minting a second one.

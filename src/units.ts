@@ -93,6 +93,15 @@ export interface MaterialSI {
   s0: number;
   kHP: number;
   /**
+   * hydrogen solubility at the melting point, cm³ H₂ / 100 g at 1 atm — LIQUID
+   * and SOLID. On freezing the solubility collapses (hL ≫ hS) and the rejected
+   * hydrogen is what feeds gas porosity via Sievert's law C = S·√p (porosity.ts).
+   * Optional because it needs real per-material solubility data: a material
+   * without it refuses gas-porosity modelling by name rather than guessing.
+   */
+  hL?: number;
+  hS?: number;
+  /**
    * stacking-fault energy, mJ/m² — what decides whether ANNEALING twins form.
    * Optional because it is only meaningful for the cubic metals: low-SFE copper
    * anneals full of Σ3 twins and high-SFE aluminium grows none, and that

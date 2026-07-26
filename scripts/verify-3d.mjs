@@ -342,14 +342,19 @@ for (let i = 1; i <= 4; i++)
 console.log("VC-ZONES", kinds.has(1) && kinds.has(3) ? "OK" : FAIL(), JSON.stringify([...kinds]));
 
 // LAB in the volume: scen 4 set-point cooling, a rasterized mould shell, and
-// the atmosphere proxy's porosity bias (air = dirtier melt = more porosity)
+// gas porosity from dissolved hydrogen (air = more hydrogen picked up = more
+// porosity than a degassed vacuum melt). Since v6.1 the porosity is Sievert's
+// law over the material's own solubility, so the charge must be a material that
+// HAS hydrogen data — aluminium — or it honestly refuses and there is no bias to
+// compare (the model metal has no si block).
 {
   await page.evaluate(() => window.__solidify.app.setGrid3(128));
   await page.waitForFunction("window.__solidify.sim3d()?.n === 128", { timeout: 40000 });
   const out = await page.evaluate(() => {
     const L = window.__solidify.lab, S = window.__solidify, p = S.sim3d().params;
+    S.app.setMaterial("al");
     S.app.startLab();
-    L.setup = { atmosphere: "vacuum", inoculant: 300, superheat: 0.05, moldT: 0.05, moldWalls: true, program: "air" };
+    L.setup = { atmosphere: "vacuum", inoculant: 300, holdMin: 0, superheat: 0.05, moldT: 0.05, moldWalls: true, program: "air" };
     L.start();
     const clean = { scen: p.scen, pPore: p.pPore, shell: S.sim3d().moldShell };
     L.abort();
