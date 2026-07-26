@@ -179,12 +179,26 @@ export class HeatPanel {
   private abortReq = false;
   /** exit pressed mid-run: abort first, close when the run loop hands back */
   private closeReq = false;
+  /**
+   * A share link's dialled setup, consumed by the next buildPanel() exactly
+   * once. It has to be a handoff rather than a plain assignment because
+   * buildPanel() re-derives the dial defaults from the material — the right
+   * behaviour on every open and material swap, and exactly the clobber that
+   * would silently discard a restored link.
+   */
+  private restore: [number, number, number] | null = null;
 
   constructor(host: HeatHost) { this.host = host; }
 
-  open() {
+  /** the dialled setup, for the share link: temperature °C, hold min, spec MPa */
+  setup(): [number, number, number] {
+    return [this.tC, this.holdMin, this.specMPa];
+  }
+
+  open(restore?: [number, number, number]) {
     if (this.active) return;
     this.active = true;
+    this.restore = restore ?? null;
     this.buildPanel();
     void this.host.measure().then(c => {
       if (c) this.census = c;
@@ -327,10 +341,18 @@ export class HeatPanel {
     this.panel?.remove();
     const si = this.host.si();
     const tmC = si ? si.Tm - K0 : 1000;
+    const tMax = Math.round(tmC);
+    // the dial floor is material-relative where it has to be: a hard 100 °C
+    // floor inverts the control for the two identities that melt below it
+    // (ice at 0 °C, succinonitrile at 58 °C), and an inverted range is a
+    // broken slider, not a refusal. Every metal keeps the 100 °C floor
+    // byte-identical; ice and SCN get 25 °C of dial under their own melting
+    // points, which leaves each a legal band below the incipient gate.
+    const tMin = Math.min(100, Math.round((tMax - 25) / 5) * 5);
     this.builtFor = this.host.materialKey();
     // default: the classic full anneal, 0.85 T_m (absolute) — hot enough that
     // boundaries actually move, comfortably under the incipient-melting gate
-    this.tC = Math.round(frac(tmC, 0.85) / 5) * 5;
+    this.tC = Math.max(tMin, Math.min(tMax, Math.round(frac(tmC, 0.85) / 5) * 5));
 
     const p = document.createElement("div");
     p.id = "heattreat";
@@ -357,8 +379,18 @@ export class HeatPanel {
     const specMax = si ? Math.ceil(hallPetch(si, 4e-6)) : 100;
     const specStep = specMax <= 5 ? 0.1 : specMax <= 100 ? 1 : 5;
     this.specMPa = 0;
+    // a share link's setup lands here, once, clamped to this material's own
+    // dial ranges — a hand-built link does not get to dial 2000 °C (and the
+    // decoder's Number.isFinite whitelist already rejected non-numbers whole)
+    if (this.restore) {
+      const [t, h, s] = this.restore;
+      this.tC = Math.min(tMax, Math.max(tMin, Math.round(t)));
+      this.holdMin = Math.min(720, Math.max(1, Math.round(h)));
+      this.specMPa = Math.min(specMax, Math.max(0, s));
+      this.restore = null;
+    }
     form.append(
-      range("temperature", 100, Math.round(tmC), 5, this.tC,
+      range("temperature", tMin, tMax, 5, this.tC,
         v => { this.tC = v; this.refresh(); }, 0,
         v => si ? `${v.toFixed(0)} °C · ${((v + K0) / si.Tm).toFixed(2)} T_m` : `${v.toFixed(0)} °C`),
       range("hold time", 1, 720, 1, this.holdMin,
@@ -452,12 +484,12 @@ export class HeatPanel {
     const s = this.specMPa;
     const s0 = hallPetch(si, d0Um * 1e-6);
     const s1 = hallPetch(si, dEndUm * 1e-6);
-    if (s > s0) {
+    if (shownMPa(s) > shownMPa(s0)) {
       return `<br><span style="color:#c96a5b">the ≥ ${fmtMPa(s)} MPa spec is above the casting's current `
         + `${fmtMPa(s0)} MPa — an anneal only coarsens, and coarser is softer, so no schedule meets it. `
         + `A finer casting would.</span>`;
     }
-    return s1 >= s
+    return shownMPa(s1) >= shownMPa(s)
       ? `<br>σ_y (Hall–Petch) ${fmtMPa(s0)} → ~${fmtMPa(s1)} MPa — the predicted endpoint meets the ≥ ${fmtMPa(s)} MPa spec.`
       : `<br><span style="color:#ffb454">σ_y (Hall–Petch) ${fmtMPa(s0)} → ~${fmtMPa(s1)} MPa — the predicted endpoint `
       + `misses the ≥ ${fmtMPa(s)} MPa spec.</span>`;
@@ -600,10 +632,10 @@ export class HeatPanel {
           + dim(`— Hall–Petch on the measured ${est} d̄, grain-size strengthening alone: no precipitates, `
             + `no work hardening, and the µm under the √d̄ are the declared resolution`));
         if (spec > 0) {
-          rows.push(sa >= spec
+          rows.push(shownMPa(sa) >= shownMPa(spec)
             ? `${dim("spec")} σ_y ≥ ${fmtMPa(spec)} MPa — ${strong("met")}: the treated casting stands at ${fmtMPa(sa)} MPa`
             : `${dim("spec")} σ_y ≥ ${fmtMPa(spec)} MPa — <span style="color:#c96a5b">missed</span>: the treated casting stands at ${fmtMPa(sa)} MPa`
-            + dim(sb < spec
+            + dim(shownMPa(sb) < shownMPa(spec)
               ? " — it was under the spec before the furnace too, and an anneal only softens: meeting it takes a finer pour, not a schedule"
               : " — the anneal traded this strength for its grain size, which is exactly the trade Hall–Petch prices"));
         }
@@ -652,6 +684,16 @@ function fmtUm(um: number): string {
  */
 function fmtMPa(mpa: number): string {
   return mpa >= 100 ? mpa.toFixed(0) : mpa >= 3 ? mpa.toFixed(1) : mpa.toPrecision(2);
+}
+
+/**
+ * The verdict is judged at the precision the card PRINTS. A spec missed by a
+ * hair's width the display already rounded away would put "missed" beside two
+ * identical printed numbers — a label lying about a difference the card
+ * itself declines to show.
+ */
+function shownMPa(mpa: number): number {
+  return Number(fmtMPa(mpa));
 }
 
 /** a length that honestly spans Al's nanometre passive film to steel's mm scale */

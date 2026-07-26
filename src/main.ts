@@ -696,13 +696,13 @@ async function boot() {
         delete p3.weldX; delete p3.weldY;   // runtime-positional, like the 2D SKIP set
         return location.origin + location.pathname + packShare({
           p: p3, u: undercool, v: view3d, m: material,
-          n: alloyName, nuc: [nuc3.p.nmax, nuc3.p.dTN, nuc3.p.dTsig], lab: labShare(), d: 1, g3: sim3d.n,
+          n: alloyName, nuc: [nuc3.p.nmax, nuc3.p.dTN, nuc3.p.dTsig], lab: labShare(), ht: heatShare(), d: 1, g3: sim3d.n,
           sl: [slice.axis, +slice.off.toFixed(3), Math.round(slice.tilt), Math.round(slice.turn), slice.style],
         });
       }
       return location.origin + location.pathname + packShare({
         p: { ...sim.params }, u: undercool, v: view, m: material,
-        n: alloyName, nuc: [nuc.p.nmax, nuc.p.dTN, nuc.p.dTsig], lab: labShare(),
+        n: alloyName, nuc: [nuc.p.nmax, nuc.p.dTN, nuc.p.dTsig], lab: labShare(), ht: heatShare(),
         sched: recipeSchedule,
       });
     },
@@ -1480,6 +1480,11 @@ async function boot() {
     return [s.atmosphere, s.inoculant, s.superheat, s.moldT, s.moldWalls ? 1 : 0, s.program];
   }
 
+  /** the heat-treat setup — same doctrine: packed only while the panel is open */
+  function heatShare(): ShareState["ht"] {
+    return heat?.active ? heat.setup() : undefined;
+  }
+
   // links made before v4.0 carry a wall-clock "seeds per second" rain; read it
   // as a site count so old setups still pour something recognisable
   function applyNucShare(N: Nucleation, s: ShareState) {
@@ -1528,6 +1533,19 @@ async function boot() {
     recipeSchedule = shared.sched ?? null;
     if (shared.n) alloyName = shared.n;
     app.resetArmed();   // stages it ARMED; resetArmed keeps the schedule
+    // the heat-treat setup: reopen the panel with the link's dialled schedule,
+    // which refuses honestly ("nothing solid to treat yet") until the pour.
+    // Lab and heat share the bottom-centre slot — a hand-built link carrying
+    // both is malformed, and the lab, applied above, wins. In a 3D link the
+    // open waits for enter3D, because a dimension switch closes the panel.
+    const openHeat = () => {
+      // Number.isFinite does not coerce, so a hand-built ht carrying strings,
+      // nulls or NaN is rejected whole rather than clamped into NaN dials —
+      // the g3 whitelist doctrine. A malformed ht simply does not open.
+      if (Array.isArray(shared.ht) && shared.ht.length === 3
+        && shared.ht.every(Number.isFinite) && !lab.active) heat?.open(shared.ht);
+    };
+    if (shared.d !== 1) openHeat();
     // a TRUE-3D setup link re-enters the 3D mode at its grid, staged ARMED
     if (shared.d === 1 && caps3d.supported) {
       const g = Math.round(shared.g3 ?? 0);
@@ -1555,6 +1573,7 @@ async function boot() {
           }
         }
         app.setView3d(view3d);
+        openHeat();
         ui.sync();
       });
     }

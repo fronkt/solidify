@@ -20,7 +20,7 @@
  * the two clocks never have to be reconciled. That is the whole trick.
  *
  * **There is no process switch.** The user sets an environment (a temperature
- * schedule and an atmosphere) and the model reports what happened: grains
+ * schedule) and the model reports what happened: grains
  * coarsened this much, solute homogenised that much, this thickness of scale
  * grew. "Stress relief" is not a mode — it is what you get when you pick 200 °C
  * and every integral comes back negligible, and the report card says so because

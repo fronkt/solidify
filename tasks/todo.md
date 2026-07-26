@@ -1010,7 +1010,7 @@ heat-treatment Arrhenius laws use it"*. Scope was set by what that data supports
 except precipitate aging, which is deferred because `MaterialSI` has no precipitate kinetics and
 inventing them is the one thing this instrument does not do.
 
-**The organising idea.** Heat treatment runs on a clock ~10 orders of magnitude longer than
+**The organising idea.** Heat treatment runs on a clock ~11 orders of magnitude longer than
 solidification — order 10⁻⁷ s per calibrated timestep against 1.4·10⁴ s for a four-hour soak. The
 phase-field solver can never be integrated through one. So heat treatment is a separate model on
 a separate clock and `src/heattreat.ts` owns the map, exactly as `units.ts` owns the
@@ -1336,4 +1336,54 @@ to resolve capillary-length nucleation.
       consistent to 0.2 MPa, and **no verdict row when no spec was dialled** — a pass/fail against
       a spec nobody set would be an invented judgement. Report slices raised 800 → 1400 and
       1000 → 1600 so the new rows cannot silently fall off the asserted text.
-- [ ] **H7** — the panel, the `reheat` rename, science §9, README, TESTING, tour
+- [x] **H7** — the share trip, science §9, README, TESTING, the tour. (The rename shipped in H0
+      and the panel in H2a — no milestone should ship a pass the user cannot reach — so H7's
+      remainder was the round trip and the record.) **Share**: `ShareState.ht` = [°C, min, spec
+      MPa], packed only while the panel is open (the `labShare` doctrine), applied through a
+      HANDOFF rather than an assignment — `buildPanel()` re-derives its dial defaults from the
+      material on every open and material swap, which is the right behaviour everywhere except a
+      restore, where it is exactly the clobber that would silently discard the link. The restore
+      is consumed once, clamped to the material's own dial ranges (a hand-built link does not get
+      to dial 2000 °C), lab wins the bottom-centre slot when a malformed link carries both, and a
+      3D link's open waits inside `enter3D().then()` because a dimension switch closes the panel.
+      Gate: **HT-SHARE in `verify-tools.mjs`**, deliberately the two-page BOOT idiom rather than
+      `verify-3d`'s in-page pack/unpack, because the clobber lives in the applier and only a real
+      reload walks it: cu at 655 °C / 240 min / spec 33 came back **field-exact through boot**,
+      with the reopened panel refusing honestly — "nothing solid to treat yet" — on the staged
+      link's unpoured melt. **Science §9 HEAT TREATMENT — THE SECOND CLOCK** (old §9/§10 → §10/§11;
+      nothing deep-links a section number, checked): the two-clock argument, the no-process-switch
+      design, the two-exponents equation block, the twin-plate postmortem as the page's second
+      `.note`, homogenization's printed discretization gap, the card-not-fields oxide doctrine,
+      the σ_y row's three limits, a TEST/AGAINST/RESULT table of the measured gate numbers, and a
+      closing what-it-does-NOT-do (no T6 — with the why; unpinned growth; isothermal by
+      construction; the finite specimen). Six honesty-table rows joined §10 (grain growth, twins,
+      homog, oxide, σ_y, and "Precipitate aging / T6 — not modelled at all"), and seven references
+      the heat-treatment block now stands on (Burke & Turnbull 1952, Anderson–Srolovitz–Grest–
+      Sahni 1984, Murr 1975, Hall 1951, Petch 1953, Wagner 1933, E112 already present). **README**:
+      a second-clock instrument bullet + a `## Heat treatment — the second clock` section in the
+      calibrated-solver's shape (equations fenced, results tabled, "Limits, stated:" blunt), and
+      the guided-tour bullet un-staled (ten chapters → three parts, 31). **TESTING.md** 160 → 286
+      lines: both heattreat scripts documented, a Physics-behaviour tests (v6.0) group covering
+      all 25 gates with their postmortems, and three stale CI claims fixed (CI gates typecheck +
+      build + `verify-units` + `verify-heattreat`, per ci.yml). **Tour**: "Heat treat it" lands
+      after "Run it like a lab" with `apply(a) { a.startHeat(); }` (same guard semantics as its
+      sibling — `startHeat` joined `AppControl`), and the Melt·process REHEAT sentence now points
+      at the real furnace instead of only disowning the brush.
+      **A five-dimension adversarial review (21 findings, 10 surviving refutation) tightened the
+      release before it shipped.** The three that were code: the ht decode gained the g3-style
+      `Number.isFinite` whitelist — a hand-built `ht:["x","y",0]` otherwise sailed through the
+      clamp as NaN and opened a panel whose note read "hold NaN h at NaN °C" with an ENABLED run
+      button, a lying label on exactly the hand-built-link surface the clamp claimed to defend
+      (now gated: **HT-SHARE-MALFORMED** boots the bad link and requires the panel closed). The
+      spec verdict is judged at the PRINTED precision (`shownMPa`) — a float missed by a width
+      the display already rounded away would put "missed" beside two identical printed numbers.
+      And the temperature dial floor went material-relative: a hard 100 °C floor renders an
+      INVERTED slider on the two identities that melt below it (ice at 0 °C, SCN at 58 °C) —
+      a broken control, not a refusal — so they get 25 °C of dial under their own melting points
+      (−25…0 and 35…58, each with a legal band under the incipient gate) while every metal's
+      dial stays byte-identical. Five doc numbers were re-anchored to this ledger: 25 gates not
+      21, eleven orders of magnitude not ten (10⁻⁷ s → 1.4·10⁴ s is 1.4×10¹¹ — the intro above
+      said "~10" and now says ~11), 2.3 nm after 14.5 h not "a 14-hour soak", the twin ladder's
+      15/493 middle rung restored to the TESTING record, and the analytic-answer clause
+      reattached to the one refusal that actually prints it (the domain limit — incipient
+      melting refuses with the %-of-T_m sentence alone).

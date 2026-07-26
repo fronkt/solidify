@@ -315,7 +315,134 @@
     a validity bound of its own, τ<sub>0</sub>V/W<sub>0</sub> ≲ 0.2, which a deeply undercooled pure
     melt reaches by λ ≈ 4 — the app reports λ and the ratio it implies so that stays visible.</p>
 
-    <h2>9 · WHAT'S QUANTITATIVE, WHAT'S QUALITATIVE</h2>
+    <h2>9 · HEAT TREATMENT — THE SECOND CLOCK</h2>
+    <p>Everything above runs on the solidification clock, and under the calibrated solver a timestep
+    on that clock is of order 10⁻⁷ s. A heat treatment is four hours — about 10¹¹ timesteps — so the
+    phase-field solver can never be integrated through one: not slowly, not on a bigger GPU, not
+    ever. Pretending otherwise would be the category of claim this page exists to rule out. So heat
+    treatment is a <b>separate model on a separate clock</b>. You set a real schedule in °C and
+    hours; every rate law the material shipped with is integrated over that schedule's whole
+    trajectory — Simpson through the ramps, because an Arrhenius rate varies by orders of magnitude
+    across one and charging only the hold under-counts a slow furnace by a measured 31 % — and the
+    integrals become budgets a GPU pass then spends. <i>φ</i> is frozen for the duration, which is
+    what solid state means, so the two clocks never have to be reconciled. No panel ever prints an
+    unlabelled time: sim time is solidification, real hours are the furnace.</p>
+
+    <p><b>There is no process switch.</b> You set an environment — a temperature schedule — and the
+    model reports what happened: grains coarsened this much, solute flattened that much, this
+    thickness of scale grew. "Stress relief" is not a mode; it is what you get when you pick a low
+    temperature and every integral comes back negligible, and the report card says so because the
+    arithmetic said so. This is the same move that deleted the nucleation-rate slider in v4.0: the
+    dependent quantity stops being a dial.</p>
+
+    <div class="eq">
+      D<sup>n</sup> − D<sub>0</sub><sup>n</sup> = ∫k(T)·dt &nbsp;&nbsp;·&nbsp;&nbsp;
+      D<sup>m</sup> − D<sub>0</sub><sup>m</sup> = K<sub>MC</sub>·S
+      <div class="c">two growth laws and two exponents. n is the MATERIAL's, from its sourced
+      coefficients; m is the MODEL's — a measured property of the Monte Carlo Potts pass, like
+      K<sub>MC</sub> itself. They meet at the endpoint and nowhere else: the material law says where
+      the grain finishes, the model spends whatever sweeps its own kinetics need to get there, and
+      the trajectory in between is the model's, not the material's</div>
+    </div>
+
+    <p>Grain growth is a sublattice Monte Carlo Potts pass on the as-cast grain field, and its two
+    constants are <b>measured, not assumed</b>. Ideal curvature-driven growth is parabolic;
+    a Potts lattice is not — it pins, and its measured exponent comes out m = 2.44 in the plane
+    (three independent casts: 2.38 / 2.44 / 2.61, and this coincides with the canonical
+    Potts result R ∝ t<sup>0.41</sup>, measured here rather than adopted) and m = 2.25 in the
+    volume, where all the ingredients differ: 26 neighbours, eight sublattice colours, a cubic
+    lattice with its own pinning geometry. Assuming the textbook m = 2 costs a <b>4.8×</b> error in
+    the sweep budget — in a number nothing else in the app would have contradicted — which is why
+    the suite makes the two exponents disagree on purpose (<code>HT-SWEEPS</code>) and re-measures
+    K<sub>MC</sub>'s drift on every run.</p>
+
+    <p><b>Annealing twins</b> appear in the volume, where a Σ3 — 60° about ⟨111⟩ — means something.
+    The data decides who twins: stacking-fault energies were looked up with sources, and the matrix
+    they produce is the teaching point. Copper (78 mJ/m²) and cobalt (≈20) twin; aluminium (166) and
+    nickel (128) refuse with their numbers printed; steel refuses structurally, because it is
+    modelled as BCC δ-ferrite and annealing twins are an austenite phenomenon this solver has no
+    phase for. A twin that forms must also survive its own anneal, and that takes two pieces of real
+    physics: a Σ3 energy cusp at the measured copper ratio (coherent ≈ 24 against general ≈ 625
+    mJ/m²) and a Σ3 mobility gate — coherent interfaces cannot migrate by single-atom shuffles,
+    which is why twins survive where ordinary boundaries sweep past.</p>
+
+    <div class="note">
+      <div class="t">A NUCLEATION MECHANISM THAT WAS BUILT AND MEASURED DEAD, TWICE</div>
+      The plan's twin-spawn mechanism — a per-cell flip at the migrating boundary, the same idiom
+      the growth twins use — was built exactly as designed and measured dead: 3 of 512 spawned twins
+      survived 300 sweeps, and none survived 450. Adding the mobility gate (true physics) helped by
+      5× and was still dead. The real killer was geometric: a cell adopting a one-voxel twin pays
+      ~12 neighbours of Σ3 energy where adopting its parent pays ~one — an artificial nucleation
+      barrier no cusp value removes, because a {111} stacking event is <b>sub-grid</b> for a
+      per-cell flip. Real annealing twins are born as plates, and mesoscale models in the literature
+      insert them. So nucleation here is a stamped {111} plate in exact Σ3 registry on a probed
+      boundary, and everything after birth is the pass's own physics. <b>The plate is the one
+      inserted thing</b> — stated here for the same reason the 2D solver does not claim to resolve
+      capillary-length nucleation.
+    </div>
+
+    <p><b>Homogenization</b> is its own pass — masked isotropic diffusion of solute through the
+    solid skeleton at frozen <i>φ</i> — because under the calibrated alloy model the solid
+    diffusivity is exactly zero and there is nothing to reuse. The map from schedule to iterations
+    is exact: iterations = Dt/(cell²·D̃), with Dt the schedule's own Arrhenius integral — no
+    wavelength, no fitted constant — which is why its gate can be an equality test: a seeded
+    eigenmode of the discrete stencil must decay as (1 − 2D̃(1 − cos k))<sup>I</sup>, and does, to
+    a relative error of 9·10⁻⁷ in both dimensions with conservation to 10⁻⁷. The continuum answer
+    e<sup>−Dk²t</sup> differs from the discrete one by +0.012 % / −0.034 % at the tested modes, and
+    that gap is <i>printed</i>, because it is the model's own discretization error. The cost wall is
+    budgeted honestly: explicit diffusion under the calibrated 0.087 µm cell can demand millions of
+    iterations, so the pass runs what fits and the card reports the delivered fraction of the
+    requested Dt — never silently fewer.</p>
+
+    <p><b>Oxidation and decarburization</b> are analytic card lines, not fields: scale grows as
+    x = √(∫k<sub>p</sub>·dt) for every material with a sourced parabolic constant, and steel alone
+    decarburizes as x = 2√(D<sub>C</sub>t), because steel is the one material here whose solute is
+    carbon. The span is the teaching point — aluminium's passive film comes out 2.3 nm after
+    14.5 h at 520 °C ("aluminium does not scale", made visible) against steel's mill-scale millimetres.
+    Ice and succinonitrile refuse by name: a zero in the constants table means "no constant was
+    looked up", not "0 µm of scale". The scale is deliberately <i>not</i> painted into the fields —
+    <i>T</i>, <i>c</i> and age are the as-cast record, and the card is where the number lives.</p>
+
+    <p><b>Strength rides the grain size.</b> The report card closes with σ<sub>y</sub> = σ₀ +
+    k<sub>HP</sub>/√d̄ — Hall–Petch on the measured census, before and after — and a verdict
+    against a spec you commit <i>before</i> the run, the way a real heat treatment answers to a
+    drawing requirement. Three limits are printed with the number. It is grain-size strengthening
+    alone: no precipitates, no work hardening — see the aging row below. The d̄ under the root is
+    the census's equivalent diameter (area-equivalent circle in the plane, volume-equivalent sphere
+    in the volume), an O(1) stereological factor from the mean linear intercept the tabulated
+    constants were fitted to. And the µm inside √d̄ stand on the declared resolution — "you set it"
+    is the length anchor's provenance, and the strength inherits it. One consequence is stated
+    rather than hidden: this furnace can only coarsen, and coarser is softer, so a spec above the
+    casting's current strength is unreachable by any schedule. Meeting it takes a finer pour, and
+    the panel says so before you waste the furnace time.</p>
+
+    <p>What it is checked against, and what it measured:</p>
+    <table>
+      <tr><th>TEST</th><th>AGAINST</th><th>RESULT</th></tr>
+      <tr><td>Arrhenius integral, hold</td><td>closed form</td><td>rel. err. 3×10⁻¹⁵</td></tr>
+      <tr><td>Arrhenius integral, ramp</td><td>the same quadrature at 64× the samples (a ramp has no elementary integral)</td><td>3×10⁻⁸</td></tr>
+      <tr><td>2D Potts kinetics (m, K<sub>MC</sub>)</td><td>its own fit, pinned intercept, transient excluded</td><td>m = 2.44 (2.38 / 2.44 / 2.61 across casts), K = 4.79, drift gated at 25 %</td></tr>
+      <tr><td>3D Potts kinetics (m, K<sub>MC</sub>)</td><td>same doctrine, measured separately — 26 neighbours, 8 colours</td><td>m = 2.25, K = 1.28 (1.8 % spread), drift gated at 15 %</td></tr>
+      <tr><td>Panel end-to-end (2D)</td><td>the material law's endpoint for a 12 h / 520 °C anneal of aluminium</td><td>d̄ 14.0 → 48.6 µm vs 50.4 µm — 0.96–1.00 of the law across runs</td></tr>
+      <tr><td>Homogenization decay</td><td>the DISCRETE stencil eigenvalue, exact</td><td>9×10⁻⁷ (2D and 3D); continuum gap +0.012 % / −0.034 %, printed</td></tr>
+      <tr><td>Σ3 twin registry</td><td>exact Σ3 against each twin's real volume neighbours</td><td>25/26 exact; 22 of 26 alive after 150 further sweeps</td></tr>
+      <tr><td>σ<sub>y</sub> row and spec verdict</td><td>Hall–Petch on the same census the gate reads; a spec committed under the as-cast strength</td><td>row equals the law to 0.2 MPa; the anneal misses the spec, the stress relief meets its own</td></tr>
+    </table>
+
+    <p>And what it does <i>not</i> do. <b>No precipitate aging, no T6</b>: the material table
+    carries no precipitate kinetics — no volume fractions, no coarsening rates — and inventing them
+    to draw a JMAK curve is the one thing this instrument does not do, so the strength row is
+    grain size only and says so. <b>Grain growth here is unpinned</b> — no second-phase particles,
+    no solute drag, no thermal grooving — so a real specimen stalls where this one keeps going.
+    <b>The hold is isothermal by construction</b>: the solver's temperature field is the as-cast
+    record, not the furnace, so the treatment parks the thermal lenses and puts up a banner instead
+    of showing a cold casting labelled 540 °C. And <b>the specimen is finite</b>: grain statistics
+    stop meaning anything when a handful of grains fill the frame, so a schedule whose own law
+    predicts a grain the domain cannot carry is refused with the analytic answer still printed —
+    steel's one-hour anneal at 0.85 T<sub>m</sub> says 296 µm, the volume is 188 µm across, and the
+    model declines to pretend otherwise.</p>
+
+    <h2>10 · WHAT'S QUANTITATIVE, WHAT'S QUALITATIVE</h2>
     <table>
       <tr><th>CLAIM</th><th>STATUS</th></tr>
       <tr><td>Dendrite/seaweed/snowflake morphology, tip selection, side-branching</td><td><b>canonical</b> — matches the published Kobayashi figures</td></tr>
@@ -338,11 +465,17 @@
       <tr><td>Cooling programmes (furnace / air / quench)</td><td><b>Newtonian shell coupling</b> in dimensionless temperature — the ordering of the three (roughly 0.2, 1–10 and 100+ K/s in a real shop) is preserved; the absolute rates are not</td></tr>
       <tr><td>Pour superheat, mould temperature</td><td><b>qualitative boundary conditions</b> — superheat is a real thermal load and the mould is a real cold boundary, but nucleant "fading" at high superheat is not modelled: n<sub>max</sub> does not fall when you overheat the charge</td></tr>
       <tr><td>Stirring, convection, melt flow</td><td><b>not modelled at all</b> — grain multiplication by dendrite fragmentation is a real and important refining mechanism, and it needs a flow field this solver does not have</td></tr>
+      <tr><td>Solid-state grain growth (HEAT TREAT)</td><td><b>endpoint from the material's sourced law, trajectory from measured Potts kinetics</b> — D<sup>n</sup> − D₀<sup>n</sup> = ∫k·dt says where the grain finishes; the model's own (m, K<sub>MC</sub>) pair, measured per dimension, spends the sweeps. Unpinned: no particles, no solute drag, so a real specimen stalls where this one keeps going</td></tr>
+      <tr><td>Annealing twins (3D)</td><td><b>real crystallography, inserted birth</b> — exact Σ3 registry, survival by a measured-ratio energy cusp plus a mobility gate; but the nucleus is a stamped {111} plate, because a per-cell spawn was built twice and measured dead — a stacking event is sub-grid for a Potts flip. Who twins is decided by sourced stacking-fault energies (Murr 1975)</td></tr>
+      <tr><td>Homogenization</td><td><b>exact, and gated as an equality</b> — masked diffusion at frozen φ whose iteration count is the schedule's own Dt product, no fitted constant; the discrete-vs-continuum gap is printed as the model's own discretization error, and the delivered fraction of a budget-capped soak is reported, never silently fewer</td></tr>
+      <tr><td>Oxide scale, decarburization</td><td><b>analytic card lines</b> — parabolic laws over the whole schedule from sourced constants; never painted into the fields, which are the as-cast record. Ice and SCN refuse by name rather than draw a confident 0 µm</td></tr>
+      <tr><td>Yield strength σ<sub>y</sub> (Hall–Petch)</td><td><b>grain-size term only</b> — σ₀ + k<sub>HP</sub>/√d̄ on the measured census, no precipitates, no work hardening; d̄ is the equivalent diameter (an O(1) factor from E112's mean intercept), and the µm under the root are the declared resolution. The spec verdict judges this number and names these limits</td></tr>
+      <tr><td>Precipitate aging / T6</td><td><b>not modelled at all</b> — the material table has no precipitate kinetics, and a JMAK curve drawn from invented per-material numbers would be a prediction this instrument has no right to make</td></tr>
     </table>
     <p>The rule throughout: anything the instrument displays as a number is computed, and anything
     that is a stylistic choice is labelled as one.</p>
 
-    <h2>10 · REFERENCES</h2>
+    <h2>11 · REFERENCES</h2>
     <ul class="refs">
       <li>R. Kobayashi, “Modeling and numerical simulations of dendritic crystal growth,” <i>Physica D</i> 63 (1993) 410–423.</li>
       <li>Ph. Thévoz, J.L. Desbiolles &amp; M. Rappaz, “Modeling of equiaxed microstructure formation in casting,” <i>Metall. Trans. A</i> 20 (1989) 311–322 — the Gaussian site-distribution nucleation model.</li>
@@ -361,6 +494,12 @@
       <li>M. Easton &amp; D. StJohn, “Grain refinement of aluminum alloys,” <i>Metall. Mater. Trans. A</i> 30 (1999) 1613–1633 — the growth restriction factor Q.</li>
       <li>W. Kurz &amp; D.J. Fisher, <i>Fundamentals of Solidification</i>, Trans Tech (1998) — source style for the dilute binary coefficients.</li>
       <li>E. Scheil, “Bemerkungen zur Schichtkristallbildung,” <i>Z. Metallkd.</i> 34 (1942) 70–72.</li>
+      <li>J.E. Burke &amp; D. Turnbull, “Recrystallization and grain growth,” <i>Prog. Met. Phys.</i> 3 (1952) 220–292 — curvature-driven parabolic grain growth, the ideal the Potts pass is measured against.</li>
+      <li>M.P. Anderson, D.J. Srolovitz, G.S. Grest &amp; P.S. Sahni, “Computer simulation of grain growth — I. Kinetics,” <i>Acta Metall.</i> 32 (1984) 783–791 — the Monte Carlo Potts model, and why its measured exponent sits below the ideal ½.</li>
+      <li>L.E. Murr, <i>Interfacial Phenomena in Metals and Alloys</i>, Addison-Wesley (1975) — the stacking-fault and twin-boundary energy compilation behind the annealing-twin matrix.</li>
+      <li>E.O. Hall, “The deformation and ageing of mild steel: III — discussion of results,” <i>Proc. Phys. Soc. B</i> 64 (1951) 747–753.</li>
+      <li>N.J. Petch, “The cleavage strength of polycrystals,” <i>J. Iron Steel Inst.</i> 174 (1953) 25–28 — with Hall above, the σ₀ + k/√d law the report card's strength row uses.</li>
+      <li>C. Wagner, “Beitrag zur Theorie des Anlaufvorgangs,” <i>Z. Phys. Chem. B</i> 21 (1933) 25–41 — the parabolic oxidation law behind the scale and decarburization card lines.</li>
       <li>ASTM E112, <i>Standard Test Methods for Determining Average Grain Size</i>.</li>
     </ul>
 

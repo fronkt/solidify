@@ -70,6 +70,63 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   await p2.close();
 }
 
+// 2b. HT-SHARE: the heat-treat setup rides the link and lands field-exact —
+// and it must go through boot(), not an in-page pack/unpack, because the
+// clobber this gate exists to catch lives in the applier: buildPanel()
+// re-derives the dial defaults from the material on every open, which is
+// exactly what would silently discard a restored link.
+{
+  const page = await browser.newPage();
+  await boot(page);
+  const link = await page.evaluate(() => {
+    const S = window.__solidify;
+    S.app.setMaterial("cu");
+    S.app.startHeat();
+    const dials = document.getElementById("heattreat").querySelectorAll('input[type="range"]');
+    const set = (i, v) => { dials[i].value = String(v); dials[i].dispatchEvent(new Event("input", { bubbles: true })); };
+    set(0, 655); set(1, 240); set(2, 33);        // temperature, hold, spec σ_y
+    return S.app.shareLink();
+  });
+  await page.close();
+  const p2 = await browser.newPage();
+  await boot(p2, link.slice(link.indexOf("#")));
+  const got = await p2.evaluate(() => {
+    const panel = document.getElementById("heattreat");
+    if (!panel) return { open: false };
+    const dials = panel.querySelectorAll('input[type="range"]');
+    return {
+      open: true, m: window.__solidify.app.getMaterial(),
+      t: +dials[0].value, h: +dials[1].value, s: +dials[2].value,
+      // the staged link has nothing solid yet — the panel must refuse
+      // honestly rather than pretend, and the dialled schedule must survive
+      note: document.getElementById("htNote").textContent.slice(0, 80),
+    };
+  });
+  const ok = got.open && got.m === "cu" && got.t === 655 && got.h === 240 && got.s === 33;
+  console.log("HT-SHARE", ok ? "OK" : "FAIL", JSON.stringify(got));
+  if (!ok) process.exitCode = 1;
+  await p2.close();
+
+  // the malformed arm: a hand-built ht carrying non-numbers must not open the
+  // panel at all. Without the decoder's Number.isFinite whitelist this link
+  // sailed through the clamp as NaN and opened a panel whose note read
+  // "hold NaN h at NaN °C" with an enabled run button — a lying label on
+  // exactly the hand-built-link surface the clamp claims to defend.
+  const bad = JSON.stringify({ p: { delta: 0.05 }, u: 0.8, v: 1, m: "cu", ht: ["x", "y", 0] });
+  const badHash = "#set=" + Buffer.from(bad).toString("base64")
+    .replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  const p3 = await browser.newPage();
+  await boot(p3, badHash);
+  const gotBad = await p3.evaluate(() => ({
+    open: !!document.getElementById("heattreat"),
+    m: window.__solidify.app.getMaterial(),
+  }));
+  const ok2 = !gotBad.open && gotBad.m === "cu";   // the rest of the link still applies
+  console.log("HT-SHARE-MALFORMED", ok2 ? "OK" : "FAIL", JSON.stringify(gotBad));
+  if (!ok2) process.exitCode = 1;
+  await p3.close();
+}
+
 // 3. panel enlarge: texture rose big viewer
 {
   const page = await browser.newPage();

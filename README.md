@@ -117,6 +117,13 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   and a furnace/air/quench/soak cooling programme), pour it, and read a **report card** —
   cooling curve with the recalescence arrest marked, deepest undercooling, and how much of the
   inoculant the run actually used. Change a dial mid-pour and the card says so.
+- **Heat treatment — the second clock** — a real schedule (°C, hours) on a separate clock ~11
+  orders longer than solidification: Arrhenius integrals over the whole trajectory set a budget,
+  measured Potts kinetics spend it; annealing twins in the volume (Cu and Co twin, Al and Ni
+  refuse with their Murr-1975 numbers), homogenization at frozen φ, oxide/decarb card lines, and
+  a Hall–Petch `σ_y` row judged against a spec you commit before the run. What it cannot honestly
+  run it refuses, each with its own sentence — incipient melting, and the domain limit with the
+  analytic answer still printed.
 - **Process controls** — undercooling, cooling rate, inoculant charge (+ potency and spread), chill
   wall, reheat-to-remelt, symmetry, anisotropy, noise, latent heat, brush size, and a pro panel
   (ε̄, γ, α, τ, k) for power users. Reset arms a staged melt; run/pause plus a ×1/×2/×4
@@ -133,8 +140,10 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
 - **Touch** — pinch to zoom, two-finger pan, tap to nucleate.
 - **The science page** — [/science/](https://solidify.frankcai.dev/science/) documents the
   equations, the numerics, what's quantitative vs qualitative, and the references.
-- **Guided tour** — ten chapters from the Mullins–Sekerka instability through twinning,
-  casting CET, directional growth, welding, and alloys.
+- **Guided tour** — three parts, 31 chapters: the physics from the Mullins–Sekerka instability
+  through twinning, casting CET, directional growth, welding, alloys and heat treatment; a
+  control-by-control walk through every panel of the instrument; and "out of the plane" for
+  the volume.
 - **Engineer it & challenge** — a separable CMA-ES optimizer runs casting after casting,
   measures each ASTM grain number, and learns the schedule — every attempt pinned to a
   lab-notebook strip. Challenge mode deals you the same target first and scores you against it.
@@ -230,3 +239,67 @@ Two consequences worth knowing. The undercooling slider's own maximum is deeper 
 real aluminium melt reaches (249 K against a Turnbull limit near 187 K) — it turns red
 there. And the same dial on water tops out at 44 K, which is essentially exactly water's
 homogeneous nucleation limit.
+
+## Heat treatment — the second clock
+
+Everything above runs on the solidification clock: under the calibrated solver a timestep is of
+order 10⁻⁷ s, so a long run is a few milliseconds of metal time. A four-hour soak is 1.4·10⁴ s —
+eleven orders of magnitude away — and the phase-field solver cannot be integrated through one,
+not slowly, not on a bigger GPU, not ever. So heat treatment is a **separate model on a separate
+clock**, and `src/heattreat.ts` owns the map between them exactly as `units.ts` owns the
+dimensionless↔SI map: real schedule (seconds, °C) → Arrhenius integral over the whole trajectory
+→ a budget → a GPU pass that consumes it. φ is frozen for the duration — that is what solid
+state *means* — so the two clocks never have to be reconciled.
+
+There is no process switch. You set an environment — a temperature schedule — and the model
+reports what happened: grain growth, homogenization, twinning and oxidation all fall out of the
+same schedule through their own integrals. "Stress relief" is not a mode; it is
+the schedule where every integral comes back negligible, and the card says so because the
+arithmetic said so.
+
+Two growth laws, one for each side of the map:
+
+```
+D^n − D₀^n = ∫ k(T) dt       the material's law — sourced n and k(T), fixes the ENDPOINT
+D^m − D₀^m = K_MC · S        the model's law — measured m and K_MC, spends S Monte Carlo sweeps
+```
+
+They meet at the endpoint and nowhere else: the material law says where the grain finishes, the
+Potts pass spends whatever sweeps its own kinetics need to get there, and the trajectory between
+is the model's. `m` and `K_MC` are measured properties of this implementation, not assumptions —
+`m = 2.44`, `K_MC = 4.79` in the plane (three casts: 2.38 / 2.44 / 2.61, overlapping bands) and
+`m = 2.25`, `K_MC = 1.28` in the volume (K stable to 1.8 % across casts at the pinned exponent).
+Ideal curvature-driven growth is parabolic; a finite-state lattice Potts model is not, and
+assuming `m = 2` was measured to cost 9 499 sweeps against the correct 1 980 — a 4.8× budget
+error in a number nothing else in the app would have contradicted.
+
+What it is checked against:
+
+| measurement | reference | result |
+|---|---|---|
+| anneal endpoint, end-to-end (12 h / 520 °C, Al, 1 595 grains) | the sourced growth law: d̄ → 50.4 µm | measured 14.0 → 48.6 µm — ratio 0.963 |
+| homogenization decay | discrete DCT-II eigenvalue `(1 − 2D(1 − cos k))^I` | rel-err 9·10⁻⁷ (2D and 3D), conservation to 10⁻⁷ |
+| Σ3 twin registry | exact 60° about ⟨111⟩, checked against real volume adjacency | 25/26 exact; twins survive further annealing |
+| oxide card lines | parabolic `x = √(∫k_p dt)`, sourced constants | Al passive film 2.3 nm after 14.5 h at 520 °C — steel scales in mm |
+| Hall–Petch demo (1 h at 0.85 T_m) | `σ_y = σ0 + k_HP/√d̄`, sourced constants | Al 12 → 20.1 µm (40 → 36 MPa); steel 12 → 295.9 µm (243 → 105 MPa) |
+
+The report card's last row is `σ_y` by Hall–Petch on the measured census — grain-size
+strengthening alone, no precipitates, no work hardening, and the card says so. Dial a spec
+(`σ_y ≥ N MPa`) and the met/missed verdict is judged against the spec as it stood when the run
+started — a spec you can only set after the furnace is a spec you can move. The arrow is
+one-way: this furnace can only coarsen, and coarser is softer, so an anneal can only soften; a
+spec above the as-cast strength is called unreachable up front, because meeting a higher spec
+takes a finer pour, not a schedule.
+
+Limits, stated: φ stays frozen — the phase field is never re-solutioned, so a treatment cannot
+dissolve or regrow the solid itself. T, c and age remain the as-cast record; the treatment is
+isothermal by construction and the card says so, rather than showing a cold casting labelled
+540 °C. The oxide scale is a card number, never painted into the fields. The twin plate is the
+one inserted thing — per-cell twin spawns were built and measured dead (3/512 alive at 300
+sweeps, none at 450), because a {111} stacking event is sub-grid for a per-cell Potts flip; the
+plate is stamped in exact Σ3 registry and everything after birth is the pass's physics. There is
+no precipitate aging and no T6 — `MaterialSI` has no precipitate kinetics, and inventing them is
+the one thing this instrument does not do. Grain growth is unpinned — no particles, no solute
+drag — where a real specimen stalls. And grain statistics on a 188 µm volume stop meaning
+anything past ~64 µm, so a schedule that would go there is refused with the law's answer still
+printed.

@@ -20,6 +20,7 @@ export interface AppControl {
   startOptimizer(): void;
   startChallenge(): void;
   startLab(): void;
+  startHeat(): void;
   syncUI(): void;
   /** tour part II: "sec:TITLE" opens+highlights a rail section, else a CSS selector */
   reveal(target: string): void;
@@ -285,6 +286,13 @@ export const CHAPTERS: Chapter[] = [
     apply(a) { a.startLab(); },
     hl: ["sec:MODES"],
   },
+  {
+    title: "Heat treat it",
+    body: "The casting is not the end of the story — most metal that matters goes back into a furnace. HEAT TREAT is the instrument's second clock: solidification runs in fractions of a millisecond, a heat treatment in real hours, and no solver can be integrated through both. So the schedule you dial — a temperature, a hold time, a strength spec — is integrated through every Arrhenius law the material shipped with, and a measured Monte Carlo model spends that budget on the frozen grain field. φ never moves; that is what solid state means.",
+    watch: "Pour a fine casting first (add inoculant), close the lab, then run the default anneal and read the card: grains coarsen toward the law's own endpoint, ASTM G falls, and σ_y falls with it — Hall–Petch pricing the trade. Dial a spec above the as-cast strength and the panel says no schedule can meet it before you waste the furnace time: an anneal only softens. On copper in TRUE 3D, Σ3 annealing twins appear on the migrating boundaries; on aluminium the card prints the stacking-fault number that says why they cannot.",
+    apply(a) { a.startHeat(); },
+    hl: ["sec:MODES"],
+  },
 
   // ---- part II: a control-by-control walk through the instrument ----------
   {
@@ -319,7 +327,7 @@ export const CHAPTERS: Chapter[] = [
     part: "THE INSTRUMENT",
     title: "Melt · process",
     body: "The foundry dials: UNDERCOOLING is how cold the melt starts, COOLING RATE keeps pulling heat out, and INOCULANT is how many potential nuclei the charge carries — a site population with a spread of activation undercoolings, set in ADVANCED. There is deliberately no nucleation-rate control: the rate is what those three produce between them.",
-    watch: "The buttons: SEED and TWIN SEED drop nuclei, CHILL WALL lines an edge, QUENCH plunges the whole melt colder, and holding REHEAT pours heat back in and melts solid back to liquid — it is a brush, not a heat treatment.",
+    watch: "The buttons: SEED and TWIN SEED drop nuclei, CHILL WALL lines an edge, QUENCH plunges the whole melt colder, and holding REHEAT pours heat back in and melts solid back to liquid — it is a brush, not a heat treatment. The real furnace is ♨ HEAT TREAT, under MODES.",
     hl: ["sec:MELT · PROCESS"],
   },
   {

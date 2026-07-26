@@ -19,6 +19,8 @@ export interface ShareState {
   d?: 1;                                    // 1 = the setup lives in TRUE-3D mode
   g3?: number;                              // 3D grid edge (128 / 160 / 192)
   sl?: [number, number, number, number, number]; // section plane: axis, off, tilt, turn, style
+  /** heat-treat setup: temperature °C, hold minutes, spec σ_y MPa (0 = none) — packed only while the panel is open */
+  ht?: [number, number, number];
 }
 
 // grid-derived / runtime fields that must never ride a link
