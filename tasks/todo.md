@@ -1632,8 +1632,68 @@ number — the failure mode this instrument exists to refuse.
       time this repo has paid for the same lesson: fits over short levers are knife-edged,
       integrals are not.
 
-Remaining Phase D scope (next session, per the plan): **M — shaped moulds** (geometry library
-on the r8uint mask, the step block as the hero, per-section census via a slab-stereology
-readRegion, the feed-flood mask-blindness fix, the chillFloor z=2 latent bug) with the panel's
-three M-notes (per-region small-N refusal, readRegion's own uniform + in-flight discipline,
-Niyama-across-sections as the step block's second gate).
+- [x] **M — the mould gets a shape (the step block is the hero).** Closes Phase D.
+      - **M1, the geometry library** (`sim3d.ts`): `setMold(kind)` over four rasterizers — `shell`
+        (today's box), `plate` (thin high-floor cavity), `step` (the hero: four section
+        thicknesses via `stepSectionBounds`, one common open top), `wedge` (the continuous
+        version). `writeMask` goes public as the one entry — the seam a future CAD/STL voxelizer
+        would call directly, no rework needed, just another `Uint8Array` + an unused kind number.
+        New mould kinds deliberately land at 10-13, not 3-9: `fillPigtail`'s selector already
+        owns kind 3 on the same `maskKind` field, and a collision would let a selector→lab
+        scenario switch skip re-rasterizing and leave the pigtail channel live under the lab's
+        physics — a real hazard the original spec text didn't call out. `maskTex` gained
+        `COPY_SRC` (nothing read it back before) and a new `readMaskVolume()`.
+      - **M2, the three mask-blindness fixes shaped geometry exposes**: `FEED3D_WGSL` now binds
+        the mask and unconditionally re-zeroes a wall voxel's fed status every pass — the wall
+        pins φ=0 ("liquid") in the main update pass, so without this the feed flood read straight
+        through solid mould; `chillFloor` seeds `floorZAt(x, t) + 3.5` instead of a hardcoded
+        z=2, which sat inside the shell's own wall thickness (3-6 voxels) at every grid size this
+        app ships — not an edge case, the bug fired on every walled pour; `addSeed3D` funnels
+        every seed source (rain, click, chillFloor, twins, the landing demo) through a new
+        `clearOpenSite` that searches a small bound for the nearest open voxel and drops the seed
+        if none opens, fixed once at the root rather than per caller.
+      - **M3, the lab pours into it**: `LabSetup.mold` + a select beside the walls checkbox
+        (3D-only, same visibility toggle); share link's `lab` tuple gains an optional 9th string
+        element, whitelisted the same way `atmosphere` already is (a missing or garbage kind
+        decodes to `"shell"`, so old links keep working). Four `.mjs` `LabSetup` literals needed
+        the field for runtime correctness (`scripts/*.mjs` sit outside `tsconfig.json`'s
+        `include`, so `tsc` can't catch a missing one) — three in `verify-tools.mjs`, one in
+        `verify-3d.mjs`, found by grep, not by guessing there'd be exactly one.
+      - **M4, per-section measurement**: `REGION3D_WGSL`/`Sim3D.readRegion` generalizes the
+        existing plane-stereology pass to an axis-aligned box, following the `LineU` precedent of
+        its own tiny uniform rather than growing `Params3D` or reusing `stereoParamBuf` (both
+        exist specifically because a SHARED buffer caused the original stereology race).
+        `regionCensus` (`heatpanel.ts`) reduces `readRegion`'s raw per-grain counts into a
+        `Census` — deliberately reusing `readRegion`'s own ≥4-voxel noise floor and the section
+        table's `grainCount < 3` refusal rather than inventing a second, region-scaled threshold
+        with no precedent anywhere else in the repo. The lab card's new section table (thickness
+        · local d̄ · σ_y, thinnest first) reuses `censusDbarUm`/`hallPetch` verbatim — the L4
+        machinery, applied four times — and notes that a grain spanning two sections counts in
+        both, the same thing a metallographer's per-field measurement does.
+      - **M5, gates**: `STEP3` (four checks — exact rasterization vs a real GPU mask readback;
+        `readRegion` vs an independent CPU recount, byte-exact; freeze-time ordering via the age
+        record; regional d̄ growing thinnest→thickest) and `FEED-MASK` (two sealed chambers, one
+        riser-connected and one capped short of the top) both join `verify-3d.mjs`, which gained
+        the Vite-SSR module-loading pattern `verify-heattreat-gpu.mjs` already used. Both were
+        calibrated against a live pour before being fixed in place, and both calibration runs
+        found real, non-obvious things: a **"quench" cooling programme's strong set-point
+        coupling swamps the geometric wall-conduction effect between step-block sections
+        entirely** (all 4 sections froze within a narrow band, no usable ordering) — switching to
+        `furnace` (the weakest coupling) let the real physics dominate and produced a clean,
+        reproducible ordering across two independent runs (17.7→23.5 µm and 19.5→22.1 µm,
+        thinnest to thickest); and the FEED-MASK differential needs `submit()`'s own dispatch
+        fooled into leaving a hand-built mask alone, done by reusing the pigtail's kind=3 rather
+        than a new number, which is also what proved the M1 collision hazard was real.
+        `MOULD-SHARE`/`MOULD-SHARE-MALFORMED` join `verify-tools.mjs`, mirroring `HT-SHARE`'s
+        pair for the new tuple element. Science §6/§7/§10, README, `tour.ts`'s existing "Section
+        it" chapter (extended, not a new chapter — it was already the stereology lesson this
+        connects to), `TESTING.md`.
+      - **A process note worth keeping** (`tasks/lessons.md`): editing `src/**` while
+        `npm run test` or any browser-driven `verify-*.mjs` is live against the dev server feeds
+        Vite HMR a page reload mid-test, which crashes whatever GPU check is in flight with
+        `Execution context was destroyed, most likely because of a navigation` — indistinguishable
+        from a real regression without stashing and re-running to isolate it, which is how the
+        first two "crashes" this session turned out not to be bugs at all.
+      - Full suite (17 scripts) green end to end, twice, including every new gate, with the
+        second run showing the same clean orderings from independent RNG draws — not a
+        one-off pass.

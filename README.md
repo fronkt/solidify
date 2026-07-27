@@ -79,6 +79,13 @@ Flip one switch and the instrument solves the **full volumetric phase-field** �
 - **The grain selector** (3D-only showpiece) — a helical pigtail channel under the Bridgman
   pull: dozens of chill-floor grains race in, **exactly one** exits into the blade cavity —
   the real mechanism behind single-crystal turbine blades, verified headlessly (64 grains → 1).
+- **Shaped moulds** (v6.2) — the lab's mould is a rasterized geometry library (shell, plate,
+  **step block**, wedge) behind one public voxel-mask entry point, with the feed flood, chill
+  floor and nucleation staging all made mask-aware so a sealed chamber can no longer be fed or
+  seeded through a wall. The step block is the classic foundry teaching casting: four section
+  thicknesses fed from one common pour, each freezing at its own rate from wall-conduction
+  geometry alone, each independently measured by a per-section census (thickness · local d̄ ·
+  σ_y, thinnest first) on the report card.
 
 Budget: 57 B/voxel over seven textures — ~403 MB VRAM at 192³ (+57 MB solute while alloy is on),
 with an OOM ladder down through 160³/128³/96³, all four selectable in the ENGINE row;
@@ -119,15 +126,18 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   finer casting. The test suite asserts exactly that coupling.
 - **Lab mode** — the instrument's other half: instead of dragging sliders at a running melt, you
   specify the experiment first (charge + inoculant, hold time above the liquidus, atmosphere,
-  pour superheat, mould temperature, a furnace/air/quench/soak cooling programme, and optionally
-  a pre-pour strength spec), pour it, and read a **report card**. As of v6.1 the card is read
+  pour superheat, mould temperature and shape (3D: shell/plate/step/wedge), a
+  furnace/air/quench/soak cooling programme, and optionally a pre-pour strength spec), pour it,
+  and read a **report card**. As of v6.1 the card is read
   the way a foundry reads a cast cup: T_L / T_N / recalescence / T_S extracted from the cooling
   curve by real thermal analysis (with the method's own error against the measured f_s printed,
   not tuned away), dissolved hydrogen by Sievert's law with the Ransley–Neufeld solubilities
   (atmosphere-ordered, zero under vacuum), refiner fade over the hold (settling is why you pour
   promptly), and the as-cast census with its Hall–Petch σ_y — **judged pass/fail against the
   spec as dialled at the pour**, at the precision the card prints, with the same one verdict
-  logic the furnace card uses. Change a dial mid-pour and the card says so.
+  logic the furnace card uses. Change a dial mid-pour and the card says so. Pour the step block
+  and the card gains a per-section table — thickness · local d̄ · σ_y, thinnest first — the same
+  census machinery run four times over four regions of one casting.
 - **Heat treatment — the second clock** — a real schedule (°C, hours) on a separate clock ~11
   orders longer than solidification: Arrhenius integrals over the whole trajectory set a budget,
   measured Potts kinetics spend it; annealing twins in the volume (Cu and Co twin, Al and Ni

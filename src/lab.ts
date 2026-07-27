@@ -23,6 +23,7 @@ import { fadeFactor } from "./nucleation";
 import { hydrogenPorosity, type PorosityResult } from "./porosity";
 import { hallPetch, fmtMPa, shownMPa } from "./heattreat";
 import { censusDbarUm, type Census } from "./heatpanel";
+import type { MoldKind } from "./sim3d";
 
 export interface LabHost {
   getMode(): "2d" | "3d";
@@ -42,6 +43,8 @@ export interface LabHost {
   gridN(): number;
   /** mould walls on/off (3D rasterizes a shell; 2D has no mould geometry yet) */
   setMoldWalls(on: boolean): void;
+  /** which mould geometry to rasterize when walls are on — 3D only */
+  setMold(kind: MoldKind): void;
   /** sites that have fired, and the deepest undercooling reached */
   nucFired(): number;
   nucMax(): number;
@@ -52,6 +55,9 @@ export interface LabHost {
   /** a guaranteed-fresh grain census (retries until the readback wins) — the
    *  same measurement the heat-treat panel's verdict stands on */
   measureCensus(): Promise<Census | null>;
+  /** M4: step mould only — one Census per section, thinnest first; null for
+   *  any other mould */
+  measureSections(): Promise<{ heightVox: number; census: Census }[] | null>;
 }
 
 export interface LabSetup {
@@ -63,6 +69,9 @@ export interface LabSetup {
   superheat: number;
   moldT: number;
   moldWalls: boolean;
+  /** which geometry the mould rasterizes when moldWalls is on — 3D only,
+   *  meaningful only once poured (Sim3D.setMold) */
+  mold: MoldKind;
   program: string;
   /** the pre-pour spec: the yield strength the casting must make as-cast, MPa.
    *  0 means no spec was dialled, and the card then prints measurements without
@@ -78,6 +87,7 @@ export const LAB_DEFAULT: LabSetup = {
   superheat: 0.12,
   moldT: 0.06,
   moldWalls: true,
+  mold: "shell",
   program: "air",
   specMPa: 0,
 };
@@ -105,6 +115,12 @@ export class Lab {
   private statusEl: HTMLElement | null = null;
   /** mould-walls row — only the volume has mould geometry, so it hides in 2D */
   private moldRow: HTMLElement | null = null;
+  /** mould-shape row, beside moldRow — same 3D-only visibility */
+  private moldKindRow: HTMLElement | null = null;
+  /** the mould shape as it stood at the last pour — latched like specAtPour,
+   *  so a mid-run shape change (impossible via the UI, but a stale share
+   *  link decode shouldn't retroactively relabel a poured casting's card) */
+  private moldAtPour: MoldKind = "shell";
   private card: HTMLElement | null = null;
   private run = new ProgramRun();
   private series: Sample[] = [];
@@ -174,6 +190,8 @@ export class Lab {
     p.weldPow = 0;
     p.moldT = this.setup.moldT;
     this.host.setMoldWalls(this.setup.moldWalls);
+    this.host.setMold(this.setup.mold);
+    this.moldAtPour = this.setup.mold;
     // atmosphere: a melt poured in air entrains oxide films. They give the
     // walls extra (potent, shallow) nucleation sites and they raise the
     // porosity — they do NOT make the bulk liquid easier to nucleate.
@@ -328,6 +346,8 @@ export class Lab {
         v => { this.setup.specMPa = v; this.refresh(); }, 0,
         v => v > 0 ? `≥ ${fmtMPa(v)} MPa` : "no spec"),
       this.moldRow = check("mould walls", this.setup.moldWalls, v => { this.setup.moldWalls = v; }),
+      this.moldKindRow = select("mould shape", ["shell", "plate", "step", "wedge"], this.setup.mold,
+        v => { this.setup.mold = v as MoldKind; }),
     );
 
     const note = document.createElement("div");
@@ -372,6 +392,7 @@ export class Lab {
     // change, the panel says which half of the atmosphere model is live.
     const three = this.host.getMode() === "3d";
     if (this.moldRow) this.moldRow.style.display = three ? "" : "none";
+    if (this.moldKindRow) this.moldKindRow.style.display = three ? "" : "none";
     const atmoScope = three
       ? "only what the walls and the porosity look like."
       : "only what the walls look like — porosity is a 3D field, so in 2D the atmosphere "
@@ -514,11 +535,51 @@ export class Lab {
     return rows.join("");
   }
 
+  /**
+   * M4: the step block's own table — thickness | local d̄ | σ_y, thinnest
+   * first. Reuses censusDbarUm/hallPetch verbatim (the L4 machinery above,
+   * applied four times) and mirrors heatpanel.ts's own small-N refusal
+   * (grainCount < 3) per section rather than inventing a second threshold.
+   * A grain spanning two sections counts in both — the same thing a
+   * metallographer's per-field measurement does.
+   */
+  private sectionTable(sections: { heightVox: number; census: Census }[]): string {
+    const u = this.host.units();
+    const si = this.siAtPour;
+    const rows = sections.map(s => {
+      const label = u.fmtLen(u.fromMicron(s.heightVox * this.umAtPour));
+      if (s.census.grainCount < 3) {
+        return `<tr><td>${label}</td><td colspan="2" style="color:#8891a0">too few grains `
+          + `(${s.census.grainCount}) to report d̄</td></tr>`;
+      }
+      if (!si) {
+        return `<tr><td>${label}</td><td colspan="2" style="color:#8891a0">material carries no `
+          + `strength constants</td></tr>`;
+      }
+      const dUm = censusDbarUm(s.census, "3d", this.umAtPour);
+      if (!(dUm > 0)) {
+        return `<tr><td>${label}</td><td colspan="2" style="color:#8891a0">no census landed</td></tr>`;
+      }
+      const sig = hallPetch(si, dUm * 1e-6);
+      return `<tr><td>${label}</td><td>${u.fmtLen(u.fromMicron(dUm))}</td><td>${fmtMPa(sig)} MPa</td></tr>`;
+    }).join("");
+    return `<div style="margin:6px 0 8px;padding:8px 10px;border:1px solid #1d222a;border-radius:6px;`
+      + `background:rgba(255,255,255,0.015)">`
+      + `<div style="letter-spacing:.15em;color:#56d4dd;margin-bottom:5px;font-size:10px">SECTION TABLE — thinnest first</div>`
+      + `<div style="color:#6b7280;margin-bottom:5px">one pour, four section thicknesses — a grain `
+      + `spanning two sections counts in both, the same thing a metallographer's per-field measurement does</div>`
+      + `<table style="width:100%;border-collapse:collapse"><tr style="color:#8891a0">`
+      + `<th style="text-align:left">thickness</th><th style="text-align:left">local d̄</th>`
+      + `<th style="text-align:left">σ_y</th></tr>${rows}</table></div>`;
+  }
+
   // ------------------------------------------------------------ report card
   private async showCard() {
     // L4: the census the verdict stands on — measured now, once, the same
     // guaranteed-fresh readback the furnace card uses
     const census = await this.host.measureCensus();
+    // M4: the step block's own per-section census — null for any other mould
+    const sections = this.moldAtPour === "step" ? await this.host.measureSections() : null;
     this.card?.remove();
     const c = document.createElement("div");
     c.id = "foundryCard";
@@ -572,6 +633,8 @@ export class Lab {
     // L4: census, strength and — if a spec was dialled at the pour — the verdict
     const strength = document.createElement("div");
     strength.innerHTML = this.strengthBlock(census, p.scen === 4);
+    const sectionEl = document.createElement("div");
+    sectionEl.innerHTML = sections ? this.sectionTable(sections) : "";
 
     const stats = document.createElement("div");
     stats.innerHTML =
@@ -608,7 +671,7 @@ export class Lab {
     done.addEventListener("click", () => { this.card?.remove(); this.card = null; });
     row.append(copy, done);
     c.innerHTML = rows.join("");
-    c.append(canvas, thermal, strength, stats, row);
+    c.append(canvas, thermal, strength, sectionEl, stats, row);
     document.getElementById("app")!.append(c);
     this.card = c;
     this.drawCurve(canvas, ta);

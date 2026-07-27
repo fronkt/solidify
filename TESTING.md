@@ -89,7 +89,8 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   the SCALE panel reports the volume's derived domain rather than the 2D grid's.
 - **`verify-3d.mjs`** — the TRUE-3D mode end to end: entry, growth, grain claiming, all nine
   lenses, orbit + ViewCube, tap-at-depth seeding, alloy, twins, icosahedral symmetry, the grain
-  selector, stereology, STL export, the share round-trip and the 3D lab.
+  selector, stereology, STL export, the share round-trip, the 3D lab, and (v6.2) the shaped-mould
+  library: `STEP3` and `FEED-MASK`.
 
 - **`verify-quant.mjs`** — the calibrated (Karma–Rappel) solver, checked against physics it did
   not get to choose. The Kobayashi path can only be tested for self-consistency, because it has
@@ -318,6 +319,21 @@ under the abstract material). `NY3` and `KPART3` join `verify-3d.mjs`: NY3 recom
 to match (median ratio ~1.18 — a missing scenario term blows it by orders), plus the −1
 "no measurement" sentinels and the stats risk counter against a CPU recount; KPART3 requires a
 3D material swap to land the material's own alloy constants and the solute rejection to move.
+
+**v6.2 Phase D Milestone M.** `STEP3` joins `verify-3d.mjs`: pours a step-block mould and checks
+rasterization exactness (a real GPU mask readback vs an independent classification from
+`stepSectionBounds`, zero mismatches over the full grid), `readRegion`'s per-grain GPU counts
+against an independent CPU recount over the same bbox (byte-exact), freeze-time ordering
+(thinnest section's last freeze predates the thickest's, via the age record), and regional d̄
+growing from thinnest to thickest — calibrated against a real furnace-programme pour first,
+because a "quench" programme's strong set-point coupling swamps the geometric wall-conduction
+effect between sections entirely. `FEED-MASK` joins it too: two sealed chambers split by an
+internal wall, one riser-connected and one capped short of the top, built with a direct
+`writeMask` call reusing the pigtail's own kind number so `submit()`'s dispatch never
+re-rasterizes over it; post-fix the sealed chamber shows real porosity (calibrated ~6 %) and the
+open one shows none, with `pPore` deliberately amplified to force a clear signal from a short
+run. `MOULD-SHARE`/`MOULD-SHARE-MALFORMED` join `verify-tools.mjs`, mirroring the `HT-SHARE`
+pair for the lab tuple's 9th element.
 
 **A note on `GG3-KMC`'s tolerance.** The calibration pours are now seeded LCGs rather than
 `Math.random()`, which made the 2D `GG-KMC` byte-identical run to run. The 3D one still moves,

@@ -127,6 +127,42 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   await p3.close();
 }
 
+// 2c. MOULD-SHARE (Phase D M): the mould kind is the lab tuple's 9th, optional
+// element — a valid kind round-trips, and a missing or garbage one (an old
+// link, or a hand-built one) must default to "shell" rather than decode as
+// undefined and reach setMold with a value MOLD_KIND_ID has no entry for.
+{
+  const page = await browser.newPage();
+  await boot(page);
+  const link = await page.evaluate(() => {
+    const S = window.__solidify;
+    S.app.startLab();
+    S.lab.setup.mold = "step";
+    S.lab.setup.moldWalls = true;
+    return S.app.shareLink();
+  });
+  await page.close();
+  const p2 = await browser.newPage();
+  await boot(p2, link.slice(link.indexOf("#")));
+  const got = await p2.evaluate(() => ({ open: window.__solidify.lab.active, mold: window.__solidify.lab.setup.mold }));
+  const ok = got.open && got.mold === "step";
+  console.log("MOULD-SHARE", ok ? "OK" : "FAIL", JSON.stringify(got));
+  if (!ok) process.exitCode = 1;
+  await p2.close();
+
+  // the malformed arm: a hand-built lab tuple with a garbage 9th element
+  const bad = JSON.stringify({ p: {}, u: 0.8, v: 1, m: "cu", lab: ["argon", 600, 0.1, 0.05, 1, "air", 0, 0, "not-a-shape"] });
+  const badHash = "#set=" + Buffer.from(bad).toString("base64")
+    .replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  const p3 = await browser.newPage();
+  await boot(p3, badHash);
+  const gotBad = await p3.evaluate(() => ({ open: window.__solidify.lab.active, mold: window.__solidify.lab.setup.mold }));
+  const ok2 = gotBad.open && gotBad.mold === "shell";
+  console.log("MOULD-SHARE-MALFORMED", ok2 ? "OK" : "FAIL", JSON.stringify(gotBad));
+  if (!ok2) process.exitCode = 1;
+  await p3.close();
+}
+
 // 3. panel enlarge: texture rose big viewer
 {
   const page = await browser.newPage();
@@ -285,7 +321,7 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   });
   await page.evaluate(() => {
     const L = window.__solidify.lab, a = window.__solidify.app;
-    L.setup = { atmosphere: "argon", inoculant: 700, holdMin: 0, superheat: 0.12, moldT: 0.05, moldWalls: false, program: "quench", specMPa: 0 };
+    L.setup = { atmosphere: "argon", inoculant: 700, holdMin: 0, superheat: 0.12, moldT: 0.05, moldWalls: false, mold: "shell", program: "quench", specMPa: 0 };
     a.setSpeed(40);
     L.start();
   });
@@ -353,7 +389,7 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
       // a shallow superheat and a heavy charge: the gate's business is the
       // verdict, not a marathon freeze, and a pour that outlives the poll
       // budget reads as a flake (it did once — dUm 0 with the run still going)
-      L.setup = { atmosphere: "argon", inoculant: 1200, holdMin: 0, superheat: 0.06, moldT: 0.05, moldWalls: false, program: "quench", specMPa: s };
+      L.setup = { atmosphere: "argon", inoculant: 1200, holdMin: 0, superheat: 0.06, moldT: 0.05, moldWalls: false, mold: "shell", program: "quench", specMPa: s };
       S.app.setSpeed(40);
       L.start();
       if (s > 0) L.setup.specMPa = 999;   // the latch probe: moved AFTER the pour
@@ -416,7 +452,7 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     await page.evaluate((a) => {
       const L = window.__solidify.lab, app = window.__solidify.app;
       app.setNucPotency(0.5); app.setNucSpread(0.04);
-      L.setup = { atmosphere: a, inoculant: 600, holdMin: 0, superheat: 0.05, moldT: 0.05, moldWalls: false, program: "air", specMPa: 0 };
+      L.setup = { atmosphere: a, inoculant: 600, holdMin: 0, superheat: 0.05, moldT: 0.05, moldWalls: false, mold: "shell", program: "air", specMPa: 0 };
       app.setSpeed(40);
       L.start();
     }, atm);

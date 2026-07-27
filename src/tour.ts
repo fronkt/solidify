@@ -415,7 +415,7 @@ export const CHAPTERS: Chapter[] = [
     part: "THE THIRD DIMENSION",
     dim: "3d",
     title: "Section it",
-    body: "A metallurgist cannot see inside an opaque solid either. The lab answer is serial sectioning: grind, polish, image, repeat, and rebuild the volume from slices. The SLICE lens is that section plane — free to move, tilt and turn — and CT SWEEP drives it through the volume like a tomography scan. The cut face renders as etched metal or as an EBSD orientation map.",
+    body: "A metallurgist cannot see inside an opaque solid either. The lab answer is serial sectioning: grind, polish, image, repeat, and rebuild the volume from slices. The SLICE lens is that section plane — free to move, tilt and turn — and CT SWEEP drives it through the volume like a tomography scan. The cut face renders as etched metal or as an EBSD orientation map. The lab's step-block mould applies the same measurement to a whole casting at once: one pour, four section thicknesses, a per-section census read the same way, side by side on the report card.",
     watch: "The plane is sweeping a many-grain casting on the EBSD style. Open STEREOLOGY in VOLUME · 3D: the grain size measured on the section runs smaller than the true 3D size, because a random plane almost never cuts a grain through its equator. Sections lie small — that correction is a century of stereology.",
     apply(a) {
       a.setSym3(4);

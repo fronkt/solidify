@@ -475,11 +475,21 @@ ${COMMON3}
 @group(0) @binding(1) var state: texture_3d<f32>;
 @group(0) @binding(2) var fedIn: texture_3d<u32>;
 @group(0) @binding(3) var fedOut: texture_storage_3d<r32uint, write>;
+@group(0) @binding(4) var mask: texture_3d<u32>;
 
 @compute @workgroup_size(4, 4, 4)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
   if (gid.x >= P.n || gid.y >= P.n || gid.z >= P.n) { return; }
   let c = vec3i(gid);
+  // mould wall: dead geometry the flood must never enter. A wall voxel is
+  // pinned phi=0 ("liquid") by the main pass, so without this override the
+  // flood reads straight through solid mould — unconditionally re-zeroing it
+  // every pass (not just once) means a neighbour can never read a wall cell
+  // as "fed", which is what actually stops the flood crossing a wall.
+  if ((P.scen == 3u || P.scen == 4u) && textureLoad(mask, c, 0).r == 1u) {
+    textureStore(fedOut, c, vec4u(0u, 0u, 0u, 0u));
+    return;
+  }
   let phi = textureLoad(state, c, 0).r;
   let old = textureLoad(fedIn, c, 0).r;
   if (phi >= 0.5) {
@@ -665,6 +675,43 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   if (gid.x >= P.n || gid.y >= P.n || gid.z >= P.n) { return; }
   let pc = vec3f(gid) + 0.5;
   if (abs(dot(pc, P.sliceN.xyz) - P.sliceN.w) > 0.5) { return; }
+  let c = vec3i(gid);
+  let id = textureLoad(grain, c, 0).r;
+  if (id == PORE) {
+    atomicAdd(&stats.counts[PORE], 1u);
+    return;
+  }
+  if (id > 0u && textureLoad(state, c, 0).r > 0.5) {
+    atomicAdd(&stats.counts[id], 1u);
+  }
+}
+`;
+
+// ------------------------------------------------------- region census pass
+// per-grain voxel counts inside an axis-aligned box — the M4 generalization
+// of the stereology PLANE test above to a SLAB (the step block's own
+// sections). Own tiny uniform, the LINE3D_WGSL precedent: the shared
+// Params3D has no free vec3 pair, and sharing a buffer with step() is how
+// the stereology race happened in the first place.
+export const REGION3D_WGSL = /* wgsl */ `
+struct RegionU { lo: vec4f, hi: vec4f }   // voxel-space bounds [lo, hi); lo.w = grid n
+struct RBuf {
+  pad: array<u32, 8>,
+  counts: array<atomic<u32>, ${MAX_GRAINS3}>,
+}
+const PORE = ${PORE_ID}u;
+
+@group(0) @binding(0) var<uniform> R: RegionU;
+@group(0) @binding(1) var state: texture_3d<f32>;
+@group(0) @binding(2) var grain: texture_3d<u32>;
+@group(0) @binding(3) var<storage, read_write> stats: RBuf;
+
+@compute @workgroup_size(4, 4, 4)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  let n = u32(R.lo.w);
+  if (gid.x >= n || gid.y >= n || gid.z >= n) { return; }
+  let pc = vec3f(gid) + 0.5;
+  if (any(pc < R.lo.xyz) || any(pc >= R.hi.xyz)) { return; }
   let c = vec3i(gid);
   let id = textureLoad(grain, c, 0).r;
   if (id == PORE) {

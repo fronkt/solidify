@@ -196,9 +196,12 @@
     that stereology exists to correct.</p>
     <p><b>Shrinkage porosity</b> is modelled by feed-path tracking: a flood fill from the riser
     (top face) marks liquid that can still be fed; liquid that solidifies while cut off becomes a
-    pore, which x-rays dark in the FIELD lens exactly as casting radiography finds it. At every
-    freezing voxel the instrument also records the <b>Niyama criterion</b> Ny = |∇T|/√Ṫ — the
-    foundry's standard porosity-risk index — and can paint it on the section plane. Numerics:
+    pore, which x-rays dark in the FIELD lens exactly as casting radiography finds it. The flood
+    honours the mould walls — a wall voxel is unconditionally excluded from the feed path every
+    pass, so a chamber sealed behind a partition can never be reached by metal that never crossed
+    it. At every freezing voxel the instrument also records the <b>Niyama criterion</b> Ny =
+    |∇T|/√Ṫ — the foundry's standard porosity-risk index — and can paint it on the section plane.
+    Numerics:
     explicit Euler at dt = 0.53·dx²/6 (the 3D stability bound), two compute passes per substep over
     ping-pong 3D storage textures, and 57 bytes of VRAM per voxel across seven textures — ~403 MB
     at 192³, with an out-of-memory ladder down through 160³, 128³ and 96³ (~50 MB) for smaller
@@ -216,7 +219,12 @@
     cavity, which is how real turbine-blade single crystals are actually made. The foundry
     instruments follow: the cooling-curve probe (ctrl-tap any voxel), the Scheil overlay, an
     SDAS ruler that measures λ₂ along any dragged line through the volume, and a stereographic
-    pole figure beside the IPF map.</p>
+    pole figure beside the IPF map. The lab's mould is a rasterized geometry library — shell,
+    plate, step, wedge — sharing one voxel-mask entry point regardless of shape. The <b>step
+    block</b> is the classic foundry teaching casting: four section thicknesses fed from one
+    common pour, each freezing at its own rate purely from wall-conduction geometry (no
+    per-section parameter), and each measurable independently by the lab's own per-section
+    census.</p>
 
     <h2>7 · NUCLEATION, AND THE LAB</h2>
     <p>Earlier versions of this instrument let you set the undercooling, the cooling rate
@@ -247,8 +255,9 @@
     <p><b>Lab mode</b> exists because the rest of the instrument is a sandbox — you drag sliders
     and the melt answers. That is a good way to learn what each term does and a bad model of how
     the measurement is actually made. In the lab you fix the experiment first: the charge and its
-    inoculant, the atmosphere, the pour superheat, the mould temperature, and a cooling programme
-    (furnace, air, quench, or a soak-then-cool hold). Then you pour it and watch. The solver
+    inoculant, the atmosphere, the pour superheat, the mould temperature and shape (3D — shell,
+    plate, step or wedge), and a cooling programme (furnace, air, quench, or a soak-then-cool
+    hold). Then you pour it and watch. The solver
     follows the programme's set-point with Newtonian shell coupling rather than a constant heat
     sink, which is what lets a hold really hold. At the end you get a report card: the cooling
     curve read the way a foundry reads a cast cup (T<sub>L</sub>, T<sub>N</sub>, recalescence,
@@ -260,7 +269,11 @@
     cannot rewrite the verdict; a miss points back at this panel, because a finer pour closes it
     (more inoculant, a shorter hold, a faster programme) where the furnace can only move it
     further away. Change a physics dial while it is pouring and the
-    card says so — a run with the conditions moved under it is a demonstration, not a measurement.</p>
+    card says so — a run with the conditions moved under it is a demonstration, not a measurement.
+    Pour the step block and the card gains a fifth reading: a per-section table, thickness against
+    local d̄ against σ<sub>y</sub>, thinnest first — the same census machinery run four times over
+    four regions of the one casting, so the section-thickness effect is a measurement, not an
+    illustration.</p>
 
     <h2>8 · THE CALIBRATED SOLVER</h2>
     <p>Everything above this point is a <i>similarity</i> model. It grows the right shapes for the
@@ -466,6 +479,7 @@
       <tr><td>Hot tearing</td><td><b>a timing index, not a stress prediction</b> — the lab card prints the Clyne–Davies cracking susceptibility CSC = t<sub>v</sub>/t<sub>r</sub> off the pour's own recorded f<sub>s</sub>(t) (vulnerable 0.90→0.99, relieving 0.40→0.90). The index is defined on a local volume element and this record is the global open-cavity fraction, so on a directional front it degenerates toward a geometry constant — the card says so. The RDG criterion the roadmap once named needs a transverse strain rate and a Darcy feeding term this solver does not carry, and no number is printed that pretends otherwise</td></tr>
       <tr><td>Gas porosity from dissolved hydrogen (the lab)</td><td><b>Sievert's law with real solubility, a proxy for the rest.</b> A melt dissolves hydrogen as C = S·√p, and the solubility collapses on freezing — liquid aluminium holds ~19× the solid, so the rejected difference feeds gas pores. <b>Real:</b> the Ransley–Neufeld solubilities (Al liquid ≈0.69, solid ≈0.036 cm³/100 g at 1 atm), the √p pressure dependence, and the liquid→solid drop that drives it. <b>Proxy:</b> how much hydrogen each atmosphere presents (air humid → charged, cover gas → residual, vacuum → degassed — an ordering, not measured partial pressures) and the map from rejected hydrogen to the pore field. A material with no solubility data refuses gas porosity by name. This replaced a flat "+0.1 in air" bias; the pore field itself is 3D</td></tr>
       <tr><td>Grain selector (3D)</td><td><b>geometric</b> — real selector physics (columnar competition through a constriction); the pigtail shape is procedural, not a specific foundry's</td></tr>
+      <tr><td>Mould geometry (3D)</td><td><b>exact rasterization, real conduction, teaching proportions</b> — shell/plate/step/wedge are deterministic integer voxel math, gated bit-exact against an independent GPU mask readback; once poured, the mould wall is a real cold boundary condition and section-thickness effects (the step block's whole point) emerge from conduction toward it, not from a per-section parameter. The four step-block thicknesses are a teaching proportion, not a measured specimen. A grain spanning two sections is counted in both — the same thing a metallographer's per-field measurement does</td></tr>
       <tr><td>Icosahedral quasicrystal (3D)</td><td><b>interface-energy symmetry only</b> — the aperiodic lattice itself is beyond a phase-field order parameter</td></tr>
       <tr><td>Melt glow per material</td><td><b>display only</b> — incandescence scaled to each metal's freezing point</td></tr>
       <tr><td>Nucleation site model (n<sub>max</sub>, ΔT<sub>N</sub>, ΔT<sub>σ</sub>)</td><td><b>mechanistic, not derived</b> — the Rappaz/Greer structure (Gaussian activation undercoolings, fire-once, recalescence ratchet) with thresholds chosen to be watchable, not computed from interfacial energies. Real inoculated aluminium activates within a few kelvin of the liquidus; here the distribution is stretched across the range you can actually drive</td></tr>

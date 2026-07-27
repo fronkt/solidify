@@ -1,7 +1,9 @@
 import { Simulation, type StatsResult } from "./sim";
 import { MATERIALS, to3D } from "./materials";
 import { Renderer, type ViewMode } from "./render";
-import { Sim3D, GRID3_LADDER, type StatsResult3D } from "./sim3d";
+import {
+  Sim3D, GRID3_LADDER, type StatsResult3D, moldWallThickness, stepSectionBounds,
+} from "./sim3d";
 import { LENS3_NAMES, ICOSA_DELTA_MAX } from "./shaders3d";
 import { Renderer3D, slicePlane } from "./render3d";
 import { SlicePanel } from "./slicepanel";
@@ -18,7 +20,7 @@ import { Analyze } from "./analyze";
 import { Analyze3D } from "./analyze3d";
 import { Nucleation } from "./nucleation";
 import { Lab, type LabHost, type LabSetup } from "./lab";
-import { HeatPanel, type HeatHost, type Census } from "./heatpanel";
+import { HeatPanel, type HeatHost, type Census, regionCensus } from "./heatpanel";
 import { Units, scaleOf, DEFAULT_UM_PER_CELL } from "./units";
 import { SOLVER } from "./shaders";
 import { calibrate, defaultLambda, A_T, type QuantSetup } from "./quant";
@@ -901,6 +903,9 @@ async function boot() {
       // are the domain edges, so there is no geometry to switch on
       if (sim3d) sim3d.moldShell = on;
     },
+    setMold(kind) {
+      if (sim3d) sim3d.setMold(kind);
+    },
     nucFired: () => (mode === "3d" ? nuc3 : nuc).fired,
     nucMax: () => (mode === "3d" ? nuc3 : nuc).p.nmax,
     maxUndercool: () => (mode === "3d" ? nuc3 : nuc).maxUndercool,
@@ -910,6 +915,27 @@ async function boot() {
     // one measure() (declared below, resolved at call time), so the two cards
     // can never disagree about what was measured
     measureCensus: () => heatHost.measure(),
+    // M4: the step block's own report — one region per section, thinnest
+    // first. null for any other mould (including mid-pour shape changes the
+    // UI never actually offers, but a stale share link could ask for).
+    async measureSections() {
+      if (mode !== "3d" || !sim3d || sim3d.moldKind !== "step") return null;
+      const n = sim3d.n;
+      const t = moldWallThickness(n);
+      const secs = stepSectionBounds(n, t);
+      const out: { heightVox: number; census: Census }[] = [];
+      for (const s of secs) {
+        let raw: Awaited<ReturnType<Sim3D["readRegion"]>> = null;
+        for (let tries = 0; tries < 40 && !raw; tries++) {
+          raw = await sim3d.readRegion([s.xlo, s.ylo, s.floorZ], [s.xhi, s.yhi, n]);
+          if (!raw) await sim3d.device.queue.onSubmittedWorkDone();
+        }
+        if (!raw) return null;
+        const regionVoxTotal = (s.xhi - s.xlo) * (s.yhi - s.ylo) * (n - s.floorZ);
+        out.push({ heightVox: s.heightVox, census: regionCensus(raw, regionVoxTotal) });
+      }
+      return out;
+    },
   };
   const lab = new Lab(labHost);
 
@@ -1544,7 +1570,7 @@ async function boot() {
   function labShare(): ShareState["lab"] {
     if (!lab.active) return undefined;
     const s = lab.setup;
-    return [s.atmosphere, s.inoculant, s.superheat, s.moldT, s.moldWalls ? 1 : 0, s.program, s.holdMin, s.specMPa];
+    return [s.atmosphere, s.inoculant, s.superheat, s.moldT, s.moldWalls ? 1 : 0, s.program, s.holdMin, s.specMPa, s.mold];
   }
 
   /** the heat-treat setup — same doctrine: packed only while the panel is open */
@@ -1590,15 +1616,19 @@ async function boot() {
     view = Math.max(0, Math.min(9, Math.round(shared.v))) as ViewMode;
     applyNucShare(nuc, shared);
     if (shared.lab) {
-      const [atm, ino, sup, mT, walls, prog, hold, spec] = shared.lab;
+      const [atm, ino, sup, mT, walls, prog, hold, spec, mk] = shared.lab;
       // the optional tail elements carry the g3-style Number.isFinite whitelist:
       // a hand-built link with a string hold or spec must not seed a NaN fade
-      // or a NaN verdict — it decodes as "not set"
+      // or a NaN verdict — it decodes as "not set"; mould kind gets the same
+      // whitelist treatment as atmosphere just above (a valid string or the
+      // shell default — an old link missing this element decodes mk as
+      // undefined, which .includes() rejects the same way)
       lab.setup = {
         atmosphere: (["air", "argon", "vacuum"].includes(atm) ? atm : "argon") as LabSetup["atmosphere"],
         inoculant: ino, superheat: sup, moldT: mT, moldWalls: walls === 1, program: prog,
         holdMin: typeof hold === "number" && Number.isFinite(hold) ? hold : 0,
         specMPa: typeof spec === "number" && Number.isFinite(spec) ? Math.max(0, spec) : 0,
+        mold: (["shell", "plate", "step", "wedge"].includes(mk as string) ? mk : "shell") as LabSetup["mold"],
       };
       lab.open();
     }

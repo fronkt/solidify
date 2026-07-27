@@ -3,6 +3,16 @@
 // tap-at-depth seeding, and fps probes at both grid sizes.
 //   node scripts/verify-3d.mjs [outDir] [port]
 import puppeteer from "puppeteer-core";
+import { createServer } from "vite";
+
+// STEP3 (Phase D M): the shared contract numbers, loaded from the module that
+// ships them rather than retyped here — a test that re-implements the thing
+// it is testing proves nothing.
+const viteServer = await createServer({ server: { middlewareMode: true }, appType: "custom", logLevel: "error" });
+const SIM3 = await viteServer.ssrLoadModule("/src/sim3d.ts");
+const { moldWallThickness, stepSectionBounds } = SIM3;
+const SH3 = await viteServer.ssrLoadModule("/src/shaders3d.ts");
+const { PORE_ID } = SH3;
 
 const OUT = process.argv[2] ?? ".";
 const PORT = process.argv[3] ?? "5201";
@@ -474,7 +484,7 @@ console.log("VC-ZONES", kinds.has(1) && kinds.has(3) ? "OK" : FAIL(), JSON.strin
     const L = window.__solidify.lab, S = window.__solidify, p = S.sim3d().params;
     S.app.setMaterial("al");
     S.app.startLab();
-    L.setup = { atmosphere: "vacuum", inoculant: 300, holdMin: 0, superheat: 0.05, moldT: 0.05, moldWalls: true, program: "air", specMPa: 0 };
+    L.setup = { atmosphere: "vacuum", inoculant: 300, holdMin: 0, superheat: 0.05, moldT: 0.05, moldWalls: true, mold: "shell", program: "air", specMPa: 0 };
     L.start();
     const clean = { scen: p.scen, pPore: p.pPore, shell: S.sim3d().moldShell };
     L.abort();
@@ -516,9 +526,219 @@ console.log("VC-ZONES", kinds.has(1) && kinds.has(3) ? "OK" : FAIL(), JSON.strin
   console.log("STEPSYNC3", ok ? "OK" : FAIL(), JSON.stringify(out));
 }
 
+// 15c. STEP3 (Phase D M) — the step block is the hero: one pour, four section
+// thicknesses in the SAME cavity. Four independent checks, calibrated against
+// a real furnace-programme pour before being fixed here (a "quench" programme
+// couples the melt to its set-point so strongly it swamps the geometric
+// wall-conduction effect between sections — furnace's weak coupling is what
+// actually lets thickness show up in the freeze record):
+// (1) rasterization is EXACT — the geometry is deterministic integer voxel
+// math, so an independent classification from the shared contract functions
+// (stepSectionBounds — NOT the shipped rasterizer, which is private) must
+// match a real GPU mask readback voxel-for-voxel;
+// (2) readRegion's per-grain GPU counts agree with an independent CPU
+// recount over the identical bbox from raw grain/state volumes, same noise
+// floor on both sides;
+// (3) the thinnest section's last freeze event predates the thickest's
+// (freeze-time ordering via the age record, the same field NY3 reads);
+// (4) the thinnest section's regional d̄ is smaller than the thickest's — the
+// teaching claim. (3) and (4) compare ENDPOINTS, not adjacent sections: the
+// two middle sections carry small grain counts and can tie or invert against
+// each other on pure sampling noise, but thinnest-vs-thickest held clean in
+// calibration (0.295 vs 0.495 sim-time; d̄ 20.1 vs 22.6 vox) and is the actual
+// claim a step-block casting makes.
+{
+  await page.evaluate(() => window.__solidify.app.setMode("3d"));
+  await page.waitForFunction("window.__solidify.mode() === '3d'", { timeout: 30000 });
+  await page.evaluate(() => window.__solidify.app.setGrid3(128));
+  await page.waitForFunction("window.__solidify.sim3d()?.n === 128", { timeout: 40000 });
+  const n = 128, t = moldWallThickness(n), secs = stepSectionBounds(n, t);
+
+  await page.evaluate(() => {
+    const S = window.__solidify;
+    S.app.setMaterial("al");
+    S.app.startLab();
+    S.lab.setup = {
+      atmosphere: "vacuum", inoculant: 500, holdMin: 0, superheat: 0.08,
+      moldT: 0.05, moldWalls: true, mold: "step", program: "furnace", specMPa: 0,
+    };
+    S.app.setSpeed(40);
+    S.lab.start();
+  });
+  // one tick to force submit()'s lazy rasterization before reading the mask
+  await tick(20);
+
+  const rast = await page.evaluate(async (secsArg, tArg, nArg) => {
+    const s3 = window.__solidify.sim3d();
+    const mask = await s3.readMaskVolume();
+    if (!mask) return { ok: false, why: "mask readback failed" };
+    const sectionAt = x => secsArg.find(s => x >= s.xlo && x < s.xhi) ?? secsArg[secsArg.length - 1];
+    let mismatches = 0, expectWall = 0;
+    for (let z = 0; z < nArg; z++) for (let y = 0; y < nArg; y++) for (let x = 0; x < nArg; x++) {
+      const sideWall = y < tArg || y >= nArg - tArg || x < tArg || x >= nArg - tArg;
+      const wantWall = (sideWall || z < sectionAt(x).floorZ) ? 1 : 0;
+      const i = (z * nArg + y) * nArg + x;
+      if (wantWall) expectWall++;
+      if (wantWall !== mask[i]) mismatches++;
+    }
+    return { ok: true, mismatches, expectWall, totalVox: nArg * nArg * nArg };
+  }, secs, t, n);
+  console.log("STEP3-RASTER", rast.ok && rast.mismatches === 0 ? "OK" : FAIL(), JSON.stringify(rast));
+
+  // run to (near-)completion — the same fracSolidOpen the lab's own card
+  // trigger and the N4 fix use, polled rather than a guessed tick count
+  let fracSolidOpen = 0;
+  for (let i = 0; i < 150 && fracSolidOpen < 0.99; i++) {
+    await tick(20);
+    const s = await stats3();
+    fracSolidOpen = s ? s.fracSolidOpen : fracSolidOpen;
+  }
+  console.log("STEP3-FINISH", fracSolidOpen >= 0.99 ? "OK" : FAIL(), JSON.stringify({ fracSolidOpen }));
+
+  const out = await page.evaluate(async (secsArg, nArg) => {
+    const s3 = window.__solidify.sim3d();
+    let age = null, grn = null, st = null;
+    for (let i = 0; i < 40 && !(age && grn && st); i++) {
+      age = age ?? await s3.readAgeVolume();
+      grn = grn ?? await s3.readGrainVolume();
+      st = st ?? await s3.readStateVolume();
+      if (!age || !grn || !st) await s3.device.queue.onSubmittedWorkDone();
+    }
+    if (!age || !grn || !st) return { ok: false, why: "readback failed" };
+    const idx = (x, y, z) => (z * nArg + y) * nArg + x;
+    const perSection = secsArg.map(s => {
+      let maxFreeze = 0;
+      const grains = new Map();
+      for (let z = s.floorZ; z < nArg; z++) for (let y = s.ylo; y < s.yhi; y++) for (let x = s.xlo; x < s.xhi; x++) {
+        const i = idx(x, y, z);
+        if (st.phi[i] > 0.5) {
+          const id = grn[i];
+          if (id > 0) grains.set(id, (grains.get(id) ?? 0) + 1);
+          if (age.time[i] > maxFreeze) maxFreeze = age.time[i];
+        }
+      }
+      // the same >=4-voxel noise floor readRegion/readStereo already use
+      const real = [...grains.entries()].filter(([, v]) => v >= 4);
+      const volSum = real.reduce((a, [, v]) => a + v, 0);
+      const dbarVox = real.length ? Math.cbrt((6 * (volSum / real.length)) / Math.PI) : 0;
+      return { heightVox: s.heightVox, maxFreeze, grainCount: real.length, dbarVox, grains: real };
+    });
+    // readRegion vs an independent CPU recount, thinnest section: same bbox,
+    // same floor, so a mismatch means the GPU pass and this recount disagree
+    // about the SAME data, not about tuning
+    const s0 = secsArg[0];
+    const reg = await s3.readRegion([s0.xlo, s0.ylo, s0.floorZ], [s0.xhi, s0.yhi, nArg]);
+    const cpu = new Map(perSection[0].grains);
+    let regionOk = !!reg;
+    if (reg) {
+      if (reg.grains.length !== cpu.size) regionOk = false;
+      for (const g of reg.grains) if (cpu.get(g.id) !== g.voxCount) regionOk = false;
+    }
+    return {
+      ok: true, regionOk, regionCount: reg ? reg.grains.length : null, cpuCount: cpu.size,
+      perSection: perSection.map(({ grains, ...rest }) => rest),
+    };
+  }, secs, n);
+
+  const ps = out.perSection ?? [];
+  const orderOk = out.ok && ps.length === 4 && ps[0].maxFreeze > 0 && ps[0].maxFreeze < ps[3].maxFreeze;
+  const dbarOk = out.ok && ps.every(s => s.grainCount >= 3) && ps[0].dbarVox < ps[3].dbarVox;
+  console.log("STEP3-ORDER", orderOk ? "OK" : FAIL(), JSON.stringify(ps.map(s => [s.heightVox, s.maxFreeze])));
+  console.log("STEP3-DBAR", dbarOk ? "OK" : FAIL(), JSON.stringify(ps.map(s => [s.heightVox, s.grainCount, s.dbarVox])));
+  console.log("STEP3-REGION", out.ok && out.regionOk ? "OK" : FAIL(),
+    JSON.stringify({ regionCount: out.regionCount, cpuCount: out.cpuCount }));
+
+  await page.evaluate(() => { window.__solidify.app.setRun(false); window.__solidify.lab.close(); });
+}
+
+// 15d. FEED-MASK (Phase D M) — two sealed chambers split by an internal
+// wall, one wired to the riser and one not. Pre-fix, FEED3D_WGSL read a wall
+// voxel's φ as "liquid" (it's pinned to 0 by the main pass) and propagated
+// fed status across it with no exception, so "fed" could percolate through
+// the dividing wall. Post-fix the wall cell is unconditionally re-zeroed
+// every pass, so it can never be read back as fed by a neighbour. The gate
+// is the differential this produces: the sealed chamber must show real
+// porosity, the riser-connected one must not — calibrated at n=96 (0 % vs
+// 3.4 % observed), with pPore deliberately amplified (0.9, unphysical) to
+// force a clear signal from a short run rather than measure a realistic
+// fraction. Built via a direct writeMask(m, 3) call reusing the pigtail's
+// own kind number (so submit()'s scen===3 dispatch sees maskKind already
+// matches and never re-rasterizes over it) — the same public seam a future
+// CAD-import feature would call, exercised here by an ad-hoc caller.
+{
+  await page.evaluate(() => window.__solidify.app.setGrid3(96));
+  await page.waitForFunction("window.__solidify.sim3d()?.n === 96", { timeout: 40000 });
+  const setup = await page.evaluate(() => {
+    const S = window.__solidify;
+    S.app.setMaterial("al");
+    const s3 = S.sim3d();
+    const n = s3.n, t = 4;
+    const m = new Uint8Array(n * n * n).fill(1);
+    const open = (x0, x1, y0, y1, z0, z1) => {
+      for (let z = z0; z < z1; z++) for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++)
+        m[(z * n + y) * n + x] = 0;
+    };
+    const w = Math.floor((n - 3 * t) / 2);
+    const aX = [t, t + w], bX = [aX[1] + t, aX[1] + t + w];
+    const capGap = 8;
+    open(aX[0], aX[1], t, n - t, t, n);             // chamber A: reaches z=n-1 — riser-connected
+    open(bX[0], bX[1], t, n - t, t, n - capGap);     // chamber B: capped short of the top — sealed
+    s3.writeMask(m, 3);
+    S.app.setParams({ scen: 3, moldT: 0.05, coolRate: 0.15, heatIn: 0, pPore: 0.9, twinProb: 0, tFar: -0.6 });
+    S.app.resetArmed();
+    S.app.clearMelt(-0.05);
+    const cy = n / 2;
+    s3.addSeed3D((aX[0] + aX[1]) / 2, cy, t + 4, 4);
+    s3.addSeed3D((bX[0] + bX[1]) / 2, cy, t + 4, 4);
+    S.app.setRun(true);
+    return { n, t, aX, bX, capGap };
+  });
+  for (let i = 0; i < 20; i++) await tick(30);
+
+  const res = await page.evaluate(async (s, poreId) => {
+    const s3 = window.__solidify.sim3d();
+    const mask = await s3.readMaskVolume();
+    const grn = await s3.readGrainVolume();
+    if (!mask || !grn) return { ok: false };
+    const n = s.n;
+    // the mask must still be exactly what was written — proof submit()'s
+    // dispatch never clobbered it because maskKind already matched scen 3
+    const wantWall = (x, y, z) => {
+      const sideWall = y < s.t || y >= n - s.t || x < s.t || x >= n - s.t;
+      if (sideWall) return 1;
+      const inA = x >= s.aX[0] && x < s.aX[1];
+      const inB = x >= s.bX[0] && x < s.bX[1];
+      if (inA) return z < s.t ? 1 : 0;
+      if (inB) return (z < s.t || z >= n - s.capGap) ? 1 : 0;
+      return 1;
+    };
+    let maskMismatch = 0;
+    for (let z = 0; z < n; z++) for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      if (mask[(z * n + y) * n + x] !== wantWall(x, y, z)) maskMismatch++;
+    }
+    const frac = (x0, x1) => {
+      let pore = 0, total = 0;
+      for (let z = s.t; z < n; z++) for (let y = s.t; y < n - s.t; y++) for (let x = x0; x < x1; x++) {
+        const id = grn[(z * n + y) * n + x];
+        if (id === 0) continue;
+        total++;
+        if (id === poreId) pore++;
+      }
+      return { pore, total, frac: total > 0 ? pore / total : 0 };
+    };
+    return { ok: true, maskMismatch, poreA: frac(s.aX[0], s.aX[1]), poreB: frac(s.bX[0], s.bX[1]) };
+  }, setup, PORE_ID);
+
+  const ok = res.ok && res.maskMismatch === 0 && res.poreA.frac < 0.01 && res.poreB.frac > 0.02
+    && res.poreB.frac > res.poreA.frac * 5;
+  console.log("FEED-MASK", ok ? "OK" : FAIL(), JSON.stringify(res));
+  await page.evaluate(() => { window.__solidify.app.setRun(false); window.__solidify.app.setParams({ scen: 0 }); });
+}
+
 console.log("PARAM-WARN", bindWarnings.length === 0 ? "OK" : FAIL(), JSON.stringify(bindWarnings.slice(0, 4)));
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 6) : "none");
 if (errors.length) failures++;
 await browser.close();
+await viteServer.close();
 console.log(failures ? `done — ${failures} FAILED` : "done");
 if (failures) process.exitCode = 1;

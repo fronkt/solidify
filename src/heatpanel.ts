@@ -61,6 +61,29 @@ export interface Census {
   astm: number | null;
 }
 
+/**
+ * M4: build a per-region Census from Sim3D.readRegion's raw per-grain voxel
+ * counts — the JS-side reduction readStats already does on the GPU for the
+ * global census (census3 in main.ts just maps its fields straight through).
+ * grainCount/meanVolVox come from readRegion's own >=4-voxel floor (the
+ * readStereo noise-floor precedent) — the section table's own grainCount<3
+ * refusal below is the small-sample guard, so this doesn't invent a second,
+ * unprecedented one scaled to the region's size.
+ */
+export function regionCensus(
+  raw: { grains: { id: number; voxCount: number }[]; poreVox: number; solidVox: number },
+  regionVoxTotal: number,
+): Census {
+  const volSum = raw.grains.reduce((s, g) => s + g.voxCount, 0);
+  return {
+    fracSolid: regionVoxTotal > 0 ? raw.solidVox / regionVoxTotal : 0,
+    grainCount: raw.grains.length,
+    meanAreaPx: 0,
+    meanVolVox: raw.grains.length > 0 ? volSum / raw.grains.length : 0,
+    astm: null,
+  };
+}
+
 export interface HeatHost {
   getMode(): "2d" | "3d";
   materialKey(): string;

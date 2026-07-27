@@ -5,7 +5,7 @@
 
 import {
   FLUX3D_WGSL, update3dWgsl, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL, STEREO3D_WGSL,
-  LINE3D_WGSL, HTMASK3_WGSL, ANNEAL3_WGSL, TWINSTAMP3_WGSL, HOMOG3_WGSL, HOMOG_D3,
+  LINE3D_WGSL, REGION3D_WGSL, HTMASK3_WGSL, ANNEAL3_WGSL, TWINSTAMP3_WGSL, HOMOG3_WGSL, HOMOG_D3,
   HT_COLOURS_3D, MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
 } from "./shaders3d";
 import { shaderModule, H2U, HT_STRIDE, HT_KT_DEFAULT } from "./shaders";
@@ -18,6 +18,61 @@ import { DEFAULT_UM_PER_CELL } from "./units";
  * selection silently showed nothing.
  */
 export const GRID3_LADDER: readonly number[] = [192, 160, 128, 96];
+
+/** the lab's mould geometries. `open` = no walls (moldShell off). Values in
+ *  MOLD_KIND_ID are deliberately disjoint from fillPigtail's own kind=3 —
+ *  maskKind is one CPU field shared across scenarios with no regard to which
+ *  scenario is active, so a lab kind colliding with 3 could let a
+ *  selector→lab scenario switch skip re-rasterizing and leave the pigtail
+ *  channel mask live under the lab's physics. */
+export type MoldKind = "open" | "shell" | "plate" | "step" | "wedge";
+export const MOLD_KIND_ID: Record<MoldKind, number> = { open: 0, shell: 10, plate: 11, step: 12, wedge: 13 };
+
+/** wall thickness every rasterizer, chillFloor and clearOpenSite must agree
+ *  on (voxels) — extracted from fillMoldShell's original inline `t`, which
+ *  chillFloor never read (the M2 z=2 bug: hardcoded seed depth sat inside
+ *  this thickness at every shipped grid size). */
+export function moldWallThickness(n: number): number {
+  return Math.max(2, Math.round(0.03 * n));
+}
+
+/** one axial band of the step block, in voxel coordinates. xhi/yhi/the
+ *  domain top are exclusive bounds, matching StepSection's own consumers
+ *  (the rasterizer, chillFloor's per-column floor, and M4's readRegion). */
+export interface StepSection {
+  xlo: number; xhi: number; ylo: number; yhi: number;
+  floorZ: number;      // z at/above which this band is open cavity
+  heightVox: number;   // cavity height = n - floorZ, the section's "thickness"
+}
+
+/** thinnest → thickest, as a fraction of the grid edge n. A teaching
+ *  proportion (not a measured specimen) modelled on the standard foundry
+ *  step-wedge/step-block test casting; TODO cite an exact ratio from a
+ *  foundry-engineering source at implementation time, per the repo's own
+ *  numbers-discipline rule. */
+export const STEP_THICKNESS_FRAC: readonly number[] = [0.10, 0.18, 0.27, 0.38];
+
+/** the step block's 4 sections, thinnest first, as axis-aligned voxel
+ *  bounds — the SAME bounds the rasterizer draws, chillFloor's per-column
+ *  floor uses, and M4's readRegion queries per section. */
+export function stepSectionBounds(n: number, t = moldWallThickness(n)): StepSection[] {
+  const bandW = Math.floor((n - 2 * t) / STEP_THICKNESS_FRAC.length);
+  const out: StepSection[] = [];
+  for (let i = 0; i < STEP_THICKNESS_FRAC.length; i++) {
+    const xlo = t + i * bandW;
+    const xhi = i === STEP_THICKNESS_FRAC.length - 1 ? n - t : xlo + bandW;
+    const heightVox = Math.max(2, Math.round(STEP_THICKNESS_FRAC[i] * n));
+    out.push({ xlo, xhi, ylo: t, yhi: n - t, floorZ: n - heightVox, heightVox });
+  }
+  return out;
+}
+
+/** wedge mould: thin end → thick end fractions of n, continuous version of
+ *  the step block's lesson. */
+export const WEDGE_THIN_FRAC = 0.10;
+export const WEDGE_THICK_FRAC = 0.42;
+/** plate mould: thin cavity height near the open top, as a fraction of n. */
+export const PLATE_CAVITY_FRAC = 0.16;
 
 export interface Phys3DParams {
   dx: number;
@@ -143,6 +198,9 @@ export class Sim3D {
   frontZ = 1;
   /** lab (scen 4): rasterize a mould shell into the mask, or leave it empty */
   moldShell = true;
+  /** which geometry moldShell rasterizes when on — meaningful only under scen 4 */
+  moldKind: MoldKind = "shell";
+  setMold(kind: MoldKind): void { this.moldKind = kind; }
   /**
    * Physical model resolution — the length anchor (units.ts). The volume used to
    * divide by a hardcoded 1024 while 2D divided by its own grid size, so the two
@@ -174,8 +232,13 @@ export class Sim3D {
   private updateAlloyBG: GPUBindGroup[] = [];
   private soluteTex: GPUTexture[] = [];
   private maskTex!: GPUTexture;   // r8uint mold walls (always n³ — 7 MB @192³)
-  /** which geometry the mask currently holds: 0 none, 3 pigtail, 4 mould shell */
+  /** which geometry the mask currently holds: 0 none, 3 pigtail, MOLD_KIND_ID.* for the lab */
   private maskKind = 0;
+  /** the same array last passed to writeMask — a synchronous CPU-side lookup
+   *  for clearOpenSite (M2), so a seed's mask check never waits on a GPU
+   *  readback. Reference, not a copy: writeMask already owns a fresh array
+   *  per call. */
+  private maskCPU: Uint8Array | null = null;
   /** voxels the mask leaves open (n^3 until a mould is rasterized) — the
    *  denominator fracSolidOpen stands on */
   private openVox = 0;
@@ -199,6 +262,15 @@ export class Sim3D {
   private lineBuf!: GPUBuffer;
   private lineStaging!: GPUBuffer;
   private lineInFlight = false;
+  // M4: per-region census (readRegion) — the STEREO3D_WGSL precedent's own
+  // Params3D-shaped stereoParamBuf, generalized to LineU's tiny-uniform
+  // style since a region has no plane-normal to share with anything
+  private regionPipe!: GPUComputePipeline;
+  private regionBG: GPUBindGroup[] = [];
+  private regionUBuf!: GPUBuffer;
+  private regionBuf!: GPUBuffer;
+  private regionStaging!: GPUBuffer;
+  private regionInFlight = false;
   // ---- heat treatment (H2b): lazily allocated on the first anneal — the
   // eligibility mask is r32uint (r8uint cannot be a storage texture), which is
   // 4 B/voxel = 28 MB at 192³, too much to charge every session that never
@@ -283,12 +355,9 @@ export class Sim3D {
     // bind group ever needs rebuilding when the selector scenario toggles
     this.maskTex = d.createTexture({
       size: [n, n, n], dimension: "3d", format: "r8uint",
-      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
     });
-    d.queue.writeTexture(
-      { texture: this.maskTex }, new Uint8Array(n * n * n),
-      { bytesPerRow: n, rowsPerImage: n }, [n, n, n]);
-    this.openVox = n * n * n;   // the all-zero mask leaves everything open
+    this.writeMask(new Uint8Array(n * n * n), MOLD_KIND_ID.open);
 
     this.paramBuf = d.createBuffer({ size: P3.BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.quatBuf = d.createBuffer({ size: MAX_GRAINS3 * 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
@@ -309,6 +378,10 @@ export class Sim3D {
     this.lineUBuf = d.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.lineBuf = d.createBuffer({ size: 400 * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
     this.lineStaging = d.createBuffer({ size: 400 * 4, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    this.regionUBuf = d.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    const regionBufSize = (8 + MAX_GRAINS3) * 4;
+    this.regionBuf = d.createBuffer({ size: regionBufSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
+    this.regionStaging = d.createBuffer({ size: regionBufSize, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
 
     const mk = (code: string, label = "pass") =>
       d.createComputePipeline({ layout: "auto", compute: { module: shaderModule(d, code, label), entryPoint: "main" } });
@@ -323,6 +396,7 @@ export class Sim3D {
     this.feedPipe = mk(FEED3D_WGSL);
     this.stereoPipe = mk(STEREO3D_WGSL);
     this.linePipe = mk(LINE3D_WGSL);
+    this.regionPipe = mk(REGION3D_WGSL, "region3");
     this.homogPipe = mk(HOMOG3_WGSL, "homog3");
     this.hgBuf = d.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 
@@ -365,6 +439,7 @@ export class Sim3D {
           { binding: 1, resource: s },
           { binding: 2, resource: this.fedTex[pp].createView() },
           { binding: 3, resource: this.fedTex[1 - pp].createView() },
+          { binding: 4, resource: this.maskTex.createView() },
         ],
       }));
       this.stampBG[dir] = d.createBindGroup({
@@ -405,6 +480,15 @@ export class Sim3D {
           { binding: 0, resource: { buffer: this.lineUBuf } },
           { binding: 1, resource: s },
           { binding: 2, resource: { buffer: this.lineBuf } },
+        ],
+      });
+      this.regionBG[dir] = d.createBindGroup({
+        layout: this.regionPipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.regionUBuf } },
+          { binding: 1, resource: s },
+          { binding: 2, resource: g },
+          { binding: 3, resource: { buffer: this.regionBuf } },
         ],
       });
     }
@@ -503,29 +587,112 @@ export class Sim3D {
     this.writeMask(m, 3);
   }
 
+  /** wall thickness every rasterizer, chillFloor and clearOpenSite share —
+   *  see moldWallThickness's own doc for why this must be one function. */
+  private wallThickness(): number { return moldWallThickness(this.n); }
+
   /**
    * Rasterize the lab's mould: a shell around the four sides and the floor,
    * open at the top so the charge is poured in and fed from above. The shell
    * holds moldT, so the casting really does freeze from its walls inward.
    */
   private fillMoldShell() {
-    const n = this.n;
+    const n = this.n, t = this.wallThickness();
     const m = new Uint8Array(n * n * n);
-    const t = Math.max(2, Math.round(0.03 * n));
     for (let z = 0; z < n; z++)
       for (let y = 0; y < n; y++)
         for (let x = 0; x < n; x++) {
           const wall = z < t || x < t || x >= n - t || y < t || y >= n - t;
           if (wall) m[(z * n + y) * n + x] = 1;
         }
-    this.writeMask(m, 4);
+    this.writeMask(m, MOLD_KIND_ID.shell);
   }
 
-  private writeMask(m: Uint8Array<ArrayBuffer>, kind: number) {
+  /**
+   * Rasterize a plate mould: the same 4 side walls as the shell, but the
+   * floor sits high, leaving a thin cavity near the open top — a
+   * fast-freezing, wide-and-thin casting.
+   */
+  /** the plate cavity's own floor z — shared with floorZAt so chillFloor
+   *  agrees with the rasterizer instead of assuming the shell's flat t. */
+  private plateFloorZ(t: number): number {
+    return this.n - t - Math.max(4, Math.round(PLATE_CAVITY_FRAC * this.n));
+  }
+
+  private fillPlate() {
+    const n = this.n, t = this.wallThickness();
+    const m = new Uint8Array(n * n * n);
+    const floorZ = this.plateFloorZ(t);
+    for (let z = 0; z < n; z++)
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          const wall = x < t || x >= n - t || y < t || y >= n - t || z < floorZ;
+          if (wall) m[(z * n + y) * n + x] = 1;
+        }
+    this.writeMask(m, MOLD_KIND_ID.plate);
+  }
+
+  /**
+   * Rasterize the step block — the hero: four section thicknesses in ONE
+   * cavity fed from a common open top, the classic foundry step-wedge
+   * teaching casting. Side walls match the shell; the floor is a step
+   * function of x (stepSectionBounds), thinnest section first.
+   */
+  private fillStepBlock() {
+    const n = this.n, t = this.wallThickness();
+    const m = new Uint8Array(n * n * n);
+    const secs = stepSectionBounds(n, t);
+    for (let z = 0; z < n; z++)
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          let wall = y < t || y >= n - t || x < t || x >= n - t;
+          if (!wall) {
+            const sec = secs.find(s => x >= s.xlo && x < s.xhi) ?? secs[secs.length - 1];
+            wall = z < sec.floorZ;
+          }
+          if (wall) m[(z * n + y) * n + x] = 1;
+        }
+    this.writeMask(m, MOLD_KIND_ID.step);
+  }
+
+  /**
+   * Rasterize a wedge mould: the continuous version of the step block — the
+   * floor height interpolates linearly across x instead of stepping, the
+   * foundry "wedge test" pattern for a continuous section-thickness gradient.
+   */
+  private fillWedge() {
+    const n = this.n, t = this.wallThickness();
+    const m = new Uint8Array(n * n * n);
+    const xlo = t, xhi = n - t;
+    const hThin = Math.round(WEDGE_THIN_FRAC * n), hThick = Math.round(WEDGE_THICK_FRAC * n);
+    for (let z = 0; z < n; z++)
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          let wall = y < t || y >= n - t || x < xlo || x >= xhi;
+          if (!wall) {
+            const u = (x - xlo) / Math.max(1, xhi - xlo - 1);
+            const height = Math.round(hThin + (hThick - hThin) * u);
+            wall = z < n - height;
+          }
+          if (wall) m[(z * n + y) * n + x] = 1;
+        }
+    this.writeMask(m, MOLD_KIND_ID.wedge);
+  }
+
+  /**
+   * The one public entry into the mould mask — every rasterizer above
+   * funnels through this, and it's the seam a future custom-geometry source
+   * (e.g. a CAD/STL voxelizer) would call directly: any correctly-sized
+   * Uint8Array of {0 open, 1 wall} plus an unused kind number is a valid
+   * mould, no other change needed.
+   */
+  writeMask(m: Uint8Array<ArrayBuffer>, kind: number): void {
     const n = this.n;
+    if (m.length !== n * n * n) throw new Error(`writeMask: expected ${n * n * n} voxels, got ${m.length}`);
     this.device.queue.writeTexture(
       { texture: this.maskTex }, m, { bytesPerRow: n, rowsPerImage: n }, [n, n, n]);
     this.maskKind = kind;
+    this.maskCPU = m;
     // the open-volume census: mould-shell voxels can never solidify (the wall
     // branch pins phi = 0), so any "fraction solid" divided by n^3 asymptotes
     // at the OPEN fraction (~0.85 with the shell) — which is how the lab's
@@ -578,6 +745,9 @@ export class Sim3D {
     this.lineUBuf?.destroy();
     this.lineBuf?.destroy();
     this.lineStaging?.destroy();
+    this.regionUBuf?.destroy();
+    this.regionBuf?.destroy();
+    this.regionStaging?.destroy();
     this.htMaskTex?.destroy();
     this.htBuf?.destroy();
     this.tsBuf?.destroy();
@@ -752,6 +922,9 @@ export class Sim3D {
    * the nucleation model passes a distribution of site potencies)
    */
   addSeed3D(x: number, y: number, z: number, r = 4, q?: [number, number, number, number], dTact = -9): number {
+    const pos = this.clearOpenSite(x, y, z);
+    if (!pos) return 0;   // no open voxel within the search bound — the seed is dropped
+    [x, y, z] = pos;
     let id = this.nextId++;
     if (id >= MAX_GRAINS3 - 1) { this.nextId = 2; id = 1; }   // top id is PORE_ID
     const quat = q ?? Sim3D.randomQuat();
@@ -760,6 +933,45 @@ export class Sim3D {
     this.pendingSeeds.push({ x, y, z, r, id, dTact });
     this.lastSeed = { x, y, z };
     return id;
+  }
+
+  private static readonly SEED_SEARCH_R = 6;
+
+  /**
+   * M2: a seed landing inside mask solid is dead on arrival — the wall pins
+   * phi back to 0 every step, so it would silently burn a grain id and
+   * never grow. This is the single funnel every seed source (rain, UI
+   * click/brush, chillFloor, twin pairs, the landing demo) already passes
+   * through, so the fix lives once, here, not per caller. Mask only means
+   * anything under scen 3/4 (every other scenario ignores it, matching the
+   * main pass's own gate) — a brute-force nearest-open-voxel search within
+   * a small cube (at most (2R+1)^3 checks, negligible per seed); drops the
+   * seed if nothing opens within the bound.
+   *
+   * Accepted limitation: if the mould shape changes between frames, a seed
+   * placed before the next submit() rasterizes it sees the stale maskCPU —
+   * a narrow, low-consequence window, not worth a synchronous rasterize.
+   */
+  private clearOpenSite(x: number, y: number, z: number): [number, number, number] | null {
+    if (this.params.scen !== 3 && this.params.scen !== 4) return [x, y, z];
+    if (!this.maskCPU) return [x, y, z];
+    const n = this.n, R = Sim3D.SEED_SEARCH_R;
+    const mask = this.maskCPU;
+    const cx = Math.round(x), cy = Math.round(y), cz = Math.round(z);
+    const at = (xi: number, yi: number, zi: number) =>
+      (xi >= 0 && xi < n && yi >= 0 && yi < n && zi >= 0 && zi < n) ? mask[(zi * n + yi) * n + xi] : 1;
+    if (at(cx, cy, cz) === 0) return [x, y, z];
+    let best: [number, number, number] | null = null;
+    let bestD2 = Infinity;
+    for (let dz = -R; dz <= R; dz++)
+      for (let dy = -R; dy <= R; dy++)
+        for (let dx = -R; dx <= R; dx++) {
+          const xi = cx + dx, yi = cy + dy, zi = cz + dz;
+          if (at(xi, yi, zi) !== 0) continue;
+          const d2 = dx * dx + dy * dy + dz * dz;
+          if (d2 < bestD2) { bestD2 = d2; best = [xi + 0.5, yi + 0.5, zi + 0.5]; }
+        }
+    return best;
   }
 
   /** one-shot uniform temperature drop; stacks if pressed again */
@@ -824,15 +1036,44 @@ export class Sim3D {
     this.addSeed3D(x + dx, y + dy, z + dz, r, q2);
   }
 
-  /** chill floor: jittered seed grid on the bottom face (opposite the riser) */
+  /**
+   * chill floor: jittered seed grid on the bottom face (opposite the riser).
+   * Seeds sit just above whatever the CURRENT mould leaves solid at that
+   * column — flat for shell/plate/open, the step block's own per-column
+   * floor for step, the sloped one for wedge. Before this fix the seed z was
+   * a hardcoded 2, which sat inside the wall at every shipped grid (the
+   * shell's own thickness t = 3..6 there).
+   */
   chillFloor(count = 8) {
-    const n = this.n;
+    const n = this.n, t = this.wallThickness();
     for (let i = 0; i < count; i++)
       for (let j = 0; j < count; j++) {
         const jx = ((i + 0.5) / count + (Math.random() - 0.5) * 0.5 / count) * n;
         const jy = ((j + 0.5) / count + (Math.random() - 0.5) * 0.5 / count) * n;
-        this.addSeed3D(jx, jy, 2, 3.5);
+        this.addSeed3D(jx, jy, this.floorZAt(jx, t) + 3.5, 3.5);
       }
+  }
+
+  /** the z at/above which column x is open cavity, under the current mould
+   *  geometry — shell/open share a flat floor at t; plate's is high and
+   *  flat; step/wedge are position-dependent. Used by chillFloor to seed
+   *  just above the real floor instead of a fixed depth (the bug this
+   *  fixes: a plate's own floor sits near the TOP of the grid, not at t —
+   *  seeding at t there would land inside the plate's solid base). */
+  private floorZAt(x: number, t: number): number {
+    const n = this.n;
+    if (this.moldKind === "plate") return this.plateFloorZ(t);
+    if (this.moldKind === "step") {
+      const secs = stepSectionBounds(n, t);
+      return (secs.find(s => x >= s.xlo && x < s.xhi) ?? secs[secs.length - 1]).floorZ;
+    }
+    if (this.moldKind === "wedge") {
+      const xlo = t, xhi = n - t;
+      const u = Math.min(1, Math.max(0, (x - xlo) / Math.max(1, xhi - xlo - 1)));
+      const hThin = Math.round(WEDGE_THIN_FRAC * n), hThick = Math.round(WEDGE_THICK_FRAC * n);
+      return n - Math.round(hThin + (hThick - hThin) * u);
+    }
+    return t;   // shell, open: a flat floor
   }
 
   private writeParams(
@@ -1119,6 +1360,38 @@ export class Sim3D {
     return out;
   }
 
+  /** the real GPU mask content, 1 byte/voxel — not sim3d's own maskCPU array,
+   *  so a rasterization gate (STEP3) checking mask content against the CPU
+   *  contract isn't circular. Requires maskTex's COPY_SRC (M1 fix). */
+  async readMaskVolume(): Promise<Uint8Array | null> {
+    const n = this.n;
+    const bpr = Math.ceil(n / 256) * 256;
+    const buf = this.device.createBuffer({
+      size: bpr * n * n,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+    const enc = this.device.createCommandEncoder();
+    enc.copyTextureToBuffer(
+      { texture: this.maskTex },
+      { buffer: buf, bytesPerRow: bpr, rowsPerImage: n },
+      [n, n, n]);
+    this.device.queue.submit([enc.finish()]);
+    try {
+      await buf.mapAsync(GPUMapMode.READ);
+    } catch {
+      buf.destroy();
+      return null;
+    }
+    const raw = new Uint8Array(buf.getMappedRange().slice(0));
+    buf.unmap();
+    buf.destroy();
+    if (bpr === n) return raw;
+    const out = new Uint8Array(n * n * n);
+    for (let r = 0; r < n * n; r++)
+      out.set(raw.subarray(r * bpr, r * bpr + n), r * n);
+    return out;
+  }
+
   /**
    * Current value of the GPU twin-id allocator. Ids count DOWN from
    * MAX_GRAINS3−2, so (before − after) across a treatment is the number of
@@ -1303,10 +1576,13 @@ export class Sim3D {
     // scenario asking for it isn't the one currently loaded
     if (this.params.scen === 3 && this.maskKind !== 3) this.fillPigtail();
     else if (this.params.scen === 4) {
-      const want = this.moldShell ? 4 : 5;
+      const want = this.moldShell ? MOLD_KIND_ID[this.moldKind] : MOLD_KIND_ID.open;
       if (this.maskKind !== want) {
-        if (this.moldShell) this.fillMoldShell();
-        else this.writeMask(new Uint8Array(this.n * this.n * this.n), 5);
+        if (!this.moldShell) this.writeMask(new Uint8Array(this.n * this.n * this.n), MOLD_KIND_ID.open);
+        else if (this.moldKind === "shell") this.fillMoldShell();
+        else if (this.moldKind === "plate") this.fillPlate();
+        else if (this.moldKind === "step") this.fillStepBlock();
+        else this.fillWedge();
       }
     }
     const d = this.device;
@@ -1443,6 +1719,51 @@ export class Sim3D {
       if (c >= 4) sections.push({ id: i, areaVox: c });
     }
     return { sections, poreVox: data[8 + PORE_ID] };
+  }
+
+  /**
+   * M4: per-grain voxel counts inside an axis-aligned box, `lo`..`hi`
+   * half-open in voxel coordinates — the step block's per-section census.
+   * Mirrors readStereo's own control flow exactly (busy-guard, clearBuffer
+   * every call since atomics accumulate, mapAsync try/catch); dispatches the
+   * full n³ grid like readStereo does, since this is an on-demand
+   * report-card-time call (once per section, not per frame).
+   */
+  async readRegion(lo: [number, number, number], hi: [number, number, number]):
+    Promise<{ grains: { id: number; voxCount: number }[]; poreVox: number; solidVox: number } | null> {
+    if (this.regionInFlight) return null;
+    this.regionInFlight = true;
+    const d = this.device;
+    const u = new Float32Array(8);
+    u[0] = lo[0]; u[1] = lo[1]; u[2] = lo[2]; u[3] = this.n;
+    u[4] = hi[0]; u[5] = hi[1]; u[6] = hi[2]; u[7] = 0;
+    d.queue.writeBuffer(this.regionUBuf, 0, u);
+    const enc = d.createCommandEncoder();
+    enc.clearBuffer(this.regionBuf);
+    const pass = enc.beginComputePass();
+    pass.setPipeline(this.regionPipe);
+    pass.setBindGroup(0, this.regionBG[this.dir]);
+    this.dispatch(pass);
+    pass.end();
+    enc.copyBufferToBuffer(this.regionBuf, 0, this.regionStaging, 0, this.regionBuf.size);
+    d.queue.submit([enc.finish()]);
+    try {
+      await this.regionStaging.mapAsync(GPUMapMode.READ);
+    } catch {
+      this.regionInFlight = false;
+      return null;
+    }
+    const data = new Uint32Array(this.regionStaging.getMappedRange().slice(0));
+    this.regionStaging.unmap();
+    this.regionInFlight = false;
+    let solidVox = 0;
+    const grains: { id: number; voxCount: number }[] = [];
+    for (let i = 1; i < MAX_GRAINS3 - 1; i++) {
+      const c = data[8 + i];
+      solidVox += c;                                   // every solid voxel, "real" grain or not
+      if (c >= 4) grains.push({ id: i, voxCount: c });  // readStereo's own noise floor
+    }
+    return { grains, poreVox: data[8 + PORE_ID], solidVox };
   }
 
   /** async GPU reduction; resolves null if one is already in flight */
