@@ -225,6 +225,35 @@ async function boot() {
   };
 
   /** carry the current material + shared dials onto the 3D solver */
+  /**
+   * Niyama's own radiographic-soundness criterion for STEEL castings:
+   * Ny < 1.0 (°C·min)^½·cm⁻¹ ⇒ shrinkage detectable on film. Converted:
+   * √60 K^½·s^½ per 10 mm = 0.775 K^½·s^½·mm⁻¹ (E. Niyama, T. Uchida,
+   * M. Morikawa, S. Saito, AFS Int. Cast Metals J. 7, 1982 — the reference
+   * §11 already cites). STEEL-ONLY on purpose: a steel radiographic threshold
+   * applied to aluminium — whose porosity in this instrument is Sievert
+   * hydrogen, not shrinkage — would be the over-claim the honesty table
+   * refuses, so every other material keeps the relative display scale.
+   */
+  const NY_STEEL_SI = Math.sqrt(60) / 10;
+
+  /**
+   * One owner for the Niyama threshold: the stats risk counter and the SLICE
+   * ramp both read sim3d.params.nyCrit. Steel with known units gets the cited
+   * criterion re-expressed in the volume's own dimensionless scale; everything
+   * else keeps the legacy 8.0 — a relative map, and the legend says so.
+   * Called from the 3D stats poll, so an anchor change (material, alloy flag,
+   * grid) lands within one panel cadence.
+   */
+  const syncNyCrit = () => {
+    if (!sim3d) return;
+    const u = unitsNow();
+    const one = u.known ? u.niyamaSI(1) : NaN;
+    sim3d.params.nyCrit = material === "steel" && Number.isFinite(one) && one > 0
+      ? NY_STEEL_SI / one
+      : 8;
+  };
+
   const apply3DMaterial = () => {
     if (!sim3d) return;
     const m3 = to3D(MATERIALS[material] ?? MATERIALS.generic);
@@ -236,6 +265,15 @@ async function boot() {
       noiseAmp: sim.params.noiseAmp,
       meltGlow: sim.params.meltGlow,
       coolRate: sim.params.coolRate,
+      // v6.2 P: the alloy constants were never mirrored, so a material swap in
+      // the volume left the PREVIOUS charge's chemistry in the solver — the
+      // dial fix above this (partition k reaching 3D) exposed it. sim.params
+      // already carries the material's values (setMaterial assigns them before
+      // calling here), composer overrides included.
+      c0: sim.params.c0,
+      mLiq: sim.params.mLiq,
+      kPart: sim.params.kPart,
+      dSol: sim.params.dSol,
     });
   };
 
@@ -610,6 +648,27 @@ async function boot() {
     setSliceSweep(b) { slice.sweep = b; },
     getCutStyle: () => slice.style,
     setCutStyle(v) { slice.style = Math.max(0, Math.min(5, v)); },
+    // the Niyama ramp's legend: the cited steel criterion with the live risk
+    // census where it honestly applies, the refuse-by-name sentence where it
+    // does not, and the clock anchor either way (the alloy flag moves the SI
+    // value by the documented Lewis mismatch — the legend must say whose
+    // second it is printing)
+    niyamaLegend() {
+      if (!(mode === "3d" && sim3d) || slice.style !== 5) return null;
+      const u = unitsNow();
+      if (!u.known) {
+        return "relative ramp — the model metal carries no kelvin or second, so there is no threshold to calibrate";
+      }
+      const clock = sim3d.alloyActive ? "solute-diffusion clock" : "thermal clock";
+      if (material === "steel") {
+        const risk = lastStats3?.nyRiskFrac;
+        return `Ny_crit ${u.fmtNiyama(sim3d.params.nyCrit)} — Niyama 1982 steel radiographic criterion`
+          + (risk != null ? ` · ${(risk * 100).toFixed(1)} % of the measured frozen volume below it` : "")
+          + ` · shrinkage feeding only — gas porosity is the Sievert card's business · ${clock}`;
+      }
+      return `relative map — no calibrated Ny threshold for this alloy class (the 0.775 criterion is steel radiography)`
+        + ` · ramp full scale ≈ ${u.fmtNiyama(sim3d.params.nyCrit)} · shrinkage feeding only · ${clock}`;
+    },
     getSym3: () => (sim3d?.params.aniMode3 === 2 ? 6 : sim3d?.params.aniMode3 === 3 ? 5 : 4),
     setSym3(j) {
       if (!sim3d) return;
@@ -1363,10 +1422,14 @@ async function boot() {
         if (forPanels3) statsClock = 0;
         if (wantFast3) nucClock = 0;
         if (forPanels3 || wantFast3) {
+          syncNyCrit();   // material/anchor changes land within one poll
           void sim3d.readStats().then(s => {
             if (!s || !sim3d) return;
             nuc3.observe(sim3d.simTime, s.meanLiqT, tEq3());
-            lab.onStats(s.meanLiqT, s.fracSolid);
+            // the lab reads the OPEN-volume fraction: with a mould shell the
+            // whole-domain fs asymptotes at the open fraction (~0.85), which
+            // is why the fs > 0.995 finish could never fire with walls on
+            lab.onStats(s.meanLiqT, s.fracSolidOpen);
             if (forPanels3) {
               lastStats3 = s; hud.push3(s, sim3d.umPerCell); an3.onStats3(s, sim3d.simTime);
               heat?.onCensus(census3(s));

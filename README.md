@@ -57,7 +57,12 @@ Flip one switch and the instrument solves the **full volumetric phase-field** �
   face renders as Nital/Klemm's/Beraha's etches, an EBSD IPF map, or a Niyama porosity-risk map.
 - **Shrinkage porosity** — a generation-stamped feed flood from the riser marks starved liquid;
   pockets that solidify unfed become pores that x-ray dark in FIELD, with live porosity % and the
-  Niyama criterion recorded at every freezing voxel.
+  Niyama criterion recorded at every freezing voxel. As of v6.2 the record is honest to its own
+  definition (the non-latent environment rate, −1 where no front ever passed, gated against a
+  discrete CPU recount) and converts to real K·s^½·mm⁻¹ — judged against Niyama's cited 0.775
+  steel radiographic threshold for steel, and refusing by name to judge any other alloy class.
+  The lab card adds the Clyne–Davies hot-tearing timing ratio off the pour's own f_s(t), labelled
+  as a timing ratio: RDG needs mechanics this solver does not carry.
 - **Stereology + IPF panels** — grain size measured on the section plane vs the true 3D census
   (the classic stereological underestimate, live), and an inverse-pole-figure texture scatter.
 - **Take it home** — export the crystal as a watertight **STL** (surface-nets mesh, printable),

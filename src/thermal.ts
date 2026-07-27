@@ -322,3 +322,55 @@ export function retain<S extends TASample>(s: S[], cap: number): S[] {
   for (let i = 0; i < s.length; i++) if (keep.has(i)) out.push(s[i]);
   return out;
 }
+
+// ---------------------------------------------------------- hot tearing
+
+export interface CSCResult {
+  csc: number | null;
+  /** time spent in the vulnerable film stage, t(f_s 0.99) − t(f_s 0.90) */
+  tV: number | null;
+  /** time available for stress relief by liquid feeding, t(f_s 0.90) − t(f_s 0.40) */
+  tR: number | null;
+  notes: string[];
+}
+
+/**
+ * Clyne–Davies cracking-susceptibility coefficient off a recorded f_s(t):
+ * CSC = t_v / t_r with the published fractions (0.40 / 0.90 / 0.99 —
+ * T. W. Clyne & G. J. Davies, Br. Foundryman 74, 1981: a melt is vulnerable
+ * while thin intergranular films can no longer feed, and relieved while bulk
+ * liquid still can). Crossings are linear interpolation on the FIRST upward
+ * crossing; a record that never reaches a fraction is a note, never a
+ * fabricated time.
+ *
+ * This is a timing ratio, not a stress prediction — the RDG criterion needs a
+ * transverse strain rate and a Darcy feeding term this solver does not carry.
+ * And it is computed on whatever f_s record the caller hands it: the lab's is
+ * the GLOBAL solid fraction, where the index was defined on a local volume
+ * element, so on a directional front it degenerates toward a geometry
+ * constant — the card that prints it says so.
+ */
+export function cscClyneDavies(s: { t: number; fs: number }[]): CSCResult {
+  const notes: string[] = [];
+  const cross = (f: number): number | null => {
+    for (let i = 1; i < s.length; i++) {
+      if (s[i - 1].fs < f && s[i].fs >= f) {
+        const d = s[i].fs - s[i - 1].fs;
+        const a = d > 0 ? (f - s[i - 1].fs) / d : 1;
+        return s[i - 1].t + a * (s[i].t - s[i - 1].t);
+      }
+    }
+    return null;
+  };
+  const t40 = cross(0.40);
+  const t90 = cross(0.90);
+  const t99 = cross(0.99);
+  if (t40 == null) notes.push("f_s never reached 0.40 — no feeding stage to measure");
+  if (t90 == null) notes.push("f_s never reached 0.90 — the vulnerable stage never began");
+  if (t99 == null && t90 != null) notes.push("f_s never reached 0.99 — the record ends inside the vulnerable stage");
+  const tV = t90 != null && t99 != null ? t99 - t90 : null;
+  const tR = t40 != null && t90 != null ? t90 - t40 : null;
+  const csc = tV != null && tR != null && tR > 0 ? tV / tR : null;
+  if (csc == null && notes.length === 0) notes.push("degenerate record — zero-length feeding stage");
+  return { csc, tV, tR, notes };
+}

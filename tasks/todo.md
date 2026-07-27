@@ -1535,3 +1535,105 @@ sessions don't mint two different verdicts from the same `hallPetch()`.
         cup, hydrogen ledger, census + verdict, the latch, the finer-pour arrow) and the σ_y
         honesty row now names BOTH cards sharing one d̄/formatter/precision. Verified: tsc,
         build, HT-VERDICT + LAB4 green ×3 consecutive, full suite before commit.
+
+## v6.2 — PHASE D (first tranche): THE DEFECT NUMBERS BECOME REAL (2026-07-26)
+
+Plan: `~/.claude/plans/quantified-defects-daguerre.md` — drafted from three read-only survey
+agents (D1 Niyama map, D2 moulds map, full deferred-inventory audit), then put through a
+three-lens adversarial panel (21 findings) BEFORE implementation. The panel's central find
+changed the milestone's shape: the Niyama record itself was dishonest in the exact scenarios
+that matter, and shipping an SI conversion on top of it would have been a confidently wrong
+number — the failure mode this instrument exists to refuse.
+
+- [x] **N — the Niyama number becomes a measurement, and hot tearing gets its honest index.**
+      - **N0, the record**: `tDotCool` was `lapT − coolRate + heatIn` — blind to every
+        scenario relaxation (Bridgman's pulled profile, the lab's holdRate shell cooling,
+        which the lab runs with `coolRate = 0`), so the recorded denominator sat one to three
+        orders under the real extraction. The record now carries the CONTINUOUS environment
+        rate `P.envRate` (the free `_s47` slot — P3 stays 192 B): `−gradG·pullV` for scen 1/3
+        (derived in writeParams), the programme's set-point slope for scen 4 (the lab supplies
+        it per tick). Deliberately NOT the discrete per-substep relax: frontZ/holdT only move
+        once per submit, so the discrete relax delivers a frame's cooling in one bursty
+        substep — and freezing correlates with exactly that substep. **Found by the gate**: the
+        first NY3 draft asserted the locked-isotherm analytic √(gradG/pullV) and measured
+        0.078 vs 0.677 — first diagnosed as the burst (√75 ≈ the 8.7× gap), but the burst fix
+        barely moved it, and back-solving showed G ≈ 0.07 ≪ gradG: BRIDGMAN3's state is the
+        RACING regime (its own assertion is "columns race up"), where the front outruns the
+        isotherm into shallow gradients and no locked analytic applies. Both fixes stayed
+        (each is honest on its own), and the gate became what it should have been.
+      - Seed cores stamp **−1** ("no front passed"), never the fabricated benign 25.0;
+        freeze-while-warming stores −1 too (Ny is undefined without cooling — the old 1e-4
+        floor recorded those voxels as maximally safe); the record clamp went 99 → 1e4 (a
+        saturated record cannot be re-thresholded); the SLICE ramp got an explicit `g ≤ 0 →`
+        unmeasured cold-blue branch (through the old ramp a −1 rendered as MAXIMUM risk).
+      - **N1/N2, the conversion + threshold**: `Units.niyamaSI()`/`fmtNiyama()` (refuse under
+        the abstract material), `P3.nyCrit` in the free `_s46` slot as the ONE owner for the
+        stats counter and the render ramp. **Steel-only verdict** (the panel's refuse-by-name
+        blocker): Niyama 1982's radiographic criterion 1.0 (°C·min)^½·cm⁻¹ = 0.775
+        K^½·s^½·mm⁻¹ judges steel; every other material keeps a relative map — the threshold
+        is steel radiography and this instrument's aluminium porosity is Sievert hydrogen. The
+        section-plane legend prints the live risk census for steel, the refusal sentence for
+        the rest, and names which seconds anchor it stands on (the alloy flag moves the SI
+        value ~86× — the documented Lewis honesty, now carried to the legend).
+      - **N3, the statistic**: stats pass counts measured-Niyama solid voxels (`counts[0]` —
+        id 0 is liquid, the census loop starts at 1, so the slot was free) and those below
+        `nyCrit` (the old `pad7`) — no buffer growth, the age texture joined the bind group.
+        `readStats` surfaces `nyMeasuredFrac`/`nyRiskFrac`.
+      - **N4, open-volume fs** (panel blocker): `fracSolid = solid/n³` counts mould-shell
+        voxels that can never solidify — with walls on it asymptotes at ≈0.85, so the lab's
+        `fs > 0.995` finish had NEVER fired with walls on, and no Clyne–Davies fraction past
+        0.85 could exist. `writeMask` now counts open voxels; `readStats.fracSolidOpen`
+        divides by them; the 3D lab's series and finish use it; every other consumer is
+        byte-identical.
+      - **N5, hot tearing**: `thermal.ts:cscClyneDavies()` — CSC = t_v/t_r at the published
+        fractions (0.40/0.90/0.99, Clyne & Davies 1981), nulls-and-notes when a fraction is
+        never reached. The lab card prints it labelled as what it is: a timing ratio off the
+        GLOBAL record (the index is defined on a local element), not a stress prediction —
+        **and this is the honest residue of the roadmap's "RDG hot tearing" promise: RDG needs
+        a transverse strain rate and a Darcy feeding term this solver does not carry, so no
+        RDG number is printed. Descope recorded here and in the science row, the two ledgers
+        that promised it.**
+      - **Gates**: `UNITS-NIYAMA` (dimensional closure over the layer's own methods + the
+        anchor conversion from scratch + the abstract refusal), `TA-CSC` (exact ratios on
+        prescribed crossings, 3× ordering, both refusal arms), `NY3` (the discrete recount:
+        for freshly-frozen voxels, recorded ny must equal |∇T|/√(−lapT − envRate) recomputed
+        on the CPU from the same paused state — median ratio 1.18–1.19 across runs, sentinels
+        present, stats counters vs CPU recount within 2e-2; a missing term blows the ratio by
+        orders). Science §10 Niyama row rewritten + a Hot-tearing row + the Clyne–Davies
+        citation; README.
+- [x] **P — partition k reaches the volume.** The dial was `only2d` while the 3D solver has
+      honoured `kPart` since its alloy pass shipped — the inverse of a dead knob. Un-hidden
+      (p() is the active solver's params, so the same slider drives both dimensions), and the
+      fix exposed the deeper gap the panel predicted: `apply3DMaterial` never mirrored the
+      alloy constants, so a material swap in the volume left the PREVIOUS charge's chemistry
+      in the solver. c0/mLiq/kPart/dSol now mirror from sim.params (which setMaterial has
+      already assigned, composer overrides included). Gate `KPART3`: al's constants land
+      exactly (0.14/0.3/0.5/0.9) and do real work — max solute 0.369 > c0·1.15 after a seeded
+      alloy grow.
+
+- [x] **Gate hygiene the tranche paid for: GG3-KMC was failing at random.** The suite went red
+      on `GG3-KMC` (drift 18.6 % against a 15 % tolerance) with no plausible mechanism in the
+      diff — `cast3` sets `alloyOn: 0` and its own params, so neither the Niyama record nor
+      the mirrored alloy constants can reach it. Re-running proved it: **six consecutive runs
+      on identical code gave K/K_shipped = 1.186, 0.924, 1.057, 0.886, 0.934, 0.937** — a
+      30 %-of-shipped spread, i.e. the gate reds a good build about one run in six, which is
+      the mirror image of the U0 lesson (a gate that cannot fail is not a gate; a gate that
+      fails at random trains people to ignore it). Two variance sources found: the calibration
+      pours used `Math.random()` (now seeded LCGs in both dimensions — **the 2D twin GG-KMC is
+      now byte-identical run to run, 4.7008 twice**, which is what proves the CPU seeds were
+      its whole variance), and the 3D freeze loop stops on a MEASURED threshold, so the cast
+      still lands at fs 0.9804–0.9807 and the ladder's d₀ moves with it. `K_MC_TOL_3D` 0.15 →
+      0.25 with the six-sample evidence written into the constant's docblock — it was carrying
+      a "cast-to-cast spread is 1.8 %" claim read off casts that happened to agree. 25 % is
+      the 2D number and is earned the same way: outside the measured reproducibility, far
+      inside what the gate exists to catch (the assumed-exponent error was 4.8×; a changed
+      neighbourhood or kT moves K by integer factors), the drift is printed every run, and
+      HT3-PANEL gates the same constant a second way on an INTEGRAL rather than a fit. Third
+      time this repo has paid for the same lesson: fits over short levers are knife-edged,
+      integrals are not.
+
+Remaining Phase D scope (next session, per the plan): **M — shaped moulds** (geometry library
+on the r8uint mask, the step block as the hero, per-section census via a slab-stereology
+readRegion, the feed-flood mask-blindness fix, the chillFloor z=2 latent bug) with the panel's
+three M-notes (per-region small-N refusal, readRegion's own uniform + in-flight discipline,
+Niyama-across-sections as the step block's second gate).

@@ -284,7 +284,11 @@ export class Renderer3D {
     f[R3.stepScale] = 0.7;
     f[R3.sliceN] = plane.n[0]; f[R3.sliceN + 1] = plane.n[1];
     f[R3.sliceN + 2] = plane.n[2]; f[R3.sliceN + 3] = plane.c;
-    f[R3.misc] = sim3.simTime; f[R3.misc + 1] = 8.0;
+    // the Niyama ramp scale is the SAME threshold the stats risk counter uses
+    // (one owner: sim3d.params.nyCrit, derived in main from the cited steel
+    // criterion when units are known, the legacy 8.0 otherwise) — a render
+    // thresholded differently from the census would be two verdicts
+    f[R3.misc] = sim3.simTime; f[R3.misc + 1] = sim3.params.nyCrit;
     f[R3.misc + 2] = sim3.params.c0;   // far-field composition for the solute lenses
     f[R3.eye] = b.eye[0]; f[R3.eye + 1] = b.eye[1]; f[R3.eye + 2] = b.eye[2]; f[R3.eye + 3] = this.tanHalfFov;
     f[R3.right] = b.right[0]; f[R3.right + 1] = b.right[1]; f[R3.right + 2] = b.right[2];

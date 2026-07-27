@@ -236,6 +236,87 @@ await grow(8);
 const bLow2 = await slabArea(0.08);
 console.log("BRIDGMAN3", bLow1 > 300 && bLow2 > 300 ? "OK" : FAIL(), JSON.stringify({ bLow1, bLow2 }));
 
+// 15a-ny. NY3 (Phase D N0/N3) — the Niyama record against a DISCRETE recount
+// of its own definition. In this racing-Bridgman state (the columns outrun the
+// pulled isotherm — BRIDGMAN3's own claim) the front freezes into shallow
+// gradients, so no locked-isotherm analytic applies; what CAN be checked
+// exactly is that the record IS what it claims: for voxels frozen in the last
+// short burst, ny must equal |∇T|/√(−lapT − envRate) recomputed on the CPU
+// from the same paused state (coolRate = heatIn = 0 here, envRate =
+// −gradG·pullV by construction). A missing scenario term, a wrong √, a wrong
+// stencil scale or a dropped envRate all blow the median ratio by orders.
+// Also gated: seed voxels carry the −1 sentinel (never a fabricated benign
+// number), and the stats pass risk/measured counters agree with the same
+// readback counted on the CPU.
+{
+  // a short, slow burst first: freshly-frozen voxels then carry at most a few
+  // dozen substeps of post-freeze field drift between the record and the read
+  await page.evaluate(() => { window.__solidify.app.setSpeed(2); });
+  await grow(2);
+  const out = await page.evaluate(async () => {
+    const S = window.__solidify;
+    const s3 = S.sim3d();
+    S.app.setRun(false);
+    await s3.device.queue.onSubmittedWorkDone();
+    const age = await s3.readAgeVolume();
+    const st8 = await s3.readStateVolume();
+    let st = null;
+    for (let t = 0; t < 40 && !st; t++) { st = await s3.readStats(); if (!st) await s3.device.queue.onSubmittedWorkDone(); }
+    if (!age || !st8 || !st) return { ok: false, why: "readback failed" };
+    const n = s3.n, p = s3.params;
+    const dx = p.dx, inv2dx = 1 / (2 * dx);
+    const envRate = -(p.gradG * p.pullV);
+    const idx = (x, y, z) => (z * n + y) * n + x;
+    // the freshest frame stamp on record
+    let tMax = 0;
+    for (let i = 0; i < age.time.length; i++) if (age.ny[i] > 0 && age.time[i] > tMax) tMax = age.time[i];
+    const ratios = [];
+    let sentinels = 0, measured = 0, risk = 0;
+    for (let z = 1; z < n - 1; z++) for (let y = 1; y < n - 1; y++) for (let x = 1; x < n - 1; x++) {
+      const i = idx(x, y, z);
+      if (st8.phi[i] <= 0.5) continue;
+      const ny = age.ny[i];
+      if (ny < 0) sentinels++;
+      if (ny > 0) {
+        measured++;
+        if (ny < p.nyCrit) risk++;
+        if (age.time[i] < tMax) continue;      // only the freshest burst
+        const T = st8.T;
+        const gx = (T[idx(x + 1, y, z)] - T[idx(x - 1, y, z)]) * inv2dx;
+        const gy = (T[idx(x, y + 1, z)] - T[idx(x, y - 1, z)]) * inv2dx;
+        const gz = (T[idx(x, y, z + 1)] - T[idx(x, y, z - 1)]) * inv2dx;
+        const lap = (T[idx(x + 1, y, z)] + T[idx(x - 1, y, z)] + T[idx(x, y + 1, z)]
+          + T[idx(x, y - 1, z)] + T[idx(x, y, z + 1)] + T[idx(x, y, z - 1)] - 6 * T[i]) / (dx * dx);
+        const tdot = lap + envRate;
+        if (tdot >= 0) continue;               // recount says warming — skip
+        const nyCpu = Math.hypot(gx, gy, gz) / Math.sqrt(Math.max(-tdot, 1e-6));
+        if (nyCpu > 0) ratios.push(ny / nyCpu);
+      }
+    }
+    ratios.sort((a, b) => a - b);
+    const medianRatio = ratios.length ? ratios[Math.floor(ratios.length / 2)] : NaN;
+    return {
+      ok: true, medianRatio, fresh: ratios.length, sentinels,
+      cpuRisk: measured > 0 ? risk / measured : null,
+      statRiskFrac: st.nyRiskFrac, nyCrit: p.nyCrit,
+    };
+  });
+  let ok = out.ok && out.fresh > 50 && out.sentinels > 0;
+  if (ok) {
+    // the post-freeze drift between record and readback is a few substeps of
+    // conduction; the band is generous for that and still fails a missing term
+    // (pre-fix, the lapT-only denominator sat ORDERS off this ratio)
+    ok = out.medianRatio > 0.6 && out.medianRatio < 1.7;
+    ok = ok && out.statRiskFrac != null && out.cpuRisk != null
+      && Math.abs(out.statRiskFrac - out.cpuRisk) < 0.02;
+  }
+  console.log("NY3", ok ? "OK" : FAIL(), JSON.stringify({
+    medianRatio: +(+out.medianRatio).toFixed(3), fresh: out.fresh,
+    sentinels: out.sentinels, statRisk: out.statRiskFrac, cpuRisk: out.cpuRisk,
+  }));
+  await page.evaluate(() => { window.__solidify.app.setSpeed(22); window.__solidify.app.setRun(true); });
+}
+
 // 15b. alloy toggle: FIELD differs with solute, clean off, no errors
 await page.evaluate(() => {
   const S = window.__solidify.app;
@@ -252,6 +333,45 @@ await page.evaluate(() => window.__solidify.app.setAlloyOn(false));
 await grow(2);
 console.log("ALLOY3", Buffer.compare(fPlain, fAlloy) !== 0 &&
   !(await page.evaluate(() => window.__solidify.app.getAlloyOn())) ? "OK" : FAIL());
+
+// 15b-k. KPART3 (Phase D P) — partition k reaches the volume. Two claims: a
+// material swap in 3D lands the material's own alloy constants in the solver
+// (they were never mirrored — the previous charge's chemistry stayed behind),
+// and the constant does real work: with the alloy field on, the solid front
+// rejects solute, so max(c) must rise above the far-field c0. The dial itself
+// shares p() with 2D, so the param path is the same object either way.
+{
+  const kp = await page.evaluate(async () => {
+    const S = window.__solidify;
+    S.app.setMaterial("al");
+    const s3 = S.sim3d();
+    const landed = {
+      kPart: s3.params.kPart, c0: s3.params.c0, mLiq: s3.params.mLiq, dSol: s3.params.dSol,
+    };
+    S.app.setParams({ scen: 0, coolRate: 0.05, kPart: landed.kPart });
+    S.app.resetArmed(); S.app.setAlloyOn(true); S.app.seedCenter(); S.app.setRun(true);
+    return landed;
+  });
+  await grow(5);
+  const rej = await page.evaluate(async () => {
+    const s3 = window.__solidify.sim3d();
+    const c = await s3.readSoluteVolume();
+    if (!c) return null;
+    let mx = 0;
+    for (let i = 0; i < c.length; i++) if (c[i] > mx) mx = c[i];
+    return { cMax: mx, c0: s3.params.c0 };
+  });
+  // al ships kPart 0.14 / c0 0.3 / mLiq 0.5 / dSol 0.9 (materials.ts params —
+  // the model constants, not the si table's thermodynamic k)
+  const ok = kp.kPart === 0.14 && kp.c0 === 0.3 && kp.mLiq === 0.5 && kp.dSol === 0.9
+    && rej && rej.cMax > rej.c0 * 1.15;
+  console.log("KPART3", ok ? "OK" : FAIL(), JSON.stringify({ ...kp, cMax: rej && +rej.cMax.toFixed(3) }));
+  await page.evaluate(() => {
+    const S = window.__solidify.app;
+    S.setAlloyOn(false); S.setMaterial("generic"); S.setRun(false);
+  });
+  await grow(1);
+}
 
 // 15c. GPU twins: a lone seed with a hot twin rate multiplies grains
 await page.evaluate(() => {

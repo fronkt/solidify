@@ -10,6 +10,9 @@ export interface SliceHost {
   getSliceTurn(): number; setSliceTurn(v: number): void;
   getSliceSweep(): boolean; setSliceSweep(b: boolean): void;
   getCutStyle(): number; setCutStyle(v: number): void;
+  /** the Niyama style's legend line — null hides it. Owned by the host
+   *  because it needs units, the material and the live census. */
+  niyamaLegend(): string | null;
 }
 
 export const CUT_STYLES = [
@@ -27,6 +30,7 @@ export class SlicePanel {
   private axisBtns: HTMLButtonElement[] = [];
   private sweepChk!: HTMLInputElement;
   private styleSel!: HTMLSelectElement;
+  private nyNote!: HTMLElement;
   private visible = false;
 
   constructor(private host: SliceHost) {
@@ -101,6 +105,12 @@ export class SlicePanel {
     note.className = "matnote";
     note.textContent = "shift-drag on the melt scrubs the depth · tap the cut to seed on it";
     this.root.append(note);
+
+    // the Niyama style's legend: threshold + provenance, or the honest refusal
+    this.nyNote = document.createElement("div");
+    this.nyNote.className = "matnote";
+    this.nyNote.style.display = "none";
+    this.root.append(this.nyNote);
     this.syncNow();
   }
 
@@ -133,6 +143,10 @@ export class SlicePanel {
         this.offVal.textContent = txt;
         this.offInp.value = String(this.host.getSliceOff());
       }
+      const legend = this.host.niyamaLegend();
+      const shown = legend ?? "";
+      if (this.nyNote.textContent !== shown) this.nyNote.textContent = shown;
+      this.nyNote.style.display = legend ? "block" : "none";
     }
   }
 }

@@ -54,6 +54,14 @@ export interface Phys3DParams {
   holdT: number;      // set-point the charge relaxes toward
   holdRate: number;   // Newtonian relax rate toward the set-point
   moldT: number;      // temperature the mould shell holds
+  /** dimensionless Niyama threshold for the stats risk counter and the SLICE
+   *  ramp. 8 is the legacy uncalibrated display scale; when units are known
+   *  and the material is steel the app derives it from Niyama's own cited
+   *  radiographic criterion instead (main.ts). */
+  nyCrit: number;
+  /** scen 4 only: the lab programme's set-point slope (the lab supplies it
+   *  each tick). Scen 1/3 derive theirs in writeParams from gradG·pullV. */
+  envRate: number;
 }
 
 export const DEFAULTS3D: Phys3DParams = {
@@ -90,10 +98,21 @@ export const DEFAULTS3D: Phys3DParams = {
   holdT: 0,
   holdRate: 0,
   moldT: 0.06,
+  nyCrit: 8,
+  envRate: 0,
 };
 
 export interface StatsResult3D {
   fracSolid: number;
+  /** solid over the voxels a mould leaves OPEN — equals fracSolid when no
+   *  shell is rasterized. The lab's series and finish condition use this:
+   *  a casting is fully solid when its CAVITY is, not when the mould is. */
+  fracSolidOpen: number;
+  /** measured-Niyama census: fraction of solid voxels whose record is a real
+   *  measurement (seed cores and freeze-while-warming carry the −1 sentinel),
+   *  and the fraction of THOSE below params.nyCrit */
+  nyMeasuredFrac: number;
+  nyRiskFrac: number | null;
   grainCount: number;
   meanVolVox: number;
   eqDiamUm: number | null;   // volume-equivalent sphere diameter
@@ -157,6 +176,9 @@ export class Sim3D {
   private maskTex!: GPUTexture;   // r8uint mold walls (always n³ — 7 MB @192³)
   /** which geometry the mask currently holds: 0 none, 3 pigtail, 4 mould shell */
   private maskKind = 0;
+  /** voxels the mask leaves open (n^3 until a mould is rasterized) — the
+   *  denominator fracSolidOpen stands on */
+  private openVox = 0;
   private stampPipe!: GPUComputePipeline;
   private statsPipe!: GPUComputePipeline;
   private feedPipe!: GPUComputePipeline;
@@ -266,6 +288,7 @@ export class Sim3D {
     d.queue.writeTexture(
       { texture: this.maskTex }, new Uint8Array(n * n * n),
       { bytesPerRow: n, rowsPerImage: n }, [n, n, n]);
+    this.openVox = n * n * n;   // the all-zero mask leaves everything open
 
     this.paramBuf = d.createBuffer({ size: P3.BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.quatBuf = d.createBuffer({ size: MAX_GRAINS3 * 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
@@ -364,6 +387,7 @@ export class Sim3D {
           { binding: 2, resource: g },
           { binding: 3, resource: { buffer: this.statsBuf } },
           { binding: 4, resource: this.maskTex.createView() },
+          { binding: 5, resource: this.ageTex.createView() },
         ],
       });
       this.stereoBG[dir] = d.createBindGroup({
@@ -502,6 +526,14 @@ export class Sim3D {
     this.device.queue.writeTexture(
       { texture: this.maskTex }, m, { bytesPerRow: n, rowsPerImage: n }, [n, n, n]);
     this.maskKind = kind;
+    // the open-volume census: mould-shell voxels can never solidify (the wall
+    // branch pins phi = 0), so any "fraction solid" divided by n^3 asymptotes
+    // at the OPEN fraction (~0.85 with the shell) — which is how the lab's
+    // fs > 0.995 finish never fired with walls on, and how a Clyne-Davies
+    // index could never see fs = 0.9. fracSolidOpen divides by this instead.
+    let open = 0;
+    for (let i = 0; i < m.length; i++) if (m[i] === 0) open++;
+    this.openVox = open;
   }
 
   disableAlloy() {
@@ -580,6 +612,68 @@ export class Sim3D {
     const phi = new Float32Array(n * n * n);
     for (let i = 0; i < phi.length; i++) phi[i] = raw[i * 2];
     return phi;
+  }
+
+  /**
+   * One-shot solidification-record readback: freeze time (r) and Niyama at
+   * freeze (g) for every voxel. The NY3 gate's witness — negative ny is the
+   * "no measurement" sentinel (seed cores, freeze-while-warming), 0 is a
+   * cleared record, positive is a real G/√Ṫ at the moment the front passed.
+   */
+  async readAgeVolume(): Promise<{ time: Float32Array; ny: Float32Array } | null> {
+    const n = this.n;
+    const buf = this.device.createBuffer({
+      size: n * n * n * 8,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+    const enc = this.device.createCommandEncoder();
+    enc.copyTextureToBuffer(
+      { texture: this.ageTex },
+      { buffer: buf, bytesPerRow: n * 8, rowsPerImage: n },
+      [n, n, n]);
+    this.device.queue.submit([enc.finish()]);
+    try {
+      await buf.mapAsync(GPUMapMode.READ);
+    } catch {
+      buf.destroy();
+      return null;
+    }
+    const raw = new Float32Array(buf.getMappedRange().slice(0));
+    buf.unmap();
+    buf.destroy();
+    const time = new Float32Array(n * n * n);
+    const ny = new Float32Array(n * n * n);
+    for (let i = 0; i < time.length; i++) { time[i] = raw[i * 2]; ny[i] = raw[i * 2 + 1]; }
+    return { time, ny };
+  }
+
+  /** one-shot state readback: phi AND T de-interleaved — the NY3 gate's
+   *  discrete-recount witness (readPhiVolume drops the T channel) */
+  async readStateVolume(): Promise<{ phi: Float32Array; T: Float32Array } | null> {
+    const n = this.n;
+    const buf = this.device.createBuffer({
+      size: n * n * n * 8,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+    const enc = this.device.createCommandEncoder();
+    enc.copyTextureToBuffer(
+      { texture: this.stateTex[this.dir] },
+      { buffer: buf, bytesPerRow: n * 8, rowsPerImage: n },
+      [n, n, n]);
+    this.device.queue.submit([enc.finish()]);
+    try {
+      await buf.mapAsync(GPUMapMode.READ);
+    } catch {
+      buf.destroy();
+      return null;
+    }
+    const raw = new Float32Array(buf.getMappedRange().slice(0));
+    buf.unmap();
+    buf.destroy();
+    const phi = new Float32Array(n * n * n);
+    const T = new Float32Array(n * n * n);
+    for (let i = 0; i < phi.length; i++) { phi[i] = raw[i * 2]; T[i] = raw[i * 2 + 1]; }
+    return { phi, T };
   }
 
   reset(tFar = this.params.tFar) {
@@ -782,6 +876,13 @@ export class Sim3D {
     f[P3.holdT] = p.holdT;
     f[P3.holdRate] = p.holdRate;
     f[P3.moldT] = p.moldT;
+    f[P3.nyCrit] = p.nyCrit;
+    // the Niyama record's continuous environment rate: the pulled profile's
+    // own slope for scen 1/3 (frontZ only moves per submit, so the discrete
+    // relax is bursty — see the record comment in shaders3d.ts), the lab
+    // programme's slope as supplied per tick for scen 4, nothing elsewhere
+    f[P3.envRate] = p.scen === 1 || p.scen === 3 ? -(p.gradG * p.pullV)
+      : p.scen === 4 ? p.envRate : 0;
     this.device.queue.writeBuffer(target ?? this.paramBuf, 0, this.paramData);
   }
 
@@ -1387,8 +1488,13 @@ export class Sim3D {
       : null;
     const interf = data[1];
     const interfaceT = interf > 0 ? data[2] / 1000 / interf - 1 : 0;
+    const nyMeasured = data[8];          // counts[0] — see the Stats3 comment
+    const nyRisk = data[7];              // the old pad7 slot
     return {
       fracSolid: solid / total, grainCount: count, meanVolVox, eqDiamUm,
+      fracSolidOpen: solid / Math.max(1, this.openVox),
+      nyMeasuredFrac: solid > 0 ? nyMeasured / solid : 0,
+      nyRiskFrac: nyMeasured > 0 ? nyRisk / nyMeasured : null,
       poreFrac: data[8 + PORE_ID] / total, interfaceT,
       probeT: this.probe ? data[4] / 1000 - 1 : null,
       probePhi: this.probe ? data[5] / 1000 : null,

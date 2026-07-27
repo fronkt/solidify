@@ -381,12 +381,28 @@ export const K_MC = 4.79;
 export const K_MC_TOL = 0.25;
 
 /**
- * The volume's own drift tolerance, kept at the original 15 %: the 3D census
- * fits over ~2 600 grains (four times the 2D window's), and its fit window is
- * anchored at the domain wall, so the measured cast-to-cast spread of K at the
- * shipped exponent is 1.8 % — the 2D loosening is not imported unearned.
+ * The volume's own drift tolerance, **re-measured at 25 % in v6.2** — the 15 %
+ * it shipped at was inside its own estimator's noise, and the claim above it
+ * ("cast-to-cast spread 1.8 %") was read off casts that happened to agree.
+ *
+ * Six consecutive runs of `verify-heattreat-gpu` on identical code returned
+ * K/K_shipped = 1.186, 0.924, 1.057, 0.886, 0.934, 0.937 — a 30 %-of-shipped
+ * spread, so the 15 % gate reds a good build roughly one run in six. Two
+ * sources, both since narrowed but not closed: the pour used `Math.random()`
+ * (now a seeded LCG, which made the 2D twin of this gate byte-identical run to
+ * run), and the freeze loop stops on a MEASURED threshold, so the cast still
+ * lands at fs 0.9804–0.9807 and the ladder's d₀ moves with it.
+ *
+ * 25 % is the 2D number, and it is earned the same way: it sits outside the
+ * measured reproducibility and far inside the failure classes the gate exists
+ * to catch — the assumed-exponent error was 4.8×, and a changed neighbourhood,
+ * colouring or kT moves K by integer factors. The drift is printed on every
+ * run, so a real regression is visible in the log before it is a failure. The
+ * endpoint check in HT3-PANEL gates the same constant a second way, on an
+ * integral rather than a fit — the estimator lesson this repo has now paid for
+ * three times: fits over short levers are knife-edged, integrals are not.
  */
-export const K_MC_TOL_3D = 0.15;
+export const K_MC_TOL_3D = 0.25;
 
 /**
  * The VOLUME's model exponent — measured by `GG3-EXPONENT`, separately from the

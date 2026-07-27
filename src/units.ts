@@ -411,4 +411,28 @@ export class Units {
     const um = this.micron(cells);
     return Math.abs(um) < 10 ? `${um.toFixed(2)} µm` : `${um.toFixed(0)} µm`;
   }
+
+  /**
+   * The recorded Niyama number G/√Ṫ in the foundry's units, K·s^½·mm⁻¹.
+   *
+   * The stored value is [T̃]^½·[t̃]^½ per dimensionless LENGTH UNIT (the
+   * shader's gradient divides by 2·dx, not by a cell count), which is why the
+   * divisor is metresPerUnit and not µm/cell. Like every conversion here it
+   * inherits the anchors' honesty: under the alloy seconds anchor the printed
+   * value moves with the same documented Lewis mismatch the SCALE report
+   * names, and the caller's legend must say which anchor is live.
+   */
+  niyamaSI(ny: number): number {
+    if (!this.known) return NaN;
+    return ny * Math.sqrt(this.scale.kelvinPerUnit * this.scale.secondsPerUnit)
+      / (this.scale.metresPerUnit * 1e3);
+  }
+
+  fmtNiyama(ny: number): string {
+    if (!this.known || !Number.isFinite(ny)) return "—";
+    const v = this.niyamaSI(ny);
+    const a = Math.abs(v);
+    const d = a >= 100 ? v.toFixed(0) : a >= 1 ? v.toFixed(1) : v.toPrecision(2);
+    return `${d} K·s^½·mm⁻¹`;
+  }
 }

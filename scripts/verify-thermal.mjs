@@ -190,6 +190,39 @@ const GT = {
   });
 }
 
+// TA-CSC (Phase D N5) — Clyne–Davies off a prescribed f_s(t). A piecewise-
+// linear record with EXACT crossing times gives an exact ratio (interpolation
+// on straight segments is identity), and a quench that never reaches f_s 0.99
+// must come back a note, never a fabricated time — the analyseCurve doctrine.
+{
+  // fs ramps 0→1 over t∈[0,10] linearly: t(f) = 10f exactly, so
+  // t_v = 10(0.99−0.90) = 0.9, t_r = 10(0.90−0.40) = 5, CSC = 0.18
+  const lin = Array.from({ length: 101 }, (_, i) => ({ t: i * 0.1, fs: i / 100 }));
+  const a = TH.cscClyneDavies(lin);
+  const exact = Math.abs(a.csc - 0.18) < 1e-9 && Math.abs(a.tV - 0.9) < 1e-9 && Math.abs(a.tR - 5) < 1e-9;
+
+  // a faster-feeding, slower-film pour must be MORE susceptible: same t_r,
+  // three times the vulnerable time → three times the CSC
+  const slowFilm = [...lin.filter(p => p.fs < 0.9), { t: 9, fs: 0.9 }, { t: 11.7, fs: 0.99 }];
+  const b = TH.cscClyneDavies(slowFilm);
+  const ordered = b.csc > a.csc * 2.9 && b.csc < a.csc * 3.1;
+
+  // the record ends inside the vulnerable stage → note, not a number
+  const cut = lin.filter(p => p.fs <= 0.95);
+  const c = TH.cscClyneDavies(cut);
+  const refused = c.csc == null && c.notes.some(n => n.includes("0.99"));
+
+  // never even reached 0.40 → the other refusal arm
+  const early = lin.filter(p => p.fs <= 0.3);
+  const d = TH.cscClyneDavies(early);
+  const refused2 = d.csc == null && d.notes.some(n => n.includes("0.40"));
+
+  check("TA-CSC", exact && ordered && refused && refused2, {
+    csc: +a.csc.toFixed(4), tV: +a.tV.toFixed(3), tR: +a.tR.toFixed(3),
+    slowFilmCsc: +b.csc.toFixed(4), cutNote: c.notes[0] ?? null, earlyNote: d.notes[0] ?? null,
+  });
+}
+
 function r3(x) { return x == null ? null : +x.toFixed(3); }
 function r4(x) { return x == null ? null : +x.toFixed(4); }
 

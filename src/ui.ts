@@ -96,6 +96,9 @@ export interface UIHost extends AppControl {
   setSliceSweep(b: boolean): void;
   getCutStyle(): number;
   setCutStyle(v: number): void;
+  /** the Niyama cut style's legend line (threshold + provenance, or the
+   *  honest refusal) — null while any other style is on the saw */
+  niyamaLegend(): string | null;
   getSym3(): number;
   setSym3(j: number): void;
   getHabit(): number;
@@ -696,8 +699,11 @@ export class UI {
       this.slider(adv, "driving α", 0.6, 1.0, 0.01, () => p().alpha, v => { p().alpha = v; }),
       this.slider(adv, "relax τ ×10⁻⁴", 1.5, 8, 0.1, () => p().tau * 1e4, v => { p().tau = v * 1e-4; }, v => v.toFixed(1)),
     );
-    const kRow = this.slider(adv, "partition k", 0.05, 0.9, 0.01, () => p().kPart, v => { p().kPart = v; });
-    this.only2d.push(kRow);
+    // v6.2 P: the volume has honoured kPart since its alloy pass shipped
+    // (shaders3d.ts solute rejection), but the dial was 2D-only — the inverse
+    // of a dead knob, a working control users could not reach. p() is the
+    // ACTIVE solver's params, so the same slider now drives both dimensions.
+    this.slider(adv, "partition k", 0.05, 0.9, 0.01, () => p().kPart, v => { p().kPart = v; });
     // the inoculant's potency distribution: where the site population sits and
     // how tightly it clusters. Potent refiners fire just below the liquidus.
     this.slider(adv, "site ΔT_N", 0.03, 0.6, 0.005,

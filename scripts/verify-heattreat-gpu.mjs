@@ -98,13 +98,18 @@ await page.evaluate(async () => {
       S.app.setGrid(n);
       await new Promise(r => setTimeout(r, 400));
       const s = S.sim();
+      // seeded for the same reason cast3 is: the measured Potts constants are
+      // read off whatever cast this produces, so the pour must be the same
+      // pour every run
+      let rs2 = 0x9e3779b9 >>> 0;
+      const rnd2 = () => { rs2 = (rs2 * 1664525 + 1013904223) >>> 0; return rs2 / 4294967296; };
       Object.assign(s.params, {
         scen: 0, heatIn: 0, coolRate: 0.6, alloyOn: 0, twinProb: 0,
         noiseAmp: 0.01, aniMode: 4, delta: 0.04, latent: 1.4,
       });
       s.reset(1 - 0.9);
       for (let i = 0; i < seeds; i++) {
-        s.addSeed(Math.random() * s.n, Math.random() * s.n, 2.5, Math.random() * Math.PI * 2);
+        s.addSeed(rnd2() * s.n, rnd2() * s.n, 2.5, rnd2() * Math.PI * 2);
       }
       // drain the seed queue before growing: submit() stamps at most MAX_SEEDS
       // per command buffer, and a seed stamped into half-frozen melt is a
@@ -615,13 +620,21 @@ await page.evaluate(() => {
     async cast3(seeds = 2600, pPore = 0) {
       S.app.setRun(false);
       const s3 = S.sim3d();
+      // a SEEDED lattice, not Math.random(): K_MC is measured off whatever
+      // cast this helper produces, and an unseeded 2600-seed pour moves the
+      // measured constant cast to cast — enough to fail the 15 % drift gate on
+      // a good build (seen: 1.186 then 0.924 on identical code). A gate that
+      // fails at random is the mirror of the U0 lesson about a gate that
+      // cannot fail at all. Plain LCG so the pour is byte-identical run to run.
+      let rs = 0x2f6e2b1 >>> 0;
+      const rnd = () => { rs = (rs * 1664525 + 1013904223) >>> 0; return rs / 4294967296; };
       Object.assign(s3.params, {
         scen: 0, heatIn: 0, coolRate: 0.5, alloyOn: 0, twinProb: 0,
         pPore, noiseAmp: 0.01, aniMode3: 1, facet: 0,
       });
       s3.reset(1 - 0.9);
       for (let i = 0; i < seeds; i++)
-        s3.addSeed3D(Math.random() * s3.n, Math.random() * s3.n, Math.random() * s3.n, 2.5);
+        s3.addSeed3D(rnd() * s3.n, rnd() * s3.n, rnd() * s3.n, 2.5);
       // drain the seed queue first: submit() stamps at most MAX_SEEDS3 = 128
       // per command buffer, and a seed stamped into half-frozen melt is a
       // different experiment from one stamped into the pour

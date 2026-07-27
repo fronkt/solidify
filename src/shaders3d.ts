@@ -53,6 +53,8 @@ export const P3 = {
   facet: 39,
   probeX: 40, probeY: 41, probeZ: 42,   // u32, 0xffffffff = probe off
   holdT: 43, holdRate: 44, moldT: 45,   // scen 4: set-point (lab) cooling
+  nyCrit: 46,     // dimensionless Niyama threshold (was the free _s46 slot)
+  envRate: 47,    // the imposed environment's own dT/dt (was the free _s47 slot)
   BYTES: 192,
 } as const;
 
@@ -101,8 +103,10 @@ struct Params3D {
   holdT: f32,      // scen 4: set-point the charge relaxes toward
   holdRate: f32,   // scen 4: Newtonian relax rate
   moldT: f32,      // scen 4: temperature the mould shell holds
-  _s46: f32,
-  _s47: f32,
+  nyCrit: f32,     // dimensionless Niyama threshold (stats risk counter + render)
+  envRate: f32,    // continuous rate of the imposed cooling: −gradG·pullV for
+                   // the pulled profile, the lab programme's set-point slope,
+                   // 0 in the free/weld scenarios — the Niyama record's Ṫ
 }
 const PORE = ${PORE_ID}u;
 const PI = 3.14159265359;
@@ -356,13 +360,42 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   TNew = clamp(TNew, -1.0, 2.0);
 
   // solidification record: freeze time (growth rings) + Niyama at freeze.
-  // Ṫ uses the thermal field only (lapT − cooling), NOT (TNew−T)/dt — the
-  // voxel's own latent release (recalescence) would poison the criterion.
+  // Ṫ is the voxel's own NON-LATENT rate: conduction, the uniform sink/source,
+  // AND the active scenario's relaxation — everything the update above applies
+  // to TNew except the latent release, whose exclusion (a voxel's own
+  // recalescence would poison the criterion) is the one deliberate omission.
+  // Before v6.2 the scenario terms were missing entirely, so in the lab —
+  // where coolRate is 0 and every programme cools through holdRate — the
+  // denominator was lapT alone, one to three orders under the real extraction.
+  // A voxel that freezes while WARMING stores the −1 sentinel: Ny is undefined
+  // without cooling, and the old 1e-4 floor recorded exactly those voxels as
+  // maximally safe. Seed stamps write the same sentinel (no front passed).
+  // The record clamp is 1e4, not a display number: a saturated record cannot
+  // be re-thresholded, so the render normalizes and the record stays honest.
   if (phi < 0.5 && phiNew >= 0.5) {
     let gT = vec3f(sE.g - sW.g, sN.g - sS.g, sU.g - sD.g) * inv2dx;
-    let tDotCool = lapT - P.coolRate + P.heatIn;
-    let ny = length(gT) / sqrt(max(-tDotCool, 1e-4));
-    textureStore(ageOut, c, vec4f(P.time, min(ny, 99.0), 0.0, 0.0));
+    // the non-latent environment rate: conduction + the uniform sink/source +
+    // the CONTINUOUS rate of the imposed scenario (P.envRate — the pulled
+    // profile's own −gradG·pullV, or the lab programme's set-point slope).
+    // envRate is deliberately NOT the per-substep relax the update applies:
+    // frontZ and holdT only move once per submit, so the discrete relax
+    // delivers a whole frame's cooling in one bursty substep — and freezing
+    // correlates with exactly that substep, which biased the recorded Ny low
+    // by √(substeps per frame) until the NY3 gate caught it against the
+    // Bridgman analytic. The one deliberate exclusion is unchanged: the
+    // voxel's own latent release (its recalescence) never enters Ṫ.
+    var bEnv = lapT - P.coolRate + P.heatIn;
+    if (P.scen == 2u) {
+      let dxy = distance(vec2f(gid.xy), vec2f(P.weldX, P.weldY));
+      let depth = f32(P.n - 1u) - f32(gid.z);
+      bEnv += P.weldPow
+        * exp(-(dxy * dxy) / (2.0 * P.weldSig * P.weldSig))
+        * exp(-depth / (2.0 * P.weldSig));
+    }
+    let tDotCool = bEnv + P.envRate;
+    let ny = length(gT) / sqrt(max(-tDotCool, 1e-6));
+    let rec = select(min(ny, 1.0e4), -1.0, tDotCool >= 0.0);
+    textureStore(ageOut, c, vec4f(P.time, rec, 0.0, 0.0));
   } else if (phi >= 0.5 && phiNew < 0.5) {
     textureStore(ageOut, c, vec4f(0.0));
   }
@@ -513,8 +546,9 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     }
   }
   if (stamped && phi >= 0.5) {
-    // seed cores are born solid — record the time, and a benign Niyama
-    textureStore(ageOut, c, vec4f(P.time, 25.0, 0.0, 0.0));
+    // seed cores are born solid — no thermal front ever passed, so the Niyama
+    // channel records the −1 "unmeasured" sentinel, never a fabricated number
+    textureStore(ageOut, c, vec4f(P.time, -1.0, 0.0, 0.0));
   }
   textureStore(stateOut, c, vec4f(phi, Tq, 0.0, 0.0));
   textureStore(grainOut, c, vec4u(id, 0u, 0u, 0u));
@@ -532,14 +566,20 @@ struct Stats3 {
   probeT: atomic<u32>,    // (T+1)*1000 at the probe voxel (single writer)
   probePhi: atomic<u32>,  // phi*1000 at the probe voxel
   liqTsum: atomic<u32>,   // sum of (T+1)*500 over the sampled liquid voxels
-  pad7: u32,
+  nyRisk: atomic<u32>,    // solid voxels with a MEASURED Niyama below P.nyCrit
+                          // (was pad7 — a free slot, so the buffer never grew)
   counts: array<atomic<u32>, ${MAX_GRAINS3}>,
+  // counts[0] is the measured-Niyama census: grain id 0 is liquid and the
+  // readback's census loop starts at 1, so the slot was never written — it now
+  // carries the number of solid voxels whose record is a real measurement
+  // (rec > 0; seed cores and freeze-while-warming carry the −1 sentinel).
 }
 @group(0) @binding(0) var<uniform> P: Params3D;
 @group(0) @binding(1) var state: texture_3d<f32>;
 @group(0) @binding(2) var grain: texture_3d<u32>;
 @group(0) @binding(3) var<storage, read_write> stats: Stats3;
 @group(0) @binding(4) var mask: texture_3d<u32>;
+@group(0) @binding(5) var age: texture_3d<f32>;
 
 @compute @workgroup_size(4, 4, 4)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -562,6 +602,14 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     atomicAdd(&stats.solid, 1u);
     if (id > 0u && id < ${MAX_GRAINS3}u) {
       atomicAdd(&stats.counts[id], 1u);
+    }
+    // the Niyama risk census — measured records only, so a stamped seed core
+    // (−1) can never be counted as at-risk OR as safe: it simply isn't a
+    // measurement (a true ny of exactly 0 is a measure-zero float event)
+    let nyRec = textureLoad(age, vec3i(gid), 0).g;
+    if (nyRec > 0.0) {
+      atomicAdd(&stats.counts[0], 1u);
+      if (nyRec < P.nyCrit) { atomicAdd(&stats.nyRisk, 1u); }
     }
   }
   // mean melt temperature for the nucleation model — pores excluded by the
@@ -1203,9 +1251,18 @@ fn sliceColor(p: vec3f) -> vec3f {
   let lum = 0.58 + 0.24 * idh;
   var col: vec3f;
   if (style == 5u) {          // Niyama ramp: hot spots = porosity risk
-    let risk = clamp(1.0 - ageAt(p).g / max(R.misc.y, 1e-3), 0.0, 1.0);
-    col = inferno(risk);
-    col *= 1.0 - gb * 0.25;
+    let nyRec = ageAt(p).g;
+    if (nyRec <= 0.0) {
+      // unmeasured solid: a stamped seed core (−1), a freeze-while-warming
+      // voxel (−1), or a cleared record (0). Through the risk ramp a −1 would
+      // read as MAXIMUM risk — a fabricated verdict — so it gets the same
+      // cold not-a-measurement blue as still-liquid.
+      col = vec3f(0.05, 0.06, 0.10);
+    } else {
+      let risk = clamp(1.0 - nyRec / max(R.misc.y, 1e-3), 0.0, 1.0);
+      col = inferno(risk);
+      col *= 1.0 - gb * 0.25;
+    }
   } else if (style == 1u) {   // plain Nital
     col = vec3f(lum) * vec3f(0.99, 0.965, 0.915);
     col *= 1.0 - gb * 0.82;

@@ -18,7 +18,7 @@
 import { PROGRAMS, ProgramRun, type Program } from "./program";
 import { check, range, select } from "./formbits";
 import type { MaterialSI, Units } from "./units";
-import { analyseCurve, retain, type ThermalAnalysis } from "./thermal";
+import { analyseCurve, cscClyneDavies, retain, type ThermalAnalysis } from "./thermal";
 import { fadeFactor } from "./nucleation";
 import { hydrogenPorosity, type PorosityResult } from "./porosity";
 import { hallPetch, fmtMPa, shownMPa } from "./heattreat";
@@ -125,6 +125,8 @@ export class Lab {
    *  while the panel is open rebuilds it, so the spec ceiling is never another
    *  material's (the H7 buildPanel doctrine) */
   private propsAtBuild: MaterialSI | null = null;
+  /** last tick's set-point, for the programme-slope the Niyama record needs */
+  private envPrev: { t: number; holdT: number } | null = null;
   private fingerprint = "";
   private lastFs = 0;
   private plateau = 0;
@@ -204,6 +206,8 @@ export class Lab {
     this.host.setView(3);        // FIELD: watch the heat leave
     this.host.setView3d(3);
     this.series = [];
+    this.envPrev = null;
+    p.envRate = 0;
     this.lastFs = 0;
     this.plateau = 0;
     this.intervened = false;
@@ -235,8 +239,14 @@ export class Lab {
     if (!this.running) return;
     const p = this.host.simParams();
     const t = this.host.simTimeNow();
+    const prevHold = this.envPrev;
     p.holdT = this.run.update(t, dtSim);
     p.holdRate = this.run.coupling;
+    // the set-point's own slope: the CONTINUOUS cooling the programme imposes,
+    // which is what the volume's Niyama record uses as its Ṫ — the discrete
+    // per-substep relax is bursty because holdT only moves once per frame
+    if (prevHold && t > prevHold.t) p.envRate = (p.holdT - prevHold.holdT) / (t - prevHold.t);
+    this.envPrev = { t, holdT: p.holdT };
     if (this.snapshot() !== this.fingerprint) {
       this.intervened = true;
       this.fingerprint = this.snapshot();
@@ -407,6 +417,26 @@ export class Lab {
   }
 
   /**
+   * The hot-tearing timing index (Phase D, N5) — Clyne–Davies CSC off the
+   * pour's own f_s(t) record. The honest framing is baked into the line: it is
+   * a TIMING ratio computed on the GLOBAL record (the index is defined on a
+   * local volume element), not a stress prediction — the RDG criterion the
+   * roadmap once named needs a strain rate and a Darcy feeding term this
+   * solver does not carry, and saying so here is the deliverable.
+   */
+  private cscLine(): string {
+    const r = cscClyneDavies(this.series);
+    const uu = this.host.units();
+    const ms = (t: number) => uu.known ? uu.fmtTime(t) : `Δt ${t.toFixed(2)}`;
+    if (r.csc == null) {
+      return `<div style="color:#8891a0">hot-tear susceptibility (Clyne–Davies): ${r.notes[0] ?? "not resolvable"}</div>`;
+    }
+    return `<div>hot-tear susceptibility (Clyne–Davies) CSC <b style="color:#cfd6df">${r.csc.toFixed(2)}</b> `
+      + `<span style="color:#6b7280">— t_v ${ms(r.tV!)} / t_r ${ms(r.tR!)} off the global f_s record; a timing ratio, `
+      + `not a stress prediction (RDG needs mechanics this solver does not carry)</span></div>`;
+  }
+
+  /**
    * L4, the pre-pour half of the verdict: what the dialled spec demands, said
    * BEFORE any metal is poured. The furnace's specNote pre-judges an endpoint
    * its law predicts; the lab cannot predict its own census, so it states the
@@ -558,6 +588,7 @@ export class Lab {
       `(${this.host.nucMax() > 0 ? ((this.host.nucFired() / this.host.nucMax()) * 100).toFixed(0) : "0"} %)</div>` +
       `<div>final solid fraction <b style="color:#cfd6df">${last ? (last.fs * 100).toFixed(1) : "—"} %</b>` +
       (p.scen === 4 ? " · volume census in the VOLUME · 3D panels" : "") + `</div>` +
+      this.cscLine() +
       this.porosityLine(p.scen === 4) +
       (this.intervened
         ? `<div style="color:#ffb454">⚠ the operator changed the conditions while this run was in progress — treat it as a demonstration, not a measurement</div>`

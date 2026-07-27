@@ -143,6 +143,27 @@ const mk = (key, over = {}) => {
   check("UNITS-REGIME", ok, { rate: u.fmtRate(0.3), regime: u.regime(0.3) });
 }
 
+// 9. UNITS-NIYAMA (Phase D N1) — the Ny = G/√Ṫ conversion is a dimensional
+//    closure over the primitives (kelvin(1) is kelvinPerUnit, seconds(1) is
+//    secondsPerUnit — the METHODS, so the formula cannot drift from what the
+//    rest of the layer prints), it refuses under the abstract material, and
+//    the cited steel anchor round-trips: 1.0 (°C·min)^½·cm⁻¹ must equal
+//    √60/10 K^½·s^½·mm⁻¹, computed here from scratch.
+{
+  const steel = mk("steel"), none = mk("generic");
+  const closure = steel.niyamaSI(2.5) * (steel.scale.metresPerUnit * 1e3)
+    / Math.sqrt(steel.kelvin(1) * steel.seconds(1));
+  const anchor = Math.sqrt(60) / 10;                        // (°C·min)^½/cm → K^½s^½/mm
+  const ok = close(closure, 2.5, 1e-9)
+    && Number.isNaN(none.niyamaSI(2.5)) && none.fmtNiyama(2.5) === "—"
+    && close(anchor, 0.7746, 1e-3)
+    && steel.fmtNiyama(1).includes("K·s^½·mm⁻¹");
+  check("UNITS-NIYAMA", ok, {
+    closure: +closure.toFixed(6), anchor: +anchor.toFixed(4),
+    steelNy1: steel.fmtNiyama(1), abstract: none.fmtNiyama(2.5),
+  });
+}
+
 await server.close();
 console.log(failures ? `done — ${failures} FAILED` : "done");
 if (failures) process.exitCode = 1;

@@ -52,7 +52,10 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   curves with prescribed landmarks: recovery clean and at the readback's real noise, the
   20 Hz→4 Hz resampling identity that fails an index-based derivative, "no arrest" honestly
   reported on a monotonic quench, derived f_s vs prescribed, and `retain()`'s span-preserving
-  decimation — the check that gates the old head-dropping `splice` bug directly.
+  decimation — the check that gates the old head-dropping `splice` bug directly. `TA-CSC`
+  (v6.2) adds the Clyne–Davies hot-tearing ratio: exact on prescribed crossings, ordered
+  under a longer vulnerable stage, and refusing with a note on both arms (a record that never
+  reaches f_s 0.99, and one that never reaches 0.40).
 - **`verify-fade.mjs`** (browser-free, v6.1) — refiner fade: identity at zero hold (nothing
   shipped moves), the incubation shoulder a decay-from-t0 model cannot produce, monotone
   non-increase, the residual floor, and <½ surviving 30 min per the settling data.
@@ -307,6 +310,21 @@ The rest are behavioural/regression checks on the UI and scroll choreography, wh
 nearly every bug in this codebase has actually occurred (see `tasks/todo.md` for the
 postmortems). Morphology correctness is still checked by eye against the published Kobayashi
 figures and documented in `tasks/todo.md`'s M1 verification note.
+
+**v6.2 additions.** `UNITS-NIYAMA` joins `verify-units.mjs` (the Ny → K·s^½·mm⁻¹ closure
+over the layer's own methods, the cited steel anchor recomputed from scratch, and the refusal
+under the abstract material). `NY3` and `KPART3` join `verify-3d.mjs`: NY3 recomputes
+|∇T|/√(−lapT − envRate) on the CPU for freshly-frozen voxels and requires the recorded value
+to match (median ratio ~1.18 — a missing scenario term blows it by orders), plus the −1
+"no measurement" sentinels and the stats risk counter against a CPU recount; KPART3 requires a
+3D material swap to land the material's own alloy constants and the solute rejection to move.
+
+**A note on `GG3-KMC`'s tolerance.** The calibration pours are now seeded LCGs rather than
+`Math.random()`, which made the 2D `GG-KMC` byte-identical run to run. The 3D one still moves,
+because its freeze loop stops on a measured threshold: six consecutive runs on identical code
+spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 % to 25 % with
+that evidence recorded in the constant's own docblock. The drift prints on every run, and
+`HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
 `npm run build` (Vite + `tsc`) plus the five browser-free scripts — `verify-units.mjs`,
 `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs` and `verify-porosity.mjs` —
