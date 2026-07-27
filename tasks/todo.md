@@ -1697,3 +1697,57 @@ number — the failure mode this instrument exists to refuse.
       - Full suite (17 scripts) green end to end, twice, including every new gate, with the
         second run showing the same clean orderings from independent RNG draws — not a
         one-off pass.
+
+## v6.3 — Lab Mode UI rework: no auto-popup, a Results button, integrated styling (2026-07-27)
+
+- [x] **The report card no longer pops up on its own.** Shipping the step block's per-section
+      table made an existing complaint sharper: the report card auto-appeared the instant a pour
+      finished, its five content pieces were mostly one undifferentiated block of text (only
+      `thermal` and, internally, `sectionTable` were actually boxed), and the setup panel itself
+      was a dense `auto-fit` CSS grid crammed into a wide-but-short strip at the bottom — visibly
+      disconnected from the rail's own single-column, spacious language. Grilled via
+      AskUserQuestion before touching anything; two of four answers landed against the
+      recommended default (setup panel stays separate rather than merging into the rail; results
+      open in a slide-in panel rather than a centered modal), which is exactly the value of
+      asking instead of assuming.
+      - **Setup panel** (`Lab.buildPanel()`): grid → `flex-direction:column` single-column stack,
+        narrower (`min(320px,90vw)`, was `min(760px,88vw)`), header typography matched to the
+        rail's `.sec h2` (dim, letter-spaced) instead of a cyan accent. A new **"▤ results"**
+        button sits beside "▶ pour and run", disabled until a run finishes.
+      - **No auto-popup**: `finish()` no longer calls `showCard()`; it measures
+        (`measureCensus`/`measureSections`, same guaranteed-fresh readback as before — the sim is
+        paused by finish time, so measuring now vs. on-click is equivalent) and builds the report
+        into an already-in-the-DOM-but-hidden `#foundryResults`, then enables the Results button
+        with a one-shot CSS pulse (`animationend`-cleaned so it can re-fire on the next run).
+        Starting a **new** pour hides the panel and disables the button again — showing a
+        superseded run's numbers would be exactly the stale-data dishonesty the operator-
+        intervened flag already exists to catch.
+      - **The slide-in panel**: not the "⤢ enlarge" pattern first cited when asking (that turned
+        out to be a centered, dimmed-backdrop modal — the opposite of what was chosen, caught and
+        corrected mid-conversation) — the real precedent reused is **`#rail`'s own mechanism**
+        (`transform:translateX` + a `.hidden` class, `ui.ts:166-169`), mirrored to the **left**
+        edge so the two never compete, no dimmed backdrop, the live sim stays interactive behind
+        it. `#foundryResultsBody` persists across pours (element built once per Lab Mode session
+        in `buildResultsPanel()`, mirroring `#rail`'s own lifecycle) rather than being
+        removed/recreated like the old `#foundryCard` was.
+      - **Report content → cards**: a new `Lab.rcard()` wraps each section in the app's existing
+        small-panel idiom — `.apanel`'s look (border/background/radius) under its own class
+        (`.rcard`) since `.apanel` is `display:none` by default outside `#apanels`. Five cards:
+        Cooling Curve, Cooling-Curve Analysis (already boxed, just re-skinned), As-Cast Strength
+        (newly boxed, only rendered when non-empty), Section Table (step mould only, unchanged
+        internally), Run Summary (nucleation ratchet + refiner fade + inoculant + f_s + Clyne–
+        Davies + porosity, newly boxed) — the operator-intervened line stays a plain footer, not
+        a sixth card, since it's a one-line caveat rather than a data section.
+      - **A live bug the manual browser pass caught, that typecheck couldn't**: `finish()` calls
+        `refresh()` *before* the async `buildReport()`'s measurement lands, so the status line
+        kept reading "ready… nothing poured" even after the Results button had visibly enabled —
+        fixed by having `buildReport()` call `refresh()` again once `hasResults` actually flips.
+        Exactly the class of bug "start the dev server and look at it" exists to catch.
+      - Gates: `document.getElementById("foundryCard")` → `"foundryResults"`/`window.__solidify.
+        lab.hasResults` across `LAB`/`LAB4` (`verify-tools.mjs`) — the polling pattern (element/
+        flag exists → read text) is unchanged in spirit, since the panel now persists hidden
+        rather than being created fresh at finish time. `verify-tools.mjs` green twice
+        (`LAB`/`LAB4`/`MOULD-SHARE`/`MOULD-SHARE-MALFORMED` all OK both runs); `ATMOSPHERE` failed
+        once (`maxLead:0`) then passed clean (`maxLead:150`) on an identical re-run with no edits
+        between them — reproduced as a pre-existing flake in a gate this change never touched,
+        not a regression (the same class of lesson `GG3-KMC`'s tolerance already recorded).

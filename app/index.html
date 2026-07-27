@@ -38,6 +38,15 @@
 
     #rail { position: absolute; top: 0; right: 0; bottom: 0; width: 268px; background: rgba(15,17,21,0.92); border-left: 1px solid var(--line); overflow-y: auto; padding: 14px 14px 90px; backdrop-filter: blur(6px); transition: transform 0.25s ease; scrollbar-width: thin; scrollbar-color: #2b313b transparent; }
     #rail.hidden { transform: translateX(100%); }
+    /* the lab's report — same slide mechanism as #rail, mirrored to the opposite
+       edge so the two never compete for space; no dimmed backdrop, the live sim
+       stays visible and interactive behind it. Built once per Lab Mode session
+       and left in the DOM (lab.ts:buildResultsPanel) — only this class toggles. */
+    #foundryResults { position: absolute; top: 0; left: 0; bottom: 0; width: min(400px, 92vw); background: rgba(15,17,21,0.94); border-right: 1px solid var(--line); overflow-y: auto; padding: 14px 16px 20px; backdrop-filter: blur(6px); transition: transform 0.25s ease; z-index: 7; font-size: 11.5px; line-height: 1.7; scrollbar-width: thin; scrollbar-color: #2b313b transparent; }
+    #foundryResults.hidden { transform: translateX(-100%); }
+    #foundryResults .frHead { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; letter-spacing: 0.2em; color: #56d4dd; }
+    #foundryResults .frHead span { flex: 1; }
+    #foundryResults .frHead button { font-size: 10px; padding: 3px 8px; }
     #railToggle { position: absolute; top: 14px; right: 282px; z-index: 5; transition: right 0.25s ease; }
     body.railHidden #railToggle { right: 14px; }
     /* the 2D ↔ 3D activation switch floats directly below CONTROLS and slides with the rail */
@@ -199,6 +208,14 @@
     .apanel .zoomBtn { pointer-events: auto; }
     .apanel .t { font-size: 9px; letter-spacing: 0.15em; color: var(--dim); margin-bottom: 3px; }
     .apanel canvas { display: block; }
+    /* the lab report's card unit — .apanel's look (border/background/radius),
+       under its own name so it isn't display:none by default like .apanel is */
+    .rcard { background: rgba(15,17,21,0.88); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
+    .rcard .t { font-size: 9px; letter-spacing: 0.15em; color: var(--dim); margin-bottom: 5px; }
+
+    #foundryResultsBtn:disabled { opacity: 0.4; cursor: default; }
+    @keyframes resultsPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(86,212,221,0); border-color: var(--line); } 30% { box-shadow: 0 0 0 4px rgba(86,212,221,0.35); border-color: #56d4dd; } }
+    #foundryResultsBtn.pulse { animation: resultsPulse 1.1s ease-out 1; }
 
     #overlay { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 6; }
   </style>

@@ -329,15 +329,18 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     const p = window.__solidify.app.simParams();
     return p.scen === 3 && p.coolRate === 0 && window.__solidify.lab.running;
   });
+  // v6.3: the report no longer pops up on its own — hasResults (Results
+  // button enabled) is the "finished" signal now, and the report text lives
+  // in #foundryResultsBody (built hidden, shown only on a Results click)
   let card = false;
   for (let i = 0; i < 60 && !card; i++) {
     await run(4, 10);
-    card = await page.evaluate(() => !!document.getElementById("foundryCard"));
+    card = await page.evaluate(() => !!window.__solidify.lab.hasResults);
   }
   const done = await page.evaluate(() => ({
     curve: !!document.getElementById("foundryCurve"),
     running: window.__solidify.lab.running,
-    text: document.getElementById("foundryCard")?.textContent ?? "",
+    text: document.getElementById("foundryResultsBody")?.textContent ?? "",
   }));
 
   // the dimension switch is blocked while a pour is in progress
@@ -394,10 +397,12 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
       L.start();
       if (s > 0) L.setup.specMPa = 999;   // the latch probe: moved AFTER the pour
     }, [spec, mat]);
+    // v6.3: no auto-popup — poll the lab's own hasResults flag instead of a
+    // card appearing; the report lives in #foundryResultsBody (built hidden)
     let card = false;
     for (let i = 0; i < 140 && !card; i++) {
       await run(4, 10);
-      card = await page.evaluate(() => !!document.getElementById("foundryCard"));
+      card = await page.evaluate(() => !!window.__solidify.lab.hasResults);
     }
     return page.evaluate(async () => {
       const S = window.__solidify, s = S.sim();
@@ -405,9 +410,11 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
       for (let t = 0; t < 60 && !st; t++) { st = await s.readStats(); if (!st) await s.device.queue.onSubmittedWorkDone(); }
       const um = S.app.getUmPerCell();
       const d = st && st.meanAreaPx > 0 ? 2 * Math.sqrt(st.meanAreaPx / Math.PI) * um : 0;
-      const el = document.getElementById("foundryCard");
+      const el = document.getElementById("foundryResultsBody");
       const text = (el ? el.textContent : "").replace(/\s+/g, " ");
-      if (el) el.remove();                 // clean slate for the next pour
+      // #foundryResultsBody persists across pours (unlike the old #foundryCard,
+      // which was removed/recreated each time) — the NEXT L.start() call clears
+      // hasResults and hides the panel, so there's nothing to clean up here
       return { text, dUm: d };
     });
   };
@@ -458,7 +465,7 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     }, atm);
     const trace = [];
     for (let i = 0; i < 26; i++) { await run(2); trace.push(await page.evaluate(() => window.__solidify.app.getNucFired())); }
-    await page.evaluate(() => { window.__solidify.lab.abort(); document.getElementById("foundryCard")?.remove(); });
+    await page.evaluate(() => { window.__solidify.lab.abort(); });
     return trace;
   };
   const vac = await pour("vacuum"), air = await pour("air");

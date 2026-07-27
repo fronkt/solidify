@@ -113,6 +113,12 @@ export class Lab {
   private host: LabHost;
   private panel: HTMLElement | null = null;
   private statusEl: HTMLElement | null = null;
+  /** the Results button in the setup panel — disabled until a run finishes */
+  private resultsBtn: HTMLButtonElement | null = null;
+  /** true once a finished run's report has been measured and written into
+   *  resultsPanel — gates the Results button, independent of whether the
+   *  panel is currently open */
+  private hasResults = false;
   /** mould-walls row — only the volume has mould geometry, so it hides in 2D */
   private moldRow: HTMLElement | null = null;
   /** mould-shape row, beside moldRow — same 3D-only visibility */
@@ -121,7 +127,11 @@ export class Lab {
    *  so a mid-run shape change (impossible via the UI, but a stale share
    *  link decode shouldn't retroactively relabel a poured casting's card) */
   private moldAtPour: MoldKind = "shell";
-  private card: HTMLElement | null = null;
+  /** the slide-in results panel (#foundryResults) — built once when Lab Mode
+   *  opens and persists across pours, mirroring #rail's own lifecycle:
+   *  the element stays in the DOM, only its content and a `.hidden` class
+   *  change. Never auto-shown; see finish() and the Results button. */
+  private resultsPanel: HTMLElement | null = null;
   private run = new ProgramRun();
   private series: Sample[] = [];
   private t0 = 0;
@@ -158,6 +168,51 @@ export class Lab {
     if (this.active) return;
     this.active = true;
     this.buildPanel();
+    this.buildResultsPanel();
+  }
+
+  /**
+   * The slide-in report panel — built once per Lab Mode session (open()
+   * always runs after a full close()'s teardown, so this never double-
+   * builds) and left in the DOM for the rest of the session, mirroring
+   * #rail's own lifecycle: the element persists, buildReport() replaces its
+   * content, and only a `.hidden` class toggles visibility. Never opened by
+   * this method — that is the Results button's job (toggleResults).
+   */
+  private buildResultsPanel() {
+    const r = document.createElement("div");
+    r.id = "foundryResults";
+    r.classList.add("hidden");
+    const head = document.createElement("div");
+    head.className = "frHead";
+    const title = document.createElement("span");
+    title.textContent = "⚗ RUN REPORT";
+    const copy = document.createElement("button");
+    copy.textContent = "⎘ copy";
+    copy.title = "copy this experiment as a share link";
+    copy.addEventListener("click", () => {
+      void navigator.clipboard.writeText(this.host.labShareLink()).then(() => {
+        copy.textContent = "copied ✓";
+        setTimeout(() => { copy.textContent = "⎘ copy"; }, 1400);
+      });
+    });
+    const close = document.createElement("button");
+    close.textContent = "✕";
+    close.addEventListener("click", () => this.toggleResults(false));
+    head.append(title, copy, close);
+    const body = document.createElement("div");
+    body.id = "foundryResultsBody";
+    r.append(head, body);
+    document.getElementById("app")!.append(r);
+    this.resultsPanel = r;
+  }
+
+  /** open (default: flip) the results panel — a plain class toggle, the
+   *  same mechanism #rail's own hide/show button uses. */
+  private toggleResults(open?: boolean) {
+    if (!this.resultsPanel) return;
+    const willOpen = open ?? this.resultsPanel.classList.contains("hidden");
+    this.resultsPanel.classList.toggle("hidden", !willOpen);
   }
 
   close() {
@@ -166,8 +221,9 @@ export class Lab {
     this.run.stop();
     this.panel?.remove();
     this.panel = null;
-    this.card?.remove();
-    this.card = null;
+    this.resultsPanel?.remove();
+    this.resultsPanel = null;
+    this.hasResults = false;
     const p = this.host.simParams();
     p.scen = 0;
     p.holdRate = 0;
@@ -181,8 +237,11 @@ export class Lab {
   start() {
     const three = this.host.getMode() === "3d";
     const p = this.host.simParams();
-    this.card?.remove();
-    this.card = null;
+    // a new pour supersedes any previous run's report — showing it here would
+    // be exactly the kind of stale-data dishonesty the intervened flag already
+    // guards against, so close it and make the Results button earn itself again
+    this.resultsPanel?.classList.add("hidden");
+    this.hasResults = false;
     // the lab owns the thermal boundary: set-point cooling, no constant sink
     p.scen = three ? 4 : 3;
     p.coolRate = 0;
@@ -293,7 +352,9 @@ export class Lab {
     this.running = false;
     this.host.setRun(false);
     this.refresh();
-    void this.showCard();
+    // measured now, once, while the sim is paused — never auto-shown; see
+    // buildReport() and the Results button
+    void this.buildReport();
   }
 
   // ------------------------------------------------------------------ panel
@@ -302,13 +363,14 @@ export class Lab {
     const p = document.createElement("div");
     p.id = "foundry";
     p.style.cssText =
-      "position:absolute;left:50%;transform:translateX(-50%);bottom:14px;width:min(760px,88vw);" +
-      "background:rgba(15,17,21,0.93);border:1px solid #262b33;border-radius:8px;padding:10px 14px;" +
+      "position:absolute;left:50%;transform:translateX(-50%);bottom:14px;width:min(320px,90vw);" +
+      "max-height:calc(100vh - 28px);overflow-y:auto;" +
+      "background:rgba(15,17,21,0.93);border:1px solid #262b33;border-radius:8px;padding:14px 16px 12px;" +
       "backdrop-filter:blur(6px);z-index:6;font-size:11px;";
     const head = document.createElement("div");
-    head.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:6px;";
-    head.innerHTML = `<span style="letter-spacing:.2em;color:#56d4dd">⚗ LAB MODE</span>
-      <span style="color:#8891a0">set the experiment up, then run it</span>`;
+    head.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:10px;";
+    head.innerHTML = `<span style="letter-spacing:.25em;font-size:10px;font-weight:600;color:#8891a0">⚗ LAB MODE</span>
+      <span style="color:#6b7280;font-size:10.5px">set the experiment up, then run it</span>`;
     const exit = document.createElement("button");
     exit.textContent = "exit";
     exit.addEventListener("click", () => this.close());
@@ -325,7 +387,7 @@ export class Lab {
     const specStep = specMax <= 5 ? 0.1 : specMax <= 100 ? 1 : 5;
     this.setup.specMPa = Math.min(this.setup.specMPa, specMax);
     const form = document.createElement("div");
-    form.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:6px 16px;margin-bottom:8px;";
+    form.style.cssText = "display:flex;flex-direction:column;gap:9px;margin-bottom:12px;";
     form.append(
       select("atmosphere", ["argon", "vacuum", "air"], this.setup.atmosphere, v => { this.setup.atmosphere = v as LabSetup["atmosphere"]; this.refresh(); }),
       range("inoculant (sites)", 0, 3000, 10, this.setup.inoculant, v => { this.setup.inoculant = v; }),
@@ -360,7 +422,14 @@ export class Lab {
     go.id = "foundryRun";
     go.textContent = "▶ pour and run";
     go.addEventListener("click", () => (this.running ? this.abort() : this.start()));
-    row.append(go);
+    const results = document.createElement("button");
+    results.id = "foundryResultsBtn";
+    results.textContent = "▤ results";
+    results.disabled = !this.hasResults;
+    results.addEventListener("click", () => this.toggleResults());
+    results.addEventListener("animationend", () => results.classList.remove("pulse"));
+    this.resultsBtn = results;
+    row.append(go, results);
 
     const status = document.createElement("div");
     status.id = "foundryStatus";
@@ -386,6 +455,7 @@ export class Lab {
     }
     const note = this.panel.querySelector("#foundryNote") as HTMLElement;
     const go = this.panel.querySelector("#foundryRun") as HTMLButtonElement;
+    if (this.resultsBtn) this.resultsBtn.disabled = !this.hasResults;
     // Two of the setup fields only mean anything in the volume: the mould shell
     // is rasterized 3D geometry, and porosity is a 3D field. Rather than leave
     // a checkbox that does nothing and a note promising porosity that cannot
@@ -404,8 +474,8 @@ export class Lab {
     go.textContent = this.running ? "■ abort" : "▶ pour and run";
     if (!this.statusEl) return;
     if (!this.running) {
-      this.statusEl.textContent = this.series.length
-        ? "run finished — read the report card"
+      this.statusEl.textContent = this.hasResults
+        ? "run finished — ▤ results has the report"
         : "ready: the charge is set up but nothing has been poured yet";
       return;
     }
@@ -573,33 +643,56 @@ export class Lab {
       + `<th style="text-align:left">σ_y</th></tr>${rows}</table></div>`;
   }
 
-  // ------------------------------------------------------------ report card
-  private async showCard() {
+  // ------------------------------------------------------------ report
+  /** wrap a titled block of content in the app's existing small-panel card
+   *  idiom (.apanel's look, under its own name so it isn't display:none by
+   *  default like .apanel is) — the shared unit every report section below
+   *  is built from, instead of five different ad hoc boxes. */
+  private static rcard(title: string, body: HTMLElement | string): HTMLElement {
+    const el = document.createElement("div");
+    el.className = "rcard";
+    const head = document.createElement("div");
+    head.className = "t";
+    head.textContent = title;
+    el.append(head);
+    if (typeof body === "string") el.insertAdjacentHTML("beforeend", body);
+    else el.append(body);
+    return el;
+  }
+
+  /**
+   * Builds the report into #foundryResults (never auto-shown — finish()
+   * calls this, then lights up the Results button; the panel itself only
+   * opens on a click). Same content as the old showCard(), now split across
+   * named cards instead of one concatenated block: Cooling Curve,
+   * Cooling-Curve Analysis, As-Cast Strength, Section Table (step mould
+   * only), Run Summary — plus a plain-text operator-note footer, which
+   * stays a one-line caveat rather than a card of its own.
+   */
+  private async buildReport() {
+    if (!this.resultsPanel) return;
     // L4: the census the verdict stands on — measured now, once, the same
     // guaranteed-fresh readback the furnace card uses
     const census = await this.host.measureCensus();
     // M4: the step block's own per-section census — null for any other mould
     const sections = this.moldAtPour === "step" ? await this.host.measureSections() : null;
-    this.card?.remove();
-    const c = document.createElement("div");
-    c.id = "foundryCard";
-    c.style.cssText =
-      "position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,90vw);" +
-      "background:rgba(12,14,18,0.97);border:1px solid rgba(86,212,221,0.4);border-radius:10px;" +
-      "padding:16px 18px;z-index:9;font-size:11.5px;line-height:1.7;";
     const ta = analyseCurve(this.series);
     const last = this.series[this.series.length - 1];
     const p = this.host.simParams();
-    const rows: string[] = [];
-    rows.push(`<div style="letter-spacing:.2em;color:#56d4dd;margin-bottom:8px">⚗ RUN REPORT</div>`);
     const uu = this.host.units();
-    rows.push(`<div style="color:#8891a0">${this.setup.program} · ${this.setup.atmosphere} · superheat `
+
+    const body = this.resultsPanel.querySelector("#foundryResultsBody") as HTMLElement;
+    body.innerHTML = "";
+    body.insertAdjacentHTML("beforeend",
+      `<div style="color:#8891a0;margin-bottom:8px">${this.setup.program} · ${this.setup.atmosphere} · superheat `
       + `${uu.known ? uu.kelvin(this.setup.superheat).toFixed(0) + " K" : this.setup.superheat.toFixed(2)}`
       + ` · mould ${uu.known ? uu.fmtC(this.setup.moldT) : this.setup.moldT.toFixed(2)}</div>`);
+
     const canvas = document.createElement("canvas");
     canvas.id = "foundryCurve";
     canvas.width = 520; canvas.height = 168;
-    canvas.style.cssText = "width:100%;height:168px;margin:10px 0;background:#0b0d11;border:1px solid #1d222a;border-radius:5px;";
+    canvas.style.cssText = "width:100%;height:168px;display:block;background:#0b0d11;border:1px solid #1d222a;border-radius:5px;";
+    body.append(Lab.rcard("COOLING CURVE", canvas));
 
     // ---- thermal analysis, the way a foundry reads the cast-cup curve. Absolute
     // temperatures in °C, intervals in K; everything the routine could not resolve
@@ -620,24 +713,20 @@ export class Lab {
       cell("liquid cooling rate", ta.rateLiquid != null ? uu.fmtRate(ta.rateLiquid) : em),
       cell("f<sub>s</sub> from the curve vs the census", ta.fsRms != null ? `±${(ta.fsRms * 100).toFixed(1)} %` : em),
     ].join("");
-    const thermal = document.createElement("div");
-    thermal.style.cssText = "margin:6px 0 8px;padding:8px 10px;border:1px solid #1d222a;border-radius:6px;background:rgba(255,255,255,0.015)";
-    thermal.innerHTML =
-      `<div style="letter-spacing:.15em;color:#56d4dd;margin-bottom:5px;font-size:10px">COOLING-CURVE ANALYSIS</div>`
-      + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px 18px">${ta2}</div>`
+    body.append(Lab.rcard("COOLING-CURVE ANALYSIS",
+      `<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px 18px">${ta2}</div>`
       + ta.notes.map(n => `<div style="color:#8891a0;margin-top:5px">— ${n}</div>`).join("")
       + `<div style="color:#6b7280;margin-top:6px;line-height:1.5">The "thermocouple" is the mean temperature of the <i>remaining liquid</i>, not a `
       + `fixed probe: as cold cells freeze they leave the average, so part of any recalescence shown is that selection effect. `
-      + `The trace ends at the solidus — past it there is no liquid left to read.</div>`;
+      + `The trace ends at the solidus — past it there is no liquid left to read.</div>`));
 
     // L4: census, strength and — if a spec was dialled at the pour — the verdict
-    const strength = document.createElement("div");
-    strength.innerHTML = this.strengthBlock(census, p.scen === 4);
-    const sectionEl = document.createElement("div");
-    sectionEl.innerHTML = sections ? this.sectionTable(sections) : "";
+    const strengthHtml = this.strengthBlock(census, p.scen === 4);
+    if (strengthHtml) body.append(Lab.rcard("AS-CAST STRENGTH", strengthHtml));
 
-    const stats = document.createElement("div");
-    stats.innerHTML =
+    if (sections) body.append(Lab.rcard("SECTION TABLE — thinnest first", this.sectionTable(sections)));
+
+    const summaryHtml =
       `<div>nucleation-model ratchet: deepest undercooling <b style="color:#ffb454">`
       + `${uu.known ? uu.fmtK(this.host.maxUndercool()) : "ΔT " + this.host.maxUndercool().toFixed(3)}</b>` +
       ` <span style="color:#6b7280">(the site model's own global measure, alongside the curve's ΔT<sub>N</sub> above)</span></div>` +
@@ -652,29 +741,24 @@ export class Lab {
       `<div>final solid fraction <b style="color:#cfd6df">${last ? (last.fs * 100).toFixed(1) : "—"} %</b>` +
       (p.scen === 4 ? " · volume census in the VOLUME · 3D panels" : "") + `</div>` +
       this.cscLine() +
-      this.porosityLine(p.scen === 4) +
-      (this.intervened
-        ? `<div style="color:#ffb454">⚠ the operator changed the conditions while this run was in progress — treat it as a demonstration, not a measurement</div>`
-        : `<div style="color:#6b7280">conditions held for the whole run</div>`);
-    const row = document.createElement("div");
-    row.style.cssText = "display:flex;gap:8px;margin-top:10px;";
-    const copy = document.createElement("button");
-    copy.textContent = "⎘ copy this experiment";
-    copy.addEventListener("click", () => {
-      void navigator.clipboard.writeText(this.host.labShareLink()).then(() => {
-        copy.textContent = "copied ✓";
-        setTimeout(() => { copy.textContent = "⎘ copy this experiment"; }, 1400);
-      });
-    });
-    const done = document.createElement("button");
-    done.textContent = "close";
-    done.addEventListener("click", () => { this.card?.remove(); this.card = null; });
-    row.append(copy, done);
-    c.innerHTML = rows.join("");
-    c.append(canvas, thermal, strength, sectionEl, stats, row);
-    document.getElementById("app")!.append(c);
-    this.card = c;
+      this.porosityLine(p.scen === 4);
+    body.append(Lab.rcard("RUN SUMMARY", summaryHtml));
+
+    body.insertAdjacentHTML("beforeend", this.intervened
+      ? `<div style="color:#ffb454">⚠ the operator changed the conditions while this run was in progress — treat it as a demonstration, not a measurement</div>`
+      : `<div style="color:#6b7280">conditions held for the whole run</div>`);
+
     this.drawCurve(canvas, ta);
+    this.hasResults = true;
+    // finish() already called refresh() before this measurement landed (it's
+    // async), so the status line and the button's disabled state are still
+    // showing the pre-finish state until this second pass
+    this.refresh();
+    if (this.resultsBtn) {
+      this.resultsBtn.classList.remove("pulse");
+      void this.resultsBtn.offsetWidth;   // restart the animation even if it never finished last time
+      this.resultsBtn.classList.add("pulse");
+    }
   }
 
   private drawCurve(canvas: HTMLCanvasElement, ta: ThermalAnalysis) {
