@@ -436,7 +436,7 @@ export const CHAPTERS: Chapter[] = [
     dim: "3d",
     title: "Inspect it",
     body: "Now the defect that makes inspection an industry. A casting freezes from the walls inward; liquid pockets that lose their feed path to the riser shrink into voids as they solidify — shrinkage porosity. The FIELD lens is the x-ray radiograph NDT uses to find it: pores read as dark specks in the transmission image. The section plane's Niyama style maps |∇T|/√Ṫ, the foundry criterion that flags starved regions before they turn into pores.",
-    watch: "A chill floor, nucleation rain, and hard cooling — a real casting recipe. Watch POROSITY % climb in the HUD as unfed pockets freeze. Then open the SECTION PLANE and switch the cut style to the Niyama map: the risk lights up ahead of the defects.",
+    watch: "A chill floor, nucleation rain, and hard cooling — a real casting recipe. Watch POROSITY % climb in the HUD as unfed pockets freeze. Then open the SECTION PLANE and switch the cut style to the Niyama map: the risk lights up ahead of the defects. Read the legend under it — on steel the map is judged in K·s^½·mm⁻¹ against Niyama's own radiographic criterion, and on every other metal it says plainly that it is a relative map, because that threshold was measured on steel radiographs and this instrument's aluminium porosity is dissolved hydrogen, not shrinkage. Cold blue also means \"never measured\" — a seed core the front never swept has no Niyama, and the map refuses to colour one in.",
     apply(a) {
       a.setSym3(4);
       a.setParams({ delta: 0.045, noiseAmp: 0.014, latent: 1.85, coolRate: 0.28, heatIn: 0 });
