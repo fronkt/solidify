@@ -10,6 +10,7 @@ import {
 } from "./shaders3d";
 import { shaderModule, H2U, HT_STRIDE, HT_KT_DEFAULT } from "./shaders";
 import { DEFAULT_UM_PER_CELL } from "./units";
+import { stream } from "./rng";
 
 /**
  * Grid rungs, largest first — the out-of-memory creation ladder walks this and
@@ -296,6 +297,12 @@ export class Sim3D {
   private statsInFlight = false;
   private paramData = new ArrayBuffer(P3.BYTES);
   private inFlight = 0;
+  /**
+   * The volume's own stream: Marsaglia quaternions, Sigma3 plate directions,
+   * chill-floor jitter, the twin probe's site search. Separate from the plane's,
+   * so a dimension switch does not renumber either one's draws.
+   */
+  private rng = stream("sim3d");
 
   /** true when the GPU is >= 2 submitted frames behind — callers should skip stepping */
   get busy() { return this.inFlight >= 2; }
@@ -874,6 +881,8 @@ export class Sim3D {
     this.frontZ = 1;
     this.pendingSeeds = [];
     this.lastSeed = null;
+    // same contract as 2D: the same seed poured twice is the same cast
+    this.rng.reset();
     // identity quaternion everywhere (liquid cells read entry 0)
     this.quatCPU.fill(0);
     for (let i = 0; i < MAX_GRAINS3; i++) this.quatCPU[i * 4 + 3] = 1;
@@ -904,9 +913,15 @@ export class Sim3D {
     this.quatsInFlight = false;
   }
 
-  /** Marsaglia (1972): uniform random rotation quaternion */
-  private static randomQuat(): [number, number, number, number] {
-    const u1 = Math.random(), u2 = Math.random(), u3 = Math.random();
+  /**
+   * Marsaglia (1972): uniform random rotation quaternion.
+   * An instance method rather than static so it draws from the volume's own
+   * seeded stream — every 3D grain's orientation comes through here, so a static
+   * one would have left the volume's single largest source of randomness
+   * unseeded while everything around it was reproducible.
+   */
+  private randomQuat(): [number, number, number, number] {
+    const u1 = this.rng.next(), u2 = this.rng.next(), u3 = this.rng.next();
     const a = Math.sqrt(1 - u1), b = Math.sqrt(u1);
     return [
       a * Math.sin(2 * Math.PI * u2),
@@ -927,7 +942,7 @@ export class Sim3D {
     [x, y, z] = pos;
     let id = this.nextId++;
     if (id >= MAX_GRAINS3 - 1) { this.nextId = 2; id = 1; }   // top id is PORE_ID
-    const quat = q ?? Sim3D.randomQuat();
+    const quat = q ?? this.randomQuat();
     this.quatCPU.set(quat, id * 4);
     this.device.queue.writeBuffer(this.quatBuf, id * 16, this.quatCPU, id * 4, 4);
     this.pendingSeeds.push({ x, y, z, r, id, dTact });
@@ -1003,13 +1018,13 @@ export class Sim3D {
    * Σ3's {111} habit plane is normal to its rotation axis. Shared by the
    * seeded twin pair and the annealing-twin plate (twinEvent).
    */
-  private static sigma3Of(q1: [number, number, number, number]):
+  private sigma3Of(q1: [number, number, number, number]):
     { q2: [number, number, number, number]; axLab: [number, number, number] } {
     const s = 1 / Math.sqrt(3);
     const axC = [
-      (Math.random() < 0.5 ? -1 : 1) * s,
-      (Math.random() < 0.5 ? -1 : 1) * s,
-      (Math.random() < 0.5 ? -1 : 1) * s,
+      this.rng.sign() * s,
+      this.rng.sign() * s,
+      this.rng.sign() * s,
     ];
     const axLab = Sim3D.qrotV(q1, axC);
     const half = Math.PI / 6;   // 60° rotation
@@ -1024,10 +1039,10 @@ export class Sim3D {
    * of the FIRST grain's ⟨111⟩ axes — real cubic twin crystallography.
    */
   addTwinSeed3D(x: number, y: number, z: number, r = 4) {
-    const q1 = Sim3D.randomQuat();
-    const { q2 } = Sim3D.sigma3Of(q1);
-    const th = Math.random() * Math.PI * 2;
-    const ph = Math.acos(2 * Math.random() - 1);
+    const q1 = this.randomQuat();
+    const { q2 } = this.sigma3Of(q1);
+    const th = this.rng.upto(Math.PI * 2);
+    const ph = Math.acos(2 * this.rng.next() - 1);
     const off = r * 0.45;
     const dx = Math.sin(ph) * Math.cos(th) * off;
     const dy = Math.sin(ph) * Math.sin(th) * off;
@@ -1048,8 +1063,8 @@ export class Sim3D {
     const n = this.n, t = this.wallThickness();
     for (let i = 0; i < count; i++)
       for (let j = 0; j < count; j++) {
-        const jx = ((i + 0.5) / count + (Math.random() - 0.5) * 0.5 / count) * n;
-        const jy = ((j + 0.5) / count + (Math.random() - 0.5) * 0.5 / count) * n;
+        const jx = ((i + 0.5) / count + (this.rng.next() - 0.5) * 0.5 / count) * n;
+        const jy = ((j + 0.5) / count + (this.rng.next() - 0.5) * 0.5 / count) * n;
         this.addSeed3D(jx, jy, this.floorZAt(jx, t) + 3.5, 3.5);
       }
   }
@@ -1457,9 +1472,9 @@ export class Sim3D {
     if (!(await this.ensureHt())) return 0;
     const n = this.n;
     for (let attempt = 0; attempt < 6; attempt++) {
-      const x = 2 + Math.floor(Math.random() * (n - 4));
-      const y = 2 + Math.floor(Math.random() * (n - 4));
-      const z = 2 + Math.floor(Math.random() * (n - 4));
+      const x = 2 + this.rng.int(n - 4);
+      const y = 2 + this.rng.int(n - 4);
+      const z = 2 + this.rng.int(n - 4);
       const pid = await this.readGrainAt(x, y, z);
       // the parent must be a CPU-seeded cast grain: its mirror quat is exact,
       // and skipping GPU-born ids also keeps plates off other twins (no Σ9
@@ -1473,7 +1488,7 @@ export class Sim3D {
       const tid = ctr;
       this.device.queue.writeBuffer(this.twinCtrBuf, 0, new Uint32Array([ctr - 1]));
       const q1 = Array.from(this.quatCPU.subarray(pid * 4, pid * 4 + 4)) as [number, number, number, number];
-      const { q2, axLab } = Sim3D.sigma3Of(q1);
+      const { q2, axLab } = this.sigma3Of(q1);
       this.quatCPU.set(q2, tid * 4);
       this.device.queue.writeBuffer(this.quatBuf, tid * 16, this.quatCPU, tid * 4, 4);
       const ts = new ArrayBuffer(48);

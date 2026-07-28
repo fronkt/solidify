@@ -50,6 +50,7 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   await boot(page);
   const link = await page.evaluate(() => {
     const a = window.__solidify.app;
+    window.__solidify.setSeed(0x1337c0de);
     a.setMaterial("mg"); a.setUndercool(0.83);
     a.setParams({ delta: 0.061, noiseAmp: 0.017, facet: 1 });
     a.setView(4);
@@ -63,10 +64,17 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     const a = window.__solidify.app;
     const p = a.simParams();
     return { m: a.getMaterial(), u: +a.getUndercool().toFixed(2), v: a.getView(),
-      delta: +p.delta.toFixed(3), noise: +p.noiseAmp.toFixed(3), facet: p.facet, ani: p.aniMode };
+      delta: +p.delta.toFixed(3), noise: +p.noiseAmp.toFixed(3), facet: p.facet, ani: p.aniMode,
+      seed: window.__solidify.seed() >>> 0 };
   });
-  const ok = got.m === "mg" && got.u === 0.83 && got.v === 4 && got.delta === 0.061 && got.facet === 1;
+  // the seed rides the link (v7.0), and it has to survive a REAL reload: it is
+  // applied first in the boot applier, ahead of setMaterial and applyNucShare,
+  // both of which redraw. A seed restored after them would be a seed the
+  // restored cast never actually used.
+  const ok = got.m === "mg" && got.u === 0.83 && got.v === 4 && got.delta === 0.061 && got.facet === 1
+    && got.seed === 0x1337c0de;
   console.log("SHARE ROUND-TRIP", ok ? "OK" : "MISMATCH", JSON.stringify(got));
+  if (!ok) process.exitCode = 1;
   await p2.close();
 }
 
@@ -526,6 +534,105 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   const ok = matched && dev(rHi.grains, lHi.grains) < 0.15 && dev(rLo.grains, lLo.grains) < 0.15;
   console.log("REFINE-FAIR", ok ? "OK" : "FAIL", JSON.stringify({
     at3000: { refined: rHi, lean: lHi }, at600: { refined: rLo, lean: lLo }, matchedFs: matched,
+  }));
+  if (!ok) process.exitCode = 1;
+  await page.close();
+}
+
+// RNG-REPRO: the seeded stream, end to end through the real solver.
+//
+// verify-rng.mjs gates the module's own contract without a browser; this gates
+// that the SWEEP actually took — that no consumer still reaches for
+// Math.random() behind the seed's back. An inoculated pour is the right probe
+// because it exercises all three of the paths the sweep touched at once: the
+// nucleation site population and its activation Gaussian (nucleation.ts), the
+// per-grain orientations (sim.ts addSeed), and the ratchet that decides which
+// sites fire. The comparison is the full per-grain census, not just a count —
+// two runs can easily agree on how MANY grains formed while disagreeing about
+// every one of them.
+//
+// Fence-paced via stepSync throughout: step() is frame-paced and skips under
+// backpressure, so a frame-paced arm would be comparing two different substep
+// budgets and calling the difference irreproducibility.
+{
+  const page = await browser.newPage();
+  await boot(page);
+  await page.evaluate(async () => {
+    const S = window.__solidify;
+    S.app.setRun(false);
+    S.app.setGrid(512);
+    await new Promise(r => setTimeout(r, 400));
+  });
+
+  const cast = async (seed) => await page.evaluate(async (s) => {
+    const S = window.__solidify;
+    S.app.setRun(false);
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // rewinds EVERY stream, including the host's own "scatter" — which nothing
+    // else resets, so without this the second cast would continue the first's
+    // position sequence and differ for a reason that is not the seed
+    S.setSeed(s);
+    const sim = S.sim();
+    Object.assign(sim.params, {
+      scen: 0, heatIn: 0, coolRate: 0.6, alloyOn: 0, twinProb: 0,
+      noiseAmp: 0.01, aniMode: 4, delta: 0.04, latent: 1.4,
+    });
+    sim.reset(1 - 0.9);
+    // Positions come from stream("scatter"), orientations from stream("sim2d").
+    // scatterSeeds deliberately, and addSeed WITHOUT an explicit theta0: the
+    // canonical cast helper in verify-heattreat-gpu passes its own seeded angle,
+    // which is right there and wrong here — passing theta0 would bypass the very
+    // draw this gate exists to check.
+    S.app.scatterSeeds(400);
+    // submit() stamps at most MAX_SEEDS per command buffer; drain before growing
+    for (let i = 0; i < 12; i++) await sim.stepSync(0);
+    const stats = async () => {
+      // readStats returns null while another read is in flight and the app's own
+      // 4 Hz poll races every call from here — retry rather than report a null
+      for (let i = 0; i < 40; i++) {
+        const st = await S.sim().readStats();
+        if (st) return st;
+        await new Promise(r => setTimeout(r, 25));
+      }
+      return null;
+    };
+    let st = null;
+    for (let k = 0; k < 60; k++) {
+      await sim.stepSync(120);
+      st = await stats();
+      if (st && st.fracSolid > 0.985) break;
+    }
+    return st && {
+      seedHex: S.seed().toString(16).padStart(8, "0"),
+      grainCount: st.grainCount,
+      fracSolid: +st.fracSolid.toFixed(9),
+      meanAreaPx: +st.meanAreaPx.toFixed(6),
+      diams: st.diamsUm.map(d => +d.toFixed(6)),
+    };
+  }, seed);
+
+  const SEED = 0x51105d1f;
+  const a1 = await cast(SEED);
+  const a2 = await cast(SEED);            // same seed, from scratch
+  const b1 = await cast(0x0be5eed5);      // a different cast entirely
+
+  const arr = (x, y) => !!x && !!y && x.length === y.length && x.every((v, i) => v === y[i]);
+  // the cast has to have HAPPENED: the first draft of this gate compared three
+  // runs that had all produced zero solid and reported "reproducible"
+  const grew = !!a1 && !!b1 && a1.fracSolid > 0.5 && a1.grainCount > 20 && b1.grainCount > 20;
+  const repeats = !!a1 && !!a2
+    && a1.grainCount === a2.grainCount && a1.fracSolid === a2.fracSolid
+    && a1.meanAreaPx === a2.meanAreaPx && arr(a1.diams, a2.diams);
+  // a seed that changes nothing would be a seed control that does nothing —
+  // the identity half of this gate is only meaningful beside the difference half
+  const differs = !!b1 && !arr(b1.diams, a1.diams);
+
+  const ok = grew && repeats && differs;
+  console.log("RNG-REPRO", ok ? "OK" : "FAIL", JSON.stringify({
+    castGrew: grew, sameSeedRepeats: repeats, differentSeedDiffers: differs,
+    run1: a1 && { seed: a1.seedHex, grains: a1.grainCount, fs: a1.fracSolid, area: a1.meanAreaPx },
+    run2: a2 && { seed: a2.seedHex, grains: a2.grainCount, fs: a2.fracSolid, area: a2.meanAreaPx },
+    other: b1 && { seed: b1.seedHex, grains: b1.grainCount, fs: b1.fracSolid, area: b1.meanAreaPx },
   }));
   if (!ok) process.exitCode = 1;
   await page.close();

@@ -4,6 +4,7 @@
 
 import type { Simulation } from "./sim";
 import { Nucleation } from "./nucleation";
+import { stream } from "./rng";
 
 export interface OptHost {
   swapSim(n: number): Simulation;
@@ -42,10 +43,18 @@ class SepCMAES {
     this.damps = 1 + 2 * Math.max(0, Math.sqrt((this.mueff - 1) / (dim + 1)) - 1) + this.cs;
   }
 
+  /**
+   * The search's own stream, so a CMA-ES run is repeatable — and, more
+   * importantly, so the optimizer sampling does NOT consume draws from the
+   * solver's sequence. Sharing one stream would make every cast depend on
+   * whether a search happened to be running beside it.
+   */
+  private rng = stream("optimizer");
+
   private randn(): number {
     let u = 0, v = 0;
-    while (u === 0) u = Math.random();
-    while (v === 0) v = Math.random();
+    while (u === 0) u = this.rng.next();
+    while (v === 0) v = this.rng.next();
     return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
   }
 

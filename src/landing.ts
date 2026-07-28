@@ -13,6 +13,7 @@ import { Simulation } from "./sim";
 import { Renderer } from "./render";
 import { MATERIALS } from "./materials";
 import { LENS_NAMES } from "./shaders";
+import { stream } from "./rng";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -131,8 +132,9 @@ async function boot() {
       twinProb: 0.0008, meltGlow: 1.0, scen: 0, heatIn: 0,
     });
     lensSim.reset(0.12);
+    const r = stream("landing");
     for (let i = 0; i < 9; i++)
-      lensSim.addSeed(Math.random() * LN, Math.random() * LN, 3.5, undefined, 0.02 + Math.random() * 0.08);
+      lensSim.addSeed(r.upto(LN), r.upto(LN), 3.5, undefined, 0.02 + r.upto(0.08));
   };
   pourLens();
   let lensPoll = 0;
@@ -181,8 +183,9 @@ async function boot() {
     const m = MAT_STEPS[idx];
     Object.assign(matSim.params, { scen: 0, heatIn: 0, coolRate: 0.04, twinProb: 0, noiseAmp: 0.012 }, MATERIALS[m.key].params);
     matSim.reset(1 - m.undercool);
+    const r = stream("landing");
     for (let i = 0; i < 6; i++)
-      matSim.addSeed(Math.random() * LN, Math.random() * LN, 3.5);
+      matSim.addSeed(r.upto(LN), r.upto(LN), 3.5);
     matName.textContent = m.name;
     matTemp.textContent = m.temp;
     matFact.textContent = m.fact;

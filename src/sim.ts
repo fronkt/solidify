@@ -5,6 +5,7 @@ import {
   MAX_GRAINS, MAX_SEEDS, SEED_STRIDE, P2, SOLVER, shaderModule,
 } from "./shaders";
 import { DEFAULT_UM_PER_CELL } from "./units";
+import { stream } from "./rng";
 
 export interface PhysParams {
   dx: number;
@@ -208,6 +209,12 @@ export class Simulation {
   private statsInFlight = false;
   private paramData = new ArrayBuffer(P2.BYTES);
   private inFlight = 0;
+  /**
+   * The plane's own stream — grain orientations, twin registry angles, chill-wall
+   * jitter. Separate from the volume's, so switching dimension and back does not
+   * renumber either one's draws.
+   */
+  private rng = stream("sim2d");
 
   /** true when the GPU is >= 2 submitted frames behind — callers should skip stepping */
   get busy() { return this.inFlight >= 2; }
@@ -398,6 +405,10 @@ export class Simulation {
     this.nextId = 1;
     this.frontX = 1.0;
     this.pendingSeeds = [];
+    // the same seed poured twice is the same cast: the GPU noise stream already
+    // restarts here (it is a pure function of cell index and `frame`, both zeroed
+    // above), so the CPU-side draws restart with it
+    this.rng.reset();
     this.theta0CPU.fill(0);
     this.device.queue.writeBuffer(this.theta0Buf, 0, this.theta0CPU);
     // GPU twins allocate ids downward from the top of the range
@@ -436,7 +447,7 @@ export class Simulation {
     this.frontX = 1.0;
     this.pendingSeeds = [];
     this.theta0CPU.fill(0);
-    this.theta0CPU[1] = Math.random() * (2 * Math.PI / this.params.aniMode);
+    this.theta0CPU[1] = this.rng.upto(2 * Math.PI / this.params.aniMode);
     this.nextId = 2;
     this.device.queue.writeBuffer(this.theta0Buf, 0, this.theta0CPU);
     this.device.queue.writeBuffer(this.twinCtrBuf, 0, new Uint32Array([MAX_GRAINS - 1]));
@@ -451,7 +462,7 @@ export class Simulation {
   addSeed(x: number, y: number, r = 4, theta0?: number, dTact = -9): number {
     let id = this.nextId++;
     if (id >= MAX_GRAINS) { this.nextId = 2; id = 1; }
-    const th = theta0 ?? Math.random() * (2 * Math.PI / this.params.aniMode);
+    const th = theta0 ?? this.rng.upto(2 * Math.PI / this.params.aniMode);
     this.theta0CPU[id] = th;
     this.device.queue.writeBuffer(this.theta0Buf, id * 4, this.theta0CPU, id, 1);
     this.pendingSeeds.push({ x, y, r, id, dTact });
@@ -467,8 +478,8 @@ export class Simulation {
    * snowflake; in 4-fold, the 2D analog of a feathery twinned grain.
    */
   addTwinSeed(x: number, y: number, r = 4) {
-    const th = Math.random() * (2 * Math.PI / this.params.aniMode);
-    const ang = Math.random() * Math.PI * 2;
+    const th = this.rng.upto(2 * Math.PI / this.params.aniMode);
+    const ang = this.rng.upto(Math.PI * 2);
     const off = r * 0.45;
     this.addSeed(x - Math.cos(ang) * off, y - Math.sin(ang) * off, r, th);
     this.addSeed(x + Math.cos(ang) * off, y + Math.sin(ang) * off, r, th + Math.PI / this.params.aniMode);
@@ -477,7 +488,7 @@ export class Simulation {
   chillWall(edge: "bottom" | "left" = "bottom", count = 42) {
     const n = this.n;
     for (let i = 0; i < count; i++) {
-      const t = ((i + 0.5) / count + (Math.random() - 0.5) * 0.6 / count) * n;
+      const t = ((i + 0.5) / count + (this.rng.next() - 0.5) * 0.6 / count) * n;
       if (edge === "bottom") this.addSeed(t, n - 3, 3.5);
       else this.addSeed(3, t, 3.5);
     }

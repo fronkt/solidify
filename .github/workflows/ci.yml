@@ -17,10 +17,11 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
-      # The scaling layer, the heat-treatment rate laws and the cooling-curve
-      # analysis are pure arithmetic — no browser, no GPU — so unlike the rest of
-      # the verification suite they can be gated here.
+      # The scaling layer, the seeded RNG contract, the heat-treatment rate laws
+      # and the cooling-curve analysis are pure arithmetic — no browser, no GPU —
+      # so unlike the rest of the verification suite they can be gated here.
       - run: node scripts/verify-units.mjs
+      - run: node scripts/verify-rng.mjs
       - run: node scripts/verify-heattreat.mjs
       - run: node scripts/verify-thermal.mjs
       - run: node scripts/verify-fade.mjs

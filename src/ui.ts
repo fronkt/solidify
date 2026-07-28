@@ -11,6 +11,9 @@ export interface UIHost extends AppControl {
   simParams(): PhysParams;
   /** the live dimensionless<->SI scaling (units.ts) */
   units(): Units;
+  /** the run's RNG seed, and a fresh draw — every stochastic choice descends from it */
+  seedHex(): string;
+  reseed(): void;
   /** model resolution — the one free factor of the three */
   getUmPerCell(): number;
   /** calibrated (Karma–Rappel) mode: available, on, and its one knob */
@@ -637,6 +640,22 @@ export class UI {
     gridNote3.textContent = "192³ = 7.1M voxels — expect ~30 fps; drop to 128³ for full speed";
     sm.append(gridNote3);
     this.only3d.push(grow3, gridNote3);
+
+    // ---- the run's seed. Every stochastic choice in the cast descends from it:
+    // grain orientations, where the nucleation sites sit, what undercooling each
+    // one activates at. Showing it is what lets a result be handed to someone
+    // else — a shared link carries the seed, so they pour the SAME casting
+    // rather than a statistically similar one.
+    const seedRow = this.btnRow(sm);
+    this.button(seedRow, "new seed", () => { this.host.reseed(); this.sync(); });
+    const seedNote = document.createElement("div");
+    seedNote.className = "matnote";
+    sm.append(seedNote);
+    this.binds.push({
+      update: () => {
+        seedNote.textContent = `seed ${this.host.seedHex()} — shared links carry it, so the same cast pours again`;
+      },
+    });
 
     // ---- analyze: foundry instruments (one home — dispatched per mode)
     const an = this.section(rail, "ANALYZE");

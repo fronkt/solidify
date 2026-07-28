@@ -25,6 +25,15 @@ export interface ShareState {
   sl?: [number, number, number, number, number]; // section plane: axis, off, tilt, turn, style
   /** heat-treat setup: temperature °C, hold minutes, spec σ_y MPa (0 = none) — packed only while the panel is open */
   ht?: [number, number, number];
+  /**
+   * (v7.0) the run's RNG seed. This is what turns a link from "the same dials"
+   * into "the same cast": grain orientations, nucleation sites and their
+   * activation undercoolings all descend from it, so a shared link now
+   * reproduces the actual casting rather than a statistically similar one.
+   * Optional, so every pre-v7 link still restores — those simply keep whatever
+   * seed the visitor's page drew.
+   */
+  seed?: number;
 }
 
 // grid-derived / runtime fields that must never ride a link

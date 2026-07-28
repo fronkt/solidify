@@ -21,3 +21,22 @@ import (docs, this file, plan files) until it completes — anything else invali
 before it's even finished, and a crash produced this way is easy to mistake for a real
 regression. Prefer running the full suite as one deliberate foreground checkpoint after a batch
 of edits is done, not interleaved with them.
+
+## An identity assertion needs a liveness assertion beside it
+
+**What happened:** `RNG-REPRO` (v7.0 C0a) was written to prove that two casts at the same seed
+produce the same casting. Its first run reported `sameSeedRepeats: true` — and was wrong. All
+three arms had produced `fracSolid: 0`: the cast was driven entirely through `stepSync`, but the
+emergent nucleation model only fires when a stats readback lands, and those arrive on the *frame*
+loop. So no sites fired, nothing solidified, and three empty results compared equal. The gate was
+only saved by its own difference-half (`differentSeedDiffers: false`), which is the half that had
+felt redundant while writing it.
+
+**Rule:** any gate whose assertion is "these two runs agree" must FIRST assert that the runs did
+something — solid fraction above a floor, a grain count above a floor, a non-empty result set.
+`A === B` is trivially true for two nulls, two zeros and two empty arrays, and every one of those
+is a plausible outcome of a harness bug rather than of the physics being right. State the liveness
+condition in the gate's own output (`castGrew: true`) so a future reader can see it was checked.
+
+Corollary: when writing the difference-half of a symmetry gate feels redundant, that is exactly
+the half that catches the harness. Keep it.

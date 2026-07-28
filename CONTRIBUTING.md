@@ -27,6 +27,11 @@ Open a GitHub issue with: what you expected, what happened, your browser/GPU, an
 rendering or physics bug) a screenshot. If it's a numerics bug, note which lens/material/scenario
 reproduces it — the simulation is deterministic given a seed, so exact repro steps matter.
 
+The fastest way to give exact repro steps is to **share the link**: since v7.0 a `#set=` link
+carries the run's RNG seed alongside the dials, so opening it pours the same casting rather than
+a statistically similar one. The seed is printed in the rail's ENGINE section (with a "new seed"
+button beside it) if you would rather quote it directly.
+
 ## Pull requests
 
 Keep changes scoped — this is a from-scratch WebGPU/WGSL codebase with no framework, so small,

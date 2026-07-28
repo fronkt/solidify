@@ -17,6 +17,7 @@ const SUITE = [
   // the browser-free ones run first because they are instant, and they are the
   // only ones the GitHub workflow can also run
   ["scripts/verify-units.mjs"],
+  ["scripts/verify-rng.mjs"],
   ["scripts/verify-heattreat.mjs"],
   ["scripts/verify-thermal.mjs"],
   ["scripts/verify-fade.mjs"],

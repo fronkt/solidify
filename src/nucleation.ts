@@ -23,6 +23,8 @@
  * The rate per second is never specified anywhere. It falls out.
  */
 
+import { stream } from "./rng";
+
 export interface NucState {
   /** total available sites in the domain (the inoculant addition) */
   nmax: number;
@@ -81,6 +83,12 @@ export class Nucleation {
   private dim3 = false;
   private n = 0;
   private filmFrac = 0;
+  /**
+   * Its own stream, so the site population a charge draws is the same one every
+   * time that seed is poured — and is unaffected by how many grains the solver
+   * happened to claim, or whether the optimizer is searching alongside.
+   */
+  private rng = stream("nucleation");
 
   /** sites that have fired so far */
   get fired(): number { return this.ptr; }
@@ -109,30 +117,34 @@ export class Nucleation {
     this.dTMax = 0;
     this.measT = 0;
     this.measDT = 0;
+    // a fresh melt redraws the same charge: staging is where the stream restarts,
+    // so restage() after a knob move re-places the same particles rather than
+    // shuffling the population every time a slider is touched
+    this.rng.reset();
     const total = Math.max(0, Math.round(this.p.nmax));
     const nFilm = Math.round(total * film);
     for (let i = 0; i < total; i++) {
       const wall = i < nFilm;
       // wall films are potent but few; bulk sites follow the inoculant Gaussian
       const d = wall
-        ? Math.max(0.005, 0.06 + gauss() * 0.02)
-        : Math.max(0.005, this.p.dTN + gauss() * this.p.dTsig);
+        ? Math.max(0.005, 0.06 + this.rng.gauss() * 0.02)
+        : Math.max(0.005, this.p.dTN + this.rng.gauss() * this.p.dTsig);
       this.sites.push(wall ? this.wallSite(d) : this.bulkSite(d));
     }
     this.sites.sort((a, b) => a.d - b.d);
   }
 
   private bulkSite(d: number): Site {
-    const n = this.n;
-    return { d, x: Math.random() * n, y: Math.random() * n, z: this.dim3 ? Math.random() * n : 0 };
+    const n = this.n, r = this.rng;
+    return { d, x: r.upto(n), y: r.upto(n), z: this.dim3 ? r.upto(n) : 0 };
   }
 
   /** a site pinned into the band next to a wall (oxide film / mould contact) */
   private wallSite(d: number): Site {
-    const n = this.n, band = Math.max(2, n * 0.04);
-    const face = Math.floor(Math.random() * (this.dim3 ? 6 : 4));
-    const along = () => Math.random() * n;
-    const near = () => (Math.random() < 0.5 ? Math.random() * band : n - Math.random() * band);
+    const n = this.n, band = Math.max(2, n * 0.04), r = this.rng;
+    const face = r.int(this.dim3 ? 6 : 4);
+    const along = () => r.upto(n);
+    const near = () => (r.next() < 0.5 ? r.upto(band) : n - r.upto(band));
     if (face === 0) return { d, x: near(), y: along(), z: this.dim3 ? along() : 0 };
     if (face === 1) return { d, x: along(), y: near(), z: this.dim3 ? along() : 0 };
     return { d, x: along(), y: along(), z: near() };
@@ -178,10 +190,4 @@ export class Nucleation {
     }
     this.dTMax = target;
   }
-}
-
-/** standard normal, Box-Muller */
-function gauss(): number {
-  const u = Math.max(1e-9, Math.random());
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * Math.random());
 }

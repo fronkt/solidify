@@ -67,6 +67,12 @@ Flip one switch and the instrument solves the **full volumetric phase-field** �
   (the classic stereological underestimate, live), and an inverse-pole-figure texture scatter.
 - **Take it home** — export the crystal as a watertight **STL** (surface-nets mesh, printable),
   record a 6-second **360° turntable** webm, or share the whole setup as a link.
+- **Reproducible casts** (v7.0) — every stochastic choice (grain orientations, where the
+  nucleation sites sit, what undercooling each activates at) descends from one seed, which is
+  printed in the rail and packed into share links. So a shared link pours the *same casting*, not
+  a statistically similar one. The seed is drawn fresh on each visit rather than fixed — an
+  instrument that showed the identical snowflake on every reload would be a worse instrument —
+  but it is always recorded, which is what makes a result something you can hand to someone else.
 - **Guided tour part III** — "Into the volume": five chapters from the first six-armed dendrite
   to porosity NDT and the STL export.
 - **The full instrument** (v3.0) — everything from 2D now runs in the volume: the dilute-alloy

@@ -3,6 +3,7 @@
 // Best |ΔG| wins.
 
 import type { StatsResult } from "./sim";
+import { stream } from "./rng";
 
 export interface ChallengeHost {
   swapGrid(n: number): void;
@@ -34,7 +35,7 @@ export class Challenge {
     if (this.active) return;
     this.active = true;
     this.phase = "brief";
-    this.target = [2.5, 3, 3.5, 4, 4.5][Math.floor(Math.random() * 5)];
+    this.target = [2.5, 3, 3.5, 4, 4.5][stream("challenge").int(5)];
     this.playerG = null;
     this.playerScore = Infinity;
     this.host.swapGrid(GRID);

@@ -1751,3 +1751,92 @@ number — the failure mode this instrument exists to refuse.
         once (`maxLead:0`) then passed clean (`maxLead:150`) on an identical re-run with no edits
         between them — reproduced as a pre-existing flake in a gate this change never touched,
         not a regression (the same class of lesson `GG3-KMC`'s tolerance already recorded).
+
+## v7.0 — CONTROLLED EXPERIMENTS (2026-07-28)
+
+Plan: `~/.claude/plans/crystalline-sniffing-volcano.md`. Frank was asked which of the three
+remaining roadmap arcs to build — v7.0 controlled experiments, Q3 (the 3D quantitative port),
+D3 (convection/freckles) — and answered **all three**. They are sequenced as three releases,
+v7.0 → Q3 → D3, and the reason for that order is gate shape rather than rework:
+`verify-passsplit.mjs` gates the 2D FLUX→PHI→TRANSPORT split as a *zero-physics-change* refactor
+(a bit-exact trajectory comparison). Q3c is that same milestone in the volume. If D3 landed
+first, advection would go into the fused 3D UPDATE and Q3c could no longer be zero-physics-change
+with a bit-exact gate — so Q3 before D3 is the only order in which `PASSSPLIT3` has teeth.
+
+The plan was written from three read-only survey agents (v7 surface, Q3 surface, D3 surface) and
+then put through one adversarial planning pass before any code, the same shape that worked for
+Phase D. That pass changed four decisions and is the reason several of them are what they are —
+each recorded at its own milestone below.
+
+- [x] **C0a — the app becomes reproducible.** `src/rng.ts`: one seeded generator, and every
+      stochastic choice in the physics path now descends from it. Before this, ~41 `Math.random()`
+      call sites across seven files made a run unrepeatable — grain orientations, the 3D Marsaglia
+      quaternions (every 3D grain's orientation), nucleation site placement and its activation
+      Gaussian, chill-wall and chill-floor jitter, the twin probe's site search. The cost of that
+      is already in the ledger: `K_MC_TOL_3D` had to be widened 15 % → 25 % precisely because an
+      unseeded pour moved the measured constant cast to cast (its docblock's six runs spread
+      0.886–1.186 on identical code), and the three verify scripts that needed determinism each
+      grew their own hand-rolled LCG in `scripts/` — fixing the harness and leaving the app
+      irreproducible. `CONTRIBUTING.md` already told contributors "the simulation is deterministic
+      given a seed"; this makes that true.
+      - **The seed is drawn, not fixed.** A fresh visit gets a fresh cast — an instrument that
+        showed the identical snowflake on every reload would be a worse instrument. What changed
+        is that the seed is *recorded*: it rides the share link, it is printed in the ENGINE
+        section beside a "new seed" button, and a gate can pin it. That is how an experiment logs
+        a generator, and it is why the one surviving `Math.random()` in `src/` is the one that
+        draws the seed.
+      - **Streams are derived by name, not by splitting** — `stream("sim3d")` hashes the name
+        (FNV-1a + avalanche) into the seed. Two consequences, both load-bearing: one subsystem's
+        draws can never perturb another's (the optimizer searching does not move the pour, a
+        landing animation does not move a gate), and **adding a new consumer never shifts an
+        existing one's sequence**. Under a sequential split, D3's convection stream and C3's
+        recrystallization stream would each renumber everybody on arrival and silently move every
+        measured constant in the suite. Gated by `RNG-NAME-DERIVATION`, which adds two unborn
+        stream names and requires `sim2d`'s next 16 draws to be byte-identical.
+      - mulberry32, not the `x*1664525 + 1013904223` LCG the verify scripts carry: that LCG's low
+        bits are poor, and two consumers here (Box–Muller, Marsaglia) pair consecutive draws,
+        which is exactly where a weak generator shows up as structure in the output. Measured over
+        20 000 draws: gauss mean 0.0074, sd 0.9956, sign bias 0.0017.
+      - `randomQuat` and `sigma3Of` went from `static` to instance methods so they can reach the
+        volume's stream — a static `randomQuat` would have left the single largest source of
+        randomness in 3D unseeded while everything around it was reproducible.
+      - `reset()` (2D and 3D) and `Nucleation.stage()` rewind their own stream, so the same seed
+        poured twice is the same pour, and `restage()` after a knob move re-places the same
+        particles rather than reshuffling the population every time a slider moves.
+      - Share: `ShareState.seed`, optional (every pre-v7 link still restores), `Number.isFinite`
+        whitelisted per the g3 doctrine, and applied **first in the boot applier** — ahead of
+        `setMaterial` and `applyNucShare`, both of which redraw. A seed restored after them would
+        be a seed the restored cast never used: the same shape as the H7 clobber, where the damage
+        lives in the applier rather than the decoder.
+      - **A bug caught in review before it shipped**: `setSeed` first re-derived streams by
+        swapping the registry entry for a fresh `Rng`. Every consumer caches its stream in a field
+        (`private rng = stream("sim3d")`), so that would have left all of them drawing from the
+        OLD seed — a seed control that visibly does nothing, and a share link that restores a cast
+        it did not actually reproduce. `Rng.rederive()` now mutates in place, and
+        `RNG-REDERIVE-IN-PLACE` gates exactly that: hold a cached stream across a `setSeed` and
+        require it to follow.
+      - **Gates.** `scripts/verify-rng.mjs` — seven browser-free checks (`RNG-DETERMINISM`,
+        `RNG-STREAM-INDEPENDENCE`, `RNG-NAME-DERIVATION`, `RNG-REDERIVE-IN-PLACE`,
+        `RNG-DERIVED-DRAWS`, `RNG-SEED-ROUNDTRIP`, `RNG-NUCLEATION`), joining `npm test` and the
+        **CI set** as its sixth browser-free member. Plus `RNG-REPRO` in `verify-tools.mjs`: a
+        real 512² cast driven by `stepSync`, comparing the **full per-grain census** — same seed
+        gives 400 grains, fracSolid 0.981033325 and all 400 diameters byte-identical across two
+        independent casts; a different seed gives 0.979911804. `SHARE ROUND-TRIP` gained the seed
+        and now sets an exit code (it previously printed `MISMATCH` without failing the build).
+      - **`RNG-REPRO`'s first draft passed for the wrong reason and its own difference-half caught
+        it**: driven purely by `stepSync`, all three arms produced `fracSolid: 0` — because the
+        emergent nucleation model only fires when a stats readback lands, and those arrive on the
+        FRAME loop, which `stepSync` never drives. Three empty results compared equal and reported
+        "reproducible". Two fixes: the cast now seeds through `app.scatterSeeds` + `addSeed`
+        *without* an explicit `theta0` (the canonical helper in `verify-heattreat-gpu` passes its
+        own seeded angle, which is right there and would bypass the very draw under test here),
+        and the gate asserts `castGrew` before it asserts anything about identity. Nucleation's own
+        reproducibility moved to `RNG-NUCLEATION` in the browser-free script, where it belongs —
+        it is pure CPU, so it is faster and CI-runnable there. Lesson shape: **an identity
+        assertion needs a liveness assertion beside it, or "nothing happened twice" reads as
+        success.** (Also a second defect the same run exposed: the readback field is `grainCount`,
+        not `grains` — `st.grains` was silently `undefined` on both sides of an `===`.)
+      - Live browser pass on the UI row, per the v6.3 lesson that typecheck cannot see a dead
+        control: the note renders (`seed 0c3f8a60 — shared links carry it, so the same cast pours
+        again`), the "new seed" button exists, clicking it changes the seed, and the readout
+        follows it.

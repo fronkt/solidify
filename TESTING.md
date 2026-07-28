@@ -37,6 +37,24 @@ this suite. If you want to run the physics/UI verification yourself, do it local
 
 ## What each script checks
 
+- **`verify-rng.mjs`** (v7.0, C0a) — the seeded-stream contract, browser-free in the
+  `verify-units.mjs` style. Seven checks. `RNG-DETERMINISM` (same seed, same sequence; `reset()`
+  is a true rewind; every draw in `[0,1)`, which the site placers assume when they multiply by
+  `n`). `RNG-STREAM-INDEPENDENCE` (two names must not alias, and draining one must not advance
+  another — this is what lets the optimizer search beside a cast without moving it).
+  `RNG-NAME-DERIVATION` — the future-proofing one: it registers two stream names that do not
+  exist yet (`convection`, `recrystallization`) and requires `sim2d`'s next 16 draws to be
+  byte-identical. Streams are derived by hashing the name into the seed rather than by splitting
+  a counter precisely so that D3 and C3 can each take a stream without renumbering everybody and
+  silently moving every measured constant in the suite. `RNG-REDERIVE-IN-PLACE` holds a cached
+  stream across a `setSeed` and requires it to follow the new seed — consumers cache their stream
+  in a field, so a `setSeed` that swapped the registry entry instead of mutating in place would
+  be a seed control that visibly does nothing (caught in review, gated so it cannot return).
+  `RNG-DERIVED-DRAWS` (int/sign/gauss moments over 20 000 draws, 4-sigma bands).
+  `RNG-SEED-ROUNDTRIP` (the eight hex digits the UI prints and the link packs, round-tripped).
+  `RNG-NUCLEATION` stages an 800-site charge twice and requires the fired list to be identical —
+  it lives here rather than in the GPU gate because nucleation only fires on frame-loop stats
+  arrivals, so a `stepSync`-driven cast never exercises it at all.
 - **`verify-heattreat.mjs`** — the arithmetic half of v6.0 heat treatment, browser-free in the
   `verify-units.mjs` style (vite middleware + `ssrLoadModule`, so it loads `src/heattreat.ts`
   rather than re-implementing it — a test that re-implements the thing it is testing proves
@@ -201,6 +219,19 @@ rebuilt to make that relationship emergent:
   readback through that binding silently returns zeros. That shipped once already (postmortem
   #1 in `tasks/todo.md`: the 2D stats struct gained a slot and all stats went to zero for
   weeks). Any milestone that changes a params or stats layout must keep this green.
+- **`RNG-REPRO`** (v7.0, C0a) — the seeded stream end to end through the real solver.
+  `verify-rng.mjs` gates the module's contract; this gates that the *sweep* took, i.e. that no
+  consumer still reaches for `Math.random()` behind the seed's back. A 512² cast is poured three
+  times through `stepSync` — twice at one seed, once at another — and compared on the **full
+  per-grain census**, not just the count: two runs can easily agree on how many grains formed
+  while disagreeing about every one of them (they do here — both seeds give exactly 400 grains,
+  and only the diameters and solid fraction distinguish them). Measured: 400 diameters and
+  `fracSolid` 0.981033325 byte-identical across two independent casts; the other seed gives
+  0.979911804. It seeds via `scatterSeeds` + `addSeed` with **no** explicit `theta0` — the
+  canonical cast helper in `verify-heattreat-gpu` passes its own seeded angle, which is correct
+  there and would bypass the very draw under test here. `castGrew` is asserted before any
+  identity claim: the first draft of this gate compared three arms that had each produced zero
+  solid and pronounced them reproducible (see `tasks/lessons.md`).
 
 **Physics-behaviour tests (v6.0).** Heat treatment is a second model on a second clock — real
 schedule → Arrhenius integral → sweep budget → GPU pass — and the gates split the way the map
@@ -342,7 +373,7 @@ spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 
 that evidence recorded in the constant's own docblock. The drift prints on every run, and
 `HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
-`npm run build` (Vite + `tsc`) plus the five browser-free scripts — `verify-units.mjs`,
-`verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs` and `verify-porosity.mjs` —
-are the checks anyone on any OS can run without a GPU, and are what CI actually gates on
-(`.github/workflows/ci.yml`).
+`npm run build` (Vite + `tsc`) plus the six browser-free scripts — `verify-units.mjs`,
+`verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs` and
+`verify-porosity.mjs` — are the checks anyone on any OS can run without a GPU, and are what CI
+actually gates on (`.github/workflows/ci.yml`).

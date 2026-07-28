@@ -22,6 +22,7 @@ import { Nucleation } from "./nucleation";
 import { Lab, type LabHost, type LabSetup } from "./lab";
 import { HeatPanel, type HeatHost, type Census, regionCensus } from "./heatpanel";
 import { Units, scaleOf, DEFAULT_UM_PER_CELL } from "./units";
+import { stream, getSeed, setSeed, reseed, seedHex } from "./rng";
 import { SOLVER } from "./shaders";
 import { calibrate, defaultLambda, A_T, type QuantSetup } from "./quant";
 import { WT_PER_C0 } from "./alloy";
@@ -410,13 +411,16 @@ async function boot() {
       hideHint();
     },
     scatterSeeds(count) {
+      // the host's own stream: scattering is an operator action, so it must not
+      // consume draws from the solver's sequence and shift the cast underneath it
+      const r = stream("scatter");
       if (mode === "3d" && sim3d) {
         for (let i = 0; i < count; i++)
-          sim3d.addSeed3D(Math.random() * sim3d.n, Math.random() * sim3d.n, Math.random() * sim3d.n, 3.5);
+          sim3d.addSeed3D(r.upto(sim3d.n), r.upto(sim3d.n), r.upto(sim3d.n), 3.5);
         return;
       }
       for (let i = 0; i < count; i++)
-        sim.addSeed(Math.random() * sim.n, Math.random() * sim.n, 3.5);
+        sim.addSeed(r.upto(sim.n), r.upto(sim.n), 3.5);
     },
     // in 3D only the dials both solvers share land on the 3D params — a tour
     // chapter passing 2D-only fields (scen, alloyOn…) must not pollute them
@@ -472,6 +476,10 @@ async function boot() {
     // drive the 3D solver's params — same field names by design
     simParams: () => (mode === "3d" && sim3d ? (sim3d.params as unknown as typeof sim.params) : sim.params),
     units: () => unitsNow(),
+    seedHex: () => seedHex(),
+    // a new seed re-draws every stream, so the next pour is a genuinely new cast
+    // rather than the same one with the dials nudged
+    reseed: () => { reseed(); },
     // ---- calibrated mode (Phase Q). 2D only for now: the volume still runs
     // the Kobayashi solver, and offering a switch that silently did nothing
     // there would be exactly the dead-knob class U0 spent a milestone removing.
@@ -759,19 +767,20 @@ async function boot() {
           p: p3, u: undercool, v: view3d, m: material,
           n: alloyName, nuc: [nuc3.p.nmax, nuc3.p.dTN, nuc3.p.dTsig], lab: labShare(), ht: heatShare(), d: 1, g3: sim3d.n,
           sl: [slice.axis, +slice.off.toFixed(3), Math.round(slice.tilt), Math.round(slice.turn), slice.style],
+          seed: getSeed(),
         });
       }
       return location.origin + location.pathname + packShare({
         p: { ...sim.params }, u: undercool, v: view, m: material,
         n: alloyName, nuc: [nuc.p.nmax, nuc.p.dTN, nuc.p.dTsig], lab: labShare(), ht: heatShare(),
-        sched: recipeSchedule,
+        sched: recipeSchedule, seed: getSeed(),
       });
     },
     shareRecipeLink(r: Recipe) {
       return location.origin + location.pathname + packShare({
         p: { ...sim.params, coolRate: r.cool[0] },
         u: r.undercool, v: 1, m: material, n: alloyName,
-        nuc: [r.nmax, nuc.p.dTN, nuc.p.dTsig], sched: r.cool,
+        nuc: [r.nmax, nuc.p.dTN, nuc.p.dTsig], sched: r.cool, seed: getSeed(),
       });
     },
     applyRecipe(r: Recipe) {
@@ -1076,6 +1085,8 @@ async function boot() {
     units: () => unitsNow(),
     calibrate: (lambda: number) => calibrateNow(lambda),
     setSolver: (kind: number, lambda?: number) => setSolver(kind, lambda),
+    seed: () => getSeed(),
+    setSeed: (s: number) => { setSeed(s); ui.sync(); },
   };
 
   // --------------------------------------------------------------- pointer
@@ -1600,6 +1611,13 @@ async function boot() {
   // shared-setup deep link: restore the whole instrument state, ARMED
   const shared: ShareState | null = location.hash.includes("set=") ? unpackShare(location.hash) : null;
   if (shared) {
+    // FIRST, before anything that draws. setMaterial re-stages the charge and
+    // applyNucShare below re-draws the whole site population — a seed applied
+    // after either of those would be a seed the restored cast never used, which
+    // is the same shape as the H7 clobber (the damage lives in the applier, not
+    // the decoder). Number.isFinite whitelist per the g3 doctrine: a hand-built
+    // link with a string seed keeps the page's own rather than hashing NaN.
+    if (typeof shared.seed === "number" && Number.isFinite(shared.seed)) setSeed(shared.seed);
     if (MATERIALS[shared.m]) app.setMaterial(shared.m);
     // scen numbers mean different things per mode — never cross-assign a 3D
     // link's params into the 2D solver
