@@ -301,9 +301,14 @@ does: `verify-heattreat.mjs` checks the arithmetic anywhere Node runs,
   0.996 — the band is an r²-window statistic within one cast, and cast-to-cast variance
   exceeds it. The 2D drift tolerance was widened 15 % → 25 % with the arithmetic recorded in
   `tasks/todo.md` (the through-origin fit weights points by S², the top rung carries ~half the
-  fit, and its d̄ moves ~9 % between casts — ±20 % swings in K from a healthy pass); the
-  volume keeps `K_MC_TOL_3D` = 15 %, earned by a measured 1.8 % spread, rather than importing
-  the loosening unearned.
+  fit, and its d̄ moves ~9 % between casts — ±20 % swings in K from a healthy pass), and the
+  volume followed it to 25 % in v6.2. This paragraph, the README and the science page all kept
+  the volume's older 15 % for two releases afterwards, each citing a cast-to-cast spread that
+  had been read off two casts which happened to agree. Six consecutive runs of
+  `verify-heattreat-gpu` on identical code returned K/K_shipped = 1.186, 0.924, 1.057, 0.886,
+  0.934, 0.937, so the older gate reds a good build roughly one run in six. `K_MC_TOL_3D`'s own
+  docblock in `src/heattreat.ts` carries that evidence and is the authority if these ever
+  disagree again — which `HT-DOC-CONSTANTS` now exists to prevent.
 - **`GG-STAGNATION` / `GG3-STAGNATION`** — flips per sweep must not decay to zero, because a
   pinned lattice looks exactly like a finished anneal (3D pins harder — that is why the
   neighbourhood is 26 and not 6).

@@ -351,6 +351,51 @@ const CU = M.MATERIALS.cu.si;
   console.log("HT-DEMO   (informational)", JSON.stringify(rows));
 }
 
+// HT-DOC-CONSTANTS (v7.0, C0b) — the prose must quote the constant the code ships.
+//
+// K_MC_TOL_3D was re-measured 15 % -> 25 % in v6.2, and three documents kept the
+// old number for two releases: TESTING.md said the volume "keeps 15 %, earned by
+// a measured 1.8 % spread", README said "K stable to 1.8 % across casts", and
+// science/index.html — the honesty page, whose entire job is to be true — printed
+// "drift gated at 15 %". The constant's own docblock had meanwhile recorded the
+// real six-run spread (1.186, 0.924, 1.057, 0.886, 0.934, 0.937) and explained
+// that the 1.8 % had been read off two casts that happened to agree.
+//
+// Deliberately narrow: it reads the tolerances from the module and requires each
+// document to quote THAT number, and it bans the two specific superseded claims
+// by text. It does not try to parse the prose around them — a rewrite that keeps
+// the numbers right still passes. A gate that policed the wording would be
+// abandoned the first time someone edited a sentence.
+{
+  const { readFileSync } = await import("node:fs");
+  const doc = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+  const pct3 = Math.round(H.K_MC_TOL_3D * 100);
+  const pct2 = Math.round(H.K_MC_TOL * 100);
+
+  const science = doc("science/index.html");
+  const testing = doc("TESTING.md");
+  const readme = doc("README.md");
+
+  // the science page states both tolerances in its measurement table
+  const sciQuotes3D = new RegExp(`drift gated at ${pct3}\\s*%`).test(science);
+  const sciQuotes2D = new RegExp(`drift gated at ${pct2}\\s*%`).test(science);
+  // the shipped pair, wherever it is quoted
+  const pairQuoted = [science, testing, readme].every(t =>
+    t.includes(String(H.M_MODEL_3D)) && t.includes(String(H.K_MC_3D)));
+  // the two claims the re-measurement retired. "1.8 %" was the spread that was
+  // never real; a bare "gated at 15 %" is the tolerance that never held.
+  const stale = [];
+  for (const [name, text] of [["science", science], ["TESTING", testing], ["README", readme]]) {
+    if (/1\.8\s*%\s*(spread|across casts)/.test(text)) stale.push(`${name}: 1.8 % spread`);
+    if (/drift gated at 15\s*%/.test(text)) stale.push(`${name}: drift gated at 15 %`);
+  }
+
+  check("HT-DOC-CONSTANTS", sciQuotes3D && sciQuotes2D && pairQuoted && stale.length === 0, {
+    shipped: { K_MC_TOL: H.K_MC_TOL, K_MC_TOL_3D: H.K_MC_TOL_3D, M_MODEL_3D: H.M_MODEL_3D, K_MC_3D: H.K_MC_3D },
+    scienceQuotes: { "2D": sciQuotes2D, "3D": sciQuotes3D }, pairQuoted, staleClaims: stale,
+  });
+}
+
 await server.close();
 console.log(failures ? `done — ${failures} FAILED` : "done");
 if (failures) process.exitCode = 1;

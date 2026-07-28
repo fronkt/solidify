@@ -513,15 +513,25 @@ export class UI {
     alloy.append(this.alloyPanel);
     this.slider(this.alloyPanel, "composition c₀", 0.05, 0.7, 0.01, () => p().c0, v => { p().c0 = v; });
     this.slider(this.alloyPanel, "liquidus slope", 0.1, 0.8, 0.01, () => p().mLiq, v => { p().mLiq = v; });
-    this.slider(this.alloyPanel, "solute D", 0.2, 1.5, 0.05, () => p().dSol, v => { p().dSol = v; });
+    // dSol joins `derived`: calibrated mode overwrites it with the scaled
+    // diffusivity (main.ts setSolver, `dSol: q.dTilde`), so leaving it live was
+    // the dead-knob class — a dial the user can drag whose value is replaced on
+    // the next calibration without anything saying so.
+    this.derived.push(
+      this.slider(this.alloyPanel, "solute D", 0.2, 1.5, 0.05, () => p().dSol, v => { p().dSol = v; }));
 
     // ---- crystal
     const cr = this.section(rail, "CRYSTAL");
-    this.slider(cr, "anisotropy δ", 0, 0.08, 0.001, () => p().delta, v => { p().delta = v; }, v => v.toFixed(3),
-      // the icosahedral energy loses convexity well below the cubic range, and
-      // the shader clamps there — so the dial narrows rather than reading a
-      // value the solver is quietly ignoring
-      () => [0, host.getMode() === "3d" && host.getSym3() === 5 ? ICOSA_DELTA_MAX : 0.08]);
+    // δ joins `derived` too: calibrated mode sets it from the material's own
+    // measured ε₄ (`delta: si.eps4`), which is precisely why the note below the
+    // calibration switch already told the reader δ was "no longer a choice" —
+    // the sentence was right and the dial had not been told.
+    this.derived.push(
+      this.slider(cr, "anisotropy δ", 0, 0.08, 0.001, () => p().delta, v => { p().delta = v; }, v => v.toFixed(3),
+        // the icosahedral energy loses convexity well below the cubic range, and
+        // the shader clamps there — so the dial narrows rather than reading a
+        // value the solver is quietly ignoring
+        () => [0, host.getMode() === "3d" && host.getSym3() === 5 ? ICOSA_DELTA_MAX : 0.08]));
     // in 2D, a periodic lattice permits exactly 2-, 3-, 4- and 6-fold rotational
     // symmetry (the crystallographic restriction theorem); 5- and 10-fold are the
     // "forbidden" symmetries only quasicrystals achieve
@@ -814,7 +824,7 @@ export class UI {
       ? `d₀ ${nm(cal.d0)} · W₀ ${nm(cal.W0)} · τ₀ ${cal.tau0 < 1e-3
           ? cal.tau0.toExponential(1) + " s" : cal.tau0.toPrecision(2) + " s"}`
         + `<br>one degree = ${cal.dT0.toFixed(1)} K · cell ${cal.umPerCell.toFixed(3)} µm`
-        + `<br><span style="color:#7fd18b">W₀ and τ₀ are derived from Γ and D — ε̄, τ, α, γ, δ and the cell pitch are no longer choices.</span>`
+        + `<br><span style="color:#7fd18b">W₀ and τ₀ are derived from Γ and D — ε̄, τ, α, γ, δ, the solute D and the cell pitch are no longer choices.</span>`
       : host.canCalibrate()
         ? "derive W₀ and τ₀ from this material's real capillary length and diffusivity — tip radius and arm spacing stop being shapes and start being predictions"
         : m3

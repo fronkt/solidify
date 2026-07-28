@@ -181,7 +181,12 @@ export class Simulation {
   private statsBG: GPUBindGroup[] = [];
 
   // ---- heat treatment (v6.0). Inert until a treatment runs; see shaders.ts.
-  /** r8uint "this cell is treatable" — one auditable place for the rule */
+  /**
+   * r32uint "this cell is treatable" — one auditable place for the rule.
+   * r32uint, not the r8uint this comment used to claim: r8uint cannot be a
+   * storage texture in core WebGPU at all, which is why both dimensions pay
+   * 4 bytes a cell for a one-bit fact (see the note above `HTMASK_WGSL`).
+   */
   private htMaskTex!: GPUTexture;
   /**
    * HT_COLOURS_2D uniform structs at 256 B stride, one per sublattice.

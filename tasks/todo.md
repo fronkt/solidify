@@ -1840,3 +1840,49 @@ each recorded at its own milestone below.
         control: the note renders (`seed 0c3f8a60 — shared links carry it, so the same cast pours
         again`), the "new seed" button exists, clicking it changes the seed, and the readout
         follows it.
+
+- [x] **C0b — three documents were printing a number the code had retired.** Kept deliberately
+      separate from C0c (which is a physics change) so that a suite failure in this window has
+      one candidate cause rather than five.
+      - **The defect.** `K_MC_TOL_3D` was re-measured 15 % → 25 % in v6.2, and its docblock
+        recorded why in full: six consecutive runs of `verify-heattreat-gpu` on identical code
+        returned K/K_shipped = 1.186, 0.924, 1.057, 0.886, 0.934, 0.937, and the cast-to-cast
+        spread the 15 % had been justified by "was read off casts that happened to agree". Three
+        documents never followed: `TESTING.md` said the volume "keeps `K_MC_TOL_3D` = 15 %, earned
+        by a measured 1.8 % spread"; `README.md` said "K stable to 1.8 % across casts"; and
+        `science/index.html` — the honesty page, whose entire job is to be true — printed
+        "K = 1.28 (1.8 % spread), drift gated at 15 %" in its measurement table. All three now
+        quote the shipped tolerance and the real six-run spread. Of everything found in the v7.0
+        surveys this was the one defect that was flatly a false claim rather than an absence.
+      - **`HT-DOC-CONSTANTS`** (new, in browser-free `verify-heattreat.mjs`, so it is in CI):
+        reads the tolerances and the (m, K) pair from the module and requires each document to
+        quote *those* numbers, plus bans the two retired claims by text. Deliberately narrow — it
+        does not parse the prose around them, because a gate that policed wording would be
+        abandoned the first time someone edited a sentence. **It failed on its first run and the
+        offender was this very milestone's own new TESTING.md sentence**, which quoted "1.8 %
+        spread" in the course of explaining why that claim was retired. Rewritten to describe the
+        retired claim rather than restate it: a gate that has to understand quotation is a gate
+        that produces confusing failures later.
+      - **The δ and solute-D dead knobs.** `setSolver` overwrites both (`delta: si.eps4`,
+        `dSol: q.dTilde`) and the note under the calibration switch already told the reader δ was
+        "no longer a choice" — but neither slider was in `Ui.derived`, so both stayed fully
+        interactive. The sentence was right and the dials had not been told. Both now join
+        `derived` (five rows → seven), which is also exactly what `todo.md`'s own Q4 entry claimed
+        greys out — the docs had recorded the intent and the implementation was short of it. The
+        note now names the solute D as well. Verified live rather than by typecheck: OFF `1/auto`
+        on every row, ON `0.42/none` on ε̄, τ, δ and solute D alike, and clean restoration on
+        exit. (The first probe reported *nothing* greying, including ε̄ which predates this
+        change — a bug in the probe's own selector, which matched an ancestor of the `.row`
+        rather than the `.row`. Worth recording: when a check says a long-shipped feature is
+        broken, suspect the check.)
+      - Two stale in-code references corrected: `sim.ts`'s htMaskTex comment said `r8uint` where
+        the code creates `r32uint` (r8uint cannot be a storage texture in core WebGPU at all —
+        which is the actual reason both dimensions pay 4 bytes a cell for a one-bit fact, so the
+        comment now says that), and `heattreat.ts` cited `sim.ts:623` for the ASTM three-grain
+        floor, which now lives in `readStats`'s `count >= 3` guard — named by symbol rather than
+        by line, since a line number is a reference that rots on the next edit.
+      - Noted for **C1**: `K_MC_TOL_3D`'s docblock names two sources of its spread, and C0a just
+        closed one of them for the app (the pour's orientations are now seeded). The 3D gate does
+        not yet pin the app seed, so the tolerance is unchanged here — re-measuring it is a
+        *measurement* task, which is precisely what the comparator layer exists to do, and it is
+        the honest place to earn a tighter gate rather than assert one.

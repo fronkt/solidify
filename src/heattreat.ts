@@ -450,7 +450,8 @@ export function sweepsFor(
  *
  * Grain statistics stop meaning anything when there are only a handful of grains
  * in the frame: the ASTM estimator already gives up below three
- * (`sim.ts:623`), boundary-truncated grains bias the mean area low by an amount
+ * (`Simulation.readStats`, the `count >= 3` guard), boundary-truncated grains
+ * bias the mean area low by an amount
  * that grows as the grains do, and a Potts calibration measured at hundreds of
  * grains does not hold at five.
  *

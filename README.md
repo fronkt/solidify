@@ -295,7 +295,8 @@ They meet at the endpoint and nowhere else: the material law says where the grai
 Potts pass spends whatever sweeps its own kinetics need to get there, and the trajectory between
 is the model's. `m` and `K_MC` are measured properties of this implementation, not assumptions —
 `m = 2.44`, `K_MC = 4.79` in the plane (three casts: 2.38 / 2.44 / 2.61, overlapping bands) and
-`m = 2.25`, `K_MC = 1.28` in the volume (K stable to 1.8 % across casts at the pinned exponent).
+`m = 2.25`, `K_MC = 1.28` in the volume (six casts at the pinned exponent spread K/K_shipped
+1.186 → 0.886, which is why the volume's drift gate is 25 % and not the 15 % it first shipped at).
 Ideal curvature-driven growth is parabolic; a finite-state lattice Potts model is not, and
 assuming `m = 2` was measured to cost 9 499 sweeps against the correct 1 980 — a 4.8× budget
 error in a number nothing else in the app would have contradicted.
