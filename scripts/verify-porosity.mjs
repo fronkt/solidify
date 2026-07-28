@@ -76,6 +76,65 @@ const near = (a, b, tol) => Number.isFinite(a) && Math.abs(a - b) <= tol;
   check("POR-KNOWN", ok, { cLiquid: +air.cLiquid.toFixed(3), cRejected: +air.cRejected.toFixed(3), pPore: +air.pPore.toFixed(3) });
 }
 
+// POR-PORE-SOLUTE (v7.0, C0c) — every exit of the 3D update pass that writes the
+// state must also hand the solute over.
+//
+// update3dWgsl has four `return;` paths: the out-of-bounds guard (which writes
+// nothing), the mould wall, an existing pore, and a voxel voiding for the FIRST
+// time. The last one used to write stateOut and grainOut and then return WITHOUT
+// writing soluteOut, while its two siblings both passed `conc` through. Under
+// the ping-pong that left the output slot holding what had been written two
+// substeps earlier; the next pass read that stale value back, and the
+// already-a-pore branch then preserved it for the rest of the run.
+//
+// This is gated structurally rather than numerically, and that is the honest
+// choice: the solute field feeds back into freezing through the constitutional
+// undercooling, so fixing it changes which voxels void at all (measured: 24560
+// pores against 26324 from the same seed). Two runs that diverge cannot be
+// differenced to isolate one branch — the wrong-comparison class this repo has
+// paid for four times. What IS provable, exactly and without a tolerance, is the
+// invariant itself: writes state => writes solute, on every path.
+{
+  const S = await server.ssrLoadModule("/src/shaders3d.ts");
+  const rows = [];
+  let ok = true;
+
+  let stateExits = 0;
+  for (const alloy of [true, false]) {
+    const src = S.update3dWgsl(alloy);
+    const segs = src.split(/\breturn\s*;/).slice(0, -1);
+    for (let i = 0; i < segs.length; i++) {
+      // Isolate the branch BODY: the text after the last `{` before this return.
+      // Not a fixed character window — the main path's own soluteOut store sits
+      // upstream of the pore-formation branch in the same segment, so the window
+      // is load-bearing, and a fixed one would silently widen or narrow with the
+      // length of whatever comment happens to be in the block. (A 600-char
+      // window did exactly that on this gate's first run: it pushed the
+      // formation branch's stateOut/grainOut writes out of view and reported
+      // writesState:false, which would have let the invariant pass vacuously.)
+      const block = segs[i].slice(segs[i].lastIndexOf("{") + 1);
+      const writesState = /textureStore\((stateOut|grainOut)/.test(block);
+      const writesSolute = /textureStore\(soluteOut/.test(block);
+      if (alloy && writesState) stateExits++;
+      // the bounds guard writes nothing and owes nothing; every other exit that
+      // touches the state owes the solute too — but only when there IS a solute
+      // texture bound, since layout:"auto" drops unused bindings and
+      // dummy-binding storage is what caused the v1.9 black-canvas bug
+      const good = alloy ? (!writesState || writesSolute) : !writesSolute;
+      if (!good) ok = false;
+      rows.push({ alloy, exit: i, writesState, writesSolute, good });
+    }
+  }
+  // Cross-check the count against the structure rather than a magic number:
+  // every state-writing exit stores solute, plus exactly one more for the normal
+  // path that falls through to the end. The base build binds no solute at all.
+  const alloyStores = (S.update3dWgsl(true).match(/textureStore\(soluteOut/g) || []).length;
+  const baseStores = (S.update3dWgsl(false).match(/textureStore\(soluteOut/g) || []).length;
+  ok = ok && stateExits === 3 && alloyStores === stateExits + 1 && baseStores === 0;
+
+  check("POR-PORE-SOLUTE", ok, { alloyStores, baseStores, exits: rows });
+}
+
 await server.close();
 console.log(failures ? `done — ${failures} FAILED` : "done — all porosity checks passed");
 if (failures) process.exitCode = 1;

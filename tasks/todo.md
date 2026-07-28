@@ -1886,3 +1886,52 @@ each recorded at its own milestone below.
         not yet pin the app seed, so the tolerance is unchanged here — re-measuring it is a
         *measurement* task, which is precisely what the comparator layer exists to do, and it is
         the honest place to earn a tighter gate rather than assert one.
+
+- [x] **C0c — the pore branch was dropping the solute on its way out.** `update3dWgsl` has four
+      `return;` paths: the out-of-bounds guard (writes nothing), the mould wall, an
+      already-a-pore voxel, and a voxel voiding for the FIRST time. The first three were
+      consistent; the fourth wrote `stateOut` and `grainOut` and returned **without** writing
+      `soluteOut`, while both of its siblings pass `conc` through. Under the ping-pong that left
+      the output slot holding what had been written two substeps earlier — the next pass read
+      that stale value back, and the already-a-pore branch then preserved it for the rest of the
+      run. Latent today; a real conservation hole the moment D3 advects solute through these
+      cells, which is why it is fixed now rather than in D3.
+      - **Landed alone, and the reason is in the measurement.** The plan called for a "mass
+        witness". Building it found that total solute is *not* conserved in the 3D alloy model at
+        all — it grew 51 % over a freeze in the first probe — because the Warren–Boettinger
+        rejection term (`+(1−k)·c·dφ`) is a source and is explicitly not in flux-conservative
+        form. So a conservation drift is the wrong witness: it would have been a tolerance
+        wrapped around a number that moves for reasons unrelated to this branch.
+      - **The A/B could not isolate it either, and that is the interesting part.** Same seed,
+        fix vs no fix: 24 560 pores against 26 324. The solute field feeds back into freezing
+        through the constitutional undercooling, so changing one voxel's solute changes where the
+        next one voids, and the two casts diverge into genuinely different castings within a few
+        hundred substeps. Differencing them measures the divergence, not the branch — the
+        wrong-comparison class this repo has now paid for a fifth time. (The first attempt at a
+        continuity metric duly reported 43 % vs 36 % "exactly continuous" and a max jump of
+        0.016 vs 0.022 — a real difference in the tail, 96 large jumps down to 7, but not a
+        number any honest gate could be built on, because the two arms were no longer the same
+        experiment.)
+      - **So it is gated structurally, which is what was actually provable.**
+        **`POR-PORE-SOLUTE`** (browser-free, in `verify-porosity.mjs`, so CI runs it) loads
+        `update3dWgsl` and asserts the invariant directly: in the alloy build, **every exit that
+        writes the state must also write the solute** — and in the base build, none may, since
+        `layout:"auto"` drops unused bindings and dummy-binding storage is the v1.9 black-canvas
+        bug. Cross-checked against the structure rather than a magic number (`alloyStores ===
+        stateExits + 1`, the extra one being the normal fall-through path). **Verified against
+        both arms**: it fails on the pre-fix shader naming `exit 3` exactly, and passes on the
+        fixed one.
+      - Two defects in the gate itself, caught before it shipped: the count assertion was written
+        as 3 when the answer is 4 (three early exits plus the main path), and the branch body was
+        first isolated with a fixed 600-character window — which the long explanatory comment
+        added in this very commit pushed the `stateOut`/`grainOut` writes out of, reporting
+        `writesState: false` and letting the invariant pass **vacuously**. The window now runs
+        from the last `{` before the return, so it is the branch body by construction and cannot
+        drift with comment length. Same failure shape as C0a's: a check that reports success
+        because it stopped looking at the thing it was checking.
+      - Hit a documented lesson head-on while writing it: the explanatory comment originally
+        contained backticks around an identifier, **inside a WGSL template literal** — which
+        terminates the literal and breaks the build (Phase Q lesson 5, already in the ledger).
+        `tsc` caught it as `TS1005: ',' expected`. Also cost one confusing cycle: a stale dev
+        server left over from the previous milestone was still holding port 5199, so the first
+        probe run was served pre-edit code behind a 500.

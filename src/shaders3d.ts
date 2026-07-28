@@ -408,6 +408,15 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     if (hash3(gid.x, gid.y * 31u + gid.z, 977u) < P.pPore * 0.12) {
       textureStore(stateOut, c, vec4f(0.0, TNew, 0.0, 0.0));
       textureStore(grainOut, c, vec4u(PORE, 0u, 0u, 0u));
+      // hand the solute over on the way out. This early return is the only one
+      // of the three that used to skip soluteOut — the mould-wall branch and
+      // the already-a-pore branch both pass conc through — so a voxel voiding
+      // for the FIRST time left the output slot holding what the ping-pong had
+      // written two substeps earlier, and the next pass read that stale value
+      // back and then froze it forever (the already-a-pore branch preserves
+      // whatever it finds). Small per event, permanent, and it becomes a real
+      // conservation hole the moment D3 advects solute through these cells.
+      ${alloy ? "textureStore(soluteOut, c, vec4f(conc, 0.0, 0.0, 0.0));" : ""}
       return;
     }
   }
