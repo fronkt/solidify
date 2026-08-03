@@ -1261,18 +1261,24 @@ export class Sim3D {
     return true;
   }
 
-  /** write one HT uniform struct per colour, sharing a per-sweep RNG salt */
-  private writeHt(salt: number, kT: number) {
+  /** write one HT uniform struct per colour, sharing a per-sweep RNG salt.
+   *  `pin` (v7.0 C2): same packing as 2D's writer — fraction in `pinF`, radius
+   *  in flags bits 8..15, read only by the mask pass; {0, 0} is byte-identical
+   *  to the pre-C2 write. */
+  private writeHt(salt: number, kT: number, pin?: { f: number; r: number }) {
     const u = new Uint32Array(this.htData);
     const f = new Float32Array(this.htData);
+    const pinR = pin ? Math.max(0, Math.min(255, Math.round(pin.r))) : 0;
+    const pinF = pin ? Math.max(0, pin.f) : 0;
     for (let c = 0; c < HT_COLOURS_3D; c++) {
       const b = (c * HT_STRIDE) / 4;
       u[b + H2U.n] = this.n;
       u[b + H2U.colour] = c;
       u[b + H2U.salt] = salt >>> 0;
       f[b + H2U.kT] = kT;
-      u[b + H2U.flags] = 1;
+      u[b + H2U.flags] = 1 | (pinR << 8);
       u[b + H2U.idFloor] = this.nextId;
+      f[b + H2U.pinF] = pinF;
     }
     this.device.queue.writeBuffer(this.htBuf!, 0, this.htData);
   }
@@ -1297,14 +1303,17 @@ export class Sim3D {
    * calls out. The refresh is cheap once per treatment and lands the invariant
    * where it belongs: leaving `anneal`, the mirror is current.
    */
-  async anneal(sweeps: number, kT = HT_KT_DEFAULT, onProgress?: (done: number) => boolean | void): Promise<number> {
+  async anneal(
+    sweeps: number, kT = HT_KT_DEFAULT, onProgress?: (done: number) => boolean | void,
+    pin?: { f: number; r: number },
+  ): Promise<number> {
     if (HT_COLOURS_3D % 2 !== 0) throw new Error("HT_COLOURS_3D must be even — see anneal()");
     const total = Math.max(0, Math.floor(sweeps));
     if (total === 0) return 0;
     if (!(await this.ensureHt())) return 0;
     // rebuild the "which voxels may be treated" mask from the current state —
     // once per treatment, not per sweep: φ is frozen for the duration
-    this.writeHt(0, kT);
+    this.writeHt(0, kT, pin);
     {
       const enc = this.device.createCommandEncoder();
       const pass = enc.beginComputePass();
@@ -1317,7 +1326,7 @@ export class Sim3D {
     let delivered = total;
     for (let s = 0; s < total; s++) {
       // salt 0 is the mask pass; start sweeps at 1 so no sweep shares its stream
-      this.writeHt(s + 1, kT);
+      this.writeHt(s + 1, kT, pin);
       const enc = this.device.createCommandEncoder();
       const pass = enc.beginComputePass();
       pass.setPipeline(this.annealPipe!);

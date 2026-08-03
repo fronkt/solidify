@@ -2027,3 +2027,92 @@ each recorded at its own milestone below.
         diameter list element-wise at RNG-REPRO's own precisions; and the stamp-drain divisor
         was a hardcoded 96 where `MAX_SEEDS` is 192 (safe direction, twice the drains needed,
         but a magic number where the constant exists — now imported).
+
+- [x] **C2 — Zener pinning, as a mode on the HT uniform.** The mechanism was already in the
+      building: the H2b postmortem watched liquid films pin these boundaries because the mask
+      excludes them — so a Zener dispersion is PURELY a mask-pass feature. A deterministic
+      particle fabric (hash-derived centres, discs/spheres of radius r cells at nominal
+      fraction f, one fixed fabric salt shared by both dims) is marked mask-ineligible; the
+      anneal shaders are UNTOUCHED, no grain id is written, no census entry appears, and the
+      renderers see nothing. Parameters ride writeHt: fraction in the pinF slot (the one slot
+      free in both dims), radius in flags bits 8..15. Default 0 = the pre-C2 furnace, byte for
+      byte, in the uniform struct itself.
+      - **The law is measured, and it is this lattice's own.** Nine plateaued ladders
+        (f 0.03–0.12, r 1–5 cells, two starting structures; each ladder 5–27 s) fit
+        d_lim = 7.24·r^0.205/f^0.356 cells, worst residual 5.4 %. Deliberately not classic
+        Zener's r/f (a 3D rigid-boundary derivation) and not Srolovitz 1984's T = 0 2D Potts
+        r/√f: this model anneals at kT = 0.6, where thermal flips detach boundaries from small
+        obstacles (the weak r-exponent), and its count-weighted census reads the whole pinned
+        population. Confounds ruled out by measurement before shipping: d₀-flooring (a fine
+        cast with d₀ 10.6 plateaus within 5 % of the coarse cast's limit — start-structure
+        memory is real, small, and inside the gate tolerance) and plateau creep (the f = 0.03
+        arm run to 9 500 sweeps moved 0.26 % over its last 2 500). The r-lever looked dead at
+        r = 2→3 (1.05×) and real at r = 1→5 (1.43×) — a short lever reads as no effect, the
+        same knife-edge family as the exponent-fit lessons.
+      - **Panel**: two dials appended AFTER the three the gates drive positionally (dispersion
+        vol %, particle radius in cells with the µm equivalent printed); the note pre-judges
+        with the measured law and clips the spec verdict's endpoint to min(law, d_lim); the
+        dispersion latches at the pour with the spec; the card's pinned row prints the law by
+        name. In the VOLUME the dials work but the note and card decline to print a d_lim —
+        the mechanism is shared, the law is only measured in the plane, and borrowing a fit
+        across a dimension change is how M_MODEL_3D earned its own constant. Share: the ht
+        tuple grew the optional tail [t, min, spec, f?, rCells?]; the applier accepts 3 or 5,
+        whole-rejection stance kept.
+      - **Gates** (all green, three suite-runs deep): GG-PIN-OFF-IDENTITY (same-binary arms,
+        full-field exact, 103 336 flips each, identical; pinned arm differs and flips fewer;
+        GG-KMC continuity is the pre-C2 anchor), GG-PIN-LIMIT (three ladders on the law within
+        8 %, plateaued, f-ordered, 0.37× the unpinned contrast), PIN3-LIVE (wall guarantee: 0
+        fabric flips of ~30 000 against a JS hash-replica fabric, fabric nonempty at 9 %),
+        HT-PIN-PANEL (surface wiring incl. the dPred first-arrow hazard), HT-ZENER +
+        PIN-STRUCTURE (browser-free, CI: law arithmetic + the anneal-shaders-read-no-particle
+        invariant), HT-DOC-CONSTANTS extended (science must quote the measured triple; the
+        absolute "grain growth is unpinned" is a banned stale claim in all three documents).
+      - **Postmortem — the gate that asserted a proxy.** PIN3-LIVE's first cut demanded the
+        pinned arm flip FEWER cells than a plain arm and failed on a correct build: excluding
+        particle cells from the energy sum flattens the local landscape (flat moves are always
+        taken), so at 10 % coverage the extra flat moves near particle surfaces outweigh the
+        migration suppression over a short window — the flip count is not monotone in pinning.
+        The rewrite asserts what the mask construction actually guarantees (a fabric cell can
+        never change id), checked against an exact JS replica of the WGSL hash (Math.imul wraps
+        identically; a ≤50-flip tolerance covers the f32-vs-f64 threshold boundary, measured
+        0). Same family as the wrong-comparison ledger: the assertion must be the mechanism's
+        own invariant, not a directional proxy that usually co-occurs with it.
+      - Two gate self-catches before shipping: PIN-STRUCTURE's "anneal shaders are
+        particle-free" regex matched the shared HT struct DECLARATION in every shader
+        (the invariant is a READ — `H.pinF` — not the field's existence), and
+        HT-DOC-CONSTANTS' ban on "grain growth is unpinned" matched the new honest sentence
+        ("unpinned by default") until a lookahead excluded it — both the vacuous-window class
+        from C0c, caught by running the gate against both arms before trusting it.
+      - Flake ledger, one run each on identical trees: GG3-KMC's r² printed 0.98473 against
+        its 0.985 floor once (historical band 0.993–0.997; the cast3 freeze loop stops on a
+        stats-poll threshold, so upstream wall-clock shifts move the cast — the documented
+        wobble, green on re-run at 0.99481 and 0.99119), and REFINE-FAIR's 600-site arm read
+        376 vs 319 grains once (its casts ride the page-load seed; green on re-run at
+        371/366). Neither is C2's doing — the mask changes touch only anneal eligibility.
+      - **Adversarial review before commit (5 lenses → 28 findings; 14 skeptic-judged: 9
+        confirmed, 5 refuted; the unjudged tail hand-triaged to 7 more).** The blocker was a
+        self-reference: TESTING.md's description of the new stale-claim ban QUOTED the banned
+        phrase verbatim, so the doc gate failed on the tree that introduced it — reworded, and
+        recorded as the class a text gate has to survive. The real ones: PIN-STRUCTURE checked
+        that the particle test EXISTS, not that the mask CALLS it (dead text satisfied every
+        regex — now `&& !inParticle(` and the salt's call-site are asserted, and the negative
+        anneal check gained a positive liveness anchor so a renamed export cannot make it
+        vacuous); HT-PIN-PANEL asserted the first arrow exists rather than that it is UNCHANGED
+        from the unpinned note (now captured before pinning and compared); endUm() had no d₀
+        floor, so a fabric finer than the casting predicted grain REFINEMENT through an anneal
+        (floored, with a pinNote branch that says the furnace stalls where it stands); the
+        stress-relief note was silent about a latched dispersion the card would then print; the
+        contrast comment said "matched sweeps" with a stale 0.34 where the horizons differ by
+        design and the measurement is 0.37; the printed formula equated a µm value to a
+        CELLS-valued law with no unit at four sites (" cells" appended); and the claimed
+        "three-element pre-C2 link still restores" had no gate (HT-SHARE-PRE-C2 added). From
+        the tail: setup() now packs the pre-C2 3-tuple whenever the dispersion is off (old
+        links and old pages keep working; the tail appears exactly when the mode is in use);
+        the dispersion resets with the spec on every panel open; a restored fraction snaps to
+        the dial step (a hand-built 0.0004 would have pinned the run while printing
+        "0.0 vol %"); the coverage comment's "overlap makes it slightly less" was wrong in
+        sign at small r (the Gauss-circle count makes r = 1 cover 5 cells against π·1² — the
+        law is a law in the DIALLED numbers and absorbs it, which is now what the comment
+        says); and the science page's "bit-identical to the pre-C2 anneal" was restated as
+        what the two gates actually prove (same-binary call-shape identity + the standing
+        GG-KMC drift anchor).

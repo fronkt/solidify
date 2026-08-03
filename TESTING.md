@@ -414,6 +414,51 @@ open one shows none, with `pPore` deliberately amplified to force a clear signal
 run. `MOULD-SHARE`/`MOULD-SHARE-MALFORMED` join `verify-tools.mjs`, mirroring the `HT-SHARE`
 pair for the lab tuple's 9th element.
 
+**v7.0 C2 — the Zener dispersion.** Pinning is a MODE on the heat-treat uniform (fraction in
+the `pinF` slot, radius in flags bits), implemented entirely in the eligibility-MASK pass —
+particles are mask-ineligible cells, the exact wall semantics liquid films, pores and mould
+walls already have, and the anneal shaders are untouched. Six gates:
+
+- **`GG-PIN-OFF-IDENTITY`** — the keystone: the mode at zero is the pre-C2 anneal, bit for
+  bit. Two same-binary arms from byte-identical casts (the pre-C2 call shape vs `{f: 0, r: 0}`)
+  compare full-field element-exact (103 336 flips in each, fields identical); the pre-C2
+  ANCHOR is `GG-KMC` continuing to measure the shipped constants. Liveness beside identity:
+  both arms must have flipped, and the pinned third arm must differ AND flip fewer.
+- **`GG-PIN-LIMIT`** — the pinned arm gets a LAW, not an exemption. Three (f, r) ladders must
+  each plateau (last-rung growth < 1.2 % where the unpinned lattice grows 4.4 %), sit within
+  8 % of the shipped `d_lim = 7.24·r^0.205/f^0.356` (fitted over nine plateaued ladders, worst
+  residual 5.4 %; the exponents are this lattice's own — finite-kT detachment and a
+  count-weighted census, deliberately not classic Zener's r/f or Srolovitz's T = 0 r/√f), and
+  order correctly in f. An unpinned mini-arm is the contrast: the f = 0.12 specimen's plateau
+  (6 000 sweeps) must sit below 0.45× the unpinned arm at 3 000 sweeps — deliberately different
+  horizons in the strict direction, since the unpinned specimen only grows past 3 000
+  (measured 0.37).
+- **`PIN3-LIVE`** — the volume's fabric, asserted as the WALL GUARANTEE: the pinned arm's
+  flipped voxels must avoid a JS replica of the hash fabric (measured: 0 fabric flips of
+  ~30 000), with the fabric proven nonempty (~9 % of a lattice sample). Its first cut demanded
+  "pinned flips fewer than plain" and failed on a correct build — excluding particles from the
+  energy sum ADDS flat moves near particle surfaces, so the flip count is not monotone in
+  pinning. Assert the mechanism's own invariant, not a directional proxy of it.
+- **`HT-PIN-PANEL`** — the operator surface, cheaply: dials append after the three the other
+  panel gates drive positionally, the note pre-judges with the measured law without
+  introducing an arrow before the law prediction (the `dPred` parse hazard), a near-noop
+  pinned run's card carries the `pinned` row, and zero reverts the note.
+- **`HT-ZENER` / `PIN-STRUCTURE`** (browser-free, in CI) — the limit law's arithmetic
+  (off-states answer Infinity, monotone the two directions the ladders measure, one spot
+  recomputed from the exported constants — a formula-shape check; the constants' values are
+  GG-PIN-LIMIT's job), and the POR-PORE-SOLUTE-style structural invariants: the particle
+  test lives in BOTH mask shaders behind the f ≤ 0 guard, the ANNEAL shaders read no particle
+  term (a pinning term in the acceptance arithmetic would re-open the K_MC calibration), and
+  both dims interpolate ONE fabric salt. `HT-DOC-CONSTANTS` now also requires the science page
+  to quote the measured triple and bans the retired absolute unpinned-growth claim from all
+  three documents ("unpinned by default" is the honest v7.0 sentence — and the ban caught THIS
+  file quoting the banned phrase verbatim while describing the ban, which is exactly the class
+  of self-reference a text gate has to survive).
+
+`HT-SHARE` additionally round-trips the dispersion dials — the ht tuple grew its optional
+tail (temperature, hold, spec, fraction, radius) under the lab-tuple doctrine, and a
+three-element pre-C2 link still restores.
+
 **A note on `GG3-KMC`'s tolerance.** The calibration pours are now seeded LCGs rather than
 `Math.random()`, which made the 2D `GG-KMC` byte-identical run to run. The 3D one still moves,
 because its freeze loop stops on a measured threshold: six consecutive runs on identical code

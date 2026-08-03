@@ -435,6 +435,40 @@ export const M_MODEL_3D = 2.25;
  */
 export const K_MC_3D = 1.28;
 
+/**
+ * The Zener dispersion's measured limit law, IN THE PLANE (v7.0 C2):
+ *
+ *     d_lim [cells] = ZENER_K · r^ZENER_R_EXP / f^ZENER_F_EXP
+ *
+ * for a fabric of radius-r-cell particles at nominal fraction f, on THIS
+ * lattice at the shipped kT — fitted over nine plateaued ladders spanning
+ * f = 0.03…0.12, r = 1…5 cells and two starting structures (d₀ 10.6 and
+ * 14.4 cells), worst residual 5.4 %. The exponents are deliberately not the
+ * textbook ones, and the difference is the honesty: classic Zener derives
+ * r/f (3D, rigid boundary), Srolovitz 1984's T = 0 2D Potts measures ~r/√f
+ * with complete stagnation — this model anneals at kT = 0.6, where thermal
+ * flips let boundaries detach from small obstacles, and its count-weighted
+ * census measures the whole pinned population, not the largest survivors.
+ * What it measures is f^−0.36 and a weak r^0.21, so that is what it ships.
+ * The start-structure memory is real and small (the two f = 0.12 casts
+ * plateau 5 % apart) and is inside `GG-PIN-LIMIT`'s tolerance.
+ *
+ * 2D-ONLY, on purpose: the volume shares the mask mechanism (same fabric,
+ * same wall semantics) but its own law is a measurement not yet taken — the
+ * panel says so rather than borrowing this fit across a dimension change,
+ * which is exactly how M_MODEL_3D earned its own constant.
+ */
+export const ZENER_K = 7.24;
+export const ZENER_R_EXP = 0.205;
+export const ZENER_F_EXP = 0.356;
+
+/** the measured pinned limit, in cells — Infinity when the dispersion is off
+ *  (f ≤ 0 or r < 1), so `min(law, limit)` degrades to the unpinned law */
+export function zenerLimitCells(f: number, rCells: number): number {
+  if (!(f > 0) || !(rCells >= 1)) return Infinity;
+  return ZENER_K * Math.pow(rCells, ZENER_R_EXP) / Math.pow(f, ZENER_F_EXP);
+}
+
 export function sweepsFor(
   d0Um: number, dTargetUm: number, umPerCell: number, kMC: number, mModel: number,
 ): number {

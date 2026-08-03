@@ -352,6 +352,129 @@ if (cast0.grains < 20) { console.log("cast produced too few grains to anneal"); 
 }
 
 // ---------------------------------------------------------------------------
+// GG-PIN-OFF-IDENTITY (v7.0 C2) — the keystone: the Zener mode at zero is the
+// pre-C2 anneal, bit for bit. Two same-binary arms from byte-identical casts:
+// the pre-C2 call shape (no pin argument) against the mode dialled to zero.
+// The pre-C2 ANCHOR is GG-KMC just above — the unpinned kinetics must keep
+// measuring the shipped constants — so this gate carries the other half: the
+// plumbing itself (a uniform slot written, a mask-shader branch guarded at
+// f = 0) moved nothing. Full-field element-exact on readGrainRows, compared
+// IN the page (typed arrays do not survive evaluate serialization).
+//
+// Liveness beside identity (lessons.md): the arms must have FLIPPED cells —
+// two frozen fields comparing equal is the vacuous pass this repo has already
+// shipped once — and the third arm, the mode ON, must both differ from the
+// plain arm and flip strictly fewer cells: pinning that changes nothing, or
+// pinning that does not pin, are each a broken mode wearing a green gate.
+{
+  const out = await page.evaluate(async () => {
+    const S = window.__solidify;
+    const arm = async (pin) => {
+      await window.__ht.cast(1600, 512);
+      const s = S.sim();
+      const pre = await s.readGrainRows(0, s.n);
+      await s.anneal(120, undefined, undefined, pin);
+      const post = await s.readGrainRows(0, s.n);
+      let flips = 0;
+      for (let i = 0; i < pre.length; i++) if (pre[i] !== post[i]) flips++;
+      return { post, flips };
+    };
+    const a = await arm(undefined);
+    const b = await arm({ f: 0, r: 0 });
+    const c = await arm({ f: 0.06, r: 2 });
+    let identical = a.post.length === b.post.length;
+    if (identical) {
+      for (let i = 0; i < a.post.length; i++) {
+        if (a.post[i] !== b.post[i]) { identical = false; break; }
+      }
+    }
+    let diffOn = 0;
+    for (let i = 0; i < a.post.length; i++) if (a.post[i] !== c.post[i]) diffOn++;
+    return {
+      identical, diffOn, cells: a.post.length,
+      flipsPlain: a.flips, flipsZero: b.flips, flipsPinned: c.flips,
+    };
+  });
+  const ok = out.identical && out.flipsPlain > 0 && out.flipsZero > 0
+    && out.diffOn > 0 && out.flipsPinned < out.flipsPlain;
+  check("GG-PIN-OFF-IDENTITY", ok, out);
+}
+
+// ---------------------------------------------------------------------------
+// GG-PIN-LIMIT (v7.0 C2) — the pinned arm gets a LAW, not an exemption.
+//
+// Three (f, r) ladders from byte-identical casts, each required to (1) reach
+// a real plateau (last-rung growth < 1.2 % — the unpinned lattice grows 4.4 %
+// over the same late window, so the criterion discriminates by ~4×), (2) sit
+// within 8 % of the shipped limit law d_lim = ZENER_K·r^ZENER_R_EXP/f^ZENER_F_EXP
+// (fitted over nine plateaued ladders, worst residual 5.4 % — the ladders are
+// LCG-seeded and the anneal is salt-deterministic, so a re-run is the same
+// measurement and the tolerance is headroom for legitimate lattice changes,
+// not for noise), and (3) order correctly in f at shared r. The A-vs-C
+// ordering is deliberately NOT asserted: the law itself puts those two arms
+// within its own residual of each other, and asserting a coin-flip is how a
+// gate trains people to ignore it. A fourth unpinned mini-arm is the
+// contrast: at matched sweeps the pinned specimen must sit far below it, or
+// "pinning" is a word on a slider. Grain floors are the census liveness.
+{
+  const ladder = async (pin, rungs) => await page.evaluate(async ([pin, rungs]) => {
+    await window.__ht.cast(1600, 512);
+    const s = window.__solidify.sim();
+    const pts = [];
+    const meas = async () => {
+      const st = await window.__ht.stats();
+      const area = (st.fracSolid * s.n * s.n) / Math.max(1, st.grainCount);
+      pts.push({ d: 2 * Math.sqrt(area / Math.PI), grains: st.grainCount });
+    };
+    await meas();
+    let done = 0;
+    for (const t of rungs) {
+      await s.anneal(t - done, undefined, undefined, pin ?? undefined);
+      done = t;
+      await meas();
+    }
+    return pts;
+  }, [pin, rungs]);
+
+  const ARMS = [
+    { f: 0.03, r: 2, rungs: [1000, 2500, 4500, 7000, 9500] },
+    { f: 0.12, r: 2, rungs: [500, 1500, 3000, 4500, 6000] },
+    { f: 0.05, r: 5, rungs: [500, 1500, 3000, 4500, 6000] },
+  ];
+  const arms = [];
+  for (const a of ARMS) {
+    const pts = await ladder({ f: a.f, r: a.r }, a.rungs);
+    const dLim = pts[pts.length - 1].d;
+    const lastGap = (dLim - pts[pts.length - 2].d) / dLim;
+    const law = HT.zenerLimitCells(a.f, a.r);
+    arms.push({
+      f: a.f, r: a.r,
+      dLim: +dLim.toFixed(2), law: +law.toFixed(2),
+      ratioToLaw: +(dLim / law).toFixed(3),
+      lastGapPct: +(lastGap * 100).toFixed(2),
+      grains: pts[pts.length - 1].grains,
+      d0: +pts[0].d.toFixed(2),
+    });
+  }
+  const un = await ladder(null, [3000]);
+  const unpinned = +un[un.length - 1].d.toFixed(2);
+
+  const plateaued = arms.every(a => a.lastGapPct < 1.2);
+  const onLaw = arms.every(a => Math.abs(a.ratioToLaw - 1) <= 0.08);
+  const fOrder = arms[0].dLim > arms[1].dLim;              // f = 0.03 above f = 0.12 at r = 2
+  // pinned d_lim (6 000 sweeps, at its plateau) against the unpinned arm at
+  // 3 000 — deliberately DIFFERENT horizons, and the strict direction: the
+  // unpinned specimen only grows past 3 000, so the true matched-sweep ratio
+  // is even smaller than the one measured here (0.37)
+  const pins = arms[1].dLim < 0.45 * unpinned;
+  const grew = arms.every(a => a.dLim > a.d0 * 1.15 && a.grains > 300);
+  check("GG-PIN-LIMIT", plateaued && onLaw && fOrder && pins && grew, {
+    arms, unpinnedAtS3000: unpinned,
+    shipped: { K: HT.ZENER_K, rExp: HT.ZENER_R_EXP, fExp: HT.ZENER_F_EXP },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // GG-STAGNATION — a pinned lattice looks exactly like a finished anneal.
 //
 // Flips per boundary cell must not decay to zero over the run. Measured as the
@@ -490,6 +613,61 @@ if (cast0.grains < 20) { console.log("cast produced too few grains to anneal"); 
     && out.sigRow && Math.abs(out.sigRow.b - out.sigBExp) < 0.2 && Math.abs(out.sigRow.a - out.sigAExp) < 0.2
     && out.specNoteMiss && out.missedInFirst && out.metInSecond;
   check("HT-PANEL", ok, out);
+}
+
+// ---------------------------------------------------------------------------
+// HT-PIN-PANEL (v7.0 C2) — the dispersion's operator surface, end to end but
+// cheap: the pinned RUN here is a near-noop schedule (dial-floor temperature,
+// one minute — zero sweeps), because the pinned PHYSICS is GG-PIN-LIMIT's job
+// and this gate's job is the wiring: the dials exist AFTER the three the
+// other panel gates drive positionally, the note pre-judges with the measured
+// law and never introduces an arrow before the law prediction (the dPred
+// parse hazard), the latched card carries the pinned row with d_lim, and
+// dialling the dispersion back to zero returns the note to its unpinned text.
+{
+  const out = await page.evaluate(async () => {
+    const S = window.__solidify;
+    S.app.startHeat();
+    await new Promise(r => setTimeout(r, 300));
+    const panel = document.getElementById("heattreat");
+    if (!panel) return null;
+    const dials = panel.querySelectorAll('input[type="range"]');
+    const set = (i, v) => { dials[i].value = String(v); dials[i].dispatchEvent(new Event("input", { bubbles: true })); };
+    const note = () => document.getElementById("htNote").textContent;
+    // the note's FIRST arrow must still be the law prediction after pinning —
+    // capture it BEFORE the dispersion dials move, and require it UNCHANGED:
+    // asserting mere existence would pass a pinned sentence that introduced
+    // its own earlier arrow (review catch — the exact dPred parse hazard this
+    // gate advertises guarding)
+    const arrowOf = s => (s.match(/→\s*([\d.]+)\s*µm/) ?? [])[1] ?? null;
+    const arrowBefore = arrowOf(note());
+    set(3, 0.06); set(4, 3);
+    const notePinned = note();
+    const firstArrow = arrowOf(notePinned);
+    set(0, 100); set(1, 1);            // dial-floor near-noop schedule
+    document.getElementById("htRun").click();
+    for (let t = 0; t < 200; t++) {
+      await new Promise(r => setTimeout(r, 100));
+      if (!window.__solidify.heat.busy) break;
+    }
+    const report = document.getElementById("htReport").textContent;
+    set(3, 0);
+    const noteOff = note();
+    S.heat.close();
+    return {
+      dialCount: dials.length,
+      notePinned: notePinned.slice(0, 400),
+      firstArrow, arrowBefore,
+      pinnedRow: /pinned/.test(report) && /d_lim/.test(report),
+      reportTail: report.slice(-260),
+      offReverts: !/dispersion \d/.test(noteOff),
+    };
+  });
+  const ok = !!out && out.dialCount === 5
+    && /dispersion 6\.0 vol %/.test(out.notePinned) && /pins boundaries near d_lim/.test(out.notePinned)
+    && out.firstArrow !== null && out.firstArrow === out.arrowBefore
+    && out.pinnedRow && out.offReverts;
+  check("HT-PIN-PANEL", ok, out);
 }
 
 // ---------------------------------------------------------------------------
@@ -772,6 +950,71 @@ if (!cast3 || cast3.grains < 100) { console.log("3D cast produced too few grains
       ratioToShipped: +(f.K / HT.K_MC_3D).toFixed(3), driftTol: HT.K_MC_TOL_3D, r2: +f.r2.toFixed(5),
     });
   }
+}
+
+// ---------------------------------------------------------------------------
+// PIN3-LIVE (v7.0 C2) — the volume's Zener fabric actually pins, asserted as
+// the WALL GUARANTEE rather than a flip count.
+//
+// The first cut of this gate compared pinned-arm flips against a plain arm
+// and demanded fewer — and failed on a correct build, because the premise is
+// wrong: excluding particle cells from the energy sum flattens the local
+// landscape (flat moves are always taken), so at 10 % coverage the extra flat
+// moves near particle surfaces OUTWEIGH the migration suppression over a
+// short window. The flip count is not monotone in pinning. What pinning
+// actually guarantees is exact and structural: a fabric cell can NEVER change
+// id (mask 0 cells copy themselves through, every sweep, by construction).
+// So: replicate the fabric in JS (the WGSL hash is pure u32 arithmetic —
+// Math.imul wraps identically) and require the pinned arm's flipped cells to
+// avoid it. The tolerance of 50 is for the f32-vs-f64 threshold boundary
+// (the shader compares in f32; a handful of candidate centres per volume can
+// round across pC) — a mask that ignored the fabric would flip ~10 % of the
+// arm, three orders of magnitude more. Liveness: the fabric must be nonempty
+// at these dials (~10 % of a lattice sample) and the arm must have flipped —
+// zero fabric flips over an empty fabric or a frozen field proves nothing.
+{
+  const out = await page.evaluate(async (SALT) => {
+    const s3 = window.__solidify.sim3d();
+    const F = 0.10, R = 2;
+    const a = await s3.readGrainVolume();
+    await s3.anneal(24, undefined, undefined, { f: F, r: R });
+    const b = await s3.readGrainVolume();
+    if (!a || !b) return null;
+    const n = s3.n;
+    const hash = (x, y, z) => {
+      let v = (Math.imul(x, 747796405) + Math.imul(y, 2891336453) + Math.imul(z, 3546859427) + 2654435769) >>> 0;
+      v = (v ^ (v >>> 16)) >>> 0; v = Math.imul(v, 2246822519) >>> 0;
+      v = (v ^ (v >>> 13)) >>> 0; v = Math.imul(v, 3266489917) >>> 0;
+      v = (v ^ (v >>> 16)) >>> 0;
+      return v / 4294967295;
+    };
+    const pC = F / (4.18879020 * R * R * R);
+    const inFab = (x, y, z) => {
+      for (let dz = -R; dz <= R; dz++) for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+        if (dx * dx + dy * dy + dz * dz > R * R) continue;
+        if (hash((x + dx) >>> 0, (y + dy) >>> 0, ((z + dz) >>> 0) ^ SALT) < pC) return true;
+      }
+      return false;
+    };
+    let flips = 0, fabricFlips = 0;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) {
+        flips++;
+        const x = i % n, y = ((i / n) | 0) % n, z = (i / (n * n)) | 0;
+        if (inFab(x, y, z)) fabricFlips++;
+      }
+    }
+    // fabric liveness on a lattice sample (every 131st voxel ≈ 16k tests)
+    let sampled = 0, inFabric = 0;
+    for (let i = 0; i < a.length; i += 131) {
+      sampled++;
+      const x = i % n, y = ((i / n) | 0) % n, z = (i / (n * n)) | 0;
+      if (inFab(x, y, z)) inFabric++;
+    }
+    return { flips, fabricFlips, sampled, inFabric, fabricFrac: +(inFabric / sampled).toFixed(4) };
+  }, SH.PIN_SALT >>> 0);
+  const ok = !!out && out.flips > 0 && out.fabricFlips < 50 && out.fabricFrac > 0.05;
+  check("PIN3-LIVE", ok, out);
 }
 
 // ---------------------------------------------------------------------------

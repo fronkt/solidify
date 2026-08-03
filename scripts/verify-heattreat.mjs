@@ -390,10 +390,82 @@ const CU = M.MATERIALS.cu.si;
     if (/drift gated at 15\s*%/.test(text)) stale.push(`${name}: drift gated at 15 %`);
   }
 
-  check("HT-DOC-CONSTANTS", sciQuotes3D && sciQuotes2D && pairQuoted && stale.length === 0, {
+  // v7.0 C2: the Zener limit law's measured constants, same doctrine — the
+  // science page must quote the triple the code ships, and the retired claim
+  // ("grain growth here is unpinned", stated as a present-tense absolute) must
+  // be gone from all three documents now that the mode exists.
+  const zenerQuoted = [science].every(t =>
+    t.includes(String(H.ZENER_K)) && t.includes(String(H.ZENER_R_EXP)) && t.includes(String(H.ZENER_F_EXP)));
+  // the retired claim is the ABSOLUTE ("is unpinned — no particles…"); the
+  // honest v7.0 sentence is "unpinned by default", which must keep passing
+  for (const [name, text] of [["science", science], ["TESTING", testing], ["README", readme]]) {
+    if (/[Gg]rain growth (here )?is unpinned(?! by default)/.test(text)) stale.push(`${name}: grain growth is unpinned (absolute)`);
+  }
+
+  check("HT-DOC-CONSTANTS", sciQuotes3D && sciQuotes2D && pairQuoted && zenerQuoted && stale.length === 0, {
     shipped: { K_MC_TOL: H.K_MC_TOL, K_MC_TOL_3D: H.K_MC_TOL_3D, M_MODEL_3D: H.M_MODEL_3D, K_MC_3D: H.K_MC_3D },
-    scienceQuotes: { "2D": sciQuotes2D, "3D": sciQuotes3D }, pairQuoted, staleClaims: stale,
+    scienceQuotes: { "2D": sciQuotes2D, "3D": sciQuotes3D }, pairQuoted, zenerQuoted, staleClaims: stale,
   });
+}
+
+// HT-ZENER (v7.0 C2) — the measured limit law's arithmetic, browser-free.
+//
+// zenerLimitCells is the number the panel pre-judges pinned schedules with, so
+// its shape is gated where CI can see it: off-states answer Infinity (the
+// unpinned law survives a min()), the limit falls with f and rises with r —
+// the two directions the GPU ladders measure — and one spot recomputed HERE
+// from the exported constants must match the function exactly. The spot is a
+// FORMULA-shape check, not a constants check (it recomputes from the same
+// exports, so a wrong triple passes it): the constants' VALUES are gated by
+// GG-PIN-LIMIT against real ladders; this check pins the formula between
+// those runs — a swapped exponent, a dropped power or an inverted ratio
+// fails it while every monotonicity clause still holds.
+{
+  const z = H.zenerLimitCells;
+  const spot = H.ZENER_K * Math.pow(2, H.ZENER_R_EXP) / Math.pow(0.06, H.ZENER_F_EXP);
+  const ok = z(0, 2) === Infinity && z(-1, 2) === Infinity && z(0.06, 0) === Infinity
+    && z(0.06, 2) === spot && Number.isFinite(spot) && spot > 0
+    && z(0.12, 2) < z(0.06, 2) && z(0.03, 2) > z(0.06, 2)
+    && z(0.06, 3) > z(0.06, 2);
+  check("HT-ZENER", ok, {
+    spot: +spot.toFixed(2),
+    f: [+z(0.03, 2).toFixed(2), +z(0.06, 2).toFixed(2), +z(0.12, 2).toFixed(2)],
+    r: [+z(0.06, 1).toFixed(2), +z(0.06, 3).toFixed(2), +z(0.06, 5).toFixed(2)],
+  });
+}
+
+// PIN-STRUCTURE (v7.0 C2) — the mode's structural invariants, browser-free.
+//
+// The POR-PORE-SOLUTE idiom: assert the SHAPE of the shader text where no
+// numeric witness is cheap. Three invariants: (1) the particle test lives in
+// BOTH dims' mask shaders, each behind the f<=0 guard that makes zero the
+// pre-C2 mask arithmetic; (2) the ANNEAL shaders are particle-free — the
+// whole design is that pinning is mask-only wall semantics, and a particle
+// term leaking into the acceptance arithmetic would re-open the K_MC
+// calibration exactly the way the Σ3 docblock warns; (3) one fabric salt,
+// interpolated into both dims from the one constant — two salts would be two
+// fabrics wearing one pair of dials.
+{
+  const SH = await server.ssrLoadModule("/src/shaders.ts");
+  const S3 = await server.ssrLoadModule("/src/shaders3d.ts");
+  // the eligibility expression must CALL the test (!inParticle), not merely
+  // contain its definition — dead text satisfies a presence regex (review
+  // catch: the first cut of this gate would have passed a mask that never
+  // consulted the fabric)
+  const guard2 = /&&\s*!inParticle\(/.test(SH.HTMASK_WGSL) && /H\.pinF <= 0\.0/.test(SH.HTMASK_WGSL);
+  const guard3 = /&&\s*!inParticle3\(/.test(S3.HTMASK3_WGSL) && /H\.pinF <= 0\.0/.test(S3.HTMASK3_WGSL);
+  // the shared HT struct DECLARES pinF in every heat-treat shader — that
+  // declaration doubles as the liveness anchor (a renamed export would make
+  // a bare negative regex test the string "undefined" and pass vacuously);
+  // what must not appear in the anneal bodies is a READ (H.pinF) or the test
+  const annealClean = /\bpinF\b/.test(SH.ANNEAL_WGSL) && /\bpinF\b/.test(S3.ANNEAL3_WGSL)
+    && !/inParticle|H\.pinF/.test(SH.ANNEAL_WGSL) && !/inParticle|H\.pinF/.test(S3.ANNEAL3_WGSL);
+  // declared at the exported value AND used at the hash call site — either
+  // alone lets a second hardcoded salt slip through
+  const saltShared = SH.HTMASK_WGSL.includes(`${SH.PIN_SALT}u`) && S3.HTMASK3_WGSL.includes(`${SH.PIN_SALT}u`)
+    && /htHash\(hx, hy, PIN_SALT\)/.test(SH.HTMASK_WGSL) && /hz \^ PIN_SALT/.test(S3.HTMASK3_WGSL);
+  check("PIN-STRUCTURE", guard2 && guard3 && annealClean && saltShared,
+    { guard2, guard3, annealClean, saltShared, salt: SH.PIN_SALT });
 }
 
 await server.close();

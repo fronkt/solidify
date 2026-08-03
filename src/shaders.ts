@@ -743,10 +743,11 @@ export const H2U = {
   colour: 1,      // u32: which sublattice may flip this dispatch
   salt: 2,        // u32: per-sweep RNG salt — the whole reason this is not in P2
   kT: 3,          // MC temperature (numerical, NOT the furnace)
-  flags: 4,       // bit 0: eligible cells only; bit 1: spawn annealing twins (3D)
+  flags: 4,      // bit 0: eligible cells only; bit 1: spawn annealing twins (3D);
+                 //   bits 8..15: Zener particle radius, CELLS (v7.0 C2 — 0 = off)
   twinProb: 5,    // per-accepted-flip Σ3 spawn probability (3D; CPU-budgeted)
   idFloor: 6,     // u32: GPU twin ids stay above this (3D; 2D leaves it 0)
-  pad7: 7,
+  pinF: 7,        // f32: Zener particle fraction (v7.0 C2 — 0 = the pre-C2 anneal)
   BYTES: 32,
 } as const;
 
@@ -800,7 +801,7 @@ struct HT {
   flags: u32,
   twinProb: f32,
   idFloor: u32,
-  pad7: u32,
+  pinF: f32,
 }
 fn htHash(x: u32, y: u32, z: u32) -> f32 {
   var v = x * 747796405u + y * 2891336453u + z * 3546859427u + 2654435769u;
@@ -808,6 +809,18 @@ fn htHash(x: u32, y: u32, z: u32) -> f32 {
   return f32(v) * (1.0 / 4294967295.0);
 }
 `;
+
+/**
+ * The Zener dispersion's fabric salt (v7.0 C2). The particle field is a pure
+ * function of (cell, this constant) — the SAME fabric for a given (n, f, r)
+ * every run, deliberately: the dispersion is part of the specimen's identity
+ * the way the lattice is, so replicates at different seeds anneal different
+ * microstructures against one fixed obstacle field (the Srolovitz 1984 setup),
+ * and GG-PIN-LIMIT's d_lim ladders measure the fabric, not the draw. Not a
+ * stream from rng.ts on purpose — the mask pass has no CPU draw path, and a
+ * per-seed fabric would fold two variables into every pinned comparison.
+ */
+export const PIN_SALT = 0x5a17ed2b;
 
 /**
  * Eligibility mask — built once per treatment, read every sweep.
@@ -830,14 +843,43 @@ ${HT_COMMON}
 @group(0) @binding(2) var grain: texture_2d<u32>;
 @group(0) @binding(3) var maskOut: texture_storage_2d<r32uint, write>;
 
+const PIN_SALT = ${PIN_SALT}u;
+
+// Zener dispersion (v7.0 C2): is this cell inside a second-phase particle?
+// Particle CENTRES are cells where a hash beats f / (pi r^2). The dialled f is
+// NOMINAL: at small r the lattice disc holds more cells than pi r^2 (r = 1
+// covers 5 against 3.14, r = 2 covers 13 against 12.57 - the Gauss circle
+// count), pushing effective coverage ABOVE nominal, while centre overlap pulls
+// it below at high f; the measured d_lim law is a law in the DIALLED numbers
+// and absorbs both. Centres are tested on UNWRAPPED coordinates so the density
+// is uniform to the very edge - cells near the rim see phantom off-grid
+// centres rather than a depleted band. Particles are obstacles in the MASK
+// only: no grain id, no state write, no census entry - the exact wall
+// semantics the mould and the H2b liquid films already have in this pass (the
+// pore branch is the volume's own; 2D has no pores).
+fn inParticle(gx: u32, gy: u32) -> bool {
+  let r = i32((H.flags >> 8u) & 0xffu);
+  if (H.pinF <= 0.0 || r <= 0) { return false; }
+  let pC = H.pinF / (3.14159265 * f32(r) * f32(r));
+  for (var dy = -r; dy <= r; dy++) {
+    for (var dx = -r; dx <= r; dx++) {
+      if (dx * dx + dy * dy > r * r) { continue; }
+      let hx = u32(i32(gx) + dx);
+      let hy = u32(i32(gy) + dy);
+      if (htHash(hx, hy, PIN_SALT) < pC) { return true; }
+    }
+  }
+  return false;
+}
+
 @compute @workgroup_size(8, 8)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
   if (gid.x >= H.n || gid.y >= H.n) { return; }
   let c = vec2i(i32(gid.x), i32(gid.y));
   let s = textureLoad(state, c, 0);
   let id = textureLoad(grain, c, 0).r;
-  // solid, claimed, and not the mould (age -1)
-  let ok = s.r >= 0.5 && id != 0u && s.a > -0.5;
+  // solid, claimed, not the mould (age -1), and not inside a Zener particle
+  let ok = s.r >= 0.5 && id != 0u && s.a > -0.5 && !inParticle(gid.x, gid.y);
   textureStore(maskOut, c, vec4u(select(0u, 1u, ok), 0u, 0u, 0u));
 }
 `;

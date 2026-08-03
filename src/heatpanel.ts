@@ -27,7 +27,8 @@
 
 import {
   canTreat, domainLimitUm, grainAfter, hallPetch, integrate, sweepsFor, frac,
-  scaleThickness, decarbDepth, fmtMPa, shownMPa,
+  scaleThickness, decarbDepth, fmtMPa, shownMPa, zenerLimitCells,
+  ZENER_K, ZENER_R_EXP, ZENER_F_EXP,
   INCIPIENT_FRAC, K_MC, M_MODEL, K_MC_3D, M_MODEL_3D, ROOM_C,
   type HeatSchedule, type TreatContext, type Integrals,
 } from "./heattreat";
@@ -100,13 +101,15 @@ export interface HeatHost {
    * run Monte Carlo sweeps on the grain field; `onProgress` returning false
    * aborts at the next drain. Resolves to the sweeps actually delivered.
    */
-  anneal(sweeps: number, onProgress: (done: number) => boolean): Promise<number>;
+  anneal(sweeps: number, onProgress: (done: number) => boolean,
+    pin?: { f: number; r: number }): Promise<number>;
   /**
    * 3D only: the same sweeps with Σ3 annealing-twin spawning enabled — the
    * host budgets the per-flip probability from the remaining id range and
    * reports what was actually delivered, including allocator saturation.
    */
-  annealTwins?(sweeps: number, onProgress: (done: number) => boolean):
+  annealTwins?(sweeps: number, onProgress: (done: number) => boolean,
+    pin?: { f: number; r: number }):
     Promise<{ delivered: number; spawned: number; saturated: boolean }>;
   /** masked solute diffusion at frozen φ; resolves iterations delivered */
   homogenize(iters: number, onProgress: (done: number) => boolean): Promise<number>;
@@ -176,6 +179,10 @@ type Plan =
       /** the cap bit: sweeps actually runnable, and the model endpoint they reach */
       capped: boolean;
       dCapUm: number;
+      /** v7.0 C2: the dispersion as dialled (undefined = off), and — in the
+       *  plane, where the law is measured — the pinned limit in µm */
+      pin?: { f: number; r: number };
+      dLimUm?: number;
     };
 
 export class HeatPanel {
@@ -213,6 +220,17 @@ export class HeatPanel {
    * property: the same anneal passes a 25 MPa spec and fails a 40 MPa one.
    */
   private specMPa = 0;
+  /**
+   * The Zener dispersion dials (v7.0 C2): a second-phase particle fabric the
+   * anneal's boundaries must drag through. Operator dials rather than material
+   * constants — no material in the table carries sourced dispersion data, and
+   * a dispersion is a processing choice (how the charge was inoculated or
+   * mechanically alloyed), like the spec. f = 0 is the pre-C2 furnace, bit for
+   * bit. The radius is in CELLS, the model's honest unit; the label prints the
+   * µm equivalent beside it.
+   */
+  private pinF = 0;
+  private pinR = 2;
   private abortReq = false;
   /** exit pressed mid-run: abort first, close when the run loop hands back */
   private closeReq = false;
@@ -223,16 +241,22 @@ export class HeatPanel {
    * behaviour on every open and material swap, and exactly the clobber that
    * would silently discard a restored link.
    */
-  private restore: [number, number, number] | null = null;
+  private restore: [number, number, number, number?, number?] | null = null;
 
   constructor(host: HeatHost) { this.host = host; }
 
-  /** the dialled setup, for the share link: temperature °C, hold min, spec MPa */
-  setup(): [number, number, number] {
-    return [this.tC, this.holdMin, this.specMPa];
+  /** the dialled setup, for the share link: temperature °C, hold min, spec MPa,
+   *  and (v7.0 C2, optional tail per the lab-tuple doctrine) the dispersion's
+   *  fraction and radius in cells. An UNPINNED setup packs the three-element
+   *  pre-C2 shape on purpose: those links keep restoring on any deployed page,
+   *  and the tail appears exactly when the mode it carries is in use. */
+  setup(): [number, number, number, number?, number?] {
+    return this.pinF > 0
+      ? [this.tC, this.holdMin, this.specMPa, this.pinF, this.pinR]
+      : [this.tC, this.holdMin, this.specMPa];
   }
 
-  open(restore?: [number, number, number]) {
+  open(restore?: [number, number, number, number?, number?]) {
     if (this.active) return;
     this.active = true;
     this.restore = restore ?? null;
@@ -365,7 +389,15 @@ export class HeatPanel {
     const dCapUm = capped
       ? Math.pow(Math.pow(d0Cells, mModel) + kMC * cap, 1 / mModel) * this.host.umPerCell()
       : dPredUm;
-    return { ok: true, sch, ints, d0Um, dPredUm, sweeps, capped, dCapUm };
+    // the dispersion, as dialled. The d_lim law is measured in the plane only
+    // (zenerLimitCells' docblock says why the volume does not borrow it), so
+    // dLimUm exists only in 2D — the 3D note and card say the mechanism runs
+    // but decline to print a number nothing has measured.
+    const pin = this.pinF > 0 ? { f: this.pinF, r: this.pinR } : undefined;
+    const dLimUm = pin && this.host.getMode() !== "3d"
+      ? zenerLimitCells(pin.f, pin.r) * this.host.umPerCell()
+      : undefined;
+    return { ok: true, sch, ints, d0Um, dPredUm, sweeps, capped, dCapUm, pin, dLimUm };
   }
 
   // -------------------------------------------------------------- the panel
@@ -412,16 +444,30 @@ export class HeatPanel {
     const specMax = si ? Math.ceil(hallPetch(si, 4e-6)) : 100;
     const specStep = specMax <= 5 ? 0.1 : specMax <= 100 ? 1 : 5;
     this.specMPa = 0;
+    // the dispersion resets with the spec on every open — the docblock calls
+    // it a processing choice LIKE the spec, and a panel that silently
+    // remembered last session's fabric would pin a run nobody dialled
+    this.pinF = 0;
+    this.pinR = 2;
     // a share link's setup lands here, once, clamped to this material's own
     // dial ranges — a hand-built link does not get to dial 2000 °C (and the
     // decoder's Number.isFinite whitelist already rejected non-numbers whole)
     if (this.restore) {
-      const [t, h, s] = this.restore;
+      const [t, h, s, pf, pr] = this.restore;
       this.tC = Math.min(tMax, Math.max(tMin, Math.round(t)));
       this.holdMin = Math.min(720, Math.max(1, Math.round(h)));
       this.specMPa = Math.min(specMax, Math.max(0, s));
+      // the optional dispersion tail (v7.0 C2) — same clamp doctrine; an old
+      // three-element link decodes pf/pr as undefined and keeps the defaults.
+      // pf snaps to the dial's own step: a hand-built 0.0004 would otherwise
+      // latch the pin ON while every surface prints "0.0 vol %" — a lying
+      // label on exactly the hand-built-link surface the clamp defends
+      if (typeof pf === "number" && Number.isFinite(pf))
+        this.pinF = Math.min(0.12, Math.max(0, Math.round(pf / 0.005) * 0.005));
+      if (typeof pr === "number" && Number.isFinite(pr)) this.pinR = Math.min(5, Math.max(1, Math.round(pr)));
       this.restore = null;
     }
+    const umPC = this.host.umPerCell();
     form.append(
       range("temperature", tMin, tMax, 5, this.tC,
         v => { this.tC = v; this.refresh(); }, 0,
@@ -432,6 +478,14 @@ export class HeatPanel {
       range("spec σ_y", 0, specMax, specStep, this.specMPa,
         v => { this.specMPa = v; this.refresh(); }, 0,
         v => v > 0 ? `≥ ${fmtMPa(v)} MPa` : "no spec"),
+      // the Zener dispersion (v7.0 C2) — appended AFTER spec on purpose: the
+      // panel gates drive the first three dials positionally
+      range("dispersion", 0, 0.12, 0.005, this.pinF,
+        v => { this.pinF = v; this.refresh(); }, 3,
+        v => v > 0 ? `${(v * 100).toFixed(1)} vol %` : "no dispersion"),
+      range("particle radius", 1, 5, 1, this.pinR,
+        v => { this.pinR = v; this.refresh(); }, 0,
+        v => `${v.toFixed(0)} cells · ${(v * umPC).toFixed(1)} µm`),
     );
 
     const note = document.createElement("div");
@@ -485,6 +539,12 @@ export class HeatPanel {
       this.noteEl.innerHTML = `${head}<br>predicts <b style="color:#cfd6df">no measurable grain growth</b> `
         + `(${fmtUm(d0Um)} → ${fmtUm(dPredUm)}) — at this temperature every Arrhenius integral is negligible. `
         + `Run it if you want the report card to say so.`
+        // the dispersion's sentence rides this branch too — a pinned near-noop
+        // run latches the fabric and the card will print it, so the note must
+        // not be silent about it (review catch). The spec endpoint stays the
+        // UN-clipped law here: dPred ≈ d0, and clipping to a d_lim below d0
+        // would pre-judge a refinement the furnace cannot produce.
+        + this.pinNote(plan)
         + this.specNote(d0Um, dPredUm);
       return;
     }
@@ -495,7 +555,54 @@ export class HeatPanel {
         ? ` — <span style="color:#ffb454">past the ${this.consts().cap.toLocaleString()}-sweep budget: the run will be `
         + `truncated at ${((this.consts().cap / sweeps) * 100).toFixed(0)} % and reach ~${fmtUm(dCapUm)}</span>`
         : "")
-      + this.specNote(d0Um, capped ? dCapUm : dPredUm);
+      + this.pinNote(plan)
+      + this.specNote(d0Um, this.endUm(plan));
+  }
+
+  /** the endpoint THIS run will actually reach: the capped law endpoint,
+   *  further clipped by the pinned limit where the limit is measured (2D) —
+   *  and FLOORED at the starting size: a fabric whose d_lim sits below the
+   *  casting's own d₀ stalls the furnace where it stands, it does not refine
+   *  the grain (the anneal only coarsens; predicting strengthening from a
+   *  dispersion would be a verdict the card then contradicts) */
+  private endUm(plan: Plan & { ok: true }): number {
+    const law = plan.capped ? plan.dCapUm : plan.dPredUm;
+    const clipped = plan.dLimUm !== undefined ? Math.min(law, plan.dLimUm) : law;
+    return Math.max(plan.d0Um, clipped);
+  }
+
+  /**
+   * The dispersion's own sentence (v7.0 C2). In the plane it pre-judges with
+   * the measured limit law; in the volume it declines to print a number —
+   * the mechanism runs there, the law is only measured here. Deliberately
+   * arrow-free: the panel gates parse the note's FIRST "→ N µm" as the law
+   * prediction, and a sentence that introduced an earlier arrow would
+   * silently corrupt what they measure.
+   */
+  private pinNote(plan: Plan & { ok: true }): string {
+    if (!plan.pin) return "";
+    const pct = (plan.pin.f * 100).toFixed(1);
+    if (plan.dLimUm === undefined) {
+      return `<br><span style="color:#8891a0">dispersion ${pct} vol % · r ${plan.pin.r} cells: the particle `
+        + `fabric pins boundaries in the volume too, but its limit law is only measured in the plane — `
+        + `no d_lim is claimed here.</span>`;
+    }
+    // a fabric already finer than the casting: the boundaries are loaded from
+    // the first sweep and the treatment does nothing — said before the run,
+    // in the one direction this mode cannot be mistaken for (refinement)
+    if (plan.dLimUm <= plan.d0Um) {
+      return `<br><span style="color:#ffb454">dispersion ${pct} vol % · r ${plan.pin.r} cells `
+        + `pins boundaries near d_lim ≈ ${fmtUm(plan.dLimUm)} (measured on this lattice: `
+        + `d_lim = ${ZENER_K}·r^${ZENER_R_EXP}/f^${ZENER_F_EXP} cells) — at or below this casting's own `
+        + `${fmtUm(plan.d0Um)}, so the furnace stalls where it stands. A dispersion cannot refine a `
+        + `grain that already grew past it.</span>`;
+    }
+    const clips = plan.dLimUm < (plan.capped ? plan.dCapUm : plan.dPredUm);
+    return `<br><span style="color:${clips ? "#ffb454" : "#8891a0"}">dispersion ${pct} vol % · r ${plan.pin.r} cells `
+      + `pins boundaries near d_lim ≈ ${fmtUm(plan.dLimUm)} (measured on this lattice: `
+      + `d_lim = ${ZENER_K}·r^${ZENER_R_EXP}/f^${ZENER_F_EXP} cells)`
+      + (clips ? ` — the schedule's law endpoint will not be reached; the furnace stalls at the fabric` : "")
+      + `.</span>`;
   }
 
   /**
@@ -552,6 +659,11 @@ export class HeatPanel {
     // dials stay live during a run, and a spec moved after the sweeps are
     // spent must not rewrite the verdict the schedule was committed to.
     const spec = this.specMPa;
+    // the dispersion latches with it, for the same reason: the fabric the
+    // boundaries dragged through is the one the card must describe, not the
+    // one the dials show when the report renders (plan() read the same dials
+    // this run() did, so plan.pin IS the latched dispersion)
+    const pin = plan.pin;
     // rule 3: the T field is the as-cast record, not the furnace — park the
     // view where the treatment is actually visible
     const m3 = this.host.getMode() === "3d";
@@ -579,14 +691,14 @@ export class HeatPanel {
           return !this.abortReq;
         };
         if (wantTwins) {
-          const r = await this.host.annealTwins!(total, onProg);
+          const r = await this.host.annealTwins!(total, onProg, pin);
           delivered = r.delivered;
           twinLine = r.spawned > 0
             ? `${r.spawned.toLocaleString()} Σ3 annealing twins nucleated on migrating boundaries`
               + (r.saturated ? " — the grain-id range ran out mid-anneal, so this is the delivered count, not the requested rate" : "")
             : "no annealing twins this run — boundaries migrated too little to deposit any";
         } else {
-          delivered = await this.host.anneal(total, onProg);
+          delivered = await this.host.anneal(total, onProg, pin);
         }
       }
       // homogenization rides the same treatment: the schedule's Dt product,
@@ -690,6 +802,18 @@ export class HeatPanel {
       rows.push(`${dim("oxide")} ${ox}`);
     } else {
       rows.push(`${dim("oxide")} ${ov.why}`);
+    }
+    // the dispersion's row (v7.0 C2) — printed only when the run was pinned,
+    // AFTER the oxide row on purpose: the panel gates slice the card and
+    // require late rows to survive, and an unpinned card must be byte-what it
+    // was before this mode existed
+    if (plan.pin) {
+      rows.push(plan.dLimUm !== undefined
+        ? `${dim("pinned")} dispersion ${(plan.pin.f * 100).toFixed(1)} vol % · r ${plan.pin.r} cells `
+          + dim(`— the fabric pins boundaries near d_lim ≈ ${fmtUm(plan.dLimUm)} `
+            + `(measured on this lattice: d_lim = ${ZENER_K}·r^${ZENER_R_EXP}/f^${ZENER_F_EXP} cells)`)
+        : `${dim("pinned")} dispersion ${(plan.pin.f * 100).toFixed(1)} vol % · r ${plan.pin.r} cells `
+          + dim("— the fabric pins in the volume too, but its limit law is only measured in the plane; no d_lim is claimed here"));
     }
     if (delivered < total) {
       rows.push(`<span style="color:#ffb454">aborted at sweep ${delivered.toLocaleString()} / ${total.toLocaleString()} — the microstructure is wherever the boundaries were</span>`);

@@ -589,18 +589,24 @@ export class Simulation {
 
   // ------------------------------------------------------ heat treatment
 
-  /** write one HT uniform struct per colour, sharing a per-sweep RNG salt */
-  private writeHt(salt: number, kT: number, twinProb = 0) {
+  /** write one HT uniform struct per colour, sharing a per-sweep RNG salt.
+   *  `pin` (v7.0 C2): Zener dispersion — fraction rides the `pinF` slot, the
+   *  radius rides flags bits 8..15 as whole cells. Only the MASK pass reads
+   *  either; at the {0, 0} default every struct byte matches the pre-C2 write. */
+  private writeHt(salt: number, kT: number, twinProb = 0, pin?: { f: number; r: number }) {
     const u = new Uint32Array(this.htData);
     const f = new Float32Array(this.htData);
+    const pinR = pin ? Math.max(0, Math.min(255, Math.round(pin.r))) : 0;
+    const pinF = pin ? Math.max(0, pin.f) : 0;
     for (let c = 0; c < HT_COLOURS_2D; c++) {
       const b = (c * HT_STRIDE) / 4;
       u[b + H2U.n] = this.n;
       u[b + H2U.colour] = c;
       u[b + H2U.salt] = salt >>> 0;
       f[b + H2U.kT] = kT;
-      u[b + H2U.flags] = 1;
+      u[b + H2U.flags] = 1 | (pinR << 8);
       f[b + H2U.twinProb] = twinProb;
+      f[b + H2U.pinF] = pinF;
     }
     this.device.queue.writeBuffer(this.htBuf, 0, this.htData);
   }
@@ -609,9 +615,12 @@ export class Simulation {
    * Rebuild the "which cells may be treated" mask from the current state.
    * Cheap, and run once at the start of a treatment rather than every sweep —
    * φ does not move during a heat treatment, which is the definition of one.
+   * The Zener dispersion (v7.0 C2) lives HERE and only here: particles are
+   * mask-ineligible cells, the exact wall semantics liquid and mould already
+   * have, so the anneal pass itself is untouched by the mode.
    */
-  private buildHtMask(kT: number) {
-    this.writeHt(0, kT);
+  private buildHtMask(kT: number, pin?: { f: number; r: number }) {
+    this.writeHt(0, kT, 0, pin);
     const enc = this.device.createCommandEncoder();
     const pass = enc.beginComputePass();
     pass.setPipeline(this.htMaskPipe);
@@ -645,14 +654,19 @@ export class Simulation {
    * the panel needs, without a second entry point that could drift from this
    * one's ping-pong bookkeeping.
    */
-  async anneal(sweeps: number, kT = HT_KT_DEFAULT, onProgress?: (done: number) => boolean | void): Promise<number> {
+  async anneal(
+    sweeps: number, kT = HT_KT_DEFAULT, onProgress?: (done: number) => boolean | void,
+    pin?: { f: number; r: number },
+  ): Promise<number> {
     if (HT_COLOURS_2D % 2 !== 0) throw new Error("HT_COLOURS_2D must be even — see anneal()");
     const total = Math.max(0, Math.floor(sweeps));
     if (total === 0) return 0;
-    this.buildHtMask(kT);
+    this.buildHtMask(kT, pin);
     for (let s = 0; s < total; s++) {
-      // salt 0 is the mask pass; start sweeps at 1 so no sweep shares its stream
-      this.writeHt(s + 1, kT);
+      // salt 0 is the mask pass; start sweeps at 1 so no sweep shares its stream.
+      // pin rides every sweep's struct too, though only the mask pass reads it —
+      // one writer, one shape, no special-cased first write
+      this.writeHt(s + 1, kT, 0, pin);
       const enc = this.device.createCommandEncoder();
       const pass = enc.beginComputePass();
       pass.setPipeline(this.annealPipe);

@@ -457,8 +457,23 @@
     <p>And what it does <i>not</i> do. <b>No precipitate aging, no T6</b>: the material table
     carries no precipitate kinetics — no volume fractions, no coarsening rates — and inventing them
     to draw a JMAK curve is the one thing this instrument does not do, so the strength row is
-    grain size only and says so. <b>Grain growth here is unpinned</b> — no second-phase particles,
-    no solute drag, no thermal grooving — so a real specimen stalls where this one keeps going.
+    grain size only and says so. <b>Grain growth is unpinned by default</b> — no solute drag, no
+    thermal grooving — but as of v7.0 the furnace panel carries a <b>Zener dispersion</b>: a
+    deterministic fabric of second-phase particles the anneal's boundaries must drag through,
+    implemented as mask-ineligible cells (the exact wall semantics liquid films and mould walls
+    already have — the H2b postmortem watched films pin these boundaries before any code asked
+    for it). The pinned specimen stalls at a limit that is <i>measured on this lattice</i>,
+    d<sub>lim</sub> = 7.24·r<sup>0.205</sup>/f<sup>0.356</sup> cells (nine plateaued ladders,
+    f 0.03–0.12, r 1–5 cells, worst residual 5.4 %) — deliberately not the textbook exponents:
+    classic Zener derives r/f in 3D, Srolovitz's T = 0 2D Potts measures ~r/√f with complete
+    stagnation, and this model anneals at finite kT, where thermal flips detach boundaries from
+    small obstacles and the count-weighted census reads the whole pinned population. The volume
+    shares the mechanism; its own limit law is a measurement not yet taken, and the panel says so
+    rather than borrowing the fit across a dimension change. Gates: pinning 0 is bit-identical to
+    the anneal with the mode absent, while the unpinned kinetics keep measuring their shipped
+    constants (<code>GG-PIN-OFF-IDENTITY</code> + the standing <code>GG-KMC</code> drift gate —
+    the two halves of "the pre-v7 furnace, unchanged"), and the pinned arm must sit on the
+    measured law, not merely stop (<code>GG-PIN-LIMIT</code>).
     <b>The hold is isothermal by construction</b>: the solver's temperature field is the as-cast
     record, not the furnace, so the treatment parks the thermal lenses and puts up a banner instead
     of showing a cold casting labelled 540 °C. And <b>the specimen is finite</b>: grain statistics
@@ -495,7 +510,7 @@
       <tr><td>Pour superheat, mould temperature</td><td><b>qualitative boundary conditions</b> — superheat is a real thermal load and the mould is a real cold boundary. (Whether the refiner is <i>faded</i> by high superheat specifically is not separated out here; fade is driven by hold time — see the next row.)</td></tr>
       <tr><td>Grain-refiner fade (hold before pour)</td><td><b>an empirical time law, labelled as one.</b> Hold an inoculated charge above its liquidus and it loses effective nucleant sites: the refining particles (TiB<sub>2</sub>, Al<sub>3</sub>Ti in the Al–Ti–B system) are denser than the melt and settle out — <i>faster</i> than Stokes' law alone, because they agglomerate and catch on oxide films. The lab models this as a short potent plateau then an exponential decay to a residual floor, with most of the loss inside the first ~30 min (the settling literature) and <b>exactly no fade at zero hold</b>, so nothing shipped earlier moves. The timescale is the Al–Ti–B holding picture applied to whatever inoculant you set — it is not derived from a specific particle-size distribution</td></tr>
       <tr><td>Stirring, convection, melt flow</td><td><b>not modelled at all</b> — grain multiplication by dendrite fragmentation is a real and important refining mechanism, and it needs a flow field this solver does not have</td></tr>
-      <tr><td>Solid-state grain growth (HEAT TREAT)</td><td><b>endpoint from the material's sourced law, trajectory from measured Potts kinetics</b> — D<sup>n</sup> − D₀<sup>n</sup> = ∫k·dt says where the grain finishes; the model's own (m, K<sub>MC</sub>) pair, measured per dimension, spends the sweeps. Unpinned: no particles, no solute drag, so a real specimen stalls where this one keeps going</td></tr>
+      <tr><td>Solid-state grain growth (HEAT TREAT)</td><td><b>endpoint from the material's sourced law, trajectory from measured Potts kinetics</b> — D<sup>n</sup> − D₀<sup>n</sup> = ∫k·dt says where the grain finishes; the model's own (m, K<sub>MC</sub>) pair, measured per dimension, spends the sweeps. Unpinned by default (no solute drag); a dialled Zener dispersion pins at the measured d<sub>lim</sub> = 7.24·r<sup>0.205</sup>/f<sup>0.356</sup> cells — in the plane, where the law is measured</td></tr>
       <tr><td>Annealing twins (3D)</td><td><b>real crystallography, inserted birth</b> — exact Σ3 registry, survival by a measured-ratio energy cusp plus a mobility gate; but the nucleus is a stamped {111} plate, because a per-cell spawn was built twice and measured dead — a stacking event is sub-grid for a Potts flip. Who twins is decided by sourced stacking-fault energies (Murr 1975)</td></tr>
       <tr><td>Homogenization</td><td><b>exact, and gated as an equality</b> — masked diffusion at frozen φ whose iteration count is the schedule's own Dt product, no fitted constant; the discrete-vs-continuum gap is printed as the model's own discretization error, and the delivered fraction of a budget-capped soak is reported, never silently fewer</td></tr>
       <tr><td>Oxide scale, decarburization</td><td><b>analytic card lines</b> — parabolic laws over the whole schedule from sourced constants; never painted into the fields, which are the as-cast record. Ice and SCN refuse by name rather than draw a confident 0 µm</td></tr>

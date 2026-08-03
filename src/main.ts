@@ -987,10 +987,10 @@ async function boot() {
       }
       return s;
     },
-    anneal: (sweeps, onProgress) =>
+    anneal: (sweeps, onProgress, pin) =>
       mode === "3d" && sim3d
-        ? sim3d.anneal(sweeps, undefined, onProgress)
-        : sim.anneal(sweeps, undefined, onProgress),
+        ? sim3d.anneal(sweeps, undefined, onProgress, pin)
+        : sim.anneal(sweeps, undefined, onProgress, pin),
     cubic: () => to3D(MATERIALS[material] ?? MATERIALS.generic).aniMode3 === 1,
     // Σ3 twinning: plate-nucleation events interleaved with the sweep chunks.
     // The host's job is the BUDGET — events target ~0.8 per existing grain
@@ -998,9 +998,9 @@ async function boot() {
     // swallowed), bounded by the remaining id range — and the honest count:
     // spawned is what the allocator actually delivered, and saturation is
     // reported rather than silently truncating the twin density.
-    async annealTwins(sweeps, onProgress) {
+    async annealTwins(sweeps, onProgress, pin) {
       if (!(mode === "3d" && sim3d)) {
-        return { delivered: await sim.anneal(sweeps, undefined, onProgress), spawned: 0, saturated: false };
+        return { delivered: await sim.anneal(sweeps, undefined, onProgress, pin), spawned: 0, saturated: false };
       }
       const s3 = sim3d;
       const ctr0 = await s3.readTwinCtr();
@@ -1023,7 +1023,7 @@ async function boot() {
         const share = Math.round(((ci + 1) * sweeps) / chunks) - Math.round((ci * sweeps) / chunks);
         if (share > 0) {
           const base = delivered;
-          const got = await s3.anneal(share, undefined, done => onProgress(base + done));
+          const got = await s3.anneal(share, undefined, done => onProgress(base + done), pin);
           delivered += got;
           if (got < share) break;   // aborted mid-chunk — report what landed
         }
@@ -1689,7 +1689,10 @@ async function boot() {
       // Number.isFinite does not coerce, so a hand-built ht carrying strings,
       // nulls or NaN is rejected whole rather than clamped into NaN dials —
       // the g3 whitelist doctrine. A malformed ht simply does not open.
-      if (Array.isArray(shared.ht) && shared.ht.length === 3
+      // Length 3 (pre-C2 links) or 5 (with the dispersion tail): every element
+      // PRESENT must be a finite number — the whole-rejection stance stays,
+      // only the accepted shapes grew (a 4-element hand-build is malformed).
+      if (Array.isArray(shared.ht) && (shared.ht.length === 3 || shared.ht.length === 5)
         && shared.ht.every(Number.isFinite) && !lab.active) heat?.open(shared.ht);
     };
     if (shared.d !== 1) openHeat();

@@ -327,7 +327,9 @@ one inserted thing — per-cell twin spawns were built and measured dead (3/512 
 sweeps, none at 450), because a {111} stacking event is sub-grid for a per-cell Potts flip; the
 plate is stamped in exact Σ3 registry and everything after birth is the pass's physics. There is
 no precipitate aging and no T6 — `MaterialSI` has no precipitate kinetics, and inventing them is
-the one thing this instrument does not do. Grain growth is unpinned — no particles, no solute
-drag — where a real specimen stalls. And grain statistics on a 188 µm volume stop meaning
-anything past ~64 µm, so a schedule that would go there is refused with the law's answer still
-printed.
+the one thing this instrument does not do. Grain growth is unpinned by default (no solute drag),
+and as of v7.0 the panel carries a Zener dispersion — a particle fabric the boundaries drag
+through, pinned at a limit measured on this lattice (d_lim = 7.24·r^0.205/f^0.356 cells in the
+plane; the volume shares the mechanism and declines to borrow the law). And grain statistics on a
+188 µm volume stop meaning anything past ~64 µm, so a schedule that would go there is refused
+with the law's answer still printed.

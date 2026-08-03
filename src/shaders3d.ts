@@ -15,7 +15,7 @@
 // assembles  aniso = w·lapφ + ∇w·∇φ + div A  — the same compact structure the
 // 2D solver uses, which avoids the checkerboard mode of a naive div(F).
 
-import { HT_COMMON, PALETTE_WGSL } from "./shaders";
+import { HT_COMMON, PALETTE_WGSL, PIN_SALT } from "./shaders";
 
 export const MAX_GRAINS3 = 4096;
 export const MAX_SEEDS3 = 128;   // as in 2D: a big inoculant burst must land while liquid remains
@@ -778,6 +778,31 @@ ${HT_COMMON}
 @group(0) @binding(3) var mould: texture_3d<u32>;
 @group(0) @binding(4) var maskOut: texture_storage_3d<r32uint, write>;
 const PORE = ${PORE_ID}u;
+const PIN_SALT = ${PIN_SALT}u;
+
+// Zener dispersion (v7.0 C2) — the 3D twin of the 2D mask's inParticle: sphere
+// centres where a hash beats f / (4/3 pi r^3), tested on unwrapped coordinates,
+// obstacles in the MASK only. Same mechanism, same fabric salt; the d_lim LAW
+// is measured in the plane (GG-PIN-LIMIT) and deliberately not asserted here -
+// the volume shares the mechanism, and its own law is a measurement not yet
+// taken (the panel's prediction says so rather than borrowing the 2D fit).
+fn inParticle3(gx: u32, gy: u32, gz: u32) -> bool {
+  let r = i32((H.flags >> 8u) & 0xffu);
+  if (H.pinF <= 0.0 || r <= 0) { return false; }
+  let pC = H.pinF / (4.18879020 * f32(r) * f32(r) * f32(r));
+  for (var dz = -r; dz <= r; dz++) {
+    for (var dy = -r; dy <= r; dy++) {
+      for (var dx = -r; dx <= r; dx++) {
+        if (dx * dx + dy * dy + dz * dz > r * r) { continue; }
+        let hx = u32(i32(gx) + dx);
+        let hy = u32(i32(gy) + dy);
+        let hz = u32(i32(gz) + dz);
+        if (htHash(hx, hy, hz ^ PIN_SALT) < pC) { return true; }
+      }
+    }
+  }
+  return false;
+}
 
 @compute @workgroup_size(4, 4, 4)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -786,7 +811,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let phi = textureLoad(state, c, 0).r;
   let id = textureLoad(grain, c, 0).r;
   let wall = textureLoad(mould, c, 0).r;
-  let ok = phi >= 0.5 && id != 0u && id != PORE && wall == 0u;
+  let ok = phi >= 0.5 && id != 0u && id != PORE && wall == 0u
+    && !inParticle3(gid.x, gid.y, gid.z);
   textureStore(maskOut, c, vec4u(select(0u, 1u, ok), 0u, 0u, 0u));
 }
 `;

@@ -93,6 +93,7 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     const dials = document.getElementById("heattreat").querySelectorAll('input[type="range"]');
     const set = (i, v) => { dials[i].value = String(v); dials[i].dispatchEvent(new Event("input", { bubbles: true })); };
     set(0, 655); set(1, 240); set(2, 33);        // temperature, hold, spec σ_y
+    set(3, 0.06); set(4, 3);                     // v7.0 C2: dispersion f, particle r
     return S.app.shareLink();
   });
   await page.close();
@@ -105,12 +106,14 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     return {
       open: true, m: window.__solidify.app.getMaterial(),
       t: +dials[0].value, h: +dials[1].value, s: +dials[2].value,
+      f: +dials[3].value, r: +dials[4].value,
       // the staged link has nothing solid yet — the panel must refuse
       // honestly rather than pretend, and the dialled schedule must survive
       note: document.getElementById("htNote").textContent.slice(0, 80),
     };
   });
-  const ok = got.open && got.m === "cu" && got.t === 655 && got.h === 240 && got.s === 33;
+  const ok = got.open && got.m === "cu" && got.t === 655 && got.h === 240 && got.s === 33
+    && got.f === 0.06 && got.r === 3;
   console.log("HT-SHARE", ok ? "OK" : "FAIL", JSON.stringify(got));
   if (!ok) process.exitCode = 1;
   await p2.close();
@@ -133,6 +136,31 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   console.log("HT-SHARE-MALFORMED", ok2 ? "OK" : "FAIL", JSON.stringify(gotBad));
   if (!ok2) process.exitCode = 1;
   await p3.close();
+
+  // the pre-C2 arm (v7.0 C2): a three-element ht — every link minted before
+  // the dispersion existed, and every unpinned link minted after — must keep
+  // restoring, with the dispersion at its off defaults. The applier accepts
+  // lengths 3 and 5; this is the half a 5-tuple round-trip cannot cover.
+  const old = JSON.stringify({ p: { delta: 0.05 }, u: 0.8, v: 1, m: "cu", ht: [655, 240, 33] });
+  const oldHash = "#set=" + Buffer.from(old).toString("base64")
+    .replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  const p4 = await browser.newPage();
+  await boot(p4, oldHash);
+  const gotOld = await p4.evaluate(() => {
+    const panel = document.getElementById("heattreat");
+    if (!panel) return { open: false };
+    const dials = panel.querySelectorAll('input[type="range"]');
+    return {
+      open: true,
+      t: +dials[0].value, h: +dials[1].value, s: +dials[2].value,
+      f: +dials[3].value, r: +dials[4].value,
+    };
+  });
+  const ok3 = gotOld.open && gotOld.t === 655 && gotOld.h === 240 && gotOld.s === 33
+    && gotOld.f === 0 && gotOld.r === 2;
+  console.log("HT-SHARE-PRE-C2", ok3 ? "OK" : "FAIL", JSON.stringify(gotOld));
+  if (!ok3) process.exitCode = 1;
+  await p4.close();
 }
 
 // 2c. MOULD-SHARE (Phase D M): the mould kind is the lab tuple's 9th, optional
