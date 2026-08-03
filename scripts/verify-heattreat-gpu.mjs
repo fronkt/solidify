@@ -51,6 +51,11 @@ const SH3 = await viteServer.ssrLoadModule("/src/shaders3d.ts");
 // so the Hall–Petch constants come from the table that ships them
 const MAT = await viteServer.ssrLoadModule("/src/materials.ts");
 const AL_HP = { s0: MAT.MATERIALS.al.si.s0, kHP: MAT.MATERIALS.al.si.kHP };
+// v7.0 C1: the through-origin power-law fit + r²-window band that used to be
+// inlined here four times now lives in the comparator layer — loaded, not
+// retyped, and EXP-FIT-PARITY (verify-experiment.mjs, CI) holds the extracted
+// arithmetic bit-for-bit against a verbatim copy of the old inline code
+const EXP = await viteServer.ssrLoadModule("/src/experiment.ts");
 
 const PORT = process.argv[3] ?? "5199";
 let failures = 0;
@@ -300,39 +305,11 @@ if (cast0.grains < 20) { console.log("cast produced too few grains to anneal"); 
       JSON.stringify(saturated.map(p => ({ S: p.S, d: +p.d.toFixed(1), grains: p.grains }))));
   }
   const use = out.filter(p => p.S >= S_FIT[0] && p.S <= S_FIT[1]);
-  let best = null;
-  for (let m = 1.0; m <= 4.5; m += 0.005) {
-    const y0 = Math.pow(d0, m);
-    let sxy = 0, sxx = 0;
-    for (const p of use) { const y = Math.pow(p.d, m) - y0; sxy += p.S * y; sxx += p.S * p.S; }
-    const K = sxy / sxx;
-    // through-origin fit: residual against the law, not against the mean
-    let ssRes = 0, ssTot = 0;
-    for (const p of use) {
-      const y = Math.pow(p.d, m) - y0;
-      ssRes += (y - K * p.S) ** 2;
-      ssTot += y * y;
-    }
-    const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 0;
-    if (K > 0 && (!best || r2 > best.r2)) best = { m: +m.toFixed(3), K, r2, d0eff: d0 };
-  }
-
-  // How well-determined is m? The ladder spans a 1.37x change in d, so exponents
-  // that differ by a few tenths are not wildly separated in residual. Report the
-  // band of m whose fit is within 0.0005 r2 of the best, so the constant carries
-  // its own uncertainty instead of a spurious three decimals.
-  let lo = best.m, hi = best.m;
-  for (let m = 1.0; m <= 4.5; m += 0.005) {
-    const y0 = Math.pow(d0, m);
-    let sxy = 0, sxx = 0;
-    for (const p of use) { const y = Math.pow(p.d, m) - y0; sxy += p.S * y; sxx += p.S * p.S; }
-    const K = sxy / sxx;
-    let ssRes = 0, ssTot = 0;
-    for (const p of use) { const y = Math.pow(p.d, m) - y0; ssRes += (y - K * p.S) ** 2; ssTot += y * y; }
-    const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 0;
-    if (K > 0 && r2 >= best.r2 - 0.0005) { lo = Math.min(lo, m); hi = Math.max(hi, m); }
-  }
-  best.band = [+lo.toFixed(2), +hi.toFixed(2)];
+  // the scan (m over [1.0, 4.5] by 0.005, best admissible K > 0) and the
+  // r²-window band (all m within 0.0005 of the best — the constant carries its
+  // own uncertainty instead of a spurious three decimals) both live in the
+  // comparator layer now; the GATE POLICY (r² floors, sanity rails) stays here
+  const best = EXP.scanPower(use, d0);
 
   const ok = best !== null && best.r2 >= 0.97 && best.m > 1.05 && best.m < 4.45 && best.K > 0;
   check("GG-EXPONENT", ok, {
@@ -350,16 +327,7 @@ if (cast0.grains < 20) { console.log("cast produced too few grains to anneal"); 
   // the free fit is printed alongside with a wide sanity rail (see below for
   // why its band cannot be a gate).
   {
-    const y0 = Math.pow(d0, M_MODEL);
-    let sxy = 0, sxx = 0;
-    for (const p of use) { const y = Math.pow(p.d, M_MODEL) - y0; sxy += p.S * y; sxx += p.S * p.S; }
-    const kAt = sxy / sxx;
-    let ssRes = 0, ssTot = 0;
-    for (const p of use) {
-      const y = Math.pow(p.d, M_MODEL) - y0;
-      ssRes += (y - kAt * p.S) ** 2; ssTot += y * y;
-    }
-    const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 0;
+    const { K: kAt, r2 } = EXP.fitPowerAt(use, d0, M_MODEL);
     const brackets = best.band[0] <= M_MODEL && M_MODEL <= best.band[1];
     // Band-containment is REPORTED, not gated — and that is a measured decision,
     // not a relaxation hidden in a diff. The first full-suite run measured a
@@ -777,29 +745,8 @@ if (!cast3 || cast3.grains < 100) { console.log("3D cast produced too few grains
       JSON.stringify(atWall.map(p => ({ S: p.S, d: +p.d.toFixed(1), grains: p.grains }))));
   }
   const use = out.filter(p => p.S >= S_FIT3[0] && p.S <= S_FIT3[1]);
-  const fitAt = m => {
-    const y0 = Math.pow(d0, m);
-    let sxy = 0, sxx = 0;
-    for (const p of use) { const y = Math.pow(p.d, m) - y0; sxy += p.S * y; sxx += p.S * p.S; }
-    const K = sxy / sxx;
-    let ssRes = 0, ssTot = 0;
-    for (const p of use) {
-      const y = Math.pow(p.d, m) - y0;
-      ssRes += (y - K * p.S) ** 2; ssTot += y * y;
-    }
-    return { K, r2: ssTot > 0 ? 1 - ssRes / ssTot : 0 };
-  };
-  let best = null;
-  for (let m = 1.0; m <= 4.5; m += 0.005) {
-    const f = fitAt(m);
-    if (f.K > 0 && (!best || f.r2 > best.r2)) best = { m: +m.toFixed(3), ...f };
-  }
-  let lo = best.m, hi = best.m;
-  for (let m = 1.0; m <= 4.5; m += 0.005) {
-    const f = fitAt(m);
-    if (f.K > 0 && f.r2 >= best.r2 - 0.0005) { lo = Math.min(lo, m); hi = Math.max(hi, m); }
-  }
-  best.band = [+lo.toFixed(2), +hi.toFixed(2)];
+  // same estimator as the 2D gate, from the same one home (v7.0 C1)
+  const best = EXP.scanPower(use, d0);
 
   const ok = best !== null && best.r2 >= 0.97 && best.m > 1.05 && best.m < 4.45 && best.K > 0;
   check("GG3-EXPONENT", ok, {
@@ -809,7 +756,7 @@ if (!cast3 || cast3.grains < 100) { console.log("3D cast produced too few grains
   });
   {
     const M3 = HT.M_MODEL_3D;
-    const f = fitAt(M3);
+    const f = EXP.fitPowerAt(use, d0, M3);
     const drift = Math.abs(f.K / HT.K_MC_3D - 1);
     // the same gate shape as GG-KMC: the free fit is printed with a sanity
     // rail, and the assertion is the law fitted AT the shipped exponent plus

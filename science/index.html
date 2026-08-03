@@ -151,7 +151,12 @@
       harness are <b>not a controlled variable</b>; grain count at matched solid fraction is,
       which is why that is what the suite asserts (<code>REFINE-FAIR</code>). Settling the
       mechanism needs a solver that can be stepped a fixed number of substeps regardless of
-      frame pacing, which this one cannot yet do.</p>
+      frame pacing — which the interactive harness cannot do, and which, as of v7.0, the
+      verification bench can: the controlled-experiment layer drives the nucleation model
+      synchronously between fence-paced substep chunks, so a cast with emergently fired sites
+      replays byte-identically per seed (<code>EXP-REPRO-LIVE</code>), and every sweep it
+      renders must name the variable it held fixed and prove the arms actually sat there
+      (<code>EXP-SWEEP-CONTROLLED</code>).</p>
       The composer's reported chemistry — ΔT<sub>L</sub>, Q, k<sub>eff</sub> — is computed
       from the textbook coefficients throughout. Its conversion into the solver's units was
       itself wrong until v5.0: it used a flat 100 K per dimensionless degree for every metal,

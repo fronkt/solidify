@@ -1935,3 +1935,95 @@ each recorded at its own milestone below.
         `tsc` caught it as `TS1005: ',' expected`. Also cost one confusing cycle: a stale dev
         server left over from the previous milestone was still holding port 5199, so the first
         probe run was served pre-edit code behind a 500.
+
+- [x] **C1 — the comparator, the sweep bench and the scatter band (`src/experiment.ts`).** The
+      five wrong-comparison postmortems in this file are the spec, and the module makes both
+      halves of their rule structural: a `SweepSpec` cannot RUN without naming the one swept
+      parameter and the variable held fixed (an undeclared comparison throws — programmer
+      error), and every cast returns `ctrl`, the achieved value of the matching variable, which
+      the bench checks across every run of every arm against the spec's stated tolerance —
+      REFUSING to render means or bands when the arms did not actually sit at the matched state.
+      Naming a proxy no longer helps; the achieved spread is measured, printed on the rendered
+      output, and gated. The answer to the fifth postmortem (feedback-coupled A/B divergence) is
+      the replicate axis: N recorded seeds per arm, band against band, range not σ.
+      - **The stats extraction.** The through-origin power-law fit + r²-window band that
+        `verify-heattreat-gpu.mjs` inlined four times (2D scan, 2D fit-at-shipped-m, 3D scan,
+        3D fit-at-shipped-m) now lives in `fitPowerAt`/`scanPower`, same arithmetic in the same
+        accumulation order; the GPU script imports them via `ssrLoadModule`. **`EXP-FIT-PARITY`**
+        (browser-free, CI) holds the extraction `Object.is`-exact against a VERBATIM copy of the
+        old inline code on an exact and a jittered ladder — the PASSSPLIT doctrine applied to
+        statistics — with a finiteness clause, because `Object.is(NaN, NaN)` is true and two
+        broken fits would otherwise "agree" (the identity-needs-liveness lesson, applied at
+        write time for once).
+      - **The nucleation-live deterministic cast (`castCensus`)** closes the science page's own
+        "cannot yet do" sentence: sites fire off frame-loop stats arrivals, so a stepSync cast
+        used to mean a nucleation-dead cast (RNG-REPRO bypasses the model with scatterSeeds).
+        The bench drives it synchronously between fence-paced chunks — update → stepSync →
+        readStats-with-retry → observe, the frame loop's own order — with two determinism holes
+        found and closed at design time rather than by a flaky gate: (1) the app's 4 Hz panel
+        poll lands `nuc.observe` at wall-clock times and would poison the ratchet, so the
+        `__solidify.experiment` cast wrappers hold it off (`benchHold` guards exactly that one
+        call in the frame loop's stats callback); (2) a >MAX_SEEDS emission burst would split
+        its stamp batches at a point decided by whether the idle `sim.step(0)` got a rAF in, so
+        the queue is drained with `stepSync(0)` before growing, sized to the burst.
+        **`EXP-REPRO-LIVE`** (measured): 246 emergently-fired sites, census byte-identical
+        across two same-seed casts, different seed differs, liveness asserted (`castGrew`).
+      - **`castTip`** is one QPF-CONVERGE arm as a controlled cast — θ₀ = 0, distance-scheduled,
+        ℓ_D-normalised window, ctrl = achieved travel in diffusion lengths — implemented
+        INDEPENDENTLY of `verify-quant.mjs`'s private copy on purpose: two witnesses asserting
+        the same published constant every build cross-check each other, where one shared
+        implementation would let a bug assert itself (noted in `phiCross`'s docblock; Q3b
+        extracts THIS copy for the 3D tracker). **`EXP-TIP-ANCHOR`** (measured): V·d₀/D =
+        0.01678 against KR-1998's 0.017 — 1.3 %, the gate anchored on a constant this arc does
+        not touch, deliberately not `K_MC`, which C2/C3 are designed to move.
+      - **The gate corrected itself twice before shipping, both times by its own doctrine.**
+        (1) The first cut demanded `|plateau − 1| < 0.05` — a tolerance written before
+        measuring, the exact Phase-Q lesson — and failed its own honest arm (measured
+        vW0/vMid = 0.9416 at 8 ℓ_D while landing 1.3 % off the published number; QPF-CONVERGE's
+        real assertion is arms in step with EACH OTHER). Replaced with the measured band
+        [0.9, 1.02], reason recorded at the assertion. (2) The sweep's first cut used tol 0.08
+        on matched solid fraction, which let a budget-exhausted arm that never reached fs 0.5
+        (read at 0.447 when `maxChunks` ran out) pass as "matched" — precisely the failure the
+        bench exists to refuse. Budget raised so both arms genuinely reach the read state, and
+        the tolerance re-sized to what it is actually for: measured chunk overshoot
+        (0.5002–0.5067 → tol 0.03). **`EXP-SWEEP-CONTROLLED`** (measured): coolRate {0.2, 0.8}
+        × two seeds, grain count at matched fs, ctrl spread 0.0065 within ±0.03, replicate
+        bands alive (±11.2 % and ±4.5 %), v4.0's direction holds (288 vs 170 — faster cooling,
+        finer grains), and the rendered text names the controlled variable.
+      - Also caught in the browser-free half's own first run: the "shrinking ladder" intended
+        to prove K > 0 admissibility wasn't inadmissible at all — rungs merely decreasing with
+        S still sit above the pinned d₀, so every S·y product stays positive and so does K. A
+        truly inadmissible ladder must sit BELOW its own as-cast d₀ (`EXP-FIT-INADMISSIBLE`
+        says why in its comment). And the GPU half's paint smoke check first counted every
+        pixel as "painted" — comparing against the literal fill colour, which the 0.88-alpha
+        backdrop never stores; it now diffs against the backdrop as painted, read from a corner
+        nothing draws on.
+      - Surface: `window.__solidify.experiment` (module functions + the two cast wrappers that
+        take `benchHold`). No rail UI in C1 — the layer's consumers today are the gates, C5b's
+        figure scripts, and C2/C3's measurement tasks (re-measuring `K_MC_TOL_3D` under a
+        pinned app seed is the first one queued). `drawBand`/`bandLayout` ship gated
+        (layout content browser-free, painter smoke-tested on a real canvas) so the first UI
+        consumer inherits a tested renderer rather than a new one.
+      - Docs: the science page's "measured wrong twice" note loses its "cannot yet do"
+        sentence in favour of what now exists and where; TESTING.md gains both script entries
+        and the CI-set count fixed 5/6 → seven (the intro's five-script list had been accurate
+        until C0a added `verify-rng.mjs` and stale since — the same doc-drift class
+        HT-DOC-CONSTANTS exists to catch, found by this milestone's survey).
+      - **Adversarial review before commit (5 finder lenses → 20 raw findings; skeptics
+        confirmed 2, refuted 8; the unjudged tail hand-triaged to 5 more fixes).** The two
+        confirmed: (1) `benchHold` guarded the poll's `nuc.observe` but not the TRANSPORT — a
+        running frame loop (Space mid-cast is enough) would inject frame-paced `nuc.update` +
+        `sim.step` around the cast's fence-paced chunks; the frame loop's cast branch now gates
+        on `running && !benchHold`, falling through to the idle stamp branch the drain is
+        already sized for. (2) the sweep gate asserted ctrl SPREAD but never ATTAINMENT — two
+        arms that both budget-exited at similar fractions would render as matched at a state
+        nobody declared; the gate now pins every run's ctrl ≥ the declared read point AND
+        `castCensus` returns ctrl = NaN on a budget exit (a run that never reached its declared
+        state is a non-measurement — the achieved fraction stays in `fracSolid` for the refusal
+        to print). From the tail: `castTip`'s melt-back cancellation (vW0 < 0 flips both the
+        travel and ℓ_D, so a retreating front computed a plausible POSITIVE "9 diffusion
+        lengths" — ctrl now refuses unless vW0 > 0); EXP-REPRO-LIVE compared five rounded
+        aggregates while the docs said census-identical — it now compares the per-grain
+        diameter list element-wise at RNG-REPRO's own precisions; and the stamp-drain divisor
+        was a hardcoded 96 where `MAX_SEEDS` is 192 (safe direction, twice the drains needed,
+        but a magic number where the constant exists — now imported).

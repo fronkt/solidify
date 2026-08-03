@@ -22,6 +22,7 @@ const SUITE = [
   ["scripts/verify-thermal.mjs"],
   ["scripts/verify-fade.mjs"],
   ["scripts/verify-porosity.mjs"],
+  ["scripts/verify-experiment.mjs"],
   ["scripts/verify-dive.mjs"],
   ["scripts/verify-dive-fallbacks.mjs"],
   ["scripts/verify-scroll-order.mjs"],
@@ -29,6 +30,10 @@ const SUITE = [
   ["scripts/verify-tools.mjs"],
   ["scripts/verify-passsplit.mjs", String(PORT)],
   ["scripts/verify-quant.mjs", String(PORT)],
+  // the comparator layer running real casts: nucleation-live determinism, a
+  // controlled sweep read at matched solid fraction, and the bench anchored
+  // on the KR-1998 tip velocity — a constant the v7 arc does not touch
+  ["scripts/verify-experiment-gpu.mjs", String(PORT)],
   // the GPU half of the heat-treatment gates — it re-measures K_MC's drift and
   // runs the panel end-to-end, so a change to the Potts pass fails the build
   // rather than quietly shipping a wrong sweep budget (the U0 lesson: a FAIL

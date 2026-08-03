@@ -21,18 +21,27 @@ pass fails the build rather than quietly shipping a wrong sweep budget.
 
 **Three more browser-free members joined in v6.1** — `verify-thermal.mjs`, `verify-fade.mjs`
 and `verify-porosity.mjs`, the arithmetic halves of the lab's cooling-curve analysis, refiner
-fade and Sievert gas porosity — bringing the CI-runnable set to five. They run first in the
+fade and Sievert gas porosity — bringing the CI-runnable set to five at the time (v7.0's
+`verify-rng.mjs` and `verify-experiment.mjs` have since made it seven). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
 GPU half is not worth starting.
+
+**v7.0 C1 added the comparator layer's pair** — `verify-experiment.mjs` (browser-free, in CI)
+proves the bench's doctrine on fake casts and holds the extracted power-law fit bit-for-bit
+against a verbatim copy of the inline code it replaced; `verify-experiment-gpu.mjs` runs the
+real casts, anchored on the KR-1998 tip velocity — a constant the v7 arc does not touch,
+deliberately not `K_MC`, which the pinning and recrystallization milestones are designed to
+move.
 
 **Requirements**: a WebGPU-capable Chrome/Chromium at the path hardcoded in each verify script
 (`C:\Program Files\Google\Chrome\Application\chrome.exe`) — Windows with a real GPU, or the
 `--use-angle=swiftshader` software-rendering path the scripts themselves fall back to for
 GPU-less environments. **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
-only the OS-agnostic steps — typecheck, build, and the five browser-free scripts
-(`verify-units.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
-`verify-porosity.mjs`; see `.github/workflows/ci.yml`) — rather than
+only the OS-agnostic steps — typecheck, build, and the seven browser-free scripts
+(`verify-units.mjs`, `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
+`verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`; see
+`.github/workflows/ci.yml`) — rather than
 this suite. If you want to run the physics/UI verification yourself, do it locally.
 
 ## What each script checks
@@ -81,6 +90,20 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   ratio is √(p₁/p₂), not p₁/p₂), the rejected fraction, the atmosphere ordering with vacuum
   exactly zero, refusal by name for materials without hydrogen data, and the Ransley–Neufeld
   numbers as a drift tripwire.
+- **`verify-experiment.mjs`** (browser-free, v7.0 C1) — the comparator layer's doctrine, on
+  fake casts. Eight checks. `EXP-FIT-EXACT` / `EXP-FIT-INADMISSIBLE` (a synthetic exact law
+  comes back out; a ladder below its own d₀ has no admissible K > 0 fit and must answer null,
+  not least-bad). `EXP-FIT-PARITY` — the extracted fit against a VERBATIM copy of the four-way
+  inlined code it replaced, `Object.is`-exact on both an exact and a jittered ladder, with a
+  finiteness clause because `Object.is(NaN, NaN)` is true and two broken fits would otherwise
+  "agree". `EXP-BAND` (a replicate band is the range, not a σ dressed up at N = 2).
+  `EXP-DECLARED` (a sweep missing its swept name, its controlled variable, its tolerance, its
+  values or its seeds throws — an undeclared comparison is a programmer error, and the fully
+  declared twin runs). `EXP-REFUSE-UNMATCHED` / `EXP-REFUSE-DEAD` (arms whose achieved
+  controlled variable disagrees beyond the stated tolerance, or a NaN measurement, refuse to
+  render — no means, no band geometry, the refusal naming the variable, the spread and the
+  offending run). `EXP-RENDERED` (a rendered comparison carries the controlled variable by
+  name, every seed, and means the check recomputes independently of the formatter under test).
 - **`verify-dive.mjs`** — boots the landing page, confirms the Three.js scroll-dive engaged
   (not the 2.5D SVG fallback), scrubs through a set of scroll progresses, and captures
   screenshots + console errors at each one.
@@ -133,6 +156,26 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   wall-clock, equal distance travelled, equal substep count and equal bath temperature are all
   proxies, and each of them produced a confident wrong answer here. Before comparing two runs,
   name the variable being held fixed and check it is the one the physics is measured against.
+
+- **`verify-experiment-gpu.mjs`** (v7.0 C1) — that rule as load-bearing code: the comparator
+  layer (`src/experiment.ts`) running real casts. `EXP-REPRO-LIVE` — a nucleation-LIVE cast is
+  deterministic per seed. `RNG-REPRO` had to bypass the site model with `scatterSeeds` because
+  nucleation fires on frame-loop stats arrivals; `castCensus` drives it synchronously between
+  fence-paced chunks (update → stepSync → readStats → observe, the frame loop's own order),
+  with the app's wall-clock `nuc.observe` held off and the seed-stamp queue drained before
+  growing, so 246 emergently-fired sites replay to a byte-identical census while a different
+  seed differs. `EXP-SWEEP-CONTROLLED` — a real coolRate sweep, two seeds per arm, read at
+  matched solid fraction: the arms' achieved read-states must sit within a tolerance sized
+  from measured chunk overshoot (0.03 — the first cut of this gate used a lazy 0.08 and let a
+  budget-exhausted arm at fs 0.447 pass as "matched", which is precisely the failure the bench
+  exists to refuse), the replicate band must be alive (seeds must matter somewhere), the v4.0
+  direction must hold (faster cooling ⇒ more grains, 288 vs 170 measured), and the rendered
+  text must name the controlled variable. `EXP-TIP-ANCHOR` — the bench anchored on a constant
+  this arc does not touch: one `castTip` arm reproduces the Karma–Rappel 1998 solvability tip
+  velocity (V·d₀/D measured 0.01678 against 0.017, 1.3 %), through an implementation
+  deliberately independent of `verify-quant.mjs`'s — two witnesses asserting the same
+  published number every build cross-check each other, where sharing one implementation would
+  let a bug assert itself.
 
 - **`verify-heattreat-gpu.mjs`** — the measured half of v6.0: puppeteer against real WebGPU,
   because a Monte Carlo Potts pass can look completely right and be completely wrong. The pass
@@ -378,7 +421,7 @@ spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 
 that evidence recorded in the constant's own docblock. The drift prints on every run, and
 `HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
-`npm run build` (Vite + `tsc`) plus the six browser-free scripts — `verify-units.mjs`,
-`verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs` and
-`verify-porosity.mjs` — are the checks anyone on any OS can run without a GPU, and are what CI
-actually gates on (`.github/workflows/ci.yml`).
+`npm run build` (Vite + `tsc`) plus the seven browser-free scripts — `verify-units.mjs`,
+`verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
+`verify-porosity.mjs` and `verify-experiment.mjs` — are the checks anyone on any OS can run
+without a GPU, and are what CI actually gates on (`.github/workflows/ci.yml`).

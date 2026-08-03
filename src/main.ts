@@ -25,6 +25,7 @@ import { Units, scaleOf, DEFAULT_UM_PER_CELL } from "./units";
 import { stream, getSeed, setSeed, reseed, seedHex } from "./rng";
 import { SOLVER } from "./shaders";
 import { calibrate, defaultLambda, A_T, type QuantSetup } from "./quant";
+import * as experiment from "./experiment";
 import { WT_PER_C0 } from "./alloy";
 
 /** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
@@ -60,6 +61,12 @@ async function boot() {
   // ------------------------------------------------------------- app state
   let view: ViewMode = 0;
   let running = true;
+  // a controlled-experiment cast owns the field for its duration: it holds
+  // off BOTH the frame loop's transport (nuc.update + frame-paced sim.step —
+  // a Space press mid-cast would otherwise inject physics around the cast's
+  // fence-paced chunks) and the 4 Hz panel poll's async nuc.observe, which
+  // lands at wall-clock times and would poison the ratchet (see experiment.ts)
+  let benchHold = false;
   let substeps = 14;
   let speedMult = 1;
   let undercool = 1.0;
@@ -1087,6 +1094,21 @@ async function boot() {
     setSolver: (kind: number, lambda?: number) => setSolver(kind, lambda),
     seed: () => getSeed(),
     setSeed: (s: number) => { setSeed(s); ui.sync(); },
+    // the controlled-experiment layer (v7.0 C1). The cast wrappers hold the
+    // frame loop's async nuc.observe off for their duration — a bench that
+    // shares the ratchet with a wall-clock poll is not a controlled bench —
+    // and resolve `sim` lazily so a swapSim/setGrid between casts is seen.
+    experiment: {
+      ...experiment,
+      castTip: async (o: { lambda: number }) => {
+        benchHold = true;
+        try { return await experiment.castTip(sim, o); } finally { benchHold = false; }
+      },
+      castCensus: async (o: { undercool: number }) => {
+        benchHold = true;
+        try { return await experiment.castCensus(sim, nuc, o); } finally { benchHold = false; }
+      },
+    },
   };
 
   // --------------------------------------------------------------- pointer
@@ -1501,7 +1523,12 @@ async function boot() {
       // when paused, tick() is a no-op — keep the stage live so it isn't frozen
       if (!opt.isRunning()) renderer.render(sim, 1, t / 1000);
     } else {
-      if (running) {
+      // a bench cast owns the transport too, not just the observe below: with
+      // the transport live this branch would inject frame-paced nuc.update +
+      // sim.step around the cast's fence-paced chunks (Space mid-cast is
+      // enough). The fall-through to the idle stamp branch is the interleave
+      // castCensus's drain is already sized for.
+      if (running && !benchHold) {
         // heterogeneous nucleation: sites fire as the melt sweeps past their
         // activation undercooling. No rate is specified anywhere — recalescence
         // stalls the sweep, so latent heat shuts nucleation off by itself.
@@ -1541,7 +1568,7 @@ async function boot() {
     if (forPanels || wantFast) {
       void sim.readStats().then(s => {
         if (!s) return;
-        nuc.observe(sim.simTime, s.meanLiqT, tEq2());
+        if (!benchHold) nuc.observe(sim.simTime, s.meanLiqT, tEq2());
         lab.onStats(s.meanLiqT, s.fracSolid);
         if (!forPanels) return;
         lastStats = s;
