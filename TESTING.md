@@ -22,7 +22,8 @@ pass fails the build rather than quietly shipping a wrong sweep budget.
 **Three more browser-free members joined in v6.1** — `verify-thermal.mjs`, `verify-fade.mjs`
 and `verify-porosity.mjs`, the arithmetic halves of the lab's cooling-curve analysis, refiner
 fade and Sievert gas porosity — bringing the CI-runnable set to five at the time (v7.0's
-`verify-rng.mjs` and `verify-experiment.mjs` have since made it seven). They run first in the
+`verify-rng.mjs` and `verify-experiment.mjs` have since made it seven, and v7.1 P0's
+`verify-phasedata.mjs` eight). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
 GPU half is not worth starting.
 
@@ -38,9 +39,9 @@ move.
 `--use-angle=swiftshader` software-rendering path the scripts themselves fall back to for
 GPU-less environments. **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
-only the OS-agnostic steps — typecheck, build, and the seven browser-free scripts
+only the OS-agnostic steps — typecheck, build, and the eight browser-free scripts
 (`verify-units.mjs`, `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
-`verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`; see
+`verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`; see
 `.github/workflows/ci.yml`) — rather than
 this suite. If you want to run the physics/UI verification yourself, do it locally.
 
@@ -104,6 +105,21 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   render — no means, no band geometry, the refusal naming the variable, the spread and the
   offending run). `EXP-RENDERED` (a rendered comparison carries the controlled variable by
   name, every seed, and means the check recomputes independently of the formatter under test).
+- **`verify-phasedata.mjs`** (browser-free, v7.1 P0) — the binary invariant table. Five
+  checks, all about totality and both polarities rather than about whether any one number is
+  right (a number's correctness is the audit's job — `docs/PHASE-AUDIT.md` recomputes every
+  row from an open CALPHAD database). `PD-ROW-SOURCED` requires every row to carry a source
+  over 30 characters AND the set of sources to hold at least five distinct strings, so one
+  blanket citation pasted 25 times fails. `PD-SECOND-PHASE-POLARITY` requires a row with an
+  invariant to NAME its second phase and its reaction, and an isomorphous row to leave both
+  empty with null numbers — both directions asserted, and both branches asserted non-empty so
+  a table with no isomorphous systems cannot pass vacuously. `PD-TABLE-BIJECTION` holds
+  `BASES` and `BINARY` in step in both directions, so neither table can drift ahead of the
+  other. `PD-ORDERING` requires each row to obey its own reaction's geometry (for a base-rich
+  eutectic, C_SM < C_inv — a row that violates it was transcribed from the wrong side of the
+  diagram, the likeliest hand-entry error and one no amount of sourcing would catch), and
+  requires at least one eutectic and one peritectic to be present. `PD-SOLUTE-SOURCED` does
+  the same distinct-set check on `alloy.ts`'s 25 coefficient rows.
 - **`verify-dive.mjs`** — boots the landing page, confirms the Three.js scroll-dive engaged
   (not the 2.5D SVG fallback), scrubs through a set of scroll progresses, and captures
   screenshots + console errors at each one.
@@ -466,7 +482,8 @@ spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 
 that evidence recorded in the constant's own docblock. The drift prints on every run, and
 `HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
-`npm run build` (Vite + `tsc`) plus the seven browser-free scripts — `verify-units.mjs`,
+`npm run build` (Vite + `tsc`) plus the eight browser-free scripts — `verify-units.mjs`,
 `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
-`verify-porosity.mjs` and `verify-experiment.mjs` — are the checks anyone on any OS can run
+`verify-porosity.mjs`, `verify-experiment.mjs` and `verify-phasedata.mjs` — are the checks
+anyone on any OS can run
 without a GPU, and are what CI actually gates on (`.github/workflows/ci.yml`).

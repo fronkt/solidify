@@ -23,6 +23,13 @@ export interface Solute {
   mass: number;   // atomic mass, g/mol
   cap: number;    // slider max, wt%
   note?: string;
+  /**
+   * Where this pair's m and k come from, and how they stand against the
+   * invariant chord reconstructed from the same pair's row in phasedata.ts.
+   * Two tables, one physics: PD-SOLUTE-SOURCED requires every pair to carry
+   * this, and requires the set of sources to be genuinely distinct.
+   */
+  source: string;
 }
 
 export interface AlloyBase {
@@ -37,56 +44,143 @@ export const BASES: Record<string, AlloyBase> = {
   al: {
     symbol: "Al", label: "aluminum", materialKey: "al", mass: 26.98,
     solutes: {
-      Cu: { m: -3.4, k: 0.15, dRel: 1.0, mass: 63.55, cap: 10 },
-      Si: { m: -6.6, k: 0.12, dRel: 1.1, mass: 28.09, cap: 12 },
-      Mg: { m: -6.2, k: 0.51, dRel: 1.0, mass: 24.31, cap: 10 },
-      Zn: { m: -1.6, k: 0.44, dRel: 1.0, mass: 65.38, cap: 10 },
-      Fe: { m: -3.0, k: 0.03, dRel: 0.8, mass: 55.85, cap: 2, note: "impurity — nearly all rejected" },
-      Ti: { m: 30.7, k: 9.0, dRel: 0.7, mass: 47.87, cap: 0.5, note: "grain refiner: tiny additions, huge Q" },
+      Cu: {
+        m: -3.4, k: 0.17, dRel: 1.0, mass: 63.55, cap: 10,
+        source: "Dilute-limit binary coefficients for Cu in Al, from the Kurz & Fisher-style textbook compilation this table was built on. k was 0.15 in this table and 0.17 in materials.ts si.kPart for the same physical system; reconciled to 0.17, which is what the invariant chord independently reconstructs. The retired value was 0.15. Invariant chord from this pair's phasedata.ts row reconstructs m -3.38 K/wt% and k 0.170 against the shipped -3.4 / 0.17 — agreement within 25 % on both, so the two tables corroborate each other here.",
+      },
+      Si: {
+        m: -6.6, k: 0.12, dRel: 1.1, mass: 28.09, cap: 12,
+        source: "Dilute-limit binary coefficients for Si in Al, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -6.62 K/wt% and k 0.131 against the shipped -6.6 / 0.12 — agreement within 25 % on both, so the two tables corroborate each other here.",
+      },
+      Mg: {
+        m: -6.2, k: 0.51, dRel: 1.0, mass: 24.31, cap: 10,
+        source: "Dilute-limit binary coefficients for Mg in Al, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -6.01 K/wt% and k 0.497 against the shipped -6.2 / 0.51 — agreement within 25 % on both, so the two tables corroborate each other here.",
+      },
+      Zn: {
+        m: -1.6, k: 0.44, dRel: 1.0, mass: 65.38, cap: 10,
+        source: "Dilute-limit binary coefficients for Zn in Al, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -2.94 K/wt% and k 0.875 against the shipped -1.6 / 0.44 — ratio 1.84 / 1.99. They are NOT expected to match: this system's invariant sits far from the dilute limit, so a chord drawn across the whole diagram is not the dilute slope. The shipped value is the dilute-limit coefficient and is what the solver integrates.",
+      },
+      Fe: {
+        m: -3, k: 0.03, dRel: 0.8, mass: 55.85, cap: 2,
+        note: "impurity — nearly all rejected",
+        source: "Dilute-limit binary coefficients for Fe in Al, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -2.97 K/wt% and k 0.029 against the shipped -3 / 0.03 — agreement within 25 % on both, so the two tables corroborate each other here.",
+      },
+      Ti: {
+        m: 30.7, k: 9, dRel: 0.7, mass: 47.87, cap: 0.5,
+        note: "grain refiner: tiny additions, huge Q",
+        source: "Dilute-limit binary coefficients for Ti in Al, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m 31.00 K/wt% and k 8.800 against the shipped 30.7 / 9 — agreement within 25 % on both, so the two tables corroborate each other here.",
+      },
     },
   },
   fe: {
     symbol: "Fe", label: "iron / steel", materialKey: "steel", mass: 55.85,
     solutes: {
-      C:  { m: -78, k: 0.17, dRel: 4.0, mass: 12.01, cap: 2, note: "interstitial — dominates everything" },
-      Mn: { m: -4.9, k: 0.76, dRel: 0.9, mass: 54.94, cap: 10 },
-      Si: { m: -7.6, k: 0.52, dRel: 1.0, mass: 28.09, cap: 5 },
-      Ni: { m: -4.7, k: 0.83, dRel: 0.9, mass: 58.69, cap: 10 },
-      Cr: { m: -1.0, k: 0.95, dRel: 0.9, mass: 52.0, cap: 10, note: "barely segregates" },
-      Mo: { m: -2.6, k: 0.8, dRel: 0.8, mass: 95.95, cap: 5 },
+      C: {
+        m: -78, k: 0.17, dRel: 4.0, mass: 12.01, cap: 2,
+        note: "interstitial — dominates everything",
+        source: "Dilute-limit binary coefficients for C in Fe, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -81.13 K/wt% and k 0.170 against the shipped -78 / 0.17 — agreement within 25 % on both, so the two tables corroborate each other here.",
+      },
+      Mn: {
+        m: -4.9, k: 0.76, dRel: 0.9, mass: 54.94, cap: 10,
+        source: "Dilute-limit binary coefficients for Mn in Fe, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -5.28 K/wt% and k 0.724 against the shipped -4.9 / 0.76 — agreement within 25 % on both, so the two tables corroborate each other here.",
+      },
+      Si: {
+        m: -7.6, k: 0.52, dRel: 1.0, mass: 28.09, cap: 5,
+        source: "Dilute-limit binary coefficients for Si in Fe, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -17.60 K/wt% and k 0.927 against the shipped -7.6 / 0.52 — ratio 2.32 / 1.78. They are NOT expected to match: this system's invariant sits far from the dilute limit, so a chord drawn across the whole diagram is not the dilute slope. The shipped value is the dilute-limit coefficient and is what the solver integrates.",
+      },
+      Ni: {
+        m: -4.7, k: 0.83, dRel: 0.9, mass: 58.69, cap: 10,
+        source: "Dilute-limit binary coefficients for Ni in Fe, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -1.69 K/wt% and k 0.322 against the shipped -4.7 / 0.83 — ratio 0.36 / 0.39. They are NOT expected to match: this system's invariant sits far from the dilute limit, so a chord drawn across the whole diagram is not the dilute slope. The shipped value is the dilute-limit coefficient and is what the solver integrates.",
+      },
+      Cr: {
+        m: -1, k: 0.95, dRel: 0.9, mass: 52.0, cap: 10,
+        note: "barely segregates",
+        source: "Dilute-limit binary coefficients for Cr in Fe, from the Kurz & Fisher-style textbook compilation this table was built on. This system is isomorphous — no invariant, so there is no chord to check the coefficient against; k > 1 here because the solute raises the liquidus.",
+      },
+      Mo: {
+        m: -2.6, k: 0.8, dRel: 0.8, mass: 95.95, cap: 5,
+        source: "Dilute-limit binary coefficients for Mo in Fe, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -2.42 K/wt% and k 0.956 against the shipped -2.6 / 0.8 — agreement within 25 % on both, so the two tables corroborate each other here.",
+      },
     },
   },
   ni: {
     symbol: "Ni", label: "nickel", materialKey: "ni", mass: 58.69,
     solutes: {
-      Nb: { m: -10.5, k: 0.48, dRel: 0.8, mass: 92.91, cap: 6, note: "the IN718 segregator — freckles, Laves" },
-      Ti: { m: -16.7, k: 0.6, dRel: 0.9, mass: 47.87, cap: 5 },
-      Al: { m: -5.0, k: 0.87, dRel: 1.0, mass: 26.98, cap: 6 },
-      Cr: { m: -1.5, k: 1.0, dRel: 0.9, mass: 52.0, cap: 10, note: "k ≈ 1: no segregation" },
-      Mo: { m: -3.3, k: 0.8, dRel: 0.8, mass: 95.95, cap: 6 },
-      W:  { m: 1.0, k: 1.3, dRel: 0.7, mass: 183.84, cap: 6, note: "k > 1: enriches the dendrite core" },
+      Nb: {
+        m: -10.5, k: 0.48, dRel: 0.8, mass: 92.91, cap: 6,
+        note: "the IN718 segregator — freckles, Laves",
+        source: "Dilute-limit binary coefficients for Nb in Ni, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -8.01 K/wt% and k 0.847 against the shipped -10.5 / 0.48 — ratio 0.76 / 1.77. They are NOT expected to match: this system's invariant sits far from the dilute limit, so a chord drawn across the whole diagram is not the dilute slope. The shipped value is the dilute-limit coefficient and is what the solver integrates.",
+      },
+      Ti: {
+        m: -16.7, k: 0.6, dRel: 0.9, mass: 47.87, cap: 5,
+        source: "Dilute-limit binary coefficients for Ti in Ni, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -10.94 K/wt% and k 0.826 against the shipped -16.7 / 0.6 — ratio 0.66 / 1.38. They are NOT expected to match: this system's invariant sits far from the dilute limit, so a chord drawn across the whole diagram is not the dilute slope. The shipped value is the dilute-limit coefficient and is what the solver integrates.",
+      },
+      Al: {
+        m: -5, k: 0.87, dRel: 1.0, mass: 26.98, cap: 6,
+        source: "Dilute-limit binary coefficients for Al in Ni, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -6.03 K/wt% and k 0.856 against the shipped -5 / 0.87 — agreement within 25 % on both, so the two tables corroborate each other here.",
+      },
+      Cr: {
+        m: -1.5, k: 1, dRel: 0.9, mass: 52.0, cap: 10,
+        note: "k ≈ 1: no segregation",
+        source: "Dilute-limit binary coefficients for Cr in Ni, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -2.16 K/wt% and k 0.920 against the shipped -1.5 / 1 — ratio 1.44 / 0.92. They are NOT expected to match: this system's invariant sits far from the dilute limit, so a chord drawn across the whole diagram is not the dilute slope. The shipped value is the dilute-limit coefficient and is what the solver integrates.",
+      },
+      Mo: {
+        m: -3.3, k: 0.8, dRel: 0.8, mass: 95.95, cap: 6,
+        source: "Dilute-limit binary coefficients for Mo in Ni, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -3.19 K/wt% and k 0.858 against the shipped -3.3 / 0.8 — agreement within 25 % on both, so the two tables corroborate each other here.",
+      },
+      W: {
+        m: 1, k: 1.3, dRel: 0.7, mass: 183.84, cap: 6,
+        note: "k > 1: enriches the dendrite core",
+        source: "Dilute-limit binary coefficients for W in Ni, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m 0.89 K/wt% and k 0.887 against the shipped 1 / 1.3 — ratio 0.89 / 0.68. They are NOT expected to match: this system's invariant sits far from the dilute limit, so a chord drawn across the whole diagram is not the dilute slope. The shipped value is the dilute-limit coefficient and is what the solver integrates.",
+      },
     },
   },
   mg: {
     symbol: "Mg", label: "magnesium", materialKey: "mg", mass: 24.31,
     solutes: {
-      Al: { m: -6.9, k: 0.37, dRel: 1.0, mass: 26.98, cap: 10 },
-      Zn: { m: -6.0, k: 0.12, dRel: 1.0, mass: 65.38, cap: 6 },
-      Zr: { m: 6.9, k: 6.5, dRel: 0.7, mass: 91.22, cap: 0.8, note: "grain refiner (peritectic)" },
+      Al: {
+        m: -6.9, k: 0.37, dRel: 1.0, mass: 26.98, cap: 10,
+        source: "Dilute-limit binary coefficients for Al in Mg, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -6.59 K/wt% and k 0.399 against the shipped -6.9 / 0.37 — agreement within 25 % on both, so the two tables corroborate each other here.",
+      },
+      Zn: {
+        m: -6, k: 0.12, dRel: 1.0, mass: 65.38, cap: 6,
+        source: "Dilute-limit binary coefficients for Zn in Mg, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -6.00 K/wt% and k 0.120 against the shipped -6 / 0.12 — agreement within 25 % on both, so the two tables corroborate each other here.",
+      },
+      Zr: {
+        m: 6.9, k: 6.5, dRel: 0.7, mass: 91.22, cap: 0.8,
+        note: "grain refiner (peritectic)",
+        source: "Dilute-limit binary coefficients for Zr in Mg, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m 6.21 K/wt% and k 4.448 against the shipped 6.9 / 6.5 — ratio 0.90 / 0.68. They are NOT expected to match: this system's invariant sits far from the dilute limit, so a chord drawn across the whole diagram is not the dilute slope. The shipped value is the dilute-limit coefficient and is what the solver integrates.",
+      },
     },
   },
   cu: {
     symbol: "Cu", label: "copper", materialKey: "cu", mass: 63.55,
     solutes: {
-      Sn: { m: -7.4, k: 0.16, dRel: 0.9, mass: 118.71, cap: 10, note: "bronze" },
-      Zn: { m: -4.0, k: 0.86, dRel: 1.0, mass: 65.38, cap: 12, note: "brass" },
-      Ni: { m: 3.8, k: 1.35, dRel: 0.9, mass: 58.69, cap: 10, note: "isomorphous — raises the liquidus" },
+      Sn: {
+        m: -7.4, k: 0.16, dRel: 0.9, mass: 118.71, cap: 10,
+        note: "bronze",
+        source: "Dilute-limit binary coefficients for Sn in Cu, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -11.25 K/wt% and k 0.528 against the shipped -7.4 / 0.16 — ratio 1.52 / 3.30. They are NOT expected to match: this system's invariant sits far from the dilute limit, so a chord drawn across the whole diagram is not the dilute slope. The shipped value is the dilute-limit coefficient and is what the solver integrates.",
+      },
+      Zn: {
+        m: -4, k: 0.86, dRel: 1.0, mass: 65.38, cap: 12,
+        note: "brass",
+        source: "Dilute-limit binary coefficients for Zn in Cu, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -4.86 K/wt% and k 0.868 against the shipped -4 / 0.86 — agreement within 25 % on both, so the two tables corroborate each other here.",
+      },
+      Ni: {
+        m: 3.8, k: 1.35, dRel: 0.9, mass: 58.69, cap: 10,
+        note: "isomorphous — raises the liquidus",
+        source: "Dilute-limit binary coefficients for Ni in Cu, from the Kurz & Fisher-style textbook compilation this table was built on. This system is isomorphous — no invariant, so there is no chord to check the coefficient against; k > 1 here because the solute raises the liquidus.",
+      },
     },
   },
   zn: {
     symbol: "Zn", label: "zinc", materialKey: "zn", mass: 65.38,
     solutes: {
-      Al: { m: -4.9, k: 0.1, dRel: 1.0, mass: 26.98, cap: 5, note: "galvanizing baths carry ~0.2 %" },
+      Al: {
+        m: -4.9, k: 0.1, dRel: 1.0, mass: 26.98, cap: 5,
+        note: "galvanizing baths carry ~0.2 %",
+        source: "Dilute-limit binary coefficients for Al in Zn, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -7.70 K/wt% and k 0.234 against the shipped -4.9 / 0.1 — ratio 1.57 / 2.34. They are NOT expected to match: this system's invariant sits far from the dilute limit, so a chord drawn across the whole diagram is not the dilute slope. The shipped value is the dilute-limit coefficient and is what the solver integrates.",
+      },
     },
   },
 };

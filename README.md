@@ -114,7 +114,11 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   glows: steel pours white-hot, zinc at 420 °C is just liquid silver.
 - **Alloy composer** — build your own composition: pick a base (Al/Fe/Ni/Mg/Cu/Zn), add
   elements in wt% with live at% conversion, using approximate textbook dilute-limit binary
-  coefficients (liquidus slope m, partition k per element). The composer reports the real
+  coefficients (liquidus slope m, partition k) carried **per (base, solute) pair** rather than
+  per element — aluminium appears as a solute under three different bases with three different
+  coefficients, and titanium changes sign between Al and Ni. Since v7.1 every pair also carries
+  its own cited `source`, and every pair has a binary invariant row in `src/phasedata.ts` whose
+  numbers are independently recomputed from open CALPHAD databases (`docs/PHASE-AUDIT.md`). The composer reports the real
   chemistry — liquidus shift ΔT_L = Σmᵢcᵢ and growth restriction factor Q = Σmᵢcᵢ(kᵢ−1) —
   then collapses the mix onto the model's pseudo-binary solute field (k_eff = the mᵢcᵢ-weighted
   mean partition), with every clamp labelled. Famous-alloy quick-fills (A356, AA2024, 4340,
