@@ -129,7 +129,11 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   model's reference liquid c∞/k is a composition the alloy never reaches, the readout says
   `EXTRAPOLATED GAUGE` and prints the real primary freezing range beside it; where the mix does not
   collapse onto a pseudo-binary at all, it declines and names the clause. Famous-alloy quick-fills
-  (A356, AA2024, 4340, IN718, AZ91, bronze…) and shareable `#alloy=…` deep links.
+  (A356, AA2024, 4340, IN718, AZ91, bronze…) and shareable `#alloy=…` deep links. Since v7.1 P2
+  the composer also **draws the diagram**: the dominant binary as straight chords between the
+  cited invariants, the pour pinned at the melt's own liquidus with the residual from the other
+  solutes labelled, a second dashed line wherever a model clamp moved the depression the solver
+  integrates, and a live cursor that is absent rather than zero when there is no melt to read.
 - **Twinning** — stochastic growth twins nucleate at the front in twin registry (θ₀ + π/j) and
   must out-grow their parent to survive, like real feathery grains in aluminum DC casting;
   Shift+click stamps a twinned seed pair — in hexagonal mode that grows the rare

@@ -1,4 +1,5 @@
 import { BASES, FAMOUS, derive, encodeMix, decodeMix, type Mix, type Derived } from "./alloy";
+import { PhaseFigureView } from "./phasediagram";
 
 // The alloy composer: pick a base metal, add solutes in wt% (live at%
 // conversion), read the real dilute-limit chemistry (liquidus shift, growth
@@ -29,6 +30,17 @@ export interface ComposerHost {
     poured: { mix: Mix; derived: Derived; caveats: string[] }): void;
   /** a deep link that could not be applied at all, and why — no pour follows */
   reportLinkRefusals(refusals: string[]): void;
+  /**
+   * The melt's current temperature in °C, or null when there is no liquid left
+   * and null when the material has no SI identity. Two different nulls on
+   * purpose: `sim.ts` returns `meanLiqT: null` once the casting is fully solid
+   * (never 0, and the app's own readouts guard on `!= null` for exactly that
+   * reason), while an abstract material has no thermometer at all. The figure
+   * draws no cursor for either and says which.
+   */
+  meltC(): number | null;
+  /** which material is actually in the crucible, for the cursor's own honesty check */
+  materialKey(): string;
 }
 
 export class Composer {
@@ -45,6 +57,14 @@ export class Composer {
    * solute must still be saying so when the melt it produced is on screen.
    */
   private extraRefusals: string[] = [];
+  /**
+   * The drawn diagram. It lives in its OWN container, appended once, because
+   * `renderOut()` replaces `.derived`'s innerHTML on every slider frame and
+   * would otherwise destroy and rebuild the whole SVG sixty times a second.
+   */
+  private figure = new PhaseFigureView();
+  private open_ = false;
+  private tickKey = "";
 
   constructor(private host: ComposerHost) {
     this.overlay = document.createElement("div");
@@ -59,10 +79,12 @@ export class Composer {
         <div class="addrow"><select></select><button class="add">+ add element</button></div>
         <div class="famous"></div>
         <div class="derived"></div>
+        <div class="figwrap"></div>
         <div class="cfoot"><button class="pour">⚗ pour this alloy</button><button class="cancel">cancel</button></div>
       </div>`;
     document.body.append(this.overlay);
 
+    this.overlay.querySelector(".figwrap")!.append(this.figure.root);
     this.rowsEl = this.overlay.querySelector(".rows")!;
     this.outEl = this.overlay.querySelector(".derived")!;
     this.addSel = this.overlay.querySelector(".addrow select")!;
@@ -103,8 +125,33 @@ export class Composer {
     this.overlay.addEventListener("pointerdown", e => { if (e.target === this.overlay) this.close(); });
   }
 
-  open() { this.overlay.classList.add("show"); this.render(); }
-  close() { this.overlay.classList.remove("show"); }
+  open() { this.open_ = true; this.overlay.classList.add("show"); this.render(); }
+  close() { this.open_ = false; this.overlay.classList.remove("show"); }
+  isOpen() { return this.open_; }
+
+  /**
+   * The frame loop's tick, in the `SlicePanel.update()` idiom: early-out when
+   * the panel is closed, and only touch the DOM through the figure's own
+   * attribute mutation. It exists because the composer is otherwise INPUT-DRIVEN
+   * ONLY — nothing re-rendered it while it was open, so a temperature drawn at
+   * open() would freeze while the casting behind it kept solidifying. The melt
+   * temperature itself only refreshes at the readout's 4 Hz cadence, so this is
+   * fifteen identical frames out of sixteen; the figure's own prose is diffed
+   * against the mix so only the cursor's two attributes actually move.
+   */
+  tick() {
+    if (!this.open_) return;
+    // Nothing below the cursor's own printed precision is worth redrawing: the
+    // label is whole degrees, the melt temperature itself only refreshes at the
+    // readouts' 4 Hz cadence, and `layout()` rebuilds a dozen sentences every
+    // call. Keyed on the rounded temperature and the material, so a paused melt
+    // costs one comparison per frame.
+    const t = this.host.meltC();
+    const key = `${t == null ? "-" : Math.round(t)}|${this.host.materialKey()}`;
+    if (key === this.tickKey) return;
+    this.tickKey = key;
+    this.figure.update(this.mix, t, this.host.materialKey());
+  }
 
   /** apply a #alloy=… deep link (no modal) */
   applyHash(hash: string): boolean {
@@ -171,6 +218,8 @@ export class Composer {
       slider.addEventListener("input", () => {
         this.mix.wt[el] = parseFloat(slider.value);
         this.renderOut();
+        this.tickKey = "";
+        this.figure.update(this.mix, this.host.meltC(), this.host.materialKey());
         row.querySelector(".cv")!.textContent =
           `${this.mix.wt[el].toFixed(2)} wt · ${(derive(this.mix).atPct[el] ?? 0).toFixed(2)} at%`;
       });
@@ -191,6 +240,8 @@ export class Composer {
     }
 
     this.renderOut();
+    this.tickKey = "";
+    this.figure.update(this.mix, this.host.meltC(), this.host.materialKey());
   }
 
   private renderOut() {

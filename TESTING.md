@@ -23,7 +23,8 @@ pass fails the build rather than quietly shipping a wrong sweep budget.
 and `verify-porosity.mjs`, the arithmetic halves of the lab's cooling-curve analysis, refiner
 fade and Sievert gas porosity — bringing the CI-runnable set to five at the time (v7.0's
 `verify-rng.mjs` and `verify-experiment.mjs` have since made it seven, v7.1 P0's
-`verify-phasedata.mjs` eight and v7.1 P1's `verify-alloy.mjs` nine). They run first in the
+`verify-phasedata.mjs` eight, v7.1 P1's `verify-alloy.mjs` nine and v7.1 P2's
+`verify-phasediagram.mjs` ten). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
 GPU half is not worth starting.
 
@@ -39,10 +40,10 @@ move.
 `--use-angle=swiftshader` software-rendering path the scripts themselves fall back to for
 GPU-less environments. **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
-only the OS-agnostic steps — typecheck, build, and the nine browser-free scripts
+only the OS-agnostic steps — typecheck, build, and the ten browser-free scripts
 (`verify-units.mjs`, `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
 `verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
-`verify-alloy.mjs`; see
+`verify-alloy.mjs`, `verify-phasediagram.mjs`; see
 `.github/workflows/ci.yml`) — rather than
 this suite. If you want to run the physics/UI verification yourself, do it locally.
 
@@ -120,7 +121,16 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   eutectic, C_SM < C_inv — a row that violates it was transcribed from the wrong side of the
   diagram, the likeliest hand-entry error and one no amount of sourcing would catch), and
   requires at least one eutectic and one peritectic to be present. `PD-SOLUTE-SOURCED` does
-  the same distinct-set check on `alloy.ts`'s 25 coefficient rows.
+  the same distinct-set check on `alloy.ts`'s 25 coefficient rows. `PD-SLOPE-CONSISTENT`
+  (v7.1 P2) requires each row to describe a diagram that can be DRAWN: a liquidus that rises
+  from the pure base means the first solid is richer in solute than the liquid (k > 1), which at
+  the invariant means C_SM > C_inv — otherwise the solidus reaches the invariant at a smaller
+  composition, rises faster, and ends up above the liquidus, which is not a phase diagram.
+  `ni-W` is the single shipped violation (invariant 1495 °C over nickel's 1455, but C_SM 39.9 <
+  C_inv 45) and it is carried BY NAME rather than repaired, because which of the three numbers
+  is wrong has not been resolved; the exception list is itself the assertion, so a new
+  inconsistent row fails and so does ni-W quietly becoming consistent. Liveness: at least two
+  rows must have rising invariants, or the branch is never exercised.
 - **`verify-alloy.mjs`** (browser-free, v7.1 P1) — the composer's chemistry and the
   calibration it now feeds. Ten checks. `ALLOY-SUMS-EXACT` recomputes the superposition's own
   algebra inside the gate from `BASES` — ΔT_L = Σm·c, Q = Σm·c(k−1), the base-inclusive
@@ -157,6 +167,43 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   eutectic, A356+TiB's −0.59 — and requires each to appear in the prose as written, the same
   way `HT-DOC-CONSTANTS` polices the heat-treatment constants. Both sides are normalised for
   the U+2212 minus sign first, or it would be a typography check wearing a physics gate's name.
+- **`verify-phasediagram.mjs`** (browser-free, v7.1 P2) — the drawn phase diagram. Three checks.
+  `src/phasediagram.ts` splits so that this is possible at all: `layout()` returns vertices in
+  DATA space (wt%, °C) and knows nothing about pixels, and the renderer is only `toPx`.
+  `PD-FIGURE-GEOMETRY` asserts the drawing IS the row — the liquidus polyline's endpoints are
+  `Object.is`-exactly (0, T_m) and (C_inv, T_inv), the solidus's (0, T_m) and (C_SM, T_inv), the
+  invariant horizontal is at T_inv spanning C_SM..C_inv, the solvus is vertical at C_SM, the
+  solidus lies at or below the liquidus at 40 sampled compositions, and the pour marker's
+  ordinate equals `derive(mix)`'s own liquidus and survives a round-trip through the px
+  transform. Explicitly not "the SVG contains more than N paths". It also pins the FRAME:
+  everything drawn must fill at least 60 % of the box and nothing drawn may fall outside it —
+  the first version sized the frame on the chords' value at the axis edge, which extrapolates
+  the Al–Si solidus 12 wt% past where it exists and put A356's y-axis at −96 °C, and the second
+  forgot the solver line's endpoint and pushed Cu–Ni's below the floor. Both clamp branches are
+  asserted exercised by shipped presets, and the residual offset is required present for every
+  multi-solute preset and absent for every single-solute one. `PD-NO-ROW-REFUSES` drives eleven
+  undrawable cases — the five materials with no alloy base, an unknown material, a pure melt, an
+  unknown base, an inherited object key, all-zero weights and the geometrically impossible ni-W
+  row — and requires each refusal to exceed 40 characters, the distinct-reason set to match, and
+  ni-W's to name the geometry rather than claim there is no row; both polarities, so a `layout()`
+  that refused everything cannot pass. `PD-FIGURE-CURSOR` settles the three absences without a
+  GPU: a temperature on the diagram is drawn, one off it is NOT drawn and IS named, and null is
+  silent — "no liquid left" and "below the axis" are different facts and the panel says so.
+- **`verify-phasediagram-gpu.mjs`** (v7.1 P2) — `PD-CURSOR-LIVE`, the cursor against a real cast.
+  Its own file, and that is the point: written inside `verify-quant.mjs` first, it could not pass
+  there, because every QPF-* block above it stages the solver by writing `frozenT`, `dx` and `dt`
+  straight onto `sim.params` and none of them puts anything back — with `frozenT: 1` inherited
+  the melt sat at its staged temperature forever and both reads agreed, and with it cleared the
+  inherited timestep cooled the melt past the shader's own readout clamp to 162 °C. Neither
+  failure was in the code under test. The gate compares the drawn cursor's own label against
+  `units.fmtC`'s conversion of `meanLiqT` — the same formatter the corner readout uses — at two
+  separate reads, and requires the two to DIFFER; "it moved downward" would be the PIN3-LIVE
+  directional-proxy mistake in a new costume, since a cursor wired to solid fraction would also
+  move downward. Three more arms cover the absences: a Kobayashi undercooling of 0.9 puts the
+  melt 224 K below the melting point and off the diagram (absent AND named), an abstract material
+  has no thermometer at all (absent, silent), and a casting driven to fracSolid 1.0 reports
+  `meanLiqT: null` (absent, silent). That last arm needs `pPore: 0`, because a shrinkage pore
+  pins its cell's φ below 0.5 and never freezes, so the stats kernel counts it as liquid forever.
 - **`verify-dive.mjs`** — boots the landing page, confirms the Three.js scroll-dive engaged
   (not the 2.5D SVG fallback), scrubs through a set of scroll progresses, and captures
   screenshots + console errors at each one.
@@ -519,9 +566,9 @@ spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 
 that evidence recorded in the constant's own docblock. The drift prints on every run, and
 `HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
-`npm run build` (Vite + `tsc`) plus the nine browser-free scripts — `verify-units.mjs`,
+`npm run build` (Vite + `tsc`) plus the ten browser-free scripts — `verify-units.mjs`,
 `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
-`verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs` and
-`verify-alloy.mjs` — are the checks
+`verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
+`verify-alloy.mjs` and `verify-phasediagram.mjs` — are the checks
 anyone on any OS can run
 without a GPU, and are what CI actually gates on (`.github/workflows/ci.yml`).

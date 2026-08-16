@@ -76,6 +76,15 @@ export interface UIHost extends AppControl {
   simTimeNow(): number;
   isRecording(): boolean;
   toggleRec(): void;
+  /**
+   * The melt's temperature in °C, or null when there is no liquid left, no SI
+   * identity, or no stats yet. Lives on the host rather than being recomputed
+   * per panel so the composer's diagram cursor and the corner readout cannot
+   * drift apart.
+   */
+  meltC(): number | null;
+  /** solid fraction from the last stats readback, 0 when there is none */
+  fracSolidNow(): number;
   getAlloyName(): string;
   /**
    * Clamps and refusals the current melt is carrying, rendered beside the

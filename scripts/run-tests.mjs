@@ -25,6 +25,7 @@ const SUITE = [
   ["scripts/verify-experiment.mjs"],
   ["scripts/verify-phasedata.mjs"],
   ["scripts/verify-alloy.mjs"],
+  ["scripts/verify-phasediagram.mjs"],
   ["scripts/verify-dive.mjs"],
   ["scripts/verify-dive-fallbacks.mjs"],
   ["scripts/verify-scroll-order.mjs"],
@@ -32,6 +33,7 @@ const SUITE = [
   ["scripts/verify-tools.mjs"],
   ["scripts/verify-passsplit.mjs", String(PORT)],
   ["scripts/verify-quant.mjs", String(PORT)],
+  ["scripts/verify-phasediagram-gpu.mjs", String(PORT)],
   // the comparator layer running real casts: nucleation-live determinism, a
   // controlled sweep read at matched solid fraction, and the bench anchored
   // on the KR-1998 tip velocity — a constant the v7 arc does not touch

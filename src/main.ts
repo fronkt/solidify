@@ -552,6 +552,30 @@ async function boot() {
     // drive the 3D solver's params — same field names by design
     simParams: () => (mode === "3d" && sim3d ? (sim3d.params as unknown as typeof sim.params) : sim.params),
     units: () => unitsNow(),
+    /**
+     * The melt's temperature in °C, or null. THREE separate nulls, and they are
+     * three separate facts. `meanLiqT` is null once the casting is fully solid
+     * — sim.ts returns null and never 0, because 0 is a legitimate
+     * dimensionless temperature one whole reference interval below the melting
+     * point. `units.known` is false for a material with no SI identity, which
+     * is the BOOT DEFAULT (`generic`), and there the converter returns NaN by
+     * design so "we do not know" stays visibly different from "zero". And
+     * `lastStats` is nulled by every reset, so there is a quarter-second gap
+     * after a re-arm with nothing to report.
+     *
+     * Mode-aware for the same reason `unitsNow()` is: the 3D branch of the
+     * frame loop returns before the 2D stats block, so `lastStats` is frozen
+     * and stale the whole time the user is in the volume.
+     */
+    meltC() {
+      const s = mode === "3d" ? lastStats3 : lastStats;
+      if (!s || s.meanLiqT == null) return null;
+      const u = unitsNow();
+      if (!u.known) return null;
+      const c = u.celsius(s.meanLiqT);
+      return Number.isFinite(c) ? c : null;
+    },
+    fracSolidNow: () => (mode === "3d" ? lastStats3 : lastStats)?.fracSolid ?? 0,
     seedHex: () => seedHex(),
     // a new seed re-draws every stream, so the next pour is a genuinely new cast
     // rather than the same one with the dials nudged
@@ -943,6 +967,24 @@ async function boot() {
       alloyCaveats = refusals.slice();
       ui.sync();
     },
+    /**
+     * The melt's temperature in °C for the composer's diagram cursor.
+     *
+     * Three separate nulls, and they are three separate facts. `meanLiqT` is
+     * null once the casting is fully solid — sim.ts returns null and never 0,
+     * because 0 is a legitimate dimensionless temperature one whole reference
+     * interval below the melting point. `units.known` is false for a material
+     * with no SI identity, which is the BOOT DEFAULT (`generic`), and there the
+     * converter returns NaN by design so "we do not know" stays visibly
+     * different from "zero". And `lastStats` is nulled by every reset, so there
+     * is a quarter-second gap after a re-arm with nothing to report.
+     *
+     * Mode-aware for the same reason `unitsNow()` is: the 3D branch of the
+     * frame loop returns before the 2D stats block, so `lastStats` is frozen
+     * and stale the whole time the user is in the volume.
+     */
+    meltC: () => app.meltC(),
+    materialKey: () => material,
     applyAlloy(materialKey, params, name, poured) {
       // setMaterial clears pouredMix and alloyCaveats, so both are re-set AFTER
       // it, never before. And when it refuses, the composed NAME is not written
@@ -1548,6 +1590,11 @@ async function boot() {
     last = Math.max(last, t);
     if (dt > 0) fps = fps * 0.95 + (1 / dt) * 0.05;
     slicePanelUI.update(mode === "3d" && view3d === 2);
+    // the composer's phase diagram, beside the slice panel and for the same
+    // reason: both sit ABOVE the 2D/3D branch below, so they keep ticking in
+    // the volume where the `return` at the end of the 3D block would otherwise
+    // strand them. Both early-out when closed.
+    composer.tick();
 
     // ------------------------------------------------------- TRUE-3D branch
     if (mode === "3d") {

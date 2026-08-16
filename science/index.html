@@ -345,6 +345,32 @@
     eutectic one do not average into a pseudo-binary — is <b>declined</b>, and the calibration keeps
     the material's own coefficients and says which clause fired.</p>
 
+    <p><b>And now it is drawn.</b> The composer carries a phase diagram for the poured mix's
+    dominant binary — the solute with the largest |m·c| — built from the cited invariants in
+    <code>phasedata.ts</code> and drawn as STRAIGHT CHORDS from the pure metal's melting point to
+    the invariant. The straightness is the point rather than a compromise: those chords ARE the
+    linearised diagram this solver integrates, so the figure is a picture of the model and the
+    real curvature becomes a caveat the panel prints instead of a feature it silently lacks. The
+    pour marker sits at the MELT's own liquidus, not the binary's, and the gap between them is
+    drawn and labelled — for 4340 steel the four non-carbon solutes pull the melt 13.3 K below
+    the Fe–C liquidus, and that shift is in the solver and is not on the diagram. Where a model
+    clamp has moved the depression the solver actually integrates, a second dashed line goes to
+    that point with the clamp named beside it; 1045 steel prints 40.7 K of depression and
+    integrates 12.9 K. A dashed cursor tracks the melt's live temperature and is simply ABSENT
+    when there is none — off the diagram, past the solidus, or on a material with no
+    thermometer — rather than pinned to an edge at zero.</p>
+
+    <p><b>What the figure will not do.</b> It is the dominant BINARY, never the alloy's own
+    diagram: for IN718-lite that is Ni–Nb, and the Laves phase and Nb-rich interdendritic liquid
+    that make IN718 interesting are on neither the drawing nor in the solver. The panel says so
+    on every multi-solute mix, with the dominant solute's share of the depression computed rather
+    than quoted. And one shipped row is refused outright: Ni–W's invariant at 1495 °C sits above
+    nickel's 1455 °C melting point, which means the liquidus rises and the first solid must be
+    the richer phase — but the row's C_SM 39.9 wt% against C_inv 45 wt% says the liquid is. Drawn,
+    its solidus would cross above its liquidus. Which of the three numbers is wrong has not been
+    resolved here, so nothing is invented: the row keeps the numbers as read from the ASM figure,
+    records the contradiction in its own source, and the figure declines to draw it.</p>
+
     <p>What it is checked against, and what it measured:</p>
     <table>
       <tr><th>TEST</th><th>AGAINST</th><th>RESULT</th></tr>

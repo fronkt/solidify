@@ -145,6 +145,13 @@
     #composer .drow b { color: var(--amber); font-weight: 500; }
     #composer .clamp { font-size: 10px; color: #d9985a; margin-top: 4px; }
     #composer .src { font-size: 10px; color: var(--dim); line-height: 1.4; margin-top: 6px; border-left: 2px solid var(--line); padding-left: 7px; }
+    /* the drawn phase diagram (v7.1 P2). Its own container, because .derived's
+       innerHTML is replaced on every slider frame and would rebuild the SVG. */
+    #composer .figwrap { border-top: 1px solid var(--line); padding-top: 10px; margin-bottom: 12px; }
+    #composer .pdcap { font-size: 10px; letter-spacing: 0.14em; color: var(--amber); margin-bottom: 5px; text-transform: uppercase; }
+    #composer .pdsvg { display: block; width: 100%; height: auto; background: #0d0f13; border-radius: 4px; }
+    #composer .pdnotes { font-size: 9.5px; line-height: 1.5; color: var(--dim); margin-top: 7px; }
+    #composer .pdsrc { font-size: 9px; line-height: 1.45; color: #4d545e; margin-top: 5px; border-left: 2px solid var(--line); padding-left: 7px; }
     #composer .cfoot { display: flex; gap: 8px; }
     #composer .cfoot .pour { flex: 1; border-color: var(--amber); color: var(--amber); font-weight: 600; padding: 8px; }
     .hiddenSec { display: none; }

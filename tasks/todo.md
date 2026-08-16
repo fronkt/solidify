@@ -2561,7 +2561,7 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
         browser-free and it remains ungated. That sentence is the one remaining unpinned
         calibration constant in the honesty page.
 
-- [ ] **P2 — the diagram is drawn, the pour is pinned at its own liquidus, and the cursor is the thermometer.**
+- [x] **P2 — the diagram is drawn, the pour is pinned at its own liquidus, and the cursor is the thermometer.**
       S. Cai's ask, landing third rather than last, because the figure is what makes every later refusal legible. Drawing the **straight chords** is not a compromise: they are the linearised diagram this solver integrates, so the figure is a picture of the model rather than a picture of a textbook, and the real curvature becomes an honest caveat instead of a missing feature.
       - **New `src/phasediagram.ts` exporting a pure `layout(row, base, mix, T)`** returning data-space vertices — liquidus chord, solidus chord, solvus, invariant horizontal, phase-field label anchors, pour marker, temperature cursor — plus a thin SVG renderer over it. Pure so it gates browser-free; the renderer is then only a coordinate transform. `layout()` returns vertices and the renderer mutates existing path `d` attributes rather than rebuilding the tree, because it redraws on every slider input.
       - **The marker sits at the mix's real liquidus, and the residual is drawn as a labelled offset.** For a multi-solute mix the panel draws the **dominant binary** — the solute carrying the largest |m_i·c_i| — and names the fraction of the total depression it carries, **computed in code, not quoted** (for 4340 carbon carries roughly 31 of 44.5 K; for A356+TiB Si carries roughly 46 of 48 K of depression against a mix ΔT_L of 44.7 K, and the plan does not hardcode either). The marker's ordinate is the mix's own T_L, not the binary's, and the gap is drawn and labelled: "the other four solutes pull this melt a further 13 K below the Fe–C liquidus; that depression is in the solver and is not on this diagram." Without this the marker floats off the drawn curve with no explanation, or is snapped onto it and the app asserts a liquidus 13 K warmer than the number it printed one panel over.
@@ -2569,6 +2569,195 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
       - **Gates.** `PD-FIGURE-GEOMETRY` (browser-free) — the drawn geometry IS the data: the liquidus polyline's endpoints are exactly (0, T_base) and (Cinv, Tinv), the solidus's exactly (0, T_base) and (Csm, Tinv), the solvus vertical at exactly Csm, the invariant horizontal at exactly Tinv, all `Object.is` against the row; the solidus lies at or below the liquidus at every sampled composition; the pour marker's data coordinates round-trip through the px transform to (c_dominant, T_L^mix) within 1e-9 **and its ordinate equals `derive(mix)`'s liquidus**; for every multi-solute preset the residual offset is non-zero and rendered. Explicitly not "the SVG contains more than N paths". Both clamp branches asserted exercised — at least one shipped preset draws the second polyline and at least one does not — so a figure that never draws it cannot pass vacuously. Liveness: every row emits ≥ 4 polylines with every ordinate finite. `PD-CURSOR-LIVE` (GPU) — the cursor's data temperature equals what `units.ts`'s own formatter reports for the melt, through the same code path, at two separate reads, **and the two reads differ**. Asserting only that it moved downward would be the PIN3-LIVE directional-proxy mistake in a new costume. Second arm: with an abstract material (`si === null`) the thermometer returns NaN, the formatter renders an em dash, and the cursor is asserted ABSENT rather than plotted at zero. Third arm: once the casting is fully solid `StatsResult.meanLiqT` is null (`sim.ts:104-105`) and the cursor must refuse rather than fall to zero. `PD-NO-ROW-REFUSES` (browser-free) — every base or pair with no row (ice, scn, qc, generic, any unpaired element) refuses to draw with a named non-empty reason, distinct-reason set size equal to the number of distinct missing cases, and **no empty axis frame is ever emitted**; both polarities, so a `layout()` that refused everything cannot pass.
       - **Risks.** The dominant-solute choice is a real simplification and must never read as the mix's own diagram: for IN718-lite the dominant binary is Ni–Nb, and the Laves phase and Nb-rich interdendritic liquid that make IN718 interesting are absent from both the diagram and the solver — the panel names that, or the feature over-claims exactly where it is weakest. The composer card is capped at `min(500px, 94vw)` with `max-height: 88vh` (`app/index.html:124`) and the pour button is already the scroll floor; the figure appends after the derived readout, never among the solute rows. Nothing in `scripts/*.mjs` currently drives the composer DOM — grep finds only `window.__solidify.alloy(mix)` — so no existing selector breaks, but there is also no precedent to copy.
       - **Docs.** `science/index.html` gains the figure row: drawn from looked-up invariants with a citation on every row, straight chords rather than the real curved boundaries, and the second line when the solver's slope is clamped away from the chord.
+
+      - **DONE 2026-08-15.** New `src/phasediagram.ts`: a pure `layout(mix, meltC)` returning
+        vertices in DATA space, plus a `PhaseFigureView` that is only a coordinate transform over
+        it. 24 of the 25 pairs draw; the 25th refuses, for a reason found by drawing it.
+      - **DRAWING THE ROWS FOUND A DEFECT IN P0'S TABLE THAT READING THEM DID NOT.** `ni-W` is
+        geometrically impossible. Its invariant is 1495 °C against nickel's 1455 °C, so the
+        Ni-rich liquidus RISES with tungsten — and a rising liquidus means the first solid is
+        RICHER in solute than the liquid (k > 1), which at the invariant requires C_SM > C_inv.
+        The row has C_SM 39.9 < C_inv 45, the liquid richer, chord k = 0.887. Both cannot be
+        true: with C_SM < C_inv the (Ni) solidus reaches 1495 °C at a SMALLER composition than
+        the liquidus, rises faster, and ends up ABOVE it — and a solidus above a liquidus is not
+        a phase diagram. Every other one of the 24 non-isomorphous rows passes the same test,
+        **including the two others whose invariant also sits above their base's melting point**:
+        Al–Ti (665 °C, C_SM 1.32 > C_inv 0.15) and Mg–Zr (653.6 °C, 2.58 > 0.58), both k > 1,
+        both consistent. So the test is not an artefact of assuming a falling diagram.
+        **Not repaired.** The shipped dilute k = 1.3 agrees with the rising liquidus and
+        disagrees with the chord — which is the same disagreement `PD-CONSTRUCT-AGREE` already
+        records for this pair (0.89 / 0.68) — so one of T_inv, the reaction type, or the
+        C_SM/C_inv pair is wrong and this instrument has not resolved which. The numbers stand
+        as read from the ASM figure, the row's own `source` states the contradiction in full,
+        `phasediagram.ts` REFUSES to draw the pair, and `PD-SLOPE-CONSISTENT` carries `ni-W` as
+        its single named exception. `PHASE_TABLE_VERSION` 1.0.0 → **1.0.1**.
+      - **THE NEW GATE IS THE EXCEPTION LIST.** `PD-SLOPE-CONSISTENT` (in `verify-phasedata.mjs`,
+        so it sits with the data it polices) fails on a NEW inconsistent row and fails equally if
+        `ni-W` quietly becomes consistent without this note being updated, or if its source stops
+        explaining itself. Liveness: at least two rows must have rising invariants, or the branch
+        is never exercised at all. **It FAILS on the pre-change tree** (`badSourced: ["ni-W"]`)
+        and passes after — the same vacuity check every gate in this arc has been held to.
+        `PD-ORDERING` could not have caught this: it checks C_SM < C_inv within a row, and this
+        is a relation BETWEEN the temperatures and the compositions.
+      - **The construction is one pair of chords for all three geometries.** Liquidus
+        (0, T_m) → (C_inv, T_inv), solidus (0, T_m) → (C_SM, T_inv), the invariant horizontal
+        between them, the solvus vertical at C_SM. A falling eutectic puts the solidus left so it
+        falls faster; a k > 1 peritectic (Al–Ti, Mg–Zr) puts it right so it rises more slowly;
+        either way the solidus stays below the liquidus, asserted at 40 sampled compositions per
+        row. Isomorphous rows (Fe–Cr, Cu–Ni) have no invariant to terminate on, so the chords run
+        to the axis edge and the horizontal and solvus are asserted ABSENT, not merely unchecked.
+      - **The pour marker is at the MELT's liquidus and the residual is drawn.** Measured, and
+        the plan's own example was one of the smaller ones: A356 2.2 K · A356+TiB **−1.5 K** ·
+        AA2024 9.3 K · 1045 5.6 K · 4340 **13.3 K** · IN718 **27.4 K** · AZ91 4.2 K, and exactly
+        0 for the two single-solute presets, which is the other polarity. **A356+TiB's is
+        NEGATIVE** — titanium raises the liquidus, so the melt sits 1.5 K ABOVE the drawn Al–Si
+        line — and the label carries the sign rather than assuming a depression, which the plan's
+        wording ("pull this melt a further 13 K below") would not have. The dominant solute's
+        share of the depression is computed, not quoted: Si carries 95.5 % of A356's 48.4 K,
+        carbon 70.1 % of 4340's 44.5 K, niobium 66.1 % of IN718's 81.0 K.
+      - **The second line, and both branches exercised by shipped presets.** Wherever the model's
+        clamps have moved the depression it integrates, a dashed chord runs to that point with
+        the clamp string beside it: 5 of the 9 presets draw it (1045 prints 40.7 K and integrates
+        **12.9 K**; 4340 44.5 → 35.3; IN718 81.0 → 52.5; AZ91 66.3 → 37.6; bronze 59.2 → 58.6)
+        and 4 do not. Cu–Ni is the sharpest case of all and it is not a preset: nickel RAISES
+        copper's liquidus, so that melt has no depression whatever, and the model's mLiq floor
+        integrates a fabricated 8.9 K one.
+      - **Two frame bugs, both caught by the gate after it was tightened, and the second by the
+        fix for the first.** The frame was first sized on the chords' value at the axis EDGE,
+        which extrapolates a boundary past where it exists: the Al–Si solidus falls 50.5 K/wt%
+        and only reaches C_SM = 1.65 wt%, so reading it at 13.6 wt% put A356's y-axis at
+        **−96 °C** and crushed the whole diagram into the top third of the box. The gate had
+        passed, because "the frame is non-degenerate" is not the same claim as "the frame is
+        tight" — so it now asserts that everything drawn fills ≥ 60 % of the box height and that
+        no drawn vertex falls outside it. Re-run, that immediately caught the second: the solver
+        chord's endpoint was computed AFTER the frame, so Cu–Ni's fabricated depression put a
+        drawn point below the floor. Both fixed; the second would not have been found without
+        the first fix.
+      - **The cursor, and the three absences that are three different facts.** It draws only when
+        the melt's temperature is on the diagram. Off it, the cursor is ABSENT and the panel
+        NAMES it ("the melt is at 436 °C, off this diagram (569–669 °C) — the cursor is not drawn
+        rather than pinned to an edge"). With no liquid left it is absent and SILENT, because
+        `sim.ts` returns `meanLiqT: null` and never 0 — 0 is a legitimate dimensionless
+        temperature one whole reference interval below the melting point. With an abstract
+        material it is absent and silent, because `units.known` is false and the converter
+        returns NaN by design. `generic` is the BOOT DEFAULT, so that third case is the starting
+        state rather than an edge case.
+      - **`composer.tick()` joins the frame loop beside `slicePanelUI.update()`**, above the
+        2D/3D branch and for the same reason — both would otherwise be stranded by the `return`
+        at the end of the 3D block. Before this the composer was INPUT-DRIVEN ONLY: nothing
+        re-rendered it while it was open, so a temperature drawn at `open()` would sit frozen
+        over a casting that kept solidifying. The figure lives in its own `.figwrap` container
+        because `renderOut()` replaces `.derived`'s innerHTML on every slider frame and would
+        otherwise rebuild the entire SVG sixty times a second, and its prose is diffed against
+        the mix so only the cursor's two attributes actually move per tick.
+      - **`meltC()` moved onto the app**, beside `units()`, rather than being recomputed per
+        panel — so the diagram's cursor and the corner readout cannot drift apart. Mode-aware for
+        the same reason `unitsNow()` is: the 3D branch of the frame loop returns before the 2D
+        stats block, so `lastStats` is frozen and stale the whole time the user is in the volume.
+      - **`PD-CURSOR-LIVE` got its own file, and the reason is worth recording.** Written inside
+        `verify-quant.mjs` first, it could not pass there, and neither failure was in the code
+        under test. Every QPF-* block above it stages the solver by writing `solver`, `lambda`,
+        `dx`, `dt` and `frozenT` straight onto `sim.params` and none of them puts anything back.
+        With `frozenT: 1` inherited the temperature field is FROZEN, so the melt sat at exactly
+        its staged value forever and both reads of a perfectly good cursor came back identical.
+        With `frozenT` cleared, the inherited dimensionless timestep advanced sim time so fast
+        that 90 frames cooled the melt past the shader's own [−1, 2] readout clamp to 162 °C,
+        three hundred degrees below the diagram. A gate that needs a pristine app should open
+        one — the same reason `verify-experiment-gpu.mjs` is not inside `verify-experiment.mjs`.
+        On a clean page it passes: 581 °C then 572 °C, each equal to `units.fmtC`'s own
+        conversion of `meanLiqT` — the SAME formatter the corner readout uses — and the two reads
+        DIFFER. "It moved downward" would be the PIN3-LIVE directional-proxy mistake in a new
+        costume: a cursor wired to solid fraction would also move downward.
+      - **Two more of the gate's own setup errors, both instructive rather than incidental.**
+        A Kobayashi undercooling of 0.9 — which `applyAlloy` sets on every pour — is 224 K below
+        aluminium's melting point, so the first version's melt was at 436 °C, clean off the
+        Al–Si diagram, and the cursor was correctly absent. That case is now its own asserted
+        arm rather than an accident. And the fully-solid arm needs `pPore: 0`: a shrinkage pore
+        PINS its cell's φ below 0.5 and never freezes, so the stats kernel counts it as liquid
+        forever and `meanLiqT` never becomes null however long the cast runs. With pores off the
+        casting reaches fracSolid **1.0** and the thermometer goes null, which is the state the
+        arm exists to test.
+      - **AND ONE MORE, FOUND WHILE THE SUITE RAN, ONE CLICK FROM THE USER.** The composer's
+        STAGED mix and the material actually in the crucible disagree the moment a famous-alloy
+        button is pressed without pouring. Press AZ91 while aluminium is loaded and `layout()`
+        was asked to draw Mg–Al while `meltC()` reported the ALUMINIUM melt — and 600 °C sits
+        comfortably inside the Mg–Al frame of 416–671 °C, so the cursor drew, labelled
+        "melt 600 °C", on a magnesium diagram. A wrong statement rather than a missing one, which
+        is the standard the rest of this arc is held to. `layout()` now takes the melt's own
+        material key, withholds the cursor when it does not match the diagram's base, and says
+        why ("the melt in the crucible is aluminum · Al–Cu, not magnesium — this diagram is for a
+        mix you have staged but not poured"). Reproduced before it was fixed and gated in three
+        directions afterwards: withheld and named when they disagree, DRAWN when they agree, and
+        the check skipped entirely when no key is supplied, which is what the geometry-only
+        callers rely on.
+      - **`tick()` throttles on the cursor's own printed precision.** The label is whole degrees
+        and `meanLiqT` only refreshes at the readouts' 4 Hz cadence, but `layout()` rebuilds a
+        dozen sentences per call and the frame loop calls it at 60 Hz. Keyed on the rounded
+        temperature and the material, so a paused melt costs one string comparison per frame, and
+        any mix change clears the key so the next tick always goes through.
+      - **THE ADVERSARIAL REVIEW FOUND FIVE MORE — 6 confirmed and 5 refuted across three
+        lenses — AND TWO OF THEM WERE DRAWING THINGS THAT CANNOT EXIST.** All five reproduced
+        before they were fixed.
+        **(1) The isomorphous solidus clamped k to 0.999, and Cu–Ni ships k = 1.35.** So the
+        drawn solidus used m/0.999 instead of m/1.35 and ended 0.04 K **ABOVE** its own liquidus
+        — the exact impossible geometry this file refuses ni-W over, thirty lines further up,
+        rendered without complaint. The clamp had been copied from `referenceInterval`, where it
+        belongs because k divides into a freezing range; here it is simply wrong. Corrected
+        endpoint 1115.25 °C against the 1125.93 it was drawing. **`PD-FIGURE-GEOMETRY` said OK,
+        and that is the more important half**: its solidus-below-liquidus check only ran in the
+        invariant branch, so the isomorphous rows were never sampled. The hole is closed — the
+        same 40-point ordering check now runs on both branches, plus an assertion that the two
+        chords are not coincident, since two identical lines would satisfy an ordering test.
+        **(2) The residual bar was measured against a line that is not on the figure.** It ran
+        from the DILUTE binary liquidus while the drawn liquidus is the invariant CHORD, and P0
+        measured that those disagree for 10 of the 22 pairs. Tin bronze is the sharpest case and
+        the old gate's shape hid it: a SINGLE-solute mix, so the "other solutes" gap was exactly
+        zero, no bar was drawn, the "drawn iff multi-solute" assertion passed — and the marker
+        floated **30.8 K above the orange line** with nothing on screen to explain it. The bar
+        now starts on the drawn liquidus and the gap is DECOMPOSED, because it has two causes
+        and they are different facts: how much is the other solutes, and how much is this pair's
+        own dilute slope disagreeing with its invariant chord. Tin bronze now reads "30.8 K of it
+        is Cu–Sn's own dilute slope (−7.4 K/wt%, what the solver integrates) disagreeing with the
+        invariant chord this line is drawn from" — which is P0's measured ratio, drawn. The gate
+        asserts the decomposition sums to the whole, that the bar's endpoints ARE the drawn
+        liquidus and the marker, and that both causes are exercised by shipped presets.
+        **(3) The reason given for choosing the binary refuted itself.** `derive()` picks the
+        dominant solute by |m·c|, which counts liquidus RAISERS, but the note computed its share
+        from depression alone — so an Al–0.5Ti–0.1Cu mix read "chosen because Ti carries 0 % of
+        the depression", and an all-raiser mix quoted a percentage of 0.0 K. The share is now
+        computed on the same quantity that picked the dominant, and the sentence says liquidus
+        SHIFT with the depression named separately: "Ti carries 98 % of this melt's 15.7 K of
+        liquidus shift (of which 0.3 K is depression)".
+        **(4) The two-phase field's width was assumed rather than measured, and it printed a
+        false claim.** The isomorphous arm took a hardcoded 5 % of the axis as the field's
+        width, so Cu–Ni's genuinely 10.6 K-wide freezing lens had its label suppressed and the
+        panel said "Ni in copper barely partitions (k 1.35)" — false on both halves, since 1.35
+        partitions strongly and the field was narrow only because the test was. Fe–Cr's 0.57 K
+        field IS genuinely too narrow and its note was correct, which is exactly what hid it:
+        one of the two isomorphous rows behaves. The width is now measured — both chords run
+        straight through (0, T_m), so a point on one meets the same temperature on the other at
+        a fixed ratio, k for an isomorphous pair and C_SM/C_inv for a row with an invariant —
+        and the note reports the measured wt% instead of inferring a claim about partitioning.
+        **This one came out of a CORRECTION the refutation reader made to its own reviewer's
+        rationale**, while confirming a different defect; it was not in any finding as filed.
+        **(5) A hidden cursor kept reporting a stale temperature.** `#pdCursor` is the node
+        `PD-CURSOR-LIVE` reads; hiding it left "melt 581 °C" in its textContent after the melt
+        had gone off the diagram or solidified. Cleared, not just hidden.
+      - **Gates.** `scripts/verify-phasediagram.mjs` — three browser-free checks, the **tenth**
+        CI member. `PD-FIGURE-GEOMETRY` ties every drawn vertex to the row with `Object.is`, over
+        all 24 drawable pairs plus the 9 presets, and explicitly is NOT "the SVG contains more
+        than N paths"; the pour marker round-trips through the exported px transform, because a
+        transform exercised only by the renderer is one no gate can see. `PD-NO-ROW-REFUSES`
+        drives 11 undrawable cases against 6 drawable ones, requires 40+ character reasons and a
+        matching distinct-reason count, and requires ni-W's refusal to name the GEOMETRY rather
+        than claim there is no row. `PD-FIGURE-CURSOR` settles the three absences without a GPU.
+        `scripts/verify-phasediagram-gpu.mjs` — `PD-CURSOR-LIVE`, four arms, its own page.
+      - **Docs.** `science/index.html` §8 gains the figure's two paragraphs, including what it
+        will NOT do — the dominant binary is not the alloy's own diagram, and IN718's Laves phase
+        is on neither the drawing nor in the solver — and the ni-W refusal in full. `TESTING.md`
+        nine → **ten** in all three places against exactly ten `- run:` lines in `ci.yml`, plus
+        entries for both new scripts and for `PD-SLOPE-CONSISTENT`. `README.md`'s composer bullet
+        gains the figure.
 
 - [ ] **P3 — three regimes, a ceiling that comes from the diagram, and the invariant fraction the solver will never grow.**
       Where "adhere to alloy design of course" stops being a slider max and becomes derived physics. The hand-picked `cap` becomes what it always was — a slider bound — and the ceiling moves **inside `derive()`**, where the `window.__solidify.alloy({base:'al', wt:{Si:50}})` hook that `verify-tools.mjs:538` uses cannot walk around it. `derive()` does no cap check at all today.

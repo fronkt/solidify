@@ -18,6 +18,7 @@ const server = await createServer({
 });
 const PD = await server.ssrLoadModule("/src/phasedata.ts");
 const A = await server.ssrLoadModule("/src/alloy.ts");
+const M = await server.ssrLoadModule("/src/materials.ts");
 
 let failures = 0;
 const check = (name, ok, detail) => {
@@ -112,6 +113,54 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
   const distinct = new Set(solutes.map(x => x.s.source)).size;
   const ok = solutes.length > 0 && short.length === 0 && distinct >= 5;
   check("PD-SOLUTE-SOURCED", ok, { solutes: solutes.length, distinctSources: distinct, short });
+}
+
+// 6. PD-SLOPE-CONSISTENT — a row must describe a diagram that can be drawn.
+//
+//    A liquidus that RISES from the pure base means the first solid is richer
+//    in solute than the liquid (k > 1), and at the invariant that means
+//    C_SM > C_inv. If a row says the invariant is above T_m but the LIQUID is
+//    the richer phase, its solidus reaches T_inv at a smaller composition than
+//    its liquidus, rises faster, and ends up ABOVE it — which is not a phase
+//    diagram. PD-ORDERING checks C_SM < C_inv for eutectics; it cannot see this,
+//    because this is a relation between the temperatures and the compositions.
+//
+//    Found in v7.1 P2 by drawing the rows rather than reading them. `ni-W` is
+//    the single shipped violation and it is carried BY NAME rather than
+//    repaired, because which of T_inv, the reaction type or the C_SM/C_inv pair
+//    is wrong has not been resolved — the same doctrine as P0's four named
+//    disagreements. The exception list is the assertion: a NEW inconsistent row
+//    fails, and so does ni-W becoming consistent without this note being updated.
+{
+  const KNOWN_BAD = ["ni-W"];
+  const rising = [], inconsistent = [];
+  for (const { baseKey, el, row } of rows) {
+    if (row.invariant === "isomorphous") continue;
+    const base = A.BASES[baseKey];
+    const si = M.MATERIALS[base.materialKey].si;
+    const TmC = si.Tm - 273.15;
+    const key = `${baseKey}-${el}`;
+    const rises = row.Tinv > TmC;
+    const solidRicher = row.Csm > row.Cinv;
+    if (rises) rising.push(key);
+    if (rises !== solidRicher) inconsistent.push(key);
+  }
+  const unexpected = inconsistent.filter(k => !KNOWN_BAD.includes(k));
+  const repaired = KNOWN_BAD.filter(k => !inconsistent.includes(k));
+  // the named exception must EXPLAIN itself where a reader will hit it
+  const badSourced = KNOWN_BAD.filter(k => {
+    const [b, e] = k.split("-");
+    const src = (PD.BINARY[b]?.[e]?.source) ?? "";
+    return !/INCONSISTENT/.test(src) || !/not repaired|NOT RESOLVED/i.test(src);
+  });
+  // liveness: the rising branch must be exercised, or this gate is vacuous on a
+  // table where every invariant happens to sit below its base's melting point
+  const ok = unexpected.length === 0 && repaired.length === 0
+    && badSourced.length === 0 && rising.length >= 2;
+  check("PD-SLOPE-CONSISTENT", ok, {
+    checked: rows.filter(r => r.row.invariant !== "isomorphous").length,
+    risingInvariants: rising, inconsistent, unexpected, repaired, badSourced,
+  });
 }
 
 await server.close();
