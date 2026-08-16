@@ -321,6 +321,30 @@
     That is the band real castings occupy, reached by fixing the temperature scale rather than by
     touching the nucleation model.</p>
 
+    <p><b>Which alloy's freezing range, though.</b> Until v7.1 it was the base material's: ΔT₀ came
+    from <code>materials.ts</code>'s liquidus slope and partition coefficient, which for aluminium
+    are −3.4 K/wt% and 0.17 and are labelled, in that file, as Al–4Cu. Pour A356 through the
+    composer and the thermometer, the clock, the cell pitch and every SI readout downstream were
+    computed for a different alloy — for 4340 steel one dimensionless degree came out as
+    <b>1504 K</b>. The calibration now takes the poured mix's own numbers: the m·c-weighted mean
+    slope and the m·c-weighted mean partition, which are exactly the pseudo-binary the solver
+    integrates. 4340 reads 78 K, IN718 65 K against a published ~76 K, AZ91 121 K against ~130 K.</p>
+
+    <p><b>And where that stops being a freezing range, the app says so.</b> ΔT₀ = |m|c∞(1−k)/k is
+    not a thermal quantity dressed up — it is a composition scale. Written out, the capillary length
+    is d₀ = Γ/[|m|(1−k)·c<sub>ref</sub>], and it collapses to Γ/ΔT₀ for exactly one reference
+    liquid: c<sub>ref</sub> = c∞/k, the steady-state planar front. That is the reference this
+    solver's supersaturation is built on. It is also, for any alloy past its primary phase's
+    solubility limit, a composition the melt never reaches — A356's is 53 wt% Si against a 12.6 wt%
+    eutectic. So past that point the composer keeps the model's own gauge, because it is what the
+    kernel measures in, and labels it <b>EXTRAPOLATED GAUGE</b>: it names the reference liquid, the
+    invariant that has been passed, and the alloy's <i>real</i> primary freezing range beside it.
+    For A356 that reads 303 K of model interval against 35 K of real primary freezing — a factor of
+    8.7, printed rather than buried. A mix whose weighted partition falls outside (0,1) at all —
+    A356 plus a titanium refiner reads −0.59, because a k = 9 peritectic solute and a k = 0.12
+    eutectic one do not average into a pseudo-binary — is <b>declined</b>, and the calibration keeps
+    the material's own coefficients and says which clause fired.</p>
+
     <p>What it is checked against, and what it measured:</p>
     <table>
       <tr><th>TEST</th><th>AGAINST</th><th>RESULT</th></tr>

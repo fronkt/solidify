@@ -40,3 +40,41 @@ condition in the gate's own output (`castGrew: true`) so a future reader can see
 
 Corollary: when writing the difference-half of a symmetry gate feels redundant, that is exactly
 the half that catches the harness. Keep it.
+
+## An ordering assertion needs its operands' domains asserted first
+
+**What happened:** `CALIB-MIX-OWN` (v7.1 P1) checks that the model's reference interval is wider
+than the alloy's real primary freezing range, and wrote it as `dT0 > primary`, where
+`primary = T_L − T_inv`. It passed on every preset. It was also, for 4340 steel, comparing
+77.8 against **−1.7**: that alloy's four non-carbon solutes pull its liquidus below the Fe–C
+peritectic, so there is no primary range at all, and the string the gate was guarding read "the
+primary actually freezes over only -1.7 K … so the model interval is 77822335467.5x the real
+one". A shipped preset, a nonsense readout, and a green gate. It was found by an adversarial
+review, not by the gate.
+
+**Rule:** before asserting `a > b`, `a / b`, or `a` within a band of `b`, assert that `b` is in
+the domain where the comparison MEANS anything — positive, finite, non-empty. An ordering against
+a value that should not exist is satisfied for free, and it is satisfied most confidently in
+exactly the case that is broken. Where `b` can legitimately fail to exist, the gate needs two
+branches and must assert the RIGHT one fired: that the comparison is printed when `b` exists, and
+that it is *not* printed when it does not.
+
+Corollary, same milestone: `Math.max(1e-9, b)` in a denominator is this bug wearing a guard. It
+converts "this comparison is meaningless" into "this comparison is 7.8×10¹⁰", which reads as a
+measurement. Refuse the comparison instead of flooring it.
+
+## A truthiness test on a property lookup is not a membership test
+
+**What happened:** `derive()`'s new refusal filter asked `if (!base.solutes[el])` to decide
+whether a solute key was one this model carries. `base.solutes.constructor` is inherited from
+`Object.prototype` and is truthy, so `{constructor: 5}` passed the filter as a valid solute, and
+`s.m`, `s.k` and `s.mass` were all `undefined`. NaN propagated into `dTL`, `Q`, `mLiq` and `dSol`,
+and `refusals` came back **empty** — the exact silent drop the refusal channel had just been added
+to close. `ALLOY-REFUSE-NAMED` could not see it, because every shape it drove was a key that
+correctly fails the check.
+
+**Rule:** use `Object.hasOwn` for "is this key one of mine". And when a gate exists to prove that
+bad input is NAMED, drive at least one input that the guard is likely to let through rather than
+only inputs it obviously rejects — otherwise the gate tests the happy path of the guard. Pair it
+with an assertion that no non-finite number escaped into the returned bundle, so naming and
+containment are checked separately.

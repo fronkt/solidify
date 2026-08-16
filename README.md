@@ -121,8 +121,15 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   numbers are independently recomputed from open CALPHAD databases (`docs/PHASE-AUDIT.md`). The composer reports the real
   chemistry — liquidus shift ΔT_L = Σmᵢcᵢ and growth restriction factor Q = Σmᵢcᵢ(kᵢ−1) —
   then collapses the mix onto the model's pseudo-binary solute field (k_eff = the mᵢcᵢ-weighted
-  mean partition), with every clamp labelled. Famous-alloy quick-fills (A356, AA2024, 4340,
-  IN718, AZ91, bronze…) and shareable `#alloy=…` deep links.
+  mean partition), with every clamp labelled — and since v7.1 P1 the clamps and refusals render
+  *outside* the composer too, beside the alloy name and on the heat-treat card, so a deep-linked
+  melt carries its own caveats. Pouring while the calibrated solver is running now recalibrates on
+  the poured mix's own m and k rather than the base material's: 4340 steel used to measure one
+  dimensionless degree as 1504 K, because `materials.ts`'s steel entry is Fe–C. Where the dilute
+  model's reference liquid c∞/k is a composition the alloy never reaches, the readout says
+  `EXTRAPOLATED GAUGE` and prints the real primary freezing range beside it; where the mix does not
+  collapse onto a pseudo-binary at all, it declines and names the clause. Famous-alloy quick-fills
+  (A356, AA2024, 4340, IN718, AZ91, bronze…) and shareable `#alloy=…` deep links.
 - **Twinning** — stochastic growth twins nucleate at the front in twin registry (θ₀ + π/j) and
   must out-grow their parent to survive, like real feathery grains in aluminum DC casting;
   Shift+click stamps a twinned seed pair — in hexagonal mode that grows the rare

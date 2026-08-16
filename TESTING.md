@@ -22,8 +22,8 @@ pass fails the build rather than quietly shipping a wrong sweep budget.
 **Three more browser-free members joined in v6.1** — `verify-thermal.mjs`, `verify-fade.mjs`
 and `verify-porosity.mjs`, the arithmetic halves of the lab's cooling-curve analysis, refiner
 fade and Sievert gas porosity — bringing the CI-runnable set to five at the time (v7.0's
-`verify-rng.mjs` and `verify-experiment.mjs` have since made it seven, and v7.1 P0's
-`verify-phasedata.mjs` eight). They run first in the
+`verify-rng.mjs` and `verify-experiment.mjs` have since made it seven, v7.1 P0's
+`verify-phasedata.mjs` eight and v7.1 P1's `verify-alloy.mjs` nine). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
 GPU half is not worth starting.
 
@@ -39,9 +39,10 @@ move.
 `--use-angle=swiftshader` software-rendering path the scripts themselves fall back to for
 GPU-less environments. **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
-only the OS-agnostic steps — typecheck, build, and the eight browser-free scripts
+only the OS-agnostic steps — typecheck, build, and the nine browser-free scripts
 (`verify-units.mjs`, `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
-`verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`; see
+`verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
+`verify-alloy.mjs`; see
 `.github/workflows/ci.yml`) — rather than
 this suite. If you want to run the physics/UI verification yourself, do it locally.
 
@@ -120,6 +121,42 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   diagram, the likeliest hand-entry error and one no amount of sourcing would catch), and
   requires at least one eutectic and one peritectic to be present. `PD-SOLUTE-SOURCED` does
   the same distinct-set check on `alloy.ts`'s 25 coefficient rows.
+- **`verify-alloy.mjs`** (browser-free, v7.1 P1) — the composer's chemistry and the
+  calibration it now feeds. Ten checks. `ALLOY-SUMS-EXACT` recomputes the superposition's own
+  algebra inside the gate from `BASES` — ΔT_L = Σm·c, Q = Σm·c(k−1), the base-inclusive
+  wt%↔at% mole balance with `molBase` asserted strictly positive (`derive()` had no guard and
+  goes negative past 100 wt% total) — over 34 cases, plus the liveness clause that the k_eff
+  spread across the nine presets exceeds a floor measured first (it is 1.147; a classifier
+  that collapsed to one constant would satisfy every identity above it). Deliberately NOT
+  "k_eff = 1 − Q/|ΔT_L| against the shipped `kPart`", which is false for A356+TiB because
+  `kRaw` is clamped, and would be a definition asserted against itself. `ALLOY-CLAMP-REPORT`
+  pins which of the shipped bounds actually BOUND for each preset — a fact about the tree no
+  definition can satisfy trivially, and the place the c0-floor finding lives (every addition
+  below 0.75 wt% total is invisible to the solver's c0). `ALLOY-REFUSE-NAMED` drives eight
+  input shapes that used to be silently dropped, requires each refusal to exceed 20 characters
+  and to contain the offending key, requires the DISTINCT count to equal the number driven,
+  and requires an un-triggered control to raise none — so a function that always returns
+  refusals fails. It also records by name the drop sites it does NOT drive, including the one
+  measured to be unreachable. `CALIB-MIX-OWN` recomputes the poured mix's reference interval
+  independently, asserts the branch label against the temperature test in both directions,
+  asserts the identity ΔT₀·k_eff = Q, and asserts that every preset which calibrates differs
+  from the material default. `CALIB-MIX-REFUSE` drives six mixes with no reference interval
+  and asserts WHICH clause fired for each — a refusal naming the wrong mechanism is a wrong
+  statement rather than an absent one. `CALIB-MIX-OFF-IDENTITY` is the one that protects the
+  rest of the suite: with no poured mix, `calibrate()` is `Object.is`-identical to a verbatim
+  transcription of the pre-P1 implementation across 324 comparisons, and the two materials
+  with no `si` block are asserted by NAME and by count rather than by both sides returning
+  null. `DEPR-CONSISTENT` states the exact relation between the depression the composer prints
+  and the one the solver integrates: they agree exactly iff no bound bound, both polarities
+  required present. `PD-CONSTRUCT-AGREE` and `PD-VANTHOFF-CROSSCHECK` are the two gates v7.1
+  P0 specified and deferred; both pin per-row baselines rather than bands, because the spreads
+  were measured first and are too wide for a band to assert anything. `PD-DOC-CALIBRATION`
+  recomputes the twelve numbers `science/index.html` quotes about the calibration — 4340's
+  1504 K default and its 78 K poured range, A356's 303 K interval against its 35 K real primary
+  range and the 8.7x ratio between them, the 53 wt% reference liquid against the 12.6 wt%
+  eutectic, A356+TiB's −0.59 — and requires each to appear in the prose as written, the same
+  way `HT-DOC-CONSTANTS` polices the heat-treatment constants. Both sides are normalised for
+  the U+2212 minus sign first, or it would be a typography check wearing a physics gate's name.
 - **`verify-dive.mjs`** — boots the landing page, confirms the Three.js scroll-dive engaged
   (not the 2.5D SVG fallback), scrubs through a set of scroll progresses, and captures
   screenshots + console errors at each one.
@@ -482,8 +519,9 @@ spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 
 that evidence recorded in the constant's own docblock. The drift prints on every run, and
 `HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
-`npm run build` (Vite + `tsc`) plus the eight browser-free scripts — `verify-units.mjs`,
+`npm run build` (Vite + `tsc`) plus the nine browser-free scripts — `verify-units.mjs`,
 `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
-`verify-porosity.mjs`, `verify-experiment.mjs` and `verify-phasedata.mjs` — are the checks
+`verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs` and
+`verify-alloy.mjs` — are the checks
 anyone on any OS can run
 without a GPU, and are what CI actually gates on (`.github/workflows/ci.yml`).

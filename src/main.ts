@@ -15,7 +15,7 @@ import { Optimizer, type OptHost, type Recipe } from "./optimizer";
 import { packShare, unpackShare, type ShareState } from "./share";
 import { Challenge, type ChallengeHost } from "./challenge";
 import { Composer } from "./composer";
-import { derive as deriveAlloy, type Mix } from "./alloy";
+import { derive as deriveAlloy, encodeMix, decodeMix, BASES, type Mix, type Derived as AlloyDerived } from "./alloy";
 import { Analyze } from "./analyze";
 import { Analyze3D } from "./analyze3d";
 import { Nucleation } from "./nucleation";
@@ -81,6 +81,40 @@ async function boot() {
   let fps = 60;
   let material = "generic";
   let alloyName = MATERIALS.generic.label;
+  /**
+   * The alloy that was actually POURED, if one was — the composer's mix, its
+   * derived chemistry, and the material key it was poured onto.
+   *
+   * It is a lifetime that `tsc` cannot see, so both ends are stated once here.
+   * SET by `applyAlloy`, and only when `setMaterial` accepted the base metal.
+   * CLEARED by `setMaterial`, because picking a material from the dropdown is
+   * not pouring an alloy — after that, calibrating must use the material's own
+   * numbers again. `calibrateNow` additionally re-checks `materialKey`, so a
+   * clear that is ever missed cannot silently calibrate one metal against
+   * another metal's chemistry.
+   */
+  let pouredMix: {
+    materialKey: string; mix: Mix; derived: AlloyDerived;
+    /**
+     * The chemistry keys the pour wrote onto `sim.params`, stamped so
+     * `calibrateNow` can tell whether the solver is STILL carrying this mix.
+     * Chasing every writer of c0/mLiq/kPart is a losing game — the composition
+     * slider writes `p().c0` directly (ui.ts), `setParams` is called by every
+     * preset, scene and tour chapter, and a share link assigns the whole
+     * bundle — so the invariant is checked at the point of use instead. Only
+     * the four chemistry keys are stamped: `dSol` is deliberately absent
+     * because `setSolver` overwrites it with the calibrated diffusivity.
+     */
+    stamp: { alloyOn: number; c0: number; mLiq: number; kPart: number };
+  } | null = null;
+  /**
+   * Clamps and refusals from the last pour, rendered OUTSIDE the composer —
+   * beside the alloy name and on the heat-treat card. Before v7.1 P1 they only
+   * ever existed inside the modal, so an `#alloy=` deep link produced a melt
+   * whose caveats the recipient never saw, which is exactly the claim
+   * science/index.html makes about labelling every clamp.
+   */
+  let alloyCaveats: string[] = [];
   let recorder: MediaRecorder | null = null;
   // an applied optimizer recipe: phase-scheduled cooling driven off fracSolid,
   // exactly the way the optimizer's episodes ran it
@@ -170,11 +204,46 @@ async function boot() {
    * null for a material with no SI identity (there is nothing to calibrate a
    * reference crystal against).
    */
+  /** the poured mix in `#alloy=` payload form for a share link, or undefined */
+  const pouredShare = (): string | undefined =>
+    pouredMix ? encodeMix(pouredMix.mix).replace(/^alloy=/, "") : undefined;
+
   const calibrateNow = (lambda: number): QuantSetup | null => {
     const si = (MATERIALS[material] ?? MATERIALS.generic).si;
     if (!si) return null;
     const alloy = sim.params.alloyOn === 1;
-    return calibrate({ si, alloy, c0wt: sim.params.c0 * WT_PER_C0, lambda });
+    // The poured mix's OWN freezing range, when one was poured onto THIS
+    // material. Before v7.1 P1 this line did not exist and ΔT₀ came from
+    // `si.mL`/`si.kPart` — for aluminium, −3.4 and 0.17, which materials.ts
+    // says out loud are Al–4Cu. Pouring A356 therefore calibrated the
+    // thermometer, the clock, the cell pitch and every SI readout for a
+    // different alloy. The mix's own numbers are used when they exist, the
+    // material's when they do not, and `coefficientSource` always says which.
+    // Two conditions, and the second is the one that is easy to forget: the
+    // mix must have been poured onto THIS material, and the solver must still
+    // be carrying THAT chemistry. Move the composition slider, click a preset,
+    // restore a scene — any of those rewrite c0/mLiq/kPart, and a ΔT₀ built for
+    // a composition the kernel is no longer integrating is exactly the defect
+    // this milestone removed one level up.
+    const stale = pouredMix && !(
+      sim.params.alloyOn === pouredMix.stamp.alloyOn
+      && sim.params.c0 === pouredMix.stamp.c0
+      && sim.params.mLiq === pouredMix.stamp.mLiq
+      && sim.params.kPart === pouredMix.stamp.kPart);
+    const poured = pouredMix && pouredMix.materialKey === material && !stale ? pouredMix : null;
+    const d = poured?.derived ?? null;
+    return calibrate({
+      si, alloy, c0wt: sim.params.c0 * WT_PER_C0, lambda,
+      dT0Override: alloy ? d?.dT0 ?? null : null,
+      coefficientSource: !alloy ? undefined
+        : !d
+          ? (stale
+            ? `the composition dials have moved since ${pouredMix!.derived.name} was poured, so its freezing range no longer describes what the solver carries. Calibrating on ${MATERIALS[material].label}'s own SI coefficients instead: |m| ${Math.abs(si.mL)} K/wt%, k ${si.kPart}, c∞ ${(sim.params.c0 * WT_PER_C0).toFixed(2)} wt%.`
+            : undefined)
+          : d.dT0 != null
+            ? `${d.name}: ${d.dT0Source}`
+            : `${d.name}: ΔT₀ declined — ${d.dT0Source} Calibrating on ${MATERIALS[material].label}'s own coefficients instead: |m| ${Math.abs(si.mL)} K/wt%, k ${si.kPart}.`,
+    });
   };
 
   /**
@@ -533,14 +602,44 @@ async function boot() {
     getMaterial: () => material,
     setMaterial(k) {
       const m = MATERIALS[k];
-      if (!m) return;
+      if (!m) {
+        // Was a bare `return`. It is reachable from a share link and from
+        // window.__solidify, and its cost is not "nothing happened": the
+        // CALLER goes on to set the alloy name, so the app printed one metal's
+        // name over another metal's still-live thermometer, clock, Γ, ε₄ and
+        // heat-treatment laws. Reporting the refusal is what lets the caller
+        // decline to do that.
+        alloyCaveats = [`there is no material called "${k}" in this build — the melt is still ${MATERIALS[material].label}`];
+        return false;
+      }
       material = k;
       alloyName = m.label;
+      // picking a material is not pouring an alloy: the composed chemistry and
+      // its caveats end here, and the calibration goes back to this material's
+      // own coefficients
+      pouredMix = null;
+      alloyCaveats = [];
       Object.assign(sim.params, m.params);
+      // That assign just wrote the NEW material's Kobayashi latent, delta and
+      // dSol over whatever the calibration had derived, and two things follow.
+      // First, the snapshot that leaving calibrated mode restores from was
+      // taken for the PREVIOUS material, so it has to learn the keys that just
+      // changed — otherwise exiting calibrated mode after a material swap puts
+      // aluminium's dials on a magnesium melt. Second, the solver flag still
+      // says QUANT, so the calibration has to be re-derived or the panel prints
+      // a calibration the solver is not running. This is the same defect the
+      // WIRE closes for pours, at its other call site.
+      if (kobSnapshot) {
+        const mp = m.params as unknown as Record<string, number>;
+        for (const k of KOB_OWNED) if (k in mp) kobSnapshot[k] = mp[k];
+      }
+      if (sim.params.solver === SOLVER.QUANT) setSolver(SOLVER.QUANT, sim.params.lambda);
       if (mode === "3d") apply3DMaterial();
+      return true;
     },
     openComposer() { if (!opt.active && !challenge.active) composer.open(); },
     getAlloyName: () => alloyName,
+    getAlloyCaveats: () => alloyCaveats.slice(),
     isRecording: () => recorder != null,
     toggleRec() {
       if (recorder) { recorder.stop(); return; }
@@ -772,7 +871,7 @@ async function boot() {
         delete p3.weldX; delete p3.weldY;   // runtime-positional, like the 2D SKIP set
         return location.origin + location.pathname + packShare({
           p: p3, u: undercool, v: view3d, m: material,
-          n: alloyName, nuc: [nuc3.p.nmax, nuc3.p.dTN, nuc3.p.dTsig], lab: labShare(), ht: heatShare(), d: 1, g3: sim3d.n,
+          n: alloyName, mx: pouredShare(), nuc: [nuc3.p.nmax, nuc3.p.dTN, nuc3.p.dTsig], lab: labShare(), ht: heatShare(), d: 1, g3: sim3d.n,
           sl: [slice.axis, +slice.off.toFixed(3), Math.round(slice.tilt), Math.round(slice.turn), slice.style],
           seed: getSeed(),
         });
@@ -780,7 +879,7 @@ async function boot() {
       return location.origin + location.pathname + packShare({
         p: { ...sim.params }, u: undercool, v: view, m: material,
         n: alloyName, nuc: [nuc.p.nmax, nuc.p.dTN, nuc.p.dTsig], lab: labShare(), ht: heatShare(),
-        sched: recipeSchedule, seed: getSeed(),
+        sched: recipeSchedule, seed: getSeed(), mx: pouredShare(),
       });
     },
     shareRecipeLink(r: Recipe) {
@@ -840,23 +939,56 @@ async function boot() {
   const tour = new Tour(app);
   const opt = new Optimizer(app);
   const composer = new Composer({
-    applyAlloy(materialKey, params, name) {
-      app.setMaterial(materialKey);
+    reportLinkRefusals(refusals) {
+      alloyCaveats = refusals.slice();
+      ui.sync();
+    },
+    applyAlloy(materialKey, params, name, poured) {
+      // setMaterial clears pouredMix and alloyCaveats, so both are re-set AFTER
+      // it, never before. And when it refuses, the composed NAME is not written
+      // over the material that is still live — a wrong label is worse than an
+      // absent one, and this is the site that produced it.
+      if (!app.setMaterial(materialKey)) {
+        alloyCaveats = [`this alloy asks for a base metal ("${materialKey}") that this build does not carry — nothing was poured, and the melt is still ${MATERIALS[material].label}`];
+        ui.sync();
+        return;
+      }
       alloyName = name;
+      const dp = poured.derived.params;
+      pouredMix = {
+        materialKey, mix: poured.mix, derived: poured.derived,
+        stamp: { alloyOn: dp.alloyOn!, c0: dp.c0!, mLiq: dp.mLiq!, kPart: dp.kPart! },
+      };
+      alloyCaveats = poured.caveats.slice();
+      // The 2D solver takes the poured chemistry in BOTH modes. It used to be
+      // written only on the 2D branch, so a pour made in TRUE-3D recorded the
+      // mix in `pouredMix` while `sim.params` kept the base material's default
+      // c0/mLiq/kPart — and switching back to 2D and calibrating then paired
+      // one alloy's ΔT₀ with a different alloy's solute field. The two solvers
+      // already share every other dial through the mode switch; the chemistry
+      // is not an exception.
+      Object.assign(sim.params, params);   // derived pseudo-binary overrides
+      sim.params.coolRate = Math.min(sim.params.coolRate, 0.2);
+      if (undercool < 0.9) undercool = 0.9; // pour = hot melt into a cold mould
+      // THE WIRE, and it runs before the 3D branch for the same reason. Calibrated
+      // mode is 2D-only to ENTER, but nothing forces it off on the way into the
+      // volume, so `sim.params.solver` can still be QUANT while the user pours
+      // in 3D. setMaterial above has just written MATERIALS[k].params over
+      // whatever the calibration computed — latent, delta, dSol — so without
+      // this the pour drops out of the calibration silently while the solver
+      // flag still says QUANT. Re-entering setSolver re-derives W₀, τ₀, the cell
+      // pitch and the latent coupling from the alloy that was actually poured.
+      if (sim.params.solver === SOLVER.QUANT) setSolver(SOLVER.QUANT, sim.params.lambda);
       if (mode === "3d" && sim3d) {
         // route the pseudo-binary onto the 3D solver + allocate the solute pair
         const P = sim3d.params as unknown as Record<string, number>;
         for (const [k, v] of Object.entries(params)) if (k in P) P[k] = v as number;
         sim3d.params.coolRate = Math.min(sim3d.params.coolRate, 0.2);
-        if (undercool < 0.9) undercool = 0.9;
         app.setAlloyOn(true);
         app.resetArmed();
         ui.sync();
         return;
       }
-      Object.assign(sim.params, params);   // derived pseudo-binary overrides
-      sim.params.coolRate = Math.min(sim.params.coolRate, 0.2);
-      if (undercool < 0.9) undercool = 0.9; // pour = hot melt into a cold mould
       app.resetArmed();
       ui.sync();
     },
@@ -966,6 +1098,7 @@ async function boot() {
     getMode: () => mode,
     materialKey: () => material,
     materialLabel: () => alloyName,
+    alloyCaveats: () => alloyCaveats.slice(),
     si: () => (MATERIALS[material] ?? MATERIALS.generic).si ?? null,
     alloyOn: () => (mode === "3d" && sim3d ? sim3d.params.alloyOn > 0 : sim.params.alloyOn > 0),
     gridN: () => (mode === "3d" && sim3d ? sim3d.n : sim.n),
@@ -1645,7 +1778,36 @@ async function boot() {
     // the decoder). Number.isFinite whitelist per the g3 doctrine: a hand-built
     // link with a string seed keeps the page's own rather than hashing NaN.
     if (typeof shared.seed === "number" && Number.isFinite(shared.seed)) setSeed(shared.seed);
-    if (MATERIALS[shared.m]) app.setMaterial(shared.m);
+    const sharedMaterialTook = MATERIALS[shared.m] ? app.setMaterial(shared.m) : false;
+    // The poured mix, restored BEFORE the params block below — which re-runs
+    // setSolver for a calibrated link, and setSolver reads pouredMix. Restored
+    // by hand rather than through applyAlloy, because applyAlloy is a POUR: it
+    // would raise the undercooling, cap the cooling rate and re-arm the melt,
+    // none of which the link asked for. setMaterial above has already cleared
+    // any previous mix, so this is a set on a known-empty slot.
+    if (sharedMaterialTook && typeof shared.mx === "string") {
+      const linkRefusals: string[] = [];
+      const mix = decodeMix("alloy=" + shared.mx, linkRefusals);
+      if (mix && Object.keys(mix.wt).length) {
+        const d = deriveAlloy(mix);
+        if (BASES[mix.base]?.materialKey === shared.m) {
+          // The link's own `p` block is assigned a few lines below, and it
+          // carries the c0/mLiq/kPart the minter was running — so the stamp is
+          // taken from the mix's derivation, which is what those params were,
+          // and the staleness check then confirms the two agree.
+          const dp = d.params;
+          pouredMix = {
+            materialKey: shared.m, mix, derived: d,
+            stamp: { alloyOn: dp.alloyOn!, c0: dp.c0!, mLiq: dp.mLiq!, kPart: dp.kPart! },
+          };
+          alloyCaveats = [...linkRefusals, ...d.refusals, ...d.clamps];
+        } else {
+          alloyCaveats = [`this link's mix is ${BASES[mix.base]?.label ?? mix.base}-based but its material is ${MATERIALS[shared.m].label} — the chemistry was not applied, and the calibration uses the material's own coefficients`];
+        }
+      } else if (linkRefusals.length) {
+        alloyCaveats = linkRefusals;
+      }
+    }
     // scen numbers mean different things per mode — never cross-assign a 3D
     // link's params into the 2D solver
     if (shared.d !== 1) {
@@ -1678,7 +1840,14 @@ async function boot() {
       lab.open();
     }
     recipeSchedule = shared.sched ?? null;
-    if (shared.n) alloyName = shared.n;
+    // Second instance of the same shape applyAlloy carries, and it is not in
+    // the milestone plan: a link whose `m` is a material this build does not
+    // have restored its alloy NAME anyway, over a material that never changed.
+    // The name is only honoured when the material it belongs to was accepted.
+    if (shared.n) {
+      if (sharedMaterialTook) alloyName = shared.n;
+      else alloyCaveats = [`this link names the melt "${shared.n}" on a base metal ("${shared.m}") this build does not carry — the name was not applied, and the melt is still ${MATERIALS[material].label}`];
+    }
     app.resetArmed();   // stages it ARMED; resetArmed keeps the schedule
     // the heat-treat setup: reopen the panel with the link's dialled schedule,
     // which refuses honestly ("nothing solid to treat yet") until the pour.

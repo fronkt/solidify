@@ -82,6 +82,13 @@ export interface QuantSetup {
   umPerCell: number;
   dx: number;
   dt: number;
+  /**
+   * Where ΔT₀ came from: the material's own SI coefficients, or the poured
+   * mix's, or the named reason the poured mix's were declined. Never empty —
+   * a calibration that cannot say which alloy it calibrated for is the defect
+   * this field exists to make visible.
+   */
+  coefficientSource: string;
   /** diffusion length at which the thin-interface limit stops being thin */
   maxLambdaAt(velocity: number): number;
   warnings: string[];
@@ -97,6 +104,18 @@ export interface QuantInput {
   lambda: number;
   /** cells per W₀ */
   dxPerW0?: number;
+  /**
+   * The poured mix's OWN freezing range, K — `Derived.dT0` from alloy.ts.
+   * When present and usable it replaces the material's default interval
+   * entirely; when absent or null the material's own `si.mL`/`si.kPart` path
+   * runs exactly as it did before v7.1 P1, which is what keeps every existing
+   * caller bit-identical. The regime logic that decides whether a mix HAS a
+   * usable freezing range lives in alloy.ts, beside the phase data it needs —
+   * this module stays a pure calibration and knows nothing about diagrams.
+   */
+  dT0Override?: number | null;
+  /** what to say about where ΔT₀ came from; surfaced as `coefficientSource` */
+  coefficientSource?: string;
 }
 
 /**
@@ -109,8 +128,13 @@ export interface QuantInput {
  * why calibrated alloy undercoolings land in the 1–10 K band a foundry would
  * recognise without anyone touching the nucleation model.
  */
-export function referenceInterval(si: MaterialSI, alloy: boolean, c0wt: number): number {
+export function referenceInterval(
+  si: MaterialSI, alloy: boolean, c0wt: number, override?: number | null,
+): number {
   if (!alloy) return si.L / si.cp;
+  // a poured mix supplies its own; anything non-finite or non-positive is not a
+  // freezing range and is ignored rather than allowed to divide into d₀
+  if (override != null && Number.isFinite(override) && override > 0) return override;
   const k = Math.min(0.999, Math.max(1e-3, si.kPart));
   return (Math.abs(si.mL) * Math.max(1e-6, c0wt) * (1 - k)) / k;
 }
@@ -125,7 +149,12 @@ export function calibrate(inp: QuantInput): QuantSetup {
   const dxPerW0 = inp.dxPerW0 ?? DX_PER_W0;
   const warnings: string[] = [];
 
-  const dT0 = referenceInterval(si, alloy, c0wt);
+  const ov = inp.dT0Override;
+  // stated from the input, not inferred by comparing the two answers: a poured
+  // mix whose freezing range happens to equal the material default is still a
+  // poured mix, and the readout must not claim otherwise
+  const usedOverride = alloy && ov != null && Number.isFinite(ov) && ov > 0;
+  const dT0 = referenceInterval(si, alloy, c0wt, ov);
   const d0 = si.Gamma / dT0;
   const W0 = (lambda * d0) / A1;
   // an alloy dendrite is set by solute; a pure melt has no solute to be set by
@@ -141,12 +170,29 @@ export function calibrate(inp: QuantInput): QuantSetup {
   const latent = si.L / si.cp / dT0;
 
   if (alloy && c0wt <= 0) warnings.push("alloy calibration with no solute — ΔT₀ is undefined");
+  // A very lean poured mix drives ΔT₀ toward zero, and every derived length and
+  // time goes the other way: Cu–0.05Zn (one slider step) gives ΔT₀ = 0.03 K,
+  // d₀ = 7.3 µm, a 197 µm cell and τ₀ = 285 s. None of that is wrong — it is
+  // what a nearly-pure melt's capillary length IS — but the material-default
+  // path was quietly protected from it by the composer's c0 floor and the
+  // override is not, so it says so rather than printing a 200 mm domain in
+  // silence. 1 K is the order below which a foundry thermocouple stops
+  // resolving a freezing range at all.
+  if (alloy && dT0 > 0 && dT0 < 1) {
+    warnings.push(`ΔT₀ = ${dT0.toFixed(3)} K — this melt is so lean its freezing range is under a kelvin, so d₀ is ${(d0 * 1e6).toFixed(1)} µm and a cell is ${umPerCell.toFixed(1)} µm; the domain is a casting, not a dendrite`);
+  }
   if (si.Gamma <= 0) warnings.push("no Gibbs–Thomson coefficient for this material");
   if (dxPerW0 > 1.0) warnings.push(`dx = ${dxPerW0}·W₀ under-resolves the tanh profile`);
 
+  const coefficientSource = inp.coefficientSource ?? (usedOverride
+    ? `ΔT₀ ${dT0.toFixed(2)} K supplied by the poured mix.`
+    : alloy
+      ? `ΔT₀ ${dT0.toFixed(2)} K from this material's own SI coefficients: |m| ${Math.abs(si.mL)} K/wt%, k ${si.kPart}, c∞ ${c0wt.toFixed(2)} wt%. ${si.source.split(".")[0]}.`
+      : `ΔT₀ ${dT0.toFixed(2)} K is the pure-melt unit undercooling L/c_p — no solute field, so there is no freezing range.`);
+
   return {
     lambda, wOverD0: lambda / A1, d0, W0, tau0, dTilde, D, dT0, latent,
-    umPerCell, dx, dt,
+    umPerCell, dx, dt, coefficientSource,
     maxLambdaAt: (v: number) => feasibleLambda(D, v, d0),
     warnings,
   };

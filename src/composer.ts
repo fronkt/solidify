@@ -5,8 +5,30 @@ import { BASES, FAMOUS, derive, encodeMix, decodeMix, type Mix, type Derived } f
 // restriction Q), and pour it — the mix collapses onto the model's
 // pseudo-binary solute field and arms a fresh melt.
 
+/**
+ * Refusal strings quote the offending key back at the user, and a mix can
+ * reach `derive()` from `window.__solidify.alloy` or from a hand-built
+ * `#alloy=` hash with keys this module never chose. Escaping is therefore not
+ * paranoia: it is the difference between naming a bad input and executing it.
+ */
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 export interface ComposerHost {
-  applyAlloy(materialKey: string, params: Record<string, number>, name: string): void;
+  /**
+   * `poured` is the fourth argument v7.1 P1 added, and it is the milestone in
+   * one line: before it, the host learned a params bundle and a name and had
+   * no way back to the chemistry, so the calibrated thermometer went on
+   * measuring in the base material's default freezing range no matter what was
+   * poured into it. The mix travels so the host can re-enter the calibration
+   * with the alloy's own numbers, and the caveats travel so the clamps and
+   * refusals can be rendered OUTSIDE this modal, where a deep link can see them.
+   */
+  applyAlloy(materialKey: string, params: Record<string, number>, name: string,
+    poured: { mix: Mix; derived: Derived; caveats: string[] }): void;
+  /** a deep link that could not be applied at all, and why — no pour follows */
+  reportLinkRefusals(refusals: string[]): void;
 }
 
 export class Composer {
@@ -16,6 +38,13 @@ export class Composer {
   private addSel!: HTMLSelectElement;
   private baseBtns: HTMLButtonElement[] = [];
   private mix: Mix = { base: "al", wt: { Cu: 4.4, Mg: 1.5 } };
+  /**
+   * Refusals raised OUTSIDE `derive()` — by the hash decoder and by this
+   * modal's own render — which `derive()` therefore cannot know about. They
+   * survive until the mix next changes, because a link that quietly lost a
+   * solute must still be saying so when the melt it produced is on screen.
+   */
+  private extraRefusals: string[] = [];
 
   constructor(private host: ComposerHost) {
     this.overlay = document.createElement("div");
@@ -79,22 +108,41 @@ export class Composer {
 
   /** apply a #alloy=… deep link (no modal) */
   applyHash(hash: string): boolean {
-    const mix = decodeMix(hash);
-    if (!mix || Object.keys(mix.wt).length === 0) return false;
+    const refusals: string[] = [];
+    const mix = decodeMix(hash, refusals);
+    if (!mix || Object.keys(mix.wt).length === 0) {
+      // The link failed ENTIRELY — unknown base, or every solute term dropped.
+      // Those are the loudest failures and the first version of this threw
+      // their refusals away on the early return, so `#alloy=al:Xx3` restored
+      // nothing and said nothing. The host is told even though no pour happens.
+      if (refusals.length) this.host.reportLinkRefusals(refusals);
+      return false;
+    }
     this.mix = mix;
+    this.extraRefusals = refusals;
     this.pour(false);
     return true;
   }
 
   private pour(setHash = true) {
     const d = derive(this.mix);
-    this.host.applyAlloy(BASES[this.mix.base].materialKey, d.params as Record<string, number>, d.name);
+    const caveats = [...this.extraRefusals, ...d.refusals, ...d.clamps];
+    this.host.applyAlloy(BASES[this.mix.base].materialKey,
+      d.params as Record<string, number>, d.name,
+      { mix: { base: this.mix.base, wt: { ...this.mix.wt } }, derived: d, caveats });
     if (setHash) history.replaceState(null, "", "#" + encodeMix(this.mix));
     this.close();
   }
 
   private render() {
     const base = BASES[this.mix.base];
+    // A full redraw re-derives the mix from scratch, so anything raised on the
+    // previous pass is either about to be raised again or no longer true. The
+    // hash decoder's refusals are deliberately dropped here: by the time the
+    // modal is opened they have already been poured and are on screen outside
+    // it, and repeating them against a mix the user is now editing would be
+    // stale rather than informative.
+    this.extraRefusals = [];
     this.baseBtns.forEach(b => b.classList.toggle("on", b.dataset.base === this.mix.base));
 
     // solute rows
@@ -102,7 +150,15 @@ export class Composer {
     const d = derive(this.mix);
     for (const [el, w] of Object.entries(this.mix.wt)) {
       const s = base.solutes[el];
-      if (!s) { delete this.mix.wt[el]; continue; }
+      if (!s) {
+        // The key still has to go — every line below dereferences `s`. What
+        // changes in v7.1 P1 is that it goes on the record: this is reachable
+        // from a hand-built mix through window.__solidify, and before P1 the
+        // modal simply redrew one row short with no explanation.
+        this.extraRefusals.push(`${el} is not a solute this model carries in ${base.label} — removed from the melt`);
+        delete this.mix.wt[el];
+        continue;
+      }
       const row = document.createElement("div");
       row.className = "crow";
       const at = d.atPct[el] ?? 0;
@@ -141,11 +197,20 @@ export class Composer {
     const d: Derived = derive(this.mix);
     const p = d.params;
     const shift = d.dTL === 0 ? "0 K" : `${d.dTL > 0 ? "+" : "−"}${Math.abs(d.dTL).toFixed(1)} K`;
+    // The freezing range is the number calibrated mode actually measures
+    // temperature in, so it is printed here beside the mapping it is built
+    // from, with the regime that decided it. A refusal prints as a refusal.
+    const rangeRow = d.dT0 != null
+      ? `<div class="drow"><span>freezing range ΔT₀ · ${d.dT0Regime.toLowerCase()}</span><b>${d.dT0.toFixed(1)} K</b></div>`
+      : `<div class="drow"><span>freezing range ΔT₀</span><b style="color:#c96a5b">refused</b></div>`;
     this.outEl.innerHTML = `
       <div class="aname">${d.name}${d.totalWt === 0 ? " (pure)" : ""}</div>
       <div class="drow"><span>liquidus shift ΔT<sub>L</sub></span><b>${shift}</b></div>
       <div class="drow"><span>growth restriction Q</span><b>${d.Q.toFixed(1)} K</b></div>
+      ${rangeRow}
       <div class="drow"><span>model mapping</span><b>c₀ ${p.c0!.toFixed(2)} · m ${p.mLiq!.toFixed(2)} · k ${p.kPart!.toFixed(2)} · D ${p.dSol!.toFixed(2)}</b></div>
-      ${d.clamps.map(c => `<div class="clamp">⚠ ${c}</div>`).join("")}`;
+      <div class="src">${esc(d.dT0Source)}</div>
+      ${d.refusals.concat(this.extraRefusals).map(r => `<div class="clamp">✕ ${esc(r)}</div>`).join("")}
+      ${d.clamps.map(c => `<div class="clamp">⚠ ${esc(c)}</div>`).join("")}`;
   }
 }

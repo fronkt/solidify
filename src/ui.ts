@@ -23,7 +23,8 @@ export interface UIHost extends AppControl {
   getLambda(): number;
   setLambda(v: number): void;
   /** what the calibration works out to, or null when it is not running */
-  calibration(): { d0: number; W0: number; tau0: number; wOverD0: number; dT0: number; umPerCell: number } | null;
+  calibration(): { d0: number; W0: number; tau0: number; wOverD0: number; dT0: number;
+    umPerCell: number; coefficientSource: string } | null;
   setUmPerCell(v: number): void;
   getUndercool(): number;
   setUndercool(v: number): void;
@@ -44,7 +45,8 @@ export interface UIHost extends AppControl {
   getSpeedMult(): number;
   cycleSpeedMult(): void;
   getMaterial(): string;
-  setMaterial(key: string): void;
+  /** true if the key named a real material; false is a refusal the caller must honour */
+  setMaterial(key: string): boolean;
   openComposer(): void;
   getGrid(): number;
   setGrid(n: number): void;
@@ -75,6 +77,13 @@ export interface UIHost extends AppControl {
   isRecording(): boolean;
   toggleRec(): void;
   getAlloyName(): string;
+  /**
+   * Clamps and refusals the current melt is carrying, rendered beside the
+   * alloy name. Empty for a clean pour. This is the channel that makes
+   * science/index.html's "labels every clamp it has to make" true for an
+   * `#alloy=` deep link, which never opens the composer at all.
+   */
+  getAlloyCaveats(): string[];
   // TRUE-3D mode
   getMode(): "2d" | "3d";
   setMode(m: "2d" | "3d"): void | Promise<void>;
@@ -824,6 +833,10 @@ export class UI {
       ? `d₀ ${nm(cal.d0)} · W₀ ${nm(cal.W0)} · τ₀ ${cal.tau0 < 1e-3
           ? cal.tau0.toExponential(1) + " s" : cal.tau0.toPrecision(2) + " s"}`
         + `<br>one degree = ${cal.dT0.toFixed(1)} K · cell ${cal.umPerCell.toFixed(3)} µm`
+        // WHICH alloy that degree was measured for. It was the unstated half of
+        // this readout until v7.1 P1, and it was wrong for every poured mix.
+        + `<br><span style="color:#8891a0">${cal.coefficientSource
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</span>`
         + `<br><span style="color:#7fd18b">W₀ and τ₀ are derived from Γ and D — ε̄, τ, α, γ, δ, the solute D and the cell pitch are no longer choices.</span>`
       : host.canCalibrate()
         ? "derive W₀ and τ₀ from this material's real capillary length and diffusivity — tip radius and arm spacing stop being shapes and start being predictions"
@@ -872,6 +885,12 @@ export class UI {
     this.recBtn.classList.toggle("rec", host.isRecording());
     document.getElementById("matline")!.textContent =
       host.getAlloyName() + (m3 ? ` · 3D ${host.getGrid3()}³` : "");
+    // the melt's own caveats, on the same surface as its name — textContent,
+    // not innerHTML, because these strings quote user-supplied element keys
+    const caveats = host.getAlloyCaveats();
+    const cav = document.getElementById("matcaveat")!;
+    cav.textContent = caveats.join(" · ");
+    cav.style.display = caveats.length ? "block" : "none";
     const grids = [512, 1024, 2048];
     this.gridBtns.forEach((b, i) => b.classList.toggle("on", grids[i] === host.getGrid()));
 

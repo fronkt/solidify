@@ -144,6 +144,7 @@
     #composer .drow { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); margin-bottom: 4px; }
     #composer .drow b { color: var(--amber); font-weight: 500; }
     #composer .clamp { font-size: 10px; color: #d9985a; margin-top: 4px; }
+    #composer .src { font-size: 10px; color: var(--dim); line-height: 1.4; margin-top: 6px; border-left: 2px solid var(--line); padding-left: 7px; }
     #composer .cfoot { display: flex; gap: 8px; }
     #composer .cfoot .pour { flex: 1; border-color: var(--amber); color: var(--amber); font-weight: 600; padding: 8px; }
     .hiddenSec { display: none; }
@@ -194,6 +195,15 @@
     #hint.gone { opacity: 0; }
 
     #matline { margin-top: 3px; font-size: 11px; color: var(--amber); letter-spacing: 0.06em; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
+    /* the melt's clamps and refusals, on the same surface as its name — a
+       deep-linked alloy has no composer open to show them in */
+    /* pointer-events:none because #head is the one absolutely-positioned overlay
+       here WITHOUT it (it carries the h1's link), and a caveat line grows #head's
+       shrink-to-fit box several lines tall directly over the melt — every tap in
+       that band would stop reaching the canvas's seed handler */
+    #matcaveat { display: none; pointer-events: none; margin-top: 2px; max-width: min(520px, 46vw);
+                 font-size: 10px; line-height: 1.35;
+                 color: #d9985a; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
     #canvas { touch-action: none; }
     #transport .rec { border-color: #e0564a; color: #e0564a; }
     .scilink { display: block; margin: 4px 0 10px; font-size: 10.5px; color: var(--dim); text-decoration: none; letter-spacing: 0.08em; }
@@ -227,6 +237,7 @@
       <h1><a href="../">SOLID<span>IFY</span></a></h1>
       <div class="sub">phase-field solidification · live</div>
       <div id="matline"></div>
+      <div id="matcaveat"></div>
     </div>
     <div id="readouts"></div>
     <div id="views"></div>

@@ -36,6 +36,21 @@ export interface ShareState {
    * seed the visitor's page drew.
    */
   seed?: number;
+  /**
+   * (v7.1 P1) the poured mix, in the composer's own `#alloy=` payload form —
+   * "al:Si7,Mg0.35", without the `alloy=` prefix.
+   *
+   * It has to travel, and the reason is specific. `n` is a display name only,
+   * so before P1 a shared calibrated link recalibrated on the MATERIAL's
+   * default coefficients at both ends and the two agreed. Once the calibration
+   * learns the poured alloy they stop agreeing: the minter measures A356's own
+   * ~35 K freezing range and a recipient with no mix would measure Al–4Cu's
+   * 122 K — a different W₀, cell pitch, timestep and thermometer behind an
+   * identical-looking link. Optional, so every pre-v7.1 link still restores
+   * exactly as it did; those simply have no mix and keep the material default,
+   * which is what they were minted with.
+   */
+  mx?: string;
 }
 
 // grid-derived / runtime fields that must never ride a link

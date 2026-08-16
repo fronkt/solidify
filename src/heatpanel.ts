@@ -89,6 +89,14 @@ export interface HeatHost {
   getMode(): "2d" | "3d";
   materialKey(): string;
   materialLabel(): string;
+  /**
+   * Clamps and refusals the poured melt is carrying. Optional so a host that
+   * predates v7.1 P1 still satisfies the interface; the panel renders nothing
+   * when it is absent. It belongs HERE because the heat-treatment laws are the
+   * material's — pour an alloy onto a base metal this build does not have and
+   * the grain-growth law running is still the previous material's.
+   */
+  alloyCaveats?(): string[];
   si(): MaterialSI | null;
   alloyOn(): boolean;
   /** does the material grow on a cubic lattice in 3D? (the Σ3 gate) */
@@ -198,6 +206,7 @@ export class HeatPanel {
   private host: HeatHost;
   private panel: HTMLElement | null = null;
   private noteEl: HTMLElement | null = null;
+  private caveatEl: HTMLElement | null = null;
   private runBtn: HTMLButtonElement | null = null;
   private statusEl: HTMLElement | null = null;
   private reportEl: HTMLElement | null = null;
@@ -428,8 +437,15 @@ export class HeatPanel {
 
     const head = document.createElement("div");
     head.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:6px;";
+    // materialLabel() is `alloyName`, and a share link's `n` field lands in it
+    // verbatim — so this is a user-controlled string reaching innerHTML. The
+    // name goes in through textContent on its own element instead. (Found by
+    // an adversarial review of v7.1 P1: every other user-reachable string in
+    // that milestone was routed to textContent, and this sink, five lines above
+    // the new #htCaveat in the same function, was the one left raw.)
     head.innerHTML = `<span style="letter-spacing:.2em;color:#ffb454">♨ HEAT TREAT</span>
-      <span style="color:#8891a0">the second clock — solid state, real hours, on <b style="color:#cfd6df">${this.host.materialLabel()}</b></span>`;
+      <span style="color:#8891a0">the second clock — solid state, real hours, on <b id="htMat" style="color:#cfd6df"></b></span>`;
+    head.querySelector("#htMat")!.textContent = this.host.materialLabel();
     const exit = document.createElement("button");
     exit.textContent = "exit";
     exit.addEventListener("click", () => this.close());
@@ -507,10 +523,19 @@ export class HeatPanel {
     report.id = "htReport";
     report.style.cssText = "margin-top:6px;color:#8891a0;line-height:1.55;";
 
-    p.append(head, form, note, row, report);
+    // The melt's own clamps and refusals. A SIBLING of #htNote rather than part
+    // of it, deliberately: four gates read #htNote's textContent and one reads
+    // #htReport byte-for-byte, and a caveat line folded into either would move
+    // a pinned string. This element is new, so nothing pins it yet.
+    const caveat = document.createElement("div");
+    caveat.id = "htCaveat";
+    caveat.style.cssText = "display:none;color:#d9985a;line-height:1.5;margin-bottom:8px;";
+
+    p.append(head, form, caveat, note, row, report);
     document.getElementById("app")!.append(p);
     this.panel = p;
     this.noteEl = note;
+    this.caveatEl = caveat;
     this.runBtn = go;
     this.statusEl = status;
     this.reportEl = report;
@@ -519,6 +544,15 @@ export class HeatPanel {
 
   private refresh() {
     if (!this.panel || !this.noteEl || !this.runBtn) return;
+    // rendered on every refresh, not built once into the head: the composition
+    // can change while this panel is open, and a stale caveat is a false one
+    if (this.caveatEl) {
+      const cav = this.host.alloyCaveats?.() ?? [];
+      // textContent: these strings quote element keys that reached derive()
+      // from a hand-built mix or hash
+      this.caveatEl.textContent = cav.length ? `⚠ ${cav.join(" · ")}` : "";
+      this.caveatEl.style.display = cav.length ? "block" : "none";
+    }
     this.runBtn.textContent = this.busy ? "■ abort" : "♨ run treatment";
     if (this.busy) return; // the run loop owns the status line
     const plan = this.plan(this.census);

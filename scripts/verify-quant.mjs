@@ -638,9 +638,24 @@ await page.evaluate(() => {
     const S = window.__solidify;
     S.app.setRun(false);
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // UNDOCUMENTED INHERITED STATE, now stated. QPF-MASS above writes
+    // solver: 1 straight onto sim.params without going through setSolver, so
+    // this block used to start in calibrated mode with a null kobSnapshot and
+    // read its "Kobayashi" baseline from there. It passed anyway — units.ts
+    // derives kelvinPerUnit from `latent`, which setMaterial restores — but it
+    // was resting on that coincidence. v7.1 P1 makes setMaterial re-enter
+    // setSolver while QUANT is live, which would have turned the coincidence
+    // into a failure, so the state is cleared explicitly instead.
+    S.app.setCalibrated(false);
     S.app.setMaterial("al");
     const before = { K: S.units().scale.kelvinPerUnit, cal: S.app.isCalibrated() };
     const can = S.app.canCalibrate();
+    // v7.1 P1: this gate's numbers are the MATERIAL DEFAULT calibration, and
+    // they are only that because setMaterial above cleared any poured mix.
+    // Asserted here rather than left resting on the call order of a gate
+    // written for another purpose — a future gate that pours before this one
+    // would otherwise silently recalibrate the band.
+    const noPour = S.app.getAlloyCaveats().length === 0;
     S.app.setCalibrated(true);
     const q = S.app.calibration();
     const u = S.units();
@@ -648,7 +663,8 @@ await page.evaluate(() => {
     // the app's OWN default site potency, read rather than assumed
     const dTN = S.app.getNucPotency();
     return {
-      can, wasCal: before.cal, kobKelvinPerUnit: before.K,
+      can, wasCal: before.cal, kobKelvinPerUnit: before.K, noPour,
+      coefficientSource: q ? q.coefficientSource : null,
       calKelvinPerUnit: u.scale.kelvinPerUnit,
       dTN, dTN_kob_K: dTN * before.K, dTN_cal_K: u.kelvin(dTN),
       shallow_cal_K: u.kelvin(0.05),
@@ -667,13 +683,19 @@ await page.evaluate(() => {
   // which is 11 K. Both are the foundry range rather than the 37 K Kobayashi
   // scaling implies, and the test reports both rather than picking the flattering one.
   const inBand = r.dTN_cal_K >= 1 && r.dTN_cal_K <= 15 && r.shallow_cal_K >= 1 && r.shallow_cal_K <= 10;
-  check("CALIB-BAND", r.can && inBand && r.dTN_kob_K > 30, {
+  // and the band is the MATERIAL's, provably: no poured mix is live, and the
+  // calibration says out loud which coefficients it used
+  const materialDefault = r.noPour === true
+    && typeof r.coefficientSource === "string"
+    && /own SI coefficients/.test(r.coefficientSource);
+  check("CALIB-BAND", r.can && inBand && r.dTN_kob_K > 30 && materialDefault, {
     material: "Al-Cu at the composer default c0",
     sitePotency: r.dTN,
     sameDial_underKobayashi_K: +r.dTN_kob_K.toFixed(1),
     sameDial_calibrated_K: +r.dTN_cal_K.toFixed(2),
     atPotency0p05_K: +r.shallow_cal_K.toFixed(2),
     band: "1-15 K at the shipped potency; 1-10 K at 0.05",
+    noPouredMix: r.noPour, coefficientSource: r.coefficientSource,
   });
 
   // the interlock: in calibrated mode the length and time units ARE W0 and tau0,
@@ -689,6 +711,166 @@ await page.evaluate(() => {
     capillaryGroup: r.capillary ? +r.capillary.model.toFixed(4) : null,
     epsBar: r.epsBar, tau: r.tau, antiTrapping: +r.atCoef.toFixed(4),
     eps4_from_material: r.delta,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 7. CALIB-POUR-WIRED — the WIRING, not the arithmetic (v7.1 P1).
+//
+// verify-alloy.mjs already proves the chemistry: derive() computes the poured
+// mix's own reference interval and says which regime it used. None of that
+// reaches the app unless applyAlloy re-enters setSolver, and before P1 it did
+// not — setMaterial's Object.assign landed MATERIALS[k].params over whatever
+// the calibration had computed, so pouring while calibrated dropped out of the
+// calibration while sim.params.solver still said QUANT. A browser-free gate
+// cannot see that. This one runs the real composer against the real solver.
+//
+// It is also the only place the two app-level refusals in P1 can be driven:
+// setMaterial's unknown key, and applyAlloy declining to write a composed name
+// over a material that never changed.
+{
+  const r = await page.evaluate(async () => {
+    const S = window.__solidify;
+    S.app.setRun(false);
+    await new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+
+    // a clean, calibrated aluminium baseline — material first, then calibrate,
+    // the order CALIB-BAND relies on and for the same four reasons
+    S.app.setMaterial("al");
+    S.app.setCalibrated(true);
+    const before = {
+      K: S.units().scale.kelvinPerUnit,
+      latent: S.sim().params.latent,
+      um: S.app.getUmPerCell(),
+      src: S.app.calibration()?.coefficientSource ?? null,
+      name: S.app.getAlloyName(),
+      caveats: S.app.getAlloyCaveats().length,
+    };
+
+    // POUR. applyHash drives composer.pour() exactly as an #alloy= deep link
+    // does — no modal, no DOM interaction.
+    const poured = S.composer.applyHash("#alloy=al:Si7,Mg0.35");
+    const after = {
+      K: S.units().scale.kelvinPerUnit,
+      latent: S.sim().params.latent,
+      um: S.app.getUmPerCell(),
+      src: S.app.calibration()?.coefficientSource ?? null,
+      name: S.app.getAlloyName(),
+      solver: S.sim().params.solver,
+      qLatent: S.app.calibration()?.latent ?? null,
+      qDT0: S.app.calibration()?.dT0 ?? null,
+    };
+    // the share link must now carry the mix, or a recipient recalibrates on the
+    // material default and gets a different instrument behind the same URL
+    const link = S.app.shareLink();
+    const mxPresent = (() => {
+      try {
+        const b64 = link.match(/set=([A-Za-z0-9_-]+)/)[1].replaceAll("-", "+").replaceAll("_", "/");
+        return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0)))).mx ?? null;
+      } catch { return "PARSE FAILED"; }
+    })();
+
+    // LIFETIME: picking a material is not pouring an alloy. The composed
+    // chemistry must end here and the calibration go back to copper's own.
+    S.app.setMaterial("cu");
+    const swapped = {
+      K: S.units().scale.kelvinPerUnit,
+      src: S.app.calibration()?.coefficientSource ?? null,
+      name: S.app.getAlloyName(),
+      caveats: S.app.getAlloyCaveats().length,
+    };
+
+    // REFUSAL 1: setMaterial on a key this build does not have.
+    const took = S.app.setMaterial("unobtanium");
+    const refused = {
+      took, name: S.app.getAlloyName(), caveats: S.app.getAlloyCaveats(),
+    };
+
+    // REFUSAL 2: a mix whose k_eff leaves (0,1) still calibrates, on the
+    // material's own numbers, and says so rather than printing a negative range
+    S.app.setMaterial("al");
+    S.composer.applyHash("#alloy=al:Si7,Mg0.35,Ti0.12");
+    const tib = {
+      name: S.app.getAlloyName(),
+      src: S.app.calibration()?.coefficientSource ?? null,
+      dT0: S.app.calibration()?.dT0 ?? null,
+    };
+
+    // STALENESS: the poured mix's freezing range must stop being used the
+    // moment the solver stops carrying that chemistry. The composition slider
+    // writes sim.params.c0 directly and nothing routes through setMaterial, so
+    // this is the guard that catches every writer at the point of use.
+    S.app.setMaterial("al");
+    S.composer.applyHash("#alloy=al:Si7,Mg0.35");
+    const fresh = { K: S.units().scale.kelvinPerUnit, src: S.app.calibration()?.coefficientSource ?? null };
+    S.sim().params.c0 = 0.2;                       // exactly what the c0 slider does
+    S.app.setLambda(S.app.getLambda());            // re-enter setSolver, as any dial would
+    const moved = { K: S.units().scale.kelvinPerUnit, src: S.app.calibration()?.coefficientSource ?? null };
+
+    // A DEAD LINK still reports: every solute term dropped means no pour, and
+    // the refusals used to be discarded on that early return.
+    S.app.setMaterial("al");
+    const deadApplied = S.composer.applyHash("#alloy=al:Xx3");
+    const dead = { applied: deadApplied, caveats: S.app.getAlloyCaveats() };
+
+    S.app.setCalibrated(false);
+    S.app.setMaterial("generic");
+    return { before, poured, after, mxPresent, swapped, refused, tib, fresh, moved, dead };
+  });
+
+  // THE WIRE: the thermometer moved, and the solver is running the latent the
+  // calibration computed. Asserting only that it moved would pass on a pour
+  // that dropped out of calibrated mode entirely, so both halves are required.
+  const wired = r.poured === true
+    && r.after.solver === 1
+    && Math.abs(r.after.K - r.before.K) > 1e-9
+    && r.after.qLatent != null
+    && Math.abs(r.after.latent - r.after.qLatent) < 1e-12
+    && Math.abs(r.after.K - r.after.qDT0) < 1e-6
+    && r.after.um !== r.before.um
+    && r.after.src !== r.before.src
+    && /Si|A356|Al–7|Al-7/.test(r.after.name);
+
+  // the lifetime: a material swap ends the pour and the source string says so
+  const cleared = Math.abs(r.swapped.K - r.after.K) > 1e-9
+    && r.swapped.src !== r.after.src && r.swapped.caveats === 0
+    && /copper|bronze/i.test(r.swapped.name);
+
+  // the two app-level refusals, both by name
+  const refusedOk = r.refused.took === false
+    && /copper|bronze/i.test(r.refused.name)
+    && r.refused.caveats.length === 1
+    && r.refused.caveats[0].includes("unobtanium");
+
+  // A356+TiB: k_eff = -0.593, so the poured interval is declined and the
+  // calibration keeps aluminium's own — finite, positive, and named.
+  const tibOk = r.tib.dT0 > 0 && Number.isFinite(r.tib.dT0)
+    && /declined/i.test(r.tib.src ?? "");
+
+  const linkOk = typeof r.mxPresent === "string" && r.mxPresent.startsWith("al:");
+
+  // the staleness guard: moving c0 drops the override and names the reason
+  const staleOk = Math.abs(r.fresh.K - 303.4211) < 1e-3
+    && Math.abs(r.moved.K - r.fresh.K) > 1e-6
+    && /composition dials have moved/.test(r.moved.src ?? "");
+
+  // a link that applies nothing still says what it dropped
+  const deadOk = r.dead.applied === false && r.dead.caveats.length >= 1
+    && r.dead.caveats.some(c => c.includes("Xx"));
+
+  check("CALIB-POUR-WIRED", wired && cleared && refusedOk && tibOk && linkOk
+    && staleOk && deadOk, {
+    kelvinPerUnit: { before: +r.before.K.toFixed(3), afterPour: +r.after.K.toFixed(3), afterMaterialSwap: +r.swapped.K.toFixed(3) },
+    umPerCell: { before: +r.before.um.toFixed(4), afterPour: +r.after.um.toFixed(4) },
+    solverLatentEqualsCalibration: r.after.qLatent != null && Math.abs(r.after.latent - r.after.qLatent) < 1e-12,
+    alloyName: { before: r.before.name, afterPour: r.after.name, afterSwap: r.swapped.name, afterRefusal: r.refused.name },
+    setMaterialRefused: r.refused.took === false,
+    refusalNamed: r.refused.caveats[0] ?? null,
+    shareLinkCarriesMix: r.mxPresent,
+    tibDeclined: { dT0: r.tib.dT0 == null ? null : +r.tib.dT0.toFixed(2), source: (r.tib.src ?? "").slice(0, 120) },
+    staleAfterC0Move: { freshK: +r.fresh.K.toFixed(3), afterC0MoveK: +r.moved.K.toFixed(3), reason: (r.moved.src ?? "").slice(0, 100) },
+    deadLinkReported: r.dead.caveats[0] ?? null,
+    parts: { wired, cleared, refusedOk, tibOk, linkOk, staleOk, deadOk },
   });
 }
 

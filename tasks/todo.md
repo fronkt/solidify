@@ -2270,7 +2270,7 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
         measure first, then pin. They land with P1, whose `Derived` changes touch the same
         arithmetic.
 
-- [ ] **P1 — the calibration learns the alloy it was actually poured, refuses when the mix has no freezing range, and the six silent drops start refusing by name.**
+- [x] **P1 — the calibration learns the alloy it was actually poured, refuses when the mix has no freezing range, and the six silent drops start refusing by name.**
       A live scientific defect, not a feature. `quant.ts:112-116` builds ΔT₀ from the MATERIAL's `si.mL`/`si.kPart`, and for base `al` those are −3.4 / 0.17, which `materials.ts:67` says out loud are Al–4Cu. Pour A356 and the kelvin-per-unit, W₀, τ₀, µm-per-cell and every SI readout downstream are computed for a different alloy. The composer already computes the right |m| and k and prints them on screen; they are simply not wired.
       - **ΔT₀ is regime-aware, because the dilute formula stops being valid at C_SM.** `Derived` gains `mSI` (wt%-weighted dilute slope, K/wt%), `kEff` and `dT0` beside the existing clamped `mLiq`/`kPart`. `QuantInput` gains optional `mL`/`kPart`/`dTinv` overrides; `referenceInterval` prefers them and falls back to `si.mL`/`si.kPart` **unchanged** when absent, so every existing caller is bit-identical. For c∞ ≤ C_SM it keeps |m|c∞(1−k)/k. For c∞ > C_SM it returns the **truncated interval** ΔT₀ = T_L − T_inv, because the alloy freezes from its own liquidus down to the invariant isotherm and no further: for A356 that is (660.35 °C from `si.Tm = 933.5 K`) − 48.4 K of depression − 577 °C (Al–Si eutectic, ASM Vol. 3) ≈ 35 K, against a published A356 freezing range of ~60 K (615→555 °C) and against the 122 K the shipped Al–4Cu stand-in produces today. **The exact shipped value and its agreement with the published range are to be measured by the gate on this tree and recorded here before any tolerance is written.** Where no `phasedata` row exists for the dominant solute, the poured-mix override is refused by name and the material's own numbers are used, with `QuantSetup.coefficientSource` saying which.
       - **A peritectic-dominated mix has no dilute freezing range, and the calibration says so instead of printing one.** Measured on the shipped tree, A356+TiB gives ΔT_L = −44.686 K, Q = 71.1913 K and kEff = 1 − 71.1913/44.686 = **−0.59315** (`alloy.ts:170` clamps it to the 0.12 floor today). **A correction to this plan, made while verifying it against the tree before it was written down:** the planning pass also quoted Mg–0.8Zr at −4.50 and Al–0.5Ti at −7.0, and both numbers are wrong under the definition this milestone commits to. They are `1 − Q/|ΔT_L|`, not `1 − Q/depression`. Zr and Ti *raise* the liquidus (m = +6.9 and +30.7), so ΔT_L = +5.52 K and +15.35 K, `depression = max(0, −dTL)` is **exactly 0** for both, and `kRaw` never evaluates — it takes the 0.9 fallback at `alloy.ts:169`. Those two mixes therefore trip the **`depression ≤ 0`** clause, not the `kEff ≤ 0` clause, and CALIB-MIX-REFUSE must assert **which clause fired**, not merely that something refused — a refusal that names the wrong mechanism is a wrong statement rather than an absent one, which is the standard EL-TIER-TOTAL is already held to. Recorded here rather than silently repaired because it is the third instance in this repo of a number that was written before it was measured, and the first one caught by re-deriving a planning claim against the tree before the milestone opened. `calibrate()` gains an explicit refusal — when `depression ≤ 0` or `kEff ≤ 0`, return the material-default calibration with a named warning ("Ti raises this melt's liquidus; a peritectic-dominated mix has no dilute freezing range and the calibrated thermometer declines to invent one"), never a negative ΔT₀. This is `heattreat.ts:531-534`'s doctrine one layer over, and it is the arc's best teaching line. `kEff` is defined on `derive()`'s own footing — `depression = max(0, −dTL)`, not |ΔT_L| — so the new field and the shipped clamp path agree about what "depression" means.
@@ -2279,6 +2279,287 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
       - **Gates.** `ALLOY-SUMS-EXACT` (browser-free) — the superposition's own algebra to 1e-12 over all 9 FAMOUS presets and all 25 pairs, recomputed **inside the gate from `BASES`** against `derive()`'s outputs: ΔT_L = Σ m_i c_i, Q = Σ m_i c_i(k_i − 1), and the wt%↔at% round-trip through the base-inclusive mole balance with `molBase = (100 − totalWt)/base.mass` asserted strictly positive (`alloy.ts:151` has no guard and goes negative past 100 wt%). Deliberately **not** "k_eff = 1 − Q/|ΔT_L|" — that identity is false against the shipped `kPart` for A356+TiB (0.120 vs −0.593) and galv. bath, because `kRaw` is clamped at `alloy.ts:170`, and checked against the new `kEff` field it would assert a definition against itself. Deliberately **not** "ΔT₀ ≥ Q", which is false for any k > 1 solute. Liveness: ≥ 30 cases entered, every value finite, and the kEff spread across the 9 presets exceeds a floor measured first — a collapse returning one constant for every alloy would satisfy every identity above. `ALLOY-CLAMP-REPORT` (browser-free) — for each preset, which of the four shipped clamps fired and on which bound, asserted against a recorded table. This is a fact about the tree that no definition can satisfy trivially, and it is where the c0-floor finding lives: every addition below 0.75 wt% total is invisible to the solver's c0. `CALIB-MIX-OWN` (browser-free) — ΔT₀ from `calibrate()` with poured overrides equals an independent recomputation of the **regime-appropriate** formula inside the gate, to 1e-9; plus the mechanism assertion ΔT₀ ≤ T_L − T_inv for every hypoeutectic preset; plus A356 pinned against the published 60 K freezing range with the tolerance measured first. Not "A356 differs from Al–4Cu" — two different wrong numbers also differ. `CALIB-MIX-REFUSE` (browser-free) — drives A356+TiB, Mg–0.8Zr and Al–0.5Ti, asserts the refusal fires, names the offending solute, and that ΔT₀ is still finite and > 0; plus the positive polarity that plain A356 still calibrates. `CALIB-MIX-OFF-IDENTITY` (browser-free) — with no override, `calibrate()` returns `Object.is`-identical d0/W0/tau0/dTilde/dT0/latent/umPerCell/dx/dt against a verbatim pre-P1 reference for the **9** MATERIALS entries that carry an `si` block, and the other 2 (`generic`, `qc`) are asserted to return null **by name** — `grep -c 'si: {'` is 9 against 11 keys, and two nulls compare equal, which is exactly the failure `lessons.md:25-42` exists to prevent. `coefficientSource` is asserted non-empty and **different** between the two cases. `CALIB-POUR-WIRED` (GPU) — the wiring, not the arithmetic: pour A356 through `window.__solidify.composer` while calibrated, then assert `kelvinPerUnit` moved **and** `sim.params.latent === q.latent`. Without this arm the browser-free gates are green while the app's behaviour is unchanged — the U0 lesson quoted at `run-tests.mjs:38-40`. `ALLOY-REFUSE-NAMED` (browser-free) — each of the six drop sites driven with input that triggers it, emitting a refusal > 20 chars containing the offending symbol or key; the DISTINCT refusal count equals the number of sites driven; and an un-triggered control mix produces `refusals.length === 0` with a non-empty params bundle, so a function that always returns six strings also fails. `DEPR-CONSISTENT` (browser-free, informational first) — reports, per preset, the composer's printed ΔT_L against `u.kelvin(mLiq·c0)`, the number the solver actually integrates. Measured, 6 of 9 presets are clamped (1045 and 4340 sit on the mLiq 0.8 ceiling; A356+TiB and galv. bath on the k floor), so the two can disagree several-fold. This ships as a printed ratio table in this ledger first; it becomes an asserted band only once the spread is measured.
       - **Risks.** CALIB-BAND (`verify-quant.mjs:636-677`) derives its 1–15 K / 1–10 K bands from `WT_PER_C0 × MATERIALS.al.params.c0` = 4.5 wt%. It survives only because its setup calls `setMaterial('al')` before `setCalibrated(true)`, which now nulls `pouredMix` — assert that clear **explicitly** in the gate rather than relying on the call order of a gate written for another purpose. `WT_PER_C0`, `DEPR_CAP` and the mLiq/kPart clamps do not move in this arc. REFINE-FAIR (`verify-tools.mjs:529-568`) calls `derive()` and places both arms from `1 − mLiq·c0`; P1 adds fields and changes neither, so it should be untouched — but it is already logged flaky (376 vs 319 grains once) and both readings go in the flake ledger rather than being re-run away. `pouredMix` is a lifetime-bug surface `tsc` cannot see: pour → pick a material → enter calibrated mode must use the material's numbers, and that path gets its own arm.
       - **Docs.** `science/index.html` §10 gains the calibration row (what ΔT₀ is now built from, and that past C_SM it is the truncated interval to the invariant, not the extrapolated dilute solidus). `TESTING.md` gains the new gate names. `README.md` unchanged this milestone.
+
+      - **DONE 2026-08-15.** `calibrateNow` now passes the poured mix's own reference interval
+        into `calibrate()`, `setMaterial` clears the pour and refuses by name, `applyAlloy`
+        re-enters `setSolver`, and eight of the nine shipped presets calibrate on their own
+        chemistry instead of on `materials.ts`'s Al–4Cu / Fe–C / Cu–Sn stand-ins. Nine
+        browser-free checks in a new `scripts/verify-alloy.mjs` plus one GPU arm.
+      - **THE MILESTONE IN ONE TABLE.** ΔT₀ in kelvin, before → after, with the regime the
+        change landed in. `today` is what the app printed on 2026-08-14 for the same pour.
+        A356 122.0 → 303.4 (past-reference) · A356+TiB 124.0 → declined (k_eff −0.593) ·
+        AA2024 97.9 → **56.5** (dilute) · 1045 552.2 → **129.0** (past-reference) ·
+        4340 **1504.3 → 77.8** (past-reference) · IN718 108.1 → **65.3** (dilute) ·
+        AZ91 114.0 → **120.9** (dilute) · tin bronze 148.6 → 310.8 (past-reference) ·
+        galv. bath 5.6 → **8.8** (dilute). The four dilute rows are the ones with published
+        numbers to check against and all four improve: IN718 65.3 against a published ~76 K,
+        AZ91 120.9 against ~130 K. **4340 is the headline defect: the app was measuring one
+        dimensionless degree as 1504 K**, because `si.mL` for steel is Fe–C's −78 K/wt% and
+        `sim.params.c0` put 3.95 wt% of carbon-equivalent behind it.
+      - **THE PLAN WAS WRONG ON PHYSICS HERE, NOT ON ARITHMETIC, AND IT TOOK THREE POSITIONS TO
+        FIND OUT.** The milestone specified the truncated interval ΔT₀ = T_L − T_inv past the
+        solubility limit. Position 1 (the plan) was implemented and measured: A356 → 35.0 K.
+        Position 2 came from a literature check that was asked to argue BOTH sides and argued
+        against it: **d₀ = Γ/ΔT₀ is not a thermal relation.** Writing Gibbs–Thomson in the
+        Karma–Rappel supersaturation U = (c_l − c_ref)/[c_ref(1−k)] gives
+        d₀ = Γ/[|m|(1−k)·c_ref], which collapses to Γ/ΔT₀ for exactly one choice,
+        c_ref = c∞/k — the steady-state planar-front liquid, which is precisely the state that
+        stops existing past the bound. Substituting any other interval re-picks c_ref without
+        renormalising U, and d₀ carries into W₀, the cell pitch and the anti-trapping
+        magnitude. Its proposed repair was to regauge onto c_ref = c∞, dropping the 1/k and
+        leaving |m|c∞(1−k) — **which is exactly Q, the growth restriction factor this composer
+        has printed since v5**, reached from the other end. Position 3 killed that too, and it
+        came from this repo rather than from the literature: `shaders.ts` states above `uSup`
+        that the reference state IS c_l⁰ = c∞/k, and says why — gauging on the liquidus
+        instead "stretches the freezing range to 1/k ≈ 6 dimensionless degrees, which does not
+        fit the solver's own [−1, 2] clamp". **The kernel is gauged on c∞/k.** Handing it a d₀
+        built on any other reference would put a capillary length in front of a
+        supersaturation the WGSL does not compute.
+      - **So what shipped is the one thing all three positions agree on: the mix's OWN m and k,
+        in the model's OWN gauge, with the gauge labelled when it is extrapolated.** Four
+        regimes. `DILUTE` — the linearised solidus is still above the invariant, so c∞/k is a
+        state the alloy reaches and ΔT₀ = |m|c∞(1−k)/k is a real freezing range.
+        `ISOMORPHOUS` — no invariant exists to bound it. `PAST-REFERENCE` — same formula,
+        flagged `EXTRAPOLATED GAUGE`, with c∞/k named, the invariant it has passed named, and
+        **the alloy's real primary freezing range printed beside it with the ratio**: A356
+        reads 303.4 K of model interval against 35.0 K of real primary freezing, a factor of
+        8.7, stated rather than buried. `REFUSED` — nothing to compute.
+      - **The alternative considered and rejected, recorded because it is the tempting one.**
+        Refusing past the bound and falling back to the material default is worse, and worse in
+        exactly the way this milestone exists to fix: A356's fallback is Al–4Cu's 122 K, which
+        is the same invalid gauge applied to a **different alloy**. A number in the right gauge
+        for the wrong alloy is not more honest than a number in an extrapolated gauge for the
+        right one.
+      - **THE BRANCH IS DECIDED IN TEMPERATURE, AND THAT CHOICE IS LOAD-BEARING.** The
+        composition test c∞ ≤ C_SM and the temperature test T_S ≥ T_inv are the same statement
+        only when the shipped dilute m and k reconstruct the invariant chord — which P0
+        measured they do for 12 of 22 pairs and not for the other 10. For Al–Si the two
+        separate: k·C_inv = 1.512 wt% against C_SM = 1.65 wt%. The temperature test uses the
+        same m and k the solver integrates, so the branch and the arithmetic agree by
+        construction even where the two tables do not. **The composition form was also checked
+        for the branch-mismatch error it invites** — comparing the LIQUID composition c∞/k
+        against the SOLID ceiling C_SM, which is too tight by 1/k (8.3x for Al–Si). It is not
+        in the shipped code.
+      - **A356's published freezing range is 40 K, not the 60 K this plan quoted, and the
+        difference is equilibrium versus Scheil.** The 615/555 °C pair in every foundry
+        datasheet is real but it is the **as-cast** range: at equilibrium A356's 0.35 wt% Mg
+        stays in solid solution (the (Al)+(Si)+Mg₂Si three-phase field needs 0.83 wt% Mg at
+        552 °C, Belov/Eskin/Aksenov Table 2.4), Mg₂Si never forms, and freezing ends on the
+        Al–Si monovariant valley at roughly 573 °C — bracket 567–577 with the Fe that real
+        A356 carries. Belov et al. say it outright at p.48: Mg₂Si "appears **only as a result
+        of nonequilibrium ternary eutectic reaction at 555 °C**". So the equilibrium range is
+        ~42 K (bracket 38–48) and the Scheil range is ~60 K, and the plan compared an
+        equilibrium quantity against a non-equilibrium one. The shipped code's real primary
+        range for A356 is 35.0 K against the strict binary end point's 38 K.
+      - **A defect in P0's own provenance, found by a gate that was not looking for it.** The
+        `fe-Cr` coefficient row's source ended "k > 1 here because the solute raises the
+        liquidus". Chromium in iron has k = 0.95 and m = −1 K/wt%: **the clause is false on
+        both halves**, and it is a verbatim copy of the Cu–Ni sentence one table over. Caught
+        while measuring which pairs are isomorphous. Corrected, with the retired clause quoted
+        in the replacement so the error is on the record rather than erased.
+      - **A REGRESSION THIS CHANGE WOULD HAVE INTRODUCED, FOUND BY THE CALL-SITE SURVEY BEFORE
+        IT SHIPPED.** `share.ts`'s `ShareState` carries `p/u/v/m/n` and no mix; `n` is a
+        display name only. Before P1 a shared calibrated link recalibrated on the material
+        default at both ends, so minter and recipient agreed. Once the calibration learns the
+        poured alloy they stop agreeing: the minter measures A356's interval and a recipient
+        with no mix measures Al–4Cu's — a different W₀, cell pitch, timestep and thermometer
+        behind an identical-looking URL, with `dx` and `dt` on the share SKIP list so the link
+        cannot even detect it. Fixed by adding an optional `mx` field carrying the composer's
+        own `#alloy=` payload ("al:Si7,Mg0.35"), restored **before** the params block that
+        re-runs `setSolver`, and restored by hand rather than through `applyAlloy` — which is a
+        POUR and would raise the undercooling, cap the cooling rate and re-arm the melt, none
+        of which the link asked for. Every pre-v7.1 link still restores: it simply has no `mx`.
+      - **The six silent drops, honestly counted.** Four are converted and driven. `derive()`'s
+        unknown-element filter became three named shapes (unknown key, non-numeric weight,
+        negative weight) plus a fourth for an unknown BASE — which `derive()` did not drop at
+        all, it **threw**, one line before the filter, reachable from
+        `window.__solidify.alloy`. `decodeMix`'s two `continue`s became four named shapes
+        (unknown element, malformed term, over-cap clamp, unknown base), with the empty-token
+        case deliberately NOT a refusal because `#alloy=al:` and a trailing comma are
+        well-formed and lose nothing. `setMaterial`'s silent return is driven by the GPU arm.
+        **The sixth cannot fire and the gate says so instead of pretending**: `main.ts`'s 3D
+        `if (k in P)` filter drops nothing, because every key `derive().params` emits —
+        `alloyOn, c0, mLiq, kPart, dSol` — is a declared `Phys3DParams` field. A seventh site
+        with the same shape at `main.ts:437` carries a comment asserting it drops `scen` and
+        `alloyOn`; both are declared fields too, so that comment is also wrong.
+      - **And the drop the plan named has a second instance it did not.** `applyAlloy` wrote
+        `alloyName = name` unconditionally after a `setMaterial` that could refuse — a composed
+        name printed over the previous material's still-live thermometer, clock, Γ, ε₄ and
+        heat-treat laws. The identical shape sits in the share-link applier: `if (shared.n)
+        alloyName = shared.n;` after a guarded `setMaterial`, so a link with a bogus `m` and a
+        valid `n` restored the wrong name. Both now honour the refusal.
+      - **Refusals and clamps render OUTSIDE the composer**, which is what makes
+        `science/index.html`'s "labels every clamp it has to make" true for an `#alloy=` deep
+        link that never opens the modal: a new `#matcaveat` under the alloy name, written with
+        `textContent` because these strings quote element keys that reached `derive()` from a
+        hand-built mix, and a new `#htCaveat` on the heat-treat card — a SIBLING of `#htNote`
+        rather than part of it, because four gates read `#htNote`'s textContent and one reads
+        `#htReport` byte-for-byte. It renders in `refresh()`, not in the head, because the head
+        is built once and a stale caveat is a false one.
+      - **Gates: nine browser-free, one GPU, and five of the nine FAIL on the pre-change tree**
+        (`ALLOY-SUMS-EXACT`, `ALLOY-REFUSE-NAMED`, `CALIB-MIX-OWN`, `CALIB-MIX-REFUSE`,
+        `CALIB-MIX-OFF-IDENTITY`), exit code 1. **The other four pass there, and that is
+        correct rather than vacuous**: `ALLOY-CLAMP-REPORT`, `DEPR-CONSISTENT`,
+        `PD-CONSTRUCT-AGREE` and `PD-VANTHOFF-CROSSCHECK` pin PRE-EXISTING facts about the
+        tree — which bounds bind, how far the printed depression diverges from the integrated
+        one, and two per-row baseline tables. They are regression tripwires for a milestone
+        that must not move them, and a gate that failed before the change would not be one.
+        Stated here rather than left for a reader to wonder about.
+      - **`CALIB-MIX-OFF-IDENTITY` is the gate that protects the rest of the suite**, and it is
+        why the change is safe: no verify script in the repo pours a composed alloy — not one.
+        The only composer touchpoint anywhere is `REFINE-FAIR`, which calls
+        `window.__solidify.alloy(mix).params` as a pure query and applies it itself. So
+        "no pour ⇒ bit-identical" is the whole compatibility argument, and it is asserted over
+        **324 `Object.is` comparisons** (9 si materials x alloy true/false x λ ∈ {3,30} x 9
+        fields) against a verbatim transcription of the pre-P1 implementation carried inside
+        the gate — not against literals, which would go stale and could be re-baselined by
+        editing a number. The two materials without an `si` block are asserted by NAME and by
+        count (9 with, 2 without, 11 total), because two nulls compare equal and that is
+        exactly the failure `lessons.md:25-42` exists to prevent.
+      - **CALIB-BAND's headroom was measured before anything moved: ΔT₀ ∈ [20 K, 100 K] against
+        today's 74.70 K.** Its two clauses reduce to that. It calls `setMaterial('al')` and
+        never pours, so it does not move — but its four-fold order dependence is now
+        load-bearing in a new way, because `setMaterial` clears the poured mix. `CALIB-LOCK`
+        was found to be a decoy while surveying: it prints d₀, W₀, W₀/d₀, µm-per-cell and the
+        domain size in its detail object and asserts **none** of them; its
+        `capillary.model != null` clause is a₁/λ, a function of λ alone. A ΔT₀ regression would
+        change CALIB-LOCK's printed numbers while CALIB-LOCK still said OK.
+      - **Two self-catches, both by the new gates on their first run.**
+        `ALLOY-CLAMP-REPORT`'s expected table said 1045 sits on the c0 floor; it does not
+        (1.45 wt% total gives c0raw 0.097), and the entry had been written from memory rather
+        than from the tree — the third time in this arc a number was written before it was
+        measured, and the first caught within the same commit. `DEPR-CONSISTENT`'s first
+        predicate required c0 to survive unclamped, and galv. bath failed by agreeing
+        **exactly** while sitting on the c0 floor. The reason is algebra: `mLiq` is DERIVED as
+        depression/c0, so `mLiq·c0` puts the same c0 back and **the clamp cancels**. Only the
+        depression cap and the mLiq bounds can move what the solver integrates. Measured, the
+        worst divergence over the presets is 1045 at 0.318 — it prints 40.7 K and the solver
+        integrates 12.9 K — and a dilute Al–0.1Cu probe goes the other way at 3.66 on the mLiq
+        floor.
+      - **The two gates P0 owed, now written, both pinned per row rather than as bands.**
+        `PD-CONSTRUCT-AGREE`: the predicate (eutectic AND C_inv ≤ 60 wt%) admits **15 rows and
+        excludes 10**, the ratios are not all 1.0 (so `phasedata.ts` was not generated from
+        `alloy.ts`), and **9 of the 15 agree within 25 % on both m and k**. The six that do not
+        — fe-Si, ni-Nb, ni-Ti, ni-Cr, ni-W, zn-Al — are printed as named disagreements.
+        `PD-VANTHOFF-CROSSCHECK`: **the plan's algebraic form was the wrong rearrangement.** It
+        specified |m_at|(1−k) against R·T_m²/ΔH_fus; the ideal dilute liquidus is
+        |m_X| = (R T_m²/ΔH)(1−k), so the quantity that should be O(1) is the QUOTIENT
+        |m_X|/(1−k), not the product — the two differ by (1−k)². Both are printed. **7 of the
+        25 pairs have k ≤ 0.2 and 18 are excluded** (the liveness clause sized after counting,
+        as the plan required), and the quotient spans 0.412–2.196, a factor of 5.3 — far too
+        wide for a band to assert anything, which is why it ships as a per-pair tripwire that
+        catches a mistyped m, k, L, T_m or atomic mass and never as an estimator.
+      - **Docs.** `science/index.html` §8 gains two paragraphs: which alloy's freezing range
+        the calibration is measuring in (naming the 1504 K that 4340 used to read), and what
+        `EXTRAPOLATED GAUGE` means, with d₀ = Γ/[|m|(1−k)c_ref] written out so a reader can see
+        why the reference liquid is the thing that fails rather than the arithmetic.
+        `TESTING.md` eight → **nine** in all three places, against exactly nine
+        `- run: node scripts/verify-*.mjs` lines in `ci.yml`, plus a `verify-alloy.mjs` entry.
+        **`README.md` was changed, and the plan said it would not be.** Its composer bullet
+        describes what the composer does, and what it does changed: the clamps now render
+        outside the modal and a pour recalibrates. Leaving the bullet alone would have left it
+        describing the previous behaviour, which is the failure mode the doc-drift note at the
+        end of this record is about. Recorded as a deviation rather than done quietly.
+      - **AN ADVERSARIAL REVIEW OF THIS MILESTONE FOUND TEN REAL DEFECTS BEFORE IT SHIPPED,
+        AND ONE OF THEM WAS A VACUOUS ASSERTION IN A GATE ABOVE.** Four independent lenses over
+        the diff — state lifetime, the bit-identity claim, the refusal logic, and the render and
+        share surfaces — each finding then handed to a separate reader told to refute it.
+        Everything below was reproduced by running the code before it was changed.
+        **(1) A shipped preset printed a negative freezing range and a ratio of 7.8×10¹⁰.**
+        4340's four non-carbon solutes pull its liquidus to 1493.3 °C, BELOW the Fe–C peritectic
+        at 1495 °C, so `primary = T_L − T_inv` came out −1.7 K and the string read "the primary
+        actually freezes over only -1.7 K … so the model interval is 77822335467.5x the real
+        one". **`CALIB-MIX-OWN` was supposed to catch exactly this and did not: its clause was
+        `dT0 > primary`, and 77.8 > −1.7 is true.** A vacuous pass, on the tree, in this
+        milestone's own gate. The branch now says there is no primary range left to compare
+        against and names the extra depression; the gate asserts the ratio is printed when there
+        IS one and is NOT printed when there is not, and that no source string ever carries a
+        negative kelvin figure or a NaN.
+        **(2) Inherited object keys walked through every guard.** `base.solutes.constructor` is
+        truthy, so `{constructor: 5}` passed the unknown-element filter, produced dTL/Q/mLiq/dSol
+        of NaN, and left `refusals` EMPTY — the precise silent drop this milestone added the
+        channel to close, and one `ALLOY-REFUSE-NAMED` could not see because it only drove keys
+        that correctly fail. `Object.hasOwn` throughout, and the gate now drives `constructor`,
+        `toString`, `hasOwnProperty`, `__proto__` and an inherited BASE key, plus a NO-NaN-ESCAPES
+        arm asserting every driven shape leaves a params bundle of finite numbers.
+        **(3) A share link's display name reached `innerHTML`.** `heatpanel.ts`'s panel head
+        interpolated `materialLabel()` — which is `alloyName`, set verbatim from a link's `n`
+        field — into markup, five lines above the `#htCaveat` element this milestone added. Every
+        other user-reachable string in P1 was routed through `textContent` or `esc()`; this one,
+        pre-existing, was not. Now `textContent` on its own node.
+        **(4) The WIRE was applied to one of applyAlloy's two branches.** The 3D branch returns
+        before it, and calibrated mode is 2D-only to ENTER but nothing turns it off on the way
+        into the volume — so pouring in 3D still dropped out of the calibration while
+        `solver` said QUANT. Worse, the 3D branch set `pouredMix` without ever writing the
+        chemistry to `sim.params`, so returning to 2D and calibrating paired one alloy's ΔT₀
+        with another alloy's solute field. The chemistry assign and the WIRE both moved above
+        the branch.
+        **(5) `setMaterial` left a live calibration running the wrong material's dials.** It
+        `Object.assign`s the new material's Kobayashi latent/delta/dSol and never re-entered
+        `setSolver` — the same defect the WIRE closes for pours, at its other call site, reachable
+        from the material dropdown. It also never refreshed `kobSnapshot`, so LEAVING calibrated
+        mode after a material swap restored the PREVIOUS material's dials. Both fixed.
+        **This change broke CALIB-BAND, and the break was informative:** that gate inherits
+        `solver = 1` from QPF-MASS, which writes it straight onto `sim.params` without going
+        through `setSolver`, so `setMaterial('al')` would now have re-derived a calibration and
+        the "Kobayashi" baseline would have read 74.7 K instead of 249.2 K. It passed before only
+        because `units.ts` derives kelvin-per-unit from `latent`, which `setMaterial` restores.
+        The gate now clears the solver explicitly and says why, which is what the plan's risk
+        note asked for by a different route.
+        **(6) Nothing invalidated the pour when the composition dials moved.** The c₀ slider
+        writes `sim.params.c0` directly, `setParams` is called by every preset, scene and tour
+        chapter, and a share link assigns the whole bundle — none of them go through
+        `setMaterial`. Chasing writers is a losing game, so `pouredMix` now carries a STAMP of
+        the four chemistry keys it wrote and `calibrateNow` checks it at the point of use;
+        a mismatch drops the override and names it. `CALIB-POUR-WIRED` drives it. It also closes
+        a hole nobody was aiming at, raised in passing by one of the refutation readers: a 3D
+        share link carries `mx` but skips the `if (shared.d !== 1)` block that writes the
+        params, so `pouredMix` would be set while `sim.params` still held the base material's
+        chemistry. Checked rather than assumed — the stamp reads c0 0.490 / mLiq 0.396 /
+        kPart 0.137 against aluminium's 0.30 / 0.50 / 0.14, so the guard fires.
+        **(7) A link that applied NOTHING said nothing.** `applyHash` built a refusal sink, and
+        threw it away on the early return — so `#alloy=al:Xx3`, the loudest possible failure,
+        was the silent one. It now reports through a new host method, and the gate drives it.
+        **(8) `k_eff = 1` was refused with a false reason.** Ni–Cr ships k = 1 exactly, and the
+        composer's "+ add element → Cr" default reaches it on the first click. The refusal said
+        the partition "falls outside the physical range" — it does not; the partition is
+        perfectly physical and it is the freezing range that is zero-width. Separate clause,
+        correct sentence.
+        **(9) The zero-depression refusal blamed the wrong solute.** It always named `dominant`,
+        which is the largest |m·c| term and can be a DEPRESSANT in a mix whose raisers merely
+        outweigh it; and it asserted the liquidus was "raised" even where the melt was depressed
+        by less than the epsilon. It now finds the actual raiser and has a second sentence for
+        the near-cancellation case. Ni–2Cr–3W now correctly names W rather than Cr.
+        **(10) Three smaller ones, all real.** A weight of 1e308 overflowed the m·c sums to
+        ±Infinity and put NaN in the params bundle and in the refusal string — a weight PERCENT
+        cannot exceed 100, and the sum cannot either, which also closes the unguarded
+        `molBase = (100 − totalWt)/mass` going negative. `parseFloat` on a bare "." gave NaN,
+        and `NaN !== NaN` then fired the cap-violation branch, naming the wrong mechanism while
+        still writing NaN into the mix. And `#matcaveat` sat inside `#head`, the one
+        absolutely-positioned overlay without `pointer-events: none` (it carries the h1's link),
+        so a multi-line caveat grew a click-dead band directly over the melt.
+        **Also raised and REFUSED after checking:** that `calibrateNow` mixes a clamped `c0wt`
+        with an unclamped override — `referenceInterval` returns the override before it reads
+        `c0wt` at all, so the two never meet; and that `calibrate()` accepts any positive
+        override — true, and a lean mix like Cu–0.05Zn really does give ΔT₀ = 0.03 K, a 7 µm
+        capillary length and a 197 µm cell, but that is what a nearly-pure melt's capillary
+        length IS. It now carries a named warning rather than a silent 200 mm domain.
+      - **The doc-drift gap this milestone opened, closed in the same milestone.** Writing the
+        new §8 paragraphs put a dozen computed constants into prose — 4340's 1504 K default and
+        78 K poured range, A356's 303 K against its 35 K real primary range, the 8.7x between
+        them, the 53 wt% reference liquid, A356+TiB's −0.59 — and nothing gated any of them,
+        exactly as nothing gates the older "11 K instead of 37 K" two paragraphs up.
+        `PD-DOC-CALIBRATION` (browser-free, the tenth check in `verify-alloy.mjs`) recomputes
+        all twelve from `BASES`/`MATERIALS`/`phasedata` and requires each to appear in the page
+        as written, the same way `HT-DOC-CONSTANTS` polices the heat-treatment constants. It
+        caught one on its first run — the prose sets minus signs as U+2212 and the code emits
+        ASCII hyphens, so both sides are normalised before comparison rather than leaving a
+        typography check wearing a physics gate's name.
+      - **Still owed, and not silently dropped.** The honesty page's "11 K instead of 37 K" at
+        §319-321 is CALIB-BAND's own numbers and is still true, because the no-pour path did not
+        move — but it is a GPU-gate output, so `PD-DOC-CALIBRATION` cannot recompute it
+        browser-free and it remains ungated. That sentence is the one remaining unpinned
+        calibration constant in the honesty page.
 
 - [ ] **P2 — the diagram is drawn, the pour is pinned at its own liquidus, and the cursor is the thermometer.**
       S. Cai's ask, landing third rather than last, because the figure is what makes every later refusal legible. Drawing the **straight chords** is not a compromise: they are the linearised diagram this solver integrates, so the figure is a picture of the model rather than a picture of a textbook, and the real curvature becomes an honest caveat instead of a missing feature.

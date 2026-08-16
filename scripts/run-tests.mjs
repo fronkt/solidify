@@ -24,6 +24,7 @@ const SUITE = [
   ["scripts/verify-porosity.mjs"],
   ["scripts/verify-experiment.mjs"],
   ["scripts/verify-phasedata.mjs"],
+  ["scripts/verify-alloy.mjs"],
   ["scripts/verify-dive.mjs"],
   ["scripts/verify-dive-fallbacks.mjs"],
   ["scripts/verify-scroll-order.mjs"],
