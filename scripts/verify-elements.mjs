@@ -272,6 +272,11 @@ block("EL-TIER-TOTAL", () => {
 
   const distinct = Object.keys(skelCount).length;
   if (distinct < 12) why.push(`only ${distinct} distinct sentence skeletons`);
+  // A FLOOR ON THE COUNT IS NOT A CEILING ON THE CONCENTRATION. 31 skeletons
+  // still permits one of them to own the grid, so the share of the largest is
+  // bounded too: measured at 294 of 708 (41.5 %), pinned at half.
+  const biggest = Math.max(...Object.values(skelCount));
+  if (biggest > pairs * 0.5) why.push(`one sentence shape covers ${biggest} of ${pairs} pairs`);
   // A refusal naming the WRONG mechanism is a wrong statement, not an absent
   // one, so two different reasons may never print the same sentence shape.
   const shared = [];
@@ -411,8 +416,22 @@ block("EL-TROUTON-CROSSCHECK", () => {
     if (Math.abs(s - OUTSIDE[e.symbol]) > TOL) why.push(`${e.symbol} moved: ${s.toFixed(1)} against the pinned ${OUTSIDE[e.symbol]}`);
     // and it has to say why, in its own row, or the list rots into an unread
     // allow-list that swallows the next genuine error
-    if (!/TROUTON:/.test(e.source)) why.push(`${e.symbol} is an enumerated outlier with no TROUTON: clause in its own source`);
+    // NOT a bare substring test for the prefix: a row could carry "TROUTON:"
+    // and nothing after it and pass. The clause must name a mechanism this file
+    // recognises AND be long enough to be an explanation.
+    const cl = /TROUTON:([\s\S]*)$/.exec(e.source);
+    const body = cl ? cl[1] : "";
+    if (!cl) why.push(`${e.symbol} is an enumerated outlier with no TROUTON: clause in its own source`);
+    else if (body.trim().length < 80) why.push(`${e.symbol}'s TROUTON: clause is ${body.trim().length} chars — too short to be an explanation`);
+    else if (!/quantum|boils low|BOILS LOW|molecule|molecular|dimer|sublimation|SUBLIMATION|estimate|window|compilation|constrained/i.test(body)) why.push(`${e.symbol}'s TROUTON: clause names no recognised mechanism`);
   }
+  // THE SKIPPED ROWS ARE NAMED, not silently passed over: 22 rows carry neither
+  // T_b nor dH_vap, and every one of them is an element with no bulk
+  // metallurgy. If a row that DOES have measurements ever loses them, this
+  // count moves and the gate says so rather than quietly checking less.
+  const neither = E.ELEMENTS.filter(e => e.Tb == null && e.dHvap == null);
+  if (neither.length !== 22) why.push(`${neither.length} rows carry neither Tb nor dHvap, expected 22`);
+  if (neither.some(e => e.primordial)) why.push(`a PRIMORDIAL row carries no vaporisation data: ${neither.filter(e => e.primordial).map(e => e.symbol).join(",")}`);
   const stale = Object.keys(OUTSIDE).filter(s => !seen.has(s));
   if (stale.length) why.push(`pinned outliers no longer in the table: ${stale.join(",")}`);
   if (carry <= 80) why.push(`only ${carry} rows carry both Tb and dHvap`);
@@ -465,6 +484,21 @@ block("EL-VAPOUR-ADVISORY", () => {
   if (bands["fe/Mn@100"] !== "FUME") why.push(`pure manganese over iron is ${bands["fe/Mn@100"]}`);
   if (bands["fe/Mn@1"] !== "NEGLIGIBLE") why.push(`1 wt% manganese in iron is ${bands["fe/Mn@1"]}`);
   if (bands["ni/W@1"] !== "NEGLIGIBLE") why.push(`tungsten over nickel is ${bands["ni/W@1"]}`);
+  // AND THE BOUNDARIES THEMSELVES, which five hand-picked points do not test.
+  // Both thresholds are driven from each side by bisecting on composition, so a
+  // moved band edge fails here rather than surviving because the five sample
+  // points all sat comfortably inside their bands.
+  const bandAt = (bk, el, w) => E.vapourAt(bk, el, w)?.band;
+  for (const [bk, el, lo, hi, want, other] of [
+    ["fe", "Zn", 0, 100, "FUME", "BOILS"],       // crosses 1 atm somewhere in between
+    ["fe", "Mn", 0, 100, "NEGLIGIBLE", "FUME"],  // crosses 0.01 atm
+  ]) {
+    let a = lo, b = hi;
+    for (let i = 0; i < 60; i++) { const m = (a + b) / 2; if (bandAt(bk, el, m) === want) a = m; else b = m; }
+    if (bandAt(bk, el, a) !== want || bandAt(bk, el, b) !== other) why.push(`${bk}-${el} band edge did not bisect: ${bandAt(bk, el, a)}/${bandAt(bk, el, b)}`);
+    const pa = E.vapourAt(bk, el, a).p, pb = E.vapourAt(bk, el, b).p;
+    if (!(pb > pa)) why.push(`${bk}-${el} pressure is not monotone across its band edge`);
+  }
 
   // THE DIRECTION THAT WOULD BE A BUG. Applied as a refusal this rule refuses
   // brass, so the assertion is that it does not: Cu-30Zn computes above one
@@ -570,6 +604,16 @@ block("ALLOY-MOVES-THE-PHYSICS", () => {
   // trace level, and both are grain refiners whose whole point is that a tiny
   // addition does something large. Al-Ti moves the liquidus 2.3 K and Q by
   // 18.4 K at 0.075 wt%, and moves c0, mLiq and kPart by 0.0000.
+  // A NONZERO TEST PER PAIR IS NOT A DRIFT TRIPWIRE: every coefficient in
+  // alloy.ts could move together and each pair would still be individually
+  // nonzero. The TOTALS over the assessed set are pinned, measured on this
+  // tree, so a change to any single m or k fails here as well as wherever else
+  // it lands. 0.5 % either way, which is far tighter than any real edit.
+  const SUM_DTL = 137.2735, SUM_Q = 103.8506;
+  let sumDTL = 0, sumQ = 0;
+  for (const r of [...moved, ...swallowed]) { sumDTL += Math.abs(r.dTL); sumQ += Math.abs(r.Q); }
+  if (Math.abs(sumDTL - SUM_DTL) > SUM_DTL * 0.005) why.push(`sum |dTL| over the assessed set moved: ${sumDTL.toFixed(4)} against the pinned ${SUM_DTL}`);
+  if (Math.abs(sumQ - SUM_Q) > SUM_Q * 0.005) why.push(`sum |Q| over the assessed set moved: ${sumQ.toFixed(4)} against the pinned ${SUM_Q}`);
   const SWALLOWED = ["al-Ti", "mg-Zr"];
   const got = swallowed.map(s => s.pair).sort();
   if (JSON.stringify(got) !== JSON.stringify(SWALLOWED)) why.push(`the clamp-swallowed set moved: ${JSON.stringify(got)}`);
@@ -642,7 +686,7 @@ block("EL-DOC-CLAIMS", () => {
     ["liquidus-vs-Tm cost", `moves the answer by at most ${Math.round(liveShift * 100)} %`],
     ["Fe-C size factor", `it returns a meaningless ${feC.dRpct.toFixed(1)} %`],
     ["Hagg ratio for Fe-C", `Fe-C's ${feC.hagg.toFixed(3)} sits just`],
-    ["Hagg limit", `r/R < 0.59`],
+    ["Hagg limit", `r/R < ${E.HAGG_LIMIT}`],
     // BOUNDED ON BOTH SIDES, because a bare joined list is satisfied by any
     // PREFIX of itself: dropping fe-Ag from the table would leave
     // "cu-Pb, al-Bi, al-In, al-Pb", which `html.includes` still finds inside the

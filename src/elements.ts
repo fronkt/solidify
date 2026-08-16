@@ -37,9 +37,11 @@
 // CN12 (LA-4003, 1968) — the coordination-12 convention, so a bcc metal's radius
 // here is the CN12-corrected one and NOT the nearest-neighbour a·√3/4. That
 // distinction is not decorative: the first draft of this table applied the
-// correction to the s-block bcc rows and not to the d-block ones, so V, Cr, Nb,
-// Mo, Ta, W and Ra all carried CN8 values while the file's own source string
-// said they did not. Electronegativities are Pauling. Every row carries a
+// correction to the alkali and alkaline-earth bcc rows and not to the rest, so
+// V, Cr, Nb, Mo, Ta and W — and radium, which is an s-block row that was missed
+// along with them, so "the d-block ones" is not the right description of the
+// group — all carried CN8 values while the file's own source string said they
+// did not. Electronegativities are Pauling. Every row carries a
 // per-block `source` naming the same, plus a row-specific clause wherever the
 // row is tricky.
 //
@@ -108,7 +110,7 @@ export interface ElementRow {
 const SRC: Record<Block, string> = {
   s: "s-block. Tm, Tb and ΔH_vap from the standard element tables (CRC Handbook and WebElements, which restate the same compilations and occasionally disagree; ΔH_vap per mole of atoms); metallic radius Teatum, Gschneidner & Waber CN12 (LA-4003, 1968), CN12-corrected and not the bcc nearest-neighbour a·√3/4; electronegativity Pauling.",
   p: "p-block. Tm, Tb and ΔH_vap from the standard element tables (CRC Handbook and WebElements; ΔH_vap per mole of atoms); radius as flagged by radiusKind — the non-metals of this block have no metallic form and carry a covalent radius from the classic Pauling set instead; electronegativity Pauling.",
-  d: "d-block. Tm, Tb and ΔH_vap from the standard element tables (CRC Handbook and WebElements, which do not always agree — see the gold row; ΔH_vap per mole of atoms); metallic radius Teatum, Gschneidner & Waber CN12 (LA-4003, 1968), the coordination-12 convention — a bcc metal's number here is the CN12-corrected radius and NOT the nearest-neighbour a·√3/4, a correction the first draft of this table applied to the s-block rows and forgot on the d-block ones; electronegativity Pauling.",
+  d: "d-block. Tm, Tb and ΔH_vap from the standard element tables (CRC Handbook and WebElements, which do not always agree — see the gold row; ΔH_vap per mole of atoms); metallic radius Teatum, Gschneidner & Waber CN12 (LA-4003, 1968), the coordination-12 convention — a bcc metal's number here is the CN12-corrected radius and NOT the nearest-neighbour a·√3/4, a correction the first draft of this table applied to the alkali and alkaline-earth rows and forgot on the rest; electronegativity Pauling.",
   f: "f-block, taken as the fifteen rows La to Lu and the fifteen Ac to Lr — the metallurgical grouping, which puts La and Ac here rather than in the d-block where their configurations belong, and leaves Hf and Rf in the d-block where theirs do. Tm, Tb and ΔH_vap from the CRC Handbook 97th ed. element tables (ΔH_vap per mole of atoms); metallic radius Teatum, Gschneidner & Waber CN12 (LA-4003, 1968); electronegativity Pauling. Beyond einsteinium the thermophysical properties are unmeasured and are carried as null rather than as a prediction.",
 };
 
@@ -126,9 +128,9 @@ const el = (
 /** TROUTON: prefix marks a row whose ΔH_vap/T_b falls outside 85–110 J/mol·K, and says why. */
 const T_ALKALI = "TROUTON: below the window, and this file does NOT claim to know why in one sentence. Vapour dimerisation is the usual explanation and it is real, but the measured dimer fraction in saturated alkali vapour at the boiling point is a few per cent, which moves ΔS by a few J/mol·K — nowhere near caesium's 20. The value is carried as measured and the deficit is recorded rather than explained, because a refusal naming the wrong mechanism is a wrong statement rather than an absent one.";
 const T_MOLEC = "TROUTON: this element vaporises as a MOLECULE and ΔH_vap is carried per mole of atoms here, so the ratio is a molecule's divided by its atom count. That accounts for part of the gap and not all of it — per mole of the vaporising species Cl2, Br2, I2 and P4 land inside the window while H2, N2, O2 and F2 stay below it, because Trouton's band was fitted to liquids boiling far higher (the Trouton–Hildebrand–Everett form 36.6 + R·ln T_b reproduces them).";
-const T_QUANTUM = "TROUTON: a quantum liquid — helium and, marginally, neon are dominated by zero-point motion, and Trouton's rule is an empirical statement about normal liquids that does not reach them.";
+const T_QUANTUM = "TROUTON: a quantum liquid. Helium is the one row in this table that no correction reaches — the Trouton–Hildebrand–Everett form predicts 48.6 J/mol·K against a measured 19.6 — because liquid helium is dominated by zero-point motion rather than by cohesion. Neon was carried here in a first draft and does not belong: its 63.2 is within 1 J/mol·K of what the boiling-point correction alone predicts.";
 const T_LOWBOIL = "TROUTON: below the window because it BOILS LOW, not because of anything exotic. Liquid argon is the textbook CLASSICAL Lennard-Jones liquid; the 85–110 J/mol·K band was fitted near 300–400 K and the entropy of vaporisation rises with boiling point (36.6 + R·ln T_b reproduces these rows).";
-const T_HIGHBOIL = "TROUTON: above the window, which is the systematic behaviour of HIGH-BOILING elements rather than of refractory metals specifically — the entropy of vaporisation rises roughly logarithmically with boiling point, and Trouton's band was fitted to liquids boiling near 300–400 K. Not a transcription error.";
+const T_HIGHBOIL = "TROUTON: above the window, and this row does NOT claim the boiling-point trend explains it. Trouton's 85–110 J/mol·K band was fitted to molecular liquids and metals systematically exceed it; the Trouton–Hildebrand–Everett correction 36.6 + R·ln T_b accounts for only part of the rise, topping out at 108.75 J/mol·K for rhenium, the highest-boiling row in this table, against a measured 138 for tungsten. The excess above that is real, is not a transcription error, and is not explained here.";
 const T_SUBLIMES = "TROUTON: the ratio here is a SUBLIMATION entropy, not a vaporisation entropy — this element has no liquid at 1 atm — so Trouton's rule, which is a statement about liquid–vapour equilibrium, does not apply to it at all rather than being violated by it.";
 const T_ESTIMATE = "TROUTON: outside the window on a value that is itself an estimate rather than a measurement; carried because a null here would hide the element from the vapour rule entirely, and flagged rather than trusted.";
 
@@ -147,7 +149,7 @@ export const ELEMENTS: ElementRow[] = [
   el("N", 7, 14.007, 75, "covalent", 3.04, 63.15, 77.36, 2.79, true, "p", `Radius covalent. ${T_MOLEC}`),
   el("O", 8, 15.999, 73, "covalent", 3.44, 54.36, 90.20, 3.41, true, "p", `Radius covalent. ${T_MOLEC}`),
   el("F", 9, 18.998, 71, "covalent", 3.98, 53.53, 85.03, 3.27, true, "p", `Radius covalent. ${T_MOLEC}`),
-  el("Ne", 10, 20.180, null, "none", null, 24.56, 27.07, 1.71, true, "p", `No metallic or covalent radius is meaningful for a closed-shell monatomic gas. ${T_QUANTUM}`),
+  el("Ne", 10, 20.180, null, "none", null, 24.56, 27.07, 1.71, true, "p", `No metallic or covalent radius is meaningful for a closed-shell monatomic gas. ${T_LOWBOIL}`),
   el("Na", 11, 22.990, 191, "teatum-cn12", 0.93, 370.9, 1156, 97.4, true, "s", T_ALKALI),
   el("Mg", 12, 24.305, 160, "teatum-cn12", 1.31, 923, 1363, 128, true, "s"),
   el("Al", 13, 26.982, 143, "teatum-cn12", 1.61, 933.5, 2792, 284, true, "p"),
@@ -356,7 +358,13 @@ const HALOGEN = ["F", "Cl", "Br", "I", "At", "Ts"];
 const GAS_SPECIES = ["H", "N", "O"];
 /** screened by Hägg's r/R criterion instead of by Hume-Rothery's 15 % */
 const INTERSTITIAL = ["C", "N", "B", "H"];
-const HAGG_LIMIT = 0.59;
+/**
+ * Hägg's r/R limit for a simple interstitial structure. EXPORTED so the doc gate
+ * can hold the number the honesty page prints against the one the code screens
+ * with — review found that moving it to 0.90 left all six gates green, because
+ * the page carried the literal 0.59 and nothing tied the two together.
+ */
+export const HAGG_LIMIT = 0.59;
 const R_GAS = 8.314462618;   // J/mol·K
 /**
  * Elements whose saturated vapour is molecular rather than monatomic, so the
@@ -513,7 +521,15 @@ export function vapourAt(baseKey: string, elSym: string, wt: number, TOverride?:
   const pure = `pure ${elSym} would exert ${fmtP(pPure)} atm at that temperature`;
   // The ideality caveat rides every line that could change a decision, and is
   // replaced by the reason it cannot matter on the lines that could not.
-  const ideal = `This is Raoult's law times Clausius–Clapeyron: it assumes an IDEAL solution, and the activity coefficient that would correct it is a number this app does not carry. Cu–30Zn computes 1.4 atm by this rule and brass is real, so the rule advises and never refuses.`;
+  // AND WHERE THE APP ALREADY KNOWS THE SOLUTION IS NOT IDEAL, IT SAYS SO. A
+  // pair on the checked-monotectic list has a liquid miscibility gap, which is
+  // an activity coefficient far above one by definition — so handing it a
+  // Raoult number with the generic "this app does not carry that correction"
+  // caveat would be two statements about the same melt that do not agree.
+  const knownNonIdeal = Object.hasOwn(DEMIX_CHECKED, `${baseKey}-${elSym}`);
+  const ideal = knownNonIdeal
+    ? `This is Raoult's law times Clausius–Clapeyron and it assumes an IDEAL solution, which for THIS pair is known to be false: ${base.symbol}–${elSym} has a liquid miscibility gap, and a miscibility gap IS an activity coefficient far above one. The number above is what an ideal solution would do and this pair is not one, so read it as an ordering rather than as a pressure.`
+    : `This is Raoult's law times Clausius–Clapeyron: it assumes an IDEAL solution, and the activity coefficient that would correct it is a number this app does not carry. Cu–30Zn computes 1.4 atm by this rule and brass is real, so the rule advises and never refuses.`;
   // THE NEGLIGIBLE BAND IS THE ONE PLACE THE IDEALITY CAVEAT IS DROPPED, so the
   // claim that replaces it has to be true. "No activity coefficient could lift a
   // number this small" is not: strongly positive-deviation systems reach γ° of
@@ -585,7 +601,7 @@ export function sizeNote(baseKey: string, elSym: string): SizeNote | null {
       ? " Boron is the awkward one of the four: in iron it is documented on BOTH substitutional and interstitial sites, which is exactly why it segregates to austenite grain boundaries and why hardenability boron is dosed in tens of ppm."
       : "";
     return { dRpct: dR, hagg: ratio, interstitial: true,
-      text: `${elSym} in ${base.symbol} is screened by Hägg's interstitial criterion, not by Hume-Rothery's 15 %: r/R = ${ratio.toFixed(3)} against Hägg's ${HAGG_LIMIT} limit for a simple interstitial structure, so it is ${fits ? "inside" : "just outside"} it.${cementite}${scope} The substitutional number would be ${dR.toFixed(1)} %, and it is meaningless here — not because the two radii come from different conventions, which the ratio above shares, but because an interstitial atom never occupies a substitutional site.${boron}` };
+      text: `${elSym} in ${base.symbol} is screened by Hägg's interstitial criterion, not by Hume-Rothery's 15 %: r/R = ${ratio.toFixed(3)} against Hägg's ${HAGG_LIMIT} limit for a simple interstitial structure, so it is ${fits ? "inside" : ratio < HAGG_LIMIT * 1.05 ? "just outside" : "well outside"} it.${cementite}${scope} The substitutional number would be ${dR.toFixed(1)} %, and it is meaningless here — not because the two radii come from different conventions, which the ratio above shares, but because an interstitial atom never occupies a substitutional site.${boron}` };
   }
   const mixed = row.radiusKind !== bRow.radiusKind;
   // "every casting solute this app carries is limited by an invariant" was
@@ -741,7 +757,7 @@ export function admit(baseKey: string, elSym: string, wt: number): Admission | n
     // is no melt to add it to" was a metallurgical claim and a false one, in a
     // metallurgy file.
     const synthetic = row.Z >= 104
-      ? `${elSym} (Z ${row.Z}) is a transactinide: it has only ever existed as single atoms, produced one at a time in an accelerator and living for seconds or less. There is no melt to add it to and nothing thermophysical about it has been measured, so this table carries nulls rather than predictions.`
+      ? `${elSym} (Z ${row.Z}) is a transactinide: it has only ever existed as single atoms, produced one at a time in an accelerator, with half-lives from hours at the lightest of them down to milliseconds at the heaviest. There is no melt to add it to and nothing thermophysical about it has been measured, so this table carries nulls rather than predictions.`
       : row.Z >= 99
         ? `${elSym} (Z ${row.Z}) does not occur on Earth and is made in atom-to-microgram quantities by irradiation. It has no bulk metallurgy to model — where a property has been measured at all this table carries it, and nulls the rest rather than predicting.`
         : row.Z > 92
