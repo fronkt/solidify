@@ -343,6 +343,45 @@ block("EL-TIER-TOTAL", () => {
   }
   if (pastSeen < 40) why.push(`only ${pastSeen} boundary probes`);
 
+  // THE BASE-SENSITIVE SENTENCES ARE PINNED BY BRANCH, not by counting shapes.
+  // Review demonstrated the hole with one token: `N_DISSOLVES = ["fe","ni"]` ->
+  // `["ni"]` makes iron print "in iron / steel not for the Sieverts reason that
+  // applies in steel: its solubility here is essentially nil" — self-
+  // contradicting, and factually wrong, since nitrogen in liquid iron is the
+  // textbook Sieverts equilibrium. The skeleton count did not move, because
+  // nickel still populated the other template, and every one of these sentences
+  // carries the same reason, so the cross-reason check never compares them.
+  // A count can never see a swap between two populated branches. This does.
+  // EACH CELL CARRIES A MARKER IT MUST HAVE AND ONE IT MUST NOT, because a
+  // must-only test is satisfiable by the wrong branch: the first version of
+  // this table asked fe-N for /Sieverts/, and the branch that FAILS to dissolve
+  // says "not for the Sieverts reason that applies in steel" \u2014 so the mutation
+  // this check was written to catch walked straight through it. Found by
+  // running the reviewer's own mutation against the fix.
+  const BRANCH = [
+    ["cu", "O", /tough-pitch/, /reports to the dross/, "copper's oxygen is a deliberate compositional variable"],
+    ["fe", "O", /oxygen probe/, /tough-pitch|reports to the dross/, "dissolved oxygen in steel is measured in-ladle"],
+    ["ni", "O", /oxygen probe/, /tough-pitch/, "same branch as iron"],
+    ["al", "O", /reports to the dross/, /oxygen probe|tough-pitch/, "oxygen in aluminium goes to dross and skin"],
+    ["mg", "O", /reports to the dross/, /oxygen probe/, "same branch as aluminium"],
+    ["fe", "N", /dissolves atomically from a diatomic gas/, /not for the Sieverts reason/, "nitrogen dissolves atomically in iron"],
+    ["ni", "N", /dissolves atomically from a diatomic gas/, /not for the Sieverts reason/, "and in nickel"],
+    ["al", "N", /AlN/, /dissolves atomically from a diatomic gas/, "nitrogen REACTS in aluminium rather than dissolving"],
+    ["mg", "N", /Mg3N2|Mg\u2083N\u2082/, /dissolves atomically from a diatomic gas/, "and in magnesium"],
+    ["cu", "N", /purge and stirring gas/, /dissolves atomically from a diatomic gas/, "nitrogen is a purge gas for copper"],
+    ["al", "H", /porosity layer carries this material's own/, /carries no solubility data/, "aluminium is the one base with hydrogen data"],
+    ["fe", "H", /carries no solubility data/, /porosity layer carries this material's own/, "every other base has none"],
+  ];
+  for (const [bk, el, must, mustNot, what] of BRANCH) {
+    const a = E.admit(bk, el, 1);
+    if (!a || !must.test(a.sentence)) why.push(`${bk}-${el} lost its own branch (${what}): ${a?.sentence.slice(0, 70)}`);
+    else if (mustNot.test(a.sentence)) why.push(`${bk}-${el} carries another base's branch as well (${what})`);
+  }
+  // and the branches must be DIFFERENT from each other, or one template could
+  // satisfy several of the markers above at once
+  const branchSet = new Set(BRANCH.map(([bk, el]) => E.admit(bk, el, 1)?.sentence));
+  if (branchSet.size < 8) why.push(`the ${BRANCH.length} pinned branches collapse to ${branchSet.size} sentences`);
+
   // A WEIGHT THAT IS NOT A COMPOSITION. derive() refuses a non-finite, a
   // negative and an over-100 weight by name, and the first version of this
   // classifier carried only the ceiling test while its docblock promised
@@ -503,6 +542,22 @@ block("EL-VAPOUR-ADVISORY", () => {
   // THE DIRECTION THAT WOULD BE A BUG. Applied as a refusal this rule refuses
   // brass, so the assertion is that it does not: Cu-30Zn computes above one
   // atmosphere, is NOT refused, and its line names the missing number.
+  // THE NEGLIGIBLE BAND'S SENTENCE IS AN ARITHMETIC CLAIM, so the arithmetic is
+  // gated: the cutoff below which the ideality caveat is dropped must be the
+  // fume threshold divided by the headroom the sentence claims. Carried as a
+  // bare 1e-4 this could be moved to 1e-3 with every gate still green, and the
+  // app would then print "even a hundredfold correction leaves this under the
+  // 0.01 atm threshold" about a pressure eight times over it.
+  if (E.FUME_ATM == null || E.GAMMA_HEADROOM == null) why.push("the vapour thresholds are not exported, so nothing can tie them together");
+  else {
+    const cut = E.FUME_ATM / E.GAMMA_HEADROOM;
+    const below = E.vapourAt("ni", "W", 1), above = E.vapourAt("fe", "Pb", 1);
+    if (!(below.p < cut)) why.push(`the below-cutoff probe is no longer below it (${below.p})`);
+    if (!(above.p > cut && above.p < E.FUME_ATM)) why.push(`the between-cutoff-and-threshold probe moved out of that window (${above.p})`);
+    if (!/${E.GAMMA_HEADROOM}-fold|hundredfold/.test(below.text) && !new RegExp(`${E.GAMMA_HEADROOM}-fold`).test(below.text)) why.push("the caveat-free line does not state the headroom it claims");
+    if (!new RegExp(`${E.FUME_ATM} atm`).test(below.text)) why.push("the caveat-free line does not state the threshold it claims");
+    if (!/IDEAL solution/.test(above.text)) why.push("a line between the cutoff and the threshold dropped the ideality caveat");
+  }
   const brass = E.vapourAt("cu", "Zn", 30);
   const adm = E.admit("cu", "Zn", 30);
   if (!(brass.p > 1)) why.push(`Cu-30Zn computes ${brass.p} atm, so the case the rule must survive is not live`);
@@ -683,7 +738,7 @@ block("EL-DOC-CLAIMS", () => {
     ["Hg over liquid Al", `mercury ${fmt(p("al", "Hg", 100))} atm`],
     ["Mn over liquid Fe", `manganese ${fmt(p("fe", "Mn", 100))} atm`],
     ["Cu-30Zn", `Cu-30Zn computes ${fmt(p("cu", "Zn", 30))} atm and brass is real`],
-    ["liquidus-vs-Tm cost", `moves the answer by at most ${Math.round(liveShift * 100)} %`],
+    ["liquidus-vs-Tm cost", `moves the answer by ${Math.round(liveShift * 100)} % for the only assessed pair`],
     ["Fe-C size factor", `it returns a meaningless ${feC.dRpct.toFixed(1)} %`],
     ["Hagg ratio for Fe-C", `Fe-C's ${feC.hagg.toFixed(3)} sits just`],
     ["Hagg limit", `r/R < ${E.HAGG_LIMIT}`],

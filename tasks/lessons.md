@@ -215,3 +215,39 @@ refuses and drive every one of them through both. The interesting half of a mirr
 values both accept. And when a readout is handed a number it cannot use, describe it rather than
 echo it — "that weight is not a number at all" instead of the literal string NaN — then gate on
 the string never appearing anywhere a user can read.
+
+## A count of shapes cannot see a swap between two populated branches
+
+**What happened:** v7.1 P4's tier gate asserted that its 708 refusal sentences "do not collapse
+into one template", and enforced it by counting distinct sentence skeletons — 31, against a floor
+of 12 — plus a cross-check that no two REASONS share a shape. A reviewer broke it with one token.
+Changing `N_DISSOLVES = ["fe","ni"]` to `["ni"]` makes iron print "in iron / steel not for the
+Sieverts reason that applies in steel: its solubility here is essentially nil", which is
+self-contradicting and factually wrong, and all six gates stayed green. The skeleton count did not
+move, because nickel still populated the branch iron had left; and every one of those sentences
+carries the same reason, so the cross-reason check never compared them.
+
+**Rule:** a count is a check on the SET of outputs, and a branch swap is a permutation of it —
+counts are exactly the wrong instrument. Where a function chooses between branches on data (a
+per-base sentence, a per-material law, a per-mode formula), pin the CHOICE: assert that this
+input reaches that branch, by a marker only that branch carries. And give each pin a
+must-not-match as well as a must-match, because a must-only test is satisfiable by the wrong
+branch — the first version of this fix asked iron's nitrogen sentence for `/Sieverts/`, and the
+failing branch says "not for the SIEVERTS reason that applies in steel", so the mutation walked
+straight through the check written to catch it.
+
+## A constant that encodes a relationship must be derived from it, not equal to it
+
+**What happened:** the vapour advisory drops its ideality caveat below a cutoff and replaces it
+with "even a hundredfold activity-coefficient correction leaves this under the 0.01 atm fume
+threshold". The cutoff was written as `p < 1e-4` — a bare number that silently meant "the
+threshold divided by the headroom". Moved to `1e-3` every gate stayed green and the app printed
+that sentence about a pressure eight times over the threshold it names.
+
+**Rule:** when a printed claim is an arithmetic statement about two constants, the code must
+compute one from the others — `p * GAMMA_HEADROOM < FUME_ATM`, not `p < 1e-4` — and the gate must
+assert the relation rather than the value. A magic number is not just unexplained; it is a claim
+with its own justification deleted, and the sentence that quotes it goes on being printed after
+the justification stops being true. The same rule caught a second instance in the same milestone:
+a doc gate compared a joined list with `includes()`, which any PREFIX of the list satisfies, so
+deleting the last row of a table passed. Bound the claim on both sides.

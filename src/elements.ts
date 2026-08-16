@@ -126,7 +126,7 @@ const el = (
 });
 
 /** TROUTON: prefix marks a row whose ΔH_vap/T_b falls outside 85–110 J/mol·K, and says why. */
-const T_ALKALI = "TROUTON: below the window, and this file does NOT claim to know why in one sentence. Vapour dimerisation is the usual explanation and it is real, but the measured dimer fraction in saturated alkali vapour at the boiling point is a few per cent, which moves ΔS by a few J/mol·K — nowhere near caesium's 20. The value is carried as measured and the deficit is recorded rather than explained, because a refusal naming the wrong mechanism is a wrong statement rather than an absent one.";
+const T_ALKALI = "TROUTON: below the window, by amounts that run from under a joule for lithium and sodium — which sit at 84.2 and 84.3 against a lower edge of 85, and need no mechanism at all — to twenty for caesium, which does. This file does NOT claim to know the caesium one in a sentence: vapour dimerisation is the usual explanation and it is real, but the measured dimer fraction in saturated alkali vapour at the boiling point is a few per cent, which moves ΔS by a few J/mol·K and not by twenty. Carried as measured, with the deficit recorded rather than explained, because a refusal naming the wrong mechanism is a wrong statement rather than an absent one.";
 const T_MOLEC = "TROUTON: this element vaporises as a MOLECULE and ΔH_vap is carried per mole of atoms here, so the ratio is a molecule's divided by its atom count. That accounts for part of the gap and not all of it — per mole of the vaporising species Cl2, Br2, I2 and P4 land inside the window while H2, N2, O2 and F2 stay below it, because Trouton's band was fitted to liquids boiling far higher (the Trouton–Hildebrand–Everett form 36.6 + R·ln T_b reproduces them).";
 const T_QUANTUM = "TROUTON: a quantum liquid. Helium is the one row in this table that no correction reaches — the Trouton–Hildebrand–Everett form predicts 48.6 J/mol·K against a measured 19.6 — because liquid helium is dominated by zero-point motion rather than by cohesion. Neon was carried here in a first draft and does not belong: its 63.2 is within 1 J/mol·K of what the boiling-point correction alone predicts.";
 const T_LOWBOIL = "TROUTON: below the window because it BOILS LOW, not because of anything exotic. Liquid argon is the textbook CLASSICAL Lennard-Jones liquid; the 85–110 J/mol·K band was fitted near 300–400 K and the entropy of vaporisation rises with boiling point (36.6 + R·ln T_b reproduces these rows).";
@@ -376,7 +376,9 @@ const MOLECULAR_VAPOUR = ["H", "N", "O", "F", "Cl", "Br", "I", "P", "S", "As", "
 /**
  * Hägg's criterion is a statement about TRANSITION-METAL interstitial compounds
  * — the hydrides, carbides, nitrides and borides of Ti, V, Cr, Fe and their
- * neighbours. It does not transfer to an sp-metal base, where the same ratio
+ * neighbours. It does not transfer to a base outside that group — and "sp-metal"
+ * is the wrong words for that group, since copper and zinc are d-block rows in
+ * this same table — where the same ratio
  * would cheerfully imply that aluminium forms a simple interstitial carbide.
  * It does not: Al4C3 is a salt-like carbide and carbon's solubility in liquid
  * aluminium is negligible.
@@ -424,6 +426,23 @@ const HAGG_BASES = ["fe", "ni"];
 // pair at its own depressed liquidus and records the largest shift.
 
 export type VapourBand = "NO-DATA" | "NEGLIGIBLE" | "FUME" | "BOILS";
+
+/**
+ * The pressure at which an addition stops being a curiosity and starts being a
+ * fume hazard, in atm, and the activity-coefficient headroom the NEGLIGIBLE
+ * band's sentence claims for itself.
+ *
+ * BOTH ARE EXPORTED BECAUSE THE SENTENCE IS AN ARITHMETIC CLAIM ABOUT THEM. The
+ * NEGLIGIBLE band is the one place this rule drops its ideality caveat, and what
+ * replaces it is "even a hundredfold activity-coefficient correction leaves this
+ * under the 0.01 atm fume threshold" — true only while the cutoff IS the
+ * threshold divided by the headroom. Carried as a bare 1e-4 it was a magic
+ * number that could be moved to 1e-3 without any gate noticing, at which point
+ * the app printed a sentence that its own arithmetic contradicts by a factor of
+ * eight. EL-VAPOUR-ADVISORY now asserts the relation rather than the value.
+ */
+export const FUME_ATM = 0.01;
+export const GAMMA_HEADROOM = 100;
 
 export interface VapourAdvisory {
   base: string;
@@ -516,7 +535,7 @@ export function vapourAt(baseKey: string, elSym: string, wt: number, TOverride?:
   }
   const pPure = Math.exp(-(row.dHvap * 1000) / R_GAS * (1 / T - 1 / row.Tb));
   const p = x * pPure;
-  const band: VapourBand = p >= 1 ? "BOILS" : p >= 0.01 ? "FUME" : "NEGLIGIBLE";
+  const band: VapourBand = p >= 1 ? "BOILS" : p >= FUME_ATM ? "FUME" : "NEGLIGIBLE";
   const head = `at ${base.label}'s ${(T - 273.15).toFixed(0)} °C melting point, ${elSym} at ${wt} wt% (x = ${x.toFixed(3)}) exerts ${fmtP(p)} atm`;
   const pure = `pure ${elSym} would exert ${fmtP(pPure)} atm at that temperature`;
   // The ideality caveat rides every line that could change a decision, and is
@@ -538,14 +557,14 @@ export function vapourAt(baseKey: string, elSym: string, wt: number, TOverride?:
   // 1000, which puts the corrected pressure in or above the fume band. The
   // claim is therefore made only where a hundredfold correction still cannot
   // cross the 0.01 atm threshold, and the caveat rides every line above that.
-  const safeFromGamma = p < 1e-4;
+  const safeFromGamma = p * GAMMA_HEADROOM < FUME_ATM;
   const text = band === "BOILS"
     ? `${head}, above one atmosphere — ${pure}, so this addition would boil out of the melt as fast as it went in unless the melt is held under pressure or the element is plunged. ${ideal}`
     : band === "FUME"
       ? `${head} — ${pure}. Below a boil and well above nothing: this is the fume band, where the addition survives the melt and the fume is a hazard rather than a loss. ${ideal}`
       : safeFromGamma
-        ? `${head}, which is negligible — ${pure}. Even a hundredfold activity-coefficient correction leaves this under the 0.01 atm fume threshold, which is why this line does not carry the ideality caveat the others do.`
-        : `${head}, which is under the 0.01 atm fume threshold — ${pure} — but only just, and this rule assumes an IDEAL solution. A strongly positive-deviation system can carry an activity coefficient of ten or a hundred, which would put a number this close to the threshold across it. Treat it as unresolved rather than as clean.`;
+        ? `${head}, which is negligible — ${pure}. Even a ${GAMMA_HEADROOM}-fold activity-coefficient correction leaves this under the ${FUME_ATM} atm fume threshold, which is why this line does not carry the ideality caveat the others do.`
+        : `${head}, which is under the ${FUME_ATM} atm fume threshold — ${pure} — but only just, and this rule assumes an IDEAL solution. A strongly positive-deviation system can carry an activity coefficient of ten or a hundred, which would put a number this close to the threshold across it. Treat it as unresolved rather than as clean.`;
   return { base: baseKey, el: elSym, wt, x, T, pPure, p, band, text };
 }
 
@@ -686,7 +705,7 @@ function gasSentence(baseKey: string, base: { symbol: string; label: string; mat
     // which is why nitrogen is a purge gas for copper rather than an addition.
     return N_DISSOLVES.includes(baseKey)
       ? `Nitrogen is not a composer solute: in ${base.label} it dissolves atomically from a diatomic gas and obeys Sieverts' law, so its content follows the partial pressure over the melt rather than a weight you add. That is not the whole story and this refusal says so — nitrogen is a DELIBERATE addition in nitrogen-strengthened austenitic stainless, charged as a nitrided ferroalloy and behaving as a solute — but this composer carries no nitrogen coefficient row and the porosity layer models hydrogen only.`
-      : `Nitrogen is not a composer solute, and in ${base.label} not for the Sieverts reason that applies in steel: ${baseKey === "al" || baseKey === "mg" ? `it does not dissolve here, it REACTS — to ${baseKey === "al" ? "AlN" : "Mg3N2"} — so the equilibrium is nitride formation rather than a Henrian dissolution and there is no meaningful Sieverts constant to quote` : `its solubility here is essentially nil, which is why nitrogen serves as a purge and stirring gas for ${base.label} rather than as an addition`}. Nothing in this model carries a nitride phase.`;
+      : `Nitrogen is not a composer solute, and in ${base.label} not for the Sieverts reason that applies in steel: ${baseKey === "al" || baseKey === "mg" ? `it does not dissolve here, it REACTS — to ${baseKey === "al" ? "AlN" : "Mg3N2"} — so the equilibrium is nitride formation rather than a Henrian dissolution and there is no meaningful Sieverts constant to quote` : `its solubility here is essentially nil${baseKey === "cu" ? ", which is why nitrogen serves as a purge and stirring gas for copper rather than as an addition" : ", and this table has no nitrogen practice to report for it either way"}`}. Nothing in this model carries a nitride phase.`;
   }
   // OXYGEN IS THE ONE THIS FILE GOT FLATLY WRONG FOR COPPER. "It does not stay
   // dissolved" is true for aluminium and magnesium, where oxygen reports to

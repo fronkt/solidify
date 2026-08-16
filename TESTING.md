@@ -268,7 +268,8 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   distinctness clause counts sentence SKELETONS — base labels, element symbols and every number
   replaced — because the naive distinct-string count is vacuous when every sentence interpolates
   its own element: measured on this tree it is 488 of 708, and it would pass a file that said
-  "X is not available in Y" seven hundred times. There are 22 skeletons, and no two REASONS may
+  "X is not available in Y" seven hundred times. There are 31 skeletons, no one of them may cover more than half the grid (the largest covers
+  294 of 708), and no two REASONS may
   share one, because a refusal naming the wrong mechanism is a wrong statement rather than an
   absent one. Liveness runs both ways: all four tiers non-empty, every base admitting something,
   and the ASSESSED count equal to the number of pairs holding both a cited `Solute.source` and a

@@ -2992,7 +2992,8 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
         `scripts/verify-elements.mjs` lands SIX gates, not the plan's four. Nothing imports the
         module yet — confirmed by grep against `dist/assets/*.js`, where no chunk contains a
         byte of it — so P4 ships a pure layer that CI gates and P5 wires, on the C0b/C0c
-        precedent. The suite goes 23 scripts / 159 checks to **24 / 166**.
+        precedent. The suite goes 23 scripts / 159 checks to **24 / 169**, zero
+        failures, seven pages clean, exit 0.
       - **The tiers, measured over all 708 pairs.** NOT-A-SOLUTE 282 (47 elements x 6 bases,
         asserted base-INDEPENDENT in both tier and reason), REFUSED-PAIR 396, ASSESSED **25**,
         OUTSIDE-THE-MODEL 5. The assessed count is not written down anywhere: `EL-TIER-TOTAL`
@@ -3133,6 +3134,80 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
         Trouton outlier at all. Manganese's radius has no single right answer — α-Mn has
         four inequivalent sites spanning 1.24–1.45 Å — and the row names the spread
         instead of averaging it away.
+      - **A SECOND review ran over the finished milestone, and 28 of its 56 findings survived
+        refutation.** Five lenses — gate strength, the repairs the first audit forced, the prose,
+        integration, and a contrarian — then one refuter per finding, told to default to
+        REFUTED. What survived was worth the pass, and the sharpest two were both gates that
+        could not fail.
+        **(1) The base-sensitive sentences were pinned by nothing.** One token —
+        `N_DISSOLVES = ["fe","ni"]` → `["ni"]` — makes iron print "in iron / steel not for the
+        Sieverts reason that applies in steel: its solubility here is essentially nil", which is
+        self-contradicting and false, and ALL SIX GATES stayed green: the skeleton count did not
+        move, because nickel still populated the other template, and every one of those sentences
+        carries the same reason, so the cross-reason check never compares them. A count cannot see
+        a swap between two populated branches. Twelve cells are now pinned by branch, each with a
+        marker it MUST carry and one it must NOT — and writing that check caught its own first
+        version, which asked fe-N for `/Sieverts/` and was satisfied by the failing branch, whose
+        text is "not for the SIEVERTS reason that applies in steel".
+        **(2) `safeFromGamma` carried a magic 1e-4** that means "the fume threshold divided by the
+        hundredfold correction the sentence claims for itself". Moved to 1e-3 every gate stayed
+        green while the app printed "even a hundredfold correction leaves this under the 0.01 atm
+        threshold" about a pressure eight times over it. `FUME_ATM` and `GAMMA_HEADROOM` are now
+        exported, the cutoff is derived from them, and the gate asserts the RELATION.
+        The rest: `EL-DOC-CLAIMS` was the one gate not wrapped in `block()` and the only one that
+        touches the filesystem; its monotectic claim was a joined list compared with
+        `includes()`, satisfied by any PREFIX of itself, so dropping a row passed; the Hägg
+        limit could be moved from 0.59 to 0.90 with everything green, because the page carried the
+        literal and nothing tied them; `/TROUTON:/` was a bare prefix test that an empty clause
+        would satisfy; `tested !== assessed` compared a count with a recomputation of itself and
+        could not fire; and the per-pair physics assertions were nonzero tests, so every
+        coefficient in `alloy.ts` could drift together and pass — the SUMS are pinned now.
+      - **And it found three more claims that were wrong, one of them refuted by this file's own
+        arithmetic.** `T_HIGHBOIL` said the boiling-point trend explains the elements above the
+        Trouton window; the Trouton–Hildebrand–Everett form 36.6 + R·ln T_b tops out at
+        108.75 J/mol·K for rhenium, the highest-boiling row in the table, against a measured
+        138 for tungsten — so it explains part and the row now says the excess is real and
+        unexplained rather than naming a mechanism that does not reach. Neon was carried as a
+        quantum liquid and is not one: its 63.2 is within a joule of what the boiling-point
+        correction alone predicts, while helium's 19.6 against a predicted 48.6 is what a genuine
+        quantum liquid looks like. And `MOLECULAR_VAPOUR` omitted tellurium, which printed a
+        fume-band number on three bases from an enthalpy half the size the exponent needs.
+      - **Three numbers I had written down were wrong, and all three were mine.** The naive
+        distinct-sentence count is **488** of 708, not 422 — it moved when the audit's repairs
+        rewrote the sentences and I quoted the pre-repair measurement. The zinc decimal slip fails
+        **three** gates, not four; the fourth was the run's own "done — N FAILED" summary line,
+        counted by a `grep -c FAIL`. And "at most 3 %" for the liquidus-versus-melting-point cost
+        is a claim over a population of ONE — Cu–Zn is the only assessed pair whose pressure
+        even reaches the fume band — which the prose now says instead of implying a survey.
+      - **Named and NOT fixed, because they are not P4's.** The twelve browser-free gates do not
+        run in CI on this branch at all: `.github/workflows/ci.yml` fires on `push` to `main` and
+        on `pull_request`, and this arc lives on `v7-experiments`. That has been true since P0 and
+        it is a repo-policy call rather than a milestone's, so it is recorded here rather than
+        changed unilaterally — but "CI gates this" is weaker than it reads for every milestone
+        in this arc until the branch is PR'd. Separately, the density cross-check reaches 75 of
+        the 118 rows; the covalent radii it cannot reach have no independent check at all, which
+        is a known hole in the newest gate on the day it shipped.
+      - **A pre-existing gate fragility, diagnosed rather than left as "a flake".** One suite run
+        mid-milestone failed `STEP3-ORDER` in `verify-3d.mjs`; three isolated re-runs passed, and
+        so did the final one. The mechanism is now legible in the data rather than mysterious:
+        `maxFreeze` saturates at the cast's TERMINAL timestamp for any section that has not
+        finished freezing, and the check compares the thinnest section against the thickest. The
+        two thickest read an IDENTICAL value on every run including the passing ones
+        (0.6217/0.6217, 0.5584/0.5584, 0.5722/0.5722), so the check passes only when the THIN
+        section finished; on the failing run 13, 35 and 49 all read the same 0.5524 and the
+        assertion `ps[0].maxFreeze < ps[3].maxFreeze` went false on equality. It joins
+        `STEP3-REGION` as a timing fragility in the same block, and it cannot be P4's: nothing in
+        this milestone is imported by the app, which a grep of `dist/assets/*.js` confirms. (Two
+        of those re-runs died with "Execution context was destroyed" - my own fault again and the
+        same way as at P3: review agents were editing `src/` while a GPU gate drove a vite-served
+        page. Sequence the review AFTER the suite, not beside it.)
+      - **Two notes P5 should read before it starts.** A grid that colours cells at a fixed 1 wt%
+        will paint Fe–C, Al–Ti and Mg–Zr as OUTSIDE-THE-MODEL, because 1 wt% is past all
+        three ceilings (0.53, 0.15, 0.58) — it must colour at each pair's own `probeWt`, or three
+        of the twenty-five assessed pairs will read as refusals on first paint. And `Admission`
+        carries a paragraph, not the one-line reason P5's plan asks the grid to show; deriving one
+        is P5's, and it should come from the classifier rather than from a truncation, or the
+        sentence that gets cut will be the half carrying the number.
 
 - [ ] **P5 — the periodic grid opens in the composer, and every refusal names its own number.**
       Ask #2, in the only shape that never prints a number the instrument cannot defend: the refusals **are** the content. A visitor who clicks Hg over aluminium and reads "mercury boils at 39 atm over liquid aluminium — the melt cannot hold it" has learned more metallurgy than one who simply cannot see mercury, and switching the base from Al to Fe visibly reddens Zn, Mg, Cd, Na, K and Ca as the liquidus climbs past their boiling points. That base switch is a good capture for `scripts/capture-demos.mjs`.
