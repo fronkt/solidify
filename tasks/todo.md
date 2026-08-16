@@ -2977,7 +2977,7 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
         against exactly eleven `- run:` lines in `ci.yml`. `README.md`'s composer bullet gains
         the two columns and the cast-iron removal.
 
-- [ ] **P4 — the element dataset and the tier classifier, with no UI.**
+- [x] **P4 — the element dataset and the tier classifier, with no UI.**
       Split off from the grid on the C0b/C0c precedent, so a suite failure in the P5 window has one candidate cause rather than five.
       - **New `src/elements.ts`:** 118 rows of `{ symbol, Z, mass, radiusCN12, chiPauling, Tm, Tb, dHvap, primordial, block, source }`. Radii are Teatum CN12 metallic radii; electronegativities are Pauling; T_b and ΔH_vap from standard thermochemical tables, cited in the file header and per-block in `source`.
       - **`admit(base, element, wt)` returns exactly one of four tiers.** NOT-A-SOLUTE (element-level, base-independent): noble gases (closed shell, no metallic bond); halogens (ionic salts and volatile halides — fluxing agents, not solutes); non-primordial Tc, Pm, Po, At, Rn, Fr, Ra, Ac, Pa and everything Z > 92; and **H, N, O only** as GAS-SPECIES, whose refusal names Sieverts' law and points at the hydrogen porosity layer *only for materials carrying `hL`/`hS`*. REFUSED-PAIR with distinct sub-reasons NO-ASSESSMENT / NOT-CHECKED-FOR-DEMIXING / DEMIXES / PAST-THE-INVARIANT. OUTSIDE-THE-MODEL: real casting chemistry the solver structurally cannot carry — monotectics, intermetallic refiners past their invariant. ASSESSED: the pair has a cited `Solute.source` **and** a cited `phasedata` row, which after P0 is exactly the 25 shipped pairs.
@@ -2987,6 +2987,152 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
       - **Gates.** `EL-TIER-TOTAL` (browser-free) — totality over 6 bases × 118 elements = 708 pairs: each resolves to exactly one tier, none unclassified, none multiply classified; every non-ASSESSED pair carries a reason > 25 chars; the DISTINCT reason set size ≥ 12 so 700 refusals cannot collapse into one generic sentence; NOT-CHECKED-FOR-DEMIXING and NO-ASSESSMENT are asserted to be **different strings**, because a refusal that names the wrong mechanism is a wrong statement, not an absent one; every advisory line contains its own computed pressure in atm and every PAST-THE-INVARIANT line its own wt%. Liveness: the ASSESSED count per base is > 0 and the total equals the number of pairs holding both a cited `Solute.source` and a `phasedata` row. `EL-TROUTON-CROSSCHECK` (browser-free) — ΔH_vap/T_b for every element carrying both fields, flagged against Trouton's rule (~85–110 J/mol·K for normal liquids; the associated liquids that legitimately fall outside are enumerated by name with their own source line). This replaces the originally-planned fixed-point check, which was a tautology: p(T_b) = exp(0) = 1 for **any** ΔH_vap including a decimal-slipped one, so a Zn entry of 11.5 instead of 115 kJ/mol would have passed while silently turning 59 atm into 1.5 and reversing the teaching. Liveness: > 80 elements carry both fields. `EL-VAPOUR-ADVISORY` (browser-free) — the four pinned drift tripwires above in the `verify-porosity.mjs` idiom, **values measured on this tree and recorded here before they are pinned**, plus the direction that would be a bug: Cu–30Zn is asserted NOT refused and its printed line is asserted to name the missing activity coefficient. `ALLOY-MOVES-THE-PHYSICS` (browser-free) — the replacement for the deleted bundle-delta metric. For every ASSESSED pair added at `min(1 wt%, Csm/2)`, the **unclamped** sums move: |m_i·c_i| > 0 and the mix's ΔT_L or Q changes by more than a floor measured over the assessed set first. Beside it, a named CLAMP-SWALLOWS report listing every pair whose contribution the shipped c0 floor or mLiq ceiling makes invisible to the solver at trace level — Al–Ti at 0.075 wt% measures **0.0000** bundle movement today, and that is a finding worth printing, not a gate that cannot go green. Liveness: the pair count tested equals the ASSESSED count from EL-TIER-TOTAL.
       - **Risks.** The demixing list (Cu–Pb, Al–Bi, Al–In, Al–Pb, Fe–Ag) is hand-entered and fails open; it is labelled as the systems that have been CHECKED, never as the complete set, and unlisted monotectics take the NOT-CHECKED string rather than being refused for the wrong mechanism. Miedema ΔH_mix is not used: its sign gives neither a gap temperature nor a gap composition and the scheme overestimates dilute liquid excess enthalpies by ~25 %, so it would put an inferred refusal on screen where a cited one is available.
       - **Docs.** `TESTING.md` gains the EL- family. `science/index.html` gains the admissibility row: the input chemistry opened to the periodic table while the output to the solver stayed a one-channel pseudo-binary, and the dilute superposition assumes zero solute–solute interaction — which is exactly what an open table invites users to violate.
+
+      - **DONE 2026-08-16.** `src/elements.ts` lands 118 rows and `admit(base, element, wt)`;
+        `scripts/verify-elements.mjs` lands SIX gates, not the plan's four. Nothing imports the
+        module yet — confirmed by grep against `dist/assets/*.js`, where no chunk contains a
+        byte of it — so P4 ships a pure layer that CI gates and P5 wires, on the C0b/C0c
+        precedent. The suite goes 23 scripts / 159 checks to **24 / 166**.
+      - **The tiers, measured over all 708 pairs.** NOT-A-SOLUTE 282 (47 elements x 6 bases,
+        asserted base-INDEPENDENT in both tier and reason), REFUSED-PAIR 396, ASSESSED **25**,
+        OUTSIDE-THE-MODEL 5. The assessed count is not written down anywhere: `EL-TIER-TOTAL`
+        recomputes it as the number of pairs holding both a cited `Solute.source` and a
+        `phasedata` row and requires the classifier to agree, so "this milestone adds no new
+        pourable chemistry" is a gated claim rather than an intention. Every one of the 708 is
+        also driven through `derive()`, and ASSESSED must hold if and only if the pour is
+        accepted — an admission and a pour cannot drift apart.
+      - **Three places the plan was wrong, and the reasons.** (1) It listed DEMIXES and
+        PAST-THE-INVARIANT as REFUSED-PAIR sub-reasons and then defined OUTSIDE-THE-MODEL as
+        "monotectics, intermetallic refiners past their invariant" — the same two things.
+        Grouped the plan's way OUTSIDE-THE-MODEL has no members and is a tier that exists only in
+        a comment; they are placed by the definition instead. (2) It ordered the base-independent
+        refusals noble-gas first, non-primordial last. Reversed here, because for Rn, At, Og and
+        Ts the availability statement is a measurement and the chemical one is an inference from
+        a position in the table — "tennessine forms ionic salts" is a claim nobody has tested,
+        and "it is not primordial" is simply true. (3) Its probe composition, min(1 wt%, C_SM/2),
+        contradicts its own worked example: Al–Ti's C_SM is 1.32 wt%, so half of it is 0.66,
+        which is four times PAST the 0.15 wt% invariant this instrument refuses to cross. The
+        0.075 wt% the plan quotes is C_inv/2, and that is what `probeWt` computes.
+      - **A fourth thing the plan did not consider: the diagonal.** `admit("al","Al",…)` is
+        not a composition, and none of the four sub-reasons covered it. IS-THE-BASE is a fifth,
+        and it answers usefully — "the melt is already aluminum; this composer carries Al as a
+        solute in nickel, magnesium and zinc."
+      - **The vapour rule reproduces the plan's four literature numbers from two tabulated
+        values per element**, which is the strongest evidence available that the table is right:
+        Zn **59.39 atm** over liquid Fe, Mg **16.35**, Mn **0.0373**, Hg **39.25** over liquid
+        Al, and Cu–30Zn at **1.367 atm** — against the plan's 59, 16, 0.037, 39 and ~1.4,
+        written before any of this existed. It is an ADVISORY: applied as a refusal it refuses
+        brass, so `EL-VAPOUR-ADVISORY` asserts Cu–30Zn computes above one atmosphere, stays
+        ASSESSED, and names the activity coefficient the app does not have.
+      - **`EL-TROUTON-CROSSCHECK` replaces a tautology, and the plan said so.** p(T_b) = exp(0) =
+        1 atm for ANY enthalpy, so the fixed-point check first planned for this slot could not
+        see a decimal slip. Zinc at 11.5 kJ/mol instead of 115 turns 59 atm into 1.5 — still
+        BOILS, still self-consistent, teaching the opposite. Driven as a mutation it now fails
+        **three** independent checks - the Trouton crosscheck, the pinned vapour tripwire and
+        the doc gate, since `science/index.html` quotes the pressure too. (An earlier draft of
+        this line said four, counting the run's own "done - N FAILED" summary line as a gate.) Of 96 rows carrying both T_b and ΔH_vap, 43 sit inside 85–110
+        J/mol·K and 53 do not; each of the 53 is pinned BY VALUE to ±1.5 and must explain
+        itself with a `TROUTON:` clause in its own source, so the enumeration cannot rot into an
+        unread allow-list.
+      - **CLAMP-SWALLOWS, printed rather than gated green.** Every assessed pair moves the
+        unclamped liquidus by at least 1.0 K at its probe composition (floor set at 0.5, half the
+        measured minimum), but two move the solver's own (c0, mLiq, kPart) triple by exactly
+        **0.0000**: Al–Ti at 0.075 wt% and Mg–Zr at 0.29 wt%, both grain refiners, both
+        moving ΔT_L by 2.3 and 2.0 K and Q by 18.4 and 11.0 K. The plan predicted Al–Ti and
+        not Mg–Zr. d_Sol is deliberately outside the triple: it moves for any solute whose
+        dRel differs from 1 whatever its m, k or c, so including it would mask the case the
+        report exists to find.
+      - **The review rewrote the data, and one defect was invisible to all six gates.** Eight
+        independent audit agents over the table and the classifier returned **52** findings. The
+        sharpest: the CN8→CN12 metallic-radius correction had been applied to the s-block bcc
+        rows and forgotten on the d-block ones, so V, Cr, Nb, Mo, Ta, W and Ra carried the
+        nearest-neighbour radius a·√3/4 — while the file's own source string said in as
+        many words that they did not. W and Re both reading 137.1 pm was the tell; Re is hcp, so
+        137 is genuinely its CN12 value and the coincidence existed only because W was
+        uncorrected. Nothing could catch it, because the radii were only ever checked against
+        themselves. `EL-TABLE-SHAPE` now ties the column to the density through the
+        close-packed-equivalent radius r = (0.7405·3M/4πρN_A)^⅓; reverting W, Cr or
+        Nb to CN8 fails by 2.8–2.9 %. The ten rows that legitimately miss are pinned by
+        MEASURED value with their structure named — α-Po at 12.7 %, the only simple-cubic
+        element; α-Pu at −6.5 %, the least symmetric metal known — and the first draft
+        of that pin list was written from intuition rather than measurement and was rejected by
+        the gate, which is the correct order of events happening the wrong way round first.
+      - **Nine more corrections the audit forced, each a claim this file could not stand
+        behind.** Bismuth was called "the heaviest primordial element" two rows above thorium and
+        uranium, which this same table marks primordial. Al–Bi's monotectic was said to sit "a
+        few degrees above pure aluminium's melting point" — 657 °C against 660.3, and it
+        cannot be above, because the monotectic is where the falling (Al) liquidus meets the gap.
+        The Trouton explanation "per mole of the species that actually leaves the liquid it sits
+        inside the window" is false for H2 (45), N2 (72), O2 (76) and F2 (77); the rest is that
+        Trouton's band was fitted near 300–400 K, and 36.6 + R·ln T_b returns 72.8 for
+        nitrogen against a measured 72.1. "A quantum liquid" was applied to argon, the textbook
+        CLASSICAL Lennard-Jones liquid. The Z > 92 refusal said "only ever been made in
+        accelerators, in quantities from a few atoms to a few micrograms" — false three ways
+        for plutonium, which occurs in trace naturally, is reactor-bred, and exists by the tonne,
+        with δ-phase Pu–Ga a documented casting alloy. The oxygen refusal told a copper
+        user that oxygen "does not stay dissolved", when tough-pitch copper carries 0.02–0.05
+        wt% on purpose and oxygen content is what separates C10100 from C11000. The nitrogen
+        refusal quoted Sieverts' law over aluminium, where nitrogen does not dissolve but reacts
+        to AlN. The Hägg branch hardcoded "which is why Fe3C is a complex orthorhombic
+        carbide" into a sentence printed for **every** interstitial pair over the limit — so a
+        boron addition to aluminium was answered with a fact about cementite — and blamed the
+        meaningless substitutional number on the two radii coming from different conventions,
+        which cannot be the reason, since the Hägg ratio one clause earlier divides exactly
+        the same two radii and is the number that branch trusts. And the NEGLIGIBLE band, the one
+        place the ideality caveat is deliberately dropped, claimed "no activity-coefficient
+        correction could lift a number this small" — falsified by an example inside this app:
+        lead in iron at 1 wt% computes 7.8e−4 atm while γ°(Pb in liquid Fe) is of order
+        100–1000, which puts it in or above the fume band. The claim is now made only below
+        1e−4 atm, where a hundredfold correction still cannot cross the threshold.
+      - **And one the classifier lens found that the tier gate could not.** `admit()`'s docblock
+        promised it could never disagree with `derive()`, and it carried only the ceiling test
+        while `derive()` refuses four more things: a non-finite weight, a negative one, one over
+        100, and it drops a zero. `admit("fe","Cr",NaN)` came back ASSESSED with an advisory
+        reading "Cr at NaN wt% exerts 0.0e+0 atm, which is negligible" — `moleFraction`'s
+        `n + nb > 0 ? … : 0` guard swallowed the NaN into a clean-looking zero. The gate
+        missed it because the gate drove only probe weights. NOT-A-COMPOSITION is a sixth reason,
+        the gate drives NaN / Infinity / −1 / 101 on three pairs, and no advisory line may
+        contain the string "NaN" anywhere — a weight that cannot be poured is now DESCRIBED
+        ("that weight is not a number at all") rather than echoed.
+      - **Gates, and what each one fails on.** Six, all reporting on a tree without
+        `src/elements.ts` — the module LOAD is guarded, which `verify-regimes.mjs`'s is not:
+        P3 wrapped each gate in `block()` after an unwrapped call produced zero lines of output,
+        and this milestone found the level above, where `ssrLoadModule` throws before any block
+        runs. That is precisely the tree a non-vacuity proof is run against, so the hole was in
+        the one place it mattered. Behaviourally: a zinc decimal slip fails 4; collapsing every
+        refusal to one template fails `EL-TIER-TOTAL` (31 skeletons → 1); a row out of Z order
+        fails `EL-TABLE-SHAPE`; deleting the weight guard fails `EL-TIER-TOTAL`; reverting a bcc
+        radius to CN8 fails `EL-TABLE-SHAPE`.
+      - **The distinctness clause the plan asked for is vacuous, and was replaced.** "The
+        DISTINCT reason set size ≥ 12" is satisfied trivially when every sentence interpolates
+        its own element and base: measured on this tree the naive count is 488 of 708, and it
+        would pass a file that said "X is not available in Y" seven hundred times. What is
+        counted instead is the sentence SKELETON, with base labels, element symbols and every
+        number replaced — **31** of them — and no two REASONS may share one, because a
+        refusal naming the wrong mechanism is a wrong statement rather than an absent one.
+      - **Docs, in this commit.** `science/index.html` gains the admissibility row and three
+        paragraphs — the tiers and their counts, the vapour rule with its four numbers and its
+        refusal to be a refusal, and the limit this milestone makes easier to violate: the
+        composer sums solutes with ZERO solute–solute interaction and collapses them onto one
+        pseudo-binary, which is exactly what an open table invites a user to break. A new
+        `EL-DOC-CLAIMS` gate holds 16 of those numbers against the modules, tags stripped and
+        typographic dashes flattened so it cannot fail on typography, and no claim allowed to be
+        a bare small integer. Writing it caught two of my own: "93 of the 118 columns have no
+        coefficient row" conflated per-base with per-element (16 of 118 elements carry one in any
+        base at all), and the Darken–Gurry count is now marked as measured offline, since the
+        ellipse is deliberately not in the code and nothing in the build re-derives it.
+        `TESTING.md` eleven → **twelve** in all three places, against exactly twelve `- run:`
+        lines in `ci.yml`.
+      - **Open, and named rather than fixed.** `chiPauling` is carried by all 118 rows and read
+        by nothing — electronegativity difference is the OTHER Hume-Rothery rule, the
+        electrochemical factor, and this file applies neither as a gate; the header says so
+        rather than letting a reader discover that a tabulated column decides nothing. A row's
+        own `Tm` is likewise never read, since the vapour rule takes its temperature from the
+        BASE. Gold and holmium sit on a 6 % compilation split (342 vs 324, 265 vs 251); both
+        rows carry the value and the alternative, and holmium's choice decides whether it is a
+        Trouton outlier at all. Manganese's radius has no single right answer — α-Mn has
+        four inequivalent sites spanning 1.24–1.45 Å — and the row names the spread
+        instead of averaging it away.
 
 - [ ] **P5 — the periodic grid opens in the composer, and every refusal names its own number.**
       Ask #2, in the only shape that never prints a number the instrument cannot defend: the refusals **are** the content. A visitor who clicks Hg over aluminium and reads "mercury boils at 39 atm over liquid aluminium — the melt cannot hold it" has learned more metallurgy than one who simply cannot see mercury, and switching the base from Al to Fe visibly reddens Zn, Mg, Cd, Na, K and Ca as the liquidus climbs past their boiling points. That base switch is a good capture for `scripts/capture-demos.mjs`.

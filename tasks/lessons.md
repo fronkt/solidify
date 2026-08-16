@@ -149,3 +149,69 @@ the sentence. And when review does find something that survives, check whether t
 own plan already asked for it: this one had ("regime I is honest about itself: equilibrium says
 single-phase, Scheil says a real fraction freezes as eutectic anyway"), and the implementation
 had quietly dropped half the requirement.
+
+## Data that is only checked against itself is not checked
+
+**What happened:** v7.1 P4 landed a 118-element table and six gates that all consume it. Every
+one of them read the metallic-radius column and not one could see that seven rows carried the
+wrong quantity: the CN8→CN12 correction had been applied to the s-block bcc metals and forgotten
+on the d-block ones, so V, Cr, Nb, Mo, Ta, W and Ra held the nearest-neighbour radius a·√3/4
+while the file's own source string said in as many words that they did not. An independent audit
+found it in minutes, by a route no gate had: it recomputed the radius from the density. The tell
+was that W and Re both read 137.1 pm — Re is hcp, so 137 is genuinely its CN12 value, and the
+coincidence existed only because tungsten was uncorrected.
+
+**Rule:** for every column of data a milestone ships, find a SECOND physical quantity that
+constrains it and gate on the relation between them, not on the value. ΔH_vap and T_b are tied by
+Trouton's rule; a metallic radius and a density are tied by the close-packed-equivalent radius;
+an atomic mass and Z are tied by the ordering. A gate that reads a number and checks it against
+another number in the same file is checking a transcription, not a fact. The corollary is the
+sharper half: a defect that survives every gate you wrote is usually one where the gate and the
+datum came from the same head at the same time, which is exactly what an outside reader is for.
+
+## Measure, then pin — and the values are the pin, not the list
+
+**What happened:** having built the density cross-check, I wrote its allow-list of legitimate
+outliers — the metals with open or distorted structures — from intuition, guessing Ga at 7.2 %,
+Sn at 3.6, Bi at 4.0, Po at 4.0. The measured values were 7.2, 4.1, 8.5 and 12.7. The gate
+rejected my guesses on the first run, which is the correct outcome arriving by the wrong route:
+I had written the tolerance before taking the measurement, in a gate whose whole purpose is to
+stop exactly that.
+
+**Rule:** this repo already says "never write a tolerance before measuring it". Extend it to
+allow-lists: an exemption is not a name, it is a name AND a measured value AND the reason. A list
+of bare names exempts the row from the check entirely, so the next genuine error inside it is
+invisible — which is how a 53-entry Trouton exemption list would have rotted. Pin the number,
+give it a tolerance, and make each entry state its mechanism in the data file itself, so the
+exemption has to be re-justified whenever the row is edited.
+
+## A distinctness check over interpolated strings measures nothing
+
+**What happened:** P4's plan asked the tier gate to assert "the DISTINCT reason set size ≥ 12, so
+700 refusals cannot collapse into one generic sentence". Implemented literally it passes at 422
+distinct strings out of 708 — because every refusal interpolates its own element and its own
+base, so a file that said "X is not available in Y" seven hundred times would satisfy it
+comfortably. The check would have been green on precisely the failure it was written to prevent.
+
+**Rule:** before asserting that a set of generated strings is diverse, ask what the assertion is
+green on when the thing you fear has happened. If the answer is "still green", the metric is
+measuring the interpolation and not the writing. Normalise away everything the template
+substitutes — names, symbols, numbers — and count what is left, the SKELETON. Then add the clause
+that actually bites: no two distinct reasons may produce the same skeleton, because a refusal
+naming the wrong mechanism is a wrong statement rather than an absent one.
+
+## A function that claims to mirror another must be driven on the inputs the other refuses
+
+**What happened:** `admit()`'s docblock promised that an admission and a pour "can never disagree",
+and `EL-TIER-TOTAL` drove all 708 pairs through both `admit()` and `derive()` to prove it. Both
+passed. Both were wrong: `derive()` refuses four things `admit()` did not carry — a non-finite
+weight, a negative one, one over 100 — and the gate never noticed because it drove only the probe
+composition, which is always a good number. `admit("fe","Cr",NaN)` returned ASSESSED with an
+advisory that read "Cr at NaN wt% exerts 0.0e+0 atm, which is negligible", the NaN having been
+swallowed into a clean-looking zero by a `n + nb > 0 ? … : 0` guard three functions away.
+
+**Rule:** when one function claims parity with another, enumerate the inputs the OTHER one
+refuses and drive every one of them through both. The interesting half of a mirror is never the
+values both accept. And when a readout is handed a number it cannot use, describe it rather than
+echo it — "that weight is not a number at all" instead of the literal string NaN — then gate on
+the string never appearing anywhere a user can read.

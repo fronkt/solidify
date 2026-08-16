@@ -436,6 +436,83 @@
     this — they restore, clamp to the ceiling, and say so on the same channel the clamps and
     refusals already use.</p>
 
+    <p><b>And the input chemistry now opens onto the whole periodic table, while the output to the
+    solver stays a one-channel pseudo-binary.</b> A table of all 118 elements carries six numbers
+    each — atomic mass, a radius, a Pauling electronegativity, a melting point, a boiling point
+    and an enthalpy of vaporisation. Four of them are read by a refusal and two are recorded and
+    not: the electronegativity difference is the OTHER Hume-Rothery rule, the electrochemical
+    factor, which this file deliberately does not apply, and the vapour rule takes its temperature
+    from the BASE rather than from the element. Every one of the
+    6 × 118 = <b>708</b> (base, element) pairs is placed in exactly one of four tiers with a
+    sentence saying why. Exactly <b>25</b> are ASSESSED, which is precisely the set that already
+    had both a cited coefficient row and a cited invariant row: <b>this adds no new pourable
+    chemistry at all</b>, and that is the point. The other 683 are the content. <b>47 elements are
+    refused before the base is even consulted</b> — the noble gases (a closed shell and no metallic
+    bond), the halogens (an ionic salt or a volatile halide, which is the flux that covers a melt
+    rather than anything dissolved in it), the 35 elements that are not primordial, and H, N and O, whose
+    content is set by the atmosphere over the melt rather than by a weight you add. That last tier
+    is base-INDEPENDENT while its physics is not, and the refusals say so per base rather than
+    quoting one law six times: hydrogen obeys Sieverts' law C = S·√p in every one of them and
+    is already modelled in aluminium, where the porosity layer carries real solubilities; nitrogen
+    obeys it in iron and nickel, does not dissolve in aluminium or magnesium but REACTS to AlN and
+    Mg₃N₂, and is near-insoluble in copper, which is why it serves there as a purge gas;
+    and oxygen dissolves in iron and is measured in-ladle with a probe, reports to dross in
+    aluminium, and in copper is a deliberate compositional variable — tough-pitch copper carries
+    0.02–0.05 wt% of it on purpose, which is the one cell in this grid where a user would be
+    right to expect a number. <b>Sulphur and phosphorus are
+    deliberately NOT in that gas tier.</b> They are dissolved solutes obeying dilute-solution
+    thermodynamics, and they are the canonical low-<i>k</i> segregators — the physics this solver
+    models best; pointing a user at the hydrogen porosity layer for sulphur would point them at a
+    layer that models hydrogen and nothing else. They are refused for the honest reason instead —
+    no coefficient row has been entered — and entering Fe–S and Fe–P is named as the single best
+    addition this table could take.</p>
+
+    <p><b>The vapour rule is where two tabulated numbers reproduce foundry practice, and it
+    advises rather than refuses.</b> Clausius–Clapeyron anchored at the boiling point times
+    Raoult's law, p<sub>i</sub> = x<sub>i</sub>·exp(−ΔH<sub>vap</sub>/R·(1/T − 1/T<sub>b</sub>)),
+    evaluated at the base's own melting point: zinc reads <b>59 atm</b> over liquid iron, which is
+    why zinc-coated scrap fumes off as ZnO in a steel charge — a yield loss, a fume hazard and a
+    baghouse-dust problem rather than a prohibition, since coated scrap is normal EAF feedstock
+    and a zinc-recovery industry exists downstream of it; magnesium <b>16 atm</b>, which is why
+    nodularising ductile iron is a plunge and not a stir; mercury <b>39 atm</b> over liquid
+    aluminium; and manganese <b>0.037 atm</b>, which is a welding-fume hazard and correctly not a
+    reason to refuse manganese steel. Applied as a refusal the same rule refuses brass — Cu–30Zn
+    computes 1.4 atm and brass is real, because zinc's activity in copper is far below ideal and
+    the activity coefficient that would fix the number is exactly what this app does not carry. So
+    every line above the fume threshold says that out loud. Two more honest limits are printed
+    rather than hidden. The rule is evaluated at the <i>pure base's</i> melting point, because
+    only 16 of the 118 elements carry a coefficient row in any base at all and the rest have no
+    liquidus to depress; recomputing every
+    assessed pair at its own depressed liquidus moves the answer by at most 3 % for any pair the
+    advisory could influence a decision about. And the size rule knows which convention it is
+    subtracting: Hume-Rothery's 15 % band is about <i>substitutional</i> solubility, and applied to
+    Fe–C it returns a meaningless −39.6 % because it is differencing carbon's covalent radius
+    against iron's metallic one for an atom that never occupies a substitutional site. Carbon,
+    nitrogen, boron and hydrogen — four elements, not three — are screened by Hägg's
+    r/R &lt; 0.59 interstitial criterion instead — where Fe–C's
+    0.604 sits just <i>outside</i> the limit, which is why Fe<sub>3</sub>C is a complex
+    orthorhombic carbide rather than a simple interstitial phase.</p>
+
+    <p><b>The limit this milestone makes easier to violate, stated plainly.</b> The composer sums
+    solutes in the dilute limit: ΔT<sub>L</sub> = Σm<sub>i</sub>c<sub>i</sub> and
+    Q = Σm<sub>i</sub>c<sub>i</sub>(k<sub>i</sub>−1), which assumes <b>zero solute–solute
+    interaction</b> — every addition behaves as though the others were not there. That is a fair
+    approximation for the dilute, few-element presets this app ships and it is not one for an
+    arbitrary handful of elements off an open table, which is exactly what an open table invites.
+    The mix then collapses onto ONE pseudo-binary for the solver, because there is one solute
+    field: the m·c-weighted mean partition, with the largest |m·c| term naming the binary the
+    figure draws. Nothing about opening the input widens that channel. Two more things this table
+    will not do: it ships no ESTIMATED tier and no Darken–Gurry ellipse (measured once over this
+    app's own 25 pairs, that ellipse rejects 10 of them and eight of the 9 presets contain at
+    least one pair it rejects — the galvanising bath, whose only addition is Zn–Al, is the
+    single exception — a category error, since it predicts <i>extensive</i> solubility
+    while every casting solute here is dilute and bounded by an invariant. The ellipse is
+    deliberately not in the code, so nothing in the build re-derives that count), and it does not
+    infer miscibility gaps from Miedema's ΔH<sub>mix</sub>, whose sign gives neither a gap
+    temperature nor a gap composition. Five monotectic systems have been <b>checked</b> and are
+    refused by name — cu-Pb, al-Bi, al-In, al-Pb, fe-Ag — and an unlisted one is refused for being
+    unchecked, never for a mechanism nobody looked up.</p>
+
     <p>What it is checked against, and what it measured:</p>
     <table>
       <tr><th>TEST</th><th>AGAINST</th><th>RESULT</th></tr>
@@ -605,6 +682,7 @@
       <tr><td>Grain impingement, ASTM E112 grain number, linear-intercept SDAS</td><td><b>measured honestly</b> on a nominal 1 mm domain</td></tr>
       <tr><td>Alloy solute field</td><td><b>two solvers, and the app says which is running.</b> The default is a WB-type dilute model, qualitative and not CALPHAD-coupled. The calibrated solver is the Echebarria–Folch–Karma–Plapp dilute binary model with an anti-trapping current, where the partition coefficient is the real one and is independent of the interface width — still dilute-binary and still not CALPHAD-coupled</td></tr>
       <tr><td>Composer chemistry (ΔT<sub>L</sub>, Q, wt%↔at%)</td><td><b>real dilute-limit values</b>, approximate textbook coefficients</td></tr>
+      <tr><td>Composer admissibility (which element in which melt)</td><td><b>25 assessed pairs, 683 computed refusals.</b> All 6 × 118 = 708 (base, element) pairs are classified into four tiers: ASSESSED needs both a cited coefficient row and a cited invariant row and is exactly the 25 pairs that already had them; OUTSIDE-THE-MODEL is real chemistry a one-liquid, one-solid-phase solver cannot carry (five checked monotectics, and any composition past its invariant); REFUSED-PAIR is an honest absence of data; NOT-A-SOLUTE is base-independent (47 elements). <b>The refusals are the content, and most carry a computed number</b> — a vapour pressure in atm from tabulated ΔH<sub>vap</sub> and T<sub>b</sub>, a Hume-Rothery size factor or a Hägg interstitial ratio, an invariant composition in wt%. Two limits the tiers do not remove: the mix is summed in the dilute limit with <b>zero solute–solute interaction</b>, and it collapses onto one pseudo-binary for a solver that carries one solute field. The vapour rule is an <i>advisory</i>, never a refusal — as a refusal it would refuse brass</td></tr>
       <tr><td>Units</td><td><b>a stated similarity scaling</b> — the solver is dimensionless, and three factors convert it to SI: kelvin per unit, seconds per unit, µm per cell. Only the third is a free choice. Kelvin per unit is <i>forced</i> by the heat equation's own latent coupling, (L/c<sub>p</sub>)/K — a real per-material number (≈249 K for aluminium, ≈44 K for water), not the flat ~100 K this row used to claim. Seconds per unit is then forced by whichever diffusivity is transporting. Every panel shows which factor was chosen and which were forced, and the SCALE report names the dimensionless groups the model does <i>not</i> match</td></tr>
       <tr><td>Lewis number α/D (the load-bearing mismatch)</td><td><b>not matched, and it cannot be</b> — a real alloy separates heat and solute by four orders of magnitude; one explicit grid at one timestep cannot carry both. With the solute anchor the temperature field diffuses far too slowly, so read it as the imposed macroscopic temperature rather than real heat conduction at this scale. That is the direction a micro-scale casting model errs in anyway, and it is reported rather than hidden</td></tr>
       <tr><td>Tip radius, tip velocity, arm spacing</td><td><b>shapes under the default solver, predictions under the calibrated one.</b> Kobayashi has no calibrated surface energy, so there is no length to compare a tip radius against; the calibrated solver derives W<sub>0</sub> from the material's own d<sub>0</sub> and reproduces the published 2D solvability tip velocity to 1.2 % and the parabolic tip radius to 4.4 %</td></tr>

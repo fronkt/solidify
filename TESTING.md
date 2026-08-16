@@ -24,7 +24,8 @@ and `verify-porosity.mjs`, the arithmetic halves of the lab's cooling-curve anal
 fade and Sievert gas porosity — bringing the CI-runnable set to five at the time (v7.0's
 `verify-rng.mjs` and `verify-experiment.mjs` have since made it seven, v7.1 P0's
 `verify-phasedata.mjs` eight, v7.1 P1's `verify-alloy.mjs` nine, v7.1 P2's
-`verify-phasediagram.mjs` ten and v7.1 P3's `verify-regimes.mjs` eleven). They run first in the
+`verify-phasediagram.mjs` ten, v7.1 P3's `verify-regimes.mjs` eleven and v7.1 P4's
+`verify-elements.mjs` twelve). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
 GPU half is not worth starting.
 
@@ -40,10 +41,10 @@ move.
 `--use-angle=swiftshader` software-rendering path the scripts themselves fall back to for
 GPU-less environments. **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
-only the OS-agnostic steps — typecheck, build, and the eleven browser-free scripts
+only the OS-agnostic steps — typecheck, build, and the twelve browser-free scripts
 (`verify-units.mjs`, `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
 `verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
-`verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`; see
+`verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`; see
 `.github/workflows/ci.yml`) — rather than
 this suite. If you want to run the physics/UI verification yourself, do it locally.
 
@@ -171,7 +172,7 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   required present. `PD-CONSTRUCT-AGREE` and `PD-VANTHOFF-CROSSCHECK` are the two gates v7.1
   P0 specified and deferred; both pin per-row baselines rather than bands, because the spreads
   were measured first and are too wide for a band to assert anything. `PD-DOC-CALIBRATION`
-  recomputes the twelve numbers `science/index.html` quotes about the calibration — 4340's
+  recomputes the twenty-five numbers `science/index.html` quotes about the calibration — 4340's
   1504 K default and its 78 K poured range, A356's 303 K interval against its 35 K real primary
   range and the 8.7x ratio between them, the 53 wt% reference liquid against the 12.6 wt%
   eutectic, A356+TiB's −0.59 — and requires each to appear in the prose as written, the same
@@ -241,6 +242,65 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   with a named refusal rather than being rejected whole, and requires a malformed weight to be
   rejected whole rather than silently reduced — which is how the `#alloy=al:Si1.2.3` defect was
   found, where `parseFloat` returned 1.2 and the link restored a silent 1.2 wt% Si.
+- **`verify-elements.mjs`** (browser-free, v7.1 P4) — the 118-element table and the tier
+  classifier. Six checks, and the module load is guarded so all six REPORT on a tree where
+  `src/elements.ts` does not exist; P3 learned that an unwrapped call inside a gate kills the
+  file with zero output, and this found the level above it, in the one place a non-vacuity proof
+  looks. `EL-TABLE-SHAPE` asserts 118 rows in Z order and pins the three patterns that look like
+  data-entry bugs and are not: seven places where the atomic mass FALLS as Z rises (Ar→K, Co→Ni,
+  Te→I, Th→Pa, U→Np, Pu→Am, Bh→Hs — natural-abundance masses against longest-lived-isotope mass
+  numbers), one row whose boiling point is BELOW its melting point (arsenic, which sublimes at
+  887 K and melts at 1090 K only under 3.6 MPa of its own vapour), and two rows with no melting
+  point at all (helium, which needs 2.5 MPa to freeze; carbon, which sublimes). It also asserts
+  the masses `alloy.ts` and `elements.ts` carry for the same element agree to 0.05 g/mol, and
+  ties the radius column to an independent physical quantity: the close-packed-equivalent radius
+  from the density, r = (0.7405·3M/4πρN_A)^⅓, must agree to 2 % for every metal that is actually
+  close-packed. That check exists because this milestone's own review found a defect all six
+  gates missed — the CN8→CN12 correction was applied to the s-block bcc rows and forgotten on the
+  d-block ones, so V, Cr, Nb, Mo, Ta, W and Ra carried the nearest-neighbour radius a·√3/4 while
+  the file's own source string said they did not. Reverting any one of them now fails by 2.8–2.9 %.
+  The ten rows that legitimately miss are pinned by measured value with their structure named
+  (α-Po at 12.7 %, the only simple-cubic element; α-Pu at −6.5 %, the least symmetric metal
+  known; Ga, Sn, Sb, Bi, Mn, Hg, Pa, Am). Densities are gate-local, the same idiom
+  `verify-regimes.mjs` uses for Pb–Sn — a check on the shipped table, not cargo in the bundle.
+  `EL-TIER-TOTAL` drives all 6 × 118 = 708 pairs: exactly one of four tiers each, deterministic,
+  never null, and every non-ASSESSED sentence over 25 characters (the shortest is 186). The
+  distinctness clause counts sentence SKELETONS — base labels, element symbols and every number
+  replaced — because the naive distinct-string count is vacuous when every sentence interpolates
+  its own element: measured on this tree it is 488 of 708, and it would pass a file that said
+  "X is not available in Y" seven hundred times. There are 22 skeletons, and no two REASONS may
+  share one, because a refusal naming the wrong mechanism is a wrong statement rather than an
+  absent one. Liveness runs both ways: all four tiers non-empty, every base admitting something,
+  and the ASSESSED count equal to the number of pairs holding both a cited `Solute.source` and a
+  `phasedata` row — 25, computed rather than written. Every one of the 708 is then driven through
+  `derive()` as well, and ASSESSED must hold if and only if the pour is accepted, so an admission
+  and a pour cannot drift apart. `EL-TROUTON-CROSSCHECK` checks the vaporisation data against a
+  physical law instead of against itself. The fixed-point check originally planned for this slot
+  was a tautology — p(T_b) = exp(0) = 1 atm for ANY enthalpy — so a zinc row carrying 11.5 kJ/mol
+  instead of 115 would have passed it while turning 59 atm over liquid iron into 1.5 and
+  reversing what the number teaches. ΔH_vap/T_b must sit in Trouton's 85–110 J/mol·K window;
+  53 of the 96 rows carrying both fields legitimately do not, and each is pinned BY VALUE to
+  ±1.5 and required to explain itself with a `TROUTON:` clause in its own source string, so the
+  enumeration cannot rot into an unread allow-list. `EL-VAPOUR-ADVISORY` pins the four foundry
+  tripwires — Zn 59 atm over liquid Fe, Mg 16, Mn 0.037, Hg 39 over liquid Al — measured on this
+  tree and each reproducing the literature value the milestone plan quoted before any of it was
+  written. The direction that would be a bug is asserted too: applied as a REFUSAL this rule
+  refuses brass, so Cu–30Zn must compute above one atmosphere, must stay ASSESSED, and its line
+  must name the activity coefficient the app does not have. Bands are asserted at the composition
+  each claim is about — pure zinc into a charge BOILS, 1 wt% dissolved is a FUME — which is a
+  distinction the first draft of the gate got wrong. `ALLOY-MOVES-THE-PHYSICS` replaces the
+  deleted bundle-delta metric: every assessed pair at its own probe composition must move the
+  UNCLAMPED liquidus by at least 0.5 K (half the measured minimum of 1.0 K) with a finite Q, and
+  beside it a named CLAMP-SWALLOWS report lists every pair the shipped c0 floor and mLiq clamp
+  make invisible to the solver. Two are — Al–Ti and Mg–Zr, both grain refiners, which move the
+  liquidus 2.3 K and 2.0 K and the growth restriction factor 18.4 K and 11.0 K while moving c0,
+  mLiq and kPart by exactly 0.0000. That is a finding printed rather than a gate that cannot go
+  green. `EL-DOC-CLAIMS` gates this milestone's prose in the commit that writes it, on
+  `PD-DOC-CALIBRATION`'s mechanics one layer over: sixteen claims recomputed from the modules and
+  required to appear in `science/index.html`, with HTML tags stripped and typographic dashes
+  flattened first so the gate cannot fail on typography, and with no claim allowed to be a bare
+  small integer — "the ceiling binds for 5 pairs" is satisfied by any document containing the
+  character 5, a lesson this repo wrote down at P3.
 - **`verify-phasediagram-gpu.mjs`** (v7.1 P2) — `PD-CURSOR-LIVE`, the cursor against a real cast.
   Its own file, and that is the point: written inside `verify-quant.mjs` first, it could not pass
   there, because every QPF-* block above it stages the solver by writing `frozenT`, `dx` and `dt`
@@ -618,9 +678,9 @@ spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 
 that evidence recorded in the constant's own docblock. The drift prints on every run, and
 `HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
-`npm run build` (Vite + `tsc`) plus the eleven browser-free scripts — `verify-units.mjs`,
+`npm run build` (Vite + `tsc`) plus the twelve browser-free scripts — `verify-units.mjs`,
 `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
 `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
-`verify-alloy.mjs`, `verify-phasediagram.mjs` and `verify-regimes.mjs` — are the checks
-anyone on any OS can run
+`verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs` and
+`verify-elements.mjs` — are the checks anyone on any OS can run
 without a GPU, and are what CI actually gates on (`.github/workflows/ci.yml`).
