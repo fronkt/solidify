@@ -134,6 +134,19 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   cited invariants, the pour pinned at the melt's own liquidus with the residual from the other
   solutes labelled, a second dashed line wherever a model clamp moved the depression the solver
   integrates, and a live cursor that is absent rather than zero when there is no melt to read.
+  v7.1 P3 adds the two columns the drawing exists for — **phases equilibrium predicts** against
+  **phases this solver grows**, which is always exactly one — with the share that freezes at the
+  invariant printed for a eutectic (A356: 49 % by the lever rule, 51 % by Gulliver–Scheil, and
+  none of it grown here) and refused for a peritectic, where the share that freezes at the
+  invariant is not the liquid fraction there. What a peritectic prints instead is sharper:
+  1045 steel's carbon is past the peritectic's own product composition, so L + δ → γ consumes the
+  δ-ferrite entirely and the casting ends as austenite — the phase this solver grows is not in
+  the frozen casting at all. Below the solubility limit the readout still gives Gulliver–Scheil
+  its say, because a dendritic solidifier that called AZ91 single-phase would be hiding the
+  11.9 % β-Mg17Al12 that is its textbook as-cast constituent. The composition ceiling now comes
+  from the diagram rather than from a hand-picked
+  slider bound, which removes cast iron: Fe–C stops at 0.52 wt% C against a 0.53 wt% peritectic,
+  past which the primary phase is austenite and this solver grows δ-ferrite.
 - **Twinning** — stochastic growth twins nucleate at the front in twin registry (θ₀ + π/j) and
   must out-grow their parent to survive, like real feathery grains in aluminum DC casting;
   Shift+click stamps a twinned seed pair — in hexagonal mode that grows the rare

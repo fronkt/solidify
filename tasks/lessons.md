@@ -78,3 +78,74 @@ bad input is NAMED, drive at least one input that the guard is likely to let thr
 only inputs it obviously rejects — otherwise the gate tests the happy path of the guard. Pair it
 with an assertion that no non-finite number escaped into the returned bundle, so naming and
 containment are checked separately.
+
+## A gate that cannot run reports nothing, which looks exactly like a gate nobody wrote
+
+**What happened:** `verify-regimes.mjs` was pointed at the pre-P3 tree to prove it was not
+vacuous — the check every gate in this arc is held to. It printed **zero lines**. Not five
+failures: nothing. The first unwrapped call to `PD.shortPhase`, which does not exist on that
+tree, threw at the top level of the first block and took the remaining four gates with it. The
+run *looked* like a script that had not been added to CI yet, and the exit code was the only
+evidence anything had happened at all. v7.1 P1 had already learned the driver-level version of
+this — `derive()` threw on an unknown base, so `ALLOY-REFUSE-NAMED` wrapped each driver in
+try/catch — and the block-level version was still open.
+
+**Rule:** in a verification script, wrap each named gate in its own try/catch that reports a
+FAIL carrying the exception. A gate's job is to produce a verdict; an exception is the absence of
+one, and absence is indistinguishable from success in a log nobody reads twice. Then check the
+stronger property: at least one clause per gate should be expressible WITHOUT the exports the
+milestone adds, so pointing it at the old tree fails for a reason about BEHAVIOUR rather than
+about a missing symbol. `PD-CAP-CEILING` states its postcondition over `derive()` alone and
+reports "33.2 wt% Cu survived into the derivation" on all 25 pairs; "soluteBound is not a
+function" would have proven only that the function is new.
+
+## An assertion that a document contains a small integer is not a gate
+
+**What happened:** the v7.1 P3 prose says the derived ceiling binds for five of the twenty-five
+pairs, and the doc gate was handed that count as a claim: recompute 5 from the table, require the
+page to contain `"5"`. It passed. It would also have passed against `"35 wt%"`, `"1045 steel"` and
+`"0.5"` — the page cannot fail it. Sitting in a list of twenty other claims that genuinely bind,
+it read as one more measured fact.
+
+**Rule:** a doc claim earns its place only if its appearance in the text is EVIDENCE. Strings like
+`"0.52 wt%"`, `"577 °C"` and `"49 %"` are; a bare small integer, a single word, or a number that is
+a substring of common values is not. When the fact is worth gating but the string is not specific
+enough, gate it where it is specific — against the table, in the module's own gate — rather than
+weakening the doc gate to accommodate it.
+
+## A classification and a bound are different things, and one repair can switch the other off
+
+**What happened:** v7.1 P3's review found that `phasesFor` narrated `ni-W` — the one row
+`phasediagram.ts` refuses to draw, because its own numbers say both that the liquidus rises and
+that the liquid is the richer phase — with confident phase names and a lever fraction. The fix
+was obvious: apply the same geometric test to the CLAIM that P2 applied to the picture. That
+repair immediately opened a worse hole. `derive()`'s composition ceiling asked
+`phasesFor(...).regime === "PAST-THE-INVARIANT"` to decide whether to refuse a weight, so a row
+that now refused to be classified at all also stopped having a ceiling, and 45 wt% tungsten
+walked into the melt through the gap the repair had just made.
+
+**Rule:** when a function starts refusing to answer, find every caller that was reading its
+answer as a *decision* rather than as a *description*. A composition bound and a phase claim are
+different questions about the same row, and only one of them was in doubt: the invariant liquid
+is still the composition past which the instrument cannot say what freezes first, whatever else
+the row gets wrong. Derive the bound from the datum (`soluteBound` reads `row.Cinv`), not from
+the narrator. The general shape: a guard built on top of an interpretation inherits every
+refusal that interpretation ever learns to make.
+
+## Convergence across independent reviewers is the signal; a lone finding is a lead
+
+**What happened:** six review lenses ran over the v7.1 P3 diff without seeing each other's
+output and returned 44 findings. Four of the six independently reported the same defect — that a
+reactant-peritectic's two-phase end state is false above the reaction's product composition, and
+that both shipped steel presets print it. It was the single most serious thing in the milestone,
+it had passed five of my own new gates, and I had verified the branch by hand and believed it
+correct. Roughly two-thirds of the other findings did not survive their refuters.
+
+**Rule:** weight a finding by how many independent lenses reached it, not by how confidently any
+one of them argued. Convergence means the defect is visible from several directions, which is
+exactly what a defect in the *claim* rather than in the *code* looks like — every lens can read
+the printed sentence, and no gate can, because the gate was written by the same person who wrote
+the sentence. And when review does find something that survives, check whether the milestone's
+own plan already asked for it: this one had ("regime I is honest about itself: equilibrium says
+single-phase, Scheil says a real fraction freezes as eutectic anyway"), and the implementation
+had quietly dropped half the requirement.

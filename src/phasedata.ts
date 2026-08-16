@@ -33,7 +33,7 @@
 // quoting a retired invariant fails the build rather than sitting there wrong.
 
 /** Bump on any row change. Quoted by science/index.html and README.md. */
-export const PHASE_TABLE_VERSION = "1.0.1";
+export const PHASE_TABLE_VERSION = "1.1.0";
 
 export type InvariantKind = "eutectic" | "peritectic" | "isomorphous";
 
@@ -51,12 +51,83 @@ export interface BinaryRow {
   Cinv: number | null;
   /** max solid solubility in the base-rich primary phase, wt% solute */
   Csm: number | null;
+  /**
+   * The composition of the second phase itself, wt% solute (v7.1 P3).
+   *
+   * CARRIED ONLY WHERE IT DECIDES A CLAIM THIS APP PRINTS, which is the
+   * peritectic rows whose base solid is a REACTANT. There the reaction consumes
+   * the primary the solver grows, and WHETHER ANY OF IT SURVIVES depends on
+   * this number and nothing else: a melt leaner than the product retains some
+   * primary, a melt richer than it ends with none. Fe–C is the case that
+   * matters — L(0.53) + δ(0.09) → γ(0.17) — because 1045 at 0.45 wt% C and
+   * 4340 at 0.40 both sit ABOVE the product, so their δ-ferrite is entirely
+   * consumed and the casting ends as austenite alone. Without this field the
+   * app printed "(Fe) beside gamma-austenite" for both, which is false.
+   *
+   * `null` means THIS ROW DOES NOT CARRY IT, not that the phase has no
+   * composition. Every value here is transcribed from the same cited sentence
+   * that row's own `second` and `source` fields already state; a row whose
+   * literature value is a bracket rather than a number is left null and says so
+   * (Fe–Ni), and the eutectic rows are null because the classifier never
+   * consults it for them — for a eutectic the two solids appear together and no
+   * reaction consumes either one. Filling in the remaining rows is data entry
+   * with its own audit and is deliberately not done half-way here.
+   */
+  Csecond?: number | null;
   /** the reaction as written, e.g. "L + δ → γ"; empty for isomorphous */
   reaction: string;
   /** name of the second phase, e.g. "θ-Al2Cu"; EMPTY for isomorphous */
   second: string;
   /** where these numbers came from, and anything that makes the row tricky */
   source: string;
+}
+
+/**
+ * The first token of a `second` field, for a phase name on a figure or in a
+ * readout. The strings are written for a reader — "theta-Al2Cu (CuAl2, tI12,
+ * C16)", "(Si) diamond cubic, elemental silicon (cF8)" — so a plain split on
+ * separators returns an empty string for every one that starts with a
+ * parenthesised symbol.
+ *
+ * It lives HERE rather than in phasediagram.ts, where v7.1 P2 first wrote it,
+ * because v7.1 P3 names phases in `alloy.ts` too and phasediagram.ts already
+ * imports alloy.ts. A helper about this file's own data belongs beside it, and
+ * the alternative was an import cycle.
+ */
+export function shortPhase(second: string): string {
+  const t = second.trim();
+  const m = /^\(?[A-Za-z0-9αβγδθηπ'_-]+\)?/.exec(t);
+  if (!m) return t.slice(0, 12);
+  // A BARE SINGLE-LETTER token is a real phase name in this table — Fe–Mo's
+  // second phase is literally the R phase — but "R" on its own names nothing a
+  // reader can look up, and "(Fe) + R" under a diagram is a worse label than no
+  // label. A bare one-character phase therefore keeps the word after it.
+  //
+  // PARENTHESES ARE THE TEST, and the first version of this rule stripped them
+  // before measuring the length, which caught Ni–W's "(W) bcc terminal solid
+  // solution" as well and relabelled it "(W) bcc". A parenthesised symbol is
+  // already a complete phase name by the convention this table writes in —
+  // (Al), (Si), (Cr), (W) — so it needs no help, and the docblock's claim that
+  // one row changed was written from a measurement taken BEFORE the rule
+  // existed. Re-measured after it: 23 rows carry a `second` (25 pairs less the
+  // two isomorphous ones), and exactly one, fe-Mo, is changed by this branch.
+  if (!/[()]/.test(m[0]) && m[0].length <= 1) {
+    const two = /^\(?[A-Za-z0-9αβγδθηπ'_-]+\)?\s+[A-Za-z]+/.exec(t);
+    if (two) return two[0];
+  }
+  return m[0];
+}
+
+/**
+ * The reaction as a reader should see it, with this table's own curator notes
+ * cut off. `reaction` carries square-bracketed annotations written for whoever
+ * audits the row next — "L + alpha (Cu, fcc A1) -> beta (bcc A2)   [base solid
+ * is a REACTANT]" — and v7.1 P3 started interpolating that field into prose the
+ * app prints, which shipped the annotation to the screen with it. The bracket
+ * is where the row stops talking to a user and starts talking to an auditor.
+ */
+export function reactionText(row: BinaryRow): string {
+  return row.reaction.split("[")[0].trim().replace(/\s+/g, " ");
 }
 
 /** BINARY[baseKey][elementSymbol] — keys match BASES in alloy.ts exactly. */
@@ -108,14 +179,14 @@ export const BINARY: Record<string, Record<string, BinaryRow>> = {
   fe: {
     C: {
       invariant: "peritectic",
-      Tinv: 1495, Cinv: 0.53, Csm: 0.09,
+      Tinv: 1495, Cinv: 0.53, Csm: 0.09, Csecond: 0.17,
       reaction: "L + delta -> gamma",
       second: "gamma-austenite (fcc Fe-C solid solution), the peritectic PRODUCT, at 0.17 wt% C",
       source: "Okamoto, 'The C-Fe (Carbon-Iron) System' ASM phase-diagram evaluation: T_p = 1493 C with delta 0.09 / gamma 0.17 / L 0.53 wt% C ('maximum C in delta-ferrite is 0.09% at 1493 C'). Cross-check: Alves, Rezende, Senk & Kundin, J. Mater. Res. Technol. 2018 (open access), Table 3, from Thermo-Calc TCFE7: C_delta = 0.093, C_gamma = 0.172, C_liquid = 0.528 wt% C, T_p = 1495 C. TRAP HANDLED EXPLICITLY: this is the DELTA-FERRITE PERITECTIC at ~1495 C, NOT the 1147 C / 4.30 wt% C eutectic L -> gamma + Fe3C cementite. A dilute Fe-C alloy (below ~0.51 wt% C) finishes freezing on this 1495 C horizontal, so… Independently recomputed from MatCalc mc_fe v2.062 through pycalphad 0.11.2: 1494.6 °C / 0.53 wt% / C_SM 0.09 wt% (docs/PHASE-AUDIT.md).",
     },
     Mn: {
       invariant: "peritectic",
-      Tinv: 1473, Cinv: 12.3, Csm: 8.9,
+      Tinv: 1473, Cinv: 12.3, Csm: 8.9, Csecond: 10.1,
       reaction: "L + delta -> gamma",
       second: "gamma-austenite (fcc Fe-Mn solid solution), the peritectic PRODUCT, at 10.1 wt% Mn",
       source: "Alves, Rezende, Senk & Kundin, J. Mater. Res. Technol. 2018 (open access), Table 2, values from Thermo-Calc TCFE7: Mn in delta 8.9 wt%, Mn in gamma 10.1 wt%, Mn in liquid 12.3 wt%, T_p = 1473 C; quoted k_delta = 0.724, k_gamma = 0.821. The primary assessment (Witusiewicz, Sommer & Mittemeijer, 'Reevaluation of the Fe-Mn phase diagram', J. Phase Equilib. Diffus. 25 (2004) 346) could not be opened;… DOWNGRADED FROM cited-found TO disputed. Geometry is a proper peritectic and SATISFIES the expected ordering (8.9 < 10.1 < 12.3, k < 1). But only ONE numeric source exists in this dataset - a single CALPHAD/TCFE7 table - and… Independently recomputed from MatCalc mc_fe v2.062 through pycalphad 0.11.2: 1473.6 °C / 12.72 wt% / C_SM 9.80 wt% (docs/PHASE-AUDIT.md).",
@@ -129,7 +200,7 @@ export const BINARY: Record<string, Record<string, BinaryRow>> = {
     },
     Ni: {
       invariant: "peritectic",
-      Tinv: 1517, Cinv: 12.426, Csm: 4,
+      Tinv: 1517, Cinv: 12.426, Csm: 4, Csecond: null,
       reaction: "L + delta -> gamma",
       second: "gamma-austenite (fcc Fe-Ni solid solution), the peritectic PRODUCT, at ~4.2-4.7 wt% Ni",
       source: "PARTLY CALPHAD-SOURCED: no cited value was found for the invariant liquid composition on this row, so that field is the MatCalc mc_fe v2.062 assessment via pycalphad 0.11.2 rather than a handbook reading; the remaining fields are cited. C_SM and T: Landolt-Boernstein binary summary for Fe-Ni, derived from Swartzendruber, Itkin & Alcock, 'The Fe-Ni (iron-nickel) system', J. Phase Equilib. 12 (1991) 288-312: '(delta-Fe) dissolves 3.8 at.% Ni at 1517 C' = 3.99 wt% Ni. Bracketing of the gamma point: Phelan, Reid & Dippenaar, Metall. Mater. Trans. A 34 (2003) 1931 call Fe-4.2 wt% Ni HYPOperitectic and Fe-4.7 wt% Ni HYPERperitectic. C_inv DELIBERATELY NULL - NOT A LAZY GAP. I re-attempted this during consolidation: Swartzendruber 1991, Cacciamani et al. Intermetallics 14 (2006) 1312, and the ASM Fe-Ni evaluation are all inaccessible (403/paywall), and the…",
@@ -219,14 +290,14 @@ export const BINARY: Record<string, Record<string, BinaryRow>> = {
   cu: {
     Sn: {
       invariant: "peritectic",
-      Tinv: 797.85, Cinv: 25.52, Csm: 13.48,
+      Tinv: 797.85, Cinv: 25.52, Csm: 13.48, Csecond: 21.97,
       reaction: "L + alpha (Cu, fcc A1) -> beta (bcc A2)   [base solid is a REACTANT]",
       second: "beta -- disordered bcc (A2) Cu-rich intermediate solid solution at 21.97 wt% Sn, often written Cu17Sn3 or ~Cu5Sn (orders to D0_3 gamma on cooling); NOT a line compound",
       source: "Saunders & Miodownik, 'Cu-Sn (Copper-Tin)', in Phase Diagrams of Binary Copper Alloys, ASM, 1994, pp. 412-418 (same assessment in Massalski 2nd ed. vol.2, pp. 1481-1483), as tabulated in Table 2 ('Assessed results [16]') of Li, Franke, Fuertauer, Cupid & Flandorfer, 'The Cu-Sn phase diagram part II: New thermodynamic assessment', Intermetallics 34 (2013) 148-158, full text read: alpha + L <->… Expected ordering for this peritectic class: C_SM < C_second < C_inv, i.e. 13.48 < 21.97 < 25.52 - SATISFIED, k = 0.53. Source is in MOLE FRACTION; conversions (M_Cu 63.546, M_Sn 118.710) verified independently by me and… Independently recomputed from NIST solder (Kattner) through pycalphad 0.11.2: 796.0 °C / 26.76 wt% / C_SM 14.30 wt% (docs/PHASE-AUDIT.md).",
     },
     Zn: {
       invariant: "peritectic",
-      Tinv: 903, Cinv: 37.46, Csm: 32.52,
+      Tinv: 903, Cinv: 37.46, Csm: 32.52, Csecond: 36.76,
       reaction: "L + alpha (Cu, fcc A1) -> beta (bcc A2)   [base solid is a REACTANT]",
       second: "beta -- bcc A2 solid solution near equiatomic CuZn at 36.76 wt% Zn (orders to beta' CsCl/B2 below ~454-470 C); NOT a stoichiometric compound at 903 C",
       source: "Miodownik, 'Cu-Zn', in Phase Diagrams of Binary Copper Alloys, ASM, 1994 (ref. [43]), as tabulated in Table 7 of Tang, Ma, Han, Wang, Qi & Jin, 'Critical Evaluation and Thermodynamic Optimization of the Cu-Zn, Cu-Se and Zn-Se Binary Systems', Metals 12 (2022) 1401, full text read: 'Liquid + fcc_A1 <-> beta(bcc_A2), Peritectic, 903 C, composition (Zn at.%): 36.8 / 31.9 / 36.1'. Expected ordering: C_SM < C_second < C_inv, i.e. 32.52 < 36.76 < 37.46 - SATISFIED, k = 0.868. Conversions verified. NASTY COINCIDENCE TO GUARD AGAINST: '36.8' is the liquid in at.% AND the beta phase in wt.% - the two scales… Independently recomputed from MatCalc mc_al v2.037 through pycalphad 0.11.2: 902.2 °C / 38.00 wt% / C_SM 32.39 wt% (docs/PHASE-AUDIT.md).",

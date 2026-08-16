@@ -371,6 +371,71 @@
     resolved here, so nothing is invented: the row keeps the numbers as read from the ASM figure,
     records the contradiction in its own source, and the figure declines to draw it.</p>
 
+    <p><b>Which phases, and which of them are actually grown.</b> A diagram is only worth drawing
+    if it answers the question a founder asks first: at THIS composition, what does equilibrium
+    leave when the casting is frozen? The composer answers it in two columns, and the milestone is
+    the gap between them. PHASES EQUILIBRIUM PREDICTS is read off the cited invariants; PHASES
+    THIS SOLVER GROWS is always exactly one, the base-rich primary, because <code>sim.ts</code>
+    and <code>sim3d.ts</code> carry one φ field and one solid phase. A356 at 7 wt% Si is past the
+    1.65 wt% that dissolves in (Al), so equilibrium ends it as (Al) + (Si) and the lever rule puts
+    49 % of the casting through the 577 °C eutectic — Gulliver–Scheil, which assumes a constant
+    partition and no back-diffusion into the solid, says 51 %. This solver grows none of it. Both
+    closed forms use the row's own chord partition k = C<sub>SM</sub>/C<sub>inv</sub> rather than
+    the shipped dilute k, and both numbers are printed. For a PERITECTIC the phase is named and
+    the number is <b>refused</b> — and the reason is a property of the quantity, not of the
+    tools. At a eutectic every drop of liquid remaining at T<sub>inv</sub> freezes there, so the
+    liquid fraction IS the share that freezes at the invariant. At a peritectic the reaction
+    consumes only part of that liquid and the rest freezes BELOW T<sub>p</sub> on the product's
+    own solidus, which makes the share a difference of two lever arms this table cannot close.
+    (An earlier draft of this paragraph said the lever rule and Gulliver–Scheil "do not describe
+    a peritectic". That is false on both halves — the lever rule is a tie-line mass balance that
+    knows nothing about reaction type, and Scheil is the standard tool for hypo- and
+    hyper-peritectic steel — and by this project's own rule a refusal that names the wrong
+    mechanism is a wrong statement rather than an absent one.) What the app <i>does</i> print for
+    a peritectic is sharper than a fraction. 1045 steel's 0.45 wt% C is past the 0.09 wt% that
+    dissolves in δ-ferrite, so a second phase is coming; and it is also past <b>0.17 wt%, the
+    composition of the reaction's own product</b>, so L + δ → γ consumes the δ-ferrite entirely
+    and the casting ends as austenite alone — while this solver grows δ-ferrite from the first frame to the last.
+    Its two columns read <code>gamma-austenite</code> against <code>(Fe)</code>. A melt leaner
+    than that product keeps some δ and the readout says so instead; Fe–Ni's product composition
+    is a bracket in the literature rather than a number, so that row declines to decide. The
+    regimes are deliberately not called <i>hypoeutectic</i>: seven of the shipped rows are
+    peritectics and the word would be false for all of them. One honest consequence, printed
+    rather than hidden: the maximum solid solubility in this table is quoted AT the invariant
+    temperature and there is no solvus below it, so whatever precipitates on further cooling is
+    outside both the drawing and the solver.</p>
+
+    <p><b>And equilibrium is not the only thing with an opinion below the solubility limit.</b>
+    A melt leaner than C<sub>SM</sub> freezes single-phase only if the solid keeps up by
+    diffusion. Gulliver–Scheil assumes it does not, and it is defined on that side of the
+    boundary too — with no back-diffusion the last liquid between the arms still enriches to the
+    invariant, however lean the melt started. So the readout prints both: <b>AZ91 at 9 wt% Al is
+    inside Mg–Al's 12.9 wt% equilibrium limit, and Scheil puts 11.9 % of that casting through the
+    437 °C eutectic as β-Mg<sub>17</sub>Al<sub>12</sub></b> — which is the textbook as-cast
+    constituent of AZ91, and which this solver grows no more than it grows the equilibrium one.
+    AA2024's copper gives 8.8 % and the galvanising bath's aluminium 1.5 %. Below 1 % of the
+    casting the app stops calling it a phase, and that floor is not roundness: the two tables
+    this app ships disagree about k by ratios from 0.68 to 3.30, so a predicted fraction of a few
+    thousandths is smaller than the coefficients can support. Leaving this out would have been
+    the one place the two-column device failed to fire — on a dendritic-solidification simulator,
+    where non-equilibrium freezing is the entire subject.</p>
+
+    <p><b>And the composition ceiling now comes from the diagram.</b> Each solute used to carry a
+    hand-picked slider maximum doing two jobs at once — an ergonomic, and the only thing standing
+    between a user and a melt whose first phase this solver cannot grow. It keeps the first job.
+    The second is derived: past the invariant liquid the FIRST solid to appear is no longer the
+    base-rich one, so that composition is refused inside <code>derive()</code>, where a hand-built
+    <code>#alloy=</code> link and <code>window.__solidify.alloy</code> cannot walk around it, with
+    the phase and the number named. Measured against the table, the hand-picked cap reached past
+    the invariant for five of the twenty-five pairs — and one of them, Zn–Al, had its slider
+    maximum sitting exactly ON the eutectic at 5 wt%. <b>Cast iron therefore leaves the
+    composer.</b> Fe–C stops at 0.52 wt% C against the 0.53 wt% peritectic: past it the primary
+    phase is austenite, and this app models the steel as bcc δ-ferrite, so what it drew for a
+    3 wt% C melt was not an approximation of cast iron but a different casting altogether. 1045
+    and 4340 are unaffected at 0.45 and 0.40 wt% C. Existing deep links are never rejected for
+    this — they restore, clamp to the ceiling, and say so on the same channel the clamps and
+    refusals already use.</p>
+
     <p>What it is checked against, and what it measured:</p>
     <table>
       <tr><th>TEST</th><th>AGAINST</th><th>RESULT</th></tr>

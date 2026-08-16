@@ -2759,7 +2759,7 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
         entries for both new scripts and for `PD-SLOPE-CONSISTENT`. `README.md`'s composer bullet
         gains the figure.
 
-- [ ] **P3 — three regimes, a ceiling that comes from the diagram, and the invariant fraction the solver will never grow.**
+- [x] **P3 — three regimes, a ceiling that comes from the diagram, and the invariant fraction the solver will never grow.**
       Where "adhere to alloy design of course" stops being a slider max and becomes derived physics. The hand-picked `cap` becomes what it always was — a slider bound — and the ceiling moves **inside `derive()`**, where the `window.__solidify.alloy({base:'al', wt:{Si:50}})` hook that `verify-tools.mjs:538` uses cannot walk around it. `derive()` does no cap check at all today.
       - **`regimeOf(base, el, wt)` returns type-neutral regimes, and the invariant type is load-bearing.** SINGLE-PHASE (c ≤ Csm) · TWO-PHASE-TERMINATION (Csm < c < Cinv) · PAST-THE-INVARIANT (c ≥ Cinv) · SINGLE-PHASE-ALL-COMPOSITIONS (isomorphous rows, no invariant, no Csm). The regimes are **not** called HYPOEUTECTIC, because P0 enters Fe–C, Cu–Sn, Cu–Zn, Al–Ti and Mg–Zr as peritectics and the label would be false for all of them.
       - **The invariant fraction is printed only for eutectic rows, and the formula is the corrected one.** Equilibrium lever f = (c0 − Csm)/(Cinv − Csm); Gulliver–Scheil f_E = (Cinv/c0)^{1/(k−1)}. For a peritectic row the panel prints the reaction and the phase by name and **refuses the fraction** — "L + δ → γ at 1495 °C; this instrument does not model a peritectic reaction and will not put a number on it" — the same shape as the 3D panel declining to print d_lim. Both assumptions behind Scheil (constant k, zero solid back-diffusion) are printed in the panel, not only on the science page. Regime I is honest about itself: equilibrium says single-phase, Scheil says a real fraction freezes as eutectic anyway, and this solver grows neither.
@@ -2769,6 +2769,213 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
       - **Gates.** `PD-REGIME-EXACT` (browser-free) — for every row with an invariant, c = Csm ∓ 1e-9 and Cinv ∓ 1e-9 classify on both sides; across the Cinv boundary the NAME of the primary solidifying phase differs, with both names asserted non-empty and drawn from the row's own fields so two empty strings cannot pass as "different"; isomorphous rows take the SINGLE-PHASE-ALL-COMPOSITIONS branch and that branch is asserted exercised by ≥ 1 row. Not "A356 comes out two-phase", which one hardcoded branch satisfies. `PD-INVARIANT-BAND` (browser-free) — both closed forms recomputed inside the gate to 1e-9, then their ordering invariant: for every eutectic row with k < 1, lever ≤ Scheil at every sampled c in (Csm, Cinv); endpoints lever → 0 and Scheil → (Cinv/Csm)^{1/(k−1)} > 0 at c = Csm, both → 1 at c = Cinv. Peritectic rows are asserted EXCLUSIONS that emit a named refusal, so a predicate that silently swallowed them cannot pass. Anchored on Pb–Sn (61.9 wt% Sn, 183 °C) carried as **gate-local test data**, not as a `phasedata.ts` row — Pb is not a base and a row there would break PD-ROW-SOURCED's bijection. Liveness: the A356 band is non-degenerate and both bounds lie strictly in (0,1). `ALLOY-PHASES-NAMED` (browser-free) — both polarities over the 9 presets: every preset above its Csm emits exactly one non-empty `notGrown` line per over-solubility solute containing that row's own `second` token; every preset below emits none; the lines are DISTINCT as a set. Liveness: at least one preset lands in each of the first two regimes, or the classifier is a constant function. `PD-CAP-CEILING` (browser-free) — no composition at or past Cinv is reachable by any route (slider, share link, or the `__solidify.alloy` hook), and `derive()` itself refuses, naming the primary phase and the number. The four measured defects are pinned as named regression cases: Fe–C cap 2 vs 0.53, Al–Fe cap 2 vs eutectic 1.7, Al–Ti cap 0.5 vs peritectic 0.15, Mg–Zr cap 0.8 vs peritectic 0.6. Liveness: all 9 presets still pour — 1045 at 0.45 C and 4340 at 0.40 C sit under the 0.53 peritectic, A356+TiB's Ti at 0.12 under 0.15 — so a ceiling that refused everything cannot pass. `ALLOY-SHARE-CLAMP` (browser-free) — a corpus of pre-arc links round-trips to a restorable mix; over-ceiling links restore clamped **with** a named refusal present; malformed input is rejected whole with a named reason rather than silently reduced (closing `alloy.ts:199,201`).
       - **Risks.** Tightening Fe–C from 2 wt% to a refusal above 0.53 wt% **removes cast iron from the composer**. That is correct — the app has no γ and no cementite, and `materials.ts:72` says the steel is modelled as BCC δ-ferrite, so today it draws 4-fold δ dendrites for a melt whose primary phase is FCC austenite. It is an INTENDED break, recorded as one here rather than discovered later as a regression, and the refusal teaches instead of the slider range silently shrinking. The drawn Fe–C figure will still show the 4.3 wt% eutectic that the slider can no longer reach; the figure says so explicitly ("this instrument stops at the peritectic") or it misleads.
       - **Docs.** `science/index.html` gains its two rows **in this commit**, not in P6: the regime row (what the ceiling is derived from, and that cast iron is out of range by construction) and the phases row (read from a diagram, not grown by the solver). P6 is the tour, the front door and the doc gate — not a documentation catch-up bin.
+
+      - **DONE 2026-08-16.** `alloy.ts` gains `phasesFor()`, `soluteBound()` and six new
+        `Derived` fields; the ceiling moved INSIDE `derive()`'s filter, where the
+        `window.__solidify.alloy` hook cannot walk around it; `phasediagram.ts` shades the
+        regime band; the composer prints the two columns. New `scripts/verify-regimes.mjs` is
+        the **eleventh** browser-free CI member. All five of its gates FAIL on the pre-change
+        tree, four of them for reasons about BEHAVIOUR rather than about a missing symbol.
+      - **THE CEILING BINDS FOR FIVE PAIRS, NOT FOUR, AND THE FIFTH IS THE SHARPEST.** The plan
+        named Fe-C (cap 2 against a 0.53 wt% peritectic), Al-Fe (2 against 1.8), Al-Ti (0.5
+        against 0.15) and Mg-Zr (0.8 against 0.58). Measured, there is a fifth: **Zn-Al, whose
+        cap of 5 wt% IS the eutectic composition exactly** - the slider's own maximum sat on the
+        one composition of that axis where the primary phase changes, so dragging it to the end
+        gave a melt whose first solid is the Al-rich phase while the solver grew zinc. All five
+        are pinned as named regression cases; the slider maxima are now 1.75 / 0.14 / 0.52 /
+        0.57 / 4.95, one step below each invariant.
+      - **CAST IRON IS OUT, AS APPROVED, AND THE MARGINS ARE MEASURED.** Fe-C stops at 0.52 wt%
+        C. 1045 and 4340 survive at 0.45 and 0.40, and the liveness clause is that all nine
+        presets still pour - a ceiling that refused everything cannot pass this gate. The
+        tightest margin in the shipped set is **A356+TiB's titanium, 0.03 wt% under its 0.15 wt%
+        peritectic**, then 1045's carbon at 0.08. Those two are what a future tightening breaks
+        first, so `PD-CAP-CEILING` prints them on every run.
+      - **THE BOUNDARY ORDER IS LOAD-BEARING, AND THE OBVIOUS ORDER IS WRONG.** C_inv is tested
+        BEFORE C_SM. For the two rows whose base solid is the peritectic PRODUCT - Al-Ti and
+        Mg-Zr - the invariant liquid is LEANER than the maximum solid solubility (0.15 against
+        1.32; 0.58 against 2.58), so `c > C_SM` is false right through the region where the
+        primary phase has already stopped being aluminium. Classified the other way round those
+        two rows report SINGLE-PHASE for a melt whose first solid is Al3Ti. It also means
+        TWO-PHASE-TERMINATION is structurally unreachable for that class - correct rather than a
+        gap, because their whole two-phase band lies past the invariant - and `PD-REGIME-EXACT`
+        asserts that topology separately instead of skipping the branch.
+      - **TWO DECODER DEFECTS, BOTH FOUND BY WRITING THE GATE'S CORPUS, BOTH REPRODUCED ON THE
+        SHIPPED TREE.** (1) `#alloy=al:Si1.2.3` silently restored **1.2 wt% Si** and said
+        nothing: P1's own comment named "1.2.3" as a token parseFloat mangles and then guarded on
+        `Number.isFinite`, which `parseFloat("1.2.3") === 1.2` sails straight through - the case
+        was named and half-closed. The weight is now validated as a SHAPE, which still accepts
+        everything `encodeMix` mints and everything parseFloat read correctly, including a
+        leading-dot ".5". (2) The payload pattern `[A-Za-z0-9.,]*` **truncated at the first
+        unrecognised character**, so `#alloy=al:Si7%20Mg0.35` matched only "Si7" and the whole
+        magnesium term vanished before the decoder could see it, let alone name it. Captured to
+        the next parameter instead, every term now reaches the shape test and a malformed one is
+        quoted in full rather than as a prefix of itself. Same defect class as the first: an
+        input silently REDUCED rather than named, which is the exact thing P1's refusal channel
+        was built to stop.
+      - **`shortPhase` returned a single letter for one row**, caught by `PD-REGIME-EXACT`'s
+        "both names non-empty" clause: Fe-Mo's second phase is literally the **R phase**, and
+        "R" alone under a diagram - "(Fe) + R" - names nothing a reader can look up. A
+        one-character phase now keeps the word after it. Measured over all 24 rows carrying a
+        `second`, it is the only one that changes.
+      - **THE FRACTION IS PRINTED FOR A EUTECTIC AND REFUSED BY NAME FOR A PERITECTIC.** A356 at
+        7 wt% Si: lever 48.9 %, Gulliver-Scheil 50.9 %, and this solver grows none of it. 1045's
+        0.45 wt% C is past delta-ferrite's 0.09 wt%, so equilibrium ends it as austenite through
+        L + delta -> gamma at 1495 C - and the reaction gets NO number, because the lever rule
+        and Gulliver-Scheil both describe a liquid freezing to two solids and neither describes
+        a liquid and a solid reacting to make a third phase. Both closed forms use the row's own
+        chord partition k = C_SM/C_inv rather than the shipped dilute k, so the two numbers come
+        out of one table rather than two, and the printed string says which.
+      - **`PD-INVARIANT-BAND`'s anchors are INDEPENDENT statements, not the same formula twice.**
+        As k -> 0 the solid takes nothing, so mass balance alone fixes the eutectic share at
+        c0/C_inv, and Gulliver-Scheil must approach it - a transposed exponent does not. The
+        lever rule is linear, so a quarter of the way across the band it is exactly 0.25, which a
+        flipped lever returns as 0.75. Both run on **Pb-Sn** (61.9 wt% Sn, 183 C, 18.3 wt%
+        solubility) as GATE-LOCAL data, because a row for it in `phasedata.ts` would break
+        PD-ROW-SOURCED's bijection - Pb is not a base metal here. Over the app's own 16 eutectic
+        rows the ordering lever <= Scheil holds at all 624 sampled compositions, both monotone in
+        composition, and the five peritectic rows are asserted EXCLUSIONS that refuse the
+        fraction by name, so a predicate that silently swallowed them could not pass.
+      - **Both polarities, over shipped presets — and the census moved once the review landed.**
+        Before it, four presets emitted a `notGrown` line (A356, A356+TiB, 1045, 4340) and five
+        were silent. After the Scheil repair below, **seven emit a line and two do not**: the
+        four above on equilibrium grounds, plus AA2024, AZ91 and the galvanising bath on
+        NON-equilibrium ones, against IN718 (0.008 %, below the floor) and tin bronze (a
+        peritectic row, where the Scheil branch does not apply). Both polarities survive, so
+        neither a classifier stuck on SINGLE-PHASE nor one stuck on TWO-PHASE can pass. Two of
+        the three new lines are worth naming: **AA2024's 4.4 wt% Cu is under Al-Cu's 5.65 wt%
+        equilibrium limit** and **AZ91's 9 wt% Al is under Mg-Al's 12.9 wt%** — so equilibrium
+        genuinely says single-phase, and Gulliver-Scheil says 8.8 % and 11.9 % of a second phase
+        anyway. Both statements are now printed together, which is the honest answer and was the
+        plan's own wording for regime I. The solubility limit is quoted AT the invariant
+        temperature and there is no solvus below it, so what precipitates on further cooling is
+        outside both the drawing and the solver, and the SINGLE-PHASE sentence says exactly that
+        rather than implying the casting is clean.
+      - **`notGrown` rides the caveat channel P1 built**, so it renders OUTSIDE the modal: an
+        `#alloy=` deep link and a `#set=` share link both now carry "roughly 49 % of this casting
+        freezes at the 577 C eutectic and this solver grows none of it" to a recipient who never
+        opens the composer. That is the most important honesty line the composer has - the
+        difference between drawing a diagram and simulating one - and it was the one thing a
+        shared melt could not previously say.
+      - **The slider step changed for exactly one pair, and the comment beside it was wrong until
+        the probe ran.** The bound's step is computed from the SMALLER of cap and ceiling, which
+        for Fe-C moves 0.05 -> 0.01 (a cap of 2 gave it coarse steps; a 0.52 wt% carbon range
+        deserves fine ones, and 1045's 0.45 and 4340's 0.40 both land on a step). The first
+        version of that comment asserted "identical for all twenty-five" from reasoning rather
+        than from measurement, and the measurement contradicted it on the first run.
+      - **Two gate-quality self-catches, both now rules in `tasks/lessons.md`.**
+        `verify-regimes.mjs` produced **zero output** against the pre-change tree: an unwrapped
+        `PD.shortPhase` threw at the top of block one and took the other four gates with it,
+        which in a log is indistinguishable from a gate nobody wrote. Each gate now runs inside
+        its own try/catch, and `PD-CAP-CEILING`'s postcondition is stated over `derive()` alone
+        so that against the old tree it fails with "33.2 wt% Cu survived into the derivation" for
+        all 25 pairs rather than "soluteBound is not a function". And a doc claim was WITHDRAWN
+        before it shipped: "the page contains the number of pairs the ceiling binds" recomputes
+        5 and is satisfied by "35 wt%", "1045 steel" or "0.5" - a claim the page cannot fail.
+      - **A PRE-EXISTING FLAKE, FOUND BY THIS MILESTONE'S SUITE RUN AND NOT CAUSED BY IT.**
+        `STEP3-REGION` in `verify-3d.mjs` failed once with `regionCount 13, cpuCount 13` - the
+        grain SETS agreed and a per-grain voxel count did not. Re-run five times on this tree it
+        passed 5/5, with grain counts of 12, 12, 21, 10 and 19: that block runs an unseeded lab
+        cast with 500 inoculant sites, polls to `fracSolidOpen >= 0.99` rather than 1.0, and then
+        compares a GPU `readRegion` against a CPU recount of a DIFFERENT readback - so the
+        casting is still freezing between the two reads. Nothing in P3 touches sim3d. Recorded
+        rather than fixed: it is a gate timing defect with its own scope, and it is named here so
+        the next person who sees it does not spend the afternoon looking in the wrong module.
+      - **THE ADVERSARIAL REVIEW REWROTE THE PHYSICS OF THIS MILESTONE, AND THE FIRST VERSION
+        SHIPPED A FALSE STATEMENT ON BOTH STEEL PRESETS.** Six independent lenses over the diff
+        returned 44 findings; four of the six converged on the same defect without seeing each
+        other's work, which is the strongest signal this arc has produced.
+        - **Reactant-peritectic end states were simply wrong.** For a peritectic whose base
+          solid is a REACTANT the classifier treated C_SM as the only boundary, so every
+          composition from C_SM to C_inv was labelled "equilibrium ends this casting with
+          gamma-austenite beside the iron". That is true only up to the reaction's PRODUCT
+          composition. Above it the peritectic consumes ALL of the base-rich solid: Fe-C is
+          L(0.53) + delta(0.09) -> gamma(0.17), so a 0.45 wt% C melt has its delta entirely
+          eaten and the casting ends 100 % austenite with no ferrite anywhere. **1045 and 4340
+          are both above 0.17, so both shipped presets printed a phase that is not in the
+          casting.** Fixed by adding `Csecond` to the five reactant-peritectic rows — four
+          numbers, each transcribed from the sentence that row's own `second`/`source` already
+          states, with `PD-PRODUCT-SOURCED` asserting each value appears in its own prose — and
+          by teaching `derive()` that a consumed primary is not present whatever the OTHER
+          binaries in the mix say about it. 1045's two columns now read **gamma-austenite**
+          against **(Fe)**: the solver grows a phase the casting does not end with, which is the
+          sharpest sentence in the milestone and it took a review to find it.
+        - **The peritectic refusal named the wrong mechanism.** It said the lever rule and
+          Gulliver-Scheil "describe a liquid freezing to two solids, and neither describes a
+          liquid and a solid reacting to make a third phase". False on both halves: the lever
+          rule is a tie-line mass balance that knows nothing about reaction type and is exactly
+          how the extent of a peritectic is computed, and Scheil is the standard tool for hypo-
+          and hyper-peritectic steel. **By this repo's own doctrine that is a wrong statement
+          rather than an absent one.** The real reason is a property of the QUANTITY: at a
+          eutectic every drop of remaining liquid freezes AT T_inv, so the liquid fraction there
+          IS the share that freezes at the invariant; a peritectic consumes only part of it and
+          the rest freezes BELOW T_p on the product's own solidus. Replaced everywhere, and
+          `PD-INVARIANT-BAND` now BANS the retired sentence from returning.
+        - **Regime I was not honest about itself — a plan requirement this milestone missed.**
+          The plan said "equilibrium says single-phase, Scheil says a real fraction freezes as
+          eutectic anyway, and this solver grows neither"; the implementation evaluated Scheil
+          on only one side of C_SM. So AZ91 at 9 wt% Al reported plain SINGLE-PHASE against a
+          12.9 wt% limit while the module's own formula predicts **11.9 % beta-Mg17Al12 — the
+          textbook as-cast constituent of AZ91**. AA2024 gives 8.8 %, the galvanising bath
+          1.5 %. Now printed, with `SCHEIL_FLOOR` measured before it was chosen: the shipped
+          compositions run 11.9 / 8.8 / 1.5 % and then fall to 0.75, 0.011, 0.008 and eight
+          rows at 0.000 %, and the floor sits in that gap at 1 % because PD-CONSTRUCT-AGREE
+          measures the two tables disagreeing about k by ratios from 0.68 to 3.30 — a predicted
+          fraction of a few thousandths is below what the inputs can support.
+        - **A fourth route past the ceiling, and the only one that reached the kernel.** A
+          pre-P3 `#set=` share link restores the mix CLAMPED and then `Object.assign(sim.params,
+          shared.p)` writes the minter's own c0/mLiq/kPart — so a link minted from a 3 wt% carbon
+          melt showed 0.52 wt% in every readout and ran the cast iron in the solver. Closed by
+          having `decodeMix` report WHICH elements it clamped as a list rather than leaving
+          main.ts to match on a sentence, and re-deriving the chemistry only when it did — the
+          condition matters, because overwriting unconditionally would break the legitimate case
+          P1 already handles, a c0 slider moved after the pour.
+        - **Four more, each real.** `phasesFor` narrated ni-W — the row `phasediagram.ts`
+          REFUSES to draw as geometrically impossible — with confident phase names and a lever
+          fraction, so the refusal now covers the CLAIM as well as the picture (and repairing it
+          opened a hole: refusing to classify the row also switched its ceiling off, so 45 wt%
+          tungsten sailed in until the bound was decoupled from the classifier). The share-link
+          clamp said "at or past the invariant" for weights between the slider bound and the
+          invariant, which is a mechanism that did not fire. `Array.sort` was mutating `entries`
+          IN PLACE to build a display name, silently reordering the phase list built from the
+          same array. The curator annotations inside `reaction` — "[base solid is a REACTANT]" —
+          were being interpolated verbatim into user-facing prose.
+        - **Three counting errors of my own, all of the same kind.** "Five of the shipped rows
+          are peritectics" — there are SEVEN, and the two omitted (Fe-Mn, Fe-Ni) are precisely
+          the rows where the classification defect above was live; the number was copied from
+          the plan rather than counted from the table, and it had already been published to
+          `science/index.html`. `shortPhase`'s docblock claimed "24 rows, one changed" from a
+          measurement taken BEFORE the rule existed: it is 23 rows, and the rule fired on ni-W's
+          "(W)" too, relabelling it "(W) bcc" — parentheses are now the test, so a symbol that
+          is already a complete phase name is left alone. And "roughly 49 % of it freezes at the
+          eutectic" put the nearest antecedent on the second phase rather than on the casting.
+        - **Refuted, and worth recording as refuted:** roughly two-thirds of the 44 findings did
+          not survive their three refuters. The convergence was on the peritectic end state
+          (four lenses), the peritectic count (three) and the ceiling escape (two).
+      - **One review finding recorded rather than fixed, and it belongs to P6.** `notGrown` now
+        rides the caveat channel to `#matcaveat`, the amber strip over the canvas corner, so a
+        deep link carries the honesty line to a recipient who never opens the composer — which
+        is the point of putting it there. It is also long: 1045's line plus its clamp runs about
+        400 characters, roughly five lines at that strip's 10 px / 520 px box. Truncating an
+        honesty statement mid-sentence is worse than a tall one, and P6 owns the front door and
+        the tour, so this is left as a named UI debt rather than repaired with a line-clamp here.
+      - **Suite.** 23 scripts, **159 checks**, zero failures, seven pages clean, exit 0 — up
+        from P2's 22 / 153 by `verify-regimes.mjs`'s five checks and `PD-PRODUCT-SOURCED`. One
+        run in the middle of this milestone reported `STEP3-REGION` failing in `verify-3d.mjs`;
+        re-run five times in isolation it passed 5/5 with grain counts of 12, 12, 21, 10 and 19,
+        because that block runs an unseeded lab cast and compares a GPU `readRegion` against a
+        CPU recount of a DIFFERENT readback while the casting is still freezing. A pre-existing
+        gate-timing flake, named here so the next person to see it does not go looking in
+        `alloy.ts`. A second run failed on `verify-phasediagram-gpu.mjs` with "Execution context
+        was destroyed" — that one was mine: I edited `src/composer.ts` while the suite was
+        running and vite hot-reloaded the page out from under the gate.
+      - **Docs, in this commit rather than deferred to P6.** `science/index.html` gains its two
+        rows - the phases row (two columns, both fractions, the peritectic refusal, the solvus
+        caveat) and the regime row (where the ceiling is derived from, the five binding pairs,
+        and cast iron leaving by construction) - and `PD-DOC-CALIBRATION` grows from 12 gated
+        claims to **21**, every one recomputed from the modules, so this milestone's prose is
+        gated by the commit that writes it. `TESTING.md` ten -> **eleven** in all three places
+        against exactly eleven `- run:` lines in `ci.yml`. `README.md`'s composer bullet gains
+        the two columns and the cast-iron removal.
 
 - [ ] **P4 — the element dataset and the tier classifier, with no UI.**
       Split off from the grid on the C0b/C0c precedent, so a suite failure in the P5 window has one candidate cause rather than five.

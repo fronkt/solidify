@@ -1,6 +1,11 @@
-import { BASES, derive, type Mix } from "./alloy";
-import { BINARY, type BinaryRow } from "./phasedata";
+import { BASES, derive, phasesFor, type CompositionRegime, type Mix } from "./alloy";
+import { BINARY, shortPhase, type BinaryRow } from "./phasedata";
 import { MATERIALS } from "./materials";
+
+// shortPhase moved to phasedata.ts in v7.1 P3 — alloy.ts names phases now too,
+// and this module already imports alloy.ts, so the helper had to sit below both
+// or the import would be a cycle. Re-exported because it was exported here.
+export { shortPhase };
 
 /**
  * THE DRAWN DIAGRAM (v7.1 P2).
@@ -59,6 +64,19 @@ export interface Marker { id: MarkerId; c: number; T: number; label: string }
 /** a phase-field name and where to write it */
 export interface FieldLabel { c: number; T: number; text: string }
 
+/**
+ * The composition band the poured mix sits in (v7.1 P3), shaded across the full
+ * height of the frame. Its EDGES are row data — 0 and C_SM for a single-phase
+ * melt, C_SM and C_inv for one that terminates two-phase — so the shading is
+ * the same claim the readout makes in words, drawn from the same two numbers.
+ */
+export interface RegimeBand {
+  c0: number; c1: number;
+  regime: CompositionRegime;
+  /** the phases that band leaves, e.g. "(Al) + (Si)" */
+  label: string;
+}
+
 export interface Figure {
   ok: true;
   kind: "INVARIANT" | "ISOMORPHOUS";
@@ -69,6 +87,8 @@ export interface Figure {
   polylines: Polyline[];
   markers: Marker[];
   fields: FieldLabel[];
+  /** the composition regime this pour sits in, or null when the row has none */
+  band: RegimeBand | null;
   /** what this figure claims to be, in one sentence */
   caption: string;
   /** every simplification this drawing makes, named */
@@ -97,17 +117,6 @@ export function diagramForMaterial(materialKey: string):
     return { ok: false, reason: `${m.label} is a model material rather than a substance — it has no melting point and no assessed binaries, so there is nothing to draw a diagram from.` };
   }
   return { ok: false, reason: `${m.label} has real SI properties but is not an alloy base in this composer, so no binary invariants have been assessed for it and there is no diagram to draw.` };
-}
-
-/**
- * The first token of a `second` field, for a field label. The strings are
- * written for a reader — "theta-Al2Cu (CuAl2, tI12, C16)", "(Si) diamond cubic,
- * elemental silicon (cF8)" — so a plain split on separators returns an empty
- * string for every one that starts with a parenthesised symbol.
- */
-export function shortPhase(second: string): string {
-  const m = /^\(?[A-Za-z0-9αβγδθηπ'_-]+\)?/.exec(second.trim());
-  return m ? m[0] : second.trim().slice(0, 12);
 }
 
 /** the chord through (0, T0) reaching (cEnd, T1), evaluated at c */
@@ -178,13 +187,19 @@ export function layout(mix: Mix, meltC: number | null,
   // dominant by |m·c| including liquidus RAISERS, so a titanium-dominant mix
   // read "chosen because Ti carries 0 % of the depression" — a reason that
   // refutes itself — and an all-raiser mix quoted a percentage of 0.0 K.
+  // Counted over the solutes derive() actually USED, not over `mix.wt`. Those
+  // differ from v7.1 P3 on: a solute past its own invariant is refused and
+  // dropped, and reading the raw mix here put the dropped weight back into the
+  // denominator, so the dominant solute's share was quoted against a melt the
+  // app had declined to pour.
   let totalShift = 0, domShift = 0, totalDep = 0;
-  for (const [el, w] of Object.entries(mix.wt)) {
-    if (!Object.hasOwn(base.solutes, el) || !(w > 0)) continue;
-    const mag = Math.abs(base.solutes[el].m * w);
+  for (const ph of d.phases) {
+    const so = base.solutes[ph.el];
+    if (!so || !(ph.wt > 0)) continue;
+    const mag = Math.abs(so.m * ph.wt);
     totalShift += mag;
-    totalDep += Math.max(0, -base.solutes[el].m * w);
-    if (el === dominant) domShift = mag;
+    totalDep += Math.max(0, -so.m * ph.wt);
+    if (ph.el === dominant) domShift = mag;
   }
   const share = totalShift > 0 ? domShift / totalShift : 1;
 
@@ -381,14 +396,37 @@ export function layout(mix: Mix, meltC: number | null,
 
   // ---- the standing caveats, whatever the row
   notes.push(`straight chords: the real boundaries are curved, and these are the linearised ones this solver integrates. Where the shipped dilute slope and the invariant chord disagree, docs/PHASE-AUDIT.md records by how much.`);
-  if (Object.keys(mix.wt).length > 1) {
+  if (d.phases.length > 1) {
     notes.push(`this is the ${base.symbol}–${dominant} binary, chosen because ${dominant} carries ${(share * 100).toFixed(0)} % of this melt's ${totalShift.toFixed(1)} K of liquidus shift (of which ${totalDep.toFixed(1)} K is depression). It is NOT this alloy's own diagram: a multicomponent melt has its own surfaces, and the phases they add — Laves in a Nb-bearing nickel alloy, π and β in an iron-bearing Al–Si–Mg — appear on neither this drawing nor in the solver.`);
+  }
+
+  // ---- the regime band (v7.1 P3): where on this axis the pour sits, and what
+  //      equilibrium leaves there. Edges are row data, never a fraction of the
+  //      frame, so the shading cannot drift away from the words beside it.
+  const ph = phasesFor(mix.base, dominant, cDom);
+  let band: RegimeBand | null = null;
+  if (ph) {
+    const P = `(${base.symbol})`;
+    if (iso) {
+      band = { c0: 0, c1: xMax, regime: ph.regime, label: `${P} at every composition` };
+    } else if (ph.regime === "SINGLE-PHASE") {
+      band = { c0: 0, c1: Math.min(Csm!, Cinv!), regime: ph.regime,
+        label: `${P} — everything dissolves` };
+    } else if (ph.regime === "TWO-PHASE-TERMINATION") {
+      band = { c0: Csm!, c1: Cinv!, regime: ph.regime,
+        label: `${P} + ${shortPhase(row.second)}` };
+    }
+    // PAST-THE-INVARIANT draws no band, and cannot arrive here anyway: derive()
+    // refuses that composition, so it never becomes the dominant solute of a
+    // mix this function is handed. Left unhandled rather than given a band that
+    // would be a picture of a melt the instrument declines to pour.
+    notes.push(`${ph.source} This solver grows ${P} and nothing else.`);
   }
 
   return {
     ok: true, kind: iso ? "ISOMORPHOUS" : "INVARIANT",
     baseSymbol: base.symbol, solute: dominant,
-    xMax, yMin, yMax, polylines, markers, fields,
+    xMax, yMin, yMax, polylines, markers, fields, band,
     caption: `${base.symbol}–${dominant}, ${iso ? "isomorphous — no invariant" : `${row.invariant} at ${Tinv} °C`}`,
     notes, source: row.source,
   };
@@ -448,6 +486,7 @@ const LINE_ORDER: LineId[] = ["invariant", "solvus", "solidus", "liquidus", "sol
 export class PhaseFigureView {
   readonly root: HTMLElement;
   private svg: SVGElement;
+  private bandEl: SVGElement;
   private paths = new Map<LineId, SVGElement>();
   private pour: SVGElement;
   private solverDot: SVGElement;
@@ -466,6 +505,13 @@ export class PhaseFigureView {
     this.capEl = document.createElement("div");
     this.capEl.className = "pdcap";
     this.svg = el("svg", { viewBox: "0 0 " + FRAME.w + " " + FRAME.h, class: "pdsvg" });
+    // the regime band goes in FIRST so every line draws over it
+    this.bandEl = el("rect", {
+      y: String(FRAME.mt), height: String(FRAME.h - FRAME.mt - FRAME.mb),
+      fill: "#ffb454", "fill-opacity": "0.07", stroke: "none",
+    });
+    this.bandEl.append(el("title"));
+    this.svg.append(this.bandEl);
     this.svg.append(el("rect", {
       x: String(FRAME.ml), y: String(FRAME.mt),
       width: String(FRAME.w - FRAME.ml - FRAME.mr),
@@ -515,6 +561,20 @@ export class PhaseFigureView {
     }
     this.svg.removeAttribute("style");
     this.capEl.textContent = fig.caption;
+
+    if (fig.band) {
+      const a = toPx(fig, { c: fig.band.c0, T: fig.yMax });
+      const b = toPx(fig, { c: fig.band.c1, T: fig.yMax });
+      this.bandEl.removeAttribute("display");
+      this.bandEl.setAttribute("x", Math.min(a.x, b.x).toFixed(2));
+      this.bandEl.setAttribute("width", Math.abs(b.x - a.x).toFixed(2));
+      this.bandEl.firstElementChild!.textContent =
+        `${fig.band.regime.toLowerCase().replace(/-/g, " ")}: ${fig.band.label}`;
+    } else {
+      this.bandEl.setAttribute("display", "none");
+      this.bandEl.setAttribute("width", "0");
+      this.bandEl.firstElementChild!.textContent = "";
+    }
 
     for (const [id, path] of this.paths) {
       const line = fig.polylines.find(l => l.id === id);

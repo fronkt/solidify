@@ -48,8 +48,14 @@ const r4 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(4));
   const cases = [];
   for (const p of A.FAMOUS) cases.push({ label: p.label, mix: p.mix });
   for (const [bk, base] of Object.entries(A.BASES)) {
-    for (const [el, s] of Object.entries(base.solutes)) {
-      cases.push({ label: `${bk}-${el}`, mix: { base: bk, wt: { [el]: Math.min(1, s.cap) } } });
+    for (const el of Object.keys(base.solutes)) {
+      // 1 wt% or the pair's own BOUND, whichever is smaller — and the bound is
+      // where v7.1 P3 moved it. It used to read `min(1, cap)`, and for three
+      // pairs that is now a composition derive() refuses: al-Ti's 0.5 wt% is
+      // past a 0.15 wt% peritectic, fe-C's 1 wt% past a 0.53 wt% one, mg-Zr's
+      // 0.8 past 0.58. Driving a refused composition here would assert the
+      // superposition over solutes that were correctly dropped.
+      cases.push({ label: `${bk}-${el}`, mix: { base: bk, wt: { [el]: Math.min(1, A.soluteBound(bk, el).max) } } });
     }
   }
 
@@ -206,7 +212,16 @@ const r4 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(4));
   push("derive: inherited BASE key", der({ base: "constructor", wt: { Cu: 1 } }), "constructor");
   {
     const r = []; A.decodeMix("alloy=al:Cu.", r);
-    push("decodeMix: unreadable weight", r, "Cu.");
+    push("decodeMix: weight is a bare dot", r, "Cu.");
+  }
+  {
+    // THE HALF-CLOSED CASE. P1's comment named "1.2.3" as a token parseFloat
+    // mangles and then guarded on Number.isFinite, which parseFloat("1.2.3") =
+    // 1.2 sails through — so this link silently restored 1.2 wt% Si and said
+    // nothing. Found by writing v7.1 P3's ALLOY-SHARE-CLAMP corpus.
+    const r = []; const mix = A.decodeMix("alloy=al:Si1.2.3", r);
+    push("decodeMix: partial number (1.2.3)", r, "Si1.2.3");
+    if (mix && "Si" in mix.wt) shapes.push({ label: "decodeMix: partial number leaked into the mix", ok: false, n: 0, first: null, needle: "Si" });
   }
   {
     const r = []; A.decodeMix("alloy=al:Si7,Qq3", r);
@@ -380,9 +395,18 @@ const r4 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(4));
 //    WHICH clause fired. A refusal that names the wrong mechanism is a wrong
 //    statement rather than an absent one.
 {
+  // The two liquidus-raiser cases are driven AT their bound rather than at a
+  // hardcoded weight, and the reason is a v7.1 P3 finding: they used to sit at
+  // 0.8 wt% Zr and 0.5 wt% Ti, both of which are now past their pair's
+  // invariant, so derive() drops the solute and the refusal that comes back is
+  // "no solute in this melt" — a true sentence about a different mechanism.
+  // Driven at the ceiling instead, both are still liquidus-raiser-dominated
+  // (Zr +6.9 K/wt%, Ti +30.7) and still exercise the clause this case is for.
+  // The ceiling's own refusal is PD-CAP-CEILING's subject, not this gate's.
+  const zrMax = A.soluteBound("mg", "Zr").max, tiMax = A.soluteBound("al", "Ti").max;
   const CASES = [
-    { label: "Mg-0.8Zr", mix: { base: "mg", wt: { Zr: 0.8 } }, clause: "raises this melt's liquidus", needle: "Zr" },
-    { label: "Al-0.5Ti", mix: { base: "al", wt: { Ti: 0.5 } }, clause: "raises this melt's liquidus", needle: "Ti" },
+    { label: `Mg-${zrMax}Zr`, mix: { base: "mg", wt: { Zr: zrMax } }, clause: "raises this melt's liquidus", needle: "Zr" },
+    { label: `Al-${tiMax}Ti`, mix: { base: "al", wt: { Ti: tiMax } }, clause: "raises this melt's liquidus", needle: "Ti" },
     { label: "A356+TiB", mix: A.FAMOUS[1].mix, clause: "outside (0,1)", needle: "-0.593" },
     { label: "Al-0.5Si-0.1Ti", mix: { base: "al", wt: { Si: 0.5, Ti: 0.1 } }, clause: "outside (0,1)", needle: "k_eff" },
     { label: "pure Al", mix: { base: "al", wt: {} }, clause: "no solute", needle: "no solute" },
@@ -676,6 +700,30 @@ const r4 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(4));
     ["A356+TiB k_eff", tib.kEff.toFixed(2)],
     ["Al si.mL", `${M.MATERIALS.al.si.mL} K/wt%`],
     ["Al si.kPart", `${M.MATERIALS.al.si.kPart}`],
+    // v7.1 P3's prose, gated in the SAME commit that writes it rather than
+    // left for P6. Every value is recomputed from the modules here.
+    ["A356 lever fraction", `${(a356.invariantFraction.lever * 100).toFixed(0)} %`],
+    ["A356 Scheil fraction", `${(a356.invariantFraction.scheil * 100).toFixed(0)} %`],
+    ["Al-Si max solid solubility", `${PD.BINARY.al.Si.Csm} wt%`],
+    ["Al-Si eutectic temperature", `${PD.BINARY.al.Si.Tinv} °C`],
+    ["Fe-C peritectic liquid", `${PD.BINARY.fe.C.Cinv} wt%`],
+    ["Fe-C slider ceiling", `${A.soluteBound("fe", "C").max} wt%`],
+    ["Fe-C delta-ferrite solubility", `${PD.BINARY.fe.C.Csm} wt%`],
+    ["Fe-C peritectic temperature", `${PD.BINARY.fe.C.Tinv} °C`],
+    ["Mg-Al max solid solubility", `${PD.BINARY.mg.Al.Csm} wt%`],
+    // v7.1 P3's review added these: the peritectic PRODUCT composition that
+    // decides whether the phase this solver grows survives its own reaction,
+    // and the non-equilibrium fraction on the single-phase side of C_SM.
+    ["Fe-C peritectic product", `${PD.BINARY.fe.C.Csecond} wt%`],
+    ["AZ91 Scheil fraction", `${(d(A.FAMOUS[6].mix).phases.find(x => x.el === "Al").fraction.scheil * 100).toFixed(1)} %`],
+    ["AA2024 Scheil fraction", `${(d(A.FAMOUS[2].mix).phases.find(x => x.el === "Cu").fraction.scheil * 100).toFixed(1)} %`],
+    ["Scheil floor", `${(A.SCHEIL_FLOOR * 100).toFixed(0)} %`],
+    // NOT "the page contains the number of pairs the ceiling binds". That value
+    // is 5, and a document containing the character "5" satisfies it — as would
+    // "35 wt%" or "1045 steel". Every claim above is a string specific enough
+    // that its appearance is evidence; a bare small integer is not, and pinning
+    // one here would be a gate that cannot fail. PD-CAP-CEILING pins the count
+    // where it can be pinned against the table itself.
   ];
   const missing = CLAIMS.filter(([, v]) => !html.includes(norm(v))).map(([k, v]) => `${k}: "${v}"`);
   // liveness: the section must exist at all, and every claim must be a real

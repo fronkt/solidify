@@ -1832,9 +1832,11 @@ async function boot() {
     // would raise the undercooling, cap the cooling rate and re-arm the melt,
     // none of which the link asked for. setMaterial above has already cleared
     // any previous mix, so this is a set on a known-empty slot.
+    let clampedChem: Record<string, number> | null = null;
     if (sharedMaterialTook && typeof shared.mx === "string") {
       const linkRefusals: string[] = [];
-      const mix = decodeMix("alloy=" + shared.mx, linkRefusals);
+      const linkClamped: string[] = [];
+      const mix = decodeMix("alloy=" + shared.mx, linkRefusals, linkClamped);
       if (mix && Object.keys(mix.wt).length) {
         const d = deriveAlloy(mix);
         if (BASES[mix.base]?.materialKey === shared.m) {
@@ -1847,7 +1849,29 @@ async function boot() {
             materialKey: shared.m, mix, derived: d,
             stamp: { alloyOn: dp.alloyOn!, c0: dp.c0!, mLiq: dp.mLiq!, kPart: dp.kPart! },
           };
-          alloyCaveats = [...linkRefusals, ...d.refusals, ...d.clamps];
+          // notGrown rides here for the same reason it rides in composer.pour():
+          // a #set= link restores a melt without ever opening the composer, and
+          // the phases equilibrium leaves in it are exactly what a recipient
+          // cannot otherwise see.
+          alloyCaveats = [...linkRefusals, ...d.refusals, ...d.notGrown, ...d.clamps];
+          // THE FOURTH ROUTE PAST THE CEILING, and the only one that reaches
+          // the kernel. `shared.p` is assigned onto sim.params a few lines
+          // below and carries the c0/mLiq/kPart the MINTER was running — so a
+          // link minted before v7.1 P3 from a 3 wt% carbon melt restores its
+          // mix clamped to 0.52 wt%, prints the clamp, draws the clamped
+          // diagram, and then hands the solver the cast iron anyway. The mix
+          // and the melt would disagree in the one place a user cannot see.
+          //
+          // Applied ONLY when the decoder actually clamped, which is why
+          // decodeMix reports that as a list of elements rather than leaving
+          // main.ts to match on a sentence. Without that condition this would
+          // also overwrite the legitimate case P1 already handles: a c0 slider
+          // moved AFTER the pour, where the link's params and the mix's
+          // derivation are meant to differ.
+          if (linkClamped.length) {
+            clampedChem = { alloyOn: dp.alloyOn!, c0: dp.c0!, mLiq: dp.mLiq!, kPart: dp.kPart!, dSol: dp.dSol! };
+            alloyCaveats.push(`this link's solver settings were minted from a composition this build no longer pours (${linkClamped.join(", ")}), so the chemistry the solver runs was re-derived from the restored mix rather than restored from the link`);
+          }
         } else {
           alloyCaveats = [`this link's mix is ${BASES[mix.base]?.label ?? mix.base}-based but its material is ${MATERIALS[shared.m].label} — the chemistry was not applied, and the calibration uses the material's own coefficients`];
         }
@@ -1859,6 +1883,10 @@ async function boot() {
     // link's params into the 2D solver
     if (shared.d !== 1) {
       Object.assign(sim.params, shared.p);
+      // ...and the clamped chemistry wins over the link's own, when the mix it
+      // describes is one this build refuses. Order matters: this must land
+      // AFTER the bulk assign, or the assign puts the refused melt back.
+      if (clampedChem) Object.assign(sim.params, clampedChem);
       // A calibrated link carries λ and the material, and NOTHING else it needs:
       // dx and dt are on the share blacklist (they are grid-derived), and under
       // this solver they are also material-derived. Re-running the calibration

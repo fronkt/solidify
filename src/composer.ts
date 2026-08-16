@@ -1,4 +1,4 @@
-import { BASES, FAMOUS, derive, encodeMix, decodeMix, type Mix, type Derived } from "./alloy";
+import { BASES, FAMOUS, derive, encodeMix, decodeMix, soluteBound, type Mix, type Derived } from "./alloy";
 import { PhaseFigureView } from "./phasediagram";
 
 // The alloy composer: pick a base metal, add solutes in wt% (live at%
@@ -14,6 +14,19 @@ import { PhaseFigureView } from "./phasediagram";
  */
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * A fraction as a percentage that never rounds a real quantity to nothing.
+ * `toFixed(0)` prints "0 %" for anything under half a percent, and the lever
+ * rule is exactly 0 at the solubility limit and small-but-nonzero just past it,
+ * so a slider one notch above C_SM read "0 % / 10 %" — a zero that means
+ * "less than half a percent" sitting beside a zero that means zero.
+ */
+function pct(x: number): string {
+  if (x === 0) return "0 %";
+  if (x < 0.005) return "<1 %";
+  return `${(x * 100).toFixed(x < 0.1 ? 1 : 0)} %`;
 }
 
 export interface ComposerHost {
@@ -115,7 +128,11 @@ export class Composer {
     this.overlay.querySelector(".add")!.addEventListener("click", () => {
       const el = this.addSel.value;
       if (el && !(el in this.mix.wt)) {
-        this.mix.wt[el] = Math.min(1, BASES[this.mix.base].solutes[el].cap);
+        // the CEILING, not the cap: "+ add element → Ti" used to seed 0.5 wt%,
+        // which is past the 0.15 wt% Al–Ti peritectic, so one click would have
+        // produced a named refusal instead of an alloy
+        const b = soluteBound(this.mix.base, el);
+        this.mix.wt[el] = Math.min(1, b ? b.max : BASES[this.mix.base].solutes[el].cap);
         this.render();
       }
     });
@@ -173,7 +190,13 @@ export class Composer {
 
   private pour(setHash = true) {
     const d = derive(this.mix);
-    const caveats = [...this.extraRefusals, ...d.refusals, ...d.clamps];
+    // notGrown travels with the refusals and the clamps because it is the same
+    // KIND of statement — something about this melt the instrument is not
+    // doing — and because the channel P1 built renders outside the modal, where
+    // an #alloy= deep link can carry it. A recipient who never opens the
+    // composer still learns that half of the casting on screen freezes as a
+    // phase this solver does not grow.
+    const caveats = [...this.extraRefusals, ...d.refusals, ...d.notGrown, ...d.clamps];
     this.host.applyAlloy(BASES[this.mix.base].materialKey,
       d.params as Record<string, number>, d.name,
       { mix: { base: this.mix.base, wt: { ...this.mix.wt } }, derived: d, caveats });
@@ -209,9 +232,14 @@ export class Composer {
       const row = document.createElement("div");
       row.className = "crow";
       const at = d.atPct[el] ?? 0;
+      // the slider's bound is DERIVED (v7.1 P3): the smaller of the hand-picked
+      // cap and one step below the invariant this pair's primary phase changes
+      // at. For five of the twenty-five pairs the second is the smaller one.
+      const b = soluteBound(this.mix.base, el);
+      const max = b ? b.max : s.cap;
       row.innerHTML = `
         <b>${el}</b>
-        <input type="range" min="0" max="${s.cap}" step="${s.cap <= 1 ? 0.01 : 0.05}" value="${w}">
+        <input type="range" min="0" max="${max}" step="${b ? b.step : (s.cap <= 1 ? 0.01 : 0.05)}" value="${w}">
         <span class="cv">${w.toFixed(2)} wt · ${at.toFixed(2)} at%</span>
         <button class="rm">✕</button>`;
       const slider = row.querySelector("input")!;
@@ -224,7 +252,10 @@ export class Composer {
           `${this.mix.wt[el].toFixed(2)} wt · ${(derive(this.mix).atPct[el] ?? 0).toFixed(2)} at%`;
       });
       row.querySelector(".rm")!.addEventListener("click", () => { delete this.mix.wt[el]; this.render(); });
-      if (s.note) row.title = s.note;
+      // and why it stops where it does, when the diagram is what stopped it
+      const why = [s.note, b && b.boundBy === "invariant" ? b.source : null]
+        .filter(Boolean).join(" — ");
+      if (why) row.title = why;
       this.rowsEl.append(row);
     }
 
@@ -247,6 +278,7 @@ export class Composer {
   private renderOut() {
     const d: Derived = derive(this.mix);
     const p = d.params;
+    const base = BASES[this.mix.base];
     const shift = d.dTL === 0 ? "0 K" : `${d.dTL > 0 ? "+" : "−"}${Math.abs(d.dTL).toFixed(1)} K`;
     // The freezing range is the number calibrated mode actually measures
     // temperature in, so it is printed here beside the mapping it is built
@@ -254,14 +286,29 @@ export class Composer {
     const rangeRow = d.dT0 != null
       ? `<div class="drow"><span>freezing range ΔT₀ · ${d.dT0Regime.toLowerCase()}</span><b>${d.dT0.toFixed(1)} K</b></div>`
       : `<div class="drow"><span>freezing range ΔT₀</span><b style="color:#c96a5b">refused</b></div>`;
+    // THE TWO COLUMNS (v7.1 P3), and the whole milestone is the gap between
+    // them. The left column is read off the cited invariants; the right is what
+    // sim.ts grows, which is one solid phase and has always been one solid
+    // phase. Printing them side by side is the only way the drawing above stops
+    // implying that everything on it is in the model.
+    const phaseRows = d.totalWt > 0 ? `
+      <div class="phases">
+        <div><span>PHASES EQUILIBRIUM PREDICTS</span><b>${esc(d.phasesEquilibrium.join(" · "))}</b></div>
+        <div><span>PHASES THIS SOLVER GROWS</span><b>${esc(d.phasesGrown.join(" · "))}</b></div>
+      </div>
+      <div class="drow"><span>composition regime · ${esc(base.symbol)}–${esc(d.dominant ?? "")}</span><b>${d.regime.toLowerCase().replace(/-/g, " ")}</b></div>
+      ${d.invariantFraction ? `<div class="drow"><span>freezes at the invariant · lever / Scheil</span><b>${pct(d.invariantFraction.lever)} / ${pct(d.invariantFraction.scheil)}</b></div>` : ""}` : "";
     this.outEl.innerHTML = `
       <div class="aname">${d.name}${d.totalWt === 0 ? " (pure)" : ""}</div>
       <div class="drow"><span>liquidus shift ΔT<sub>L</sub></span><b>${shift}</b></div>
       <div class="drow"><span>growth restriction Q</span><b>${d.Q.toFixed(1)} K</b></div>
       ${rangeRow}
+      ${phaseRows}
       <div class="drow"><span>model mapping</span><b>c₀ ${p.c0!.toFixed(2)} · m ${p.mLiq!.toFixed(2)} · k ${p.kPart!.toFixed(2)} · D ${p.dSol!.toFixed(2)}</b></div>
       <div class="src">${esc(d.dT0Source)}</div>
+      ${d.regimeSource ? `<div class="src">${esc(d.regimeSource)}</div>` : ""}
       ${d.refusals.concat(this.extraRefusals).map(r => `<div class="clamp">✕ ${esc(r)}</div>`).join("")}
+      ${d.notGrown.map(n => `<div class="clamp">◇ ${esc(n)}</div>`).join("")}
       ${d.clamps.map(c => `<div class="clamp">⚠ ${esc(c)}</div>`).join("")}`;
   }
 }

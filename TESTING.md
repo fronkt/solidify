@@ -23,8 +23,8 @@ pass fails the build rather than quietly shipping a wrong sweep budget.
 and `verify-porosity.mjs`, the arithmetic halves of the lab's cooling-curve analysis, refiner
 fade and Sievert gas porosity — bringing the CI-runnable set to five at the time (v7.0's
 `verify-rng.mjs` and `verify-experiment.mjs` have since made it seven, v7.1 P0's
-`verify-phasedata.mjs` eight, v7.1 P1's `verify-alloy.mjs` nine and v7.1 P2's
-`verify-phasediagram.mjs` ten). They run first in the
+`verify-phasedata.mjs` eight, v7.1 P1's `verify-alloy.mjs` nine, v7.1 P2's
+`verify-phasediagram.mjs` ten and v7.1 P3's `verify-regimes.mjs` eleven). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
 GPU half is not worth starting.
 
@@ -40,10 +40,10 @@ move.
 `--use-angle=swiftshader` software-rendering path the scripts themselves fall back to for
 GPU-less environments. **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
-only the OS-agnostic steps — typecheck, build, and the ten browser-free scripts
+only the OS-agnostic steps — typecheck, build, and the eleven browser-free scripts
 (`verify-units.mjs`, `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
 `verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
-`verify-alloy.mjs`, `verify-phasediagram.mjs`; see
+`verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`; see
 `.github/workflows/ci.yml`) — rather than
 this suite. If you want to run the physics/UI verification yourself, do it locally.
 
@@ -107,7 +107,7 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   render — no means, no band geometry, the refusal naming the variable, the spread and the
   offending run). `EXP-RENDERED` (a rendered comparison carries the controlled variable by
   name, every seed, and means the check recomputes independently of the formatter under test).
-- **`verify-phasedata.mjs`** (browser-free, v7.1 P0) — the binary invariant table. Five
+- **`verify-phasedata.mjs`** (browser-free, v7.1 P0) — the binary invariant table. Seven
   checks, all about totality and both polarities rather than about whether any one number is
   right (a number's correctness is the audit's job — `docs/PHASE-AUDIT.md` recomputes every
   row from an open CALPHAD database). `PD-ROW-SOURCED` requires every row to carry a source
@@ -131,6 +131,16 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   is wrong has not been resolved; the exception list is itself the assertion, so a new
   inconsistent row fails and so does ni-W quietly becoming consistent. Liveness: at least two
   rows must have rising invariants, or the branch is never exercised.
+  `PD-PRODUCT-SOURCED` (v7.1 P3) polices the `Csecond` field — the peritectic PRODUCT's own
+  composition, which decides whether the phase this solver grows survives its own reaction.
+  It is carried only on the peritectic rows whose base solid is a REACTANT, the ordering
+  C_SM < C_second < C_inv is required (violate it and the row is not describing the reaction it
+  claims), and **every value must appear in its own row's `second`/`source` prose** — the field
+  was transcribed from that sentence, so tying it back to it is what makes it a citation rather
+  than a number somebody typed. Fe–Ni carries `null` because its literature value is a
+  4.2–4.7 wt% bracket rather than a number, and that null is asserted to be explained in the
+  row's own source. Both polarities: at least three rows carry the field and at least one
+  declines it, so "populate everything" and "populate nothing" both fail.
 - **`verify-alloy.mjs`** (browser-free, v7.1 P1) — the composer's chemistry and the
   calibration it now feeds. Ten checks. `ALLOY-SUMS-EXACT` recomputes the superposition's own
   algebra inside the gate from `BASES` — ΔT_L = Σm·c, Q = Σm·c(k−1), the base-inclusive
@@ -189,6 +199,48 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   that refused everything cannot pass. `PD-FIGURE-CURSOR` settles the three absences without a
   GPU: a temperature on the diagram is drawn, one off it is NOT drawn and IS named, and null is
   silent — "no liquid left" and "below the axis" are different facts and the panel says so.
+- **`verify-regimes.mjs`** (browser-free, v7.1 P3) — the composition regimes, the invariant
+  fraction and the ceiling. Five checks. `PD-REGIME-EXACT` classifies every row from BOTH sides
+  of BOTH of its boundaries: C_inv ∓ 1e-9 and C_SM ∓ 1e-9, with the exact regime asserted on
+  each side rather than "A356 comes out two-phase", which one hardcoded branch would satisfy.
+  Across C_inv the NAME of the first phase to freeze must change, and both names are read out of
+  the table — `(Al)` from BASES, `theta-Al2Cu` from the row — so two empty strings cannot pass
+  as "different". The two rows whose base solid is the peritectic PRODUCT (Al–Ti, Mg–Zr) have
+  C_inv < C_SM, so their whole two-phase band lies past the invariant; that topology is asserted
+  separately, and it is why C_inv is tested first — in the other order those rows report
+  SINGLE-PHASE for a melt whose first solid is Al3Ti. It also gates the shaded band on the P2
+  figure, whose edges are `Object.is`-exactly the row's own C_SM and C_inv.
+  `PD-INVARIANT-BAND` recomputes the lever rule and Gulliver–Scheil inside the gate to 1e-9 over
+  every eutectic row and asserts the ordering lever ≤ Scheil at every sampled composition, both
+  monotone in composition. It also pins the two things an adversarial review corrected in this
+  milestone: the peritectic refusal must give the DATUM-based reason (at a eutectic every drop of
+  remaining liquid freezes at T_inv, so its fraction IS the share that freezes there; a peritectic
+  consumes only part of it and the rest freezes below T_p) and the retired, false explanation —
+  that the lever rule and Scheil "do not describe a peritectic" — is BANNED from coming back; and
+  a reactant-peritectic melt richer than the reaction's own product must report the primary
+  CONSUMED and drop it from the equilibrium set, while a leaner one must retain it. Its anchors are INDEPENDENT statements rather than the same formula
+  twice: as k → 0 the solid takes nothing, so mass balance alone fixes the eutectic share at
+  c₀/C_inv and Gulliver–Scheil must approach it; the lever rule is linear, so a quarter of the
+  way across the band it is exactly 0.25, which a flipped lever gives as 0.75. Pb–Sn
+  (61.9 wt% Sn, 183 °C, 18.3 wt% solubility) drives all of them as GATE-LOCAL data — a row for
+  it in `phasedata.ts` would break `PD-ROW-SOURCED`'s bijection, since Pb is not a base metal.
+  The five peritectic rows are asserted EXCLUSIONS that refuse the fraction by name, so a
+  predicate that silently swallowed them could not pass. `ALLOY-PHASES-NAMED` drives both
+  polarities over the nine presets: four emit exactly one `notGrown` line per over-solubility
+  solute containing that row's own second-phase token, five emit none, and the two columns
+  (PHASES EQUILIBRIUM PREDICTS / PHASES THIS SOLVER GROWS) must differ by exactly as many phases
+  as there are lines. `PD-CAP-CEILING` asserts the POSTCONDITION rather than the implementation —
+  for any input, the solutes `derive()` actually used carry no composition at or past their own
+  C_inv — by all three routes: the slider bound, a share link, and `window.__solidify.alloy`.
+  It fails on the pre-P3 tree for all 25 pairs. Five pairs where the hand-picked cap reached past
+  the invariant are pinned as named regression cases (Fe–C 2 → 0.52, Al–Fe 2 → 1.75, Al–Ti
+  0.5 → 0.14, Mg–Zr 0.8 → 0.57, Zn–Al 5 → 4.95, the last of which had its slider maximum sitting
+  exactly ON the eutectic), and the liveness clause is that all nine presets still pour — so a
+  ceiling that refused everything cannot pass. `ALLOY-SHARE-CLAMP` round-trips a corpus of ten
+  pre-arc links including the landing page's own, requires over-ceiling links to restore CLAMPED
+  with a named refusal rather than being rejected whole, and requires a malformed weight to be
+  rejected whole rather than silently reduced — which is how the `#alloy=al:Si1.2.3` defect was
+  found, where `parseFloat` returned 1.2 and the link restored a silent 1.2 wt% Si.
 - **`verify-phasediagram-gpu.mjs`** (v7.1 P2) — `PD-CURSOR-LIVE`, the cursor against a real cast.
   Its own file, and that is the point: written inside `verify-quant.mjs` first, it could not pass
   there, because every QPF-* block above it stages the solver by writing `frozenT`, `dx` and `dt`
@@ -566,9 +618,9 @@ spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 
 that evidence recorded in the constant's own docblock. The drift prints on every run, and
 `HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
-`npm run build` (Vite + `tsc`) plus the ten browser-free scripts — `verify-units.mjs`,
+`npm run build` (Vite + `tsc`) plus the eleven browser-free scripts — `verify-units.mjs`,
 `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
 `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
-`verify-alloy.mjs` and `verify-phasediagram.mjs` — are the checks
+`verify-alloy.mjs`, `verify-phasediagram.mjs` and `verify-regimes.mjs` — are the checks
 anyone on any OS can run
 without a GPU, and are what CI actually gates on (`.github/workflows/ci.yml`).

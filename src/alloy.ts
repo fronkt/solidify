@@ -1,6 +1,6 @@
 import type { PhysParams } from "./sim";
 import { MATERIALS } from "./materials";
-import { BINARY, type BinaryRow } from "./phasedata";
+import { BINARY, shortPhase, reactionText, type BinaryRow } from "./phasedata";
 
 // Alloy composer chemistry: approximate textbook dilute-limit binary
 // coefficients (liquidus slope m in K/wt%, equilibrium partition k), Kurz &
@@ -234,6 +234,331 @@ const DEPR_CAP = 0.22; // max dimensionless liquidus depression (keeps growth wa
  */
 export type IntervalRegime = "DILUTE" | "PAST-REFERENCE" | "ISOMORPHOUS" | "REFUSED";
 
+// ---------------------------------------------------------------------------
+// COMPOSITION REGIMES, THE INVARIANT FRACTION, AND THE CEILING (v7.1 P3)
+//
+// P0 entered the invariants, P1 measured the freezing range in them and P2 drew
+// them. What none of the three did was ask the question a founder asks first:
+// at THIS composition, which phases does equilibrium say the casting ends with,
+// and which of them does this solver actually grow? The answer is always
+// "exactly one, the base-rich primary" — sim.ts and sim3d.ts carry one φ field —
+// so every phase named below is a phase the casting beside the diagram will
+// never grow, and the honest thing is to name them rather than to let the
+// picture imply they are in the model.
+//
+// THE REGIMES ARE NOT CALLED HYPOEUTECTIC. SEVEN of the shipped rows are
+// peritectics — Fe–C, Fe–Mn, Fe–Ni, Cu–Sn, Cu–Zn, Al–Ti, Mg–Zr — and
+// "hypoeutectic" is simply false for all of them. The names are type-neutral
+// and the reaction type is carried separately, where it is load-bearing rather
+// than decorative. (The count was five in this comment's first draft, copied
+// from the plan rather than counted from the table, and the two it omitted —
+// Fe–Mn and Fe–Ni — are precisely the rows where the reactant-peritectic
+// classification below had to be repaired. PD-REGIME-EXACT now counts them.)
+
+export type CompositionRegime =
+  /** at or below the maximum solid solubility: everything dissolves */
+  | "SINGLE-PHASE"
+  /** past it: a second phase appears when freezing terminates on the invariant */
+  | "TWO-PHASE-TERMINATION"
+  /** at or past the invariant liquid: the FIRST phase to freeze is no longer the base's */
+  | "PAST-THE-INVARIANT"
+  /** an isomorphous pair — no invariant, no second phase, at any composition */
+  | "SINGLE-PHASE-ALL-COMPOSITIONS"
+  /** no solute to classify */
+  | "NONE"
+  /** a pair with no assessed row; structurally unreachable from the shipped table */
+  | "UNASSESSED";
+
+/** the two closed forms, as fractions of the whole casting in [0,1] */
+export interface InvariantFraction { lever: number; scheil: number }
+
+/**
+ * The Gulliver–Scheil fraction below which this readout does not call the
+ * result a phase, as a fraction of the casting.
+ *
+ * MEASURED BEFORE IT WAS CHOSEN, over every eutectic pair at its shipped preset
+ * composition on the equilibrium-single-phase side: AZ91's aluminium gives
+ * 11.9 %, AA2024's copper 8.8 %, the galvanising bath's aluminium 1.5 %, then a
+ * gap to Mg–Zn's 0.75 %, Al–Mg's 0.011 %, Ni–Nb's 0.008 % and eight pairs at
+ * 0.000 %. The floor sits in that gap.
+ *
+ * The justification is not roundness. `PD-CONSTRUCT-AGREE` measures the two
+ * shipped tables disagreeing about k by ratios from 0.68 to 3.30, so a
+ * predicted fraction of a few thousandths is far below what the inputs can
+ * support; calling it a phase present in the casting would be claiming more
+ * precision than the coefficients have. Above it, the numbers are the textbook
+ * as-cast constituents — β-Mg17Al12 in AZ91 is the canonical one.
+ */
+export const SCHEIL_FLOOR = 0.01;
+
+export interface SolutePhases {
+  el: string;
+  wt: number;
+  regime: CompositionRegime;
+  /** the FIRST solid to form from this binary at this composition */
+  primary: string;
+  /** every phase equilibrium leaves once this binary has finished freezing */
+  equilibrium: string[];
+  /**
+   * Whether the invariant reaction CONSUMES the base-rich primary entirely —
+   * i.e. whether the phase this solver grows is still there when freezing ends.
+   *
+   * True only on the peritectic rows whose base solid is a REACTANT, and only
+   * above the reaction's product composition. It is the sharpest thing this
+   * milestone can say: 1045 and 4340 both sit above Fe–C's γ at 0.17 wt% C, so
+   * their δ-ferrite is entirely eaten by L + δ → γ and the casting ends as
+   * austenite — while the solver grows δ-ferrite from first frame to last.
+   */
+  consumesPrimary: boolean;
+  /** the share of the casting that freezes at the invariant — EUTECTIC rows only */
+  fraction: InvariantFraction | null;
+  /** one sentence for a phase this solver will not grow, or null when there is none */
+  notGrown: string | null;
+  /** always non-empty: how the above was arrived at, or the named reason it was not */
+  source: string;
+}
+
+/**
+ * How far this solute can be taken in this base, and why that is the bound.
+ *
+ * The hand-picked `cap` was doing two jobs at once — it is a slider ergonomic
+ * AND it was the only thing standing between a user and a composition whose
+ * primary phase this solver cannot grow. It keeps the first job. The second
+ * moves here, where it is DERIVED from the same invariant table the figure is
+ * drawn from, and is enforced inside `derive()` where `window.__solidify.alloy`
+ * cannot walk around it.
+ *
+ * Measured on this tree, the ceiling BINDS for five of the twenty-five pairs,
+ * and the plan that specified this milestone had found four of them: Fe–C
+ * (cap 2 against a 0.53 wt% peritectic), Al–Fe (2 against 1.8), Al–Ti (0.5
+ * against 0.15), Mg–Zr (0.8 against 0.58) — and Zn–Al, whose cap of 5 wt% IS
+ * the eutectic composition exactly, so the slider's own maximum was the one
+ * composition on the axis where the primary phase changes.
+ */
+export interface SoluteBound {
+  /** the slider's max, wt%: the smaller of the hand-picked cap and the ceiling */
+  max: number;
+  /** the composition at which the primary phase changes, wt%; null when none is assessed */
+  ceiling: number | null;
+  /** which of the two is the binding one */
+  boundBy: "cap" | "invariant";
+  /** the slider's step, kept identical to the pre-P3 rule for every shipped pair */
+  step: number;
+  /** always non-empty */
+  source: string;
+}
+
+export function soluteBound(baseKey: string, el: string): SoluteBound | null {
+  const base = Object.hasOwn(BASES, baseKey) ? BASES[baseKey] : undefined;
+  const sol = base && Object.hasOwn(base.solutes, el) ? base.solutes[el] : undefined;
+  if (!base || !sol) return null;
+  const byBase = Object.hasOwn(BINARY, baseKey) ? BINARY[baseKey] : {};
+  const row: BinaryRow | undefined = Object.hasOwn(byBase, el) ? byBase[el] : undefined;
+  const ceiling = row && row.invariant !== "isomorphous" && row.Cinv != null ? row.Cinv : null;
+  // The step is computed from the SMALLER of the two bounds, so that tightening
+  // a range can never leave it coarser than it deserves. Measured pair by pair
+  // it matches the pre-P3 `cap <= 1 ? 0.01 : 0.05` for twenty-four of the
+  // twenty-five, and changes for exactly one: Fe–C, whose cap of 2 wt% gave it
+  // 0.05 steps and whose ceiling of 0.53 wt% now gives it 0.01. That is the
+  // right direction — a 0.52 wt% carbon range in five-hundredths would have had
+  // eleven positions on it, and 1045's 0.45 and 4340's 0.40 both land on a step.
+  const step = Math.min(sol.cap, ceiling ?? sol.cap) <= 1 ? 0.01 : 0.05;
+  if (ceiling == null) {
+    return { max: sol.cap, ceiling: null, boundBy: "cap", step,
+      source: row
+        ? `${base.symbol}–${el} is isomorphous — there is no invariant and no composition at which the primary phase changes — so the ${sol.cap} wt% bound is the slider's own, not the diagram's.`
+        : `no assessed invariant row for ${base.symbol}–${el}, so this model has nothing to derive a ceiling from and the ${sol.cap} wt% bound is the slider's own.` };
+  }
+  if (ceiling > sol.cap) {
+    return { max: sol.cap, ceiling, boundBy: "cap", step,
+      source: `the ${sol.cap} wt% bound is the slider's own; the ${base.symbol}–${el} invariant liquid is further out at ${ceiling} wt%, so the diagram does not bind here.` };
+  }
+  // The ceiling binds. One slider step below it, so the maximum the slider can
+  // reach is a composition this instrument will actually pour rather than the
+  // one composition on the axis where it refuses.
+  const max = +Math.max(0, ceiling - step).toFixed(4);
+  return { max, ceiling, boundBy: "invariant", step,
+    source: `${base.symbol}–${el}'s primary phase stops being (${base.symbol}) at the ${ceiling} wt% invariant liquid, so this slider stops one step short at ${max} wt% — tighter than the ${sol.cap} wt% it used to allow, which reached a melt this solver cannot grow the first phase of.` };
+}
+
+/**
+ * Which phases equilibrium leaves at this composition, and which of them this
+ * solver grows. Pure, and exported because `PD-REGIME-EXACT` classifies both
+ * sides of every boundary in the table with it.
+ *
+ * THE BOUNDARY ORDER IS LOAD-BEARING. C_inv is tested FIRST, and it has to be:
+ * for the two rows whose base solid is the peritectic PRODUCT (Al–Ti, Mg–Zr)
+ * the invariant liquid is LEANER than the maximum solid solubility — Al–Ti is
+ * 0.15 against 1.32 — so `c > C_SM` is false right through the region where the
+ * primary phase has already stopped being aluminium. Classified in the other
+ * order those two rows report SINGLE-PHASE for compositions whose first solid
+ * is Al3Ti. It also means TWO-PHASE-TERMINATION is structurally unreachable for
+ * that class, which is correct rather than a gap: its whole two-phase band lies
+ * past the invariant, where this instrument refuses.
+ */
+export function phasesFor(baseKey: string, el: string, w: number): SolutePhases | null {
+  const base = Object.hasOwn(BASES, baseKey) ? BASES[baseKey] : undefined;
+  const sol = base && Object.hasOwn(base.solutes, el) ? base.solutes[el] : undefined;
+  if (!base || !sol) return null;
+  const P = `(${base.symbol})`;
+  const byBase = Object.hasOwn(BINARY, baseKey) ? BINARY[baseKey] : {};
+  const row: BinaryRow | undefined = Object.hasOwn(byBase, el) ? byBase[el] : undefined;
+  const R = (regime: CompositionRegime, primary: string, equilibrium: string[],
+    source: string, fraction: InvariantFraction | null = null,
+    notGrown: string | null = null, consumesPrimary = false): SolutePhases =>
+    ({ el, wt: w, regime, primary, equilibrium, consumesPrimary, fraction, notGrown, source });
+
+  if (!row) {
+    return R("UNASSESSED", P, [P],
+      `no assessed invariant row for ${base.symbol}–${el} in this build, so nothing is claimed about which phases this composition ends with.`);
+  }
+  if (row.invariant === "isomorphous") {
+    return R("SINGLE-PHASE-ALL-COMPOSITIONS", P, [P],
+      `${base.symbol}–${el} is isomorphous: the two are soluble in each other in every proportion, so there is no invariant, no second phase, and no composition at which either of those changes. Freezing ends single-phase ${P} at any ${el} content, and the ${w} wt% here is not near an edge because there is no edge.`);
+  }
+  const { Tinv, Cinv, Csm } = row;
+  if (Tinv == null || Cinv == null || Csm == null) {
+    return R("UNASSESSED", P, [P],
+      `the ${base.symbol}–${el} row records a ${row.invariant} but not all three of its temperature, its liquid composition and the maximum solid solubility, so this composition cannot be placed against it.`);
+  }
+
+  // THE SAME GEOMETRIC TEST phasediagram.ts refuses to DRAW on, applied to the
+  // claim as well as to the picture. One row fails it — Ni–W, whose invariant
+  // at 1495 °C sits above nickel's 1455 °C (so the liquidus rises and the first
+  // solid must be the RICHER phase) while its C_SM 39.9 against C_inv 45 says
+  // the liquid is. v7.1 P2 found it and refused to draw it; until this check
+  // the composer went on computing confident phase names, regimes and even a
+  // lever fraction from the same contradictory numbers. An app that will not
+  // draw a row should not narrate it either.
+  const TmC = (MATERIALS[base.materialKey]?.si?.Tm ?? NaN) - C_PER_K;
+  if (Number.isFinite(TmC) && (Tinv > TmC) !== (Csm > Cinv)) {
+    return R("UNASSESSED", P, [P],
+      `${base.symbol}–${el}'s row cannot be placed: its invariant at ${Tinv} °C is ${Tinv > TmC ? "above" : "below"} pure ${base.symbol}'s ${TmC.toFixed(0)} °C, so the liquidus ${Tinv > TmC ? "rises" : "falls"} and the first solid must be the ${Tinv > TmC ? "richer" : "leaner"} phase — but C_SM ${Csm} wt% against C_inv ${Cinv} wt% says the ${Csm > Cinv ? "solid" : "liquid"} is. The row's own source records the contradiction; nothing is claimed from it here, and the figure refuses to draw it for the same reason.`);
+  }
+  const second = shortPhase(row.second);
+
+  // Which class of reaction this is, in the only terms the DATA can settle.
+  // A peritectic whose base solid is the PRODUCT has its invariant liquid
+  // LEANER than the maximum solid solubility (Al–Ti 0.15 against 1.32); one
+  // whose base solid is a REACTANT has it the other way round (Fe–C 0.53
+  // against 0.09). No string is parsed to decide this.
+  const eutectic = row.invariant === "eutectic";
+  const productPeritectic = !eutectic && Cinv < Csm;
+  const reactantPeritectic = !eutectic && !productPeritectic;
+  const Cb = row.Csecond ?? null;
+
+  if (w >= Cinv) {
+    // AT the invariant liquid exactly, the phase identity below is not what
+    // happens and saying it would be a wrong statement rather than an absent
+    // one: an Fe–0.53C melt meets the δ liquidus exactly at 1495 °C, so δ does
+    // form first and is immediately consumed; at a eutectic composition neither
+    // solid is first, both nucleate together on the horizontal. The refusal is
+    // the same either way — this solver grows one solid phase — but the reason
+    // is worded for the case that is actually true.
+    const atExactly = w === Cinv;
+    const head = `${w} wt% ${el} is ${atExactly ? "exactly at" : "past"} the ${base.symbol}–${el} invariant liquid of ${Cinv} wt% (${row.invariant}, ${Tinv} °C)`;
+    if (atExactly) {
+      return R("PAST-THE-INVARIANT", second, eutectic ? [P, second] : [second],
+        `${head}: this melt freezes ON the horizontal — ${eutectic ? `at a eutectic composition neither solid is first, ${P} and ${second} nucleate together` : `${P} forms at the liquidus and the reaction ${reactionText(row)} consumes it at once`} — and this solver grows one solid phase, so the composition is declined rather than approximated.`);
+    }
+    // Past it. What equilibrium leaves depends on the class, and returning
+    // [second, base] for all three was wrong for both peritectic ones.
+    const leaves = eutectic
+      // hypereutectic: primary `second`, then the eutectic gives both
+      ? [second, P]
+      : productPeritectic
+        // L + second -> base. Below C_SM the `second` primary is entirely
+        // consumed and the casting ends single-phase in the base — this is the
+        // Al–Ti grain-refinement mechanism itself. Only past C_SM is any left.
+        ? (w > Csm ? [second, P] : [P])
+        // L + base -> second, and past the invariant liquid the base phase
+        // never forms at all: an Fe–1.5C melt ends 100 % austenite.
+        : [second];
+    return R("PAST-THE-INVARIANT", second, leaves,
+      `${head}: the FIRST phase to freeze from this melt is ${second}, not ${P}${leaves.includes(P) ? "" : `, and ${P} — the one phase this solver grows — is not in the frozen casting at all`}. This solver grows one solid phase and it is the base-rich primary, so there is nothing here for it to grow first.`);
+  }
+
+  if (w > Csm) {
+    // Past the solubility limit and short of the invariant: the primary IS the
+    // base's own phase. What happens to it at the invariant is the whole
+    // difference between the two reaction types, and it was collapsed into one
+    // answer until v7.1 P3's review.
+    const k = Csm / Cinv;
+    const lever = (w - Csm) / (Cinv - Csm);
+    const scheil = k > 0 && k < 1 ? Math.pow(Cinv / w, 1 / (k - 1)) : NaN;
+    const both = eutectic && Number.isFinite(scheil) && k > 0 && k < 1;
+    if (both) {
+      const head = `${w} wt% ${el} is past the ${Csm} wt% that dissolves in ${P} at ${Tinv} °C, so equilibrium ends this casting with ${second} beside the ${base.label}`;
+      return R("TWO-PHASE-TERMINATION", P, [P, second],
+        `${head}. The lever rule puts ${(lever * 100).toFixed(1)} % of the casting through the ${Tinv} °C ${row.invariant} as ${P} + ${second}; Gulliver–Scheil — constant partition, complete mixing in the liquid, and NO back-diffusion into the solid — gives ${(scheil * 100).toFixed(1)} %. Both use this row's own chord partition k = C_SM/C_inv = ${k.toFixed(3)}, not the shipped dilute k = ${sol.k}; docs/PHASE-AUDIT.md records where the two disagree.`,
+        { lever, scheil },
+        `${second} is the second phase equilibrium leaves in this casting — ${el} at ${w} wt% is past the ${Csm} wt% that dissolves in ${P} — and roughly ${(lever * 100).toFixed(0)} % of the casting freezes at the ${Tinv} °C ${row.invariant} as ${P} + ${second} (Gulliver–Scheil ${(scheil * 100).toFixed(0)} %). This solver has one solid phase and grows none of the ${second}.`);
+    }
+
+    // A EUTECTIC that could not produce the two closed forms is a different
+    // fact from a peritectic, and it must not borrow the peritectic's sentence.
+    // Unreachable from the shipped table — it needs C_SM = 0 exactly, and no
+    // row has that — but the branch below is written for a reaction that
+    // CONSUMES the primary, and printing that about a eutectic would name a
+    // mechanism that did not happen.
+    if (eutectic) {
+      return R("TWO-PHASE-TERMINATION", P, [P, second],
+        `${w} wt% ${el} is past the ${Csm} wt% that dissolves in ${P} at ${Tinv} °C, so equilibrium ends this casting with ${second} beside the ${base.label}. The share that freezes at the ${Tinv} °C eutectic is not computed here: this row's chord partition C_SM/C_inv = ${(Csm / Cinv).toFixed(3)} is not inside (0,1), and both closed forms need a partition that is.`,
+        null,
+        `${second} is the second phase equilibrium leaves in this casting — ${el} at ${w} wt% is past the ${Csm} wt% that dissolves in ${P} — and this solver has one solid phase and grows none of it. No fraction is put on it, because this row's chord partition is not inside (0,1).`);
+    }
+
+    // A PERITECTIC, where the reaction EATS the phase this solver grows.
+    //
+    // The number is refused, and the reason is not the one this file printed
+    // first. "The lever rule and Gulliver–Scheil describe a liquid freezing to
+    // two solids and neither describes a peritectic" is false metallurgy on
+    // both halves: the lever rule is a tie-line mass balance that knows nothing
+    // about reaction type and is exactly how the extent of a peritectic is
+    // computed, and Scheil is the standard tool for hypo- and hyper-peritectic
+    // steel. THE REAL REASON is that the quantity itself is different. At a
+    // eutectic every drop of remaining liquid freezes AT T_inv, so the liquid
+    // fraction there IS "the share that freezes at the invariant". At a
+    // peritectic the reaction consumes only part of the liquid and the rest
+    // freezes BELOW T_p on the product's own solidus, so the share is a
+    // difference of two lever arms that needs the product's composition.
+    const retained = Cb == null ? null : w <= Cb;
+    const leaves = reactantPeritectic && retained === false ? [second] : [P, second];
+    const consumed = reactantPeritectic && retained === false;
+    const fate = Cb == null
+      ? `whether any ${P} survives that reaction depends on the product's own composition, which this row does not carry as a number (its literature value is a bracket, and the row's source says so), so it is not decided here`
+      : retained
+        ? `at ${w} wt% this melt is leaner than the product's ${Cb} wt%, so some ${P} survives the reaction and the casting ends with both`
+        : `at ${w} wt% this melt is RICHER than the product's ${Cb} wt%, so the reaction consumes the ${P} entirely and the casting ends as ${second} alone — while this solver grows ${P} from the first frame to the last`;
+    return R("TWO-PHASE-TERMINATION", P, leaves,
+      `${w} wt% ${el} is past the ${Csm} wt% that dissolves in ${P} at ${Tinv} °C, so what is left of this melt reaches the ${row.invariant} ${reactionText(row)} at ${Tinv} °C — and ${fate}. No fraction is put on it: at a eutectic the liquid remaining at the invariant all freezes there, so its fraction IS the share that freezes at the invariant, but a peritectic consumes only part of that liquid and the rest freezes below ${Tinv} °C on the ${second} solidus, which makes the share a difference of two lever arms this table cannot close.`,
+      null,
+      `${second} is what equilibrium leaves in this casting — ${el} at ${w} wt% is past the ${Csm} wt% that dissolves in ${P} — through the ${row.invariant} ${reactionText(row)} at ${Tinv} °C${consumed ? `, which consumes the ${P} this solver grows ENTIRELY: the casting ends as ${second} and the solver grows ${P}` : `; the solver grows one solid phase, ${P}, and grows none of the ${second}`}. No fraction is put on it, because the share that freezes at a peritectic is not the liquid fraction there.`,
+      consumed);
+  }
+
+  // WITHIN the equilibrium solubility limit — and equilibrium is not the only
+  // thing that has an opinion. Gulliver–Scheil is defined here too, and it is
+  // strictly positive: with no back-diffusion the last liquid between the arms
+  // enriches to the invariant however lean the melt started, which is why AZ91
+  // has β-Mg17Al12 in its as-cast structure at 9 wt% Al against a 12.9 wt%
+  // equilibrium limit. Printing SINGLE-PHASE and stopping would be the one
+  // place this two-column device fails to fire, on a DENDRITIC solidification
+  // simulator, where non-equilibrium freezing is the entire subject.
+  const kEq = Csm / Cinv;
+  const scheilHere = eutectic && kEq > 0 && kEq < 1 && w > 0
+    ? Math.pow(Cinv / w, 1 / (kEq - 1)) : NaN;
+  const solvus = `That limit is quoted AT the invariant temperature and this table carries no solvus below it, so whatever precipitates on further cooling is outside both the drawing and the solver.`;
+  if (Number.isFinite(scheilHere) && scheilHere >= SCHEIL_FLOOR) {
+    return R("SINGLE-PHASE", P, [P],
+      `${w} wt% ${el} is within the ${Csm} wt% that dissolves in ${P} at the ${Tinv} °C ${row.invariant}, so EQUILIBRIUM freezes this binary to a single solid solution — but Gulliver–Scheil does not: with no back-diffusion the last liquid still enriches to the invariant, and it puts ${(scheilHere * 100).toFixed(1)} % of the casting through it as ${row.invariant} ${P} + ${second}. Equilibrium says one phase, Scheil says ${(scheilHere * 100).toFixed(1)} % of a second, and this solver grows neither. ${solvus}`,
+      { lever: 0, scheil: scheilHere },
+      `equilibrium leaves this casting single-phase ${P} — ${el} at ${w} wt% is within the ${Csm} wt% that dissolves — but Gulliver–Scheil, which assumes no back-diffusion into the solid, puts ${(scheilHere * 100).toFixed(1)} % of it through the ${Tinv} °C ${row.invariant} as ${second} anyway. That is the as-cast structure a real foundry gets; this solver grows neither phase of it.`);
+  }
+  return R("SINGLE-PHASE", P, [P],
+    `${w} wt% ${el} is within the ${Csm} wt% that dissolves in ${P} at the ${Tinv} °C ${row.invariant}, so equilibrium freezes this binary to a single solid solution${Number.isFinite(scheilHere) ? `, and Gulliver–Scheil agrees to within ${(scheilHere * 100).toFixed(2)} % — below the ${(SCHEIL_FLOOR * 100).toFixed(0)} % this readout treats as a phase` : ""}. ${solvus}`);
+}
+
 export interface Derived {
   name: string;
   totalWt: number;
@@ -271,6 +596,28 @@ export interface Derived {
    * solute and still print a confident number.
    */
   refusals: string[];
+  /**
+   * The DOMINANT solute's composition regime — the same binary `dominant`
+   * names and the same one the figure draws, so the shaded band on the drawing
+   * and the word in the readout cannot disagree.
+   */
+  regime: CompositionRegime;
+  /** always non-empty: which numbers placed the mix in that regime */
+  regimeSource: string;
+  /** one entry per solute that survived the filter, in mix order */
+  phases: SolutePhases[];
+  /** what equilibrium leaves when this casting is frozen, deduplicated */
+  phasesEquilibrium: string[];
+  /** what this solver grows: exactly one phase, or none for a pure melt */
+  phasesGrown: string[];
+  /**
+   * One line per phase equilibrium predicts here that the solver does not grow.
+   * The most important honesty channel this composer has: it is the difference
+   * between a drawing of a diagram and a simulation of one.
+   */
+  notGrown: string[];
+  /** the dominant solute's invariant share — EUTECTIC rows only, else null */
+  invariantFraction: InvariantFraction | null;
 }
 
 const C_PER_K = 273.15;
@@ -429,6 +776,17 @@ function referenceIntervalFor(
   model);
 }
 
+/** the fields P3 added, in their nothing-to-say state */
+const NO_PHASES = {
+  regime: "NONE" as CompositionRegime,
+  regimeSource: "",
+  phases: [] as SolutePhases[],
+  phasesEquilibrium: [] as string[],
+  phasesGrown: [] as string[],
+  notGrown: [] as string[],
+  invariantFraction: null as InvariantFraction | null,
+};
+
 export function derive(mix: Mix): Derived {
   const refusals: string[] = [];
   // Object.hasOwn, not a truthiness test: `BASES.constructor` and
@@ -448,6 +806,8 @@ export function derive(mix: Mix): Derived {
       dT0Source: `no base metal named "${mix.base}" — the composer ships ${Object.keys(BASES).join(", ")}.`,
       refusals: [`base "${mix.base}" is not a base metal this composer carries — nothing was poured`],
       params: { alloyOn: 0 },
+      ...NO_PHASES,
+      regimeSource: `there is no base metal named "${mix.base}", so there is no binary to place a composition on.`,
     };
   }
   const entries = Object.entries(mix.wt).filter(([el, w]) => {
@@ -471,6 +831,40 @@ export function derive(mix: Mix): Derived {
       // alike. It also closes the mole-balance hole one block down, where
       // molBase = (100 − totalWt)/mass goes negative past 100 wt% with no guard.
       refusals.push(`${el} was handed ${w} wt% — dropped; a weight percent cannot exceed 100`);
+      return false;
+    }
+    // THE CEILING, and it is here rather than on the slider because the slider
+    // is not the only way in. `window.__solidify.alloy({base:'fe',wt:{C:3}})`
+    // walked straight past the hand-picked cap, and so did any hand-built
+    // `#alloy=` hash before its own clamp was tightened beside this.
+    //
+    // Past the invariant liquid the FIRST phase to freeze is no longer the
+    // base-rich one, and this solver carries exactly one solid phase. Drawing
+    // 4-fold δ-ferrite dendrites for a melt whose primary phase is austenite is
+    // not an approximation, it is a different casting. The refusal names the
+    // phase and the number, because a slider range that silently shrank would
+    // teach nothing.
+    // The bound comes from `soluteBound`, NOT from the regime classifier, and
+    // the two were the same call until the classifier learned to refuse a
+    // geometrically contradictory row. Ni–W is that row: refusing to CLASSIFY
+    // it also switched its ceiling off, so 45 wt% tungsten sailed into the
+    // melt through the hole the repair opened. A composition bound and a phase
+    // claim are different things, and only one of them is in doubt here — the
+    // invariant liquid is still the composition past which this instrument
+    // stops being able to say what freezes first, whatever else the row gets
+    // wrong.
+    const b = soluteBound(mix.base, el);
+    if (b?.ceiling != null && w >= b.ceiling) {
+      const row = BINARY[mix.base][el];
+      // AT the invariant liquid exactly, "past it the first phase to freeze is
+      // X" is a false sentence, and this refusal is reachable there: an
+      // Al–12.6Si melt freezes ON the eutectic horizontal, where both solids
+      // nucleate together, and an Fe–0.53C melt forms δ at the liquidus and has
+      // it consumed at once. The composition is declined either way — this
+      // solver grows one solid phase — but the reason is worded for the case
+      // that is true, the same split `phasesFor` makes one file over.
+      const at = w === b.ceiling;
+      refusals.push(`${el} at ${w} wt% is ${at ? "exactly at" : "past"} the ${base.symbol}–${el} invariant liquid, ${row.Cinv} wt% (${row.invariant} at ${row.Tinv} °C): ${at ? `this melt freezes ON the horizontal, where ${row.invariant === "eutectic" ? `(${base.symbol}) and ${shortPhase(row.second)} appear together` : `(${base.symbol}) forms and the reaction consumes it at once`}` : `past it the first phase to freeze is ${shortPhase(row.second)}, not (${base.symbol})`}, and this solver grows exactly one solid — the base-rich primary. Dropped rather than poured as a melt this instrument cannot grow the first phase of.`);
       return false;
     }
     return w > 0;
@@ -497,6 +891,8 @@ export function derive(mix: Mix): Derived {
       mSI: 0, kEff: null, dominant: null, dT0: null, dT0Regime: "REFUSED",
       dT0Source: `this mix totals ${totalWt.toFixed(1)} wt% of solute, which is not a composition; nothing was derived from it.`,
       refusals, params: { alloyOn: 0 },
+      ...NO_PHASES,
+      regimeSource: `this mix totals ${totalWt.toFixed(1)} wt% of solute, so there is no composition to place on a diagram.`,
     };
   }
 
@@ -524,7 +920,12 @@ export function derive(mix: Mix): Derived {
 
   const dSol = Math.min(1.5, Math.max(0.2, 0.8 * (totalWt > 0 ? dSum / totalWt : 1)));
 
-  const name = base.symbol + entries
+  // `[...entries]`, because Array.sort is IN PLACE. Sorting `entries` itself to
+  // build a display name silently reordered every consumer downstream of it —
+  // harmless while the only one was this string, and no longer harmless now
+  // that `phases` is built from the same array and its order is what the
+  // readout prints. A cosmetic sort with a side effect on data.
+  const name = base.symbol + [...entries]
     .sort((a, b) => b[1] - a[1])
     .map(([el, w]) => `–${w < 1 ? w.toFixed(2).replace(/0$/, "") : w.toFixed(1)}${el}`)
     .join("");
@@ -540,11 +941,40 @@ export function derive(mix: Mix): Derived {
   const kEff = depression > 1e-6 ? 1 - Q / depression : null;
   const iv = referenceIntervalFor(mix.base, dTL, Q, totalWt, dominant, mix.wt);
 
+  // ---- what equilibrium leaves, and what the solver actually grows.
+  //
+  // Every SURVIVING solute is classified, not just the dominant one: the mix
+  // collapses onto one pseudo-binary for the SOLVER, but a casting does not
+  // stop forming Al3Fe because iron is not the largest m·c term. The dominant's
+  // regime is the one the readout and the drawn band name, because that is the
+  // binary the figure is a picture of.
+  const phases = entries.map(([el, w]) => phasesFor(mix.base, el, w))
+    .filter((p): p is SolutePhases => p !== null);
+  const dom = dominant ? phases.find(p => p.el === dominant) ?? null : null;
+  const phasesGrown = totalWt > 0 ? [`(${base.symbol})`] : [];
+  // A CONSUMED PRIMARY IS NOT PRESENT, whatever the other binaries say. Each
+  // solute's row speaks only for its own binary, so the union across them is
+  // how this app approximates a multicomponent melt — but if ANY of them says
+  // the invariant reaction eats the base-rich phase, then it is gone, and no
+  // other binary's "single-phase (Fe)" can put it back. 1045 is the case: its
+  // manganese and silicon rows both end single-phase (Fe) while its carbon row
+  // ends as austenite through a reaction that consumes every trace of the
+  // δ-ferrite, so the honest left column is austenite alone.
+  const eats = phases.some(p => p.consumesPrimary);
+  const phasesEquilibrium = [...new Set(phases.flatMap(p => p.equilibrium))]
+    .filter(x => !eats || x !== `(${base.symbol})`);
+  const notGrown = phases.map(p => p.notGrown).filter((s): s is string => s !== null);
+
   return {
     name, totalWt, dTL, Q, atPct, clamps, refusals,
     mSI, kEff, dominant,
     dT0: iv.dT0, dT0Regime: iv.regime, dT0Source: iv.source,
     params: { alloyOn: totalWt > 0 ? 1 : 0, c0, mLiq, kPart, dSol },
+    regime: dom?.regime ?? "NONE",
+    regimeSource: dom?.source
+      ?? `there is no solute in this melt, so there is no composition to place against an invariant — a pure ${base.label} casting freezes at one temperature.`,
+    phases, phasesEquilibrium, phasesGrown, notGrown,
+    invariantFraction: dom?.fraction ?? null,
   };
 }
 
@@ -565,8 +995,22 @@ export function encodeMix(mix: Mix): string {
  * an empty solute list, so `#alloy=al:` and a trailing comma are syntactically
  * fine and lose nothing.
  */
-export function decodeMix(hash: string, refusals?: string[]): Mix | null {
-  const m = /alloy=([a-z]+):([A-Za-z0-9.,]*)/.exec(hash);
+export function decodeMix(hash: string, refusals?: string[], clamped?: string[]): Mix | null {
+  // The payload runs to the end of the hash or to the next parameter, and NOT
+  // to the first character the old class did not recognise. `[A-Za-z0-9.,]*`
+  // silently TRUNCATED: `#alloy=al:Si7%20Mg0.35` matched only "Si7" and the
+  // magnesium term vanished with nothing said, because the decoder never saw
+  // it. Captured whole, every term reaches the shape test below and a malformed
+  // one is named. This is the same defect class as the `1.2.3` weight above —
+  // an input silently reduced rather than named — and it is the reason the
+  // refusals now quote the token the LINK contains rather than a prefix of it.
+  //
+  // It does change one behaviour, deliberately: `#alloy=al:Si7%20Mg0.35` used
+  // to restore Al–7Si and drop the magnesium in silence, and now restores
+  // nothing and names the whole malformed token. Losing a solute quietly is the
+  // worse of the two, and no link `encodeMix` mints can contain a character
+  // that reaches this path.
+  const m = /alloy=([a-z]+):([^&#]*)/.exec(hash);
   if (!m) return null;
   if (!Object.hasOwn(BASES, m[1])) {
     refusals?.push(`this link names "${m[1]}" as its base metal, which this composer does not carry — the link was not applied`);
@@ -575,7 +1019,16 @@ export function decodeMix(hash: string, refusals?: string[]): Mix | null {
   const wt: Record<string, number> = {};
   for (const p of m[2].split(",")) {
     if (p === "") continue;   // an empty solute list is well-formed, not a drop
-    const pm = /^([A-Z][a-z]?)([\d.]+)$/.exec(p);
+    // `(\d*\.?\d+)` and not `([\d.]+)`, and the difference is a defect v7.1 P1
+    // named without closing. P1's comment said `[\d.]+` "matches a bare '.' and
+    // a '1.2.3', both of which parseFloat turns into something the clamp cannot
+    // fix" — and then guarded on `Number.isFinite`, which catches the first and
+    // NOT the second: parseFloat("1.2.3") is 1.2, perfectly finite, so
+    // `#alloy=al:Si1.2.3` restored a silent 1.2 wt% Si and reported nothing.
+    // A malformed weight is now rejected as a SHAPE, whole, and named. It
+    // still accepts everything encodeMix mints and everything parseFloat would
+    // have read correctly, including a leading-dot ".5".
+    const pm = /^([A-Z][a-z]?)(\d*\.?\d+)$/.exec(p);
     if (!pm) {
       refusals?.push(`"${p}" in this link is not an element followed by a weight — that term was dropped and the rest of the link was restored`);
       continue;
@@ -586,19 +1039,47 @@ export function decodeMix(hash: string, refusals?: string[]): Mix | null {
       continue;
     }
     const raw = parseFloat(pm[2]);
-    // `([\d.]+)` matches a bare "." and a "1.2.3", both of which parseFloat
-    // turns into something the clamp cannot fix. NaN !== NaN also made the
-    // cap-violation branch below fire and name the wrong mechanism, while
-    // still writing NaN into the mix.
+    // Now unreachable from the regex above, and kept deliberately: that regex
+    // is about the token's SHAPE and this is about its VALUE, and the two were
+    // conflated once already. A future loosening of the pattern must not
+    // silently re-open a NaN path into the mix, which is what this caught when
+    // the pattern was `[\d.]+` — NaN !== NaN also made the clamp branch below
+    // fire and name the wrong mechanism while still writing NaN into the mix.
     if (!Number.isFinite(raw)) {
       refusals?.push(`"${p}" in this link does not carry a readable weight — that term was dropped and the rest of the link was restored`);
       continue;
     }
-    const clamped = Math.min(s.cap, Math.max(0, raw));
-    if (clamped !== raw) {
-      refusals?.push(`this link asks for ${raw} wt% ${pm[1]}, past the ${s.cap} wt% this model admits in ${BASES[m[1]].label} — restored at ${clamped} wt%`);
+    // CLAMPED, not dropped, and that asymmetry with `derive()` is deliberate.
+    // A link is a saved artefact and the non-negotiable for this arc is that
+    // every pre-arc link still restores to a melt; a programmatic
+    // `__solidify.alloy` call is not, and there dropping the term keeps derive()
+    // a function of what it was actually handed rather than of a composition it
+    // invented. Both routes name what they did, and neither lets a composition
+    // at or past the invariant through.
+    const b = soluteBound(m[1], pm[1]);
+    const bound = b ? b.max : s.cap;
+    const held = Math.min(bound, Math.max(0, raw));
+    if (held !== raw) {
+      // WHICH BOUND ACTUALLY BOUND, and the distinction is not pedantry. The
+      // slider stops one step BELOW the invariant, so a link asking for
+      // 0.525 wt% C is over the 0.52 bound while being under the 0.53
+      // invariant: saying "at or past the invariant" there would name a
+      // mechanism that did not fire. Three cases, three sentences.
+      const overInvariant = b?.ceiling != null && raw >= b.ceiling;
+      const invariantBound = b?.boundBy === "invariant";
+      refusals?.push(
+        overInvariant
+          ? `this link asks for ${raw} wt% ${pm[1]}, at or past the ${b!.ceiling} wt% ${BASES[m[1]].symbol}–${pm[1]} invariant where the first phase to freeze stops being (${BASES[m[1]].symbol}) — restored at ${held} wt%, the most this instrument can grow the primary phase of`
+          : invariantBound
+            ? `this link asks for ${raw} wt% ${pm[1]}, past the ${held} wt% this slider reaches — one step short of the ${b!.ceiling} wt% ${BASES[m[1]].symbol}–${pm[1]} invariant, which it stops below rather than on — restored at ${held} wt%`
+            : `this link asks for ${raw} wt% ${pm[1]}, past the ${bound} wt% this model admits in ${BASES[m[1]].label} — restored at ${held} wt%`);
+      // A STRUCTURED signal beside the sentence, because a caller that has to
+      // decide something needs a fact rather than a string to match on: main.ts
+      // uses this to stop a pre-P3 share link's own params block from putting
+      // the UNCLAMPED chemistry onto the solver behind the clamped mix.
+      clamped?.push(pm[1]);
     }
-    wt[pm[1]] = clamped;
+    wt[pm[1]] = held;
   }
   return { base: m[1], wt };
 }

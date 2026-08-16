@@ -26,6 +26,7 @@ const SUITE = [
   ["scripts/verify-phasedata.mjs"],
   ["scripts/verify-alloy.mjs"],
   ["scripts/verify-phasediagram.mjs"],
+  ["scripts/verify-regimes.mjs"],
   ["scripts/verify-dive.mjs"],
   ["scripts/verify-dive-fallbacks.mjs"],
   ["scripts/verify-scroll-order.mjs"],

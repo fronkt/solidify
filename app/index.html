@@ -144,6 +144,12 @@
     #composer .drow { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); margin-bottom: 4px; }
     #composer .drow b { color: var(--amber); font-weight: 500; }
     #composer .clamp { font-size: 10px; color: #d9985a; margin-top: 4px; }
+    /* the two columns (v7.1 P3): what equilibrium leaves vs what the solver grows */
+    #composer .phases { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+    #composer .phases div { border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; }
+    #composer .phases span { display: block; font-size: 8.5px; letter-spacing: 0.1em; color: var(--dim); margin-bottom: 3px; }
+    #composer .phases b { font-size: 11.5px; color: var(--amber); font-weight: 500; }
+    #composer .phases div:last-child b { color: var(--cyan); }
     #composer .src { font-size: 10px; color: var(--dim); line-height: 1.4; margin-top: 6px; border-left: 2px solid var(--line); padding-left: 7px; }
     /* the drawn phase diagram (v7.1 P2). Its own container, because .derived's
        innerHTML is replaced on every slider frame and would rebuild the SVG. */

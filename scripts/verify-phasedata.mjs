@@ -163,6 +163,63 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// PD-PRODUCT-SOURCED — the `Csecond` field v7.1 P3 added, and the claim it
+// decides.
+//
+// It exists for exactly one job: on a peritectic whose base solid is a REACTANT
+// the reaction consumes the phase this solver grows, and whether ANY of it
+// survives depends on this number alone. 1045 at 0.45 wt% C and 4340 at 0.40
+// are both past Fe–C's γ at 0.17, so their δ-ferrite is eaten entirely and the
+// casting ends as austenite — which the app printed as "(Fe) beside
+// gamma-austenite" until this field existed.
+//
+// EVERY VALUE IS ASSERTED TO APPEAR IN ITS OWN ROW'S PROSE. It was transcribed
+// from the sentence that row's `second` and `source` fields already carry, so
+// tying it back to that sentence is what makes it a citation rather than a
+// number somebody typed. A field added without that link is exactly the drift
+// docs/PHASE-AUDIT.md exists to prevent.
+{
+  const carried = [], bad = [], nulls = [];
+  for (const [bk, byBase] of Object.entries(PD.BINARY)) {
+    for (const [el, row] of Object.entries(byBase)) {
+      const key = `${bk}-${el}`;
+      if (!("Csecond" in row)) continue;
+      const reactant = row.invariant === "peritectic" && row.Csm != null
+        && row.Cinv != null && row.Csm < row.Cinv;
+      if (!reactant) { bad.push({ key, why: "Csecond is carried on a row that is not a reactant-peritectic" }); continue; }
+      if (row.Csecond == null) {
+        // a null is an ANSWER here, and it has to say so in its own source
+        if (!/4\.2-4\.7|bracket|could not be opened|DELIBERATELY NULL/i.test(row.source)) {
+          bad.push({ key, why: "a null product composition with no explanation in the row's source" });
+        }
+        nulls.push(key);
+        continue;
+      }
+      carried.push(key);
+      // the ordering this class REQUIRES: the product sits between the solid
+      // solubility limit and the invariant liquid, or the reaction it describes
+      // is not the one the row says it is
+      if (!(row.Csm < row.Csecond && row.Csecond < row.Cinv)) {
+        bad.push({ key, why: `C_SM ${row.Csm} < C_second ${row.Csecond} < C_inv ${row.Cinv} does not hold` });
+      }
+      // and it must be the number the row's own prose already states
+      const prose = `${row.second} ${row.source}`;
+      if (!prose.includes(String(row.Csecond))) {
+        bad.push({ key, why: `${row.Csecond} does not appear in this row's own second/source prose` });
+      }
+    }
+  }
+  // Liveness on both halves: the field is carried by real rows, AND at least
+  // one row declines it for a stated reason, so "populate everything" and
+  // "populate nothing" both fail.
+  const ok = bad.length === 0 && carried.length >= 3 && nulls.length >= 1;
+  check("PD-PRODUCT-SOURCED", ok, {
+    rowsCarryingAProductComposition: carried, rowsDecliningIt: nulls, bad,
+    note: "Fe-Ni declines: its literature value is a 4.2-4.7 wt% bracket rather than a number, and the row's source says so",
+  });
+}
+
 await server.close();
 console.log(failures ? `done — ${failures} FAILED` : "done — all phasedata checks passed");
 if (failures) process.exitCode = 1;
