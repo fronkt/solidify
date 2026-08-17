@@ -251,17 +251,24 @@ block("EL-TIER-TOTAL", () => {
         shortest = Math.min(shortest, a.sentence.length);
       }
       // Every advisory line carries its own computed pressure in atm — and a
-      // line that has NO pressure must say which of the four reasons applies
-      // and must not print a number anyway. The four: the element has no
+      // line that has NO pressure must say which of the five reasons applies
+      // and must not print a number anyway. The five: the element has no
       // measured Tb/ΔH_vap; its vapour is molecular, so the per-atom enthalpy
       // this table stores is the wrong basis for Clausius–Clapeyron; the weight
-      // handed in was not a composition; or the base's melting point is above
+      // handed in was not a composition; the base's melting point is above
       // the element's CRITICAL temperature, where no liquid–vapour equilibrium
-      // exists to have a pressure (mercury over liquid iron, the one such cell).
+      // exists to have a pressure (mercury over liquid iron, the one such cell);
+      // or — added by v7.1 P5, and this gate is what required it to be added
+      // HERE rather than just written — the element is a noble gas, where
+      // Raoult's law has no solution to apply to, because the same classifier's
+      // refusal one field away puts the solubility at a part per billion by
+      // mole. That fifth reason is not a new kind of statement: it is the
+      // mercury judgement, that a rule is not extrapolated past the conditions
+      // it describes, applied to the other class of cell that violates them.
       if (a.vapour && a.vapour.band !== "NO-DATA") {
         if (!/ atm/.test(a.vapour.text)) why.push(`${bk}-${e.symbol} vapour line has no atm`);
       } else if (a.vapour) {
-        const says = /has been measured|molecular rather than monatomic|is not a number|is not a composition|that weight is infinite|no melting point|critical temperature/.test(a.vapour.text);
+        const says = /has been measured|molecular rather than monatomic|is not a number|is not a composition|that weight is infinite|no melting point|critical temperature|needs a solution, and this one does not exist/.test(a.vapour.text);
         if (!says) why.push(`${bk}-${e.symbol} NO-DATA vapour line does not say why: ${a.vapour.text.slice(0, 60)}`);
         if (/ atm/.test(a.vapour.text)) why.push(`${bk}-${e.symbol} prints a pressure it could not compute`);
       }

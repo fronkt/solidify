@@ -67,6 +67,45 @@ await appShot("hero-steel.jpg", () => {
   a.setMaterial("steel"); a.setUndercool(0.88); a.resetArmed(); a.scatterSeeds(16); a.setView(0); a.setRun(true);
 }, { ticks: 55, clip: { x: 300, y: 100, width: 1000, height: 800 } });
 
+// THE PERIODIC GRID, both bases (v7.1 P5). Two stills of the same panel, one
+// over aluminium and one over iron, and the pair IS the capture: the same 118
+// cells recolour, six assessed solutes are exchanged for six others, and a
+// fume stripe appears under sodium, potassium, calcium and cadmium as the
+// liquidus climbs past their boiling points. `appShot` cannot take these —
+// it calls HIDE, which hides everything in #app that is not the canvas, and
+// the composer is a sibling of #app rather than a child of it, but HIDE also
+// leaves the casting running behind a modal that is the whole subject. Its own
+// block, no ticks, no clip: the panel at rest.
+{
+  const page = await browser.newPage();
+  await page.setViewport({ width: 1200, height: 1000 });
+  await page.goto(`http://localhost:${PORT}/app/`, { waitUntil: "networkidle0", timeout: 30000 });
+  await page.waitForFunction("!!window.__solidify", { timeout: 20000 });
+  await new Promise(r => setTimeout(r, 900));
+  const CARD = { x: 350, y: 58, width: 500, height: 884 };
+  await page.evaluate(() => {
+    const S = window.__solidify;
+    S.app.setRun(false);
+    S.app.setMaterial("al");
+    // A356 rather than the constructor's AA2024, so the two stills open on the
+    // alloy the rest of these demos are about
+    S.composer.applyHash("#alloy=al:Si7,Mg0.35");
+    S.app.openComposer();
+    document.querySelector('#composer .gcell[data-el="Hg"]').click();
+  });
+  await new Promise(r => setTimeout(r, 350));
+  await page.screenshot({ path: `${OUT}/composer-grid-al.jpg`, type: "jpeg", quality: 88, clip: CARD });
+  console.log("shot composer-grid-al.jpg");
+  await page.evaluate(() => {
+    document.querySelector('#composer .bases button[data-base="fe"]').click();
+    document.querySelector('#composer .gcell[data-el="Hg"]').click();
+  });
+  await new Promise(r => setTimeout(r, 350));
+  await page.screenshot({ path: `${OUT}/composer-grid-fe.jpg`, type: "jpeg", quality: 88, clip: CARD });
+  console.log("shot composer-grid-fe.jpg");
+  await page.close();
+}
+
 // TRUE 3D: six-armed dendrite at 128³ — landing fallback (MELT) + README hero (ORIENT).
 // A warm melt (undercool 0.7) keeps growth diffusion-limited so real arms form;
 // ~4000 frames at speed 22 is where the star is fully expressed but not box-bound.

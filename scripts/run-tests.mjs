@@ -28,6 +28,7 @@ const SUITE = [
   ["scripts/verify-phasediagram.mjs"],
   ["scripts/verify-regimes.mjs"],
   ["scripts/verify-elements.mjs"],
+  ["scripts/verify-composer-grid.mjs"],
   ["scripts/verify-dive.mjs"],
   ["scripts/verify-dive-fallbacks.mjs"],
   ["scripts/verify-scroll-order.mjs"],
@@ -36,6 +37,9 @@ const SUITE = [
   ["scripts/verify-passsplit.mjs", String(PORT)],
   ["scripts/verify-quant.mjs", String(PORT)],
   ["scripts/verify-phasediagram-gpu.mjs", String(PORT)],
+  // the first gate in this suite that CLICKS the composer: v7.1 P5's periodic
+  // grid, driven through the DOM the way a visitor drives it
+  ["scripts/verify-composer-gpu.mjs", String(PORT)],
   // the comparator layer running real casts: nucleation-live determinism, a
   // controlled sweep read at matched solid fraction, and the bench anchored
   // on the KR-1998 tip velocity — a constant the v7 arc does not touch

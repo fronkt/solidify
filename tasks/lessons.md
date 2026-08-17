@@ -251,3 +251,106 @@ with its own justification deleted, and the sentence that quotes it goes on bein
 the justification stops being true. The same rule caught a second instance in the same milestone:
 a doc gate compared a joined list with `includes()`, which any PREFIX of the list satisfies, so
 deleting the last row of a table passed. Bound the claim on both sides.
+
+## A ledger entry is not a gate, and "fixed" written from the finding is not a fix
+
+**What happened:** v7.1 P4's second review found that `MOLECULAR_VAPOUR` omitted tellurium,
+measured the consequence exactly — a fume-band number on three bases, computed from a per-atom
+enthalpy for a vapour that is Te2 — and wrote it into `tasks/todo.md` as a repair that had been
+made. The repair never reached `src/elements.ts`. P5 opened by reading that entry, went to look
+at the list, and the symbol was not there; the tree still printed 0.120 atm over iron. Every gate
+was green the whole time, because nothing in this repo compares a sentence in the ledger against
+the code the sentence is about.
+
+**Rule:** a review finding is written up from the FINDING, and the finding is a measurement of
+the broken behaviour — so the write-up is complete before the fix exists and reads identically
+whether or not it landed. Re-measure the repaired behaviour in the same session, from the tree,
+and only then write "fixed"; where the repair is a data-table entry rather than a code path, add
+the assertion that would have caught it. Selenium and arsenic were on that list from the first
+draft, and tellurium sits one row under selenium.
+
+## Write a gate's pins from the code, not from what you know about the subject
+
+**What happened:** `GRID-REASON-LINE` pins 29 cells by branch, and five of them were wrong on the
+first run — every one written from the periodic table instead of from the classifier. Carbon in
+ALUMINIUM does not take the bare no-row branch, because carbon is a solute this composer carries
+in iron, so it takes the carried-elsewhere one. Curium is not the decay-chain rung: Z 96 is
+transuranic, so it prints the reactor-bred sentence. Oganesson's LINE says "single atoms in an
+accelerator" — the word "transactinide" is in the paragraph, which is a different field. And the
+Fe–C row this table carries is the 1495 °C δ-ferrite peritectic that P3 derived the carbon
+ceiling from, not the 1148 °C eutectic that anyone would name from memory.
+
+**Rule:** a pin asserts that a specific input reaches a specific branch, so it has to be read off
+the branch. Print what the function returns for that input, then pin what it printed. A pin
+written from domain knowledge tests the domain knowledge; the gate that catches it is the gate
+you were writing, one run later, which is fine — but only if you run it before believing it.
+
+## Prove the perturbation landed before believing the gate can fail
+
+**What happened:** the non-vacuity check on `GRID-DOC-CLAIMS` was a `sed` that rewrote a number
+in `science/index.html` and a re-run that was supposed to FAIL. It passed. The reason was not the
+gate: the phrase spanned a line break in the source, `sed` works a line at a time, and the
+substitution silently matched nothing. The document was never modified, and "the gate passed on
+the perturbed tree" was a conclusion about a tree that did not exist.
+
+**Rule:** a proof that a gate CAN fail has two halves, and the first one is proving the mutation
+happened. Grep for the new value, or diff the file, before running the gate. A no-op edit and a
+gate with no teeth produce the same output, and the failure mode is the worse direction — it
+retires a real concern with a green tick.
+
+## Count what the code WROTE, not what some earlier step created
+
+**What happened:** the GPU gate for the periodic grid asserted `cells === 118` from
+`querySelectorAll(".gcell")`. Those nodes are created in `buildGrid`; the tier attribute that
+makes a cell mean anything is written in `paintGrid`, somewhere else entirely. A paint loop that
+skipped every element past Z 48 — seventy cells — passed every clause in the gate, and the
+both-polarities check it was supposed to trip actively HELPED it: an unpainted cell reads
+`undefined` on both bases, `undefined !== undefined` is false, so it counted as *unchanged*.
+
+**Rule:** when a gate asserts a count, ask which line of code the count is evidence about. A
+count of containers is evidence about the constructor; the assertion almost always wants the
+last writer. `querySelectorAll(".gcell[data-tier]")` is one selector longer and it is a claim
+about the function under test. The same shape recurs wherever a pipeline creates then fills:
+count the filled ones.
+
+## Uniqueness constrains the set, never the assignment
+
+**What happened:** the layout gate for the periodic table checked that all 118 elements have a
+position, that no two share one, that every column is in 1–18, that the f-block rows agree with
+the `block` column, and it pinned nineteen positions by hand. Every one of those clauses is a
+statement about the SET of occupied cells. Drawing aluminium in group 3 passed (the cell under
+scandium is empty, so nothing collided); drawing the whole of period 5 right-to-left passed (a
+permutation of a row is still a bijection onto its columns).
+
+**Rule:** a uniqueness or bijection check cannot see a permutation, and spot pins only cover the
+spots you thought of. Constrain each item against a property IT carries — here, tying every
+element's column to the band its own `block` implies — so the check scales with the data instead
+of with the reviewer's imagination. Genuine exceptions (helium, an s-block element drawn at group
+18) are pinned by name rather than by widening the rule until it constrains nothing.
+
+## A rule needs the conditions it describes, and a UI must not print it outside them
+
+**What happened:** the composer's reason panel printed a Raoult's-law partial pressure for every
+element, including the noble gases — argon "21 atm at 1 wt%", helium in the fume band "where the
+addition survives the melt" — directly beneath the same panel's refusal saying a noble gas's
+measured solubility is a part per billion by mole. Two claims in one panel, one saying the
+element cannot dissolve and the other computing what it does once dissolved.
+
+**Rule:** p = x·p_pure presumes there is a solution at mole fraction x. Before rendering a
+computed number, ask whether the object it is about exists under the conditions the same screen
+has just described; where it does not, refuse by name and say why, exactly as the mercury cell
+already did past its critical point. The mirror-image error was in the same function: the panel
+whitelisted the two loud bands and so discarded every NO-DATA line, which are the vapour rule's
+own refusals. An absent number is not a zero, and a refusal nobody renders is a refusal nobody
+made.
+
+## A pure classifier cannot hold an affordance
+
+**What happened:** every ASSESSED one-liner ended "Click to add it to the melt." `admit(base,
+element, wt)` is a function of a pair and a weight and has no idea what is already in the
+crucible, so that sentence went on inviting a click for a solute already in the mix, where
+clicking does nothing at all.
+
+**Rule:** an affordance is a fact about the panel's state, not about the chemistry. Put it in the
+layer that holds the state, where it can say one of two true things instead of one
+sometimes-false one. The tell is a sentence in a pure function that uses the second person.

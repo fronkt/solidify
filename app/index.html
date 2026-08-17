@@ -136,6 +136,55 @@
     #composer .addrow { display: flex; gap: 6px; margin: 8px 0 12px; }
     #composer .addrow select { flex: 1; width: auto; min-width: 0; text-overflow: ellipsis; }
     #composer .addrow .add { white-space: nowrap; }
+    /* the periodic grid (v7.1 P5): 18 columns, seven period rows and the two
+       f-block series pulled out underneath. The card is min(500px, 94vw) with
+       18px of padding a side, so eighteen columns land near 24px each on a
+       desktop and under 18px on a narrow phone — hence the scroller, because
+       .card is overflow-x: hidden and would CLIP the right-hand groups rather
+       than let them be reached. min-width holds the cells at 19px and lets the
+       grid scroll sideways inside a card that does not. */
+    #composer .gridwrap { border-top: 1px solid var(--line); padding-top: 10px; margin-bottom: 12px; }
+    #composer .gcap { font-size: 10px; letter-spacing: 0.14em; color: var(--amber); margin-bottom: 5px; text-transform: uppercase; }
+    #composer .gscroll { overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; }
+    #composer .grid { display: grid; grid-template-columns: repeat(18, 1fr); gap: 1px; min-width: 342px; }
+    #composer .gcell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+      font-size: 8.5px; letter-spacing: 0; padding: 0; border-radius: 2px;
+      background: var(--panel2); border: 1px solid var(--line); color: #7d8794; }
+    #composer .gcell[data-frow="1"] { margin-top: 5px; }
+    #composer .gcell[data-tier="ASSESSED"] { color: var(--amber); border-color: #7a5a2c; background: #1c1710; }
+    #composer .gcell[data-tier="OUTSIDE-THE-MODEL"] { color: #c96a5b; border-color: #55352f; }
+    #composer .gcell[data-tier="REFUSED-PAIR"] { color: #7d8794; }
+    /* dimmest of the four, and DELIBERATELY still readable. The argument this
+       whole grid makes is that a greyed-out cell teaches nothing and a computed
+       refusal teaches a lot, so a tier rendered until it disappears would be
+       the same failure wearing a colour. Every cell here is legible and every
+       cell answers when tapped. */
+    #composer .gcell[data-tier="NOT-A-SOLUTE"] { color: #5b6675; border-color: #1c2027; }
+    #composer .gcell[data-in="1"] { background: #33270f; color: #fff; }
+    #composer .gcell[data-self="1"] { color: var(--cyan); border-color: #2c545a; background: #101b1d; }
+    /* the vapour band is a SECOND channel, not a tier: zinc over iron is both
+       an unassessed pair and a 59 atm fume, and the tier colour only says the
+       first. Al -> Fe reddens Na, K, Ca and Cd on this stripe alone. */
+    #composer .gcell[data-vap="FUME"] { box-shadow: inset 0 -2px 0 #d9985a; }
+    #composer .gcell[data-vap="BOILS"] { box-shadow: inset 0 -2px 0 #c96a5b; }
+    #composer .gcell.sel { outline: 1px solid var(--cyan); outline-offset: -1px; }
+    #composer .gcell:hover { color: #fff; border-color: #3a424e; }
+    #composer .glegend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 7px; font-size: 8.5px; color: var(--dim); }
+    #composer .glegend span { display: flex; align-items: center; gap: 4px; }
+    #composer .glegend span::before { content: ""; width: 8px; height: 8px; border-radius: 2px; border: 1px solid var(--line); background: var(--panel2); }
+    #composer .glegend span[data-tier="ASSESSED"]::before { border-color: #7a5a2c; background: #1c1710; box-shadow: inset 0 0 0 3px var(--amber); }
+    #composer .glegend span[data-tier="OUTSIDE-THE-MODEL"]::before { border-color: #55352f; box-shadow: inset 0 0 0 3px #c96a5b; }
+    #composer .glegend span[data-tier="REFUSED-PAIR"]::before { box-shadow: inset 0 0 0 3px #7d8794; }
+    #composer .glegend span[data-tier="NOT-A-SOLUTE"]::before { border-color: #1c2027; box-shadow: inset 0 0 0 3px #5b6675; }
+    #composer .glegend span[data-self]::before { border-color: #2c545a; background: #101b1d; box-shadow: inset 0 0 0 3px var(--cyan); }
+    #composer .glegend span[data-vap]::before { border-color: var(--line); box-shadow: inset 0 -2px 0 #d9985a; }
+    #composer .gwhy { margin-top: 9px; border-left: 2px solid var(--line); padding-left: 7px; }
+    #composer .gwhy .ghead { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+    #composer .gwhy .ghead b { font-size: 13px; color: var(--amber); font-weight: 500; }
+    #composer .gwhy .ghead span { font-size: 8.5px; letter-spacing: 0.12em; color: var(--dim); text-transform: uppercase; }
+    #composer .gwhy[data-tier="ASSESSED"] .ghead span { color: var(--amber); }
+    #composer .gwhy .gline { font-size: 11px; line-height: 1.5; color: var(--text); }
+    #composer .gwhy .gp { font-size: 9.5px; line-height: 1.55; color: var(--dim); margin-top: 6px; }
     #composer .famous { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
     #composer .famous button { font-size: 10px; padding: 4px 7px; color: var(--dim); }
     #composer .famous button:hover { color: var(--amber); border-color: var(--amber); }

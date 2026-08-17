@@ -32,6 +32,7 @@ jobs:
       - run: node scripts/verify-phasediagram.mjs
       - run: node scripts/verify-regimes.mjs
       - run: node scripts/verify-elements.mjs
+      - run: node scripts/verify-composer-grid.mjs
 
 # The rest of the headless verify-*.mjs suite (npm test) needs a WebGPU-capable
 # Chrome at a hardcoded local path and is not portable to this runner — see

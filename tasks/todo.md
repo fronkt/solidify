@@ -3209,11 +3209,201 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
         is P5's, and it should come from the classifier rather than from a truncation, or the
         sentence that gets cut will be the half carrying the number.
 
-- [ ] **P5 — the periodic grid opens in the composer, and every refusal names its own number.**
+- [x] **P5 — the periodic grid opens in the composer, and every refusal names its own number.**
       Ask #2, in the only shape that never prints a number the instrument cannot defend: the refusals **are** the content. A visitor who clicks Hg over aluminium and reads "mercury boils at 39 atm over liquid aluminium — the melt cannot hold it" has learned more metallurgy than one who simply cannot see mercury, and switching the base from Al to Fe visibly reddens Zn, Mg, Cd, Na, K and Ca as the liquidus climbs past their boiling points. That base switch is a good capture for `scripts/capture-demos.mjs`.
       - **`src/composer.ts` replaces the closed "+ add element" select with a 118-cell grid** coloured per tier for the currently selected base, with a one-line computed reason. The assessed-only quick list stays in place and the grid appends after it, so the modal still works at 94vw where an 18-column grid is ~19px cells; the reason is tap-to-select, not hover-only. Base switching is a class swap over static markup, not a rebuild. **The base set stays at six.**
       - **Gates.** `ALLOY-OPEN-IDENTITY` (browser-free) — the keystone. All 9 presets and all 25 legacy pairs derive a byte-identical `{alloyOn, c0, mLiq, kPart, dSol}` bundle and an identical `clamps[]` array against a reference hardcoded from the pre-P5 tree. Liveness, because A === B is trivially true for two zeros: each arm separately proven alive (c0 > 0, 0 < kPart < 1, dSol > 0, non-empty solute entries, non-empty generated name). Difference half, which catches the harness: a deliberately perturbed control mix produces a DIFFERENT bundle, so a comparator that always reports equality fails. Third clause: ≥ 1 refusal is proven to have fired somewhere in the open set, or the set never opened and the gate passed twice on nothing. `ALLOY-SHARE-PRE-P5` (browser-free) — the pre-arc corpus including the landing page's own `#alloy=al:Si7,Mg0.35,Ti0.12` (`index.html:485`) round-trips to byte-identical mixes and bundles, and `encodeMix` still emits the OLD tuple shape whenever no new-tier element is in the mix. `COMPOSER-GRID-PANEL` (GPU) — end-to-end through the DOM as a visitor drives it: open the composer, click an ASSESSED cell and assert the solute row appeared with the ceiling-aware default; click a refused cell and assert the named reason rendered and no row appeared; switch base Al→Fe and assert ≥ 1 cell changed tier **and** ≥ 1 did not. Both polarities, because a grid that refused everything would satisfy a presence-only check.
       - **Risks.** This milestone adds **no new pourable chemistry** — ASSESSED is exactly the 25 existing pairs — so its keystone gate is a non-regression gate by construction. That is honest and it is the point: the grid's new content is 93 elements of computed, sourced refusal. Existing GPU gates do not drive composer controls (grep of `scripts/*.mjs` finds only `window.__solidify.alloy`), so no positional selector breaks here, but P5's own panel gate is the first DOM driver written for the composer and it selects by stable `data-` attributes, not by index. Keep `phasedata.ts` and `elements.ts` out of anything `index.html`'s rewritten ACT 3 imports, or ~25 KB of chemistry rides the landing page's first paint for no reason; `dist/assets/landing-*.js` is a separate chunk today and must stay one.
+
+      - **DONE 2026-08-16.** The composer's closed "+ add element" list keeps its place as the
+        quick path to a base's six solutes, and underneath it the whole periodic table opens:
+        **118 cells** in the 18-column layout, coloured per tier for the melt you are standing
+        over, with a legend, a tap-to-select reason panel and no hover-only anything. Built ONCE
+        in the constructor and repainted by attribute on a base switch — 118 attribute writes
+        against 118 element creations, and the click handler is bound once and delegated, so no
+        repaint can leave a stale handler that still believes it is tungsten. Measured, a base
+        switch costs **1.8 ms** for 118 `admit()` calls, so no cache was added and the grid's
+        colour and its reason come from ONE code path, which is what stops them disagreeing.
+        The suite goes 24 scripts / 169 checks to **26 / 176**, and CI's browser-free set twelve
+        to **thirteen**.
+      - **The plan said "replaces the closed select" and also "the assessed-only quick list stays
+        in place", and those cannot both be literally true.** Resolved toward keeping it: the
+        `<select>` IS the assessed-only quick list, it is the keyboard-reachable path, and at
+        94vw it is the compact one. The grid supersedes it as the primary affordance rather than
+        deleting it. Written down because it is a deliberate reading of the plan and not an
+        oversight.
+      - **SIX gates, not the plan's three, and the extra three are claims the milestone makes
+        that nothing else would hold.** `ALLOY-OPEN-IDENTITY` is the keystone and its reference
+        was measured the hard way: a **pre-P5 worktree at da16b5f** was checked out, the same
+        generator run against both trees, and the two JSON payloads compared BYTE FOR BYTE —
+        because "I did not change `alloy.ts`" and "`alloy.ts` does not behave differently" are
+        different claims and only the second is a gate. All 9 presets and all 25 legacy pairs
+        derive an identical tuple and clamp list. Equality being trivially satisfiable, three
+        clauses carry it: every arm separately proven ALIVE, a perturbed control (A356 with its
+        silicon moved by a tenth of a per cent) required to DIFFER so a comparator stuck at
+        "equal" fails, and the same mix with its keys reordered required to still MATCH so the
+        comparator is not sensitive to something else. `Object.is`, not `===`, so a sign-flipped
+        zero counts. `ALLOY-SHARE-PRE-P5` restores fifteen pre-arc links including the landing
+        page's own published `#alloy=al:Si7,Mg0.35,Ti0.12`, and proves STRUCTURALLY that no cell
+        can put a new symbol into a link. `GRID-LAYOUT-TOTAL` places 118 elements with no two
+        sharing a cell, pins nineteen positions, and requires the DRAWING to agree with the
+        `block` column — move lanthanum in one place and not the other and the build fails.
+        `GRID-REASON-LINE` walks all 708 pairs. `LANDING-CLOSURE-CLEAN` walks the static-import
+        closure from `src/landing.ts` and requires it not to reach the chemistry — deliberately
+        the SOURCE closure and not a grep of `dist/`, because `npm test` does not build, so a
+        bundle-reading gate would either fail on a fresh clone or be allowed to skip, and a gate
+        that can skip is not a gate. `GRID-DOC-CLAIMS` holds **14 claims across two documents**,
+        every expected value recomputed from the modules. **Four of the six FAIL against the
+        pre-P5 tree** — GRID-LAYOUT-TOTAL, GRID-REASON-LINE, LANDING-CLOSURE-CLEAN and
+        GRID-DOC-CLAIMS — verified by checking out da16b5f and running the final six there;
+        the two that pass on both are the non-regression pair, which is what they are for. (The
+        first count said three, taken before GRID-DOC-CLAIMS existed and never re-measured when
+        it did.)
+      - **The gate found a real defect on its first run, and it was mine.** The one-line reason
+        for an assessed pair quoted `pdRow.Tinv` unconditionally, so Fe–Cr and Cu–Ni — the two
+        pairs in this table soluble in every proportion — advertised themselves as "a cited
+        isomorphous at **null °C**". The paragraph never had the bug because it names the KIND
+        and not the temperature; the line reached for a number that does not exist, which is the
+        one thing this file refuses to do everywhere else. `GRID-REASON-LINE`'s placeholder ban
+        caught it before the panel was ever opened on those two cells.
+      - **P4's two notes for this milestone were both real, and both measured.** A grid colouring
+        at a flat 1 wt% paints **al-Ti, fe-C and mg-Zr** as OUTSIDE-THE-MODEL — 25 assessed
+        pairs at each pair's own `probeWt` against **22** at 1 wt% — so carbon-in-steel would
+        have read as a refusal the moment the panel opened. And `Admission` now carries a `line`
+        written at each branch, never cut from `sentence`; "not a truncation" is checked
+        mechanically, since no line may be a prefix of its own sentence.
+      - **A fifth visual channel was added after looking at a screenshot, and a fourth was
+        renamed for being false.** Iron sat greyed out in the middle of an iron melt looking like
+        one more thing this build never got round to — its tier is genuinely REFUSED-PAIR, since
+        "add Fe to iron" is not a composition, but the grouping said "no data" and it is not a
+        data question. The base's own cell is marked. And the REFUSED-PAIR legend read "nothing
+        entered", which is FALSE for six of its members for exactly that reason; it now reads
+        "refused", which is true of all four of its reasons, and the line underneath supplies the
+        mechanism, which is its job. The vapour band rides ALONGSIDE the tier rather than inside
+        it, because zinc over iron is both an unassessed pair and a 59 atm fume and collapsing
+        the two would lose the half a foundry notices — Al → Fe moves **14** tiers and puts a
+        fume stripe under **10 more elements whose tier does not move at all**, which the GPU
+        gate asserts as an independent channel.
+      - **A P4 repair that was written down and never landed.** P4's second review found that
+        `MOLECULAR_VAPOUR` omitted tellurium and recorded the fix in this ledger; the tree still
+        printed 0.120 atm over iron, 0.088 over nickel and 0.011 over copper, all three inside
+        the fume band, all three from a per-atom enthalpy for a vapour that is Te2 exactly as
+        selenium's is Se2 — and selenium and arsenic were on that list from the first draft.
+        Nothing failed, because no gate compares a claim in `tasks/todo.md` against the code it
+        claims. The symbol is one token and it is fixed here rather than carried. **The P4 entry
+        above is wrong on that one point and is left standing with this correction beside it**,
+        which is the archive rule.
+      - **`verify-tools.mjs` IS LOAD-FRAGILE IN TWO PLACES, and neither was loosened here.**
+        Two full suite runs reached it and each failed a DIFFERENT check. `REFINE-FAIR` compares
+        the refined and lean charges at matched solid fraction against a 15 % tolerance and
+        measured **15.2 %**; three isolated re-runs measured 5.2 %, 9.9 % and 11.6 %, so
+        the threshold sits inside the population's own tail rather than outside it. `ATMOSPHERE`
+        requires the air pour to lead the vacuum pour by ≥ 40 fired sites and measured **0** —
+        which is not a marginal miss but a run that never happened, since all four runs
+        outside the suite measured **150**, a margin of nearly four times. Both pass in isolation, and both pass
+        when `verify-optimizer.mjs` is run immediately before them exactly as the suite does, so
+        it is not a state leak from the predecessor: it is machine load at the seventeenth script
+        of twenty-six, in a check paced by `setTimeout` rather than by the condition it waits on.
+        Neither is P5's. `verify-tools.mjs` drives `window.__solidify.lab` and the nucleation
+        counter and never opens the composer; the only P5 code that executes on that page is
+        `buildGrid`, which creates 118 buttons and calls no chemistry at all; and
+        `ALLOY-OPEN-IDENTITY` proves the parameter bundle `REFINE-FAIR` feeds the solver for
+        A356+TiB is byte-identical to the pre-P5 tree. The honest repair for both is to wait on
+        the condition rather than the clock, and to re-measure `REFINE-FAIR`'s tolerance from a
+        run population the way `K_MC_TOL_3D` was re-measured from 15 % to 25 % — and doing
+        either inside the milestone whose suite it blocked would be indistinguishable from
+        loosening a gate to go green, so both are recorded and left. They join `STEP3-ORDER` and
+        `STEP3-REGION` as timing fragilities this arc has diagnosed and not owned, and this is
+        now four.
+      - **Named and NOT fixed.** The CI hole P4 recorded is unchanged and now costs one more
+        script: `.github/workflows/ci.yml` fires on push to `main` and on `pull_request`, and
+        this arc lives on `v7-experiments`, so the thirteen browser-free gates do not run in CI
+        on this branch at all. Separately, `chiPauling` and each row's own `Tm` are still carried
+        and read by nothing, and the grid does not change that.
+      - **Docs.** `science/index.html` gains a P5 paragraph, gated by the commit that writes it.
+        `README.md`'s composer bullet gains the open table — and because that prose quotes the
+        mercury advisory's own computed numbers, README joins the doc gate's file list rather
+        than sitting beside it, which is the C0b failure mode one layer over. `TESTING.md`
+        twelve → **thirteen** in all three places, plus full entries for both new scripts.
+        `scripts/capture-demos.mjs` gains the base-switch capture the plan asked for: two stills
+        of the same panel, over aluminium and over iron, in their own block because `appShot`
+        calls HIDE and the composer is not a child of `#app`.
+      - **A REVIEW RAN OVER THE FINISHED MILESTONE: five lenses, 39 agents, and 23 of its
+        findings survived a refuter told to default to REFUTED.** Two of them were gates that
+        could not fail, and both were mine.
+        **(1) `COMPOSER-GRID-PANEL` counted CELLS, NOT PAINTS.** `querySelectorAll(".gcell")`
+        counts what `buildGrid` created; `data-tier` is written in exactly one place, inside
+        `paintGrid`. So a paint loop that skipped every element past Z 48 — seventy cells,
+        including tungsten, mercury, lead and the whole f-block — passed every clause: an
+        unpainted cell stores `undefined` on BOTH bases, `undefined !== undefined` is false, so
+        it counted as UNCHANGED and actively HELPED the both-polarities clause (14 changed
+        dropped to 11, still ≥ 1). Verified by applying the mutation: the gate now reports 48
+        painted and fails, where it used to report 118 and pass.
+        **(2) `GRID-LAYOUT-TOTAL` could see a collision and not a permutation.** Uniqueness,
+        range, the row/block agreement and nineteen spot pins all constrain the SET of occupied
+        cells and never which element is in which one. Two mutations passed everything:
+        aluminium — this app's flagship base — drawn in group 3 instead of group 13, because
+        the cell under scandium is empty so nothing collides; and the whole of period 5 drawn
+        right-to-left with rubidium at group 18, because a permutation of a row is still a
+        bijection onto 1–18. Fixed by tying every element's COLUMN to the band its own `block`
+        implies — a per-element constraint over all 118 rather than nineteen hand-picked ones
+        — with helium pinned by name as the layout's single genuine exception. Both mutations
+        now fail, and both were re-run to prove it.
+      - **And two more holes in the same two gates.** `GRID-REASON-LINE` walked all 708 pairs
+        at `probeWt`, which is min(1 wt%, ceiling/2) and therefore STRICTLY below every ceiling
+        and always finite — so it never reached PAST-THE-INVARIANT or NOT-A-COMPOSITION, two of
+        the eleven reasons and precisely the two whose lines interpolate numbers. A line reading
+        "past 0.53 wt% at null °C" would have shipped green. The five per-line assertions are
+        lifted into a helper and driven over both branches at the compositions that reach them
+        (46 + 12 extra admissions), and the coverage is now itself a gated claim: all eleven
+        reasons must be exercised. And the GPU gate clicked ONE refused cell, mercury, which is
+        REFUSED-PAIR — so NOT-A-SOLUTE and OUTSIDE-THE-MODEL were never tapped, and one negative
+        sample cannot separate `tier === "ASSESSED"` from `tier !== "REFUSED-PAIR"`. Under that
+        weaker predicate a click on argon reaches `defaultWt`, whose fall-through dereferences a
+        solute row that does not exist, and the panel throws. Three cells now, one per tier.
+        Separately the gate never checked that `paintGrid` CLEARS: the base buttons empty the
+        mix, `[data-in]` outranks every tier rule in the stylesheet, and a stale highlight would
+        have painted an empty iron melt as containing magnesium.
+      - **The review also found a UI decision that printed two contradicting claims in one
+        panel.** Every noble-gas cell computed a Raoult's-law partial pressure at 1 wt% — argon
+        21 atm over aluminium, helium in the FUME band — next to its own refusal saying the
+        measured solubility is a part per billion by mole. The helium line read "the addition
+        survives the melt" and the argon one offered "unless the melt is held under pressure or
+        the element is plunged", which describes plunging argon into aluminium as a technique.
+        Raoult's law needs a solution; `vapourAt` now refuses the noble gases by name and says
+        why, on exactly the precedent of the mercury-over-iron critical-point cell. In the other
+        direction, the panel was showing the advisory ONLY for FUME and BOILS, which silently
+        discarded every NO-DATA line in the table — the vapour rule's own refusals, each naming
+        the reason it declined. It now prints every band except NEGLIGIBLE.
+      - **A call to action had been composed inside the pure classifier.** Every assessed line
+        ended "Click to add it to the melt." — and `admit(base, element, wt)` cannot know what
+        is already in the crucible, so it went on inviting a click for a solute already in the
+        mix, where clicking does nothing. The affordance moved to the panel, which knows, and
+        now says one of two true things instead of one sometimes-false one.
+      - **A SECOND P4 repair that was written down and never landed.** Beside tellurium, P4's
+        review recorded fixing Al–Bi's monotectic sentence, which called 657 °C "a few degrees
+        ABOVE pure aluminium's melting point" against the same file's 933.5 K = 660.35 °C. It
+        still said above. Two repairs from one review round, both written up as done, neither
+        applied — which makes this a process defect rather than an accident, and it is the
+        first lesson this milestone wrote down.
+      - **Four of my own new comments and two of my own new claims were wrong, and I found the
+        comments before the review did.** "93 of the 118 are refusals" mixes two frames (25 pairs
+        are pourable across all six bases; over any ONE melt at most six of 118 are, so the
+        per-melt figure is 112 and up). "Mercury boils at 39 atm over liquid aluminium" is the
+        PURE-element number — at 1 wt% the file's own advisory says 0.053 atm and the band is
+        FUME, not BOILS. "The keyboard-reachable path" implied the grid is not, when its cells
+        are real buttons. "`probeWt` asks each pair at half its own ceiling" is false wherever
+        the ceiling exceeds 2 wt%, which is most of the table — the same over-generalisation of
+        a `min()` that the science paragraph made and `GRID-DOC-CLAIMS` caught. And "four times
+        past the Al–Ti peritectic" is 3.3 times. The review added two more: the Z > 92 line said
+        "reactor-bred and exists in quantity" of berkelium and californium, which are made in
+        milligrams and which the paragraph beside it correctly scopes to "the ones just past
+        uranium"; and the fume-stripe mechanism was given as "the iron liquidus stands hundreds
+        of degrees above their boiling points", where the rule is evaluated at the pure base's
+        MELTING point and the true statement is a bracket, not a magnitude — all ten of those
+        boiling points fall between aluminium's 660 °C and iron's 1538 °C, by as little as
+        11 K at one end and 54 K at the other. Both now gated, the bracket recomputed from
+        `MATERIALS` and the two margins held as named numbers.
 
 - [ ] **P6 — the tour chapter, the honesty page's remaining debts, and the retraction the front door still owes.**
       Two debts come due. The front door contradicts the honesty page with numbers that page says were withdrawn twice, on the app's most visually dramatic moment. And four numbers quoted as prose — 0.821 and 0.993 (`science/index.html:131-132`), Q ≈ 71 K and Q ≈ 1 K (`index.html:470,473,477`) — are literal `derive()` outputs with **no gate on them**, which is exactly the failure mode C0b was built to close, one layer over.

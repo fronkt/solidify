@@ -146,7 +146,18 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   11.9 % β-Mg17Al12 that is its textbook as-cast constituent. The composition ceiling now comes
   from the diagram rather than from a hand-picked
   slider bound, which removes cast iron: Fe–C stops at 0.52 wt% C against a 0.53 wt% peritectic,
-  past which the primary phase is austenite and this solver grows δ-ferrite.
+  past which the primary phase is austenite and this solver grows δ-ferrite. And since v7.1 P5
+  the element list is no longer closed: under the six quick solutes sits the **whole periodic
+  table**, 118 cells coloured for the melt you are standing over, and tapping any of them gets an
+  answer computed from a cited number. 25 of the 708 (base, element) pairs are pourable and the
+  other 683 are refusals that say why — "mercury at 1 wt% exerts 0.053 atm over liquid aluminium,
+  and pure mercury would exert 39" teaches more than an element you simply cannot see. Switching
+  the base from aluminium to iron recolours 14 cells and puts a fume stripe under ten more whose
+  tier does not move at all, because the vapour rule is evaluated at the pure base's melting
+  point and every one of those ten boils between aluminium's 660 °C and iron's 1538 °C.
+  Opening the input added no chemistry: the assessed tier is
+  exactly the 25 pairs that already had both a cited coefficient row and a cited invariant, and
+  every preset still derives a bit-identical parameter bundle.
 - **Twinning** — stochastic growth twins nucleate at the front in twin registry (θ₀ + π/j) and
   must out-grow their parent to survive, like real feathery grains in aluminum DC casting;
   Shift+click stamps a twinned seed pair — in hexagonal mode that grows the rare

@@ -1,5 +1,6 @@
 import { BASES, FAMOUS, derive, encodeMix, decodeMix, soluteBound, type Mix, type Derived } from "./alloy";
 import { PhaseFigureView } from "./phasediagram";
+import { ELEMENTS, admit, probeWt, tablePos, type AdmitTier } from "./elements";
 
 // The alloy composer: pick a base metal, add solutes in wt% (live at%
 // conversion), read the real dilute-limit chemistry (liquidus shift, growth
@@ -28,6 +29,45 @@ function pct(x: number): string {
   if (x < 0.005) return "<1 %";
   return `${(x * 100).toFixed(x < 0.1 ? 1 : 0)} %`;
 }
+
+/**
+ * The weight a solute arrives at when it is added by a click — from the quick
+ * list or from the grid, and it has to be ONE expression rather than two.
+ *
+ * v7.1 P3 fixed this once already, in the "+ add element" handler: seeding Ti
+ * at a flat 0.5 wt% put the mix more than three times past the 0.15 wt% Al–Ti peritectic,
+ * so a single click produced a named refusal instead of an alloy. P5 adds a
+ * second way to click the same solute in, and a second copy of that expression
+ * is a second chance to reintroduce the same bug on the next edit.
+ *
+ * It is deliberately NOT `probeWt`. They answer different questions: this one
+ * is "what should the slider start at", the ceiling-aware default a user then
+ * moves; `probeWt` is "at what composition should the grid ASK about this
+ * pair", which is half the ceiling so that a pair is never coloured by a
+ * composition the instrument would refuse. For Fe–C they are 0.52 and 0.265.
+ */
+export function defaultWt(baseKey: string, el: string): number {
+  const b = soluteBound(baseKey, el);
+  return Math.min(1, b ? b.max : BASES[baseKey].solutes[el].cap);
+}
+
+/**
+ * The four tiers in the order the legend prints them, brightest first.
+ *
+ * REFUSED-PAIR IS LABELLED "refused" AND NOT "nothing entered", which is what
+ * the first draft called it and what is false for six of its members. That tier
+ * holds four reasons, and IS-THE-BASE is one of them: iron in an iron melt is
+ * not an absence of data, it is not a composition. A label naming a mechanism
+ * the tier does not share is the same defect this file's refusals are written
+ * to avoid, one layer up in the UI. "Refused" is true of all four; the line
+ * underneath supplies the mechanism, which is its whole job.
+ */
+const TIER_LABEL: Record<AdmitTier, string> = {
+  "ASSESSED": "assessed — pourable",
+  "OUTSIDE-THE-MODEL": "outside this solver",
+  "REFUSED-PAIR": "refused",
+  "NOT-A-SOLUTE": "not a solute here",
+};
 
 export interface ComposerHost {
   /**
@@ -78,6 +118,17 @@ export class Composer {
   private figure = new PhaseFigureView();
   private open_ = false;
   private tickKey = "";
+  /**
+   * The 118 grid cells, built ONCE in the constructor and thereafter only
+   * repainted. Switching the base rewrites four attributes per cell and no
+   * markup at all — 118 attribute writes against 118 element creations plus a
+   * layout, and more importantly the click handler is bound once and cannot go
+   * stale under a rebuild.
+   */
+  private cells: HTMLButtonElement[] = [];
+  private whyEl!: HTMLElement;
+  /** which cell the reason panel is currently answering about; null before the first tap */
+  private picked: string | null = null;
 
   constructor(private host: ComposerHost) {
     this.overlay = document.createElement("div");
@@ -90,6 +141,12 @@ export class Composer {
         <div class="bases"></div>
         <div class="rows"></div>
         <div class="addrow"><select></select><button class="add">+ add element</button></div>
+        <div class="gridwrap">
+          <div class="gcap">every element, against this melt</div>
+          <div class="gscroll"><div class="grid"></div></div>
+          <div class="glegend"></div>
+          <div class="gwhy"></div>
+        </div>
         <div class="famous"></div>
         <div class="derived"></div>
         <div class="figwrap"></div>
@@ -125,14 +182,15 @@ export class Composer {
       famEl.append(btn);
     }
 
+    this.buildGrid();
+
     this.overlay.querySelector(".add")!.addEventListener("click", () => {
       const el = this.addSel.value;
       if (el && !(el in this.mix.wt)) {
         // the CEILING, not the cap: "+ add element → Ti" used to seed 0.5 wt%,
         // which is past the 0.15 wt% Al–Ti peritectic, so one click would have
         // produced a named refusal instead of an alloy
-        const b = soluteBound(this.mix.base, el);
-        this.mix.wt[el] = Math.min(1, b ? b.max : BASES[this.mix.base].solutes[el].cap);
+        this.mix.wt[el] = defaultWt(this.mix.base, el);
         this.render();
       }
     });
@@ -140,6 +198,199 @@ export class Composer {
     this.overlay.querySelector(".cancel")!.addEventListener("click", () => this.close());
     this.overlay.querySelector(".pour")!.addEventListener("click", () => this.pour());
     this.overlay.addEventListener("pointerdown", e => { if (e.target === this.overlay) this.close(); });
+  }
+
+  /**
+   * The 118 cells, and the legend that makes their colours mean something.
+   *
+   * WHY THE GRID IS HERE AT ALL. The "+ add element" select above it is a
+   * CLOSED list: it holds whatever solutes the current base has a cited
+   * coefficient row for, six at the most, and every other element in the
+   * periodic table is invisible in it. Invisible is not the same as refused,
+   * and a user who wonders what mercury does to an aluminium melt got no answer
+   * from a control that simply did not list mercury. Every cell here is an
+   * answer computed from a cited number — and 683 of the 708 (base, element)
+   * pairs are refusals, which is the point rather than the cost: "mercury at
+   * 1 wt% exerts 0.053 atm over liquid aluminium, where pure mercury would
+   * exert 39" is metallurgy, and a greyed-out cell is nothing. (683 of 708, not
+   * "93 of the 118", which is what this comment said first and which mixes two
+   * frames: 25 pairs are pourable across all six bases, but over any ONE melt
+   * at most six of the 118 cells are, so the per-melt count is 112 and up.)
+   *
+   * The quick list STAYS. It is one keystroke to the six solutes a base can
+   * actually take, it names each one's m and k in the option text, and it is
+   * one tab stop rather than the grid's hundred-and-eighteen; the grid is the
+   * open question beside it, not a replacement for the answer. Both are
+   * keyboard-reachable — the cells are real buttons — but "reachable" and
+   * "reachable without a hundred keystrokes" are different claims.
+   */
+  private buildGrid() {
+    const gridEl = this.overlay.querySelector(".grid")!;
+    for (const row of ELEMENTS) {
+      const pos = tablePos(row.Z);
+      if (!pos) continue;   // unreachable for Z 1-118; a null position is not a cell
+      const b = document.createElement("button");
+      b.className = "gcell";
+      b.dataset.el = row.symbol;
+      b.dataset.z = String(row.Z);
+      // the lanthanide row carries the gap that separates it from period 7
+      if (pos.row === 8) b.dataset.frow = "1";
+      b.style.gridColumn = String(pos.col);
+      b.style.gridRow = String(pos.row);
+      b.textContent = row.symbol;
+      gridEl.append(b);
+      this.cells.push(b);
+    }
+    // ONE delegated listener rather than 118, and it reads the symbol off the
+    // cell rather than closing over a loop variable — so a cell can be
+    // repainted, re-ordered or replaced without leaving a handler behind that
+    // still believes it is tungsten.
+    gridEl.addEventListener("click", e => {
+      const cell = (e.target as HTMLElement).closest<HTMLElement>(".gcell");
+      if (cell?.dataset.el) this.pick(cell.dataset.el);
+    });
+
+    const legend = this.overlay.querySelector(".glegend")!;
+    for (const [tier, label] of Object.entries(TIER_LABEL)) {
+      const s = document.createElement("span");
+      s.dataset.tier = tier;
+      s.textContent = label;
+      legend.append(s);
+    }
+    const self = document.createElement("span");
+    self.dataset.self = "1";
+    self.textContent = "this melt's own metal";
+    legend.append(self);
+    const fume = document.createElement("span");
+    fume.dataset.vap = "1";
+    fume.textContent = "underlined: it fumes or boils over this melt";
+    legend.append(fume);
+
+    this.whyEl = this.overlay.querySelector(".gwhy")!;
+    this.renderWhy();
+  }
+
+  /**
+   * Recolour every cell for the base now selected. Four attributes per cell and
+   * no markup — the base buttons are a paint pass, not a rebuild.
+   *
+   * EVERY CELL IS CLASSIFIED AT ITS OWN `probeWt`, NOT AT A FLAT 1 wt%, and
+   * that is a note v7.1 P4 wrote down for this milestone after measuring it: at
+   * 1 wt% the classifier answers OUTSIDE-THE-MODEL for Fe–C, Al–Ti and Mg–Zr,
+   * because 1 wt% is past all three of their invariants (0.53, 0.15 and 0.58
+   * wt%). Three of the twenty-five pourable pairs would have painted as
+   * refusals on first open — carbon in steel among them — and every one of
+   * those three would have been telling the truth about a composition nobody
+   * asked for. `probeWt` asks each pair at 1 wt% OR at half its own invariant
+   * composition, whichever is smaller — so Fe–C is asked at 0.265 wt% against a
+   * 0.53 wt% peritectic, while Al–Cu, whose invariant is out at 33.2 wt%, is
+   * still asked at 1. "Half its ceiling" would be the wrong description of the
+   * second case and of most of the table.
+   */
+  private paintGrid() {
+    for (const cell of this.cells) {
+      const sym = cell.dataset.el!;
+      const a = admit(this.mix.base, sym, probeWt(this.mix.base, sym));
+      if (!a) continue;
+      cell.dataset.tier = a.tier;
+      // the vapour band rides ALONGSIDE the tier rather than inside it, because
+      // it answers a different question. Zinc over iron is refused for having
+      // no Fe–Zn coefficient row — an epistemic gap — and it also reads 59 atm,
+      // which is why galvanised scrap fumes in an EAF. Collapsing the two would
+      // lose one of them, and the second is the one a foundry notices.
+      if (a.vapour && (a.vapour.band === "FUME" || a.vapour.band === "BOILS")) cell.dataset.vap = a.vapour.band;
+      else delete cell.dataset.vap;
+      if (sym in this.mix.wt) cell.dataset.in = "1"; else delete cell.dataset.in;
+      // THE BASE'S OWN CELL IS MARKED, because otherwise iron sits greyed out
+      // in the middle of an iron melt looking like one more thing this build
+      // never got round to. Its tier is genuinely REFUSED-PAIR — "add Fe to
+      // iron" is not a composition — but the visual grouping would have said
+      // "no data", and it is not a data question at all.
+      if (sym === BASES[this.mix.base].symbol) cell.dataset.self = "1"; else delete cell.dataset.self;
+      cell.classList.toggle("sel", sym === this.picked);
+      cell.title = a.line;
+    }
+  }
+
+  /**
+   * A cell was tapped. An assessed one joins the melt; every other one answers.
+   *
+   * TAP, NOT HOVER. At eighteen columns inside a 94vw card these cells are
+   * about nineteen pixels wide, which is a fingertip on a phone and no hover
+   * state at all — a reason that only appears under a mouse pointer is a reason
+   * half this app's visitors would never see.
+   */
+  private pick(sym: string) {
+    this.picked = sym;
+    const a = admit(this.mix.base, sym, probeWt(this.mix.base, sym));
+    if (a?.tier === "ASSESSED" && !(sym in this.mix.wt)) {
+      // the SAME ceiling-aware default the quick list uses, from the same
+      // function, so the two ways of adding a solute cannot disagree
+      this.mix.wt[sym] = defaultWt(this.mix.base, sym);
+      this.render();      // rows, readout, figure and grid all move together
+      return;
+    }
+    this.paintGrid();
+    this.renderWhy();
+  }
+
+  /**
+   * The reason panel: the one-line answer, then everything the classifier
+   * actually computed about this pair.
+   *
+   * THE ONE-LINER COMES FROM `Admission.line`, WHICH IS COMPOSED AND NOT CUT.
+   * P4 left that note explicitly: every one of these sentences puts its number
+   * in the middle, so a `.slice()` to fit a panel would have kept the
+   * throat-clearing and dropped the measurement. The paragraph is printed
+   * underneath it rather than instead of it — this modal already scrolls, and
+   * the paragraph is the milestone's content.
+   */
+  private renderWhy() {
+    if (!this.picked) {
+      this.whyEl.dataset.el = "";
+      this.whyEl.innerHTML = `<div class="gp">tap any cell for what this melt does with that element — 25 of the 708 pairs are pourable and the other 683 are computed refusals, each naming its own number.</div>`;
+      return;
+    }
+    const sym = this.picked;
+    const wt = probeWt(this.mix.base, sym);
+    const a = admit(this.mix.base, sym, wt);
+    if (!a) { this.whyEl.dataset.el = ""; this.whyEl.innerHTML = ""; return; }
+    this.whyEl.dataset.el = sym;
+    this.whyEl.dataset.tier = a.tier;
+    // THE ADVISORY PRINTS FOR EVERY BAND EXCEPT NEGLIGIBLE, and the first draft
+    // whitelisted FUME and BOILS instead — which silently threw away every
+    // NO-DATA line in the table. Those are not empty: they are the vapour
+    // rule's own refusals, each naming the reason it declined — mercury over
+    // iron sits past mercury's critical point, chlorine's vapour is molecular
+    // so a per-atom enthalpy would put the exponent out by the atom count, a
+    // noble gas has no solution for Raoult's law to apply to. Suppressing them
+    // is exactly the failure this file argues against one layer down: an
+    // absent number is not a zero, and a refusal nobody renders is a refusal
+    // nobody made. NEGLIGIBLE stays hidden because it genuinely says nothing —
+    // a paragraph about an activity coefficient no melt would notice, on the
+    // majority of the table.
+    const hazard = a.vapour?.band === "FUME" || a.vapour?.band === "BOILS";
+    const vap = a.vapour && a.vapour.band !== "NEGLIGIBLE"
+      ? `<div class="gp">${hazard ? "⚠ " : ""}${esc(a.vapour.text)}</div>` : "";
+    const size = a.size ? `<div class="gp">${esc(a.size.text)}</div>` : "";
+    // THE AFFORDANCE IS THE PANEL'S TO STATE, NOT THE CLASSIFIER'S. `admit()`
+    // is a function of (base, element, wt) and cannot know what is already in
+    // the crucible, so an invitation to click composed in there kept inviting a
+    // click for a solute already in the melt, where clicking does nothing.
+    const cta = a.tier === "ASSESSED"
+      ? sym in this.mix.wt
+        ? `<div class="gp">Already in this melt at ${this.mix.wt[sym]} wt% — the slider above is where you move it.</div>`
+        // reachable, and only one way: pick an assessed cell (which adds it),
+        // then remove its row with the ✕. A first click never lands here,
+        // because it has already put the solute in the mix by the time this
+        // renders — so the word is "click", not "click again".
+        : `<div class="gp">Click this cell to add it to the melt at ${defaultWt(this.mix.base, sym)} wt%.</div>`
+      : "";
+    this.whyEl.innerHTML = `
+      <div class="ghead"><b>${esc(sym)}</b><span>${esc(TIER_LABEL[a.tier])}</span></div>
+      <div class="gline">${esc(a.line)}</div>
+      <div class="gp">${esc(a.sentence)}</div>
+      ${cta}${vap}${size}`;
   }
 
   open() { this.open_ = true; this.overlay.classList.add("show"); this.render(); }
@@ -270,6 +521,8 @@ export class Composer {
       this.addSel.append(o);
     }
 
+    this.paintGrid();
+    this.renderWhy();
     this.renderOut();
     this.tickKey = "";
     this.figure.update(this.mix, this.host.meltC(), this.host.materialKey());

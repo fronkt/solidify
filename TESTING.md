@@ -24,8 +24,8 @@ and `verify-porosity.mjs`, the arithmetic halves of the lab's cooling-curve anal
 fade and Sievert gas porosity — bringing the CI-runnable set to five at the time (v7.0's
 `verify-rng.mjs` and `verify-experiment.mjs` have since made it seven, v7.1 P0's
 `verify-phasedata.mjs` eight, v7.1 P1's `verify-alloy.mjs` nine, v7.1 P2's
-`verify-phasediagram.mjs` ten, v7.1 P3's `verify-regimes.mjs` eleven and v7.1 P4's
-`verify-elements.mjs` twelve). They run first in the
+`verify-phasediagram.mjs` ten, v7.1 P3's `verify-regimes.mjs` eleven, v7.1 P4's
+`verify-elements.mjs` twelve and v7.1 P5's `verify-composer-grid.mjs` thirteen). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
 GPU half is not worth starting.
 
@@ -41,10 +41,11 @@ move.
 `--use-angle=swiftshader` software-rendering path the scripts themselves fall back to for
 GPU-less environments. **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
-only the OS-agnostic steps — typecheck, build, and the twelve browser-free scripts
+only the OS-agnostic steps — typecheck, build, and the thirteen browser-free scripts
 (`verify-units.mjs`, `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
 `verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
-`verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`; see
+`verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
+`verify-composer-grid.mjs`; see
 `.github/workflows/ci.yml`) — rather than
 this suite. If you want to run the physics/UI verification yourself, do it locally.
 
@@ -302,6 +303,69 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   flattened first so the gate cannot fail on typography, and with no claim allowed to be a bare
   small integer — "the ceiling binds for 5 pairs" is satisfied by any document containing the
   character 5, a lesson this repo wrote down at P3.
+- **`verify-composer-grid.mjs`** (browser-free, v7.1 P5) — the periodic grid the composer now
+  opens with. Six checks, module load guarded the same way. `ALLOY-OPEN-IDENTITY` is the
+  keystone and it is a NON-REGRESSION gate by construction, which is the honest description:
+  P5 adds no pourable chemistry — ASSESSED is the same 25 pairs — so all 9 presets and all 25
+  legacy pairs must derive a bit-identical `{alloyOn, c0, mLiq, kPart, dSol}` tuple and an
+  identical `clamps[]` against a reference **measured on da16b5f, the commit before P5**. Not
+  by reasoning that `alloy.ts` was untouched: a pre-P5 worktree was checked out and the same
+  generator run against both trees, and the two JSON payloads compared byte for byte, because
+  "I did not change it" and "it does not behave differently" are different claims. Equality is
+  trivially satisfiable, so three more clauses carry the gate — every arm separately proven
+  ALIVE (c0 > 0, kPart inside (0,1), dSol > 0, a non-empty name, real solute entries), a
+  deliberately perturbed control mix (A356 with its silicon moved by a tenth of a per cent)
+  required to produce a DIFFERENT tuple so a comparator stuck at "equal" fails, and the same
+  mix with its keys reordered required to still MATCH so the comparator is not merely
+  sensitive to something else. `Object.is`, not `===`, so a sign-flipped zero counts as a
+  difference. `ALLOY-SHARE-PRE-P5` restores fifteen links minted before this arc — including
+  the landing page's own published `#alloy=al:Si7,Mg0.35,Ti0.12` and the three that clamp
+  against a P3 ceiling — and requires the mix, the refusals, the `clamped[]` signal and the
+  re-encoded string to be unchanged; then proves structurally that no grid cell can put a new
+  symbol into a link, because every element the grid calls ASSESSED is already in that base's
+  solute set. `GRID-LAYOUT-TOTAL` places all 118 elements in the 18-column table with no two
+  sharing a cell, pins nineteen positions by hand, requires the two sockets under scandium and
+  yttrium to stay EMPTY, and requires the drawing to agree with the `block` column the data
+  already carries — so moving lanthanum in one place and not the other fails the build.
+  `GRID-REASON-LINE` walks all 708 pairs: every one has a one-line reason, none is a prefix of
+  its own sentence (the mechanical form of "composed, not truncated"), none leaks a
+  placeholder, the 708 lines carry 33 distinct skeletons with no two reasons sharing one, and
+  **29 cells are pinned by BRANCH with a marker each must carry and one it must not** — the
+  shape P4's second review proved a count of shapes cannot replace. It also holds the
+  composition the grid asks at: 25 pairs are ASSESSED at each pair's own `probeWt` and only 22
+  at a flat 1 wt%, and the three that would have painted as refusals are named (al-Ti, fe-C,
+  mg-Zr). `LANDING-CLOSURE-CLEAN` walks the static-import closure from `src/landing.ts` and
+  requires it not to reach `elements.ts`, `alloy.ts`, `phasedata.ts`, `composer.ts` or
+  `phasediagram.ts`. Deliberately the SOURCE closure and not a grep of `dist/` — `npm test`
+  does not build, so a bundle-reading gate would either fail on a fresh clone or be allowed to
+  skip, and a gate that can skip is not a gate — and the closure is the mechanism rather than
+  the symptom, since Rollup hoists a module into a shared chunk exactly when two entries can
+  reach it. `GRID-DOC-CLAIMS` gates this milestone's own prose in the commit that writes it, on
+  `EL-DOC-CLAIMS`' mechanics one layer over: 15 claims across **two** documents —
+  `science/index.html` and `README.md`, because the README quotes the mercury advisory's own
+  computed pressures and a `derive()` output printed as prose with no gate on it is exactly the
+  failure C0b was built to close — with every expected value recomputed from the modules, tags
+  stripped and dashes flattened so it cannot fail on typography, and no claim allowed to be a
+  bare small integer. It caught two of its own subjects while being written: "at half its own
+  invariant composition" (false wherever the ceiling exceeds 2 wt%, since `probeWt` is a `min`)
+  and a fume-stripe mechanism given as "hundreds of degrees" when the measured bracket is
+  11 K at one end and 54 K at the other. Four of the six FAIL against the pre-P5 tree, verified
+  by running them there; the two that pass on both are the non-regression pair, which is what
+  they are for.
+- **`verify-composer-gpu.mjs`** (v7.1 P5) — `COMPOSER-GRID-PANEL`, the grid driven through the
+  DOM the way a visitor drives it, and the first gate in this suite that clicks the composer.
+  Its own file on the `verify-phasediagram-gpu.mjs` precedent: a panel gate sharing a page with
+  kernels other gates have staged is a gate testing whatever they left behind. Both polarities
+  everywhere. An ASSESSED cell adds exactly one solute row at the ceiling-aware default, and a
+  refused cell adds nothing — a presence-only check passes on a grid that adds everything.
+  Switching Al → Fe changes at least one cell's tier (14 do) AND leaves at least one unchanged
+  (104 do) — a grid that refused the whole table would satisfy the first clause perfectly. The
+  reason panel is compared against the exact string `admit()` returns for that pair, loaded
+  from the module rather than retyped, and the aluminium and iron answers are required to
+  DIFFER. The vapour stripe is checked as a SECOND channel: Al → Fe puts a fume mark on sodium,
+  potassium, calcium and cadmium, none of which changed tier, so a grid wired to the tier alone
+  cannot pass. And the three ceiling pairs are added by click and required to land one step
+  UNDER their invariant rather than on it.
 - **`verify-phasediagram-gpu.mjs`** (v7.1 P2) — `PD-CURSOR-LIVE`, the cursor against a real cast.
   Its own file, and that is the point: written inside `verify-quant.mjs` first, it could not pass
   there, because every QPF-* block above it stages the solver by writing `frozenT`, `dx` and `dt`
@@ -679,9 +743,9 @@ spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 
 that evidence recorded in the constant's own docblock. The drift prints on every run, and
 `HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
-`npm run build` (Vite + `tsc`) plus the twelve browser-free scripts — `verify-units.mjs`,
+`npm run build` (Vite + `tsc`) plus the thirteen browser-free scripts — `verify-units.mjs`,
 `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
 `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
-`verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs` and
-`verify-elements.mjs` — are the checks anyone on any OS can run
+`verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`
+and `verify-composer-grid.mjs` — are the checks anyone on any OS can run
 without a GPU, and are what CI actually gates on (`.github/workflows/ci.yml`).
