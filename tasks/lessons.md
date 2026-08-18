@@ -14,6 +14,14 @@ clean), restored the changes, re-ran the same gate ALONE (passed clean too) — 
 second full-suite run reproduce it, and only because edits were still landing mid-run. The
 actual cause was a `[vite] page reload src/share.ts` log line sitting right before the crash.
 
+**It happened again in v7.1 P6**, which is why this note is here twice over. The first
+full-suite run of that milestone died at script 17 with the same
+`Execution context was destroyed` after `src/tour.ts` was edited mid-flight — with THIS lesson
+already sitting at the top of THIS file. The rule below is not enough on its own, so: draft
+follow-up edits into the scratchpad and apply them after the run reports, and when a suite dies
+with a puppeteer navigation or context error, read the vite log for `page reload` BEFORE
+diagnosing anything else.
+
 **Rule:** once `npm run test` (or any single browser-driven `verify-*.mjs`) is launched against
 the dev server, make NO further edits to `src/**` until it finishes. If a checkpoint run is
 launched in the background to keep working in parallel, only touch files the suite doesn't
@@ -354,19 +362,6 @@ clicking does nothing at all.
 **Rule:** an affordance is a fact about the panel's state, not about the chemistry. Put it in the
 layer that holds the state, where it can say one of two true things instead of one
 sometimes-false one. The tell is a sentence in a pure function that uses the second person.
-
-## Never edit the tree while the GPU suite is running
-
-The first full-suite run of P6 died at script 17 with `Error: Execution context was
-destroyed, most likely because of a navigation.` Nothing was wrong with the code: I
-had edited `src/tour.ts` while the suite was mid-flight, vite's HMR pushed a page
-reload into the browser puppeteer was driving, and `verify-optimizer.mjs` lost the
-context it was evaluating in. It reads exactly like a real failure and it is not one,
-which is the expensive part.
-
-**Rule.** Freeze the tree before `npm test`. Draft follow-up edits into the scratchpad
-and apply them after the run reports. If a suite fails with a puppeteer navigation or
-context error, check the vite log for `page reload` before diagnosing anything else.
 
 ## A ban is a claim about what the page SAYS — strip what quotes, once
 
