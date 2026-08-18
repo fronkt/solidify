@@ -3596,6 +3596,15 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
         one" — and "inside the band" is false for two of the seven low-charge pairs. It now says
         the higher charge agrees within noise and the lower one scatters 2.6–18.1 % with two
         outside the band, and points at the science page.
+      - **Final verification, after the review fixes.** `npx tsc --noEmit` clean; `npm run build`
+        clean with the landing chunk still chemistry-free. All thirteen browser-free scripts pass.
+        `npm test` ran **24 of the 26 scripts with 143 checks and zero failures** before the
+        runner stopped it mid-`verify-heattreat-gpu`; that script was then re-run in full (19
+        checks) along with `verify-scale3d` (3) and `verify-3d` (**30** — which is the number this
+        milestone first wrote as 29), all reporting **PAGE ERRORS: none**. `REFINE-FAIR` passed
+        this time, at 1449/1451 and 352/332, so the 600-site arm is load-dependent rather than
+        broken; both new pairs are folded into the honesty page's record, which now stands at
+        seven 3000-site pairs spanning 0.1–3.9 % and eight 600-site pairs spanning 2.6–18.1 %.
       - **Not done, and named.** CI still runs on push-to-`main` and `pull_request` only, so none
         of the thirteen browser-free gates fire on `v7-experiments` — unchanged from P4 and P5,
         and now costing three more gates. `REFINE-FAIR` and `ATMOSPHERE` remain load-fragile at
