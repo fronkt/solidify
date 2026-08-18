@@ -84,7 +84,10 @@ Flip one switch and the instrument solves the **full volumetric phase-field** �
   3D share links that carry the whole setup.
 - **The grain selector** (3D-only showpiece) — a helical pigtail channel under the Bridgman
   pull: dozens of chill-floor grains race in, **exactly one** exits into the blade cavity —
-  the real mechanism behind single-crystal turbine blades, verified headlessly (64 grains → 1).
+  the real mechanism behind single-crystal turbine blades. The 64 grains are a real seeding
+  constant — `chillFloor` plants an 8 × 8 jittered grid — but the **one** is not measured: the
+  headless gate stages the preset and checks that the scenario arms and the pigtail mask
+  rasterizes, and nothing yet counts what comes out of the channel.
 - **Shaped moulds** (v6.2) — the lab's mould is a rasterized geometry library (shell, plate,
   **step block**, wedge) behind one public voxel-mask entry point, with the feed flood, chill
   floor and nucleation staging all made mask-aware so a sealed chamber can no longer be fed or
@@ -93,7 +96,8 @@ Flip one switch and the instrument solves the **full volumetric phase-field** �
   geometry alone, each independently measured by a per-section census (thickness · local d̄ ·
   σ_y, thinnest first) on the report card.
 
-Budget: 57 B/voxel over seven textures — ~403 MB VRAM at 192³ (+57 MB solute while alloy is on),
+Budget: 57 B/voxel over nine textures — six fields, three of them ping-pong pairs — ~403 MB VRAM
+at 192³ (+57 MB solute while alloy is on),
 with an OOM ladder down through 160³/128³/96³, all four selectable in the ENGINE row;
 2D mode is untouched at 60 fps.
 
@@ -107,8 +111,10 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   and a steerable/auto-raster laser weld that remelts and resolidifies the microstructure.
 - **Alloy mode** — Warren–Boettinger-type dilute solute (qualitative): constitutional
   undercooling, solute halos, frozen-in microsegregation, composition/partition/liquidus sliders.
-- **Materials** — ten qualitative identities (model metal, Al–Cu, Fe–C steel, Ni superalloy,
-  Co alloy, copper, Mg AZ91, Zn spangle, ice, succinonitrile). Crystal structure picks the
+- **Materials** — eleven qualitative identities (model metal, Al–Cu, Fe–C steel, Ni superalloy,
+  Co alloy, copper, Mg AZ91, Zn spangle, ice, succinonitrile, and the Al–Co–Ni decagonal
+  quasicrystal, whose 10-fold interface energy is modelled and whose aperiodic lattice is
+  not). Crystal structure picks the
   dendrite symmetry (FCC/BCC → 4-fold, HCP → 6-fold — and yes, cobalt freezes FCC), and each
   material sets anisotropy, latent heat, alloy bundle, and how brightly its melt actually
   glows: steel pours white-hot, zinc at 420 °C is just liquid silver.
@@ -118,7 +124,10 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   per element — aluminium appears as a solute under three different bases with three different
   coefficients, and titanium changes sign between Al and Ni. Since v7.1 every pair also carries
   its own cited `source`, and every pair has a binary invariant row in `src/phasedata.ts` whose
-  numbers are independently recomputed from open CALPHAD databases (`docs/PHASE-AUDIT.md`). The composer reports the real
+  numbers are independently recomputed from open CALPHAD databases (`docs/PHASE-AUDIT.md`). That
+  table carries a version — currently 1.1.0 — which is bumped on any row change and which
+  `PD-DOC-CONSTANTS` requires this file and the science page to quote, so a retired invariant
+  cannot sit in a document after the table has moved on. The composer reports the real
   chemistry — liquidus shift ΔT_L = Σmᵢcᵢ and growth restriction factor Q = Σmᵢcᵢ(kᵢ−1) —
   then collapses the mix onto the model's pseudo-binary solute field (k_eff = the mᵢcᵢ-weighted
   mean partition), with every clamp labelled — and since v7.1 P1 the clamps and refusals render
@@ -143,11 +152,13 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   δ-ferrite entirely and the casting ends as austenite — the phase this solver grows is not in
   the frozen casting at all. Below the solubility limit the readout still gives Gulliver–Scheil
   its say, because a dendritic solidifier that called AZ91 single-phase would be hiding the
-  11.9 % β-Mg17Al12 that is its textbook as-cast constituent. The composition ceiling now comes
-  from the diagram rather than from a hand-picked
-  slider bound, which removes cast iron: Fe–C stops at 0.52 wt% C against a 0.53 wt% peritectic,
+  11.9 % β-Mg17Al12 that is its textbook as-cast constituent. The composition ceiling is now derived rather than assumed: each solute stops at the
+  smaller of its hand-picked ergonomic cap and one step below the invariant its primary phase
+  changes at, and for five of the twenty-five pairs the diagram is the smaller one — which
+  removes cast iron: Fe–C stops at 0.52 wt% C against a 0.53 wt% peritectic,
   past which the primary phase is austenite and this solver grows δ-ferrite. And since v7.1 P5
-  the element list is no longer closed: under the six quick solutes sits the **whole periodic
+  the element list is no longer closed: under the quick solute list — six entries at the most,
+  and as few as one over a zinc melt — sits the **whole periodic
   table**, 118 cells coloured for the melt you are standing over, and tapping any of them gets an
   answer computed from a cited number. 25 of the 708 (base, element) pairs are pourable and the
   other 683 are refusals that say why — "mercury at 1 wt% exerts 0.053 atm over liquid aluminium,
@@ -224,7 +235,7 @@ npm run dev      # local dev server
 npm run build    # static build in dist/
 ```
 
-No frameworks, no external assets: Vite + TypeScript + raw WebGPU, ~2.5k lines.
+No frameworks, no external assets: Vite + TypeScript + raw WebGPU.
 
 ## Physics sanity checks
 

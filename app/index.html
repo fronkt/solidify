@@ -221,7 +221,14 @@
     #transport button { min-width: 64px; }
     #armed { position: absolute; left: 18px; bottom: 96px; color: var(--cyan); font-size: 11px; letter-spacing: 0.12em; pointer-events: none; text-shadow: 0 1px 4px rgba(0,0,0,0.9); display: none; }
 
-    #tour { position: absolute; left: 18px; bottom: 62px; width: 330px; background: rgba(15,17,21,0.92); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; backdrop-filter: blur(6px); display: none; }
+    /* z-index 31 puts the tour one layer above #composer's z-index 30 (v7.1
+       P6). The chapter that opens the composer would otherwise bury its own
+       "next ▸" under the modal's backdrop, whose pointerdown closes the
+       composer — so the only way out of that chapter was to dismiss the thing
+       it had just opened. #app is position:absolute with z-index:auto and no
+       transform, so it creates no stacking context and this value is compared
+       against #composer's directly. */
+    #tour { position: absolute; z-index: 31; left: 18px; bottom: 62px; width: 330px; background: rgba(15,17,21,0.92); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; backdrop-filter: blur(6px); display: none; }
     #tour.show { display: block; }
     #tour .ch { font-size: 10px; letter-spacing: 0.2em; color: var(--cyan); margin-bottom: 5px; }
     #tour h3 { font-size: 13px; color: #eef1f5; margin-bottom: 6px; letter-spacing: 0.04em; }

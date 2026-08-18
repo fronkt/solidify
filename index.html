@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SOLIDIFY — watch metal freeze</title>
-  <meta name="description" content="A real-time phase-field solidification laboratory in your browser. The logo is cast by the solver. Grow dendrites, switch lenses, pour alloys, engineer grain structure." />
+  <meta name="description" content="A real-time phase-field solidification laboratory in your browser. Grow dendrites, switch ten lenses on one live casting, pour alloys, engineer grain structure." />
   <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%230a0b0d"/><text x="32" y="45" font-family="ui-monospace,Consolas,monospace" font-size="36" font-weight="700" text-anchor="middle"><tspan fill="%23ffb454">S</tspan><tspan fill="%23eef1f5">I</tspan></text></svg>' />
   <script>
     // motion gate: pre-hide animated elements only when motion is allowed and
@@ -71,7 +71,12 @@
     .act { position: relative; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 0 22px; }
     .inner { width: 100%; max-width: 1150px; margin: 0 auto; }
 
-    /* ---------- ACT 0 · hero: the cast wordmark ---------- */
+    /* ---------- ACT 0 · hero ----------
+       The wordmark is TYPE, not a casting: an <h1> of CSS text whose letters are
+       staggered in by anime.js. It was described as solver-cast in this file's
+       own meta description until v7.1 P6, and #heroAct has never held a canvas.
+       The live solver runs further down the page — the lens, material and
+       volumetric acts each own a real one. */
     #heroAct { flex-direction: column; padding-top: 6dvh; padding-bottom: 62px; background:
       radial-gradient(1000px 480px at 50% 8%, #161009 0%, transparent 65%); }
     #wordmark { font-size: clamp(46px, 9.4vw, 118px); letter-spacing: 0.2em; color: #eef1f5; font-weight: 700; line-height: 1.1; margin-bottom: 8px; text-shadow: 0 0 60px rgba(255, 140, 40, 0.12); }
@@ -203,13 +208,37 @@
     .chip.result { border-color: var(--amber); color: #eef1f5; }
     #qLine { margin-top: 20px; font-size: 15px; color: var(--dim); letter-spacing: 0.04em; }
     #qLine b { color: var(--amber); font-size: 24px; font-variant-numeric: tabular-nums; }
-    .bars { margin-top: 30px; display: grid; gap: 16px; max-width: 640px; }
+    .bars { margin-top: 12px; display: grid; gap: 16px; max-width: 640px; }
     .barRow .lab { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); margin-bottom: 6px; letter-spacing: 0.08em; }
     .barRow .lab b { font-size: 16px; color: #eef1f5; font-variant-numeric: tabular-nums; }
     .barRow .track { height: 10px; background: #171b22; border-radius: 5px; overflow: hidden; }
     .barRow .fill { height: 100%; width: 0%; border-radius: 5px; }
     .barRow.hi .fill { background: linear-gradient(90deg, #b06a1e, var(--amber)); }
     .barRow.lo .fill { background: #39404d; }
+    .barhead { margin-top: 30px; font-size: 10px; letter-spacing: 0.18em; color: var(--dim); text-transform: uppercase; }
+    .bars.named { margin-top: 12px; }
+    /* the drawn Al-Si diagram (v7.1 P6). Every number in it is an attribute on
+       the markup, never a constant in landing-motion.ts: the motion module reads
+       the geometry back out of the SVG, so phasedata.ts stays out of the landing
+       chunk and PD-DOC-CONSTANTS still gets one file to check the values in. */
+    .pdrow { margin-top: 32px; display: grid; grid-template-columns: minmax(0, 430px) minmax(0, 1fr); gap: 30px; align-items: center; max-width: 860px; }
+    #pdFig { width: 100%; height: auto; }
+    #pdFig .ax { stroke: #39404d; stroke-width: 1; }
+    #pdFig .liq { stroke: var(--amber); stroke-width: 1.8; fill: none; }
+    #pdFig .sol, #pdFig .inv { stroke: #7d8794; stroke-width: 1.3; fill: none; }
+    #pdFig .csm { stroke: var(--cyan); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.8; }
+    #pdFig .drop { stroke: var(--amber); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.65; }
+    #pdFig .dot { fill: var(--amber); stroke: #0a0b0d; stroke-width: 1.6; }
+    #pdFig .tick { fill: var(--dim); font-size: 10px; letter-spacing: 0.06em; }
+    #pdFig .lbl { fill: #4d545e; font-size: 9px; letter-spacing: 0.1em; }
+    #pdFig .band { fill: var(--amber); opacity: 0; transition: opacity 0.4s ease; }
+    #pdFig .band.on { opacity: 0.08; }
+    .pdside .pdk { font-size: 10px; letter-spacing: 0.18em; color: var(--dim); margin-top: 14px; }
+    .pdside .pdk.first { margin-top: 0; }
+    #pdC { font-size: 20px; color: var(--amber); font-variant-numeric: tabular-nums; margin-top: 3px; }
+    #pdPhase { font-size: 20px; color: #eef1f5; margin-top: 3px; }
+    .pdnote { margin-top: 14px; font-size: 11.5px; line-height: 1.65; color: var(--dim); max-width: 46ch; }
+    @media (max-width: 780px) { .pdrow { grid-template-columns: minmax(0, 1fr); gap: 20px; } }
     #composeAct .after { margin-top: 26px; font-size: 13px; color: var(--dim); line-height: 1.7; max-width: 60ch; }
     #composeAct .after b { color: var(--text); }
     #composeAct .cta { justify-content: flex-start; }
@@ -236,7 +265,7 @@
 
     /* motion pre-states (html.anim only) */
     .anim #heroCopy > *, .anim .stats { opacity: 0; }
-    .anim #composeAct .chip, .anim #composeAct .arrow, .anim #composeAct .after, .anim #composeAct .cta, .anim .bars, .anim #qLine { opacity: 0; }
+    .anim #composeAct .chip, .anim #composeAct .arrow, .anim #composeAct .after, .anim #composeAct .cta, .anim .bars, .anim .barhead, .anim .pdrow, .anim #qLine { opacity: 0; }
     .anim .stamp, .anim #sciAct .cta, .anim #sciAct .sub2 { opacity: 0; }
   </style>
 </head>
@@ -467,20 +496,66 @@
           <span class="arrow">=</span>
           <span class="chip result">A356 + TiB refiner</span>
         </div>
-        <div id="qLine">growth restriction factor &nbsp;<b data-q="71">Q = 0 K</b></div>
+        <div id="qLine">growth restriction factor &nbsp;<b data-q="71">Q = 71 K</b></div>
+
+        <div class="pdrow">
+          <!-- Al–Si, drawn as straight chords between the cited invariant points,
+               exactly the way the composer draws it. data-c is where the pour
+               lands, data-csm the solubility limit it has to cross to get there;
+               landing-motion.ts reads both off this element. -->
+          <svg id="pdFig" viewBox="0 0 430 212" data-c="7.0" data-csm="1.65" role="img"
+               aria-label="Aluminium–silicon phase diagram. Aluminium dissolves 1.65 wt% silicon; the A356 pour sits at 7.0 wt%, past that limit, where equilibrium leaves aluminium plus silicon.">
+            <rect class="band lean" x="46" y="18" width="47.7" height="162"></rect>
+            <rect class="band rich on" x="93.7" y="18" width="316.3" height="162"></rect>
+            <line class="csm" x1="93.7" y1="18" x2="93.7" y2="180"></line>
+            <line class="liq" x1="46" y1="18" x2="410" y2="162"></line>
+            <line class="sol" x1="46" y1="18" x2="93.7" y2="162"></line>
+            <line class="inv" x1="93.7" y1="162" x2="410" y2="162"></line>
+            <line class="ax" x1="46" y1="18" x2="46" y2="180"></line>
+            <line class="ax" x1="46" y1="180" x2="410" y2="180"></line>
+            <line class="drop" x1="248.2" y1="98" x2="248.2" y2="180"></line>
+            <circle class="dot" cx="248.2" cy="98" r="4.6"></circle>
+            <text class="tick" x="46" y="196" text-anchor="middle">0</text>
+            <text class="tick" x="93.7" y="196" text-anchor="middle">1.65</text>
+            <text class="tick" x="410" y="196" text-anchor="end">12.6 wt% Si</text>
+            <text class="tick" x="40" y="22" text-anchor="end">660 °C</text>
+            <text class="tick" x="40" y="166" text-anchor="end">577 °C</text>
+            <text class="tick lbl" x="186" y="154" text-anchor="middle">(Al) + (Si) eutectic</text>
+          </svg>
+
+          <div class="pdside">
+            <div class="pdk first">THE POUR</div>
+            <div id="pdC">Si 7.0 wt%</div>
+            <div class="pdk">EQUILIBRIUM LEAVES</div>
+            <div id="pdPhase">(Al) + (Si)</div>
+            <p class="pdnote">Aluminium dissolves 1.65 wt% silicon and no more. Past that line the
+            casting is two phases and this solver has one — so the app names the silicon it will
+            not grow rather than drawing you a picture of both.</p>
+          </div>
+        </div>
+
+        <div class="barhead">liquidus depression ΔT<sub>L</sub> = Σm<sub>i</sub>c<sub>i</sub> — the same two mixes</div>
         <div class="bars">
           <div class="barRow hi">
-            <div class="lab"><span>A356 + TiB · Q ≈ 71 K</span><b data-count="369">0</b></div>
+            <div class="lab"><span>A356 + TiB · Q ≈ 71 K</span><b data-count="44.7" data-dec="1" data-suffix=" K">44.7 K</b></div>
             <div class="track"><div class="fill" data-w="100"></div></div>
           </div>
           <div class="barRow lo">
-            <div class="lab"><span>Al–1Zn · Q ≈ 1 K</span><b data-count="46">0</b></div>
-            <div class="track"><div class="fill" data-w="12.5"></div></div>
+            <div class="lab"><span>Al–1Zn · Q ≈ 1 K</span><b data-count="1.6" data-dec="1" data-suffix=" K">1.6 K</b></div>
+            <div class="track"><div class="fill" data-w="3.6"></div></div>
           </div>
         </div>
-        <p class="after">Same nucleation. Same cooling. <b>Composition alone refined the metal eight-fold</b>: the
-        growth-restriction mechanism foundries rely on, emerging from the phase-field. Measured in this instrument,
-        not asserted.</p>
+
+        <p class="after">Both numbers are computed by the instrument, and neither is a grain count.
+        This page used to print two grain counts here and call the gap between them an eight-fold
+        refinement by composition. <a href="science/">The science page</a> records that the
+        comparison was withdrawn, that its inversion turned out to be an artefact too, and that
+        under a controlled test — equal undercooling below each alloy's <i>own</i> liquidus, read at
+        equal solid fraction — <b>the two alloys come out the same within noise</b>. The depression
+        above is half of why the uncontrolled version looked like a result: at a common bath
+        temperature these two charges are not equally undercooled. The other half is Q itself —
+        growth restriction leaves the refined charge with far less solid at the moment you compare
+        them, and a grain count is counted on solid that exists.</p>
         <div class="cta">
           <a class="primary" href="app/#alloy=al:Si7,Mg0.35,Ti0.12">Pour this alloy</a>
           <a class="ghost" href="app/">Mix your own</a>
@@ -496,7 +571,7 @@
         <div class="sub2">Kobayashi (1993) anisotropic phase-field · Warren–Boettinger dilute alloy · ASTM E112 metallography</div>
         <div class="stamps">
           <div class="stamp"><b>✓</b>canonical dendrite morphology</div>
-          <div class="stamp"><b>✓</b>emergent CET, recalescence, twinning</div>
+          <div class="stamp"><b>✓</b>emergent CET, recalescence, twin competition</div>
           <div class="stamp"><b>✓</b>honest units, labelled approximations</div>
         </div>
         <div class="cta">

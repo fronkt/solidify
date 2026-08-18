@@ -279,7 +279,7 @@ block("EL-TIER-TOTAL", () => {
 
   const distinct = Object.keys(skelCount).length;
   if (distinct < 12) why.push(`only ${distinct} distinct sentence skeletons`);
-  // A FLOOR ON THE COUNT IS NOT A CEILING ON THE CONCENTRATION. 31 skeletons
+  // A FLOOR ON THE COUNT IS NOT A CEILING ON THE CONCENTRATION. 32 skeletons
   // still permits one of them to own the grid, so the share of the largest is
   // bounded too: measured at 294 of 708 (41.5 %), pinned at half.
   const biggest = Math.max(...Object.values(skelCount));

@@ -30,6 +30,22 @@ export interface AppControl {
 // What the tour itself needs beyond AppControl (declared locally — importing
 // UIHost from ui.ts would create a module cycle). main's `app` satisfies both.
 export interface TourHost extends AppControl {
+  /**
+   * v7.1 P6. The composer is a modal at z-index 30 and `#tour` now sits one
+   * layer above it, so a chapter can open it and the reader can still reach
+   * "next ▸". This is the whole extent of the coupling: the chapter opens the
+   * panel and its prose names the slider to move. Nothing in the tour reads or
+   * writes the composer's DOM, and restructuring the modal into a dock — which
+   * is what a chapter that stepped THROUGH the composer would need — is real
+   * work with its own budget and is not in this arc.
+   */
+  openComposer(): void;
+  /**
+   * Leaving a chapter puts the modal back, in the same place and for the same
+   * reason `clearReveals` does: the next chapter stages the melt, and its
+   * "watch" line describes a canvas this panel would be covering.
+   */
+  closeComposer(): void;
   getMode(): "2d" | "3d";
   setMode(m: "2d" | "3d"): void | Promise<void>;
   canSwitchMode(): boolean;
@@ -215,8 +231,8 @@ export const CHAPTERS: Chapter[] = [
   },
   {
     title: "Why arms?",
-    body: "Crystals are not round because surface energy depends on direction. A cubic metal grows fastest along four preferred directions, so a free crystal sharpens into a four-armed dendrite — the same physics that shapes every cast metal part.",
-    watch: "Four arms lock onto the crystal axes; the glowing halo is latent heat escaping.",
+    body: "Crystals are not round because surface energy depends on direction. A cubic metal grows fastest along its three ⟨100⟩ axes — six directions in all — so a free crystal sharpens into a six-armed dendrite. This is a 2D section, and it cuts the plane holding four of them; part III restores the missing pair. It is the same physics that shapes every cast metal part.",
+    watch: "Four arms lock onto the ⟨100⟩ directions lying in this plane; the glowing halo is latent heat escaping.",
     apply: SCENES.dendrite,
   },
   {
@@ -270,13 +286,19 @@ export const CHAPTERS: Chapter[] = [
   {
     title: "The alloy",
     body: "Real metals are alloys. The growing solid rejects solute, which piles up ahead of the front and lowers the local melting point — constitutional undercooling, the engine of most real dendrites. The rejected solute freezes into the last liquid between the arms.",
-    watch: "Blue-green halos hug the interface. Switch to XRAY — the segregation shows up exactly the way it does in synchrotron radiographs of real solidifying alloys. Then open COMPOSE ALLOY and mix your own: the growth restriction factor Q it reports genuinely refines the grains here.",
+    watch: "Blue-green halos hug the interface. Switch to XRAY — the segregation shows up exactly the way it does in synchrotron radiographs of real solidifying alloys. Then open COMPOSE ALLOY and mix your own: it reports the growth restriction factor Q that foundries use to predict grain refinement. Whether Q refines the grains in THIS instrument is a separate question, and one this project has answered wrong twice — the science page walks through both mistakes and the controlled comparison that settled it.",
     apply: SCENES.alloy,
+  },
+  {
+    title: "The line you can cross",
+    body: "A composition is a point on a phase diagram, and the diagram decides what the casting is made of. COMPOSE ALLOY draws the binary your mix is nearest — the assessed system of whichever solute carries the most weight — as straight chords between cited invariant points, with your pour marked on it. Aluminium dissolves 1.65 wt% silicon and no more. Past that line the equilibrium casting is (Al) + (Si), and this solver has exactly one solid phase.",
+    watch: "Tap A356 in the quick-fill row. The pour lands at 7 wt% Si, well right of the 1.65 wt% line, and the shaded band names what equilibrium leaves there: (Al) + (Si). Drag SI below 1.65 and the band jumps to the lean side of the diagram and the readout goes single-phase. Drag it back and the app names the phase it will not grow: the (Si) of the 577 °C eutectic. That eutectic constituent — (Al) and (Si) together — is about half the casting by the lever rule, and none of it is simulated. That refusal is the whole point: the diagram is cited data, the solver has one solid phase, and the app would rather say so than draw you a picture of both.",
+    apply(a) { SCENES.alloy(a); a.openComposer(); },
   },
   {
     title: "Engineer it",
     body: "Grain size sets strength — finer is stronger (Hall–Petch). A process engineer tunes cooling and inoculation to hit a target grain size. This opens ENGINEERING · ML MODE, where a CMA-ES optimizer does that job: it runs one casting after another, measures the ASTM grain number, and learns the recipe. It starts paused — press ▶ RUN to set it going, PAUSE to freeze any casting and inspect it.",
-    watch: "Once running it replays dozens of fast castings back to back. Early ones nucleate heavily and look like a chaotic blizzard of grains — that is the optimizer exploring, not a glitch. Its genes are the inoculant charge and a three-stage cooling schedule, and those are coupled: the schedule decides how much of the charge ever fires, so it cannot tune one without disturbing the other. Watch |ΔG| shrink as it converges; drag the target toward G 1 and the grains thin out, toward G 5 and they multiply. Or fight it yourself with CHALLENGE.",
+    watch: "Once running it replays dozens of fast castings back to back. Early ones nucleate heavily and look like a chaotic blizzard of grains — that is the optimizer exploring, not a glitch. Its genes are the initial melt undercooling, the inoculant charge and a three-stage cooling schedule, and the last two are coupled: the schedule decides how much of the charge ever fires, so it cannot tune one without disturbing the other. Watch |ΔG| shrink as it converges; drag the target toward G 1 and the grains thin out, toward G 5 and they multiply. Or fight it yourself with CHALLENGE.",
     apply(a) { a.startOptimizer(); },
   },
   {
@@ -288,7 +310,7 @@ export const CHAPTERS: Chapter[] = [
   },
   {
     title: "Heat treat it",
-    body: "The casting is not the end of the story — most metal that matters goes back into a furnace. HEAT TREAT is the instrument's second clock: solidification runs in fractions of a millisecond, a heat treatment in real hours, and no solver can be integrated through both. So the schedule you dial — a temperature, a hold time, a strength spec — is integrated through every Arrhenius law the material shipped with, and a measured Monte Carlo model spends that budget on the frozen grain field. φ never moves; that is what solid state means.",
+    body: "The casting is not the end of the story — most metal that matters goes back into a furnace. HEAT TREAT is the instrument's second clock: solidification runs in fractions of a millisecond, a heat treatment in real hours, and no solver can be integrated through both. So the temperature and the hold time you dial are integrated through every Arrhenius law the material shipped with, and a measured Monte Carlo model spends that budget on the frozen grain field — judged against a strength spec if you set one, and stopped early if you dial in the panel's Zener dispersion, a particle volume fraction and radius that pin the boundaries at a limit measured on this lattice rather than integrated by any rate law. φ never moves; that is what solid state means.",
     watch: "Pour a fine casting first (add inoculant), close the lab, then run the default anneal and read the card: grains coarsen toward the law's own endpoint, ASTM G falls, and σ_y falls with it — Hall–Petch pricing the trade. Dial a spec above the as-cast strength and the panel says no schedule can meet it before you waste the furnace time: an anneal only softens. On copper in TRUE 3D, Σ3 annealing twins appear on the migrating boundaries; on aluminium the card prints the stacking-fault number that says why they cannot.",
     apply(a) { a.startHeat(); },
     hl: ["sec:MODES"],
@@ -312,14 +334,14 @@ export const CHAPTERS: Chapter[] = [
   {
     part: "THE INSTRUMENT",
     title: "Presets",
-    body: "Eight one-tap situations: dendrite, snow, seaweed, nucleation rain, a chilled casting, Bridgman directional growth, a raster weld, and a solutal alloy. Each stages the physics and hands the controls straight back to you.",
+    body: "Nine one-tap situations: dendrite, snow, seaweed, the forbidden five-fold quasicrystal, nucleation rain, a chilled casting, Bridgman directional growth, a raster weld, and a solutal alloy — plus a tenth that exists only in TRUE 3D, the single-crystal selector. Each stages the physics and hands the controls straight back to you.",
     watch: "They are starting points, not demos — everything stays fully adjustable afterwards.",
     hl: ["sec:PRESETS"],
   },
   {
     part: "THE INSTRUMENT",
     title: "Material",
-    body: "Ten material identities. Crystal structure picks the dendrite symmetry — FCC and BCC metals grow 4-fold, HCP metals 6-fold, and cobalt surprises everyone by freezing FCC. Each also sets how brightly its melt genuinely glows: steel white-hot, zinc not at all.",
+    body: "Eleven material identities. Crystal structure picks the dendrite symmetry — FCC and BCC metals grow 4-fold, HCP metals 6-fold, and cobalt surprises everyone by freezing FCC. Each also sets how brightly its melt genuinely glows: steel white-hot, zinc not at all.",
     watch: "The amber line under the SOLIDIFY logo always states exactly what is in the melt.",
     hl: ["sec:MATERIAL"],
   },
@@ -341,13 +363,13 @@ export const CHAPTERS: Chapter[] = [
     part: "THE INSTRUMENT",
     title: "Alloy",
     body: "The dilute-solute field: composition, liquidus slope, and diffusivity sliders, plus partition k in ADVANCED. The ⚗ COMPOSE ALLOY builder goes further — pick a base metal, add elements in wt%, and read the real chemistry: liquidus shift and the growth restriction factor Q that foundries use to predict grain refinement.",
-    watch: "Pour A356 + TiB against Al–1Zn on the same charge and cooling and the structures really do differ — though not only through growth restriction: an alloy's liquidus is depressed, which changes how far its melt undercools before its inoculant fires. The science page works through what that did to an older result. Compositions are shareable as #alloy links.",
+    watch: "Pour A356 + TiB against Al–1Zn on the same charge and cooling and the two castings do come out different — but not because Q refined one of them. An alloy's liquidus is depressed, so at a common bath temperature the two charges are not equally undercooled and have not reached the same solid fraction when you compare them. Control both and they agree to within noise. The science page works through that in full, and through the inverted answer that was also an artefact. Compositions are shareable as #alloy links.",
     hl: ["sec:ALLOY"],
   },
   {
     part: "THE INSTRUMENT",
     title: "Crystal",
-    body: "The crystallography: ANISOTROPY δ sharpens arms (near zero grows seaweed), the symmetry toggles 4-fold metal against 6-fold ice, TIP NOISE seeds side-branches, LATENT HEAT K feeds recalescence, and TWIN RATE lets growth twins nucleate at the front.",
+    body: "The crystallography: ANISOTROPY δ sharpens arms (near zero grows seaweed), the symmetry row sets the rotational order — ×2, ×3, cubic ×4 for metals, hex ×6 for ice, and the forbidden ×5 and ×10 of quasicrystal territory, with a genuine icosahedral one in TRUE 3D — FACETED GROWTH cusps the interface energy until flat facets pin, TIP NOISE seeds side-branches, LATENT HEAT K feeds recalescence, and TWIN RATE lets growth twins nucleate at the front.",
     watch: "Twins must out-grow their parent to survive — the winners widen into feathery grains.",
     hl: ["sec:CRYSTAL"],
   },
@@ -368,14 +390,14 @@ export const CHAPTERS: Chapter[] = [
   {
     part: "THE INSTRUMENT",
     title: "Engine · advanced · modes",
-    body: "ENGINE sets simulation speed, brush size, and the grid (512² to 2048²). ADVANCED exposes the raw model dials — interface width ε̄, kinetics γ, driving α, relaxation τ, partition k — clamped to the numerically stable envelope. MODES holds the CMA-ES optimizer and the challenge match.",
+    body: "ENGINE sets simulation speed, brush size, and the grid (512² to 2048²). ADVANCED exposes the raw model dials — interface width ε̄, kinetics γ, driving α, relaxation τ, partition k — clamped to the numerically stable envelope. MODES holds the four run modes: ⚗ LAB MODE and ♨ HEAT TREAT, which run in both dimensions, and the CMA-ES optimizer and the challenge match, which are 2D only.",
     watch: "Instability is unreachable from the sliders on purpose: every range was mapped before shipping.",
     hl: ["sec:ENGINE", "sec:ADVANCED", "sec:MODES"],
   },
   {
     part: "THE INSTRUMENT",
     title: "Calibrate it",
-    body: "SCALE holds the map from the solver's dimensionless numbers to real SI, with a provenance badge on every factor — and a switch. Turn on the calibrated solver and the interface width and relaxation time stop being dials: they are derived from this material's own capillary length and diffusivity, which is what turns tip radius and arm spacing from shapes into predictions. Seven sliders grey out because they are no longer choices.",
+    body: "SCALE holds the map from the solver's dimensionless numbers to real SI, with a provenance badge on every factor — and a switch. Turn on the calibrated solver and the interface width and relaxation time stop being dials: they are derived from Γ and D, this material's own Gibbs–Thomson coefficient and diffusivity, over a reference freezing range that the poured mix supplies when you have poured one and the material's own coefficients supply when you have not. That is what turns tip radius and arm spacing from shapes into predictions. Seven sliders grey out because they are no longer choices.",
     watch: "The one control left is λ, and it is a convergence knob: it sets how many capillary lengths wide the interface is, and the answer has to not depend on it. The app prints W₀/d₀ beside it so you can check.",
     hl: ["sec:SCALE"],
   },
@@ -392,7 +414,7 @@ export const CHAPTERS: Chapter[] = [
     part: "THE THIRD DIMENSION",
     dim: "3d",
     title: "Part III: out of the plane",
-    body: "Everything so far was a 2D section of a 3D event. A real cubic dendrite grows six primary arms — one pair per crystal axis — and a real grain is a polyhedron you can only understand by walking around it. This flips the instrument into TRUE 3D: seven million voxels solving the same phase-field equations, drawn by marching rays through the volume.",
+    body: "Everything so far was a 2D section of a 3D event. A real cubic dendrite grows six primary arms — one pair per crystal axis — and a real grain is a polyhedron you can only understand by walking around it. This flips the instrument into TRUE 3D: up to seven million voxels — 192³ where the GPU has room, stepping down through 160³, 128³ and 96³ where it does not — solving the same phase-field equations, drawn by marching rays through the volume.",
     watch: "One seed, six arms, locked to ⟨100⟩. The glow is the same latent heat as chapter two — now escaping in three dimensions, which is exactly why 3D tips grow sharper than 2D theory predicts.",
     apply(a) {
       a.setInoculant(0);
@@ -455,7 +477,7 @@ export const CHAPTERS: Chapter[] = [
     dim: "3d",
     title: "Take it home",
     body: "Everything you grow is yours to keep. STL meshes the crystal into a watertight, printable surface straight from the φ field — closed pore shells included. 360° records a six-second orbit to webm while the physics keeps running. And the share link carries the entire setup, section plane and all, to anyone with a browser.",
-    watch: "The whole instrument lives here now: every preset, Bridgman growth, the surface weld, the alloy field and composer, growth twins, facets, the icosahedral quasicrystal — and the SELECTOR preset, which races sixty grains through a helical channel until a single crystal survives, the way real turbine blades are made. Go fill the volume.",
+    watch: "The whole instrument lives here now: every preset, Bridgman growth, the surface weld, the alloy field and composer, growth twins, facets, the icosahedral quasicrystal — and the SELECTOR preset, which races sixty-four chill-floor grains through a helical channel until a single crystal survives, the way real turbine blades are made. Go fill the volume.",
     hl: ["sec:VOLUME · 3D"],
   },
 ];
@@ -489,6 +511,9 @@ export class Tour {
       if (this.app.getMode() !== want) blocked = true;
     }
     this.app.clearReveals();
+    // and the composer, for the same reason: a chapter may have opened it, and
+    // the one after it stages a melt whose "watch" line this modal covers
+    this.app.closeComposer();
     if (!blocked) {
       ch.apply?.(this.app);
       this.app.syncUI();
@@ -520,6 +545,7 @@ export class Tour {
   close() {
     this.nav++;
     this.app.clearReveals();
+    this.app.closeComposer();
     this.el.classList.remove("show");
     this.btn.classList.remove("hide");
   }

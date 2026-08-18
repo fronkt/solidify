@@ -354,3 +354,115 @@ clicking does nothing at all.
 **Rule:** an affordance is a fact about the panel's state, not about the chemistry. Put it in the
 layer that holds the state, where it can say one of two true things instead of one
 sometimes-false one. The tell is a sentence in a pure function that uses the second person.
+
+## Never edit the tree while the GPU suite is running
+
+The first full-suite run of P6 died at script 17 with `Error: Execution context was
+destroyed, most likely because of a navigation.` Nothing was wrong with the code: I
+had edited `src/tour.ts` while the suite was mid-flight, vite's HMR pushed a page
+reload into the browser puppeteer was driving, and `verify-optimizer.mjs` lost the
+context it was evaluating in. It reads exactly like a real failure and it is not one,
+which is the expensive part.
+
+**Rule.** Freeze the tree before `npm test`. Draft follow-up edits into the scratchpad
+and apply them after the run reports. If a suite fails with a puppeteer navigation or
+context error, check the vite log for `page reload` before diagnosing anything else.
+
+## A ban is a claim about what the page SAYS — strip what quotes, once
+
+The P6 plan called for a negative lookahead on every ban regex so the sentence
+*describing* a ban would not trip it. That is N hand-written lookaheads for N bans,
+and this repo has already shipped a ban that matched its own description twice, at
+C0b and again at C2 — on the introducing commit both times.
+
+What shipped instead is one mechanism: before scanning, strip the syntax that quotes
+rather than asserts — backticked spans in markdown, HTML comments, TS comments — and
+give every ban **two fixtures**: a string that MUST fire and a real sentence from the
+post-fix tree that must NOT, both pushed through that same scanner. The fixtures are
+what make the stripping non-vacuous; without them a stripper that ate the pattern
+would pass silently forever.
+
+It earned itself immediately. The honesty page's new paragraph quoted the retracted
+caption verbatim and the ban fired on the honesty page. The page now paraphrases the
+claim and quotes only the half that indicts it.
+
+## Fixing N wrong numbers by hand is how there came to be N
+
+The P6 audit found eight stated check counts wrong in `TESTING.md` at once. Correcting
+eight numbers and moving on would have produced the ninth. The fix is
+`TESTING-CHECK-COUNT`: wherever the document states a count in words, the count is
+derived from the script that bullet's own header names.
+
+**Rule.** When a review finds more than two instances of the same wrong-number class,
+the deliverable is a gate, not N corrections. The corrections are how you find out
+what the gate should count.
+
+## Count the distinct NAMES, not the call sites
+
+`PD-FIGURE-CURSOR` appears twice in `verify-phasediagram.mjs` because one early-return
+branch reports its own failure. A gate counting `check(` call sites would have demanded
+the document say five where four gates exist — making TESTING.md wrong for being right.
+Count what a reader counts.
+
+## Attribute a document number by structure, not by proximity
+
+`verify-scale3d.mjs`'s TESTING entry contains the phrase "the full 29-check volume
+suite", which is a cross-reference to `verify-3d.mjs`. Any gate that searched near a
+script name for a nearby number would have attributed 29 to scale3d and then demanded
+scale3d grow 29 checks. `TESTING-CHECK-COUNT` reads the first `verify-*.mjs` in a
+bullet's own first 160 characters and nothing else.
+
+## A visibility check cannot see a paint order
+
+`#tour` had no z-index and `#composer` has 30, so a tour chapter that opened the
+composer buried its own "next ▸" under a backdrop whose `pointerdown` closes the
+composer. Through the entire defect `#tour` had class `show` and
+`getComputedStyle(...).display === "block"` — every visibility assertion passes.
+The assertion that fails is `document.elementFromPoint` at the button's own centre:
+`composer` before, `self` after.
+
+**Rule.** When the claim is "the user can reach this", hit-test it. Visible, enabled
+and in the DOM are three different claims and none of them is reachable.
+
+## Read a fixture back through a render before comparing against it
+
+`TOUR-PD-STEP`'s cross-drive check stages a mix through `composer.applyHash` and then
+compares the solute rows before and after the tour opens the panel. `applyHash` pours
+and closes without re-rendering the rows, so reading the DOM straight afterwards
+returned **the previous gate's mix**, and the gate reported a cross-drive that was
+entirely its own stale fixture. Opening the composer once, reading, and closing it
+fixed it.
+
+**Rule.** A fixture read from the DOM is only a fixture if the DOM has been rendered
+from it. Otherwise you are pinning whatever ran before you.
+
+## Measure the plan's mechanism, not just the plan's number
+
+P4 taught that a number in the plan must be re-measured. P6 adds that the *mechanism*
+must be too. The plan said crossing C_SM "flips `notGrown` from absent to present".
+Measured, that is false for Al–Si: a lean charge already carries a Gulliver–Scheil
+caveat at 1.60 wt% Si. What flips is the KIND of line. The gate that shipped asserts
+the kind-change on Al–Si and finds a second pair, Fe–C, where absent-to-present is
+genuinely true — so both shapes are asserted rather than one assumed of the other.
+
+## A lever-rule fraction belongs to the constituent, not to the minority phase
+
+The new tour chapter's first draft said "the app names the phase it will not grow —
+the silicon of the 577 °C eutectic, about half the casting by the lever rule". The
+lever rule gives the liquid left at the invariant, which freezes as the eutectic
+constituent — (Al) and (Si) together, 48.9 % at 7 wt% Si. The sentence counted the
+eutectic's own aluminium as silicon. `PD-CHAPTER-PURE` now requires the chapter to say
+"eutectic constituent".
+
+## An honesty page can quote the low tail of its own population
+
+`science/index.html` said the controlled refinement comparison agrees "to better than
+8 %", quoting four run-pairs. The gate it cites asserts **15 %**, and this repo's own
+ledger records the same comparison measuring 9.9 %, 11.6 % and once 15.2 % — a gate
+failure — plus an earlier 376-against-319 pair. Four true numbers, selected, made a
+false claim about precision.
+
+**Rule.** When prose states an agreement band, state the band the gate asserts and the
+spread actually observed. Quoted measurements are a sample; the claim is about the
+population.
+

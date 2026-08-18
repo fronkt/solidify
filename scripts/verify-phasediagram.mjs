@@ -313,6 +313,133 @@ const r3 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(3));
   }
 }
 
+
+// ---------------------------------------------------------------------------
+// 4. PD-CHAPTER-PURE (v7.1 P6) — the claim the new tour chapter makes, gated
+//    where it can be gated.
+//
+// The chapter ("The line you can cross") opens the composer and tells the reader
+// to drag SI across 1.65 wt%. It cannot step the reader THROUGH the composer —
+// the modal owns the screen and turning it into a dock is not in this arc — so
+// what the tour asserts has to be true of the pure layer, and this is where that
+// is settled: crossing C_SM changes the regime, moves BOTH vertices of the
+// shaded band, and changes what the app says it will not grow.
+//
+// BOTH POLARITIES, ON TWO PAIRS, BECAUSE ONE PAIR CANNOT SHOW BOTH.
+//
+// The plan for this milestone said the crossing "flips notGrown from absent to
+// present". Measured, that is FALSE for Al–Si: at 1.60 wt% Si notGrown already
+// carries a line, because Gulliver–Scheil puts 9.3 % of a lean charge through
+// the eutectic even though equilibrium leaves it single-phase, and a dendritic
+// solidifier that called that single-phase would be hiding the as-cast
+// structure. What actually flips at 1.65 is the KIND of line — a Scheil-only
+// caveat below, an equilibrium second phase above — and that is the stronger
+// claim, because a presence check passes on a line that was always there.
+//
+// Fe–C is where the absent-to-present polarity is real: at 0.09 wt% C notGrown
+// is empty and at 0.10 wt% it is not, so both shapes are asserted rather than
+// one being assumed of the other.
+{
+  const T = await server.ssrLoadModule("/src/tour.ts");
+  const why = [];
+
+  const at = (base, el, w) => {
+    const mix = { base, wt: { [el]: w } };
+    const d = A.derive(mix);
+    const f = F.layout(mix, null);
+    return { d, f, p: d.phases[0], band: f.ok ? f.band : null, nG: d.notGrown };
+  };
+
+  // ---- Al–Si, the pair the chapter is written about
+  const row = PD.BINARY.al.Si;
+  const lean = at("al", "Si", row.Csm - 0.05);
+  const rich = at("al", "Si", row.Csm + 0.05);
+
+  if (lean.p.regime !== "SINGLE-PHASE") why.push(`al-Si below C_SM reads ${lean.p.regime}`);
+  if (rich.p.regime !== "TWO-PHASE-TERMINATION") why.push(`al-Si above C_SM reads ${rich.p.regime}`);
+  // both vertices move, and they move to the row's own numbers
+  if (!(lean.band && lean.band.c0 === 0 && lean.band.c1 === row.Csm))
+    why.push(`lean band is ${JSON.stringify(lean.band)}, not [0, ${row.Csm}]`);
+  if (!(rich.band && rich.band.c0 === row.Csm && rich.band.c1 === row.Cinv))
+    why.push(`rich band is ${JSON.stringify(rich.band)}, not [${row.Csm}, ${row.Cinv}]`);
+  if (lean.band && rich.band && lean.band.c1 === rich.band.c1)
+    why.push("the band's right edge did not move across C_SM");
+  // the label the shading carries is the phase list, and only the rich side
+  // names the second phase
+  const second = PD.shortPhase(row.second);
+  if (lean.band && lean.band.label.includes(second)) why.push("the lean band names the second phase");
+  if (rich.band && !rich.band.label.includes(second)) why.push("the rich band does not name the second phase");
+  // the KIND of caveat flips, and both sides still name the eutectic they are
+  // about — that is the sentence the chapter's "watch" line describes
+  const leanLine = lean.nG.join(" ");
+  const richLine = rich.nG.join(" ");
+  if (!/that dissolves/.test(leanLine) || !/Scheil/.test(leanLine))
+    why.push("the lean side's caveat is not the Scheil-only one");
+  if (!/second phase equilibrium leaves/.test(richLine))
+    why.push("the rich side's caveat does not name an equilibrium second phase");
+  if (/second phase equilibrium leaves/.test(leanLine))
+    why.push("the lean side claims an equilibrium second phase");
+  for (const [side, line] of [["lean", leanLine], ["rich", richLine]]) {
+    if (!line.includes(String(row.Tinv))) why.push(`the ${side} caveat does not name the ${row.Tinv} °C invariant`);
+    if (!line.includes(second)) why.push(`the ${side} caveat does not name ${second}`);
+  }
+
+  // ---- Fe–C, where notGrown really is absent below the limit
+  const fRow = PD.BINARY.fe.C;
+  const fLean = at("fe", "C", fRow.Csm);
+  const fRich = at("fe", "C", fRow.Csm + 0.01);
+  if (fLean.nG.length !== 0) why.push(`fe-C at C_SM already carries ${fLean.nG.length} ungrown-phase lines`);
+  if (fRich.nG.length !== 1) why.push(`fe-C just past C_SM carries ${fRich.nG.length} lines, not one`);
+  if (fLean.p.regime !== "SINGLE-PHASE" || fRich.p.regime !== "TWO-PHASE-TERMINATION")
+    why.push(`fe-C regimes read ${fLean.p.regime} / ${fRich.p.regime}`);
+  if (!(fLean.band && fRich.band && fLean.band.c1 === fRow.Csm && fRich.band.c0 === fRow.Csm))
+    why.push("the fe-C band does not hinge on C_SM");
+
+  // ---- "about half the casting", at the pour the chapter names. The lever rule
+  //      here gives the share of LIQUID left at the invariant, which freezes as
+  //      the eutectic CONSTITUENT — (Al) and (Si) together — and not as silicon.
+  //      The chapter's first draft said "the silicon ... about half the casting",
+  //      which reads as a silicon fraction and is wrong by roughly the eutectic's
+  //      own aluminium content; the sentence now names the constituent and this
+  //      check is the number it is allowed to describe.
+  const a356 = at("al", "Si", 7);
+  const lever = a356.p.fraction?.lever;
+  if (!(typeof lever === "number" && lever > 0.4 && lever < 0.6))
+    why.push(`the eutectic share at 7 wt% Si is ${lever}, which "about half" does not describe`);
+
+  // ---- and the chapter itself: it exists, it opens the composer, and the two
+  //      numbers its prose turns on are the row's. A chapter that quietly lost
+  //      its apply() would leave the whole gate above testing nothing anyone reads.
+  const ch = T.CHAPTERS.find(c => c.title === "The line you can cross");
+  if (!ch) why.push("no chapter titled \"The line you can cross\"");
+  else {
+    if (!/openComposer/.test(String(ch.apply))) why.push("the chapter does not open the composer");
+    const prose = `${ch.body} ${ch.watch}`;
+    if (!prose.includes(String(row.Csm))) why.push(`the chapter's prose does not name C_SM ${row.Csm}`);
+    if (!prose.includes(String(row.Tinv))) why.push(`the chapter's prose does not name the ${row.Tinv} °C invariant`);
+    if (!prose.includes(second)) why.push(`the chapter's prose does not name ${second}`);
+    // and it must attribute the lever-rule half to the CONSTITUENT, not to the
+    // silicon: the first draft read "the silicon ... about half the casting",
+    // which is the eutectic's own aluminium counted as silicon
+    if (!/eutectic constituent/.test(prose))
+      why.push("the chapter's prose does not say the half is the eutectic constituent rather than the silicon");
+  }
+
+  check("PD-CHAPTER-PURE", why.length === 0, {
+    alSi: {
+      csm: row.Csm,
+      leanBand: lean.band && [lean.band.c0, lean.band.c1],
+      richBand: rich.band && [rich.band.c0, rich.band.c1],
+      regimes: [lean.p.regime, rich.p.regime],
+      caveats: [lean.nG.length, rich.nG.length],
+    },
+    feC: { csm: fRow.Csm, caveats: [fLean.nG.length, fRich.nG.length] },
+    leverAt7: r3(lever),
+    chapter: ch ? T.CHAPTERS.indexOf(ch) : null,
+    why,
+  });
+}
+
 await server.close();
 console.log(failures ? `done — ${failures} FAILED` : "done — all phase-diagram checks passed");
 if (failures) process.exitCode = 1;

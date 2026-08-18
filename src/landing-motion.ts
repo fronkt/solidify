@@ -19,13 +19,14 @@ function topnav() {
   onScroll();
 }
 
-function countUp(el: HTMLElement, target: number, format: (n: number) => string, duration = 1500) {
+function countUp(el: HTMLElement, target: number, format: (n: number) => string,
+  duration = 1500, decimals = 0) {
   const obj = { n: 0 };
   animate(obj, {
     n: target,
     duration,
     ease: "outExpo",
-    modifier: utils.round(0),
+    modifier: utils.round(decimals),
     onUpdate: () => { el.textContent = format(obj.n); },
   });
 }
@@ -86,6 +87,62 @@ function heroEntrance() {
   }, 1000);
 }
 
+/**
+ * The composition marker walking across the Al–Si diagram until it crosses the
+ * solubility line (v7.1 P6, replacing an animated grain count the science page
+ * had retracted twice).
+ *
+ * EVERY NUMBER IS READ BACK OUT OF THE MARKUP — the chord's origin from the
+ * solidus line's own endpoint, the pour from the dot's shipped position, the
+ * two compositions from data-c / data-csm. Nothing chemical is written here,
+ * which is what keeps phasedata.ts out of the landing chunk and leaves exactly
+ * one file (index.html) for PD-DOC-CONSTANTS to check the values in.
+ *
+ * The dot ships at its FINAL position so that a reduced-motion reader, or one
+ * whose modules never boot, gets the finished figure rather than a marker
+ * parked at zero — the defect the old bars had, which printed "0" grains to
+ * anyone who had asked their OS for less animation.
+ */
+function pdMarker(host: HTMLElement) {
+  const fig = host.querySelector<SVGSVGElement>("#pdFig");
+  if (!fig) return;
+  const sol = fig.querySelector<SVGLineElement>(".sol");
+  const dot = fig.querySelector<SVGCircleElement>(".dot");
+  const drop = fig.querySelector<SVGLineElement>(".drop");
+  const lean = fig.querySelector<SVGRectElement>(".band.lean");
+  const rich = fig.querySelector<SVGRectElement>(".band.rich");
+  const cEl = document.getElementById("pdC");
+  const phEl = document.getElementById("pdPhase");
+  if (!sol || !dot || !drop || !lean || !rich || !cEl || !phEl) return;
+  const num = (el: Element, a: string) => parseFloat(el.getAttribute(a) ?? "");
+  const x0 = num(sol, "x1"), y0 = num(sol, "y1");
+  const x1 = num(dot, "cx"), y1 = num(dot, "cy");
+  const cEnd = parseFloat(fig.dataset.c ?? ""), cSm = parseFloat(fig.dataset.csm ?? "");
+  if (![x0, y0, x1, y1, cEnd, cSm].every(Number.isFinite)) return;
+  const lean0 = lean.classList.contains("on"), rich0 = rich.classList.contains("on");
+  const phase0 = phEl.textContent ?? "";
+
+  const st = { t: 0 };
+  const paint = () => {
+    const c = cEnd * st.t;
+    const x = x0 + (x1 - x0) * st.t, y = y0 + (y1 - y0) * st.t;
+    dot.setAttribute("cx", x.toFixed(2));
+    dot.setAttribute("cy", y.toFixed(2));
+    drop.setAttribute("x1", x.toFixed(2));
+    drop.setAttribute("x2", x.toFixed(2));
+    drop.setAttribute("y1", y.toFixed(2));
+    cEl.textContent = `Si ${c.toFixed(1)} wt%`;
+    // the crossing itself: at and past C_SM the casting is two phases, and the
+    // end state must land back on exactly the markup the page shipped with
+    const past = st.t >= 1 ? rich0 : c >= cSm;
+    rich.classList.toggle("on", past);
+    lean.classList.toggle("on", st.t >= 1 ? lean0 : !past);
+    phEl.textContent = st.t >= 1 ? phase0 : past ? "(Al) + (Si)" : "(Al) — everything dissolves";
+  };
+  paint();   // rewind to 0 wt% before the row fades in, so nothing jumps
+  animate(st, { t: 1, duration: 1500, delay: 900, ease: "inOutCubic", onUpdate: paint });
+}
+
 function composeReveal() {
   const host = document.getElementById("composeAct")!;
   const io = new IntersectionObserver(es => {
@@ -97,13 +154,18 @@ function composeReveal() {
     animate("#qLine", { opacity: [0, 1], duration: 500, delay: 500, ease: "outCubic" });
     const q = host.querySelector<HTMLElement>("#qLine b")!;
     setTimeout(() => countUp(q, parseInt(q.dataset.q!, 10), n => `Q = ${n} K`, 1300), 550);
-    animate([".bars", "#composeAct .after", "#composeAct .cta"], {
-      opacity: [0, 1], translateY: [16, 0], duration: 650, ease: "outCubic", delay: stagger(160, { start: 700 }),
+    animate([".pdrow", ".barhead", ".bars", "#composeAct .after", "#composeAct .cta"], {
+      opacity: [0, 1], translateY: [16, 0], duration: 650, ease: "outCubic", delay: stagger(140, { start: 650 }),
     });
+    pdMarker(host);
     for (const fill of host.querySelectorAll<HTMLElement>(".fill"))
-      animate(fill, { width: ["0%", `${fill.dataset.w}%`], duration: 1400, delay: 900, ease: "outExpo" });
-    for (const b of host.querySelectorAll<HTMLElement>(".barRow b[data-count]"))
-      setTimeout(() => countUp(b, parseInt(b.dataset.count!, 10), n => String(n), 1400), 900);
+      animate(fill, { width: ["0%", `${fill.dataset.w}%`], duration: 1400, delay: 1300, ease: "outExpo" });
+    for (const b of host.querySelectorAll<HTMLElement>(".barRow b[data-count]")) {
+      const dec = parseInt(b.dataset.dec ?? "0", 10);
+      const suffix = b.dataset.suffix ?? "";
+      setTimeout(() => countUp(b, parseFloat(b.dataset.count!),
+        n => n.toFixed(dec) + suffix, 1400, dec), 1300);
+    }
   }, { threshold: 0.35 });
   io.observe(host);
 }

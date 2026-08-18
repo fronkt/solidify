@@ -315,8 +315,8 @@ export class Sim3D {
 
   /**
    * Create at grid n, falling back down the ladder on out-of-memory.
-   * Seven textures cost 57 B/voxel (state ×2 rg32f, grain ×2 r32u, flux rgba32f,
-   * age rg32f, fed ×2 r32u, mask r8u), so 192³ ≈ 403 MB, 160³ ≈ 234 MB,
+   * Nine textures over six fields cost 57 B/voxel (state ×2 rg32f, grain ×2 r32u,
+   * flux rgba32f, age rg32f, fed ×2 r32u, mask r8u), so 192³ ≈ 403 MB, 160³ ≈ 234 MB,
    * 128³ ≈ 120 MB, 96³ ≈ 50 MB — plus 57 MB for the solute pair while the alloy
    * is on. Resolves null if even the smallest rung fails.
    */

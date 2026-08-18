@@ -282,8 +282,12 @@ export interface InvariantFraction { lever: number; scheil: number }
  * gap to Mg–Zn's 0.75 %, Al–Mg's 0.011 %, Ni–Nb's 0.008 % and eight pairs at
  * 0.000 %. The floor sits in that gap.
  *
- * The justification is not roundness. `PD-CONSTRUCT-AGREE` measures the two
- * shipped tables disagreeing about k by ratios from 0.68 to 3.30, so a
+ * The justification is not roundness. The two shipped tables disagree about k
+ * by ratios from 0.39 to 3.30 over all twenty-three rows with an invariant, and
+ * from 0.68 to 2.34 over the fifteen `PD-CONSTRUCT-AGREE` actually enters (it
+ * takes eutectics with C_inv <= 60 wt%, so the 3.30 is cu-Sn, a peritectic it
+ * excludes, and the 0.39 is fe-Ni). The gate was cited for the whole span here
+ * until v7.1 P6; it measures the narrower one. Either way a
  * predicted fraction of a few thousandths is far below what the inputs can
  * support; calling it a phase present in the casting would be claiming more
  * precision than the coefficients have. Above it, the numbers are the textbook

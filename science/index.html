@@ -137,11 +137,38 @@
       <p>Control both — start each charge at the same undercooling below its own liquidus,
       read both at the same solid fraction — and the honest answer is that <b>the two alloys
       come out the same within noise</b>. Across four independent runs at two inoculant
-      charges the grain counts agree to better than 8 % (1434/1380, 1431/1445, 305/313,
-      351/327). Growth restriction is unmistakably present — the refined charge takes about
+      charges one recorded set of grain counts read 1434/1380, 1431/1445, 305/313 and
+      351/327 — within 8 %, at the low end of a wider spread the paragraph after this one
+      states in full. Growth restriction is unmistakably present — the refined charge takes about
       twice as long to reach 20 % solid — but at these site densities it does not translate
       into a finer grain count. Neither the original claim nor its inversion survives a
       controlled comparison.</p>
+      <p><b>How well "the same" is known, stated as the suite states it.</b> The band the suite
+      actually asserts is <b>15 %</b>, not the 8 % those four pairs happen to make
+      (<code>REFINE-FAIR</code>, on the two inoculant charges, at matched solid fraction). That
+      is the honest number, and the spread is not symmetric between the two arms. <b>At 3000
+      sites the two charges agree to within 1 %</b> — four recorded pairs read 1433/1432,
+      1452/1461, 1409/1417 and 1418/1420. <b>At 600 sites they do not.</b> Seven recorded pairs
+      span 4.7 % to 18.1 % (350/313, 363/337, 356/340, 353/299, 376/319, 305/313, 351/327), the
+      refined charge came out finer in six of the seven, and one of them — 353 against 299 — is a
+      gate failure at the 15 % band. That is suggestive and it is not yet a result, because on
+      that arm the harness's own site-firing count is not a controlled variable: for the same
+      600-site charge the lean melt has been observed firing 349 sites in one run and all 600 in
+      another, which is the frame-pacing artefact the paragraph below this one describes. What
+      can be said is that the 8 % those four pairs make is the low tail of a wider population, and
+      that settling the 600-site arm needs the synchronous bench rather than the interactive
+      harness. This gate is also browser-only, so CI never runs it.</p>
+      <p><b>And the front door went on saying it for three releases.</b> This page withdrew the
+      comparison in v4.0. The landing page kept animating a count to 369 grains against 46 and
+      captioning it as an eight-fold refinement by composition alone, "measured in this
+      instrument, not asserted" — which is the worst version of the mistake: a retracted number, presented as a
+      measurement, on the page most people read first. It was removed in v7.1 P6, and the reason
+      it survived a withdrawal, an inversion and a second withdrawal is that nothing checked it.
+      Numbers quoted as prose were being written by hand across six documents and recomputed by
+      nothing. <code>PD-DOC-CONSTANTS</code> now derives them — the table version, the Al–Si and
+      Fe–C invariants, A356's freezing range and four <code>derive()</code> outputs including the
+      two liquidus values in the paragraph above — from the modules that ship them, and bans the
+      retired claims by text in all six at once.</p>
       <p>One further caution, recorded because it nearly became a third wrong answer. An
       early v5.0 measurement appeared to show the textbook mechanism — the slower alloy
       recalescing less, holding its undercooling, and firing every one of its 3000 sites
@@ -207,8 +234,8 @@
     it. At every freezing voxel the instrument also records the <b>Niyama criterion</b> Ny =
     |∇T|/√Ṫ — the foundry's standard porosity-risk index — and can paint it on the section plane.
     Numerics:
-    explicit Euler at dt = 0.53·dx²/6 (the 3D stability bound), two compute passes per substep over
-    ping-pong 3D storage textures, and 57 bytes of VRAM per voxel across seven textures — ~403 MB
+    explicit Euler at dt = 0.6·dx²/6 (the 3D stability bound — 0.53 is the 2D solver's margin against its own dx²/4), two compute passes per substep over
+    ping-pong 3D storage textures, and 57 bytes of VRAM per voxel across nine textures — ~403 MB
     at 192³, with an out-of-memory ladder down through 160³, 128³ and 96³ (~50 MB) for smaller
     GPUs, every rung of it selectable from the ENGINE row.</p>
     <p>The volume now carries the <b>whole instrument</b>. The dilute-alloy solute field runs in
@@ -347,8 +374,11 @@
 
     <p><b>And now it is drawn.</b> The composer carries a phase diagram for the poured mix's
     dominant binary — the solute with the largest |m·c| — built from the cited invariants in
-    <code>phasedata.ts</code> and drawn as STRAIGHT CHORDS from the pure metal's melting point to
-    the invariant. The straightness is the point rather than a compromise: those chords ARE the
+    <code>phasedata.ts</code> (table version <b>1.1.0</b>, bumped on any row change, and every row
+    independently recomputed from openly-licensed CALPHAD assessments in
+    <a href="https://github.com/fronkt/solidify/blob/main/docs/PHASE-AUDIT.md">docs/PHASE-AUDIT.md</a>
+    so a reader can check any one of them without taking this file's word for it) and drawn as
+    STRAIGHT CHORDS from the pure metal's melting point to the invariant. The straightness is the point rather than a compromise: those chords ARE the
     linearised diagram this solver integrates, so the figure is a picture of the model and the
     real curvature becomes a caveat the panel prints instead of a feature it silently lacks. The
     pour marker sits at the MELT's own liquidus, not the binary's, and the gap between them is
@@ -415,8 +445,10 @@
     constituent of AZ91, and which this solver grows no more than it grows the equilibrium one.
     AA2024's copper gives 8.8 % and the galvanising bath's aluminium 1.5 %. Below 1 % of the
     casting the app stops calling it a phase, and that floor is not roundness: the two tables
-    this app ships disagree about k by ratios from 0.68 to 3.30, so a predicted fraction of a few
-    thousandths is smaller than the coefficients can support. Leaving this out would have been
+    this app ships disagree about k by ratios from 0.39 to 3.30 across all twenty-three rows with
+    an invariant, and from 0.68 to 2.34 over the fifteen <code>PD-CONSTRUCT-AGREE</code> actually
+    enters, so a predicted fraction of a few thousandths is smaller than the coefficients can
+    support. Leaving this out would have been
     the one place the two-column device failed to fire — on a dendritic-solidification simulator,
     where non-equilibrium freezing is the entire subject.</p>
 
@@ -705,7 +737,7 @@
       <tr><th>CLAIM</th><th>STATUS</th></tr>
       <tr><td>Dendrite/seaweed/snowflake morphology, tip selection, side-branching</td><td><b>canonical</b> — matches the published Kobayashi figures</td></tr>
       <tr><td>Mullins–Sekerka breakup, CET, columnar growth, weld epitaxy</td><td><b>emergent physics</b>, qualitatively correct</td></tr>
-      <tr><td>Grain impingement, ASTM E112 grain number, linear-intercept SDAS</td><td><b>measured honestly</b> on a nominal 1 mm domain</td></tr>
+      <tr><td>Grain impingement, ASTM E112 grain number, linear-intercept SDAS</td><td><b>measured honestly</b> against the model resolution — both convert pixels to length through the cell pitch alone, so the field of view is <i>n</i> × µm-per-cell: 1 mm at the default 1024² grid, half that at 512², double at 2048², and the calibrated solver's own W₀·dx elsewhere</td></tr>
       <tr><td>Alloy solute field</td><td><b>two solvers, and the app says which is running.</b> The default is a WB-type dilute model, qualitative and not CALPHAD-coupled. The calibrated solver is the Echebarria–Folch–Karma–Plapp dilute binary model with an anti-trapping current, where the partition coefficient is the real one and is independent of the interface width — still dilute-binary and still not CALPHAD-coupled</td></tr>
       <tr><td>Composer chemistry (ΔT<sub>L</sub>, Q, wt%↔at%)</td><td><b>real dilute-limit values</b>, approximate textbook coefficients</td></tr>
       <tr><td>Composer admissibility (which element in which melt)</td><td><b>25 assessed pairs, 683 computed refusals.</b> All 6 × 118 = 708 (base, element) pairs are classified into four tiers: ASSESSED needs both a cited coefficient row and a cited invariant row and is exactly the 25 pairs that already had them; OUTSIDE-THE-MODEL is real chemistry a one-liquid, one-solid-phase solver cannot carry (five checked monotectics, and any composition past its invariant); REFUSED-PAIR is an honest absence of data; NOT-A-SOLUTE is base-independent (47 elements). <b>The refusals are the content, and most carry a computed number</b> — a vapour pressure in atm from tabulated ΔH<sub>vap</sub> and T<sub>b</sub>, a Hume-Rothery size factor or a Hägg interstitial ratio, an invariant composition in wt%. Two limits the tiers do not remove: the mix is summed in the dilute limit with <b>zero solute–solute interaction</b>, and it collapses onto one pseudo-binary for a solver that carries one solute field. The vapour rule is an <i>advisory</i>, never a refusal — as a refusal it would refuse brass</td></tr>

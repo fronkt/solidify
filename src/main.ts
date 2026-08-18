@@ -10,7 +10,7 @@ import { SlicePanel } from "./slicepanel";
 import { ViewCube } from "./viewcube";
 import { UI, type UIHost } from "./ui";
 import { Hud } from "./hud";
-import { Tour, SCENES } from "./tour";
+import { Tour, SCENES, type TourHost } from "./tour";
 import { Optimizer, type OptHost, type Recipe } from "./optimizer";
 import { packShare, unpackShare, type ShareState } from "./share";
 import { Challenge, type ChallengeHost } from "./challenge";
@@ -444,7 +444,12 @@ async function boot() {
   // (the v2.0 boot-order lesson); constructed after the host adapters below.
   let heat: HeatPanel | null = null;
 
-  const app: UIHost & OptHost = {
+  // TourHost joined the annotation in v7.1 P6. `app` always satisfied it —
+  // `new Tour(app)` typechecked structurally — but the requirement was invisible
+  // here, so a member the tour needs and the rail does not (closeComposer) read
+  // as an excess property on the literal. Naming all three hosts makes the
+  // obligation explicit and puts the compile error on the interface it belongs to.
+  const app: UIHost & OptHost & TourHost = {
     // ---- AppControl (scenes / tour)
     clearMelt(u) {
       if (heat?.busy) return;   // a treatment owns the field until it finishes
@@ -662,6 +667,12 @@ async function boot() {
       return true;
     },
     openComposer() { if (!opt.active && !challenge.active) composer.open(); },
+    // v7.1 P6: the tour calls this on leaving every chapter, so the one chapter
+    // that opens the modal cannot leave it sitting over the next chapter's melt.
+    // Unconditional on purpose — closing something already closed is a no-op,
+    // and mirroring openComposer's opt/challenge guard here would mean a modal
+    // opened before the optimizer started could never be put back.
+    closeComposer() { composer.close(); },
     getAlloyName: () => alloyName,
     getAlloyCaveats: () => alloyCaveats.slice(),
     isRecording: () => recorder != null,

@@ -13,6 +13,14 @@
 //
 //   node scripts/verify-phasediagram-gpu.mjs [outDir] [port]
 import puppeteer from "puppeteer-core";
+import { createServer } from "vite";
+
+// v7.1 P6: TOUR-PD-STEP finds its chapter BY TITLE, out of the module that
+// ships it, rather than by an index this file would have to keep in step with
+// CHAPTERS. An inserted chapter renames nothing and breaks nothing here; a
+// deleted one fails loudly instead of testing whichever chapter slid into its
+// slot.
+const viteServer = await createServer({ server: { middlewareMode: true }, appType: "custom", logLevel: "error" });
 
 const PORT = process.argv[3] ?? "5199";
 const browser = await puppeteer.launch({
@@ -178,6 +186,133 @@ await new Promise(r => setTimeout(r, 700));
   });
 }
 
+
+// ---------------------------------------------------------------------------
+// TOUR-PD-STEP (v7.1 P6) — the chapter that opens the composer, driven through
+// the DOM.
+//
+// The pure layer settles what the chapter CLAIMS (PD-CHAPTER-PURE). What only a
+// browser can settle is whether the chapter is reachable at all, and there the
+// interesting number is a z-index. `#composer` is `position: fixed; inset: 0;
+// z-index: 30` with a backdrop whose pointerdown closes it; `#tour` had no
+// z-index, so a chapter that opened the composer buried its own "next ▸" under
+// that backdrop and the only way out of the chapter was to dismiss the thing it
+// had just opened. So the assertion is not "the panel is visible" — it is
+// ELEMENT-FROM-POINT AT THE BUTTON'S OWN CENTRE, which is the property that was
+// false before and which a visibility check cannot see.
+//
+// BOTH POLARITIES, and no optimizer. Leaving the chapter must CLOSE the modal —
+// otherwise it sits over the next chapter's melt, and the "watch" line describes
+// a canvas nobody can see — and coming back must reopen it. The walk goes
+// backwards first (to "The alloy") and then forwards, deliberately: the chapter
+// after this one starts the CMA-ES optimizer, `openComposer` refuses while that
+// is running, and a gate that stepped through it would be measuring the
+// optimizer's guard rather than the tour's.
+//
+// AND IT MUST NOT CROSS-DRIVE. A mix is staged through the composer's own hash
+// decoder first; after the chapter has opened the panel, those solute rows must
+// still be the ones staged. The chapter opens the composer and its prose names
+// the slider to move — that is the whole extent of the coupling, and a chapter
+// that had begun writing the composer's state would show up here.
+{
+  const CH = await viteServer.ssrLoadModule("/src/tour.ts");
+  const TITLE = "The line you can cross";
+  const IDX = CH.CHAPTERS.findIndex(c => c.title === TITLE);
+  const PREV = IDX > 0 ? CH.CHAPTERS[IDX - 1].title : null;
+
+  const r = IDX < 0 ? null : await page.evaluate(async (idx, hash) => {
+    const S = window.__solidify;
+    const settle = () => new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+    const comp = () => document.getElementById("composer");
+    const tour = () => document.getElementById("tour");
+    const shown = el => !!el && el.classList.contains("show")
+      && getComputedStyle(el).display !== "none";
+    const chapterTitle = () => tour()?.querySelector("h3")?.textContent ?? null;
+    const navBtn = label => [...(tour()?.querySelectorAll(".nav button") ?? [])]
+      .find(b => (b.textContent ?? "").includes(label)) ?? null;
+    const rows = () => [...document.querySelectorAll("#composer .rows .crow b")]
+      .map(b => b.textContent);
+    // is the button the topmost thing at its own centre, or is a backdrop?
+    const topmostAt = el => {
+      if (!el) return null;
+      const q = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2);
+      if (!hit) return null;
+      return hit === el ? "self" : el.contains(hit) ? "descendant" : (hit.id || hit.className || hit.tagName);
+    };
+
+    S.app.setRun(false);
+    await settle();
+    // Stage a mix the chapter has no way to know about, and READ IT BACK
+    // THROUGH A RENDER. applyHash pours and closes without re-rendering the
+    // rows, so reading them straight afterwards returns whatever the previous
+    // gate on this page left in the DOM — which is how the first cut of this
+    // check reported a cross-drive that was its own stale fixture.
+    S.composer.applyHash(hash);
+    S.app.openComposer();
+    await settle();
+    const staged = rows();
+    S.app.closeComposer();
+    await settle();
+
+    await S.tour.goto(idx);
+    await settle();
+    const onChapter = {
+      composerOpen: shown(comp()), tourOpen: shown(tour()), title: chapterTitle(),
+      rows: rows(), nextHit: topmostAt(navBtn("next")), backHit: topmostAt(navBtn("back")),
+    };
+
+    navBtn("back")?.click();
+    await settle();
+    const onPrev = { composerOpen: shown(comp()), tourOpen: shown(tour()), title: chapterTitle() };
+
+    navBtn("next")?.click();
+    await settle();
+    const back = { composerOpen: shown(comp()), tourOpen: shown(tour()), title: chapterTitle() };
+
+    navBtn("close")?.click();
+    await settle();
+    const closed = { composerOpen: shown(comp()), tourOpen: shown(tour()) };
+
+    return { staged, onChapter, onPrev, back, closed };
+  }, IDX, "#alloy=al:Cu4.4,Mg1.5");
+
+  const why = [];
+  if (IDX < 0) why.push(`no chapter titled "${TITLE}"`);
+  else {
+    if (!r.onChapter.composerOpen) why.push("the chapter did not open the composer");
+    if (!r.onChapter.tourOpen) why.push("the tour panel is not shown on the chapter");
+    if (r.onChapter.title !== TITLE) why.push(`the panel shows "${r.onChapter.title}"`);
+    // THE Z-INDEX CLAIM. Before P6 this read "composer" — the modal's own
+    // backdrop, whose pointerdown handler closes it.
+    if (!["self", "descendant"].includes(r.onChapter.nextHit))
+      why.push(`"next ▸" is buried under ${r.onChapter.nextHit}`);
+    if (!["self", "descendant"].includes(r.onChapter.backHit))
+      why.push(`"◂ back" is buried under ${r.onChapter.backHit}`);
+    // no cross-drive
+    if (r.staged.length === 0) why.push("the staged mix produced no solute rows — the fixture is vacuous");
+    if (JSON.stringify(r.onChapter.rows) !== JSON.stringify(r.staged))
+      why.push(`the chapter rewrote the composer's mix: ${JSON.stringify(r.staged)} -> ${JSON.stringify(r.onChapter.rows)}`);
+    // leaving closes it, returning reopens it
+    if (r.onPrev.composerOpen) why.push("leaving the chapter left the composer open over the next melt");
+    if (r.onPrev.title !== PREV) why.push(`"◂ back" landed on "${r.onPrev.title}", not "${PREV}"`);
+    if (!r.back.composerOpen) why.push("returning to the chapter did not reopen the composer");
+    if (r.back.title !== TITLE) why.push(`"next ▸" landed on "${r.back.title}"`);
+    // and closing the tour puts the modal back too
+    if (r.closed.composerOpen || r.closed.tourOpen) why.push("closing the tour left a panel open");
+  }
+
+  check("TOUR-PD-STEP", why.length === 0, {
+    chapter: IDX, title: TITLE, previous: PREV,
+    hitTest: r && { next: r.onChapter.nextHit, back: r.onChapter.backHit },
+    stagedMix: r && r.staged, mixOnChapter: r && r.onChapter.rows,
+    composerOpen: r && [r.onChapter.composerOpen, r.onPrev.composerOpen, r.back.composerOpen, r.closed.composerOpen],
+    why,
+    note: "elementFromPoint at the button's own centre, not visibility — the pre-P6 defect was a paint order, and the panel was 'visible' throughout it",
+  });
+}
+
+await viteServer.close();
 
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 5) : "none");
 if (errors.length) failures++;

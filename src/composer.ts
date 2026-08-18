@@ -217,8 +217,9 @@ export class Composer {
    * frames: 25 pairs are pourable across all six bases, but over any ONE melt
    * at most six of the 118 cells are, so the per-melt count is 112 and up.)
    *
-   * The quick list STAYS. It is one keystroke to the six solutes a base can
-   * actually take, it names each one's m and k in the option text, and it is
+   * The quick list STAYS. It is one keystroke to the at-most-six solutes a base
+   * can actually take — six over aluminium, iron and nickel, three over magnesium
+   * and copper, one over zinc — it names each one's m and k in the option text, and it is
    * one tab stop rather than the grid's hundred-and-eighteen; the grid is the
    * open question beside it, not a replacement for the answer. Both are
    * keyboard-reachable — the cells are real buttons — but "reachable" and

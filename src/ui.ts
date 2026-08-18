@@ -837,8 +837,10 @@ export class UI {
     const nm = (m: number) => (m < 1e-6 ? `${(m * 1e9).toFixed(1)} nm` : `${(m * 1e6).toFixed(2)} µm`);
     this.calNote.innerHTML = on
       // the numbers a reader needs to judge the calibration, not just trust it:
-      // d₀ is the material's, W₀ follows from λ, and W₀/d₀ is the thing every
-      // quantitative claim has to be shown independent of
+      // d₀ is Γ over the reference interval — and since v7.1 P1 that interval is
+      // the POURED MIX's whenever there is one, not the material's — W₀ follows
+      // from λ, and W₀/d₀ is the thing every quantitative claim has to be shown
+      // independent of
       ? `d₀ ${nm(cal.d0)} · W₀ ${nm(cal.W0)} · τ₀ ${cal.tau0 < 1e-3
           ? cal.tau0.toExponential(1) + " s" : cal.tau0.toPrecision(2) + " s"}`
         + `<br>one degree = ${cal.dT0.toFixed(1)} K · cell ${cal.umPerCell.toFixed(3)} µm`
@@ -848,7 +850,7 @@ export class UI {
             .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</span>`
         + `<br><span style="color:#7fd18b">W₀ and τ₀ are derived from Γ and D — ε̄, τ, α, γ, δ, the solute D and the cell pitch are no longer choices.</span>`
       : host.canCalibrate()
-        ? "derive W₀ and τ₀ from this material's real capillary length and diffusivity — tip radius and arm spacing stop being shapes and start being predictions"
+        ? "derive W₀ and τ₀ from Γ and D — this material's Gibbs–Thomson coefficient and diffusivity — over the freezing range of whatever you poured; tip radius and arm spacing stop being shapes and start being predictions"
         : m3
           ? "calibrated mode is 2D for now — the volume still runs the Kobayashi solver"
           : "this material has no SI identity to calibrate against — pick a real one";

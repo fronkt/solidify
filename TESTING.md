@@ -25,7 +25,10 @@ fade and Sievert gas porosity — bringing the CI-runnable set to five at the ti
 `verify-rng.mjs` and `verify-experiment.mjs` have since made it seven, v7.1 P0's
 `verify-phasedata.mjs` eight, v7.1 P1's `verify-alloy.mjs` nine, v7.1 P2's
 `verify-phasediagram.mjs` ten, v7.1 P3's `verify-regimes.mjs` eleven, v7.1 P4's
-`verify-elements.mjs` twelve and v7.1 P5's `verify-composer-grid.mjs` thirteen). They run first in the
+`verify-elements.mjs` twelve and v7.1 P5's `verify-composer-grid.mjs` thirteen, which is where
+v7.1 P6 leaves it: **thirteen browser-free scripts**, and `CI-SCRIPT-COUNT` now derives that
+number from `ci.yml`'s own run lines and fails if any of the three places this document states
+it disagrees). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
 GPU half is not worth starting.
 
@@ -37,9 +40,10 @@ deliberately not `K_MC`, which the pinning and recrystallization milestones are 
 move.
 
 **Requirements**: a WebGPU-capable Chrome/Chromium at the path hardcoded in each verify script
-(`C:\Program Files\Google\Chrome\Application\chrome.exe`) — Windows with a real GPU, or the
-`--use-angle=swiftshader` software-rendering path the scripts themselves fall back to for
-GPU-less environments. **This is not portable to a generic hosted CI runner as-is** — the
+(`C:\Program Files\Google\Chrome\Application\chrome.exe`) — Windows with a real GPU. Two of
+them, `verify-dive.mjs` and `verify-dive-fallbacks.mjs`, launch Chrome with
+`--use-angle=swiftshader` unconditionally; **no script detects a missing GPU or retries**, so
+everything else simply fails on a GPU-less host. **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
 only the OS-agnostic steps — typecheck, build, and the thirteen browser-free scripts
 (`verify-units.mjs`, `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
@@ -109,8 +113,9 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   render — no means, no band geometry, the refusal naming the variable, the spread and the
   offending run). `EXP-RENDERED` (a rendered comparison carries the controlled variable by
   name, every seed, and means the check recomputes independently of the formatter under test).
-- **`verify-phasedata.mjs`** (browser-free, v7.1 P0) — the binary invariant table. Seven
-  checks, all about totality and both polarities rather than about whether any one number is
+- **`verify-phasedata.mjs`** (browser-free, v7.1 P0) — the binary invariant table, and since
+  v7.1 P6 the documents that quote it. Ten
+  checks. The first seven are all about totality and both polarities rather than about whether any one number is
   right (a number's correctness is the audit's job — `docs/PHASE-AUDIT.md` recomputes every
   row from an open CALPHAD database). `PD-ROW-SOURCED` requires every row to carry a source
   over 30 characters AND the set of sources to hold at least five distinct strings, so one
@@ -143,6 +148,50 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   4.2–4.7 wt% bracket rather than a number, and that null is asserted to be explained in the
   row's own source. Both polarities: at least three rows carry the field and at least one
   declines it, so "populate everything" and "populate nothing" both fail.
+  `PD-DOC-CONSTANTS` (v7.1 P6) is `HT-DOC-CONSTANTS`' mechanics one layer over: a claim list
+  across **six** documents — `index.html`, `science/index.html`, `README.md`, this file,
+  `src/tour.ts` and `src/alloy.ts` — every claim a string BUILT from a module export rather than
+  typed, and every one carrying its units, because "1" as a claim is satisfied by any page
+  containing the digit one (the gate prints its own claim and ban counts, so they are not
+  restated here to go stale). It covers the table version, the Al–Si and Fe–C invariants, A356's freezing range
+  recomputed through `derive()`, and the four `derive()` outputs that were quoted as prose with
+  nothing recomputing them: the two normalised liquidus values the honesty page's first flaw
+  turns on, and the two growth-restriction factors on the front door. The plan named four
+  documents; `index.html` is the fifth because that is where the retracted claim actually lived
+  and where both Q values are printed, and a list without it could gate neither. `src/alloy.ts`
+  is the sixth, added when the audit found the Scheil floor's justification quoting a k-ratio
+  span — "0.68 to 3.30" — that no set in the tree produces: 3.30 is a peritectic the gate it
+  credits excludes. Both spans are now recomputed from the two tables.
+  The **bans** run beside them, and they self-test: each carries a fixture that MUST fire and a
+  real sentence from this tree that must NOT, both pushed through the same scanner the documents
+  go through. That is deliberately not the per-ban negative lookahead the plan called for — this
+  repo has twice shipped a ban that matched the sentence describing it, and N hand-written
+  lookaheads are N chances to repeat that. Instead the scanner strips, once, what is quotation
+  rather than claim: backticked spans in markdown, HTML comments, TS comments. Which is why the
+  banned strings appear in this paragraph inside backticks — `refined the metal eight-fold`,
+  `genuinely refines the grains`, `data-count="369"`, the composer's solute set called closed,
+  the per-solute slider `cap` presented as a solubility limit, and the superseded material
+  count. The fixtures are what prove the stripping did not quietly neuter the pattern.
+  `CI-SCRIPT-COUNT` (v7.1 P6) closes a hole nothing was watching: this document states, in three
+  separate places, the size of the CI-runnable set; the v7.1 arc added six members to it; and no
+  gate compared the two. The count is DERIVED from `ci.yml`'s own `- run: node scripts/verify-*.mjs`
+  lines and every stated site must agree with it. Liveness on both halves — the derived count
+  must be greater than zero, so a renamed workflow step cannot make the comparison vacuous at
+  zero, and at least three sites must be FOUND, so a heading rewrite that dropped two of them
+  fails here instead of silently reducing this to a one-site check.
+  `TESTING-CHECK-COUNT` (v7.1 P6) is the same idea one level down, and it exists because one
+  level down is where the rot was: the P6 audit of this document found **eight** stated counts
+  wrong at once — `verify-units.mjs` said eight and has nine, `verify-quant.mjs` said ten and
+  has eleven, `verify-3d.mjs` was cited as a 23-check suite and prints 29, `EL-DOC-CLAIMS` was
+  called sixteen claims and checks seventeen, `ALLOY-REFUSE-NAMED` eight input shapes against
+  fifteen driven, the element reasons 31 skeletons against 32. Hand-correcting eight numbers with
+  nothing under them is how there came to be eight. Wherever a bullet in this file states a check
+  count in words, the gate counts the DISTINCT gate NAMES in the script that bullet's own header
+  names, and requires the two to agree. Distinct names rather than `check(` call sites, because
+  `PD-FIGURE-CURSOR` reports from two branches and a call-site count would make this document
+  wrong for being right; and attribution by bullet header rather than by proximity, because
+  `verify-scale3d.mjs`'s entry contains the phrase "the full 29-check volume suite" about a
+  different script entirely. Ten sites today, with a liveness floor of six.
 - **`verify-alloy.mjs`** (browser-free, v7.1 P1) — the composer's chemistry and the
   calibration it now feeds. Ten checks. `ALLOY-SUMS-EXACT` recomputes the superposition's own
   algebra inside the gate from `BASES` — ΔT_L = Σm·c, Q = Σm·c(k−1), the base-inclusive
@@ -154,7 +203,7 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   `kRaw` is clamped, and would be a definition asserted against itself. `ALLOY-CLAMP-REPORT`
   pins which of the shipped bounds actually BOUND for each preset — a fact about the tree no
   definition can satisfy trivially, and the place the c0-floor finding lives (every addition
-  below 0.75 wt% total is invisible to the solver's c0). `ALLOY-REFUSE-NAMED` drives eight
+  below 0.75 wt% total is invisible to the solver's c0). `ALLOY-REFUSE-NAMED` drives fifteen
   input shapes that used to be silently dropped, requires each refusal to exceed 20 characters
   and to contain the offending key, requires the DISTINCT count to equal the number driven,
   and requires an un-triggered control to raise none — so a function that always returns
@@ -179,7 +228,7 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   eutectic, A356+TiB's −0.59 — and requires each to appear in the prose as written, the same
   way `HT-DOC-CONSTANTS` polices the heat-treatment constants. Both sides are normalised for
   the U+2212 minus sign first, or it would be a typography check wearing a physics gate's name.
-- **`verify-phasediagram.mjs`** (browser-free, v7.1 P2) — the drawn phase diagram. Three checks.
+- **`verify-phasediagram.mjs`** (browser-free, v7.1 P2) — the drawn phase diagram. Four checks.
   `src/phasediagram.ts` splits so that this is possible at all: `layout()` returns vertices in
   DATA space (wt%, °C) and knows nothing about pixels, and the renderer is only `toPx`.
   `PD-FIGURE-GEOMETRY` asserts the drawing IS the row — the liquidus polyline's endpoints are
@@ -192,15 +241,34 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   the first version sized the frame on the chords' value at the axis edge, which extrapolates
   the Al–Si solidus 12 wt% past where it exists and put A356's y-axis at −96 °C, and the second
   forgot the solver line's endpoint and pushed Cu–Ni's below the floor. Both clamp branches are
-  asserted exercised by shipped presets, and the residual offset is required present for every
-  multi-solute preset and absent for every single-solute one. `PD-NO-ROW-REFUSES` drives eleven
+  asserted exercised by shipped presets, and the residual offset is required present exactly
+  when it is non-zero — NOT "present iff multi-solute", which is the claim the first version made
+  and which hid a real defect: tin bronze has one solute, so that test said "absent" and passed
+  while its marker floated 30.8 K above the drawn line, because Cu–Sn's dilute slope and its
+  invariant chord disagree by half again. The residual must also start on the drawn liquidus, end
+  on the marker, and decompose additively into its two causes — the other solutes and the
+  chord-versus-dilute gap — with both causes shown dominant for some shipped preset. `PD-NO-ROW-REFUSES` drives eleven
   undrawable cases — the five materials with no alloy base, an unknown material, a pure melt, an
   unknown base, an inherited object key, all-zero weights and the geometrically impossible ni-W
-  row — and requires each refusal to exceed 40 characters, the distinct-reason set to match, and
+  row — and requires each refusal to exceed 40 characters, at least five distinct reasons among the eleven, and
   ni-W's to name the geometry rather than claim there is no row; both polarities, so a `layout()`
   that refused everything cannot pass. `PD-FIGURE-CURSOR` settles the three absences without a
   GPU: a temperature on the diagram is drawn, one off it is NOT drawn and IS named, and null is
   silent — "no liquid left" and "below the axis" are different facts and the panel says so.
+  `PD-CHAPTER-PURE` (v7.1 P6) gates the claim the new tour chapter makes, on the layer where it
+  can be gated: the chapter opens the composer and tells the reader to drag SI across 1.65 wt%,
+  and it cannot step them through the modal, so what it asserts has to be true of `layout()` and
+  `derive()`. Crossing C_SM must change the regime, move BOTH vertices of the shaded band to the
+  row's own numbers, and change what the app says it will not grow — with the second phase named
+  on the rich side and absent on the lean one. **Two pairs, because one cannot show both
+  polarities.** The plan said the crossing "flips `notGrown` from absent to present"; measured,
+  that is false for Al–Si, where a lean charge already carries a Gulliver–Scheil caveat at
+  1.60 wt% because 9.3 % of it goes through the eutectic anyway. What flips there is the KIND of
+  line — a Scheil-only caveat below, an equilibrium second phase above — which is the stronger
+  claim, since a presence check passes on a line that was always there. Fe–C is where absent-to-
+  present is real (nothing at 0.09 wt% C, one line at 0.10), so both shapes are asserted rather
+  than one assumed of the other. The chapter itself is checked too: it exists, its `apply` opens
+  the composer, and its prose names C_SM, the invariant temperature and the second phase.
 - **`verify-regimes.mjs`** (browser-free, v7.1 P3) — the composition regimes, the invariant
   fraction and the ceiling. Five checks. `PD-REGIME-EXACT` classifies every row from BOTH sides
   of BOTH of its boundaries: C_inv ∓ 1e-9 and C_SM ∓ 1e-9, with the exact regime asserted on
@@ -226,10 +294,12 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   way across the band it is exactly 0.25, which a flipped lever gives as 0.75. Pb–Sn
   (61.9 wt% Sn, 183 °C, 18.3 wt% solubility) drives all of them as GATE-LOCAL data — a row for
   it in `phasedata.ts` would break `PD-ROW-SOURCED`'s bijection, since Pb is not a base metal.
-  The five peritectic rows are asserted EXCLUSIONS that refuse the fraction by name, so a
-  predicate that silently swallowed them could not pass. `ALLOY-PHASES-NAMED` drives both
-  polarities over the nine presets: four emit exactly one `notGrown` line per over-solubility
-  solute containing that row's own second-phase token, five emit none, and the two columns
+  Five of the table's seven peritectic rows are asserted EXCLUSIONS that refuse the fraction by
+  name, so a predicate that silently swallowed them could not pass; the other two (Al–Ti, Mg–Zr)
+  are the product peritectics whose whole two-phase band lies past the invariant and which
+  `PD-REGIME-EXACT` handles separately. `ALLOY-PHASES-NAMED` drives both
+  polarities over the nine presets: seven emit at least one `notGrown` line and two emit none,
+  with every line containing that row's own second-phase token, and the two columns
   (PHASES EQUILIBRIUM PREDICTS / PHASES THIS SOLVER GROWS) must differ by exactly as many phases
   as there are lines. `PD-CAP-CEILING` asserts the POSTCONDITION rather than the implementation —
   for any input, the solutes `derive()` actually used carry no composition at or past their own
@@ -269,7 +339,7 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   distinctness clause counts sentence SKELETONS — base labels, element symbols and every number
   replaced — because the naive distinct-string count is vacuous when every sentence interpolates
   its own element: measured on this tree it is 488 of 708, and it would pass a file that said
-  "X is not available in Y" seven hundred times. There are 31 skeletons, no one of them may cover more than half the grid (the largest covers
+  "X is not available in Y" seven hundred times. There are 32 skeletons, no one of them may cover more than half the grid (the largest covers
   294 of 708), and no two REASONS may
   share one, because a refusal naming the wrong mechanism is a wrong statement rather than an
   absent one. Liveness runs both ways: all four tiers non-empty, every base admitting something,
@@ -298,7 +368,7 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   liquidus 2.3 K and 2.0 K and the growth restriction factor 18.4 K and 11.0 K while moving c0,
   mLiq and kPart by exactly 0.0000. That is a finding printed rather than a gate that cannot go
   green. `EL-DOC-CLAIMS` gates this milestone's prose in the commit that writes it, on
-  `PD-DOC-CALIBRATION`'s mechanics one layer over: sixteen claims recomputed from the modules and
+  `PD-DOC-CALIBRATION`'s mechanics one layer over: seventeen claims recomputed from the modules and
   required to appear in `science/index.html`, with HTML tags stripped and typographic dashes
   flattened first so the gate cannot fail on typography, and with no claim allowed to be a bare
   small integer — "the ceiling binds for 5 pairs" is satisfied by any document containing the
@@ -366,7 +436,7 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   potassium, calcium and cadmium, none of which changed tier, so a grid wired to the tier alone
   cannot pass. And the three ceiling pairs are added by click and required to land one step
   UNDER their invariant rather than on it.
-- **`verify-phasediagram-gpu.mjs`** (v7.1 P2) — `PD-CURSOR-LIVE`, the cursor against a real cast.
+- **`verify-phasediagram-gpu.mjs`** (v7.1 P2, joined by `TOUR-PD-STEP` in P6) — `PD-CURSOR-LIVE`, the cursor against a real cast.
   Its own file, and that is the point: written inside `verify-quant.mjs` first, it could not pass
   there, because every QPF-* block above it stages the solver by writing `frozenT`, `dx` and `dt`
   straight onto `sim.params` and none of them puts anything back — with `frozenT: 1` inherited
@@ -401,7 +471,7 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   when the dial is shoved to 999 mid-run, a no-spec pour must carry no verdict row, and the
   model metal must refuse by name) and the heat-treat share-link gates.
 - **`verify-scale3d.mjs`** — the 3D half of the v5.0 length-anchor change, on its own so it
-  does not need the full 23-check volume suite to re-run: both solvers carry one resolution,
+  does not need the full 29-check volume suite to re-run: both solvers carry one resolution,
   the volume's `eqDiamUm` actually follows it (doubling the pitch doubles the reported diameter
   for the same voxel count — the check the old hardcoded `1 mm / 1024` could never pass), and
   the SCALE panel reports the volume's derived domain rather than the 2D grid's.
@@ -415,7 +485,7 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   no calibrated surface energy and therefore no independent number to be right or wrong about;
   once `W0` and `τ0` are *derived* from a real `d0` and `D`, the model owes you a specific
   critical radius, a specific tip velocity, and an answer that does not depend on how wide the
-  diffuse interface was made. Ten checks: `QPF-EQUIL` (equilibrium profile width and a flat
+  diffuse interface was made. Eleven checks: `QPF-EQUIL` (equilibrium profile width and a flat
   front that does not drift), `QPF-GIBBS-THOMSON` (`R* = d0/Δ`), `QPF-CONVERGE` (steady tip
   velocity at three interface widths), `QPF-TIP-KR` and `QPF-TIP-RADIUS` (both against published
   values), `AT-PARTITION` and `AT-WIDTH` (the anti-trapping current, on and off),
@@ -481,7 +551,7 @@ rebuilt to make that relationship emergent:
 **Physics-behaviour tests (v5.0).**
 
 - **`UNITS-*`** (`verify-units.mjs`) — the scaling layer, checked without a browser, so it is
-  one of the two parts of the suite CI can gate (`verify-heattreat.mjs` joined it in v6.0). Eight checks: that kelvin-per-unit really is the heat
+  the first of the thirteen browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0 and the v7.1 arc added six more). Nine checks: that kelvin-per-unit really is the heat
   equation's own `(L/c_p)/K` for four materials computed independently in the test; that the
   time factor is forced by whichever diffusivity is anchoring; that every converter round-trips;
   that an abstract material reads as *unknown* rather than as zero; that the undercooling dial's

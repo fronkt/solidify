@@ -3405,12 +3405,167 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
         11 K at one end and 54 K at the other. Both now gated, the bracket recomputed from
         `MATERIALS` and the two margins held as named numbers.
 
-- [ ] **P6 — the tour chapter, the honesty page's remaining debts, and the retraction the front door still owes.**
+- [x] **P6 — the tour chapter, the honesty page's remaining debts, and the retraction the front door still owes.**
       Two debts come due. The front door contradicts the honesty page with numbers that page says were withdrawn twice, on the app's most visually dramatic moment. And four numbers quoted as prose — 0.821 and 0.993 (`science/index.html:131-132`), Q ≈ 71 K and Q ≈ 1 K (`index.html:470,473,477`) — are literal `derive()` outputs with **no gate on them**, which is exactly the failure mode C0b was built to close, one layer over.
       - **The tour chapter does not drive the composer DOM.** `#composer` is `position:fixed; inset:0; z-index:30` with a backdrop whose `pointerdown` closes it (`composer.ts:74`); `#tour` has no z-index and sits at `left:18px; bottom:62px` (`app/index.html:161`), so while the composer is open the tour's "next ▸" is underneath the backdrop and clicking it dismisses the composer; and `TourHost` (`tour.ts:194-202`) has no composer handle — `openComposer` lives on `UIHost`. Restructuring the composer from a modal to a dockable panel is real work and is **not** in this arc. The chapter is prose that opens the composer and points at what to move, the way `tour.ts:273` already points at it, and the claim it makes is gated on the pure layer instead.
       - **`index.html` ACT 3 is rewritten.** It currently animates a count to 369 against 46 and captions it "Composition alone refined the metal eight-fold … Measured in this instrument, not asserted." `science/index.html:124-144` says that comparison was withdrawn in v4.0, that its inversion was **also** an artefact, and that the controlled answer is the two alloys come out the same within noise (1434/1380, 1431/1445, 305/313, 351/327). The two Q values are genuinely computed and stay; the grain-count claim goes. The replacement drama is the marker crossing a line on a figure while the casting changes beside it — less exciting, and true. `src/tour.ts:273` carries the same retracted claim ("the growth restriction factor Q it reports genuinely refines the grains here") and is fixed in the same commit.
       - **Gates.** `PD-DOC-CONSTANTS` (doc) — HT-DOC-CONSTANTS' mechanics verbatim, one layer over, at the bottom of `scripts/verify-phasedata.mjs` so CI runs it. Expected values are DERIVED FROM MODULE EXPORTS, never literals: `PHASE_TABLE_VERSION`, the Al–Si and Fe–C invariants read out of `phasedata.ts`, ΔT₀(A356) recomputed through `calibrate()`, and the four existing `derive()` outputs. All documents must literally contain them. The `doc()` file list grows from three to **four** — `science/index.html`, `TESTING.md`, `README.md` and now `src/tour.ts`, or the front door gets fixed while the tour keeps saying it. A `stale[]` array bans "refined the metal eight-fold", the 369-grain caption, "six base metals", "each base's curated solutes", and any surviving per-solute `cap`-as-physics phrasing. Every ban regex carries a negative lookahead so the sentence *describing* the ban does not trip it — this repo has failed that exact self-reference twice, at C0b and again at C2, on the introducing commit both times — and every ban is run against both the pre-fix and post-fix trees before the milestone is trusted, exactly as POR-PORE-SOLUTE was. `CI-SCRIPT-COUNT` (doc) — `TESTING.md`'s stated count of browser-free scripts equals the number of `- run: node scripts/verify-*.mjs` lines in `.github/workflows/ci.yml`, at all three places the count is written (lines 25, 41, 469 today, against exactly seven run lines). Nothing checks this and this arc adds one script. Liveness: the derived count is > 0 and all three doc sites are asserted FOUND, so a renamed heading cannot make it vacuous. `PD-CHAPTER-PURE` (browser-free) — the claim the tour makes, gated where it can be gated: crossing Csm on the Si slider flips `notGrown` from absent to present containing the row's own eutectic token, changes the regime, and changes the shaded band's vertices. Both polarities; a presence-only check would pass on a line that was always there. `TOUR-PD-STEP` (GPU) — the chapter opens the composer, advances past its first step, and the composer is asserted visible; nothing cross-drives the two panels.
       - **Docs.** `README.md`: the base list, "ten qualitative identities" (MATERIALS has eleven), and the per-element/per-pair coefficient phrasing. `TESTING.md`: the new script, every new gate, and the three counts. `science/index.html`: the honesty sentence and the provenance note pointing at `docs/PHASE-AUDIT.md`.
+
+      - **DONE 2026-08-17.** Both debts are paid and the arc's last gate is a doc gate. The front
+        door no longer animates a count to 369 grains against 46 under the caption "Composition
+        alone refined the metal eight-fold — measured in this instrument, not asserted", which
+        the honesty page two clicks away had recorded as withdrawn in v4.0 and whose inversion it
+        had recorded as an artefact too. In its place is the claim this whole arc earned: an
+        **Al–Si diagram drawn from the cited invariants, with the composition marker walking from
+        0 to 7 wt% Si and crossing the 1.65 wt% line while the phase readout beside it turns from
+        "(Al) — everything dissolves" into "(Al) + (Si)"**. Both Q values stay, because both are
+        genuinely computed; the two bars now measure **liquidus depression, 44.7 K against
+        1.6 K**, which is the mechanism the honesty page names as the reason the uncontrolled
+        comparison looked like a result. And the tour gains chapter **11 of 32, "The line you can
+        cross"** — the first chapter that opens the composer.
+      - **The four numbers the milestone was written for are gated, and so are thirteen more.**
+        `PD-DOC-CONSTANTS` recomputes 0.821, 0.993, Q 71 K and Q 1 K from `derive()` and requires
+        the documents to contain them. Everything else it checks is derived the same way: the
+        table version, Al–Si's 1.65 / 12.6 / 577, Fe–C's 0.53, A356's 303 K, the two depressions,
+        `MATERIALS`' eleven identities, `SCENES`' nine presets and both k-ratio spans.
+      - **FIVE gates, not the plan's four, and SIX documents, not four.** `index.html` is the
+        fifth document because that is where the retracted claim actually lived and where both Q
+        values are printed — a list without it could gate neither, which makes the plan's
+        four-file list one the ban could never have fired in. `src/alloy.ts` is the sixth, added
+        when the audit found the Scheil floor's justification quoting a k-ratio span of
+        "0.68 to 3.30" that **no set in the tree produces**: 3.30 is cu-Sn, a peritectic the very
+        gate it credits excludes, and 0.68 is the minimum of the fifteen rows that gate enters.
+        Measured, it is 0.39–3.30 over all 23 rows with an invariant and 0.68–2.34 over the
+        fifteen `PD-CONSTRUCT-AGREE` actually reaches. Both are now recomputed.
+      - **The bans self-test instead of carrying negative lookaheads, and that is a deliberate
+        departure from the plan.** The plan called for a negative lookahead per ban so the
+        sentence describing a ban would not trip it. Eight hand-written lookaheads are eight
+        chances to repeat the exact mistake this repo has already made twice, at C0b and C2. So
+        the scanner strips, ONCE, what is quotation rather than claim — backticked spans in
+        markdown, HTML comments, TS comments — and every ban carries a fixture that MUST fire and
+        a real sentence from this tree that must NOT, both pushed through that same scanner.
+        A stripper that neutered a pattern fails on its own fixture, not in six months. It caught
+        one immediately: the honesty page's new paragraph quoted the retracted caption verbatim,
+        so the page now paraphrases it and keeps only the damning half in quotation marks.
+      - **The tour chapter opens the composer, and the z-index is the whole finding.** `#composer`
+        is `position: fixed; inset: 0; z-index: 30` with a backdrop whose `pointerdown` closes it;
+        `#tour` had no z-index at all, so a chapter that opened the composer buried its own
+        "next ▸" under that backdrop and the only way out of the chapter was to dismiss the thing
+        it had just opened. `#tour` is now `z-index: 31` — `#app` is `position: absolute` with
+        `z-index: auto` and no transform, so it creates no stacking context and the two values
+        compare directly. `TOUR-PD-STEP` asserts **`document.elementFromPoint` at the button's own
+        centre**, not visibility: the panel was "visible" throughout the defect. On the pre-P6
+        tree that read `composer`; it now reads `self`. Leaving the chapter closes the modal, in
+        the same two places and for the same reason `clearReveals` fires, and coming back reopens
+        it: the measured sequence is `[true, false, true, false]`.
+      - **The plan's mechanism claim for `PD-CHAPTER-PURE` was wrong and measuring it said so.**
+        "Crossing C_SM flips `notGrown` from absent to present" is **false for Al–Si**: at
+        1.60 wt% Si the line is already there, because Gulliver–Scheil puts 9.3 % of a lean charge
+        through the eutectic even where equilibrium leaves it single-phase. What flips at 1.65 is
+        the KIND of line — a Scheil-only caveat below, an equilibrium second phase above — and
+        that is the stronger claim, because a presence check passes on a line that was always
+        there. **Fe–C is where absent-to-present is real** (nothing at 0.09 wt% C, one line at
+        0.10), so the gate drives both pairs and asserts both shapes rather than assuming one of
+        the other. Bands: al-Si [0, 1.65] → [1.65, 12.6]; fe-C [0, 0.09] → [0.09, 0.53].
+      - **A 53-agent audit of all five user-facing documents returned 34 findings that survived
+        adversarial refutation, and every one of them is fixed in this commit.** They were not
+        small. The front door's `<meta description>` — the sentence that goes into search results
+        — claimed "the logo is cast by the solver"; `src/logotype.ts` no longer exists,
+        `resetMold` has zero call sites, and `#heroAct` has never contained a canvas. A stamp on
+        the same page listed **twinning** among "emergent" physics beside CET and recalescence,
+        where the honesty page says plainly that twins spawn at a rate the user sets and only
+        their survival emerges. The honesty page itself claimed the controlled comparison agrees
+        "to better than 8 %" — the gate asserts **15 %**, and this ledger's own P5 entry records
+        the same comparison measuring 9.9 %, 11.6 % and once 15.2 %, a gate failure. It anchored
+        E112 and SDAS to "a nominal 1 mm domain" nine rows above the row retiring exactly that.
+        It priced the volume at "seven textures" where `build()` creates nine, and put the 3D
+        Euler step at 0.53·dx²/6 where the shipped ratio is 0.60 — 0.53 is the 2D margin against
+        dx²/4. The tour said the optimizer's genome was four genes (it is five; the initial
+        undercooling is the one the recipe card prints first), that MODES holds two modes (four,
+        and in TRUE 3D it holds exactly the two that sentence omitted), that a cubic metal grows
+        along four directions (six; the 2D section holds four, as chapter 28 already said), that
+        the symmetry control is a two-way toggle (six buttons, and chapter four tells you to press
+        one this sentence denies exists), that the furnace takes three dials (five since C2), that
+        TRUE 3D gives seven million voxels flat (the top rung of a ladder to 96³, and this body is
+        spliced verbatim into the message shown to devices that cannot run the volume at all),
+        and that the selector races sixty grains (`chillFloor` plants 8 × 8 = 64; the only 60 in
+        the file belongs to the weld preset twelve lines above). README priced the source at
+        "~2.5k lines" against 22,987, claimed "verified headlessly (64 grains → 1)" where the only
+        selector gate asserts `scen === 3` and hardcodes its own solid fraction to 0, called the
+        quick solute list six when zinc's is one, and presented the composition ceiling as coming
+        from the diagram "rather than" a hand-picked bound when the diagram is the smaller term
+        for **5 of 25 pairs**.
+      - **`TESTING-CHECK-COUNT` is the fifth gate and it exists because of what that audit found
+        in TESTING.md.** Eight stated counts were wrong at once: `verify-units.mjs` said eight and
+        has nine, `verify-quant.mjs` ten against eleven, `verify-3d.mjs` was cited as a 23-check
+        suite and prints 29, `EL-DOC-CLAIMS` sixteen claims against seventeen,
+        `ALLOY-REFUSE-NAMED` eight input shapes against fifteen driven, the element reasons 31
+        skeletons against 32, five peritectic exclusions stated as the table's whole peritectic
+        population of seven, and `ALLOY-PHASES-NAMED`'s polarity given as four-and-five where it
+        measures seven-and-two. Two more were not counts but retracted claims: the residual offset
+        described as "present for every multi-solute preset and absent for every single-solute
+        one", which is the exact claim that gate's own comment says it retired after tin bronze
+        floated 30.8 K with one solute; and a `--use-angle=swiftshader` fallback "the scripts
+        themselves fall back to", where two dive scripts pass the flag unconditionally and **no
+        script detects a GPU or retries**. Hand-correcting eight numbers with nothing under them
+        is how there came to be eight, so wherever this document states a check count in words the
+        gate now counts the distinct gate NAMES in the script that bullet's own header names. Ten
+        sites, liveness floor six. Distinct names rather than call sites, because
+        `PD-FIGURE-CURSOR` reports from two branches and a call-site count would make the document
+        wrong for being right; attribution by bullet header rather than proximity, because
+        `verify-scale3d.mjs`'s entry contains "the full 29-check volume suite" about a different
+        script entirely.
+      - **Every gate was run against a mutation before it was trusted.** The z-index removed →
+        `"next ▸" is buried under composer`. `closeComposer` deleted from `goto` → `leaving the
+        chapter left the composer open over the next melt`. `PD-CHAPTER-PURE`'s lean probe moved
+        to the rich side of C_SM → five clauses fire. The old caption restored in `index.html` →
+        the eight-fold ban fires. README's "eleven" reverted to "ten" → one missing claim and one
+        stale claim. A fourteenth run line added to `ci.yml` → all three TESTING sites disagree.
+        `verify-rng.mjs`'s stated count changed to six → `TESTING-CHECK-COUNT` names it.
+      - **One defect of my own, caught by the same audit.** The new chapter's first draft read
+        "the app names the phase it will not grow — the silicon of the 577 °C eutectic, about half
+        the casting by the lever rule". The lever rule gives the share of liquid left at the
+        invariant, which freezes as the eutectic CONSTITUENT — (Al) and (Si) together, 48.9 % —
+        so that sentence counts the eutectic's own aluminium as silicon. The chapter now names the
+        constituent and `PD-CHAPTER-PURE` requires it to.
+      - **Not done, and named.** CI still runs on push-to-`main` and `pull_request` only, so none
+        of the thirteen browser-free gates fire on `v7-experiments` — unchanged from P4 and P5,
+        and now costing three more gates. `REFINE-FAIR` and `ATMOSPHERE` remain load-fragile at
+        script 17 of 26 and were not loosened. The grain selector's "64 → 1" is now described
+        honestly rather than measured; earning that sentence needs a gate that stages
+        `SCENES3.selector`, grows it, and counts what leaves the pigtail.
+
+      - **One deliberate consequence of the z-index, recorded rather than discovered later.**
+        `#tour` at 31 now paints above `#foundryResults` (7), `#slicePop` (6) and `#overlay` (6)
+        as well as above the composer, where before it painted below all of them. The lab report
+        card is the only real overlap — 400 px on the left against the tour's 330 px at the
+        bottom-left — and the trade is the right way round: the tour's own controls were
+        previously unreachable behind the report card of the casting its lab chapter had just
+        told the reader to pour. `#gate` stays at 50, so the WebGPU refusal still covers
+        everything.
+      - **Verification, stated as it actually ran.** `npx tsc --noEmit` clean; `npm run build`
+        clean, and the landing chunk still contains **zero** chemistry bytes — no
+        `PHASE_TABLE_VERSION`, `BINARY`, `eutectic`, `Gulliver`, `probeWt` or `admit` — which is
+        what the hand-written SVG and the geometry-read-from-markup in `landing-motion.ts` are
+        for. All thirteen browser-free scripts pass individually. `npm test` ran **18 scripts and
+        112 checks with one failure**, and the failure is `REFINE-FAIR`, which is not this
+        milestone's: it read 353 against 299 grains on its 600-site arm, an 18.1 % deviation
+        against a 15 % band. The remaining eight scripts were then run directly against the same
+        tree — `passsplit`, `quant`, `phasediagram-gpu`, `composer-gpu`, `experiment-gpu`,
+        `heattreat-gpu`, `scale3d`, `3d` — and every one reported `done` with **PAGE ERRORS:
+        none**, including `TOUR-PD-STEP`. So the suite is clean apart from that one arm, but it
+        was not clean in a single invocation.
+      - **And measuring that arm three more times turned a flake into a finding.** In isolation
+        `REFINE-FAIR` passed 3/3 (600-site pairs 350/313, 363/337, 356/340). Pooling everything
+        recorded: **at 3000 sites the two charges agree to within 1 %** across four pairs, and
+        **at 600 sites seven pairs span 4.7 % to 18.1 % with the refined charge finer in six of
+        the seven**. The diagnostic is in the same output: for the same 600-site charge the lean
+        melt fired **349** sites in one run and **all 600** in another, which is exactly the
+        frame-pacing artefact the science page already records as a non-controlled variable. So
+        the low-site arm is not settled, the honesty page now says so with the numbers, and the
+        tolerance was NOT loosened — a gate relaxed to go green inside the milestone it blocks is
+        indistinguishable from a wrong gate.
 
 ---
 
