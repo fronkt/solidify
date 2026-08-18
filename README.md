@@ -85,9 +85,9 @@ Flip one switch and the instrument solves the **full volumetric phase-field** �
 - **The grain selector** (3D-only showpiece) — a helical pigtail channel under the Bridgman
   pull: dozens of chill-floor grains race in, **exactly one** exits into the blade cavity —
   the real mechanism behind single-crystal turbine blades. The 64 grains are a real seeding
-  constant — `chillFloor` plants an 8 × 8 jittered grid — but the **one** is not measured: the
-  headless gate stages the preset and checks that the scenario arms and the pigtail mask
-  rasterizes, and nothing yet counts what comes out of the channel.
+  constant — `chillFloor` plants an 8 × 8 jittered grid — but the **one** is not measured. The
+  headless gate (`SELECTOR3`) stages the preset and asserts one thing: that the scenario armed.
+  It reads no grain count, and it does not check the pigtail mask either.
 - **Shaped moulds** (v6.2) — the lab's mould is a rasterized geometry library (shell, plate,
   **step block**, wedge) behind one public voxel-mask entry point, with the feed flood, chill
   floor and nucleation staging all made mask-aware so a sealed chamber can no longer be fed or
@@ -217,7 +217,7 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
 - **Touch** — pinch to zoom, two-finger pan, tap to nucleate.
 - **The science page** — [/science/](https://solidify.frankcai.dev/science/) documents the
   equations, the numerics, what's quantitative vs qualitative, and the references.
-- **Guided tour** — three parts, 31 chapters: the physics from the Mullins–Sekerka instability
+- **Guided tour** — three parts, 32 chapters: the physics from the Mullins–Sekerka instability
   through twinning, casting CET, directional growth, welding, alloys and heat treatment; a
   control-by-control walk through every panel of the instrument; and "out of the plane" for
   the volume.

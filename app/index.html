@@ -121,6 +121,29 @@
     /* ---- alloy composer ---- */
     #composer { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(4,5,7,0.6); backdrop-filter: blur(4px); z-index: 30; }
     #composer.show { display: flex; }
+    /* The tour's chapter that OPENS this modal (v7.1 P6) has to leave the modal
+       usable, and paint order alone cannot do it: #composer's z-index 30 is a
+       stacking context, so the card can never be lifted above #tour's 31 from
+       inside. So the two are kept from intersecting instead. The card is
+       centred, so its left edge sits at (W-500)/2 and meets the tour's column
+       (18 + 330) at W = 1196 — every laptop, half-screen window and phone was
+       below that, and the first control the chapter's own "watch" line names,
+       the A356 quick-fill, is the one that went under the panel first.
+       366px = 18 left + 330 wide + 18 gap. */
+    body:has(#tour.show) #composer { padding-left: 366px; }
+    body:has(#tour.show) #composer .card { width: min(500px, calc(100vw - 390px)); }
+    /* Below this the inset would leave a card too narrow to compose in, so the
+       tour gives up its prose instead and keeps only what has to stay reachable:
+       the chapter counter, its title and its buttons. */
+    @media (max-width: 760px) {
+      body:has(#tour.show) #composer { padding-left: 0; }
+      body:has(#tour.show) #composer .card { width: min(500px, 94vw); }
+      body:has(#composer.show) #tour { width: auto; right: 18px; }
+      body:has(#composer.show) #tour p, body:has(#composer.show) #tour .watch { display: none; }
+      /* and the card ends above the strip rather than under it, so the pour
+         button is reachable once the card is scrolled to its end */
+      body:has(#tour.show) #composer .card { padding-bottom: 118px; }
+    }
     #composer .card { width: min(500px, 94vw); max-height: 88vh; overflow-y: auto; overflow-x: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; box-shadow: 0 18px 60px rgba(0,0,0,0.55); }
     #composer .chead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
     #composer .chead h3 { font-size: 12px; letter-spacing: 0.25em; color: var(--amber); font-weight: 600; }

@@ -401,7 +401,7 @@ Count what a reader counts.
 
 ## Attribute a document number by structure, not by proximity
 
-`verify-scale3d.mjs`'s TESTING entry contains the phrase "the full 29-check volume
+`verify-scale3d.mjs`'s TESTING entry contains the phrase "the full 30-check volume
 suite", which is a cross-reference to `verify-3d.mjs`. Any gate that searched near a
 script name for a nearby number would have attributed 29 to scale3d and then demanded
 scale3d grow 29 checks. `TESTING-CHECK-COUNT` reads the first `verify-*.mjs` in a
@@ -448,6 +448,71 @@ lever rule gives the liquid left at the invariant, which freezes as the eutectic
 constituent — (Al) and (Si) together, 48.9 % at 7 wt% Si. The sentence counted the
 eutectic's own aluminium as silicon. `PD-CHAPTER-PURE` now requires the chapter to say
 "eutectic constituent".
+
+## A claim with no units is answered by anything that looks like it
+
+`PD-DOC-CONSTANTS` claimed the string "1.65" against index.html and passed — on
+`line-height: 1.65` in a CSS rule the same commit had added. The figure's
+solubility limit, its aria-label, its axis tick and its caption could all be
+rewritten to 9.99 wt% with the gate green, because a typography value was
+answering for a phase-diagram number. The gate's own docblock said claims carry
+their units and that a length floor enforced it; the floor was `length < 4` and
+"1.65" is four characters.
+
+**Rule.** A claim carries its units wherever units exist. Where they do not — a
+version string, a dimensionless ratio — require the claim to occur **exactly
+once** in each file it must appear in, so the next accidental collision fails
+loudly instead of standing in for the real one. And a floor stated in a comment
+is not a floor: check that the rule the comment describes is the rule the code
+runs.
+
+## Gate the value the reader actually sees
+
+The landing page ships its final numbers as static text so a reduced-motion
+reader gets an answer rather than a zero. But under `html.anim` — everyone else
+— the count-up overwrites that text from `data-q`, `data-count` and `data-w`.
+Mutating those three attributes to 99, 88.8 and 77 while leaving the prose alone
+passed all thirteen browser-free gates. The doctrine "every number printed as
+prose must be recomputed" had been satisfied for the fallback copy only.
+
+**Rule.** When two copies of a number exist — a fallback and a live one — gate
+the one the majority of readers end on, and gate both if they can drift.
+
+## Presence is not placement
+
+A hand-typed SVG keeps a data module out of a bundle; it also puts every
+coordinate out of reach of every gate. Checking that "1.65 wt%" and "577 °C"
+appear in the file says nothing about where they are drawn: moving the marker to
+10.2 wt% and 74 px off its own liquidus left the whole browser-free suite green.
+
+**Rule.** A drawing is gated by re-deriving its geometry from the data it claims
+to draw — and derive the scale from the drawing's OWN axis, so "this drawing is
+internally inconsistent" and "this drawing is of the wrong row" fail separately
+and say which.
+
+## A default viewport is a test condition
+
+`#composer .card` is `min(500px, 94vw)` and centred, so its left edge meets the
+tour panel's column at exactly W = 1196 px. `verify-phasediagram-gpu.mjs`
+launches at 1200 — four pixels clear — so a gate written specifically to prove
+the chapter's controls are reachable never saw that the modal's own controls
+were not, at every laptop, half-screen window and phone.
+
+**Rule.** When a gate asserts a spatial property, the viewport it runs at is part
+of the assertion. Find the width where the geometry changes and test on both
+sides of it.
+
+## Count what the script prints, not what a regex finds
+
+Correcting TESTING.md's "23-check volume suite" to 29 was still wrong: it is 30.
+The labels are emitted as `console.log(name, ok ? "OK" : FAIL())` and three of
+them are multi-word — "ENTERED 3D at", "VIEWCUBE TOP", "SHARE LINK len" — which
+the uppercase-token regex used to count them dropped.
+`grep -c '? "OK" : FAIL()'` answers it in one line.
+
+**Rule.** When counting something a program emits, count the emission, not a
+pattern you expect the names to have. A correction that is itself uncounted is
+the same defect wearing a newer number.
 
 ## An honesty page can quote the low tail of its own population
 

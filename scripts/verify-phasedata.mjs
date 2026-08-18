@@ -240,10 +240,22 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
 // 0.821 and 0.993 on the science page, Q 71 K and Q 1 K on the front door — are
 // literal derive() outputs and had no gate at all.
 //
-// FIVE FILES, not the four the plan named. index.html is where the retracted
+// SIX FILES, not the four the plan named. index.html is where the retracted
 // claim actually lived and where both Q values are printed; a document list that
 // excluded it could gate neither, and the ban would have been checked only in
-// files that never said the banned thing.
+// files that never said the banned thing. src/alloy.ts joined when the Scheil
+// floor's justification turned out to quote a k-ratio span no set in the tree
+// produces.
+//
+// A CLAIM THAT IS ONLY A NUMBER MUST BE UNIQUE IN THE FILE. The first cut of
+// this gate claimed the bare string "1.65" against index.html and passed — on
+// `line-height: 1.65` in a CSS rule THIS MILESTONE ADDED. The figure's own
+// solubility limit, its aria-label, its axis tick and its caption could all be
+// rewritten to 9.99 wt% with the gate green, because a typography value was
+// answering for a phase-diagram number. Two rules now: a claim carries its units
+// wherever units exist, and a claim that is nothing but digits and dots must
+// occur EXACTLY ONCE in each file that must contain it, so the next accidental
+// collision fails loudly instead of standing in.
 //
 // THE BANS SELF-TEST. Each carries a fixture that MUST fire and a real sentence
 // from this tree that must NOT, both run through the same scanner the documents
@@ -307,8 +319,10 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
   const CLAIMS = [
     { s: PD.PHASE_TABLE_VERSION, in: ["science/index.html", "README.md"],
       why: "phasedata.ts's own docblock says these two documents quote the table version — and until this gate neither of them did" },
-    { s: `${alSi.Csm}`, in: ["index.html", "src/tour.ts"],
+    { s: `${alSi.Csm} wt%`, in: ["index.html", "src/tour.ts"],
       why: "the Al-Si solid solubility limit: the line the landing figure's marker crosses, and the line the new tour chapter is named after" },
+    { s: `data-csm="${alSi.Csm}"`, in: ["index.html"],
+      why: "and the same number as the animation reads it — landing-motion.ts takes the crossing point off this attribute, so the prose and the marker cannot be checked separately" },
     { s: `${alSi.Cinv} wt% Si`, in: ["index.html"],
       why: "the Al-Si eutectic liquid, the right-hand end of the drawn frame" },
     { s: `${alSi.Tinv} °C`, in: ["index.html", "src/tour.ts"],
@@ -329,6 +343,18 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
       why: "the refined charge's liquidus depression, which replaced the retracted grain count" },
     { s: `${(-lean.dTL).toFixed(1)} K`, in: ["index.html"],
       why: "the lean charge's liquidus depression" },
+    // THE ANIMATED VALUES, not just the static ones. Under html.anim — which is
+    // every reader who has not asked for less motion — countUp overwrites the
+    // shipped text with whatever these attributes say, so gating the prose alone
+    // gates the fallback copy and leaves the copy almost everyone sees untyped.
+    { s: `data-q="${Math.round(A356TiB.Q)}"`, in: ["index.html"],
+      why: "the growth restriction factor the count-up actually lands on" },
+    { s: `data-count="${(-A356TiB.dTL).toFixed(1)}"`, in: ["index.html"],
+      why: "the refined charge's depression as the animation reads it" },
+    { s: `data-count="${(-lean.dTL).toFixed(1)}"`, in: ["index.html"],
+      why: "the lean charge's depression as the animation reads it" },
+    { s: `data-w="${((lean.dTL / A356TiB.dTL) * 100).toFixed(1)}"`, in: ["index.html"],
+      why: "the lean bar's length is the RATIO of the two depressions, and it was 12.5 when it was a ratio of grain counts" },
     { s: `${NUM[Object.keys(M.MATERIALS).length]} qualitative identities`, in: ["README.md"],
       why: "MATERIALS has eleven keys and the rail select offers every one of them; README said ten" },
     { s: `${NUM[Object.keys(M.MATERIALS).length]} material identities`, in: ["src/tour.ts"],
@@ -342,10 +368,16 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
   ];
 
   const missing = [];
+  const count = (hay, needle) => hay.split(needle).length - 1;
   for (const c of CLAIMS) {
     if (c.s.length < 4) { missing.push({ claim: c.s, why: "expected string too short to be a real claim" }); continue; }
+    const bare = /^[\d.]+$/.test(c.s);
     for (const f of c.in) {
-      if (!DOC[f].toLowerCase().includes(c.s.toLowerCase())) missing.push({ claim: c.s, file: f, why: c.why });
+      const n = count(DOC[f].toLowerCase(), c.s.toLowerCase());
+      if (n === 0) { missing.push({ claim: c.s, file: f, why: c.why }); continue; }
+      // a claim with no units is only a claim while nothing else in the file
+      // says the same digits — see the docblock's line-height story
+      if (bare && n !== 1) missing.push({ claim: c.s, file: f, occurrences: n, why: "a units-less claim must be unique in the file, or something unrelated can answer for it" });
     }
   }
   // no document may drop out of the list unnoticed
@@ -418,6 +450,121 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
   });
 }
 
+
+// ---------------------------------------------------------------------------
+// PD-LANDING-FIGURE (v7.1 P6, added by its own review) — the front door's Al-Si
+// drawing has to BE the row, not merely quote it.
+//
+// PD-FIGURE-GEOMETRY does this for the composer's figure, where `layout()`
+// returns vertices and a gate can compare them. The landing figure has no
+// module: it is hand-typed SVG, deliberately, so that phasedata.ts stays out of
+// the landing chunk. That decision moved the numbers out of reach of every gate
+// — PD-DOC-CONSTANTS checks that "1.65 wt%" and "577 °C" APPEAR, and appearing
+// is not placement. Measured on the review's own mutation: moving the marker to
+// cx 340 / cy 60 — 10.2 wt% and 74 px off the liquidus it is supposed to sit on
+// — left all thirteen browser-free gates green.
+//
+// So the drawing is re-derived here from the row, through the figure's OWN axis:
+// the scale comes from the horizontal axis line's endpoints, never from a
+// constant, so internal consistency and agreement with `phasedata.ts` fail
+// separately and say which one broke.
+//
+// It self-tests, on the fires/spares pattern the bans use: the identical parser
+// runs a second time over an in-memory copy with the marker displaced, and the
+// gate fails if that fixture does NOT produce a violation.
+{
+  const { readFileSync } = await import("node:fs");
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const row = PD.BINARY.al.Si;
+  const TmC = M.MATERIALS[A.BASES.al.materialKey].si.Tm - 273.15;
+
+  const audit = src => {
+    const bad = [];
+    const svg = src.match(/<svg id="pdFig"[\s\S]*?<\/svg>/)?.[0];
+    if (!svg) return { bad: ["no <svg id=\"pdFig\"> in index.html"], n: 0 };
+    const attr = (tag, name) => {
+      const m = tag.match(new RegExp(`${name}="([^"]*)"`));
+      return m ? parseFloat(m[1]) : NaN;
+    };
+    const tags = svg.match(/<(?:line|circle|rect|text)[^>]*>/g) ?? [];
+    const byClass = c => tags.filter(t => new RegExp(`class="[^"]*\\b${c}\\b[^"]*"`).test(t));
+    const one = c => { const g = byClass(c); if (g.length !== 1) bad.push(`${g.length} elements with class ${c}, expected 1`); return g[0] ?? ""; };
+
+    const axes = byClass("ax");
+    const xAxis = axes.find(t => attr(t, "y1") === attr(t, "y2")) ?? "";
+    const xL = attr(xAxis, "x1"), xR = attr(xAxis, "x2");
+    const liq = one("liq"), sol = one("sol"), csm = one("csm"), drop = one("drop"), dot = one("dot");
+    const lean = one("lean"), rich = one("rich");
+    const dataC = parseFloat(svg.match(/data-c="([^"]*)"/)?.[1] ?? "");
+    const dataCsm = parseFloat(svg.match(/data-csm="([^"]*)"/)?.[1] ?? "");
+    const n = tags.length;
+
+    const near = (what, a, b, tol = 0.05) => {
+      if (!(Number.isFinite(a) && Number.isFinite(b))) bad.push(`${what}: not a number (${a} vs ${b})`);
+      else if (Math.abs(a - b) > tol) bad.push(`${what}: ${a} vs ${b} (${(a - b).toFixed(3)} px)`);
+    };
+    // the figure's own scale, from its own axis
+    const x = c => xL + (xR - xL) * (c / row.Cinv);
+    const yLiq = px => attr(liq, "y1") + (attr(liq, "y2") - attr(liq, "y1"))
+      * (px - attr(liq, "x1")) / (attr(liq, "x2") - attr(liq, "x1"));
+
+    // 1. the drawing's declared numbers ARE the row's
+    if (dataCsm !== row.Csm) bad.push(`data-csm ${dataCsm} is not C_SM ${row.Csm}`);
+    const ticks = byClass("tick");
+    const tickNums = ticks.map(t => {
+      const txt = src.slice(src.indexOf(t) + t.length).match(/^([^<]*)</)?.[1] ?? "";
+      return { x: attr(t, "x"), y: attr(t, "y"), v: parseFloat(txt), txt: txt.trim() };
+    });
+    if (!tickNums.some(t => t.v === row.Cinv)) bad.push(`no axis tick reads C_inv ${row.Cinv}`);
+    if (!tickNums.some(t => t.v === row.Tinv)) bad.push(`no axis tick reads T_inv ${row.Tinv}`);
+    if (!tickNums.some(t => t.v === Math.round(TmC))) bad.push(`no axis tick reads the melting point ${Math.round(TmC)}`);
+
+    // 2. the solubility line stands at C_SM, top and bottom
+    near("solvus x1 at C_SM", attr(csm, "x1"), x(row.Csm));
+    near("solvus x2 at C_SM", attr(csm, "x2"), x(row.Csm));
+    // 3. the two bands tile the frame and meet exactly on that line
+    near("lean band left edge", attr(lean, "x"), xL);
+    near("lean band right edge", attr(lean, "x") + attr(lean, "width"), attr(csm, "x1"));
+    near("rich band left edge", attr(rich, "x"), attr(csm, "x1"));
+    near("rich band right edge", attr(rich, "x") + attr(rich, "width"), xR);
+    // 4. THE MARKER. Its composition and its height are separate claims and the
+    //    review's mutation broke both.
+    near("marker abscissa at data-c", attr(dot, "cx"), x(dataC));
+    near("marker sits on the liquidus", attr(dot, "cy"), yLiq(attr(dot, "cx")));
+    // 5. the drop line hangs from the marker to the axis
+    near("drop line x1 at the marker", attr(drop, "x1"), attr(dot, "cx"));
+    near("drop line x2 at the marker", attr(drop, "x2"), attr(dot, "cx"));
+    near("drop line starts at the marker", attr(drop, "y1"), attr(dot, "cy"));
+    // 6. landing-motion.ts interpolates FROM the solidus origin, so if that
+    //    origin ever leaves the liquidus the animated path stops being it
+    near("solidus origin shares the liquidus origin (x)", attr(sol, "x1"), attr(liq, "x1"));
+    near("solidus origin shares the liquidus origin (y)", attr(sol, "y1"), attr(liq, "y1"));
+    near("liquidus starts at c = 0", attr(liq, "x1"), x(0));
+    near("liquidus ends at C_inv", attr(liq, "x2"), x(row.Cinv));
+    near("solidus ends at C_SM", attr(sol, "x2"), x(row.Csm));
+    return { bad, n, dataC, dataCsm };
+  };
+
+  const real = audit(html);
+  // 7. the three places this page states the pour must agree
+  const cta = parseFloat(html.match(/#alloy=al:Si([\d.]+)/)?.[1] ?? "");
+  const chip = parseFloat(html.match(/<span class="chip">Si <b>([\d.]+) wt%<\/b><\/span>/)?.[1] ?? "");
+  const pourAgrees = real.dataC === cta && real.dataC === chip;
+  if (!pourAgrees) real.bad.push(`the pour disagrees across the page: figure ${real.dataC}, chip ${chip}, CTA ${cta}`);
+
+  // the self-test: the same parser, the same assertions, a displaced marker
+  const fixture = audit(html.replace(/(<circle class="dot" )cx="[\d.]+" cy="[\d.]+"/, '$1cx="340.0" cy="60.0"'));
+  const selfTestFires = fixture.bad.length > 0;
+
+  const ok = real.bad.length === 0 && real.n > 10 && selfTestFires;
+  check("PD-LANDING-FIGURE", ok, {
+    elementsParsed: real.n, pour: { figure: real.dataC, chip, cta },
+    row: { Csm: row.Csm, Cinv: row.Cinv, Tinv: row.Tinv, TmC: +TmC.toFixed(2) },
+    violations: real.bad, selfTestFires, selfTestSaw: fixture.bad.slice(0, 2),
+    note: "the scale is read off the figure's own axis, so a wrong drawing and a drawing of a wrong row fail separately",
+  });
+}
+
 // ---------------------------------------------------------------------------
 // CI-SCRIPT-COUNT (v7.1 P6) — TESTING.md's stated number of browser-free scripts
 // equals the number CI actually runs.
@@ -451,7 +598,11 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
   const SITE = new RegExp(String.raw`\b(${NUM.join("|")})\s+browser-free\s+scripts\b`, "g");
   const sites = [...testing.matchAll(SITE)].map(m => m[1]);
   const wrong = sites.filter(w => w !== word);
-  const ok = runs.length > 0 && word !== undefined && sites.length >= 3 && wrong.length === 0
+  // FOUR, not three: the tree states it in four places today, and a floor set
+  // below what exists lets a site be deleted without anything noticing. The
+  // sentence in TESTING.md that used to say "three places" has been changed to
+  // stop naming a number this gate already derives.
+  const ok = runs.length > 0 && word !== undefined && sites.length >= 4 && wrong.length === 0
     && new Set(runs).size === runs.length;
   check("CI-SCRIPT-COUNT", ok, {
     ciRunLines: runs.length, expectedWord: word, sitesFound: sites.length,
@@ -468,7 +619,7 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
 // where the rot was. An audit of this document during P6 found eight stated
 // counts wrong at once: `verify-units.mjs` said eight and had nine,
 // `verify-quant.mjs` said ten and had eleven, `verify-3d.mjs` was cited as a
-// 23-check suite and prints 29, `EL-DOC-CLAIMS` was described as sixteen claims
+// 23-check suite and prints 30, `EL-DOC-CLAIMS` was described as sixteen claims
 // and checks seventeen, `ALLOY-REFUSE-NAMED` as eight input shapes and drives
 // fifteen, the element reasons as 31 skeletons and there are 32. Every one of
 // those was hand-corrected in this milestone, and hand-correcting eight numbers
@@ -480,7 +631,7 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
 // wrong for being right.
 //
 // Attribution is by BULLET HEADER, not by proximity. `verify-scale3d.mjs`'s
-// entry contains the phrase "the full 29-check volume suite", which is a
+// entry contains the phrase "the full 30-check volume suite", which is a
 // cross-reference to a different script; scanning for a nearby number would
 // have attributed 29 to scale3d. A bullet is scanned only for the first
 // verify-*.mjs named in its own first 160 characters, and only when it states a

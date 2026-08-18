@@ -201,6 +201,14 @@ await new Promise(r => setTimeout(r, 700));
 // ELEMENT-FROM-POINT AT THE BUTTON'S OWN CENTRE, which is the property that was
 // false before and which a visibility check cannot see.
 //
+// AND AT A NARROW VIEWPORT, WHICH IS WHERE THE FIRST VERSION OF THIS GATE WAS
+// BLIND. `#composer .card` is `min(500px, 94vw)` and centred, so its left edge
+// meets the tour's column (18 + 330) at exactly W = 1196 — and this file's own
+// `defaultViewport` is 1200, four pixels clear. Below that the panel covered the
+// modal it had just opened, starting with the A356 quick-fill the chapter's own
+// "watch" line tells the reader to tap. So the walk is repeated at 1024 × 768
+// with the OVERLAP measured and the two controls the chapter names hit-tested.
+//
 // BOTH POLARITIES, and no optimizer. Leaving the chapter must CLOSE the modal —
 // otherwise it sits over the next chapter's melt, and the "watch" line describes
 // a canvas nobody can see — and coming back must reopen it. The walk goes
@@ -302,11 +310,58 @@ await new Promise(r => setTimeout(r, 700));
     if (r.closed.composerOpen || r.closed.tourOpen) why.push("closing the tour left a panel open");
   }
 
+  // ---- the narrow-viewport pass. Same chapter, a laptop-sized window.
+  const narrow = IDX < 0 ? null : await (async () => {
+    const before = page.viewport();
+    await page.setViewport({ width: 1024, height: 768 });
+    const out = await page.evaluate(async idx => {
+      const S = window.__solidify;
+      const settle = () => new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+      await S.tour.goto(idx);
+      await settle();
+      const tour = document.getElementById("tour");
+      const card = document.querySelector("#composer .card");
+      if (!tour || !card) return { why: "no tour or no card at 1024" };
+      const t = tour.getBoundingClientRect(), c = card.getBoundingClientRect();
+      const ox = Math.max(0, Math.min(t.right, c.right) - Math.max(t.left, c.left));
+      const oy = Math.max(0, Math.min(t.bottom, c.bottom) - Math.max(t.top, c.top));
+      const hit = el => {
+        if (!el) return "absent";
+        const q = el.getBoundingClientRect();
+        if (!(q.width > 0 && q.height > 0)) return "zero-size";
+        const e = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2);
+        if (!e) return "offscreen";
+        return e === el || el.contains(e) ? "reachable" : (e.id || String(e.className) || e.tagName);
+      };
+      const a356 = [...document.querySelectorAll("#composer .famous button")]
+        .find(b => (b.textContent ?? "").trim() === "A356");
+      const row0 = document.querySelector("#composer .rows .crow");
+      const next = [...(tour.querySelectorAll(".nav button") ?? [])]
+        .find(b => (b.textContent ?? "").includes("next"));
+      return { overlap: Math.round(ox * oy), a356: hit(a356), row0: hit(row0), next: hit(next) };
+    }, IDX);
+    await page.setViewport(before);
+    await page.evaluate(async idx => { await window.__solidify.tour.goto(idx); }, IDX);
+    return out;
+  })();
+
+  if (narrow) {
+    if (narrow.why) why.push(narrow.why);
+    // THE CONTROLS THE CHAPTER'S OWN WATCH LINE NAMES, not just the tour's
+    // buttons: "Tap A356 in the quick-fill row" is the instruction, and it was
+    // the first thing the panel covered.
+    for (const [what, v] of [["A356 quick-fill", narrow.a356], ["the first solute row", narrow.row0], ['"next ▸"', narrow.next]]) {
+      if (v !== "reachable") why.push(`at 1024x768 ${what} is not reachable — elementFromPoint returns ${v}`);
+    }
+    if (narrow.overlap !== 0) why.push(`at 1024x768 the tour panel overlaps the composer card by ${narrow.overlap} px²`);
+  }
+
   check("TOUR-PD-STEP", why.length === 0, {
     chapter: IDX, title: TITLE, previous: PREV,
     hitTest: r && { next: r.onChapter.nextHit, back: r.onChapter.backHit },
     stagedMix: r && r.staged, mixOnChapter: r && r.onChapter.rows,
     composerOpen: r && [r.onChapter.composerOpen, r.onPrev.composerOpen, r.back.composerOpen, r.closed.composerOpen],
+    atNarrowViewport: narrow,
     why,
     note: "elementFromPoint at the button's own centre, not visibility — the pre-P6 defect was a paint order, and the panel was 'visible' throughout it",
   });

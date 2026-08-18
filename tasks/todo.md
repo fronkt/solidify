@@ -3499,7 +3499,7 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
       - **`TESTING-CHECK-COUNT` is the fifth gate and it exists because of what that audit found
         in TESTING.md.** Eight stated counts were wrong at once: `verify-units.mjs` said eight and
         has nine, `verify-quant.mjs` ten against eleven, `verify-3d.mjs` was cited as a 23-check
-        suite and prints 29, `EL-DOC-CLAIMS` sixteen claims against seventeen,
+        suite and prints 30, `EL-DOC-CLAIMS` sixteen claims against seventeen,
         `ALLOY-REFUSE-NAMED` eight input shapes against fifteen driven, the element reasons 31
         skeletons against 32, five peritectic exclusions stated as the table's whole peritectic
         population of seven, and `ALLOY-PHASES-NAMED`'s polarity given as four-and-five where it
@@ -3514,7 +3514,7 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
         sites, liveness floor six. Distinct names rather than call sites, because
         `PD-FIGURE-CURSOR` reports from two branches and a call-site count would make the document
         wrong for being right; attribution by bullet header rather than proximity, because
-        `verify-scale3d.mjs`'s entry contains "the full 29-check volume suite" about a different
+        `verify-scale3d.mjs`'s entry contains "the full 30-check volume suite" about a different
         script entirely.
       - **Every gate was run against a mutation before it was trusted.** The z-index removed →
         `"next ▸" is buried under composer`. `closeComposer` deleted from `goto` → `leaving the
@@ -3529,6 +3529,73 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
         invariant, which freezes as the eutectic CONSTITUENT — (Al) and (Si) together, 48.9 % —
         so that sentence counts the eutectic's own aluminium as silicon. The chapter now names the
         constituent and `PD-CHAPTER-PURE` requires it to.
+      - **P6 REVIEW, 116 agents: 37 findings raised, 23 survived a 2-of-3 refutation panel, and
+        all 23 are fixed.** Three of them were defects this milestone introduced, and the sharpest
+        was a gate that could not fail.
+      - **`PD-DOC-CONSTANTS` claimed the bare string "1.65" against `index.html` — and was
+        satisfied by `line-height: 1.65` in a CSS rule THIS COMMIT ADDED.** Measured: rewriting
+        `data-csm`, the aria-label, the axis tick and the caption to 9.99 wt% left the gate green,
+        with the sole surviving match a typography value. Its own docblock said "Each claim is a
+        STRING WITH ITS UNITS, never a bare number… The floor below enforces it" — and the floor
+        is `c.s.length < 4`, which "1.65" clears by exactly zero characters. Two rules now: the
+        claim carries its units where units exist (`1.65 wt%`, plus `data-csm="1.65"` so the
+        number the ANIMATION reads is pinned too), and a claim that is nothing but digits and dots
+        must occur EXACTLY ONCE in each file, so the next collision fails loudly instead of
+        standing in. Both proven by mutation.
+      - **The gate was checking the copy almost nobody sees.** Under `html.anim` — every reader
+        who has not asked for less motion — `countUp` overwrites the shipped text from
+        `data-q` / `data-count` / `data-w`. Mutating those three to 99, 88.8 and 77 while leaving
+        the static prose alone passed all thirteen browser-free gates. All four attributes are now
+        claims, and `data-w` is derived as the RATIO of the two depressions — it was 12.5 when it
+        was a ratio of grain counts.
+      - **`PD-LANDING-FIGURE` is a sixth gate, and it exists because presence is not placement.**
+        Every coordinate of the front door's figure is hand-typed — that is the deliberate cost of
+        keeping `phasedata.ts` out of the landing chunk — and nothing recomputed any of it.
+        Measured: moving the marker to cx 340 / cy 60, which is 10.2 wt% and 74 px off its own
+        liquidus, left the whole browser-free suite green while the page animated to "Si 9.9 wt%"
+        beside a CTA that pours Si 7. The figure is now re-derived from the Al–Si row through ITS
+        OWN AXIS LINE, so a wrong drawing and a drawing of a wrong row fail separately, and it
+        self-tests: the identical parser runs again over a displaced-marker fixture and the gate
+        fails if that fixture does not violate something. It sees exactly the review's mutation —
+        91.8 px in composition, 74.3 px in height.
+      - **A default viewport is a test condition, and this one was four pixels wide of the bug.**
+        `#composer .card` is `min(500px, 94vw)` and centred, so its left edge meets the tour's
+        column at **W = 1196** — and `verify-phasediagram-gpu.mjs` launches at 1200. Below that
+        the tour panel covered the modal it had just opened, starting with the A356 quick-fill the
+        chapter's own "watch" line tells the reader to tap: **43,253 px² of overlap at 1024 × 768,
+        with `elementFromPoint` on A356 returning `tour`**. Paint order cannot fix it — z-index 30
+        is a stacking context, so the card can never be lifted above the tour from inside — so the
+        collision is removed instead: while the tour is showing, the composer's centred card is
+        inset past the tour's column, and below 760 px the tour gives up its prose and keeps only
+        its counter, title and buttons. Measured after: overlap 0 at 900 px and up, and A356, the
+        first solute row and "next ▸" all reachable at 1200, 1100, 1024, 900, 760, 700 and
+        390 px — with the pour button reachable at every width once the card is scrolled to its
+        end. `TOUR-PD-STEP` now repeats the whole walk at 1024 × 768 and hit-tests the two
+        controls the chapter names; it reproduces 43,253 px² and `a356: "tour"` when the inset is
+        removed.
+      - **The count-ups ran backwards on screen.** Making the shipped text the FINAL value —
+        which is what stops a reduced-motion reader seeing "0 grains" — means `countUp` overwrites
+        the answer with zero on its first frame. Sampled: "44.7 K" readable at 0.909 opacity,
+        "3.0 K" at 0.937, and "44.7 K" again only at t = 2.7 s. `pdMarker` already guarded against
+        exactly this with a synchronous rewind; the two count-ups did not, and now do.
+      - **And three numbers of my own were wrong.** The corrected `verify-3d.mjs` count is **30**,
+        not the 29 this milestone wrote: the labels are printed with `console.log(name, ok ? "OK"
+        : FAIL())` and three of them are multi-word ("ENTERED 3D at", "VIEWCUBE TOP", "SHARE LINK
+        len"), which the uppercase-token regex I counted with silently dropped —
+        `grep -c '? "OK" : FAIL()'` is 30. `CI-SCRIPT-COUNT`'s liveness floor was three where the
+        tree has four sites, and the sentence justifying it named a count the gate already
+        derives, so the floor is four and the sentence no longer states one. And the new
+        `REFINE-FAIR` paragraph got its own arithmetic wrong twice: the seven 600-site pairs span
+        **2.6 %** (305/313), not 4.7 %, and **two** of them are gate failures at the 15 % band
+        (376/319 = 17.9 % as well as 353/299 = 18.1 %). The 3000-site claim was scoped to the four
+        pairs I had measured while the same page listed 1434/1380 = 3.9 % eleven lines above; it
+        now states all six, spans 0.1–3.9 %, and records that the refined charge is finer in only
+        two of the six — which is what makes the 600-site arm's six-of-seven worth writing down.
+      - **The front door had to be corrected twice.** The commit before this one narrowed "the
+        same within noise" to "within 1 % at the higher charge and inside the band at the lower
+        one" — and "inside the band" is false for two of the seven low-charge pairs. It now says
+        the higher charge agrees within noise and the lower one scatters 2.6–18.1 % with two
+        outside the band, and points at the science page.
       - **Not done, and named.** CI still runs on push-to-`main` and `pull_request` only, so none
         of the thirteen browser-free gates fire on `v7-experiments` — unchanged from P4 and P5,
         and now costing three more gates. `REFINE-FAIR` and `ATMOSPHERE` remain load-fragile at

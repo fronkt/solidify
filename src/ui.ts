@@ -850,7 +850,7 @@ export class UI {
             .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</span>`
         + `<br><span style="color:#7fd18b">W₀ and τ₀ are derived from Γ and D — ε̄, τ, α, γ, δ, the solute D and the cell pitch are no longer choices.</span>`
       : host.canCalibrate()
-        ? "derive W₀ and τ₀ from Γ and D — this material's Gibbs–Thomson coefficient and diffusivity — over the freezing range of whatever you poured; tip radius and arm spacing stop being shapes and start being predictions"
+        ? "derive W₀ and τ₀ from Γ and D — this material's Gibbs–Thomson coefficient and diffusivity — over the reference interval the readout names once it is on; tip radius and arm spacing stop being shapes and start being predictions"
         : m3
           ? "calibrated mode is 2D for now — the volume still runs the Kobayashi solver"
           : "this material has no SI identity to calibrate against — pick a real one";

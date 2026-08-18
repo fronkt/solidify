@@ -96,7 +96,11 @@ function heroEntrance() {
  * solidus line's own endpoint, the pour from the dot's shipped position, the
  * two compositions from data-c / data-csm. Nothing chemical is written here,
  * which is what keeps phasedata.ts out of the landing chunk and leaves exactly
- * one file (index.html) for PD-DOC-CONSTANTS to check the values in.
+ * one file (index.html) holding the figure's numbers. PD-DOC-CONSTANTS checks
+ * that those numbers are the row's; PD-LANDING-FIGURE re-derives where they are
+ * DRAWN, because appearing in the file and being in the right place on the
+ * chord are two claims and the first one alone let a marker sit 74 px off its
+ * own liquidus with the whole browser-free suite green.
  *
  * The dot ships at its FINAL position so that a reduced-motion reader, or one
  * whose modules never boot, gets the finished figure rather than a marker
@@ -153,6 +157,15 @@ function composeReveal() {
     });
     animate("#qLine", { opacity: [0, 1], duration: 500, delay: 500, ease: "outCubic" });
     const q = host.querySelector<HTMLElement>("#qLine b")!;
+    // REWIND BEFORE THE ROW FADES IN, the same way pdMarker does below. P6 made
+    // the shipped text the FINAL value so a reduced-motion reader is not left
+    // staring at a zero — but countUp starts at zero and overwrites, so without
+    // this the reader is shown the answer at partial opacity, watches it drop to
+    // near nothing, and waits while it climbs back. Measured before the fix:
+    // "44.7 K" readable at 0.909 opacity, "3.0 K" at 0.937, "44.7 K" again only
+    // at t = 2.7 s. These two lines run only under html.anim, so the fallback
+    // copy is untouched.
+    q.textContent = "Q = 0 K";
     setTimeout(() => countUp(q, parseInt(q.dataset.q!, 10), n => `Q = ${n} K`, 1300), 550);
     animate([".pdrow", ".barhead", ".bars", "#composeAct .after", "#composeAct .cta"], {
       opacity: [0, 1], translateY: [16, 0], duration: 650, ease: "outCubic", delay: stagger(140, { start: 650 }),
@@ -163,6 +176,7 @@ function composeReveal() {
     for (const b of host.querySelectorAll<HTMLElement>(".barRow b[data-count]")) {
       const dec = parseInt(b.dataset.dec ?? "0", 10);
       const suffix = b.dataset.suffix ?? "";
+      b.textContent = (0).toFixed(dec) + suffix;
       setTimeout(() => countUp(b, parseFloat(b.dataset.count!),
         n => n.toFixed(dec) + suffix, 1400, dec), 1300);
     }

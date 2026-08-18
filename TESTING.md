@@ -27,8 +27,7 @@ fade and Sievert gas porosity — bringing the CI-runnable set to five at the ti
 `verify-phasediagram.mjs` ten, v7.1 P3's `verify-regimes.mjs` eleven, v7.1 P4's
 `verify-elements.mjs` twelve and v7.1 P5's `verify-composer-grid.mjs` thirteen, which is where
 v7.1 P6 leaves it: **thirteen browser-free scripts**, and `CI-SCRIPT-COUNT` now derives that
-number from `ci.yml`'s own run lines and fails if any of the three places this document states
-it disagrees). They run first in the
+number from `ci.yml`'s own run lines and fails if any place this document states it disagrees). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
 GPU half is not worth starting.
 
@@ -114,7 +113,7 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   offending run). `EXP-RENDERED` (a rendered comparison carries the controlled variable by
   name, every seed, and means the check recomputes independently of the formatter under test).
 - **`verify-phasedata.mjs`** (browser-free, v7.1 P0) — the binary invariant table, and since
-  v7.1 P6 the documents that quote it. Ten
+  v7.1 P6 the documents that quote it. Eleven
   checks. The first seven are all about totality and both polarities rather than about whether any one number is
   right (a number's correctness is the audit's job — `docs/PHASE-AUDIT.md` recomputes every
   row from an open CALPHAD database). `PD-ROW-SOURCED` requires every row to carry a source
@@ -179,10 +178,23 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   must be greater than zero, so a renamed workflow step cannot make the comparison vacuous at
   zero, and at least three sites must be FOUND, so a heading rewrite that dropped two of them
   fails here instead of silently reducing this to a one-site check.
+  `PD-LANDING-FIGURE` (v7.1 P6, added by the milestone's own review) settles what
+  `PD-DOC-CONSTANTS` cannot. The front door's Al–Si drawing is hand-typed SVG, deliberately, so
+  that `phasedata.ts` stays out of the landing chunk — and that put its geometry out of reach of
+  every gate. Checking that "1.65 wt%" and "577 °C" APPEAR is not checking where they are drawn:
+  measured, moving the marker to 10.2 wt% and 74 px off its own liquidus left all thirteen
+  browser-free gates green. The figure is now re-derived from the row through **its own axis
+  line**, so a wrong drawing and a drawing of a wrong row fail separately — the solvus standing at
+  C_SM, the two bands meeting on it, the marker's abscissa at `data-c` and its ordinate on the
+  liquidus chord, the drop line hanging from the marker, the solidus origin shared with the
+  liquidus (the point `landing-motion.ts` interpolates from), and the pour agreeing across the
+  figure, the chip and the CTA hash. It self-tests on the bans' fires/spares pattern: the
+  identical parser runs again over an in-memory copy with the marker displaced, and the gate
+  fails if that fixture does not produce a violation.
   `TESTING-CHECK-COUNT` (v7.1 P6) is the same idea one level down, and it exists because one
   level down is where the rot was: the P6 audit of this document found **eight** stated counts
   wrong at once — `verify-units.mjs` said eight and has nine, `verify-quant.mjs` said ten and
-  has eleven, `verify-3d.mjs` was cited as a 23-check suite and prints 29, `EL-DOC-CLAIMS` was
+  has eleven, `verify-3d.mjs` was cited as a 23-check suite and prints 30, `EL-DOC-CLAIMS` was
   called sixteen claims and checks seventeen, `ALLOY-REFUSE-NAMED` eight input shapes against
   fifteen driven, the element reasons 31 skeletons against 32. Hand-correcting eight numbers with
   nothing under them is how there came to be eight. Wherever a bullet in this file states a check
@@ -190,7 +202,7 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   names, and requires the two to agree. Distinct names rather than `check(` call sites, because
   `PD-FIGURE-CURSOR` reports from two branches and a call-site count would make this document
   wrong for being right; and attribution by bullet header rather than by proximity, because
-  `verify-scale3d.mjs`'s entry contains the phrase "the full 29-check volume suite" about a
+  `verify-scale3d.mjs`'s entry contains the phrase "the full 30-check volume suite" about a
   different script entirely. Ten sites today, with a liveness floor of six.
 - **`verify-alloy.mjs`** (browser-free, v7.1 P1) — the composer's chemistry and the
   calibration it now feeds. Ten checks. `ALLOY-SUMS-EXACT` recomputes the superposition's own
@@ -471,7 +483,7 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   when the dial is shoved to 999 mid-run, a no-spec pour must carry no verdict row, and the
   model metal must refuse by name) and the heat-treat share-link gates.
 - **`verify-scale3d.mjs`** — the 3D half of the v5.0 length-anchor change, on its own so it
-  does not need the full 29-check volume suite to re-run: both solvers carry one resolution,
+  does not need the full 30-check volume suite to re-run: both solvers carry one resolution,
   the volume's `eqDiamUm` actually follows it (doubling the pitch doubles the reported diameter
   for the same voxel count — the check the old hardcoded `1 mm / 1024` could never pass), and
   the SCALE panel reports the volume's derived domain rather than the 2D grid's.
