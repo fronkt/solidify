@@ -462,6 +462,98 @@ export const ZENER_K = 7.24;
 export const ZENER_R_EXP = 0.205;
 export const ZENER_F_EXP = 0.356;
 
+// ------------------------------------------------- stored energy (v7.0 C3a)
+
+/**
+ * The flat-front barrier on THIS lattice, in bond energies — derived, not fitted.
+ *
+ * A voxel on a flat {100} boundary sees 26 neighbours: 9 across the interface,
+ * 17 on its own side. Adopting the neighbouring grain swaps those counts, so
+ * the boundary term of a flat-front advance is eNow = 9 → eNew = 17, i.e.
+ * ΔE = +8. At the shipped kT = 0.6 that costs exp(−8/0.6) ≈ 1.7e−6 per attempt:
+ * a flat front in this model is very nearly immobile, and coarsening proceeds at
+ * kinks and curvature instead. That is the lattice pinning `HT_KT_DEFAULT`'s
+ * docblock warns about, quantified.
+ *
+ * It matters here because it is the scale a stored-energy drive must be read
+ * against, and the prediction it makes is sharp: at ΔH = 8 exactly the flat-front
+ * move becomes energy-NEUTRAL, and this kernel takes flat moves unconditionally
+ * — so the front should advance at the rate its candidate draw offers it, which
+ * for a flat {100} front is the 9 unlike neighbours out of 26, i.e. 9/26 = 0.346
+ * cells per sweep. **Measured on the bicrystal at 128³ over 60 sweeps: 0.3251,
+ * 6 % under.** The stencil count and the GPU are two independent witnesses.
+ *
+ * The measured ladder, at 60 sweeps on the bicrystal at 128³:
+ *
+ *   ΔH    0     2     2.5    3      3.5    4      5      6     7     8      10    13    20
+ *   v    0.0   0.0   0.0   0.0001  0.004  0.0215 0.0742 0.183 0.243 0.3251 0.394 0.466 0.726
+ *
+ * Three things that ladder says and a "threshold at 8" story would get wrong.
+ *
+ * **The onset is a smooth Boltzmann tail, not a knee** — motion is already
+ * resolvable at ΔH = 3 because kT = 0.6 buys sub-barrier moves, so there is no
+ * sharp unpinning value to name and this file does not name one.
+ *
+ * **The zeros in that table are small numbers, not exact ones.** A sub-barrier
+ * move costs exp(−(8−ΔH)/kT), so over a 40-sweep window on 128² boundary cells
+ * the EXPECTED count is ~0.4 flips at ΔH = 0 and ~10 at ΔH = 2 — Poisson, and
+ * two runs of the gate on identical code read (0, 0) and (0, 2). Anything
+ * asserting `v === 0` here is a flake with a physical explanation, which is why
+ * `HT3-SE-FRONT` asserts the SEPARATION (creep three orders below the
+ * neutral-point rate) instead.
+ *
+ * And **v keeps climbing past 9/26 above ΔH = 8** (0.726 at 20), because a front
+ * that is moving is no longer flat: roughening raises the unlike-neighbour count
+ * and with it the draw. 9/26 is the FLAT front's number and is quoted as that.
+ * So the gate holds monotonicity, direction and the v ≤ 1 ceiling, and REPORTS
+ * the 8 ↔ 9/26 agreement rather than asserting an equality roughening makes
+ * approximate.
+ *
+ * 3D-only by construction: the 2D kernel's Moore-8 stencil gives 3 → 5, a
+ * barrier of +2, and borrowing a number across a stencil change is the mistake
+ * that earned `M_MODEL_3D` its own constant.
+ */
+export const H_FLAT_3D = 8;
+
+/**
+ * Recovery rate — the ordinate advanced per Monte Carlo sweep in
+ * `H_S = H₀ / (1 + rec·H₀)`, `rec = HT_RECOVER_3D · S`.
+ *
+ * Second-order dislocation annihilation, dH/dS = −k·H², integrated EXACTLY
+ * rather than stepped. That choice is doing real work: there is no per-step ODE
+ * error, no accumulated f32 chain over thousands of sweeps, and — the part that
+ * matters for correctness — recovery cannot be applied twice, applied per-colour
+ * instead of per-sweep, or land one sweep stale, because it is not applied at
+ * all. It is evaluated from one scalar the uniform already carries.
+ *
+ * Three properties fall out with no clamp anywhere: H_S ≥ 0, H_S ≤ H₀, and H_S
+ * strictly decreasing in S for H₀ > 0. High-H grains recover FASTER, so the
+ * spread of the drive narrows rather than merely rescaling — which is the reason
+ * to prefer second order over a scalar multiply.
+ *
+ * A NUMERICAL parameter of the lattice, in the exact sense `HT_KT_DEFAULT` is:
+ * the furnace enters through the sweep count and never through this number.
+ * `HT-TEMP-SENSITIVITY` is what holds that line.
+ *
+ * **The value is chosen, then measured, and the measurement is the provenance.**
+ * Driven from ΔH₀ = 20 on the bicrystal at 128³, the front's velocity per
+ * 100-sweep window and the effective drive H_S = 20/(1 + rec·20) ran:
+ *
+ *   S      100     200     300     400     500     600     700     800
+ *   v     0.3996  0.1050  0.0144  0.0053  0.0033  0.0022  0.0003  0.0000
+ *   H_S    6.67    4.00    2.86    2.22    1.82    1.54    1.33    1.18
+ *
+ * The front stalls DEAD by 800 sweeps, at H_S = 1.18 — inside the band the
+ * static ladder (`H_FLAT_3D`'s docblock) measured immobile, and comfortably
+ * inside `SWEEP_CAP_3D = 2000` so a panel-legal treatment can reach it. The
+ * cross-check that makes this a measurement rather than a restatement: each
+ * window's velocity falls between the STATIC ladder's velocities at that
+ * window's H_S endpoints — two different experiments, one agreeing answer, and
+ * recovery applied per-colour, applied twice, or sign-flipped would each break
+ * the correspondence while still producing a monotone decay.
+ */
+export const HT_RECOVER_3D = 1e-3;
+
 /** the measured pinned limit, in cells — Infinity when the dispersion is off
  *  (f ≤ 0 or r < 1), so `min(law, limit)` degrades to the unpinned law */
 export function zenerLimitCells(f: number, rCells: number): number {

@@ -5,10 +5,11 @@
 
 import {
   FLUX3D_WGSL, update3dWgsl, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL, STEREO3D_WGSL,
-  LINE3D_WGSL, REGION3D_WGSL, HTMASK3_WGSL, ANNEAL3_WGSL, TWINSTAMP3_WGSL, HOMOG3_WGSL, HOMOG_D3,
+  LINE3D_WGSL, REGION3D_WGSL, HTMASK3_WGSL, ANNEAL3_WGSL, anneal3Wgsl, TWINSTAMP3_WGSL, HOMOG3_WGSL, HOMOG_D3,
   HT_COLOURS_3D, MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
 } from "./shaders3d";
-import { shaderModule, H2U, HT_STRIDE, HT_KT_DEFAULT } from "./shaders";
+import { shaderModule, H2U, HT_STRIDE, HT_KT_DEFAULT, WORK_SALT } from "./shaders";
+import { HT_RECOVER_3D } from "./heattreat";
 import { DEFAULT_UM_PER_CELL } from "./units";
 import { stream } from "./rng";
 
@@ -227,6 +228,43 @@ export class Sim3D {
   private statsStaging!: GPUBuffer;
   private quatCPU = new Float32Array(MAX_GRAINS3 * 4);
 
+  // ---- stored energy (v7.0 C3a). One f32 PER GRAIN ID, not per voxel.
+  //
+  // The spec asked for a 3D texture ping-ponging in lockstep with `grainTex`.
+  // It is not needed, and the reason is an identity rather than an
+  // approximation: a deposit assigns stored energy per grain id, and the only
+  // thing the anneal does to a voxel is adopt a neighbour's id — so it adopts
+  // that neighbour's stored energy with it, and `h(x) === H(id(x))` holds after
+  // every flip because it held before. A per-voxel field would therefore carry
+  // 4096 distinct numbers across 28.3 MB at 192³ (56.6 MB for the pair). This
+  // is 16 KB, and it deletes the ping-pong, the lockstep, the parity argument
+  // and the out-of-memory refusal path along with the texture.
+  //
+  // NOTHING ON THE GPU EVER WRITES H. Per-grain-ness is a property of the code
+  // that can be proved by reading it, not an induction argument a later kernel
+  // edit could break in silence — which is what `SE-STRUCTURE` gates as text
+  // and `HT3-SE-COHERENCE` witnesses at runtime (hBuf must equal hCPU).
+  //
+  // The bet, stated where it is made: stored energy is uniform WITHIN a grain,
+  // so there are no deformation bands and no pile-up at boundaries. If C3b
+  // measures that nucleation needs intra-granular H, this becomes a single
+  // r32float read_write storage texture — the acceptance line in ANNEAL3_WGSL
+  // does not change, only `hOf`'s fetch does.
+  private hBuf!: GPUBuffer;
+  private hStaging!: GPUBuffer;
+  private hCPU = new Float32Array(MAX_GRAINS3);
+  /**
+   * Is a stored-energy field live? THE MODE SELECTOR, and deliberately not
+   * `work > 0`: an off-arm built from `work === 0` would run the pre-C3a
+   * pipeline and prove nothing about the new one, which is the vacuous shape
+   * `GG-PIN-OFF-IDENTITY` exists to avoid. With `hOn` the zero arm runs the
+   * stored kernel, through the stored bind-group layout, with the fifth
+   * binding claimed and `H.rec` written — and must still come out bit-identical.
+   */
+  private hOn = false;
+  /** accumulated recovery ordinate; `rec` in the closed form. Sweeps, scaled. */
+  private recAcc = 0;
+
   private fluxPipe!: GPUComputePipeline;
   private updatePipe!: GPUComputePipeline;
   private updateAlloyPipe: GPUComputePipeline | null = null;
@@ -280,8 +318,11 @@ export class Sim3D {
   private htBuf: GPUBuffer | null = null;
   private htMaskPipe: GPUComputePipeline | null = null;
   private annealPipe: GPUComputePipeline | null = null;
+  /** the stored-energy variant (C3a) — a second pipeline, not a branch inside one */
+  private annealHPipe: GPUComputePipeline | null = null;
   private htMaskBG: GPUBindGroup[] = [];
   private annealBG: GPUBindGroup[][] = [];
+  private annealHBG: GPUBindGroup[][] = [];
   private htData = new ArrayBuffer(HT_STRIDE * HT_COLOURS_3D);
   private twinStampPipe: GPUComputePipeline | null = null;
   private twinStampBG: GPUBindGroup[] = [];
@@ -369,6 +410,14 @@ export class Sim3D {
     this.paramBuf = d.createBuffer({ size: P3.BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.quatBuf = d.createBuffer({ size: MAX_GRAINS3 * 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
     this.quatStaging = d.createBuffer({ size: MAX_GRAINS3 * 16, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    // stored energy (C3a) — the quat pair's descriptors at a quarter the stride.
+    // Allocated EAGERLY and unconditionally: `ensureHt`'s lazy path exists
+    // because `htMaskTex` is 4 B/voxel = 28 MB at 192³, and wrapping 16 KB in an
+    // out-of-memory error scope would be ceremony imitating a cost that is not
+    // there. COPY_SRC is not optional — `htMaskTex` omits it and is therefore a
+    // texture no gate can witness; this buffer has to read back.
+    this.hBuf = d.createBuffer({ size: MAX_GRAINS3 * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
+    this.hStaging = d.createBuffer({ size: MAX_GRAINS3 * 4, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
     // COPY_SRC: the heat-treat panel reads the counter to budget annealing-twin
     // spawns from the remaining id range and to report saturation honestly
     this.twinCtrBuf = d.createBuffer({ size: 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
@@ -742,6 +791,8 @@ export class Sim3D {
     this.paramBuf?.destroy();
     this.quatBuf?.destroy();
     this.quatStaging?.destroy();
+    this.hBuf?.destroy();
+    this.hStaging?.destroy();
     this.twinCtrBuf?.destroy();
     this.seedBuf?.destroy();
     this.statsBuf?.destroy();
@@ -890,6 +941,106 @@ export class Sim3D {
     // GPU twin ids count DOWN from here (atomicSub returns pre-decrement;
     // MAX_GRAINS3−1 is the pore census slot)
     this.device.queue.writeBuffer(this.twinCtrBuf, 0, new Uint32Array([MAX_GRAINS3 - 2]));
+    // stored energy clears with the cast (C3a). Not housekeeping: ids are
+    // recycled from 1 on every pour, so a field left behind would hand the NEXT
+    // specimen the previous one's dislocation content under the same id — a
+    // cast that arrives pre-deformed without anything having deformed it.
+    this.hCPU.fill(0);
+    this.device.queue.writeBuffer(this.hBuf, 0, this.hCPU);
+    this.hOn = false;
+    this.recAcc = 0;
+  }
+
+  /**
+   * Deposit a cold-work stored-energy field, per grain id (v7.0 C3a).
+   *
+   * Pure CPU: one 16 KB `writeBuffer`, no shader, no dispatch, no bind group.
+   * `work` is in BOND ENERGIES — the Potts J, not joules and not J/m³. See
+   * `WORK_SALT` for why the per-id spread is a declared fiction, and
+   * `H_FLAT_3D` for the scale it has to be read against.
+   *
+   * EVERY entry in [1, PORE_ID) is written, including ids no grain owns yet.
+   * That is the point rather than laziness: annealing twins are allocated
+   * GPU-side by `TWINSTAMP3_WGSL`, so an id can come into existence without the
+   * CPU choosing the moment. Because the value was never a function of the
+   * allocation, a twin born later cannot inherit a stale or missing one — and
+   * it costs zero lines to guarantee instead of a branch inside the twin pass.
+   *
+   * Id 0 (liquid/unclaimed) and PORE_ID (the shrinkage-pore census slot) are
+   * pinned at 0: neither is a grain, and `hOf`'s `min(id, PORE)` clamp sends
+   * every out-of-range id to the second of them.
+   */
+  deposit(work: number): void {
+    const w = Math.max(0, work);
+    for (let id = 1; id < PORE_ID; id++) {
+      // FNV-style avalanche on (id, WORK_SALT) — uniform on [0, 2), mean 1, so
+      // `work` reads as the MEAN stored energy and the fabric is the spread.
+      let h = (id ^ WORK_SALT) >>> 0;
+      h = Math.imul(h ^ (h >>> 16), 0x7feb352d) >>> 0;
+      h = Math.imul(h ^ (h >>> 15), 0x846ca68b) >>> 0;
+      h = (h ^ (h >>> 16)) >>> 0;
+      this.hCPU[id] = w * (2 * (h / 4294967296));
+    }
+    this.hCPU[0] = 0;
+    this.hCPU[PORE_ID] = 0;
+    this.device.queue.writeBuffer(this.hBuf, 0, this.hCPU);
+    this.hOn = true;
+    this.recAcc = 0;
+  }
+
+  /**
+   * Set one grain's stored energy (v7.0 C3a).
+   *
+   * C3b's nucleus-birth primitive, landed here so recrystallization is a call
+   * into machinery this milestone already gated rather than a new subsystem —
+   * and exercised now by the synthetic fixtures the gates are built on.
+   */
+  setStored(id: number, h: number): void {
+    if (!(id >= 0) || id >= MAX_GRAINS3) return;
+    this.hCPU[id] = h;
+    this.device.queue.writeBuffer(this.hBuf, id * 4, this.hCPU, id, 1);
+    this.hOn = true;
+  }
+
+  /**
+   * Drop the stored-energy field and return to the pre-C3a anneal.
+   *
+   * Separate from `reset()` because turning the cold work off must not re-pour
+   * the casting: the panel's dial goes back to zero on the specimen you already
+   * have, and `HT3-SE-OFF-IDENTITY` needs a pre-C3a arm on the SAME cast the
+   * other two arms run.
+   */
+  clearStored(): void {
+    this.hCPU.fill(0);
+    this.device.queue.writeBuffer(this.hBuf, 0, this.hCPU);
+    this.hOn = false;
+    this.recAcc = 0;
+  }
+
+  /** the CPU mirror of the stored-energy field — what the panel's census reads */
+  storedCPU(): Float32Array { return this.hCPU; }
+  /** is a stored-energy field live? the mode selector, never `work > 0` */
+  get storedOn(): boolean { return this.hOn; }
+  /** the recovery ordinate the NEXT sweep would carry — the gates' witness */
+  get storedRec(): number { return this.recAcc; }
+
+  /**
+   * Read the stored-energy buffer back off the GPU — `HT3-SE-COHERENCE`'s
+   * witness that nothing on the GPU writes H. `refreshQuats` at a quarter the
+   * stride; the buffer needs COPY_SRC for this and has it.
+   */
+  async readStored(): Promise<Float32Array | null> {
+    const enc = this.device.createCommandEncoder();
+    enc.copyBufferToBuffer(this.hBuf, 0, this.hStaging, 0, MAX_GRAINS3 * 4);
+    this.device.queue.submit([enc.finish()]);
+    try {
+      await this.hStaging.mapAsync(GPUMapMode.READ);
+    } catch {
+      return null;
+    }
+    const out = new Float32Array(this.hStaging.getMappedRange().slice(0));
+    this.hStaging.unmap();
+    return out;
   }
 
   /**
@@ -1221,6 +1372,7 @@ export class Sim3D {
       d.createComputePipeline({ layout: "auto", compute: { module: shaderModule(d, code, label), entryPoint: "main" } });
     this.htMaskPipe = mk(HTMASK3_WGSL, "htmask3");
     this.annealPipe = mk(ANNEAL3_WGSL, "anneal3");
+    this.annealHPipe = mk(anneal3Wgsl(true), "anneal3h");
     for (const dir of [0, 1]) {
       this.htMaskBG[dir] = d.createBindGroup({
         layout: this.htMaskPipe.getBindGroupLayout(0),
@@ -1233,16 +1385,25 @@ export class Sim3D {
         ],
       });
       this.annealBG[dir] = [];
+      this.annealHBG[dir] = [];
       for (let c = 0; c < HT_COLOURS_3D; c++) {
+        const shared = [
+          { binding: 0, resource: { buffer: this.htBuf, offset: c * HT_STRIDE, size: H2U.BYTES } },
+          { binding: 1, resource: this.grainTex[dir].createView() },
+          { binding: 2, resource: this.htMaskTex.createView() },
+          { binding: 3, resource: this.grainTex[1 - dir].createView() },
+          { binding: 4, resource: { buffer: this.quatBuf } },
+        ];
         this.annealBG[dir][c] = d.createBindGroup({
           layout: this.annealPipe.getBindGroupLayout(0),
-          entries: [
-            { binding: 0, resource: { buffer: this.htBuf, offset: c * HT_STRIDE, size: H2U.BYTES } },
-            { binding: 1, resource: this.grainTex[dir].createView() },
-            { binding: 2, resource: this.htMaskTex.createView() },
-            { binding: 3, resource: this.grainTex[1 - dir].createView() },
-            { binding: 4, resource: { buffer: this.quatBuf } },
-          ],
+          entries: shared,
+        });
+        // the stored variant claims binding 5 and nothing else. Note both sets
+        // are indexed by the SAME `dir`, which is the whole reason the field
+        // needs no lockstep discipline: it is not a second ping-pong at all.
+        this.annealHBG[dir][c] = d.createBindGroup({
+          layout: this.annealHPipe!.getBindGroupLayout(0),
+          entries: [...shared, { binding: 5, resource: { buffer: this.hBuf } }],
         });
       }
     }
@@ -1264,8 +1425,14 @@ export class Sim3D {
   /** write one HT uniform struct per colour, sharing a per-sweep RNG salt.
    *  `pin` (v7.0 C2): same packing as 2D's writer — fraction in `pinF`, radius
    *  in flags bits 8..15, read only by the mask pass; {0, 0} is byte-identical
-   *  to the pre-C2 write. */
-  private writeHt(salt: number, kT: number, pin?: { f: number; r: number }) {
+   *  to the pre-C2 write.
+   *  `rec` (v7.0 C3a): the accumulated recovery ordinate, in the slot that used
+   *  to be `twinProb` and was permanently zero. It rides the EXISTING writer in
+   *  its existing shape — no new parameter, no specially-cased first write —
+   *  because a per-sweep value that needs its own call path is a value that will
+   *  eventually be written on the wrong sweep. At `HT_RECOVER_3D = 0` every
+   *  struct byte matches the pre-C3a write. */
+  private writeHt(salt: number, kT: number, pin?: { f: number; r: number }, rec = 0) {
     const u = new Uint32Array(this.htData);
     const f = new Float32Array(this.htData);
     const pinR = pin ? Math.max(0, Math.min(255, Math.round(pin.r))) : 0;
@@ -1278,6 +1445,7 @@ export class Sim3D {
       f[b + H2U.kT] = kT;
       u[b + H2U.flags] = 1 | (pinR << 8);
       u[b + H2U.idFloor] = this.nextId;
+      f[b + H2U.rec] = rec;
       f[b + H2U.pinF] = pinF;
     }
     this.device.queue.writeBuffer(this.htBuf!, 0, this.htData);
@@ -1326,13 +1494,13 @@ export class Sim3D {
     let delivered = total;
     for (let s = 0; s < total; s++) {
       // salt 0 is the mask pass; start sweeps at 1 so no sweep shares its stream
-      this.writeHt(s + 1, kT, pin);
+      this.writeHt(s + 1, kT, pin, this.hOn ? this.recAcc + HT_RECOVER_3D * (s + 1) : 0);
       const enc = this.device.createCommandEncoder();
       const pass = enc.beginComputePass();
-      pass.setPipeline(this.annealPipe!);
+      pass.setPipeline(this.hOn ? this.annealHPipe! : this.annealPipe!);
       let gdir = this.dir;
       for (let c = 0; c < HT_COLOURS_3D; c++) {
-        pass.setBindGroup(0, this.annealBG[gdir][c]);
+        pass.setBindGroup(0, this.hOn ? this.annealHBG[gdir][c] : this.annealBG[gdir][c]);
         this.dispatch(pass);
         gdir = 1 - gdir;
       }
@@ -1344,6 +1512,12 @@ export class Sim3D {
       }
     }
     await this.device.queue.onSubmittedWorkDone();
+    // Recovery accumulates ACROSS treatments, by the sweeps actually delivered:
+    // two consecutive holds must recover more than one, and an aborted hold must
+    // only bank what it ran. The furnace enters here exactly as it does
+    // everywhere else in this model — through the sweep count, never through a
+    // temperature (`HT-TEMP-SENSITIVITY`).
+    if (this.hOn) this.recAcc += HT_RECOVER_3D * delivered;
     await this.refreshQuats();
     if (delivered === total) onProgress?.(total);
     return delivered;

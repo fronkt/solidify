@@ -888,17 +888,47 @@ export const SIGMA3_MOBILITY = 0.02;
  * `Sim3D.twinEvent()` — a plate stamped in exact Σ3 registry on a probed
  * migrating boundary — and everything AFTER birth is this pass's physics.
  */
-export const ANNEAL3_WGSL = /* wgsl */ `
+export const anneal3Wgsl = (stored: boolean) => /* wgsl */ `
 ${HT_COMMON}
 @group(0) @binding(0) var<uniform> H: HT;
 @group(0) @binding(1) var grain: texture_3d<u32>;
 @group(0) @binding(2) var mask: texture_3d<u32>;
 @group(0) @binding(3) var grainOut: texture_storage_3d<r32uint, write>;
-@group(0) @binding(4) var<storage, read> quats: array<vec4f>;
+@group(0) @binding(4) var<storage, read> quats: array<vec4f>;${stored ? `
+// ---- stored energy (v7.0 C3a), read-only, indexed BY GRAIN ID.
+//
+// One f32 per id rather than per voxel, because \`h(x) === H(id(x))\` is an
+// identity here: the only thing this pass does to a voxel is adopt a
+// neighbour's id, so it adopts that neighbour's stored energy with it. There is
+// no per-cell h to carry alongside the id, which means the desync class — an
+// id gathered from one place and its energy from another, a bug that still
+// coarsens and still renders beautifully — is not merely unlikely but
+// unrepresentable. \`hOf(cand)\` reads the same \`cand\` the adoption uses.
+//
+// NOTHING HERE WRITES hs. It is \`read\`, not \`read_write\`, and the binding is
+// what enforces it.
+@group(0) @binding(5) var<storage, read> hs: array<f32>;` : ``}
 const PORE = ${PORE_ID}u;
 const TWIN_COST = ${SIGMA3_COST};
 const TWIN_MOB = ${SIGMA3_MOBILITY};
-
+${stored ? `
+// Recovery, evaluated in CLOSED FORM from one scalar the uniform carries.
+//
+// dH/dS = -k*H^2 (second-order dislocation annihilation) integrates exactly to
+// H_S = H0 / (1 + rec*H0), rec = HT_RECOVER_3D * S. Evaluating rather than
+// stepping is why there is no recovery PASS: no per-step ODE error, no f32
+// chain accumulated over thousands of sweeps, and recovery cannot be applied
+// twice, applied per-colour instead of per-sweep, or land one sweep stale,
+// because it is never applied at all.
+//
+// No clamp is needed and none is used: for h >= 0 and rec >= 0 the result is
+// >= 0, <= h, and strictly decreasing in rec. The min(id, PORE) clamp is the
+// one \`quats\` already uses on this exact line, verbatim.
+fn hOf(id: u32) -> f32 {
+  let h = hs[min(id, PORE)];
+  return h / (1.0 + H.rec * h);
+}
+` : ``}
 fn qmulHT(a: vec4f, b: vec4f) -> vec4f {
   return vec4f(a.w * b.xyz + b.w * a.xyz + cross(a.xyz, b.xyz), a.w * b.w - dot(a.xyz, b.xyz));
 }
@@ -960,7 +990,13 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
           if (nid[j] != cand)   { eNew += select(1.0, TWIN_COST, sigma3(qc, qn)); }
         }
       }
-      let dE = eNew - eNow;
+${stored ? `      // A voxel that adopts \`cand\` adopts cand's stored energy with it, so the
+      // cell's stored contribution goes H(mine) -> H(cand) and the move costs
+      // their DIFFERENCE — negative when the candidate is the LESS deformed
+      // grain, which is strain-induced boundary migration. Appended rather than
+      // folded into eNew/eNow so the boundary term stays the text it has always
+      // been, and left-associativity makes the evaluation order identical.
+` : ``}      let dE = eNew - eNow${stored ? ` + (hOf(cand) - hOf(mineId))` : ``};
       // downhill and flat moves are taken; uphill costs the Boltzmann factor.
       // Flat moves matter doubly here — 3D lattice pinning is harsher than 2D.
       var accept = dE <= 0.0;
@@ -980,6 +1016,21 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   textureStore(grainOut, c, vec4u(out, 0u, 0u, 0u));
 }
 `;
+
+/**
+ * The plain anneal — the pre-C3a text, byte for byte.
+ *
+ * Kept as a NAMED export rather than folded into call sites because
+ * `PIN-STRUCTURE` (`verify-heattreat.mjs`) reads `S3.ANNEAL3_WGSL` and runs both
+ * a positive regex (`/\bpinF\b/`) and two negative ones over it. Renaming this
+ * would hand every one of those `undefined`: the positive test would fail loudly,
+ * but both NEGATIVE tests would pass vacuously against the string "undefined" —
+ * the exact shape `lessons.md` records under "a truthiness test on a property
+ * lookup is not a membership test". `SE-STRUCTURE` additionally pins this text
+ * by hash, so a refactor that hoists the stored branch out of the template
+ * cannot land quietly.
+ */
+export const ANNEAL3_WGSL = anneal3Wgsl(false);
 
 /**
  * Annealing-twin nucleation: stamp a thin plate of a fresh Σ3 id into its

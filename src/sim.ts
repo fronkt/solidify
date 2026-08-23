@@ -593,7 +593,7 @@ export class Simulation {
    *  `pin` (v7.0 C2): Zener dispersion — fraction rides the `pinF` slot, the
    *  radius rides flags bits 8..15 as whole cells. Only the MASK pass reads
    *  either; at the {0, 0} default every struct byte matches the pre-C2 write. */
-  private writeHt(salt: number, kT: number, twinProb = 0, pin?: { f: number; r: number }) {
+  private writeHt(salt: number, kT: number, pin?: { f: number; r: number }) {
     const u = new Uint32Array(this.htData);
     const f = new Float32Array(this.htData);
     const pinR = pin ? Math.max(0, Math.min(255, Math.round(pin.r))) : 0;
@@ -605,7 +605,7 @@ export class Simulation {
       u[b + H2U.salt] = salt >>> 0;
       f[b + H2U.kT] = kT;
       u[b + H2U.flags] = 1 | (pinR << 8);
-      f[b + H2U.twinProb] = twinProb;
+      f[b + H2U.rec] = 0;   // stored energy is 3D-only (C3a); the plane never recovers
       f[b + H2U.pinF] = pinF;
     }
     this.device.queue.writeBuffer(this.htBuf, 0, this.htData);
@@ -620,7 +620,7 @@ export class Simulation {
    * have, so the anneal pass itself is untouched by the mode.
    */
   private buildHtMask(kT: number, pin?: { f: number; r: number }) {
-    this.writeHt(0, kT, 0, pin);
+    this.writeHt(0, kT, pin);
     const enc = this.device.createCommandEncoder();
     const pass = enc.beginComputePass();
     pass.setPipeline(this.htMaskPipe);
@@ -666,7 +666,7 @@ export class Simulation {
       // salt 0 is the mask pass; start sweeps at 1 so no sweep shares its stream.
       // pin rides every sweep's struct too, though only the mask pass reads it —
       // one writer, one shape, no special-cased first write
-      this.writeHt(s + 1, kT, 0, pin);
+      this.writeHt(s + 1, kT, pin);
       const enc = this.device.createCommandEncoder();
       const pass = enc.beginComputePass();
       pass.setPipeline(this.annealPipe);

@@ -468,6 +468,131 @@ const CU = M.MATERIALS.cu.si;
     { guard2, guard3, annealClean, saltShared, salt: SH.PIN_SALT });
 }
 
+// SE-STRUCTURE (v7.0 C3a) — the stored-energy kernel's text invariants.
+//
+// PIN-STRUCTURE's idiom, applied to the one thing C3a cannot witness with a
+// number: that the stored field is READ-ONLY on the GPU and that turning the
+// mode off returns the pre-C3a text rather than a text that merely behaves like
+// it. HT3-SE-COHERENCE proves hBuf === hCPU after a real anneal, which is the
+// runtime witness; this is the structural one, and it is the half that survives
+// in CI where there is no GPU.
+//
+// Five clauses, each with a liveness anchor beside it so no negative test can
+// pass against a renamed export (the "undefined" trap PIN-STRUCTURE's docblock
+// records):
+//   1. the PLAIN variant carries no stored text at all, and still carries the
+//      acceptance line it has always had;
+//   2. the STORED variant claims binding 5 and stops there — a binding 6 would
+//      be a second field arriving without a milestone;
+//   3. nothing anywhere assigns hs. The binding is `read`, not `read_write`;
+//      this is the text half of that guarantee;
+//   4. the acceptance lines are pinned in BOTH variants — the stored one adds
+//      exactly the SIBM difference and nothing else;
+//   5. the struct did not outgrow its binding: `rec` reuses slot 5 and BYTES
+//      stays 32, which is the whole reason postmortem #1 cannot recur here.
+// And the 2D kernel must stay stored-free: the Moore-8 stencil's flat-front
+// barrier is +2, not H_FLAT_3D's +8, and a stored term borrowed across that
+// stencil change is the mistake M_MODEL_3D exists to remember.
+{
+  const SH = await server.ssrLoadModule("/src/shaders.ts");
+  const S3 = await server.ssrLoadModule("/src/shaders3d.ts");
+  const plain = S3.ANNEAL3_WGSL;
+  const stored = S3.anneal3Wgsl(true);
+
+  // 1. plain is stored-free — with the acceptance line as its liveness anchor
+  const plainLive = /let dE = eNew - eNow;/.test(plain);
+  const plainClean = !/\bhs\b|H\.rec|hOf\(/.test(plain);
+  // 2. binding 5 claimed, binding 6 absent (the plain variant claims neither)
+  const binds = /@binding\(5\) var<storage, read> hs: array<f32>;/.test(stored)
+    && !/@binding\(6\)/.test(stored) && !/@binding\(5\)/.test(plain);
+  // 3. read-only: no assignment to hs in either variant, in any form
+  const readOnly = !/hs\s*\[[^\]]*\]\s*=/.test(stored) && !/var<storage, read_write> hs/.test(stored);
+  // 4. both acceptance lines pinned. The stored one is the plain one plus the
+  //    SIBM difference — the term whose SIGN is the physics: negative when the
+  //    candidate is the LESS deformed grain
+  const accept = /let dE = eNew - eNow \+ \(hOf\(cand\) - hOf\(mineId\)\);/.test(stored)
+    && /return h \/ \(1\.0 \+ H\.rec \* h\);/.test(stored)
+    && /hs\[min\(id, PORE\)\]/.test(stored);
+  // 5. the slot reuse, the reason the struct still fits its declared binding
+  const struct = SH.H2U.BYTES === 32 && SH.H2U.rec === 5 && !("twinProb" in SH.H2U)
+    && /\brec: f32,/.test(SH.HT_COMMON ?? plain) && !/twinProb/.test(plain);
+  // 3D-only: the plane's anneal has no stored term, and still has its own dE
+  const twoD = /let dE = /.test(SH.ANNEAL_WGSL) && !/\bhs\b|H\.rec|hOf\(/.test(SH.ANNEAL_WGSL);
+
+  check("SE-STRUCTURE", plainLive && plainClean && binds && readOnly && accept && struct && twoD,
+    { plainLive, plainClean, binds, readOnly, accept, struct, twoD,
+      BYTES: SH.H2U.BYTES, recSlot: SH.H2U.rec, storedChars: stored.length - plain.length });
+}
+
+// HT-TEMP-SENSITIVITY (v7.0 C3a) — the furnace enters through the sweep count,
+// and nowhere else.
+//
+// This gate is OWED. `HT_KT_DEFAULT`'s docblock and `WORK_SALT`'s both cite it
+// as the thing that holds the line between the furnace's °C and the lattice's
+// dimensionless knobs, and until C3a it existed in neither script. C3a adds a
+// SECOND such knob — `HT_RECOVER_3D` — whose entire honesty claim is that same
+// argument, and a third citation to a gate that does not exist is not an option.
+//
+// The claim, stated so it can fail: two schedules that differ ONLY in hold
+// temperature must drive the model differently — that is the liveness half, and
+// it fails if the temperature -> sweeps path ever breaks — while the two
+// numerical lattice constants they drive it THROUGH stay byte-identical. The
+// sharp form is the ratio: recovery banked over a treatment is HT_RECOVER_3D x
+// the sweeps it bought, so rec(hot)/rec(cold) must equal sweeps(hot)/sweeps(cold)
+// EXACTLY. Make either knob a function of temperature — the physically tempting
+// edit, since real recovery is thermally activated — and that equality breaks
+// while every other number in this file still looks right.
+{
+  const { readFileSync } = await import("node:fs");
+  const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+  const SH = await server.ssrLoadModule("/src/shaders.ts");
+
+  const sch = (tC) => ({
+    name: "t", startC: H.ROOM_C,
+    stages: [{ kind: "ramp", toC: tC, cPerMin: 10 }, { kind: "hold", minutes: 60 },
+             { kind: "ramp", toC: H.ROOM_C, cPerMin: 5 }],
+  });
+  const umPC = 0.5, d0 = 8;
+  const sweepsAt = (tC) => {
+    const I = H.integrate(sch(tC), AL);
+    const dPred = H.grainAfter(d0 * 1e-6, I.gg, AL) * 1e6;
+    return H.sweepsFor(d0, dPred, umPC, H.K_MC_3D, H.M_MODEL_3D);
+  };
+  const cold = sweepsAt(400), hot = sweepsAt(520);
+  // liveness: 120 °C of furnace has to MOVE the model, or this gate is testing
+  // nothing but two constants against themselves
+  const enters = hot > cold * 2 && cold > 0 && Number.isFinite(hot);
+  // and it enters only here: recovery is HT_RECOVER_3D x sweeps, so its ratio
+  // between the two schedules is the SWEEP ratio, to the last bit
+  const rec = (s) => H.HT_RECOVER_3D * s;
+  const ratioExact = rec(hot) / rec(cold) === hot / cold;
+  // both knobs are plain numbers, declared as literals — not getters, not
+  // functions of anything
+  const literals = typeof SH.HT_KT_DEFAULT === "number" && typeof H.HT_RECOVER_3D === "number"
+    && /export const HT_RECOVER_3D = [0-9.e+-]+;/.test(src("src/heattreat.ts"))
+    && /export const HT_KT_DEFAULT = [0-9.e+-]+;/.test(src("src/shaders.ts"));
+  // the wiring: the panel's host hands the sims NO temperature (the kT
+  // parameter is passed `undefined` at both call sites, so the default is the
+  // only kT this app ever anneals at), and the recovery the volume banks is a
+  // function of DELIVERED SWEEPS with no other term in it
+  const main = src("src/main.ts"), s3 = src("src/sim3d.ts");
+  const wiring = /sim3d\.anneal\(sweeps, undefined,/.test(main) && /sim\.anneal\(sweeps, undefined,/.test(main)
+    && /s3\.anneal\(share, undefined,/.test(main)
+    && /this\.recAcc \+= HT_RECOVER_3D \* delivered;/.test(s3)
+    && /HT_RECOVER_3D \* \(s \+ 1\)/.test(s3);
+  // …and neither knob is reachable from a temperature: heatpanel owns every °C
+  // in this app and must not import, mention or forward either one
+  const panel = src("src/heatpanel.ts");
+  const panelClean = /this\.tC/.test(panel) && !/HT_KT_DEFAULT|HT_RECOVER_3D/.test(panel);
+
+  check("HT-TEMP-SENSITIVITY", enters && ratioExact && literals && wiring && panelClean, {
+    enters, ratioExact, literals, wiring, panelClean,
+    sweeps: { cold: +cold.toFixed(1), hot: +hot.toFixed(1) },
+    rec: { cold: +rec(cold).toFixed(6), hot: +rec(hot).toFixed(6) },
+    kT: SH.HT_KT_DEFAULT, recRate: H.HT_RECOVER_3D,
+  });
+}
+
 await server.close();
 console.log(failures ? `done — ${failures} FAILED` : "done");
 if (failures) process.exitCode = 1;

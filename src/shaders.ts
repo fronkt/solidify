@@ -745,7 +745,15 @@ export const H2U = {
   kT: 3,          // MC temperature (numerical, NOT the furnace)
   flags: 4,      // bit 0: eligible cells only; bit 1: spawn annealing twins (3D);
                  //   bits 8..15: Zener particle radius, CELLS (v7.0 C2 — 0 = off)
-  twinProb: 5,    // per-accepted-flip Σ3 spawn probability (3D; CPU-budgeted)
+  rec: 5,         // f32: accumulated RECOVERY ordinate (v7.0 C3a — 3D; 0 = no recovery).
+                  //   Was `twinProb`, a per-accepted-flip Σ3 spawn probability that no HT
+                  //   shader ever read: 2D wrote a literal 0 from both call sites and 3D's
+                  //   writer skipped the slot entirely, so byte 20 was permanently zero in
+                  //   both dimensions. Reusing it is what keeps `BYTES` at 32 — and BYTES is
+                  //   the declared binding size at four sites (sim.ts:360, :374,
+                  //   sim3d.ts:1228, :1240), so a ninth slot would round the struct 32 → 48
+                  //   and re-open postmortem #1, where a struct outgrew its binding and every
+                  //   readback through it silently returned zeros.
   idFloor: 6,     // u32: GPU twin ids stay above this (3D; 2D leaves it 0)
   pinF: 7,        // f32: Zener particle fraction (v7.0 C2 — 0 = the pre-C2 anneal)
   BYTES: 32,
@@ -799,7 +807,7 @@ struct HT {
   salt: u32,
   kT: f32,
   flags: u32,
-  twinProb: f32,
+  rec: f32,
   idFloor: u32,
   pinF: f32,
 }
@@ -821,6 +829,31 @@ fn htHash(x: u32, y: u32, z: u32) -> f32 {
  * per-seed fabric would fold two variables into every pinned comparison.
  */
 export const PIN_SALT = 0x5a17ed2b;
+
+/**
+ * The cold-work fabric's salt (v7.0 C3a) — which grain stores how much.
+ *
+ * A fixed constant for the same reason `PIN_SALT` is one, and the argument in
+ * its docblock above transfers unchanged: the deformation a grain took is part
+ * of the specimen's identity, so replicates at different seeds anneal different
+ * microstructures against ONE fixed work fabric, and a per-seed fabric would
+ * fold two variables into every comparison. Deliberately not a stream from
+ * `rng.ts` — which also leaves `stream("recrystallization")` unspent, and that
+ * name was reserved by `RNG-NAME-DERIVATION` for exactly the milestone after
+ * this one.
+ *
+ * **What this fabric is, said plainly: a declared fiction.** A hash over grain
+ * ids is not a Taylor factor. Predicting which grain stores more deformation
+ * needs a slip-system set and the orientation's relation to the loading axis;
+ * the quaternions here describe orientation without slip geometry, so the model
+ * has no basis to prefer one grain over another and does not pretend to. The
+ * fabric exists so the field is HETEROGENEOUS, because a uniform stored-energy
+ * field is exactly inert — ΔE = H_cand − H_mine = 0 everywhere — and an inert
+ * field is one no gate can see. It is load-bearing for exactly one gate,
+ * `HT3-SE-SELECTION`, which is why that gate is the one carrying a
+ * pre-registered kill criterion.
+ */
+export const WORK_SALT = 0x3b9aca07;
 
 /**
  * Eligibility mask — built once per treatment, read every sweep.

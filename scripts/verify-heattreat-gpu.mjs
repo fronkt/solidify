@@ -1042,6 +1042,341 @@ if (!cast3 || cast3.grains < 100) { console.log("3D cast produced too few grains
 }
 
 // ---------------------------------------------------------------------------
+// STORED ENERGY (v7.0 C3a) — the field, the drive and the recovery.
+//
+// The bicrystal fixture the front gates run on: a flat {100} interface at
+// x = n/2, solid everywhere, two grain ids, written straight into both
+// ping-pong slots. Deliberately synthetic and deliberately NOT a cast:
+//   * every quaternion on a fresh reset is identity and sigma3(I, I) is false,
+//     so every unlike bond costs exactly 1.0 and the Σ3 mobility veto never
+//     fires — this is precisely the unweighted lattice the eNow = 9 / eNew = 17
+//     derivation describes, so the measurement tests the derivation rather than
+//     a cusp-weighted approximation of it;
+//   * a flat front is immobile at zero drive (measured: exactly 0 voxels over
+//     60 sweeps), which is what gives the ladder a real floor to clear.
+// Both textures in the pair are painted because `anneal` reads grainTex[dir]
+// and writes grainTex[1-dir], and `reset()` leaves dir at 0.
+await page.evaluate(() => {
+  const S = window.__solidify;
+  window.__se = {
+    paint() {
+      const s3 = S.sim3d(), n = s3.n, vox = n * n * n;
+      const ids = new Uint32Array(vox);
+      for (let z = 0; z < n; z++) for (let y = 0; y < n; y++) for (let x = 0; x < n; x++)
+        ids[(z * n + y) * n + x] = x < n / 2 ? 1 : 2;
+      const st = new Float32Array(vox * 2);
+      for (let i = 0; i < vox; i++) { st[i * 2] = 1.0; st[i * 2 + 1] = 0.0; }
+      for (const dir of [0, 1]) {
+        s3.device.queue.writeTexture({ texture: s3.grainTexture(dir) }, ids,
+          { bytesPerRow: n * 4, rowsPerImage: n }, [n, n, n]);
+        s3.device.queue.writeTexture({ texture: s3.stateTexture(dir) }, st,
+          { bytesPerRow: n * 8, rowsPerImage: n }, [n, n, n]);
+      }
+      return n;
+    },
+    async ones() {
+      const g = await S.sim3d().readGrainVolume();
+      let k = 0; for (let i = 0; i < g.length; i++) if (g[i] === 1) k++;
+      return k;
+    },
+    /** front speed in cells/sweep, positive = the LOW-H grain 1 is growing */
+    async front(dH, sweeps) {
+      const s3 = S.sim3d();
+      s3.reset();
+      const n = this.paint();
+      s3.setStored(1, 0); s3.setStored(2, dH);
+      const a = await this.ones();
+      await s3.anneal(sweeps);
+      const b = await this.ones();
+      return { dH, v: (b - a) / (n * n) / sweeps, gained: b - a };
+    },
+  };
+});
+
+// HT3-SE-FRONT — the headline. Does a stored-energy difference drive a boundary,
+// in the right DIRECTION, at a rate the lattice's own geometry predicts?
+//
+// The external anchor is not a fit: a voxel on a flat {100} boundary has 9 of
+// its 26 neighbours across the interface and 17 on its own side, so adopting the
+// other grain swaps 9 → 17 and the boundary term of the move is ΔE = +8. That
+// number is enumerated HERE in JS from the same 26 offsets, independently of the
+// shader. At ΔH = 8 the move is therefore energy-neutral, this kernel takes flat
+// moves unconditionally, and the front should advance at whatever its candidate
+// draw offers — 9/26 = 0.346 cells/sweep for a flat front.
+//
+// What is ASSERTED is what the measurement supports: the exact zeros below
+// threshold, monotonicity, direction, and the v ≤ 1 ceiling. The 8 ↔ 9/26
+// agreement is REPORTED, not gated, because a moving front roughens and its
+// draw rises above 9/26 — measured 0.726 at ΔH = 20. Gating an equality that
+// roughening makes approximate would be a tolerance invented to fit.
+{
+  // the barrier, counted from the stencil rather than quoted from the source
+  // A voxel in grain 1 on the last plane before the interface: the dx = +1
+  // offsets (9 of them) land in grain 2, the other 17 stay in grain 1.
+  //   eNow  = neighbours unlike ITS OWN id            = 9   (the far side)
+  //   eNew  = neighbours unlike the CANDIDATE's id    = 17  (its own side)
+  // so the boundary cost of adopting grain 2 is eNew − eNow = 17 − 9 = +8.
+  let sameSide = 0, farSide = 0;
+  for (let dz = -1; dz <= 1; dz++) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (dx === 0 && dy === 0 && dz === 0) continue;
+    if (dx > 0) farSide++; else sameSide++;
+  }
+  const dEflat = sameSide - farSide;    // 17 − 9 = +8
+  const pick = farSide / 26;            // 9/26 — the flat front's draw
+
+  const rungs = [0, 2, 8, 20];
+  const got = [];
+  for (const dH of rungs) {
+    got.push(await page.evaluate(async d => await window.__se.front(d, 40), dH));
+  }
+  const v = got.map(r => r.v);
+  const idx = d => rungs.indexOf(d);
+  const out = {
+    dEflatCounted: dEflat, shippedH_FLAT_3D: HT.H_FLAT_3D, pickFlat: +pick.toFixed(4),
+    ladder: got.map(r => ({ dH: r.dH, v: +r.v.toFixed(4), gained: r.gained })),
+    vAt8_vs_pick: +(v[idx(8)] / pick).toFixed(3),
+  };
+  // The sub-threshold rungs are asserted NEGLIGIBLE, not zero, and the
+  // difference is not pedantry. kT = 0.6 buys sub-barrier moves at
+  // exp(-(8-dH)/kT), so over this window the expected count is ~0.4 flips at
+  // dH = 0 and ~10 at dH = 2, out of 16384 boundary cells x 40 sweeps. Exact
+  // zero is a Poisson draw coming up empty — the first run of this gate read
+  // 0 and 0, the second read 0 and 2 on identical code. An `=== 0` here is a
+  // flake with a physical explanation, so the assertion is the SEPARATION:
+  // sub-threshold creep three orders below the neutral-point rate. It fails the
+  // moment the barrier stops being a barrier, which is the claim being made.
+  const floor = v[idx(8)] * 1e-3;
+  const ok =
+    dEflat === HT.H_FLAT_3D             // the source's constant IS the counted one
+    && v[idx(0)] < floor                // no drive: creep is noise, not motion
+    && v[idx(2)] < floor                // still far under the Boltzmann tail
+    && v[idx(8)] > 0 && v[idx(20)] > 0  // liveness: the drive drives
+    && v[idx(8)] > v[idx(2)] && v[idx(20)] > v[idx(8)]   // monotone across bins
+    && got.every(r => r.gained >= 0)    // DIRECTION: never into the low-H grain
+    && v.every(x => x <= 1.0);          // one flip per site per sweep, at most
+  out.creepFloor = +floor.toExponential(2);
+  out.creepRatios = [0, 2].map(d => +(v[idx(d)] / v[idx(8)]).toExponential(2));
+  check("HT3-SE-FRONT", ok, out);
+}
+
+// HT3-SE-RECOVERY-STALL — recovery is real, and it is the closed form.
+//
+// The spec proposed "stored energy monotonically non-increasing" and "recovery
+// rate vs sweeps". Both are vacuous against this implementation: the code IS
+// H₀/(1 + rec·H₀), so monotone decay is arithmetic and fitting a rate to the run
+// that produced it is fitting, not measuring.
+//
+// What is not true by construction is that the recovering field reaches the
+// SHADER at all, on the right sweep, applied once and to both sides. So the
+// assertion is a correspondence between two independent experiments: a front
+// driven from ΔH₀ = 20 with recovery live must slow monotonically and STALL
+// DEAD, and it must still be moving in the window where the static ladder says
+// its effective drive is above the floor, and stopped in the window where the
+// static ladder says it is below. Recovery applied twice, per-colour, one sweep
+// stale, or sign-flipped each breaks that correspondence while still producing a
+// perfectly monotone decay curve.
+{
+  const out = await page.evaluate(async () => {
+    const S = window.__solidify, s3 = S.sim3d();
+    s3.reset();
+    const n = window.__se.paint();
+    s3.setStored(1, 0); s3.setStored(2, 20);
+    const rows = [];
+    let prev = await window.__se.ones();
+    // five windows, not four: at 200-sweep windows the 600→800 pane still
+    // averages in the tail of the creep and reads 2e-4 rather than a clean stop.
+    // The stall is asserted EXACTLY, so the ladder runs until it is exact.
+    for (let k = 0; k < 5; k++) {
+      await s3.anneal(200);
+      const now = await window.__se.ones();
+      rows.push({
+        S: (k + 1) * 200,
+        v: (now - prev) / (n * n) / 200,
+        rec: s3.storedRec,
+        hEff: 20 / (1 + s3.storedRec * 20),
+      });
+      prev = now;
+    }
+    return { rows, recFinal: s3.storedRec, storedOn: s3.storedOn };
+  });
+  const r = out.rows;
+  const expectRec = HT.HT_RECOVER_3D * 1000;
+  const ok =
+    r[0].v > 0.05                                    // liveness: it moved at first
+    && r.every((x, i) => i === 0 || x.v <= r[i - 1].v) // monotone slowing
+    && r[r.length - 1].v === 0                        // and it STALLED, exactly
+    && r[0].hEff > 2.5 && r[r.length - 1].hEff < 2.0  // across the ladder's floor
+    && Math.abs(out.recFinal - expectRec) < 1e-9;     // rec banked per sweep, once
+  check("HT3-SE-RECOVERY-STALL", ok, {
+    rows: r.map(x => ({ S: x.S, v: +x.v.toFixed(4), hEff: +x.hEff.toFixed(2) })),
+    recFinal: out.recFinal, expectRec, rate: HT.HT_RECOVER_3D,
+  });
+}
+
+// HT3-SE-OFF-IDENTITY — the keystone: the stored mode at zero IS the pre-C3a
+// anneal, bit for bit. `GG-PIN-OFF-IDENTITY`'s three-arm shape, on a CAST.
+//
+// It has to be a cast and not the bicrystal, and the probe that built this gate
+// is why: on a flat front the plain anneal moves exactly zero voxels, so two
+// arms would compare equal because neither did anything — the vacuous pass
+// lessons.md opens with. On a cast the plain anneal flips tens of thousands of
+// voxels, and the liveness clauses below say so out loud.
+//
+// The mode selector is `hOn`, never `work > 0`: arm B runs the STORED pipeline,
+// through the stored bind-group layout, with binding 5 claimed and `H.rec`
+// written every sweep — and must still come out element-exact. An off-arm built
+// from `work === 0` would run the pre-C3a path and prove nothing.
+{
+  const out = await page.evaluate(async () => {
+    const S = window.__solidify;
+    // Cast ONCE and restore the snapshot into every arm.
+    //
+    // Not defensiveness: `cast3`'s freeze loop stops on a stats-poll threshold,
+    // so it is wall-clock sensitive and two successive casts are NOT the same
+    // specimen (the same wobble the C2 ledger records for GG3-KMC). Re-casting
+    // per arm made this gate's first run read 587053 vs 587074 flips — arms that
+    // differ by their CAST cannot witness anything about the kernel. `anneal`
+    // never writes state, φ, T or age, so restoring the grain field alone is
+    // enough to make the arms genuinely identical, and the quaternion table is
+    // left untouched precisely because reset() would rewrite it.
+    const s3 = S.sim3d();
+    await window.__ht3.cast3(2600, 0);
+    const snap = await s3.readGrainVolume();
+    const n = s3.n;
+    const restore = () => {
+      for (const dir of [0, 1]) {
+        s3.device.queue.writeTexture({ texture: s3.grainTexture(dir) }, snap,
+          { bytesPerRow: n * 4, rowsPerImage: n }, [n, n, n]);
+      }
+    };
+    const arm = async (setup) => {
+      restore();
+      setup(s3);
+      await s3.anneal(60);
+      const post = await s3.readGrainVolume();
+      let flips = 0;
+      for (let i = 0; i < snap.length; i++) if (snap[i] !== post[i]) flips++;
+      return { post, flips, on: s3.storedOn };
+    };
+    const a = await arm(s => { s.deposit(0); s.clearStored(); });  // pre-C3a path
+    const b = await arm(s => s.deposit(0));        // stored pipeline, zero field
+    const c = await arm(s => s.deposit(6));        // the mode ON
+    let identical = a.post.length === b.post.length;
+    if (identical) for (let i = 0; i < a.post.length; i++) {
+      if (a.post[i] !== b.post[i]) { identical = false; break; }
+    }
+    let diffOn = 0;
+    for (let i = 0; i < a.post.length; i++) if (a.post[i] !== c.post[i]) diffOn++;
+    return {
+      identical, diffOn, voxels: a.post.length,
+      flipsPlain: a.flips, flipsZero: b.flips, flipsOn: c.flips,
+      onPlain: a.on, onZero: b.on, onOn: c.on,
+    };
+  });
+  const ok = out.identical
+    && out.flipsPlain > 0 && out.flipsZero > 0   // liveness on BOTH identity arms
+    && out.onZero === true                        // arm B really ran the new path
+    && out.onPlain === false
+    && out.diffOn > 0;                            // and the mode ON does something
+  check("HT3-SE-OFF-IDENTITY", ok, out);
+}
+
+// HT3-SE-UNIFORM-INERT — the gate a zero-arm identity cannot be.
+//
+// dE_stored = H(cand) − H(mine), so a UNIFORM field must change nothing: every
+// difference is zero however large the field is. That makes it the one assertion
+// here that can catch a coupling which is wrong in a way that cancels at zero —
+// `−H(mine)` alone, `abs(ΔH)`, a clamp, a rescale, or `rec` applied to one side
+// — every one of which passes HT3-SE-OFF-IDENTITY and still moves boundaries
+// plausibly enough to look like grain growth.
+//
+// It also turns "a uniform stored-energy field is inert" from an argument in a
+// docblock into a measurement, for the cost of one arm.
+{
+  const out = await page.evaluate(async () => {
+    const S = window.__solidify, s3 = S.sim3d();
+    // one cast, restored into both arms — same reason as HT3-SE-OFF-IDENTITY
+    await window.__ht3.cast3(2600, 0);
+    const snap = await s3.readGrainVolume();
+    const n = s3.n;
+    const arm = async (h) => {
+      for (const dir of [0, 1]) {
+        s3.device.queue.writeTexture({ texture: s3.grainTexture(dir) }, snap,
+          { bytesPerRow: n * 4, rowsPerImage: n }, [n, n, n]);
+      }
+      // every id the same non-zero value — deliberately not `deposit`, whose
+      // whole job is to make the field NON-uniform
+      for (let id = 0; id < 4096; id++) s3.setStored(id, h);
+      await s3.anneal(60);
+      const post = await s3.readGrainVolume();
+      let flips = 0;
+      for (let i = 0; i < snap.length; i++) if (snap[i] !== post[i]) flips++;
+      return { post, flips };
+    };
+    const zero = await arm(0);
+    const flat = await arm(6);
+    let identical = zero.post.length === flat.post.length;
+    if (identical) for (let i = 0; i < zero.post.length; i++) {
+      if (zero.post[i] !== flat.post[i]) { identical = false; break; }
+    }
+    return { identical, flipsZero: zero.flips, flipsFlat: flat.flips, voxels: zero.post.length };
+  });
+  const ok = out.identical && out.flipsZero > 0 && out.flipsFlat > 0;
+  check("HT3-SE-UNIFORM-INERT", ok, out);
+}
+
+// HT3-SE-COHERENCE — MC3-COHERENCE's invariant set, re-asserted on the kernel
+// that changed, plus the runtime witness that NOTHING ON THE GPU WRITES H.
+//
+// The buffer is bound `read`, and SE-STRUCTURE asserts that as text; this reads
+// it back off the device and holds it element-exact against the CPU mirror,
+// which is the claim the per-grain design actually rests on.
+{
+  const out = await page.evaluate(async () => {
+    const S = window.__solidify, s3 = S.sim3d();
+    const PORE = 4095;
+    await window.__ht3.cast3(2600, 0);
+    s3.deposit(6);
+    const before = await s3.readGrainVolume();
+    const phiB = await s3.readPhiVolume();
+    const dirBefore = s3.dir;
+    await s3.anneal(4);
+    const after = await s3.readGrainVolume();
+    const phiA = await s3.readPhiVolume();
+    const ids = new Set(before);
+    let changed = 0, invented = 0, zeroed = 0, movedLiquid = 0, movedPore = 0;
+    for (let i = 0; i < before.length; i++) {
+      const a = before[i], b = after[i];
+      if (a !== b) {
+        changed++;
+        if (b === 0) zeroed++;
+        if (!ids.has(b)) invented++;
+        if (phiB[i] < 0.5) movedLiquid++;
+        if (a === PORE) movedPore++;
+      }
+    }
+    let phiDiff = 0;
+    for (let i = 0; i < phiB.length; i++) if (phiB[i] !== phiA[i]) { phiDiff++; if (phiDiff > 4) break; }
+    const back = await s3.readStored();
+    const cpu = s3.storedCPU();
+    let hMismatch = back ? 0 : -1;
+    if (back) for (let i = 0; i < back.length; i++) if (back[i] !== cpu[i]) hMismatch++;
+    return {
+      changed, invented, zeroed, movedLiquid, movedPore, phiDiff,
+      dirBefore, dirAfter: s3.dir, voxels: before.length,
+      hMismatch, hLiquid: cpu[0], hPore: cpu[PORE], hSpread: Math.max(...cpu) > 0,
+    };
+  });
+  const ok = out.changed > 0 && out.invented === 0 && out.zeroed === 0
+    && out.movedLiquid === 0 && out.movedPore === 0 && out.phiDiff === 0
+    && out.dirBefore === out.dirAfter
+    && out.hMismatch === 0            // the GPU never wrote H
+    && out.hLiquid === 0 && out.hPore === 0   // id 0 and the pore slot stay clean
+    && out.hSpread === true;          // and the deposit actually deposited
+  check("HT3-SE-COHERENCE", ok, out);
+}
+
+// ---------------------------------------------------------------------------
 // HT-TWIN-SIGMA3 — annealing twins are real crystallography or they are noise.
 //
 // Copper cast, plate-nucleation events interleaved with sweeps (the
