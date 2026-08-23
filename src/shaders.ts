@@ -750,10 +750,14 @@ export const H2U = {
                   //   shader ever read: 2D wrote a literal 0 from both call sites and 3D's
                   //   writer skipped the slot entirely, so byte 20 was permanently zero in
                   //   both dimensions. Reusing it is what keeps `BYTES` at 32 — and BYTES is
-                  //   the declared binding size at four sites (sim.ts:360, :374,
-                  //   sim3d.ts:1228, :1240), so a ninth slot would round the struct 32 → 48
+                  //   the declared binding size wherever an HT bind group names this buffer
+                  //   (grep `size: H2U.BYTES` — two sites per dimension, one for the mask pass
+                  //   and one for the anneal), so a ninth slot would round the struct 32 → 48
                   //   and re-open postmortem #1, where a struct outgrew its binding and every
-                  //   readback through it silently returned zeros.
+                  //   readback through it silently returned zeros. `SE-STRUCTURE` pins
+                  //   `H2U.BYTES === 32` for that reason. Line numbers are deliberately not
+                  //   cited: the four they used to name had already drifted onto unrelated
+                  //   code by the end of this milestone.
   idFloor: 6,     // u32: GPU twin ids stay above this (3D; 2D leaves it 0)
   pinF: 7,        // f32: Zener particle fraction (v7.0 C2 — 0 = the pre-C2 anneal)
   BYTES: 32,

@@ -1027,8 +1027,11 @@ ${stored ? `      // A voxel that adopts \`cand\` adopts cand's stored energy wi
  * but both NEGATIVE tests would pass vacuously against the string "undefined" —
  * the exact shape `lessons.md` records under "a truthiness test on a property
  * lookup is not a membership test". `SE-STRUCTURE` additionally pins this text
- * by hash, so a refactor that hoists the stored branch out of the template
- * cannot land quietly.
+ * by CONTENT — it requires the acceptance line verbatim and requires no `hs`,
+ * `H.rec` or `hOf(` to appear anywhere in it — so a refactor that let the stored
+ * branch leak into the plain variant fails there. It is not a hash: a hash would
+ * fail on every comment edit, and a gate that cries wolf on comments is a gate
+ * someone deletes.
  */
 export const ANNEAL3_WGSL = anneal3Wgsl(false);
 

@@ -470,44 +470,65 @@ export const ZENER_F_EXP = 0.356;
  * A voxel on a flat {100} boundary sees 26 neighbours: 9 across the interface,
  * 17 on its own side. Adopting the neighbouring grain swaps those counts, so
  * the boundary term of a flat-front advance is eNow = 9 → eNew = 17, i.e.
- * ΔE = +8. At the shipped kT = 0.6 that costs exp(−8/0.6) ≈ 1.7e−6 per attempt:
- * a flat front in this model is very nearly immobile, and coarsening proceeds at
- * kinks and curvature instead. That is the lattice pinning `HT_KT_DEFAULT`'s
- * docblock warns about, quantified.
+ * ΔE = +8. At the shipped kT = 0.6 that costs exp(−8/0.6) ≈ 1.62e−6 per
+ * attempt: a flat front in this model is very nearly immobile, and coarsening
+ * proceeds at kinks and curvature instead. That is the lattice pinning
+ * `HT_KT_DEFAULT`'s docblock warns about, quantified. `HT3-SE-FRONT` enumerates
+ * the +8 from the same 26 offsets in JS, independently of the shader, and
+ * requires this constant to BE the counted number.
  *
- * It matters here because it is the scale a stored-energy drive must be read
- * against, and the prediction it makes is sharp: at ΔH = 8 exactly the flat-front
- * move becomes energy-NEUTRAL, and this kernel takes flat moves unconditionally
- * — so the front should advance at the rate its candidate draw offers it, which
- * for a flat {100} front is the 9 unlike neighbours out of 26, i.e. 9/26 = 0.346
- * cells per sweep. **Measured on the bicrystal at 128³ over 60 sweeps: 0.3251,
- * 6 % under.** The stencil count and the GPU are two independent witnesses.
+ * It matters here because it is the SCALE a stored-energy drive has to be read
+ * against. What it is not is a threshold the measured ladder shows — and the
+ * first version of this docblock claimed it was, on numbers that do not
+ * reproduce. Measured on the bicrystal at 128³ over a 5-sweep window
+ * (deterministic: three repeats identical to four figures):
  *
- * The measured ladder, at 60 sweeps on the bicrystal at 128³:
+ *   ΔH   0   1   2   3   4      5      6      7      8      9      10     13     20
+ *   v   0.0 0.0 0.0 0.0 0.0003 0.0142 0.1524 0.2173 0.3170 0.3380 0.3614 0.4330 0.5827
  *
- *   ΔH    0     2     2.5    3      3.5    4      5      6     7     8      10    13    20
- *   v    0.0   0.0   0.0   0.0001  0.004  0.0215 0.0742 0.183 0.243 0.3251 0.394 0.466 0.726
+ * Three things that ladder says, each of which a "threshold at 8" story gets
+ * wrong in a different direction.
  *
- * Three things that ladder says and a "threshold at 8" story would get wrong.
+ * **The onset sits near 5–6, not 8.** The exponential regime ends there: 4 → 5
+ * is ×47 and 5 → 6 is ×11, but 6 → 7 is only ×1.4, where a pure Boltzmann tail
+ * at kT = 0.6 would keep multiplying by exp(1/0.6) ≈ 5.3 the whole way to 8. A
+ * front that has begun to move is no longer flat, and a kink carries a lower
+ * barrier than the flat face — so +8 is an upper bound on the barrier that
+ * actually gates migration, not a measurement of it.
  *
- * **The onset is a smooth Boltzmann tail, not a knee** — motion is already
- * resolvable at ΔH = 3 because kT = 0.6 buys sub-barrier moves, so there is no
- * sharp unpinning value to name and this file does not name one.
+ * **The zeros are small numbers, not exact ones.** A sub-barrier move costs
+ * exp(−(8 − ΔH)/kT), so over the gate's window on 128² boundary cells the
+ * EXPECTED count is a fraction of a flip at ΔH = 0 and about one at ΔH = 2 —
+ * Poisson, and runs of the gate on identical code have read both 0 and 2.
+ * Anything asserting `v === 0` here is a flake with a physical explanation,
+ * which is why `HT3-SE-FRONT` asserts the SEPARATION — creep three orders below
+ * the neutral-point rate — instead.
  *
- * **The zeros in that table are small numbers, not exact ones.** A sub-barrier
- * move costs exp(−(8−ΔH)/kT), so over a 40-sweep window on 128² boundary cells
- * the EXPECTED count is ~0.4 flips at ΔH = 0 and ~10 at ΔH = 2 — Poisson, and
- * two runs of the gate on identical code read (0, 0) and (0, 2). Anything
- * asserting `v === 0` here is a flake with a physical explanation, which is why
- * `HT3-SE-FRONT` asserts the SEPARATION (creep three orders below the
- * neutral-point rate) instead.
+ * **The neutral-point velocity BRACKETS 9/26 rather than confirming it.** At
+ * ΔH = 8 the flat move is energy-neutral and this kernel takes flat moves
+ * unconditionally, so a perfectly flat front would advance at its candidate
+ * draw: 9 unlike neighbours of 26, 0.3462 cells/sweep. The measurement runs
+ * above that in the first sweep and below it after, and neither departure is
+ * noise — both have named causes:
  *
- * And **v keeps climbing past 9/26 above ΔH = 8** (0.726 at 20), because a front
- * that is moving is no longer flat: roughening raises the unlike-neighbour count
- * and with it the draw. 9/26 is the FLAT front's number and is quoted as that.
- * So the gate holds monotonicity, direction and the v ≤ 1 ceiling, and REPORTS
- * the 8 ↔ 9/26 agreement rather than asserting an equality roughening makes
- * approximate.
+ *   window (sweeps)   1      2      3      5      40     60
+ *   v at ΔH = 8      0.3918 0.3545 0.3205 0.3170 0.2438 0.2137
+ *
+ * ABOVE, because a sweep is EIGHT sequential sublattice passes: the front
+ * roughens inside its own first sweep, and the later colours see a raised
+ * unlike-neighbour count. BELOW, because recovery is LIVE — `setStored` turns
+ * the stored mode on and `anneal` then banks `HT_RECOVER_3D` every sweep, so by
+ * sweep 60 a nominal ΔH = 8 has decayed to an effective 5.4. There is no
+ * recovery-free arm to measure against: recovery is intrinsic to the stored
+ * mode, and a ladder labelled "static" was the error the first cut made.
+ *
+ * So what this constant earns is the scale, and the gate asserts the scale
+ * rather than an equality that two named effects make approximate. The ladder
+ * brackets the barrier from BOTH sides, which is the part that has teeth: a
+ * barrier of 10 would make ΔH = 8 uphill by 2 and put v(8) near
+ * 0.3462·exp(−2/0.6) ≈ 0.012, thirty times under what is measured; a barrier of
+ * 6 would make ΔH = 6 the neutral point and put v(6) near the full draw, seven
+ * times over the measured 0.152. Both are gated.
  *
  * 3D-only by construction: the 2D kernel's Moore-8 stencil gives 3 → 5, a
  * barrier of +2, and borrowing a number across a stencil change is the mistake
@@ -535,24 +556,80 @@ export const H_FLAT_3D = 8;
  * the furnace enters through the sweep count and never through this number.
  * `HT-TEMP-SENSITIVITY` is what holds that line.
  *
- * **The value is chosen, then measured, and the measurement is the provenance.**
- * Driven from ΔH₀ = 20 on the bicrystal at 128³, the front's velocity per
- * 100-sweep window and the effective drive H_S = 20/(1 + rec·20) ran:
+ * Recovery is INTRINSIC to the stored mode — `hOn` gates the kernel and the
+ * ordinate together, and there is no arm that runs one without the other. That
+ * is worth stating because it confounds anything measured over a long window:
+ * see `H_FLAT_3D`, where the same fixture's ΔH = 8 rung falls from 0.3918 to
+ * 0.2137 between a 1-sweep and a 60-sweep window for this reason alone.
+ *
+ * **The value is chosen, then measured.** Driven from ΔH₀ = 20 on the bicrystal
+ * at 128³, per 100-sweep window:
  *
  *   S      100     200     300     400     500     600     700     800
  *   v     0.3996  0.1050  0.0144  0.0053  0.0033  0.0022  0.0003  0.0000
  *   H_S    6.67    4.00    2.86    2.22    1.82    1.54    1.33    1.18
  *
- * The front stalls DEAD by 800 sweeps, at H_S = 1.18 — inside the band the
- * static ladder (`H_FLAT_3D`'s docblock) measured immobile, and comfortably
- * inside `SWEEP_CAP_3D = 2000` so a panel-legal treatment can reach it. The
- * cross-check that makes this a measurement rather than a restatement: each
- * window's velocity falls between the STATIC ladder's velocities at that
- * window's H_S endpoints — two different experiments, one agreeing answer, and
- * recovery applied per-colour, applied twice, or sign-flipped would each break
- * the correspondence while still producing a monotone decay.
+ * The front stops by 800 sweeps at H_S = 1.18 — inside the band `H_FLAT_3D`'s
+ * ladder measures immobile, and comfortably inside `SWEEP_CAP_3D = 2000` so a
+ * panel-legal treatment can reach it. `HT3-SE-RECOVERY-STALL` asserts exactly
+ * that relation, against an immobile band the FRONT gate measures in the same
+ * run rather than against a number written here.
+ *
+ * **A correspondence this docblock used to claim, retracted.** It said each
+ * window's velocity falls between the static ladder's velocities at that
+ * window's H_S endpoints. It does not: windows 300 through 700 read 0.0144 down
+ * to 0.0003 where the flat-front ladder reads 0.0000 at the same drives, one to
+ * two orders out. The cause is not an error in either measurement — it is that a
+ * front which has been migrating for hundreds of sweeps is ROUGH, and a rough
+ * front moves at drives a flat one cannot, which is the same effect that puts
+ * the ladder's own onset near 5–6 instead of 8. Two experiments that differ in
+ * front morphology cannot bracket each other window by window, and claiming they
+ * did made a real result look like a stronger one.
  */
 export const HT_RECOVER_3D = 1e-3;
+
+/**
+ * Recovery's closed form, shared by the shader and the report card.
+ *
+ * `dH/dS = −k·H²` integrates to exactly this, and `rec` is the accumulated
+ * ordinate `HT_RECOVER_3D · S` — the one number the uniform carries. Exported
+ * so the panel can print what the sweeps did to the drive WITHOUT importing the
+ * rate: `HT-TEMP-SENSITIVITY` requires the panel — which owns every °C in this
+ * app — to be unable to reach either dimensionless lattice knob, and a helper it
+ * can call is how that line stays drawn while the card still tells the truth.
+ * The WGSL inside `anneal3Wgsl` is this same expression, and `SE-STRUCTURE`
+ * holds the two against each other rather than trusting they were kept in step.
+ *
+ * No clamp, and none needed: for h ≥ 0 and rec ≥ 0 the result is ≥ 0, ≤ h, and
+ * strictly decreasing in rec.
+ */
+export function recovered(h: number, rec: number): number {
+  return h / (1 + rec * h);
+}
+
+/**
+ * The MEAN of the recovered field, for a deposit spread uniform on [0, 2·work].
+ *
+ * `recovered()` is concave, so `recovered(mean)` is not the mean of the
+ * recovered field — it is strictly larger by Jensen, and at a treatment's worth
+ * of sweeps the gap is over 10 %. The report card names its number as what
+ * recovery did to the deposited MEAN, so it has to be this one: printing
+ * `recovered(4.0, 0.5) = 1.33` where the field's mean is 1.195 overstates the
+ * surviving drive, in the row whose whole point is comparing how the mean falls
+ * against how the spread narrows.
+ *
+ * Closed form: (1/2w)∫₀^{2w} h/(1 + r·h) dh = 1/r − ln(1 + 2rw)/(2wr²). The
+ * small-r branch is not defensiveness — the expression is 0/0 there, and a
+ * treatment that delivers no sweeps reaches it with rec exactly 0. Its limit is
+ * the deposited mean itself, which is also what it must be physically: no
+ * sweeps, no recovery. `SE-STRUCTURE` holds the closed form against numeric
+ * quadrature over the same interval.
+ */
+export function recoveredMeanUniform(work: number, rec: number): number {
+  const w = Math.max(0, work);
+  if (!(rec > 0) || 2 * rec * w < 1e-6) return w;
+  return 1 / rec - Math.log(1 + 2 * rec * w) / (2 * w * rec * rec);
+}
 
 /** the measured pinned limit, in cells — Infinity when the dispersion is off
  *  (f ≤ 0 or r < 1), so `min(law, limit)` degrades to the unpinned law */

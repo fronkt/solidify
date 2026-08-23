@@ -519,9 +519,41 @@ const CU = M.MATERIALS.cu.si;
   // 3D-only: the plane's anneal has no stored term, and still has its own dE
   const twoD = /let dE = /.test(SH.ANNEAL_WGSL) && !/\bhs\b|H\.rec|hOf\(/.test(SH.ANNEAL_WGSL);
 
-  check("SE-STRUCTURE", plainLive && plainClean && binds && readOnly && accept && struct && twoD,
-    { plainLive, plainClean, binds, readOnly, accept, struct, twoD,
-      BYTES: SH.H2U.BYTES, recSlot: SH.H2U.rec, storedChars: stored.length - plain.length });
+  // 6. one closed form, three consumers. `hOf` evaluates it in the shader,
+  //    `recovered()` is what the report card prints, and `recoveredMeanUniform`
+  //    is what the card prints for the deposited MEAN.
+  //
+  //    The 1.18 below is NOT an independent measurement and is not labelled as
+  //    one: H_S = 20/(1 + 0.8·20) is this same closed form on this same
+  //    constant, so the clause pins the ALGEBRA and the shipped rate jointly —
+  //    rewrite the law as first-order, or move HT_RECOVER_3D, and it fails —
+  //    but it cannot corroborate either. The docblock's 1.18 is where a
+  //    MEASURED front was observed to stop, and the gate that checks THAT
+  //    against something else is HT3-SE-RECOVERY-STALL, on a GPU.
+  //
+  //    `recoveredMeanUniform` is different: its closed form is checked against
+  //    numeric quadrature of the same integral, which is a genuinely separate
+  //    computation, and against the Jensen inequality that motivates it.
+  const stall = H.recovered(20, H.HT_RECOVER_3D * 800);
+  const quad = (w, r) => {
+    let acc = 0; const N = 20000;
+    for (let i = 0; i < N; i++) { const h = 2 * w * (i + 0.5) / N; acc += h / (1 + r * h); }
+    return acc / N;
+  };
+  const meanOK = [[4, 0.5], [6, 0.09], [10, 0.002]].every(([w, r]) =>
+    Math.abs(H.recoveredMeanUniform(w, r) - quad(w, r)) / quad(w, r) < 1e-6
+    && H.recoveredMeanUniform(w, r) < H.recovered(w, r));   // strictly, by Jensen
+  const closedForm = Math.abs(stall - 20 / (1 + H.HT_RECOVER_3D * 800 * 20)) < 1e-12
+    && Math.abs(stall - 1.18) < 0.005
+    && H.recovered(20, 0) === 20 && H.recovered(0, 5) === 0
+    && H.recovered(20, 1) < H.recovered(20, 0.5) && H.recovered(20, 1) > 0
+    && H.recoveredMeanUniform(4, 0) === 4 && meanOK;
+
+  check("SE-STRUCTURE", plainLive && plainClean && binds && readOnly && accept && struct && twoD && closedForm,
+    { plainLive, plainClean, binds, readOnly, accept, struct, twoD, closedForm,
+      stallAt800: +stall.toFixed(3), measured: 1.18,
+      BYTES: SH.H2U.BYTES, recSlot: SH.H2U.rec, storedChars: stored.length - plain.length,
+      meanVsRecoveredAt4x0p5: [+H.recoveredMeanUniform(4, 0.5).toFixed(4), +H.recovered(4, 0.5).toFixed(4)] });
 }
 
 // HT-TEMP-SENSITIVITY (v7.0 C3a) — the furnace enters through the sweep count,
@@ -535,13 +567,25 @@ const CU = M.MATERIALS.cu.si;
 //
 // The claim, stated so it can fail: two schedules that differ ONLY in hold
 // temperature must drive the model differently — that is the liveness half, and
-// it fails if the temperature -> sweeps path ever breaks — while the two
-// numerical lattice constants they drive it THROUGH stay byte-identical. The
-// sharp form is the ratio: recovery banked over a treatment is HT_RECOVER_3D x
-// the sweeps it bought, so rec(hot)/rec(cold) must equal sweeps(hot)/sweeps(cold)
-// EXACTLY. Make either knob a function of temperature — the physically tempting
-// edit, since real recovery is thermally activated — and that equality breaks
-// while every other number in this file still looks right.
+// it fails if the temperature -> sweeps path ever breaks — while the two knobs
+// they drive it THROUGH, the shipped kT and HT_RECOVER_3D, stay byte-identical.
+//
+// The second half is STRUCTURAL, and deliberately so. An earlier cut asserted a
+// "sharp form": rec(hot)/rec(cold) === sweeps(hot)/sweeps(cold), float-exact.
+// That clause was worth nothing and cost something. Worth nothing, because both
+// sides were this script's own `HT_RECOVER_3D * s` lambda — no value the model
+// produced was ever read, so the thermally-activated edit it advertised
+// catching (multiplying the accumulator in sim3d.ts by f(T)) left it true. Cost
+// something, because (k*a)/(k*b) === a/b is not an IEEE identity: it holds at
+// the shipped constant by luck and fails for roughly a third of nearby values,
+// so any legal retune of the rate, of K_MC_3D, of a ramp, or of this gate's own
+// schedule turns CI red with a message naming the wrong culprit.
+//
+// What actually catches the tempting edit is the text: the accumulator line and
+// the per-sweep line must be EXACTLY the rate times a sweep count, and the rate
+// must appear nowhere else in sim3d.ts but those two lines and its import. Add
+// an f(T) factor to either and the regex stops matching; add a third use and the
+// count check fails.
 {
   const { readFileSync } = await import("node:fs");
   const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
@@ -562,10 +606,7 @@ const CU = M.MATERIALS.cu.si;
   // liveness: 120 °C of furnace has to MOVE the model, or this gate is testing
   // nothing but two constants against themselves
   const enters = hot > cold * 2 && cold > 0 && Number.isFinite(hot);
-  // and it enters only here: recovery is HT_RECOVER_3D x sweeps, so its ratio
-  // between the two schedules is the SWEEP ratio, to the last bit
   const rec = (s) => H.HT_RECOVER_3D * s;
-  const ratioExact = rec(hot) / rec(cold) === hot / cold;
   // both knobs are plain numbers, declared as literals — not getters, not
   // functions of anything
   const literals = typeof SH.HT_KT_DEFAULT === "number" && typeof H.HT_RECOVER_3D === "number"
@@ -576,17 +617,31 @@ const CU = M.MATERIALS.cu.si;
   // only kT this app ever anneals at), and the recovery the volume banks is a
   // function of DELIVERED SWEEPS with no other term in it
   const main = src("src/main.ts"), s3 = src("src/sim3d.ts");
+  // Comments stripped before counting, for the reason `panelClean` strips them
+  // below: this repository's docblocks name constants they must not call, and
+  // `writeHt`'s explains what happens at `HT_RECOVER_3D = 0`. Three uses in the
+  // CODE and no more — the import, the per-sweep ordinate, and the accumulator.
+  // A fourth is a factor that came from somewhere.
+  const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+  const recUses = (strip(s3).match(/HT_RECOVER_3D/g) ?? []).length;
   const wiring = /sim3d\.anneal\(sweeps, undefined,/.test(main) && /sim\.anneal\(sweeps, undefined,/.test(main)
     && /s3\.anneal\(share, undefined,/.test(main)
     && /this\.recAcc \+= HT_RECOVER_3D \* delivered;/.test(s3)
-    && /HT_RECOVER_3D \* \(s \+ 1\)/.test(s3);
-  // …and neither knob is reachable from a temperature: heatpanel owns every °C
-  // in this app and must not import, mention or forward either one
+    && /HT_RECOVER_3D \* \(s \+ 1\)/.test(s3)
+    && recUses === 3;
+  // …and neither knob is REACHABLE from a temperature: heatpanel owns every °C
+  // in this app, and must not import or name either one as an identifier. The
+  // comments are stripped before the test on purpose — this repository's
+  // docblocks cross-reference constants they must not call, and a gate that
+  // banned the mention along with the use would be a gate someone deletes the
+  // first time they write an honest comment. What survives the strip is code.
   const panel = src("src/heatpanel.ts");
-  const panelClean = /this\.tC/.test(panel) && !/HT_KT_DEFAULT|HT_RECOVER_3D/.test(panel);
+  const code = strip(panel);
+  const panelClean = /this\.tC/.test(code) && !/HT_KT_DEFAULT|HT_RECOVER_3D/.test(code)
+    && /HT_RECOVER_3D/.test(panel);   // liveness: the strip must not have eaten the file
 
-  check("HT-TEMP-SENSITIVITY", enters && ratioExact && literals && wiring && panelClean, {
-    enters, ratioExact, literals, wiring, panelClean,
+  check("HT-TEMP-SENSITIVITY", enters && literals && wiring && panelClean, {
+    enters, literals, wiring, panelClean, recUsesInSim3d: recUses,
     sweeps: { cold: +cold.toFixed(1), hot: +hot.toFixed(1) },
     rec: { cold: +rec(cold).toFixed(6), hot: +rec(hot).toFixed(6) },
     kT: SH.HT_KT_DEFAULT, recRate: H.HT_RECOVER_3D,

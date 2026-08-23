@@ -526,3 +526,135 @@ false claim about precision.
 spread actually observed. Quoted measurements are a sample; the claim is about the
 population.
 
+
+## `git checkout --` is a delete, and a working tree is not a backup
+
+Falsifying two new CI gates meant breaking the source, running, and restoring. The
+restore was written `git checkout -- src/sim3d.ts 2>/dev/null || cp "$SP/sim3d.bak" ...`
+— a fallback to a backup that had never been created, behind a command that reverts
+to **HEAD**. It ran, it succeeded, and it silently discarded 188 lines of uncommitted
+C3a work: the per-grain buffer, `deposit`, `setStored`, `clearStored`, `readStored`,
+the second pipeline and every bind group. Nothing warned, because from git's point of
+view discarding uncommitted changes is exactly what was asked for.
+
+It was recoverable only because the full `git diff` for that file had been printed
+into the session earlier and could be replayed as a patch — luck, not a procedure.
+
+**Rule.** Never restore a file with uncommitted work using `git checkout --`, `git
+restore`, `git stash` or `git reset`; copy the file aside first and copy it back. And
+commit before deliberately breaking anything: a falsification pass is the one moment
+you are guaranteed to be running destructive commands against a dirty tree.
+
+## A liveness clause needs a witness that can vary
+
+`HT3-SE-SELECTION` pours three casts at three seeds and asserts they are three
+different specimens. The first clause for that was `new Set(reps.map(r => r.grains)).size > 1`
+— and it failed on a correct build, because the fixture seeds exactly 2600 grains and
+freezes fully, so every pour reports 2600 whatever the seed. The clause meant to prove
+the replicates differ could only ever have proved the helper is deterministic.
+
+An FNV walk over the grain-id volume answers it directly, and printed three distinct
+fingerprints on the first run.
+
+**Rule.** Before shipping a liveness clause, ask what values the quantity can take on
+a *correct* build. If the answer is one value, the clause is a constant with an
+assertion wrapped round it, and it will fail — or worse, pass — for reasons unrelated
+to the thing it names.
+
+## A docblock's summary line is a claim, and it goes stale first
+
+`HT3-SE-FRONT`'s opening paragraph said "what is ASSERTED is … the exact zeros below
+threshold". Thirty lines below it, the code asserted a three-order separation and a
+comment explained at length why an exact zero here is a Poisson draw and would flake.
+The summary was true of the gate's first draft; the fix landed in the assertion and
+the comment beside it, and never travelled back up.
+
+The same audit found the sibling gate had the opposite problem — `HT3-SE-RECOVERY-STALL`
+really did assert `v === 0`, on the same Poisson quantity, at a residual that reads
+zero about nineteen runs in twenty.
+
+**Rule.** When an assertion changes, re-read the block's opening summary in the same
+edit. A file that explains itself twice, at two levels of detail, has two places to be
+wrong — and the summary is the one a reader trusts without checking.
+
+## A revert has to be checked on the surface that owns the state
+
+`HT3-SE-PANEL` drove the cold-work dial up, ran a treatment, dialled it back to
+zero, and asserted the endpoint sentence came back. It did. The gate was green on
+a build where dialling to zero did not turn the mode off at all: the selector
+lives in `Sim3D.hOn`, `run()` deposited only under `if (plan.work)`, and with no
+`else` the next treatment ran the stored kernel on a field the operator had
+dialled away — while the note printed a law endpoint and the card omitted the
+cold-work row, because `plan.work` was undefined. Every printed sentence
+described an undriven run that had not happened.
+
+The note is the one surface that never touches the solver, so it was the one
+surface that could not see this. The fix to the gate was to RUN AGAIN after the
+revert and read `storedOn` off the sim.
+
+**Rule.** When a control turns a mode off, assert it against the thing that holds
+the mode, not against the text that describes it — and exercise the path once
+more afterwards. A revert verified only by re-reading a label tests the label.
+
+## A falsification arm that fails for its own reason has proved nothing
+
+Re-introducing that bug did make `HT3-SE-PANEL` fail — with `rearmed: false`. The
+second treatment had never started: the first run left the specimen at 40 µm on a
+125 µm cube, where the domain limit refuses anything warm, so the run button
+stayed disabled and the gate failed on a precondition rather than on the defect.
+It would have failed identically on a correct build. Re-casting was not the fix
+either — `reset()` clears the stored field, which is exactly what the arm exists
+to catch. A dial-floor near-noop second schedule was.
+
+**Rule.** A falsification is only evidence if the gate fails on the CLAUSE you
+broke. Read which clause reported, not just whether the gate went red.
+
+## A fixture that switches a mode on has measured that mode
+
+The bicrystal ladder that both stored-energy constants are documented against
+calls `setStored`, and `setStored` sets `hOn` — the flag that turns the stored
+kernel on *and* starts recovery banking every sweep. So the "static" ladder was
+never static: the same ΔH = 8 rung reads 0.3918, 0.3170 and 0.2137 at 1, 5 and 60
+sweeps, purely because the drive decays across the window. The docblock's number
+had been taken before recovery was wired at all, and no longer reproduced.
+
+Everything downstream inherited it: a "two independent witnesses" claim about
+9/26, a knee placed at 8 instead of 5–6, and a window-by-window correspondence
+between two experiments that is flatly false — all of it in four documents.
+
+**Rule.** Before quoting a fixture's number, list what the fixture turned on.
+A helper named for what you are measuring will happily enable something else on
+the way, and a ladder labelled by its nominal x-axis is not measured at that
+x-axis unless nothing moves it during the window.
+
+## Two experiments only cross-check if they differ in one thing
+
+The recovering front and the static ladder were presented as bracketing each
+other window by window. They cannot: one front has been migrating for hundreds of
+sweeps and is rough, the other starts flat, and a rough front moves at drives a
+flat one cannot — which is the same reason the ladder's knee is at 5–6 and not at
+the flat-front barrier of 8. The two runs differ in morphology as well as in
+drive, so agreement between them was never predicted by anything.
+
+What replaced it is a relation the gates actually compute: one gate hands the
+other the largest drive its own rungs measured immobile, and the stall is
+required to land inside that band. Same two experiments, one shared quantity.
+
+**Rule.** A cross-check earns its name only when you can say which single
+variable differs. If the two runs differ in a second thing you have not
+controlled, you have two results, not a corroboration — and writing it up as one
+makes a real finding look like a stronger one.
+
+## Assert the run happened before reading what it printed
+
+`HT3-SE-PANEL` clicked the run button, waited, and then checked six regexes
+against the report card. On one run in five the click landed while the button was
+momentarily disabled — the dials set just before it each re-run `plan()`, and the
+panel's 4 Hz census poll lands in the same window — so the treatment never
+started, the card was empty, and all six regexes reported false. Six false
+clauses, none of them the reason.
+
+**Rule.** When a gate drives a UI, assert the action took effect before asserting
+anything about its output, and report that clause separately. A precondition that
+fails silently turns one cause into N symptoms, and the N symptoms are what you
+will spend the afternoon on.

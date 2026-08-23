@@ -969,6 +969,10 @@ export class Sim3D {
    * Id 0 (liquid/unclaimed) and PORE_ID (the shrinkage-pore census slot) are
    * pinned at 0: neither is a grain, and `hOf`'s `min(id, PORE)` clamp sends
    * every out-of-range id to the second of them.
+   *
+   * The recovery ordinate is RE-ZEROED here, which is what makes a treatment
+   * start from the dialled state rather than from the previous run's recovered
+   * one — see `anneal`, where the accumulation it resets is described.
    */
   deposit(work: number): void {
     const w = Math.max(0, work);
@@ -1512,11 +1516,16 @@ export class Sim3D {
       }
     }
     await this.device.queue.onSubmittedWorkDone();
-    // Recovery accumulates ACROSS treatments, by the sweeps actually delivered:
-    // two consecutive holds must recover more than one, and an aborted hold must
-    // only bank what it ran. The furnace enters here exactly as it does
-    // everywhere else in this model — through the sweep count, never through a
-    // temperature (`HT-TEMP-SENSITIVITY`).
+    // Recovery accumulates by the sweeps actually DELIVERED, so an aborted hold
+    // banks only what it ran, and consecutive `anneal` calls that share one
+    // deposit — the chunked path `annealTwins` uses — recover as one treatment
+    // rather than restarting per chunk. It does NOT accumulate across panel
+    // treatments, and the reason is `deposit`, which re-zeroes it: the dial says
+    // how deformed the specimen is when it enters the furnace, so each run
+    // starts from the dialled state rather than from the last run's recovered
+    // one. The furnace enters here exactly as it does everywhere else in this
+    // model — through the sweep count, never through a temperature
+    // (`HT-TEMP-SENSITIVITY`).
     if (this.hOn) this.recAcc += HT_RECOVER_3D * delivered;
     await this.refreshQuats();
     if (delivered === total) onProgress?.(total);

@@ -83,6 +83,10 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   doctrine itself — a spec missed by less than the display's own rounding must judge as met —
   which became gateable here when `fmtMPa`/`shownMPa` moved into pure `heattreat.ts` so the
   furnace card and the lab card share one verdict.
+  v7.0 C3a adds the two browser-free halves of stored energy: `SE-STRUCTURE` (the kernel's text
+  invariants — the stored binding is `read`, and the 2D kernel carries no stored term) and
+  `HT-TEMP-SENSITIVITY` (the furnace enters through the sweep count and nowhere else, so two
+  schedules at different temperatures must give byte-identical kT and recovery rate).
 - **`verify-thermal.mjs`** (browser-free, v6.1) — the cooling-curve analysis against synthetic
   curves with prescribed landmarks: recovery clean and at the readback's real noise, the
   20 Hz→4 Hz resampling identity that fails an index-based derivative, "no arrest" honestly
@@ -539,8 +543,9 @@ this suite. If you want to run the physics/UI verification yourself, do it local
 - **`verify-heattreat-gpu.mjs`** — the measured half of v6.0: puppeteer against real WebGPU,
   because a Monte Carlo Potts pass can look completely right and be completely wrong. The pass
   invariants, the RNG-decorrelation trap, the measured (m, K_MC) pair in both dimensions,
-  homogenization against the discrete stencil eigenvalue, Σ3 annealing twins, and the two
-  end-to-end panel gates `HT-PANEL` / `HT3-PANEL`.
+  homogenization against the discrete stencil eigenvalue, Σ3 annealing twins, the two
+  end-to-end panel gates `HT-PANEL` / `HT3-PANEL`, and v7.0 C3a's seven `HT3-SE-*` gates for the
+  stored-energy field and the strain-induced drive it feeds.
 
 **Physics-behaviour tests (v4.0).** These are the first checks in the suite that assert a
 *physical* relationship rather than a UI one, and they exist because the nucleation model was
@@ -817,6 +822,184 @@ walls already have, and the anneal shaders are untouched. Six gates:
 `HT-SHARE` additionally round-trips the dispersion dials — the ht tuple grew its optional
 tail (temperature, hold, spec, fraction, radius) under the lab-tuple doctrine, and a
 three-element pre-C2 link still restores.
+
+**v7.0 C3a — stored energy and recovery.** Cold work is a PER-GRAIN field — one f32 per grain
+id, 4096 of them, 16 KB in a storage buffer bound `read`, not a per-voxel texture — and the
+reason is an identity rather than an approximation: h(x) ≡ H(id(x)). The only thing the anneal
+kernel does to a voxel is adopt a neighbour's grain id, so it adopts that neighbour's stored
+energy with it, and the identity holds after every flip because it held before. A per-voxel
+field would have been 28.3 MB at 192³, 56.6 MB for the ping-pong pair; the per-grain buffer
+deletes the ping-pong, the lockstep, the parity argument and the out-of-memory refusal path
+along with the texture, and nothing on the GPU ever writes it. The drive is strain-induced
+boundary migration, one term added to the acceptance line — `dE = eNew - eNow` becomes
+`dE = eNew - eNow + (hOf(cand) - hOf(mineId))` — so a voxel adopting `cand` adopts cand's stored
+energy and the move costs their DIFFERENCE, negative when the candidate is the LESS deformed
+grain, which is to say the boundary sweeps INTO the more deformed one. The field is in BOND
+ENERGIES, written `J_b`: this app deliberately has no SI-to-Potts energy bridge — the material
+law sets the endpoint and the measured lattice constants (`M_MODEL_3D`, `K_MC_3D`) spend the
+sweeps — and C3a adds none. Recovery is second-order dislocation annihilation, dH/dS = −k·H²,
+integrated EXACTLY as H_S = H₀/(1 + rec·H₀) with rec = `HT_RECOVER_3D`·S and evaluated in the
+shader from one scalar the uniform already carries: there is no recovery PASS, so recovery
+cannot be applied twice, applied per-colour instead of per-sweep, or land one sweep stale,
+because it is never applied at all — and three properties fall out with no clamp anywhere,
+H_S ≥ 0, H_S ≤ H₀, and H_S strictly decreasing in S. Nine gates:
+
+- **`HT3-SE-OFF-IDENTITY`** — the keystone, `GG-PIN-OFF-IDENTITY`'s idiom on the new mode: a
+  zero-valued field driven through the STORED pipeline and the stored bind-group layout must be
+  bit-identical to the pre-C3a kernel. THREE arms on ONE cast, the grain volume restored into
+  each — the pre-C3a path, the stored pipeline at a zero field, and the mode genuinely on, which
+  is required to DIFFER so the identity cannot be satisfied by a kernel that ignores the field.
+  The mode selector is `hOn` and never `work > 0`: an off-arm built from `work === 0` would run
+  the old path and prove nothing about the new one. Liveness clauses sit beside the identity,
+  because two arms that each did nothing agree perfectly; both flip hundreds of thousands of
+  voxels. The counts themselves are cast-dependent — `cast3`'s freeze loop stops on a
+  wall-clock-sensitive stats poll — so they are reported and not asserted.
+- **`HT3-SE-FRONT`** — the headline, and its anchor is DERIVED rather than fitted. A voxel on a
+  flat {100} boundary sees 26 neighbours, 9 across the interface and 17 on its own side, so
+  adopting the neighbouring grain swaps those counts and the boundary term of the move is
+  ΔE = +8; the gate enumerates that +8 in JS from the same 26 offsets, independently of the
+  shader, and requires the shipped `H_FLAT_3D` to BE the counted number. At the shipped kT = 0.6
+  a flat front costs exp(−8/0.6) ≈ 1.62e-6 per attempt — very nearly immobile, which is why this
+  model coarsens at kinks and curvature instead — and at ΔH = 8 exactly the move is
+  energy-NEUTRAL, this kernel takes flat moves unconditionally, and a FLAT front would advance at
+  whatever its candidate draw offers: 9/26 = 0.3462 cells per sweep. That equality is REPORTED
+  and not gated, because two effects move the measurement off it in opposite directions and
+  neither is noise. A sweep is EIGHT sequential sublattice passes, so the front roughens inside
+  its own first sweep and the later colours see a raised unlike-neighbour count — the one-sweep
+  velocity is 0.3918, ABOVE the draw. And recovery is LIVE throughout: `setStored` turns the
+  stored mode on and `anneal` banks `HT_RECOVER_3D` every sweep, so a nominal ΔH = 8 has decayed
+  to an effective 5.4 by sweep 60 and the velocity falls with window length — 0.3918, 0.3170,
+  0.2137 at 1, 5 and 60 sweeps. There is no recovery-free arm to measure against; recovery is
+  intrinsic to the stored mode, and an earlier version of this entry quoted a "static" ladder
+  that was not one, at numbers that no longer reproduce. The gate measures on a 5-sweep window
+  where the sag is 3.8 %, and asserts direction on the rungs that HAVE one, monotonicity, the
+  v ≤ 1 ceiling, and two BRACKETS that pin the barrier from both sides: v(8) = 0.92·draw, where a
+  barrier of 10 would predict 0.035·draw, and v(6) = 0.44·draw, where a barrier of 6 would
+  predict the full draw. The onset is a smooth Boltzmann tail and its knee sits nearer 5–6 than
+  8 — 4 → 5 is ×47 and 5 → 6 is ×11, but 6 → 7 is only ×1.4 where a pure tail at kT = 0.6 would
+  keep multiplying by 5.3 — because a moving front is a kinked one and a kink is cheaper than the
+  flat face. So 8 is an upper bound on the barrier that gates migration, and no sharp unpinning
+  value is named. And the zeros at the bottom of the ladder are small
+  numbers, not exact ones: a sub-barrier move costs exp(−(8 − ΔH)/kT), so over a 40-sweep window
+  on 128² boundary cells the expected count is ~0.4 flips at ΔH = 0 and ~10 at ΔH = 2 — Poisson,
+  and two runs of the gate on identical code read (0, 0) and (0, 2). The assertion is creep three
+  orders below the neutral-point rate, never `v === 0`.
+- **`HT3-SE-RECOVERY-STALL`** — recovery is real, and it is the closed form. Driven from
+  ΔH₀ = 20 on the bicrystal at 128³, the front's velocity per 100-sweep window runs
+  0.3996 → 0.1050 → 0.0144 and is under a thousandth of its opening value by 800 sweeps, at
+  H_S = 1.18 — inside the band the ladder above measures immobile, and comfortably inside
+  `SWEEP_CAP_3D = 2000`, so a panel-legal treatment can actually reach it. That relation is the
+  gate's cross-check and it is computed rather than quoted: `HT3-SE-FRONT` hands over the largest
+  drive its own ladder measured below the creep floor, in the same run on the same GPU, and this
+  gate requires the front to start above that band and stall inside it. Every run so far has
+  measured a net displacement of exactly zero voxels in the last window, and the gate first
+  shipped asserting that equality; it now asserts the same three-order SEPARATION the ladder
+  does, because the residual is the same Poisson quantity — at H_S ≈ 1 the flat-front cost is
+  exp(−7/0.6) ≈ 8.5e-6 per attempt, an isolated voxel on a flat {100} face carries 17 unlike
+  neighbours and re-dissolves within a sweep, and the standing population is a few hundredths of
+  a voxel: exactly zero about nineteen runs in twenty. The banked `rec` is still asserted exactly,
+  against rate × sweeps. What makes the run a measurement rather than a restatement of the
+  integral is where the stall LANDS, measured against a band this run measured. A STRONGER
+  correspondence was claimed here and in three other documents, and it is retracted: that each
+  window's velocity falls between the ladder's velocities at that window's H_S endpoints. It does
+  not — windows 300 through 700 read 0.0144 down to 0.0003 where the ladder reads 0.0000 at the
+  same drives, one to two orders out. Neither measurement is wrong. A front that has been
+  migrating for hundreds of sweeps is ROUGH, and a rough front moves at drives a flat one cannot;
+  it is the same effect that puts the ladder's own onset near 5–6. Two experiments that differ in
+  front morphology cannot bracket each other window by window, and nothing ever asserted that
+  they did — which is the part that should have been caught before it reached four documents.
+- **`HT3-SE-SELECTION`** — the physics claim rather than the plumbing: a deposited field must
+  SELECT, and the less deformed grains must win volume. It is the one gate the work fabric is
+  load-bearing for, so it is the one carrying a PRE-REGISTERED kill criterion, fixed and approved
+  before the measurement ran — the driven share shift must be positive and at least 3× the
+  magnitude of the undriven control's, on every one of three pours. The control is not ceremony:
+  coarsening removes small grains whatever drives it, so ANY partition of a shrinking population
+  drifts, and the 3× is a ratio against that measured drift rather than an absolute. Measured at
+  6 `J_b` mean over 90 sweeps: +0.495 to +0.501 of volume share against control drifts of ±0.007,
+  a factor of 73 to 6238. Beside the verdict the gate runs a LADDER, because the share metric
+  saturates — 0.294 of a possible 0.500 already at a 0.75 `J_b` mean — and a single point at
+  mid-dial cannot tell a working coupling from one weakened fourfold. The ladder's second
+  reading, the volume-weighted mean of the dimensionless fabric over the surviving structure,
+  does not saturate: 1.015 as deposited, then 0.607, 0.378 and 0.229 at 0.75, 1.5 and 3 `J_b`.
+- **`HT3-SE-UNIFORM-INERT`** — the gate a zero-arm identity cannot be: a UNIFORM field is exactly
+  inert, because the term the acceptance line gained is a DIFFERENCE and hOf(cand) − hOf(mineId)
+  is 0 everywhere. Every nonzero uniform value passes `HT3-SE-OFF-IDENTITY` as well, and must
+  still move boundaries exactly as the pre-C3a kernel does — heterogeneity, not magnitude, is
+  what makes a stored field visible at all. It is the one arm that catches a coupling wrong in a
+  way that is ASYMMETRIC and still cancels at an empty field: `−H(mine)` alone, `+H(cand)` alone,
+  or `rec` applied to one side of the difference. What it cannot catch — and an earlier version
+  of this entry claimed it could — is anything still zero when the difference is zero: `abs(ΔH)`,
+  a clamp, a rescale. Those are `HT3-SE-FRONT`'s, where the difference is not zero.
+- **`HT3-SE-COHERENCE`** — the witness that nothing on the GPU writes H: the buffer is read back
+  after a real anneal and must equal the CPU mirror in all 4096 entries, with `MC3-COHERENCE`'s
+  whole invariant set re-asserted on the new kernel. `SE-STRUCTURE` asserts that same guarantee
+  as text (`read`, not `read_write`); this asserts it as a number, on the hardware, after
+  thousands of flips have had their chance to break it.
+- **`HT3-SE-PANEL`** — the sixth dial and the withdrawal it triggers. Cold work runs 0 to 10
+  `J_b` in steps of 0.5 and is rendered ONLY in 3D — a dimension switch closes the panel, so the
+  dial set is stable for a panel's lifetime and the 2D operator surface is byte-identical to
+  before, `HT-PIN-PANEL` still counting five dials there. Above zero the panel WITHDRAWS THE
+  ENDPOINT: the sourced grain-growth coefficients price curvature-driven growth alone, and a
+  stored-energy field is a second driving force the calibration that turns them into sweeps was
+  never fitted against. The schedule still buys its sweeps — that is a time conversion — but no d̄
+  endpoint is predicted, the pre-run Hall–Petch spec sentence is withdrawn with it, and the report
+  card's law-endpoint row says withdrawn and prints no micron figure. The gate drives that in both
+  directions: an endpoint arrow before the dial moves, NO `→ N µm` anywhere in the note while it
+  is up, and the arrow back when it returns to zero — a withdrawal that cannot be undone is a
+  broken panel wearing an honest sentence. The revert arm then RUNS A SECOND TREATMENT and reads
+  `storedOn` off the sim, because the mode selector lives in the solver and the note is the one
+  surface that never touches it: an earlier cut of this gate checked only the note and was green
+  on a build where dialling to zero stopped depositing without stopping driving. It runs on copper on purpose, one of the two materials —
+  cobalt is the other — where `canTreat("twins")` says yes, so the same treatment also exercises
+  the twin hold-back. The
+  card's measured before/after rows and the post-run spec verdict STAND, because they stand on a
+  census.
+- **`SE-STRUCTURE` / `HT-TEMP-SENSITIVITY`** (browser-free, in CI) — the halves that survive
+  where there is no GPU. `SE-STRUCTURE` is `PIN-STRUCTURE`'s idiom applied to the one thing C3a
+  cannot witness with a number: the PLAIN variant carries no stored text at all and still carries
+  the acceptance line it has always had, the STORED variant claims binding 5 and stops there,
+  nothing anywhere assigns `hs` — the binding is `read`, not `read_write` — both acceptance lines
+  are pinned so the stored one adds exactly the SIBM difference and nothing else, `H2U.BYTES`
+  stays 32 with `rec` reusing the dead `twinProb` slot, and the 2D kernel stays stored-free,
+  because the Moore-8 stencil's flat front is 3 → 5, a barrier of +2, and borrowing a number
+  across a stencil change is the mistake `M_MODEL_3D` exists to remember. It also holds the
+  shipped `recovered()` helper — the closed form the report card prints — against a MEASURED row
+  rather than against itself: H₀ = 20 driven 800 sweeps must arrive at 1.18.
+  `HT-TEMP-SENSITIVITY` holds the line the furnace may not cross, and it is a gate two shipping
+  docblocks had been citing as fact since v7.0 without it existing anywhere. Two schedules
+  differing only in hold temperature must drive the model differently — the liveness half, which
+  fails if the temperature → sweeps path ever breaks — while the two knobs they drive it through,
+  the shipped kT and `HT_RECOVER_3D`, stay byte-identical, declared as plain literals and
+  unreachable from any °C (`heatpanel.ts` owns every temperature in this app and must not name
+  either identifier in code). Its sharp form is a ratio: recovery banked over a treatment is
+  `HT_RECOVER_3D` × the sweeps it bought, so rec(hot)/rec(cold) must equal sweeps(hot)/sweeps(cold)
+  exactly. Make either knob a function of temperature — the physically tempting edit, since real
+  recovery is thermally activated — and that equality breaks while every other number in the
+  script still looks right.
+
+Which grain stores how much is `WORK_SALT`, a fixed constant like `PIN_SALT`, so replicates at
+different seeds anneal different microstructures against ONE fixed work fabric. It is a DECLARED
+FICTION and is called one: a hash over grain ids is not a Taylor factor. Predicting which grain
+stores more deformation needs a slip-system set and the orientation's relation to the loading
+axis, and the quaternions here describe orientation without slip geometry — so the model has no
+basis to prefer one grain over another and does not pretend to. The fabric exists because a
+uniform field is exactly inert, which is `HT3-SE-UNIFORM-INERT` as a sentence; the deposit
+spreads h uniform on [0, 2·work], so the dial reads as the MEAN stored energy.
+
+Three limits belong beside these gates rather than inside them. Cold work here is a DRIVING
+FORCE, not a strength: Hall–Petch in this app still prices grain size alone, so the
+work-hardening increment real cold work would add to σ_y is absent. The strength sentence the
+documents have carried since v6.0 — grain-size strengthening alone, without precipitate kinetics
+or hardening — is still true of σ_y and now has to say so differently, because as written it
+reads as "cold work is not modelled at all", which after C3a is false. The sweep budget is bought
+by the GRAIN-GROWTH law's Arrhenius integral, so this furnace cannot yet price a
+recrystallization anneal below the grain-growth window: a low-temperature recrystallization
+schedule buys ~0 sweeps and nothing happens. And Σ3 annealing twinning is HELD BACK whenever cold
+work is dialled, with the card saying why — a twin plate's id is allocated GPU-side mid-anneal,
+so it would be born carrying whatever the work fabric had assigned to an id nobody had used yet,
+and a plate that draws less than the parent it sits inside eats that parent instead of twinning
+it. Nucleation of new strain-free grains is C3b and is not in this milestone — C3a is the FIELD
+and the DRIVE.
 
 **A note on `GG3-KMC`'s tolerance.** The calibration pours are now seeded LCGs rather than
 `Math.random()`, which made the 2D `GG-KMC` byte-identical run to run. The 3D one still moves,

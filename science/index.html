@@ -684,7 +684,10 @@
     k<sub>HP</sub>/√d̄ — Hall–Petch on the measured census, before and after — and a verdict
     against a spec you commit <i>before</i> the run, the way a real heat treatment answers to a
     drawing requirement. Three limits are printed with the number. It is grain-size strengthening
-    alone: no precipitates, no work hardening — see the aging row below. The d̄ under the root is
+    alone: no precipitate term and no work-hardening term — a cold-work dial deposits stored energy
+    here, but as a drive on the anneal and never as strength, so a deformed casting's
+    σ<sub>y</sub> still prices grain size alone; see the cold-work paragraphs below and the aging
+    row. The d̄ under the root is
     the census's equivalent diameter (area-equivalent circle in the plane, volume-equivalent sphere
     in the volume), an O(1) stereological factor from the mean linear intercept the tabulated
     constants were fitted to. And the µm inside √d̄ stand on the declared resolution — "you set it"
@@ -692,6 +695,142 @@
     rather than hidden: this furnace can only coarsen, and coarser is softer, so a spec above the
     casting's current strength is unreachable by any schedule. Meeting it takes a finer pour, and
     the panel says so before you waste the furnace time.</p>
+
+    <p><b>Cold work is the anneal's second driving force</b>, and until v7.0 curvature was the only
+    one. The volume's furnace carries a per-grain stored energy H — one f32 per grain id, 4096 of
+    them, 16 KB in a storage buffer the GPU binds <i>read</i> and never writes — and the Potts
+    acceptance line grows one term: dE = e<sub>new</sub> − e<sub>now</sub> + (H(cand) − H(mine)).
+    A voxel that adopts a neighbour's grain id adopts that grain's stored energy with it, so the
+    move costs their <i>difference</i>, which is negative when the candidate is the less deformed
+    grain — the boundary sweeps into the more deformed grain and the less deformed one grows. That
+    is strain-induced boundary migration, and it is the whole drive. There is no per-voxel field,
+    and what removes it is an identity, not an approximation: h(x) ≡ H(id(x)) holds after every
+    flip because it held before it, a flip being nothing but the adoption of a neighbour's id. The
+    per-voxel version would have been 28.3 MB at 192³, 56.6 MB for the ping-pong pair; the
+    per-grain buffer deletes the ping-pong, the lockstep, the parity argument and the
+    out-of-memory refusal path along with the texture. The unit is the bond energy J<sub>b</sub>,
+    the Potts model's own, and stays that way: there is no SI-to-Potts energy bridge in this app and
+    C3a does not add one, because the material law sets the endpoint and the measured lattice
+    constants spend the sweeps, so no energy has to cross between the two.</p>
+
+    <p>The barrier that drive has to clear is <b>derived, not fitted</b>. A voxel on a flat {100}
+    boundary sees 26 neighbours: 9 across the interface, 17 on its own side. Adopting the
+    neighbouring grain swaps those counts, so a flat-front advance runs e<sub>now</sub> = 9 to
+    e<sub>new</sub> = 17 — dE = +8 J<sub>b</sub>, enumerated from the 26 offsets and owing nothing to
+    the shader. At the shipped kT = 0.6 that costs exp(−8/0.6) ≈ 1.62×10⁻⁶ per attempt, so a flat
+    front here is very nearly immobile and coarsening proceeds at kinks and curvature instead. It
+    is the SCALE a stored-energy drive has to be read against — and it is an upper bound on the
+    barrier that actually gates migration, not a measurement of it.</p>
+
+    <p>Measured on a bicrystal at 128³ over a 5-sweep window, deterministic to four figures across
+    repeats:</p>
+
+    <table>
+      <tr><th>ΔH (J<sub>b</sub>)</th><td>0</td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td><td>8</td><td>9</td><td>10</td><td>13</td><td>20</td></tr>
+      <tr><th>v (cells/sweep)</th><td>0</td><td>0</td><td>0</td><td>0</td><td>0.0003</td><td>0.0142</td><td>0.1524</td><td>0.2173</td><td>0.3170</td><td>0.3380</td><td>0.3614</td><td>0.4330</td><td>0.5827</td></tr>
+    </table>
+
+    <p>Three things that ladder says, each of which a "threshold at 8" story gets wrong in a
+    different direction. <b>The onset sits near 5–6, not 8.</b> The exponential regime ends there:
+    4 → 5 is ×47 and 5 → 6 is ×11, but 6 → 7 is only ×1.4, where a pure Boltzmann tail at kT = 0.6
+    would keep multiplying by exp(1/0.6) ≈ 5.3 the whole way to 8. A front that has begun to move
+    is no longer flat, and a kink carries a lower barrier than the flat face. <b>The zeros are
+    small numbers, not exact ones</b> — a sub-barrier move costs exp(−(8 − ΔH)/kT), so over the
+    gate's window on 128² boundary cells the expected count is a fraction of a flip at ΔH = 0 and
+    about one at ΔH = 2; runs on identical code have read both 0 and 2, and the gate asserts the
+    <i>separation</i>, creep three orders below the neutral-point rate, never v = 0. And <b>the
+    neutral-point velocity brackets 9/26 rather than confirming it.</b> At ΔH = 8 the flat move is
+    energy-neutral and this kernel takes neutral moves unconditionally, so a perfectly flat front
+    would run at its candidate draw, 9 unlike neighbours of 26 = 0.3462 cells/sweep. The
+    measurement runs above that in the first sweep and below it after — 0.3918, 0.3170 and 0.2137
+    at 1, 5 and 60 sweeps — and neither departure is noise. Above, because a sweep is
+    <i>eight</i> sequential sublattice passes: the front roughens inside its own first sweep and
+    the later colours see a raised unlike-neighbour count. Below, because recovery is <i>live</i>
+    throughout, so a nominal ΔH = 8 has decayed to an effective 5.4 by sweep 60. There is no
+    recovery-free arm to measure against — recovery is intrinsic to the stored mode — and an
+    earlier version of this page quoted a "static" ladder that was not one.</p>
+
+    <p>What has teeth instead is that the ladder brackets the barrier from <i>both</i> sides, and
+    the gate asserts both. A barrier of 10 would leave ΔH = 8 uphill by 2 and put v(8) near
+    0.3462·exp(−2/0.6) ≈ 0.012, thirty times under what is measured. A barrier of 6 would make
+    ΔH = 6 the neutral point and put v(6) near the full draw, seven times over the measured
+    0.152.</p>
+
+    <p><b>Recovery has no pass.</b> Dislocations annihilate second order, dH/dS = −k·H², which
+    integrates exactly to H<sub>S</sub> = H₀/(1 + rec·H₀) with rec = 10⁻³·S — the 10⁻³ chosen so
+    the stall lands mid-budget and then measured, see below — and the shader
+    evaluates that closed form from one scalar the uniform already carried. Nothing is stepped, so
+    there is no per-step ODE error and no f32 chain accumulated over thousands of sweeps, and
+    recovery cannot be applied twice, applied per-colour instead of per-sweep, or land one sweep
+    stale — it is never applied at all. Three properties follow with no clamp anywhere:
+    H<sub>S</sub> ≥ 0, H<sub>S</sub> ≤ H₀, and H<sub>S</sub> strictly decreasing in S. High-H grains
+    recover faster, so the spread of the drive narrows rather than merely rescaling. Driven from
+    ΔH₀ = 20 on the same bicrystal, the front runs 0.3996 cells/sweep over the first 100 sweeps and
+    is under a thousandth of that by 800, at H<sub>S</sub> = 1.18 — inside the band the ladder
+    above measures immobile, and well inside the 2000-sweep cap, so a schedule the panel will
+    accept can reach the stall. Every run so far has read a net displacement of exactly zero voxels
+    in that last window, but the gate asserts the separation and not the zero, for the same Poisson
+    reason the ladder's zeros are not asserted either. What makes it a measurement and not a
+    restatement of the integral is where the stall <i>lands</i>: the ladder gate hands over the
+    largest drive its own rungs measured below the creep floor, in the same run on the same GPU,
+    and the recovery gate requires the front to start above that band and stop inside it. Recovery
+    applied per-colour, applied twice or sign-flipped moves where the stall lands while still
+    decaying monotonically.</p>
+
+    <p><b>A stronger correspondence was claimed here, and it is retracted.</b> This page said each
+    100-sweep window's velocity falls between the ladder's velocities at that window's
+    H<sub>S</sub> endpoints. It does not: windows 300 through 700 read 0.0144 down to 0.0003 where
+    the ladder reads 0.0000 at the same drives, one to two orders out. Neither measurement is
+    wrong. A front that has been migrating for hundreds of sweeps is <i>rough</i>, and a rough
+    front moves at drives a flat one cannot — the same effect that puts the ladder's own onset near
+    5–6 rather than at 8. Two experiments that differ in front morphology cannot bracket each other
+    window by window, and nothing in the suite ever asserted that they did. The furnace reaches
+    recovery only through the sweep count it bought, never through a temperature.</p>
+
+    <p><b>Which grain stores the deformation is a declared fiction.</b> The deposit spreads h
+    uniform on [0, 2·work] over the grain ids through a fixed salt — one constant, like the Zener
+    fabric's, so replicates at different seeds anneal different microstructures against one work
+    fabric — and the dial therefore reads as the mean stored energy. But a hash over grain ids is
+    not a Taylor factor. Predicting which grain stores more deformation takes a slip-system set and
+    each orientation's relation to the loading axis; the quaternions here carry orientation without
+    slip geometry, so the model has no basis to prefer one grain over another and does not pretend
+    to have one. The fabric is there because the field has to be heterogeneous to do anything at
+    all: a <i>uniform</i> stored-energy field is exactly inert, since H(cand) − H(mine) is then 0 at
+    every boundary and the acceptance line is the pre-C3a one. The heterogeneity is what drives; the
+    pattern of it is the fiction. What the fiction is load-bearing for is one claim — that the drive
+    <i>selects</i> — and that claim was gated against a criterion fixed before the measurement ran:
+    across three pours the less-deformed half of the casting must take volume share from the more
+    deformed half, by at least three times whatever the same casts drift when annealed undriven. It
+    took +0.495 to +0.501 against a control drift of ±0.007.</p>
+
+    <p><b>The panel withdraws the endpoint when the dial leaves zero.</b> Cold work is a sixth
+    furnace dial, 0 to 10 J<sub>b</sub> in steps of 0.5, drawn in the volume only — a dimension
+    switch closes the panel, so a panel's dial set is stable for its lifetime and the 2D operator
+    surface is byte-identical to what shipped before. It is 3D by construction, not by preference:
+    the plane's Moore-8 stencil gives 3 → 5 and a barrier of +2, and borrowing a number across a
+    stencil change is the mistake that earned the volume's Potts pass its own measured constants, so
+    there is no 2D stored-energy kernel and no 2D cold-work dial. Above zero the endpoint goes. The
+    sourced grain-growth coefficients price curvature-driven growth alone, and a stored-energy field
+    is a second driving force the calibration that turns those coefficients into sweeps was never
+    fitted against; the schedule still buys its sweeps — that is a time conversion, and it is
+    untouched — but no d̄ endpoint is predicted, the pre-run Hall–Petch spec sentence above is
+    withdrawn with it, and the report card's law-endpoint row says <i>withdrawn</i> and prints no
+    micron figure. The card's measured before/after rows and its post-run spec verdict stand,
+    because those stand on a census. The dial switches one thing off as well: with cold work
+    dialled, the Σ3 annealing-twin pass is held back, and the card says why. A twin plate's id is
+    allocated on the GPU mid-anneal, so it would be born carrying whatever the work fabric had
+    assigned to an id nobody had used yet — and a plate that draws less than the parent it sits
+    inside eats that parent instead of twinning it. Gates: the ladder and the derived barrier
+    (<code>HT3-SE-FRONT</code>), the driven stall (<code>HT3-SE-RECOVERY-STALL</code>), a
+    zero-valued field through the stored pipeline reproducing the pre-C3a kernel bit for bit
+    (<code>HT3-SE-OFF-IDENTITY</code>), the uniform field's exact inertness
+    (<code>HT3-SE-UNIFORM-INERT</code>), a readback of the buffer against the CPU mirror in all
+    4096 entries — the witness that nothing on the GPU ever writes H
+    (<code>HT3-SE-COHERENCE</code>), the pre-registered selection criterion
+    (<code>HT3-SE-SELECTION</code>) and the panel's withdrawal end to end
+    (<code>HT3-SE-PANEL</code>); in CI, without a browser, the shader text
+    (<code>SE-STRUCTURE</code>) and the line between the furnace's °C and the lattice's
+    dimensionless knobs (<code>HT-TEMP-SENSITIVITY</code>).</p>
 
     <p>What it is checked against, and what it measured:</p>
     <table>
@@ -704,6 +843,11 @@
       <tr><td>Homogenization decay</td><td>the DISCRETE stencil eigenvalue, exact</td><td>9×10⁻⁷ (2D and 3D); continuum gap +0.012 % / −0.034 %, printed</td></tr>
       <tr><td>Σ3 twin registry</td><td>exact Σ3 against each twin's real volume neighbours</td><td>25/26 exact; 22 of 26 alive after 150 further sweeps</td></tr>
       <tr><td>σ<sub>y</sub> row and spec verdict</td><td>Hall–Petch on the same census the gate reads; a spec committed under the as-cast strength</td><td>row equals the law to 0.2 MPa; the anneal misses the spec, the stress relief meets its own</td></tr>
+      <tr><td>Stored-energy front (3D)</td><td>a barrier enumerated from the 26 offsets independently of the shader — a flat {100} advance is 9 → 17 unlike neighbours, ΔH = 8 J<sub>b</sub> — and the two neighbouring barriers it must exclude</td><td>on a 5-sweep window, v(8) = 0.317 = 0.92 of the candidate draw where a barrier of 10 predicts 0.035 of it, and v(6) = 0.152 = 0.44 where a barrier of 6 predicts the whole of it; sub-barrier creep three orders below the neutral point, asserted as a separation and never as a zero</td></tr>
+      <tr><td>Recovery stall (3D)</td><td>the immobile band the ladder gate measures in the same run, on the same GPU</td><td>driven from ΔH₀ = 20, the front falls under a thousandth of its opening velocity by 800 sweeps and stalls at H<sub>S</sub> = 1.18, having started at 4.0 — above a band measured immobile to ΔH = 2, and stopping inside it</td></tr>
+      <tr><td>Stored energy off, and stored energy uniform (3D)</td><td>three arms on one restored cast: the pre-C3a kernel, the same stored pipeline and bind-group layout at a zero field, and the mode genuinely on</td><td>the zero arm is element-exact against the pre-C3a arm with both arms flipping hundreds of thousands of voxels, the on arm required to differ, and a <i>uniform</i> field exactly inert — the flip counts themselves are cast-dependent and are not what is asserted</td></tr>
+      <tr><td>Stored-energy coherence (3D)</td><td>the CPU mirror of the same buffer, read back off the device after a real anneal</td><td>equal in all 4096 entries, with no invented or zeroed grain ids and φ untouched — the witness that nothing on the GPU writes H</td></tr>
+      <tr><td>Stored-energy selection (3D)</td><td>the same three pours annealed undriven, partitioned by the same labels, against a criterion fixed before the run</td><td>the less-deformed half takes +0.495 to +0.501 of volume share against a control drift of ±0.007 — 73× to 6238×, where 3× was the criterion; and the effect is graded by the dial (+0.294, +0.441, +0.494 at 0.75, 1.5 and 3 J<sub>b</sub>)</td></tr>
     </table>
 
     <p>And what it does <i>not</i> do. <b>No precipitate aging, no T6</b>: the material table
@@ -726,6 +870,14 @@
     constants (<code>GG-PIN-OFF-IDENTITY</code> + the standing <code>GG-KMC</code> drift gate —
     the two halves of "the pre-v7 furnace, unchanged"), and the pinned arm must sit on the
     measured law, not merely stop (<code>GG-PIN-LIMIT</code>).
+
+    <b>Cold work drives, but nothing recrystallizes</b> — the sweep budget is bought by the
+    grain-growth law's Arrhenius integral, so this furnace cannot yet price a recrystallization
+    anneal below the grain-growth window: such a schedule buys nearly zero sweeps and nothing
+    happens. Nor is a strain-free nucleus ever planted — stored energy moves the boundaries that
+    already exist, and new grains are not in this milestone. And while the dial is up the Σ3
+    annealing-twin pass is held back, because a plate allocated GPU-side mid-anneal would inherit
+    a work-fabric value belonging to an id nobody had used.
     <b>The hold is isothermal by construction</b>: the solver's temperature field is the as-cast
     record, not the furnace, so the treatment parks the thermal lenses and puts up a banner instead
     of showing a cold casting labelled 540 °C. And <b>the specimen is finite</b>: grain statistics
@@ -763,11 +915,12 @@
       <tr><td>Pour superheat, mould temperature</td><td><b>qualitative boundary conditions</b> — superheat is a real thermal load and the mould is a real cold boundary. (Whether the refiner is <i>faded</i> by high superheat specifically is not separated out here; fade is driven by hold time — see the next row.)</td></tr>
       <tr><td>Grain-refiner fade (hold before pour)</td><td><b>an empirical time law, labelled as one.</b> Hold an inoculated charge above its liquidus and it loses effective nucleant sites: the refining particles (TiB<sub>2</sub>, Al<sub>3</sub>Ti in the Al–Ti–B system) are denser than the melt and settle out — <i>faster</i> than Stokes' law alone, because they agglomerate and catch on oxide films. The lab models this as a short potent plateau then an exponential decay to a residual floor, with most of the loss inside the first ~30 min (the settling literature) and <b>exactly no fade at zero hold</b>, so nothing shipped earlier moves. The timescale is the Al–Ti–B holding picture applied to whatever inoculant you set — it is not derived from a specific particle-size distribution</td></tr>
       <tr><td>Stirring, convection, melt flow</td><td><b>not modelled at all</b> — grain multiplication by dendrite fragmentation is a real and important refining mechanism, and it needs a flow field this solver does not have</td></tr>
-      <tr><td>Solid-state grain growth (HEAT TREAT)</td><td><b>endpoint from the material's sourced law, trajectory from measured Potts kinetics</b> — D<sup>n</sup> − D₀<sup>n</sup> = ∫k·dt says where the grain finishes; the model's own (m, K<sub>MC</sub>) pair, measured per dimension, spends the sweeps. Unpinned by default (no solute drag); a dialled Zener dispersion pins at the measured d<sub>lim</sub> = 7.24·r<sup>0.205</sup>/f<sup>0.356</sup> cells — in the plane, where the law is measured</td></tr>
+      <tr><td>Solid-state grain growth (HEAT TREAT)</td><td><b>endpoint from the material's sourced law, trajectory from measured Potts kinetics</b> — D<sup>n</sup> − D₀<sup>n</sup> = ∫k·dt says where the grain finishes; the model's own (m, K<sub>MC</sub>) pair, measured per dimension, spends the sweeps. Unpinned by default (no solute drag); a dialled Zener dispersion pins at the measured d<sub>lim</sub> = 7.24·r<sup>0.205</sup>/f<sup>0.356</sup> cells — in the plane, where the law is measured. A cold-work dial above zero withdraws the endpoint entirely — the sourced coefficients price curvature-driven growth alone — and the schedule then buys its sweeps without predicting a d̄</td></tr>
+      <tr><td>Stored energy and recovery (HEAT TREAT, 3D)</td><td><b>a real drive on a fabric that is a declared fiction</b> — per-grain stored energy enters the Potts acceptance line as H(cand) − H(mine), which is strain-induced boundary migration and nothing else; the flat-{100} barrier of 8 J<sub>b</sub> is derived from the 26-neighbour stencil, and the ladder measured back on the GPU brackets it from both sides — v(8) is 0.92 of the candidate draw where a barrier of 10 predicts 0.035 of it, v(6) is 0.44 where a barrier of 6 predicts all of it. The barrier is an upper bound rather than the value that gates migration: the ladder's own knee sits near 5–6, because a moving front is kinked and a kink is cheaper than the flat face. Recovery is the exact integral of dH/dS = −k·H², evaluated in the shader rather than stepped, so it cannot be applied twice or land stale. But which grain stores how much is a hash over grain ids, not a Taylor factor — orientation without slip geometry cannot predict it — and all the model needs is that the field be heterogeneous, since a uniform one is exactly inert. Bond energies J<sub>b</sub> throughout: this app has no SI-to-Potts energy bridge. Volume only; no strain-free grain is ever nucleated, so this is recovery and boundary migration rather than recrystallization; and Σ3 twinning is held back while the dial is up</td></tr>
       <tr><td>Annealing twins (3D)</td><td><b>real crystallography, inserted birth</b> — exact Σ3 registry, survival by a measured-ratio energy cusp plus a mobility gate; but the nucleus is a stamped {111} plate, because a per-cell spawn was built twice and measured dead — a stacking event is sub-grid for a Potts flip. Who twins is decided by sourced stacking-fault energies (Murr 1975)</td></tr>
       <tr><td>Homogenization</td><td><b>exact, and gated as an equality</b> — masked diffusion at frozen φ whose iteration count is the schedule's own Dt product, no fitted constant; the discrete-vs-continuum gap is printed as the model's own discretization error, and the delivered fraction of a budget-capped soak is reported, never silently fewer</td></tr>
       <tr><td>Oxide scale, decarburization</td><td><b>analytic card lines</b> — parabolic laws over the whole schedule from sourced constants; never painted into the fields, which are the as-cast record. Ice and SCN refuse by name rather than draw a confident 0 µm</td></tr>
-      <tr><td>Yield strength σ<sub>y</sub> (Hall–Petch)</td><td><b>grain-size term only</b> — σ₀ + k<sub>HP</sub>/√d̄ on the measured census, no precipitates, no work hardening; d̄ is the equivalent diameter (an O(1) factor from E112's mean intercept), and the µm under the root are the declared resolution. The spec verdict judges this number and names these limits — on both cards: the furnace's post-treatment verdict and the lab's as-cast one share one d̄ definition, one formatter and one printed-precision rule, so a casting can never carry two strengths</td></tr>
+      <tr><td>Yield strength σ<sub>y</sub> (Hall–Petch)</td><td><b>grain-size term only</b> — σ₀ + k<sub>HP</sub>/√d̄ on the measured census, no precipitate term and no work-hardening term — cold work drives the anneal here but never enters σ<sub>y</sub>, so a deformed casting is still priced by its grain size; d̄ is the equivalent diameter (an O(1) factor from E112's mean intercept), and the µm under the root are the declared resolution. The spec verdict judges this number and names these limits — on both cards: the furnace's post-treatment verdict and the lab's as-cast one share one d̄ definition, one formatter and one printed-precision rule, so a casting can never carry two strengths</td></tr>
       <tr><td>Precipitate aging / T6</td><td><b>not modelled at all</b> — the material table has no precipitate kinetics, and a JMAK curve drawn from invented per-material numbers would be a prediction this instrument has no right to make</td></tr>
     </table>
     <p>The rule throughout: anything the instrument displays as a number is computed, and anything

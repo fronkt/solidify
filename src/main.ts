@@ -1177,6 +1177,14 @@ async function boot() {
       mode === "3d" && sim3d
         ? sim3d.anneal(sweeps, undefined, onProgress, pin)
         : sim.anneal(sweeps, undefined, onProgress, pin),
+    // v7.0 C3a: the cold-work deposit and the recovery ordinate it banks. Both
+    // are volume-only and both no-op in the plane rather than throwing — the
+    // panel already refuses to render the dial there, so reaching either of
+    // these in 2D would mean a mode switch outran a latched plan, and the right
+    // answer to that is a treatment with no stored energy, not a crash.
+    deposit: (workJb) => { if (mode === "3d" && sim3d) sim3d.deposit(workJb); },
+    clearWork: () => { if (mode === "3d" && sim3d) sim3d.clearStored(); },
+    storedRec: () => (mode === "3d" && sim3d ? sim3d.storedRec : 0),
     cubic: () => to3D(MATERIALS[material] ?? MATERIALS.generic).aniMode3 === 1,
     // Σ3 twinning: plate-nucleation events interleaved with the sweep chunks.
     // The host's job is the BUDGET — events target ~0.8 per existing grain
@@ -1944,10 +1952,11 @@ async function boot() {
       // Number.isFinite does not coerce, so a hand-built ht carrying strings,
       // nulls or NaN is rejected whole rather than clamped into NaN dials —
       // the g3 whitelist doctrine. A malformed ht simply does not open.
-      // Length 3 (pre-C2 links) or 5 (with the dispersion tail): every element
-      // PRESENT must be a finite number — the whole-rejection stance stays,
-      // only the accepted shapes grew (a 4-element hand-build is malformed).
-      if (Array.isArray(shared.ht) && (shared.ht.length === 3 || shared.ht.length === 5)
+      // Length 3 (pre-C2 links), 5 (with the dispersion tail) or 6 (v7.0 C3a,
+      // with the cold work behind it): every element PRESENT must be a finite
+      // number — the whole-rejection stance stays, only the accepted shapes
+      // grew (a 4-element hand-build is still malformed, and so is a 7).
+      if (Array.isArray(shared.ht) && [3, 5, 6].includes(shared.ht.length)
         && shared.ht.every(Number.isFinite) && !lab.active) heat?.open(shared.ht);
     };
     if (shared.d !== 1) openHeat();

@@ -27,7 +27,8 @@
 
 import {
   canTreat, domainLimitUm, grainAfter, hallPetch, integrate, sweepsFor, frac,
-  scaleThickness, decarbDepth, fmtMPa, shownMPa, zenerLimitCells,
+  scaleThickness, decarbDepth, fmtMPa, shownMPa, zenerLimitCells, recovered,
+  recoveredMeanUniform, H_FLAT_3D,
   ZENER_K, ZENER_R_EXP, ZENER_F_EXP,
   INCIPIENT_FRAC, K_MC, M_MODEL, K_MC_3D, M_MODEL_3D, ROOM_C,
   type HeatSchedule, type TreatContext, type Integrals,
@@ -119,6 +120,26 @@ export interface HeatHost {
   annealTwins?(sweeps: number, onProgress: (done: number) => boolean,
     pin?: { f: number; r: number }):
     Promise<{ delivered: number; spawned: number; saturated: boolean }>;
+  /**
+   * 3D only (v7.0 C3a): lay down a cold-work stored-energy field before the
+   * sweeps are spent, mean in BOND ENERGIES. Optional in the same sense
+   * `annealTwins` is — a host with no volume never renders the dial that calls
+   * it, and the plane has no stored-energy kernel to call into.
+   */
+  deposit?(workJb: number): void;
+  /**
+   * Drop the stored-energy field and return to the pre-C3a anneal (v7.0 C3a).
+   *
+   * The counterpart `deposit` needs and would be broken without: the mode
+   * selector lives in the solver, so a dial that stops DEPOSITING has not
+   * stopped DRIVING. Called on every legal run that is not cold-worked,
+   * including in the plane, where it is a no-op.
+   */
+  clearWork?(): void;
+  /** the recovery ordinate the volume has banked — `rec` in H_S = H₀/(1 + rec·H₀).
+   *  The panel reads this rather than the RATE, so the furnace's °C and the
+   *  lattice's dimensionless knobs stay on opposite sides of one wall. */
+  storedRec?(): number;
   /** masked solute diffusion at frozen φ; resolves iterations delivered */
   homogenize(iters: number, onProgress: (done: number) => boolean): Promise<number>;
   /** RMS deviation of the solute field over solid — the measured segregation */
@@ -162,6 +183,26 @@ const RAMP_UP = 10;
 const RAMP_DOWN = 5;
 
 /**
+ * The cold-work dial's ceiling and step, in BOND ENERGIES (v7.0 C3a).
+ *
+ * Both are set against `H_FLAT_3D = 8`, the flat-front barrier this lattice
+ * derives from its own 26-neighbour stencil — the only scale a stored-energy
+ * drive can honestly be read against, since the app has no SI↔Potts energy
+ * bridge and this dial is not a route to one.
+ *
+ * The deposit spreads the field uniform on [0, 2·work], so the ceiling of 10
+ * puts the most-deformed grains at 20 J_b — which is exactly the drive
+ * `HT_RECOVER_3D`'s stall table was measured at, so the top of the dial is a
+ * number the repository has a measured trajectory for rather than an
+ * extrapolation. The 0.5 step's smallest non-zero setting spreads 0–1 J_b,
+ * comfortably under the ~3 J_b where the Boltzmann tail first makes a flat
+ * front measurably mobile: the first click of the dial is honestly almost
+ * nothing, which is what a first click should be.
+ */
+const WORK_MAX = 10;
+const WORK_STEP = 0.5;
+
+/**
  * Lenses parked during a treatment, per dimension — rule 3. 2D: MELT/FIELD/
  * THERM read the T field, which is the as-cast record, not the furnace; the
  * treatment parks them on ETCH, where boundary migration is visible anyway.
@@ -191,6 +232,9 @@ type Plan =
        *  plane, where the law is measured — the pinned limit in µm */
       pin?: { f: number; r: number };
       dLimUm?: number;
+      /** v7.0 C3a: the cold work as dialled, in bond energies (undefined = as
+       *  cast). Its presence is what WITHDRAWS the endpoint — see `workNote`. */
+      work?: number;
     };
 
 export class HeatPanel {
@@ -240,6 +284,18 @@ export class HeatPanel {
    */
   private pinF = 0;
   private pinR = 2;
+  /**
+   * Cold work, as a MEAN stored energy in bond energies (v7.0 C3a). 0 is the
+   * as-cast specimen and the pre-C3a furnace, bit for bit.
+   *
+   * The volume's dial only. The plane's kernel has no stored-energy term, and
+   * the number would not transfer if it did: `H_FLAT_3D` is the 26-neighbour
+   * stencil's flat-front barrier, and the Moore-8 plane's is +2. Rather than
+   * ship a control that does nothing in one dimension, `buildPanel` renders
+   * this dial in 3D only — which also leaves the plane's operator surface, and
+   * every gate that drives it positionally, byte-identical to v7.1.
+   */
+  private workJb = 0;
   private abortReq = false;
   /** exit pressed mid-run: abort first, close when the run loop hands back */
   private closeReq = false;
@@ -250,22 +306,27 @@ export class HeatPanel {
    * behaviour on every open and material swap, and exactly the clobber that
    * would silently discard a restored link.
    */
-  private restore: [number, number, number, number?, number?] | null = null;
+  private restore: [number, number, number, number?, number?, number?] | null = null;
 
   constructor(host: HeatHost) { this.host = host; }
 
   /** the dialled setup, for the share link: temperature °C, hold min, spec MPa,
    *  and (v7.0 C2, optional tail per the lab-tuple doctrine) the dispersion's
-   *  fraction and radius in cells. An UNPINNED setup packs the three-element
-   *  pre-C2 shape on purpose: those links keep restoring on any deployed page,
-   *  and the tail appears exactly when the mode it carries is in use. */
-  setup(): [number, number, number, number?, number?] {
+   *  fraction and radius in cells, then (v7.0 C3a) the cold work in bond
+   *  energies. An UNPINNED, UNWORKED setup packs the three-element pre-C2 shape
+   *  on purpose: those links keep restoring on any deployed page, and each tail
+   *  appears exactly when the mode it carries is in use. The work element rides
+   *  BEHIND the dispersion pair rather than replacing it, so a worked link with
+   *  no dispersion still spells that pair out at its off defaults — a tail with
+   *  a hole in it is a tail nothing can decode positionally. */
+  setup(): [number, number, number, number?, number?, number?] {
+    if (this.workJb > 0) return [this.tC, this.holdMin, this.specMPa, this.pinF, this.pinR, this.workJb];
     return this.pinF > 0
       ? [this.tC, this.holdMin, this.specMPa, this.pinF, this.pinR]
       : [this.tC, this.holdMin, this.specMPa];
   }
 
-  open(restore?: [number, number, number, number?, number?]) {
+  open(restore?: [number, number, number, number?, number?, number?]) {
     if (this.active) return;
     this.active = true;
     this.restore = restore ?? null;
@@ -406,7 +467,11 @@ export class HeatPanel {
     const dLimUm = pin && this.host.getMode() !== "3d"
       ? zenerLimitCells(pin.f, pin.r) * this.host.umPerCell()
       : undefined;
-    return { ok: true, sch, ints, d0Um, dPredUm, sweeps, capped, dCapUm, pin, dLimUm };
+    // the cold work, as dialled (v7.0 C3a). Gated on the dimension as well as
+    // the dial: the dial only exists in the volume, and a plan is the one place
+    // a stale value from a mode switch could still reach `run`.
+    const work = this.workJb > 0 && this.host.getMode() === "3d" ? this.workJb : undefined;
+    return { ok: true, sch, ints, d0Um, dPredUm, sweeps, capped, dCapUm, pin, dLimUm, work };
   }
 
   // -------------------------------------------------------------- the panel
@@ -465,11 +530,15 @@ export class HeatPanel {
     // remembered last session's fabric would pin a run nobody dialled
     this.pinF = 0;
     this.pinR = 2;
+    // and the cold work with them, for the same reason and one more: a stored
+    // field belongs to the specimen that was deformed, and the panel cannot
+    // know that the casting under it is still that one
+    this.workJb = 0;
     // a share link's setup lands here, once, clamped to this material's own
     // dial ranges — a hand-built link does not get to dial 2000 °C (and the
     // decoder's Number.isFinite whitelist already rejected non-numbers whole)
     if (this.restore) {
-      const [t, h, s, pf, pr] = this.restore;
+      const [t, h, s, pf, pr, wk] = this.restore;
       this.tC = Math.min(tMax, Math.max(tMin, Math.round(t)));
       this.holdMin = Math.min(720, Math.max(1, Math.round(h)));
       this.specMPa = Math.min(specMax, Math.max(0, s));
@@ -481,6 +550,15 @@ export class HeatPanel {
       if (typeof pf === "number" && Number.isFinite(pf))
         this.pinF = Math.min(0.12, Math.max(0, Math.round(pf / 0.005) * 0.005));
       if (typeof pr === "number" && Number.isFinite(pr)) this.pinR = Math.min(5, Math.max(1, Math.round(pr)));
+      // the cold-work element (v7.0 C3a), applied in the VOLUME only. A link
+      // carrying work but opened in the plane drops it rather than holding it
+      // silently: there is no dial to show it and no kernel to spend it, and a
+      // dialled value no surface prints is the lying-label case the pf clamp
+      // above was written for. Snapped to the dial's own step for the same
+      // reason pf is — a hand-built 0.004 must not latch the mode on while
+      // every surface reads "as cast".
+      if (typeof wk === "number" && Number.isFinite(wk) && this.host.getMode() === "3d")
+        this.workJb = Math.min(WORK_MAX, Math.max(0, Math.round(wk / WORK_STEP) * WORK_STEP));
       this.restore = null;
     }
     const umPC = this.host.umPerCell();
@@ -503,6 +581,21 @@ export class HeatPanel {
         v => { this.pinR = v; this.refresh(); }, 0,
         v => `${v.toFixed(0)} cells · ${(v * umPC).toFixed(1)} µm`),
     );
+    // the cold work (v7.0 C3a) — SIXTH, and in the volume only. Appended last
+    // for the same positional reason C2's pair was, and rendered conditionally
+    // because the plane has no stored-energy kernel: HT-PIN-PANEL still counts
+    // five dials there, on a surface this milestone did not touch.
+    //
+    // The unit printed is J_b, the Potts bond energy. Never a bare J and never
+    // J/m³: this app has no SI↔Potts energy bridge, deliberately (heattreat.ts
+    // says why), and a dial labelled in joules would be claiming one.
+    if (this.host.getMode() === "3d") {
+      form.append(range("cold work", 0, WORK_MAX, WORK_STEP, this.workJb,
+        v => { this.workJb = v; this.refresh(); }, 1,
+        v => v > 0
+          ? `${v.toFixed(1)} J_b mean · 0–${(2 * v).toFixed(1)} across grains`
+          : "as cast (no cold work)"));
+    }
 
     const note = document.createElement("div");
     note.id = "htNote";
@@ -567,6 +660,22 @@ export class HeatPanel {
     const head =
       `ramp ${RAMP_UP} °C/min → hold ${fmtDur(this.holdMin * 60)} at ${this.tC.toFixed(0)} °C `
       + `→ furnace-cool ${RAMP_DOWN} °C/min · ${fmtDur(ints.seconds)} of real time.`;
+    // v7.0 C3a: cold work WITHDRAWS the endpoint, so it takes its own branch
+    // before either of the two that print one. Both of those sentences are
+    // predictions from the sourced coefficients, and the coefficients price
+    // curvature-driven growth alone.
+    if (plan.work) {
+      this.noteEl.innerHTML = `${head}<br>`
+        + `${sweeps.toLocaleString()} MC sweeps`
+        + (capped
+          ? ` — <span style="color:#ffb454">past the ${this.consts().cap.toLocaleString()}-sweep budget: the run will be `
+          + `truncated at ${((this.consts().cap / sweeps) * 100).toFixed(0)} %</span>`
+          : "")
+        + this.workNote(plan)
+        + this.pinNote(plan)
+        + this.specWithdrawn();
+      return;
+    }
     if (!grew) {
       // the stress-relief case: the arithmetic says nothing happens, so the
       // panel says it BEFORE the run rather than selling a dud treatment
@@ -637,6 +746,57 @@ export class HeatPanel {
       + `d_lim = ${ZENER_K}·r^${ZENER_R_EXP}/f^${ZENER_F_EXP} cells)`
       + (clips ? ` — the schedule's law endpoint will not be reached; the furnace stalls at the fabric` : "")
       + `.</span>`;
+  }
+
+  /**
+   * The cold work's own sentence, and the withdrawal it forces (v7.0 C3a).
+   *
+   * The endpoint this panel prints everywhere else is the SOURCED law's:
+   * D^n − D₀^n = ∫k·dt, with coefficients fitted to curvature-driven grain
+   * growth in a real furnace. A stored-energy field is a second driving force,
+   * and `K_MC_3D`/`M_MODEL_3D` — the measured lattice constants that turn that
+   * endpoint into a sweep count — were measured on the undriven kernel. So the
+   * schedule still buys its sweeps, which is a conversion of TIME and survives
+   * intact, but nothing here can say where they land. The card measures it.
+   *
+   * The other half is the one a visitor is likelier to get wrong: this model's
+   * cold work is a DRIVE, not a strength. Hall–Petch here prices grain size and
+   * nothing else, so the work-hardening increment a real deformation would add
+   * to σ_y is simply absent — dialling this up and annealing makes the casting
+   * SOFTER on the card, by coarsening it, which is the opposite of what a
+   * cold-worked bar does before it recrystallizes.
+   */
+  private workNote(plan: Plan & { ok: true }): string {
+    const w = plan.work!;
+    return `<br><span style="color:#ffb454">cold work ${w.toFixed(1)} J_b mean `
+      + `(0–${(2 * w).toFixed(1)} J_b across grains, against this lattice's ${H_FLAT_3D} J_b `
+      + `flat-front barrier) — the law endpoint is withdrawn.</span> `
+      + `<span style="color:#8891a0">The sourced coefficients price curvature-driven growth alone, and the `
+      + `stored energy is a second driving force neither they nor the sweep calibration were fitted `
+      + `against. The schedule still buys its sweeps; where they land is measured afterwards, not `
+      + `predicted here. Cold work in this model is a drive, not a strength — σ_y prices grain size `
+      + `only, so the work hardening a real deformation would add is absent.`
+      + (plan.sweeps < 2
+        ? ` And at this temperature the schedule buys almost no sweeps: this furnace prices them from `
+          + `the GRAIN-GROWTH law's Arrhenius integral, so it cannot yet price a recrystallization `
+          + `anneal below the grain-growth window. Nucleation of new strain-free grains is not modelled.`
+        : "")
+      + `</span>`;
+  }
+
+  /**
+   * The spec's pre-run sentence, withdrawn (v7.0 C3a).
+   *
+   * `specNote` judges the dialled spec against the endpoint the schedule
+   * predicts. With the endpoint withdrawn there is nothing to judge against,
+   * and inventing one from the undriven law would be exactly the prediction
+   * `workNote` just retracted. The spec itself survives — the card judges it on
+   * the measured census, which is where a spec verdict was always strongest.
+   */
+  private specWithdrawn(): string {
+    if (!(this.specMPa > 0) || !this.host.si()) return "";
+    return `<br><span style="color:#8891a0">the ≥ ${fmtMPa(this.specMPa)} MPa spec will be judged on the `
+      + `measured census when the run finishes — its pre-run prediction goes with the endpoint.</span>`;
   }
 
   /**
@@ -714,9 +874,45 @@ export class HeatPanel {
     // plane the question does not arise, and repeating "a Σ3 is a 3D rotation"
     // on every 2D report card would be noise, not teaching.
     const twinV = m3 ? canTreat("twins", this.ctx(before)) : null;
-    const wantTwins = twinV?.ok === true && !!this.host.annealTwins;
+    // Σ3 twinning and cold work do not run together in C3a, and the card says
+    // so rather than quietly picking one. A twin plate's id is allocated on the
+    // GPU mid-anneal, so the deposit — which writes every id in range precisely
+    // so a later-born twin cannot inherit a stale value — hands it whatever the
+    // work fabric assigned to an id nobody had used yet. A thin Σ3 plate that
+    // draws a LOWER stored energy than the parent it sits inside then eats that
+    // parent, and the plate stops being a twin. Twinning inside a deformed and
+    // recovering grain is a measurement C3b owes, not one this milestone made.
+    const workHoldsTwins = !!plan.work && twinV?.ok === true;
+    const wantTwins = twinV?.ok === true && !!this.host.annealTwins && !plan.work;
     let delivered = 0;
     let twinLine = twinV && !twinV.ok ? twinV.why : "";
+    if (workHoldsTwins) {
+      twinLine = "held back while cold work is dialled — a Σ3 plate is allocated GPU-side mid-anneal, so it "
+        + "would be born carrying a stored energy the work fabric assigned to an id nobody had used yet, and "
+        + "a plate that draws less than its parent eats the parent instead of twinning it. Twinning inside a "
+        + "deformed grain is C3b's measurement, not this one's.";
+    }
+    // The field goes down BEFORE the sweeps, on the LATCHED plan's value — the
+    // dial stays live during a run, and the specimen must carry the deformation
+    // the card is about to describe rather than a later one.
+    //
+    // The else is not tidiness, it is the bug this pair exists to close: the
+    // mode selector is `hOn` in the solver, so a dial returned to zero stops
+    // DEPOSITING without stopping DRIVING. Landing only the `if` leaves the
+    // next treatment running the stored kernel on a field the operator dialled
+    // away — and because `plan.work` is then undefined, the note prints a law
+    // endpoint and the card omits the cold-work row, so every surface describes
+    // an undriven run that did not happen. Found by reading the run path after
+    // the gates were green; `HT3-SE-PANEL` now drives the dial back to zero and
+    // RUNS AGAIN, because a revert that is only checked in the note is a revert
+    // checked on the one surface that never touches the solver.
+    //
+    // Each run re-deposits, which is the dial's meaning: it says how deformed
+    // the specimen is when it ENTERS the furnace, so two treatments at 4 J_b
+    // are two treatments on a specimen deformed to 4 J_b, not one specimen
+    // deformed twice. `deposit` therefore re-zeroes the recovery ordinate.
+    if (plan.work) this.host.deposit?.(plan.work);
+    else this.host.clearWork?.();
     let homogLine = "";
     try {
       if (total > 0) {
@@ -792,7 +988,17 @@ export class HeatPanel {
     rows.push(`${dim("schedule")} ${plan.sch.stages.length} stages · ${fmtDur(plan.ints.seconds)} · peak ${plan.ints.peakC.toFixed(0)} °C (${plan.ints.peakFracTm.toFixed(2)} T_m)`);
     rows.push(line("before", before));
     rows.push(after ? line("after ", after) : `${dim("after")} census readback failed`);
-    rows.push(`${dim("law endpoint")} ${fmtUm(plan.dPredUm)} ${dim("— the trajectory between endpoints is the Potts model's, not the material's")}`);
+    // v7.0 C3a: a driven run has no law endpoint to print. The sourced
+    // coefficients price curvature-driven growth, and this run carried a second
+    // driving force they were never fitted against — so the row says withdrawn
+    // and prints no micron figure. A number beside the word "withdrawn" is a
+    // number a visitor reads and the word they skip.
+    rows.push(plan.work
+      ? `${dim("law endpoint")} ${strong("withdrawn")} `
+        + dim("— the sourced coefficients price curvature-driven growth alone, and this run carried a "
+          + "stored-energy drive they were never fitted against. The before and after rows above are "
+          + "measured; nothing here predicted them")
+      : `${dim("law endpoint")} ${fmtUm(plan.dPredUm)} ${dim("— the trajectory between endpoints is the Potts model's, not the material's")}`);
     // H6: Hall–Petch on the MEASURED grain sizes — the same σ_y = s0 + k_HP/√d̄
     // the note predicted from the law endpoint, now standing on the census.
     // The row names its own limits, because this number is the one a visitor
@@ -808,8 +1014,13 @@ export class HeatPanel {
       if (after) {
         const sa = hallPetch(si, this.dBar(after) * 1e-6);
         rows.push(`${dim("σ_y")} ${strong(fmtMPa(sb))} → ${strong(fmtMPa(sa) + " MPa")} `
-          + dim(`— Hall–Petch on the measured ${est} d̄, grain-size strengthening alone: no precipitates, `
-            + `no work hardening, and the µm under the √d̄ are the declared resolution`));
+          + dim(plan.work
+            ? `— Hall–Petch on the measured ${est} d̄, grain-size strengthening alone: no precipitates, and `
+              + `no work-hardening term either — the cold work this run carried is a driving force for `
+              + `boundary migration, not a strength, so the increment a real deformation would add to σ_y `
+              + `is absent. The µm under the √d̄ are the declared resolution`
+            : `— Hall–Petch on the measured ${est} d̄, grain-size strengthening alone: no precipitates, `
+              + `no work hardening, and the µm under the √d̄ are the declared resolution`));
         if (spec > 0) {
           rows.push(shownMPa(sa) >= shownMPa(spec)
             ? `${dim("spec")} σ_y ≥ ${fmtMPa(spec)} MPa — ${strong("met")}: the treated casting stands at ${fmtMPa(sa)} MPa`
@@ -849,13 +1060,47 @@ export class HeatPanel {
         : `${dim("pinned")} dispersion ${(plan.pin.f * 100).toFixed(1)} vol % · r ${plan.pin.r} cells `
           + dim("— the fabric pins in the volume too, but its limit law is only measured in the plane; no d_lim is claimed here"));
     }
+    // the cold work's row (v7.0 C3a) — LAST of the mode rows, after C2's
+    // pinned row, for the same reason that one went after oxide: the panel
+    // gates slice the card and require the late rows to survive, and an
+    // as-cast card must be byte-what it was before this mode existed.
+    if (plan.work) {
+      const rec = this.host.storedRec?.() ?? 0;
+      // the MEAN of the recovered field, not `recovered` of the mean: the law
+      // is concave, so the second is larger by Jensen — over 10 % at a
+      // treatment's worth of sweeps — and this row names its number as what
+      // recovery did to the deposited mean. The top of the fabric is a single
+      // grain's value and so is exact under `recovered` itself.
+      const hEnd = recoveredMeanUniform(plan.work, rec);
+      const worst = recovered(2 * plan.work, rec);
+      rows.push(`${dim("cold work")} ${plan.work.toFixed(1)} J_b mean deposited `
+        + `${dim(`(0–${(2 * plan.work).toFixed(1)} J_b across grains, against this lattice's ${H_FLAT_3D} J_b `
+          + `flat-front barrier)`)} `
+        + dim(`— recovery ran it to ${hEnd.toFixed(2)} J_b over ${delivered.toLocaleString()} sweeps `
+          + `(H_S = H₀/(1 + rec·H₀), rec = ${rec.toPrecision(3)}), and the most-deformed grains from `
+          + `${(2 * plan.work).toFixed(1)} to ${worst.toFixed(2)}: second-order annihilation takes the `
+          + `highest first, so the SPREAD that drives migration narrows faster than the mean falls`));
+    }
     if (delivered < total) {
       rows.push(`<span style="color:#ffb454">aborted at sweep ${delivered.toLocaleString()} / ${total.toLocaleString()} — the microstructure is wherever the boundaries were</span>`);
     } else if (plan.capped) {
+      // the truncation's own endpoint is the same withdrawn prediction, one row
+      // further down: `dCapUm` is the sourced law inverted for the delivered
+      // sweeps, so printing it on a worked run contradicts the law-endpoint row
+      // above it. The truncation FRACTION is not a prediction and stays.
       rows.push(`<span style="color:#ffb454">truncated: the schedule asked for ${plan.sweeps.toLocaleString()} sweeps, the budget allows ${this.consts().cap.toLocaleString()} `
-        + `(${((total / plan.sweeps) * 100).toFixed(0)} %) — the model endpoint for the delivered sweeps is ~${fmtUm(plan.dCapUm)}</span>`);
+        + `(${((total / plan.sweeps) * 100).toFixed(0)} %)`
+        + (plan.work
+          ? `</span>`
+          : ` — the model endpoint for the delivered sweeps is ~${fmtUm(plan.dCapUm)}</span>`));
     } else if (after && this.dBar(after) - this.dBar(before) < 0.05) {
-      rows.push(dim("nothing microstructural happened — which is what the arithmetic predicted. That is what a stress relief is."));
+      // "what the arithmetic predicted" is a claim about a prediction, and a
+      // worked run withdrew it — so the same observation gets the honest
+      // sentence for a run nothing predicted
+      rows.push(dim(plan.work
+        ? "nothing microstructural happened. Nothing here predicted that it would: with the stored drive live "
+          + "the endpoint was withdrawn before the sweeps were spent, and this row reports the census, not a hit."
+        : "nothing microstructural happened — which is what the arithmetic predicted. That is what a stress relief is."));
     }
     this.reportEl.innerHTML = rows.join("<br>");
   }

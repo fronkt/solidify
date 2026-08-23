@@ -198,7 +198,11 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   orders longer than solidification: Arrhenius integrals over the whole trajectory set a budget,
   measured Potts kinetics spend it; annealing twins in the volume (Cu and Co twin, Al and Ni
   refuse with their Murr-1975 numbers), homogenization at frozen φ, oxide/decarb card lines, and
-  a Hall–Petch `σ_y` row judged against a spec you commit before the run. What it cannot honestly
+  a Hall–Petch `σ_y` row judged against a spec you commit before the run. As of v7.0 a cold-work
+  dial (volume only) deposits a per-grain stored-energy field in bond energies, so a boundary
+  sweeps into the more deformed grain and the less deformed one grows, while the stored energy
+  itself recovers as the sweeps run; dialling it up withdraws the predicted endpoint, because the
+  sourced coefficients price curvature alone. What it cannot honestly
   run it refuses, each with its own sentence — incipient melting, and the domain limit with the
   analytic answer still printed.
 - **Process controls** — undercooling, cooling rate, inoculant charge (+ potency and spread), chill
@@ -360,14 +364,81 @@ What it is checked against:
 | Σ3 twin registry | exact 60° about ⟨111⟩, checked against real volume adjacency | 25/26 exact; twins survive further annealing |
 | oxide card lines | parabolic `x = √(∫k_p dt)`, sourced constants | Al passive film 2.3 nm after 14.5 h at 520 °C — steel scales in mm |
 | Hall–Petch demo (1 h at 0.85 T_m) | `σ_y = σ0 + k_HP/√d̄`, sourced constants | Al 12 → 20.1 µm (40 → 36 MPa); steel 12 → 295.9 µm (243 → 105 MPa) |
+| stored-energy front (bicrystal, 128³, 5-sweep window) | derived from the 26-neighbour stencil: ΔH = 8 `J_b` makes a flat {100} advance energy-neutral, so a flat front would run at the candidate draw 9/26 = 0.3462 cells/sweep | measured 0.3170 at ΔH = 8 and 0.1524 at ΔH = 6 — which brackets the barrier from both sides (a barrier of 10 predicts 0.012 at ΔH = 8; a barrier of 6 predicts the full draw at ΔH = 6). The velocity itself depends on window length, 0.3918 at one sweep down to 0.2137 at sixty, for two named reasons — see below |
+| recovery stall (same bicrystal, driven from ΔH₀ = 20) | the immobile band the ladder above measures, in the same run | v 0.3996 → under a thousandth of that by 800 sweeps, stalling at H_S = 1.18 inside a band measured immobile up to ΔH = 2 |
+| stored-energy selection (three pours, 90 sweeps, 6 `J_b` mean) | the same casts annealed undriven, partitioned by the same labels | the less-deformed half takes +0.495 to +0.501 of volume share against a control drift of ±0.007 — 73× to 6238×, against a criterion of 3× fixed before the run |
 
-The report card's last row is `σ_y` by Hall–Petch on the measured census — grain-size
-strengthening alone, no precipitates, no work hardening, and the card says so. Dial a spec
+The report card's `σ_y` row is Hall–Petch on the measured census — grain-size
+strengthening alone, no precipitate term and no work-hardening term, and the card says so — in
+its own words when the cold-work dial is up. That much survives cold work, because stored energy
+here is a driving force and not a strength: `σ_y` still prices grain size alone, so the
+work-hardening increment a real deformation would add to it is absent. The pre-run verdict below
+does not survive it — above zero the panel withdraws the prediction and judges the spec on the
+measured census instead. Dial a spec
 (`σ_y ≥ N MPa`) and the met/missed verdict is judged against the spec as it stood when the run
 started — a spec you can only set after the furnace is a spec you can move. The arrow is
 one-way: this furnace can only coarsen, and coarser is softer, so an anneal can only soften; a
 spec above the as-cast strength is called unreachable up front, because meeting a higher spec
 takes a finer pour, not a schedule.
+
+As of v7.0 the panel carries a sixth dial — cold work, 0 to 10 `J_b` in steps of 0.5, in the
+volume only. It deposits a stored-energy field, the dislocation content the specimen arrived
+with, and the Potts acceptance line gains one term: `ΔE = eNew − eNow + (H(cand) − H(mine))`. A
+voxel that adopts a candidate adopts that candidate's stored energy with it, so the move costs
+their difference — negative when the candidate is the less deformed grain, which means the
+boundary sweeps into the more deformed grain and the less deformed one grows. That is
+strain-induced boundary migration, and it is the whole of the drive. The field is one f32 per
+grain id, 16 KB where a per-voxel field would be 28.3 MB at 192³, because `h(x) = H(id(x))` is
+an identity here and not an approximation: adopting a neighbour's id is the only thing the pass
+does to a voxel, so the identity holds after every flip because it held before. Nothing on the
+GPU ever writes it — the binding is `read`, not `read_write`, and a GPU gate reads the buffer
+back against the CPU mirror in all 4096 entries to prove it. The unit is the Potts bond energy,
+written `J_b` and never J/m³: there is no SI-to-Potts energy bridge in this app, deliberately —
+the material law sets the endpoint and the measured lattice constants spend the sweeps — and a
+stored-energy dial does not add one.
+
+The scale to read that dial against is derived rather than fitted. A voxel on a flat {100}
+boundary sees 9 unlike neighbours across the interface and 17 like ones behind it, so a flat
+advance swaps the counts and costs 8 `J_b` — at the shipped kT = 0.6, exp(−8/0.6) ≈ 1.62·10⁻⁶
+per attempt, which is why a flat front here is very nearly immobile and coarsening proceeds at
+kinks and curvature instead. That 8 is an upper bound on the barrier that actually gates
+migration rather than a measurement of it: the ladder's onset sits nearer 5–6, because a front
+that has begun to move is no longer flat and a kink carries a lower barrier than the flat face.
+Two effects also move the measured velocity at ΔH = 8 in opposite directions, and both are named
+rather than averaged away — a sweep is eight sequential sublattice passes, so the front roughens
+inside its own first sweep and the one-sweep velocity lands *above* the flat draw; and recovery
+is live throughout, so a nominal ΔH = 8 has decayed to an effective 5.4 by sweep sixty. It is a 3D number by construction: the plane's Moore-8 stencil
+gives 3 → 5 and a barrier of 2, so there is no 2D stored-energy kernel and no 2D cold-work dial,
+and the 2D operator surface is byte-identical to before. And which grain stores how much is a
+declared fiction, called one here: the deposit spreads h uniformly on [0, 2·dial], so the dial
+reads as the mean stored energy, but a hash over grain ids is not a Taylor factor — predicting
+which grain took more deformation needs a slip-system set and the orientation's relation to the
+loading axis, and the quaternions here carry orientation without slip geometry. The fabric is
+there so the field is heterogeneous, because a uniform stored-energy field is exactly inert: the
+difference term is zero in every cell.
+
+Recovery is second-order dislocation annihilation, dH/dS = −k·H², integrated exactly rather than
+stepped: `H_S = H₀/(1 + rec·H₀)`, evaluated in the shader from one scalar the uniform already
+carries, so there is no recovery pass. That is load-bearing — no per-step ODE error, no f32
+chain over thousands of sweeps, and recovery cannot be applied twice, applied per colour instead
+of per sweep, or land one sweep stale, because it is never applied at all. With no clamp
+anywhere, H_S stays non-negative, never rises above H₀ and strictly decreases in S; high-H
+grains recover faster, so the spread of the drive narrows rather than merely rescaling. The
+furnace reaches recovery through the sweep count and never through a temperature — two schedules
+at different furnace temperatures give byte-identical kT and recovery rate, and a browser-free CI
+gate holds that line.
+
+With cold work above zero the panel withdraws its endpoint. The sourced grain-growth
+coefficients price curvature-driven growth alone, and a stored-energy field is a second driving
+force the calibration that turns them into sweeps was never fitted against — so the schedule
+still buys its sweeps, which is a time conversion, but no d̄ endpoint is predicted, the pre-run
+Hall–Petch spec sentence is withdrawn with it, and the card's law-endpoint row says withdrawn
+and prints no micron figure. The card's measured before/after rows and its post-run spec verdict
+stand, because they stand on a census. One thing the dial also switches off: with cold work
+dialled, the Σ3 annealing-twin pass is held back and the card says why. A twin plate's id is
+allocated on the GPU mid-anneal, so it would be born carrying whatever the work fabric had
+assigned to an id nobody had used yet — and a plate that draws less than the parent it sits
+inside eats that parent instead of twinning it.
 
 Limits, stated: φ stays frozen — the phase field is never re-solutioned, so a treatment cannot
 dissolve or regrow the solid itself. T, c and age remain the as-cast record; the treatment is
@@ -382,4 +453,8 @@ and as of v7.0 the panel carries a Zener dispersion — a particle fabric the bo
 through, pinned at a limit measured on this lattice (d_lim = 7.24·r^0.205/f^0.356 cells in the
 plane; the volume shares the mechanism and declines to borrow the law). And grain statistics on a
 188 µm volume stop meaning anything past ~64 µm, so a schedule that would go there is refused
-with the law's answer still printed.
+with the law's answer still printed. The sweep budget is bought by the grain-growth law's own
+Arrhenius integral, so this furnace cannot yet price a recrystallization anneal below the
+grain-growth window — a low-temperature recrystallization schedule buys ~0 sweeps and nothing
+happens. Cold work here is the field and the drive; nucleating new strain-free grains is not in
+this one.

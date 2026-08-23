@@ -763,7 +763,12 @@ await page.evaluate(() => {
     },
     // equivalent-SPHERE diameter in cells, from the same census the panel reads
     dCells: st => Math.cbrt((6 * st.meanVolVox) / Math.PI),
-    async cast3(seeds = 2600, pPore = 0) {
+    // `seed` (v7.0 C3a): the LCG's start, defaulted to the value every gate
+    // before HT3-SE-SELECTION was measured against — so those casts stay
+    // byte-identical while the selection gate can pour three DIFFERENT
+    // specimens against the one fixed work fabric, which is the replicate
+    // design WORK_SALT's docblock argues for.
+    async cast3(seeds = 2600, pPore = 0, seed = 0x2f6e2b1) {
       S.app.setRun(false);
       const s3 = S.sim3d();
       // a SEEDED lattice, not Math.random(): K_MC is measured off whatever
@@ -772,7 +777,7 @@ await page.evaluate(() => {
       // a good build (seen: 1.186 then 0.924 on identical code). A gate that
       // fails at random is the mirror of the U0 lesson about a gate that
       // cannot fail at all. Plain LCG so the pour is byte-identical run to run.
-      let rs = 0x2f6e2b1 >>> 0;
+      let rs = seed >>> 0;
       const rnd = () => { rs = (rs * 1664525 + 1013904223) >>> 0; return rs / 4294967296; };
       Object.assign(s3.params, {
         scen: 0, heatIn: 0, coolRate: 0.5, alloyOn: 0, twinProb: 0,
@@ -1093,6 +1098,11 @@ await page.evaluate(() => {
   };
 });
 
+// The largest drive HT3-SE-FRONT measures immobile, handed to
+// HT3-SE-RECOVERY-STALL so the stall is checked against a band measured on this
+// GPU in this run. Null until FRONT has run; the stall gate fails closed on it.
+let immobileTop = null;
+
 // HT3-SE-FRONT — the headline. Does a stored-energy difference drive a boundary,
 // in the right DIRECTION, at a rate the lattice's own geometry predicts?
 //
@@ -1104,11 +1114,28 @@ await page.evaluate(() => {
 // moves unconditionally, and the front should advance at whatever its candidate
 // draw offers — 9/26 = 0.346 cells/sweep for a flat front.
 //
-// What is ASSERTED is what the measurement supports: the exact zeros below
-// threshold, monotonicity, direction, and the v ≤ 1 ceiling. The 8 ↔ 9/26
-// agreement is REPORTED, not gated, because a moving front roughens and its
-// draw rises above 9/26 — measured 0.726 at ΔH = 20. Gating an equality that
-// roughening makes approximate would be a tolerance invented to fit.
+// What is ASSERTED is what the measurement supports: the SEPARATION below
+// threshold — sub-barrier creep three orders under the neutral-point rate, not
+// an exact zero, for the Poisson reason spelled out at the assertion itself —
+// monotonicity, direction on the rungs that HAVE one, the v ≤ 1 ceiling, and
+// two BRACKETS that exclude the neighbouring barriers.
+//
+// The 8 ↔ 9/26 agreement is REPORTED and not gated, and the reason is stronger
+// than "roughening makes it approximate". Two effects push it in opposite
+// directions and neither is noise. A sweep is EIGHT sequential sublattice
+// passes, so the front roughens inside its own first sweep and the later colours
+// see a raised unlike-neighbour count — which puts the one-sweep velocity ABOVE
+// the flat draw. And recovery is LIVE throughout: `setStored` turns the stored
+// mode on and `anneal` banks `HT_RECOVER_3D` every sweep, so a nominal ΔH = 8
+// has decayed to an effective 5.4 by sweep 60 — which puts the long-window
+// velocity below it. Measured here, at 1, 5 and 60 sweeps, and both departures
+// asserted by DIRECTION rather than by size, because their sizes are what the
+// window length happens to be.
+//
+// The brackets are what actually pin the barrier, and they cut both ways: a
+// barrier of 10 would leave ΔH = 8 uphill by 2 and put v(8) near
+// pick·exp(−2/0.6) ≈ 0.035·pick; a barrier of 6 would make ΔH = 6 the neutral
+// point and put v(6) near the full pick. Measured: 0.92·pick and 0.44·pick.
 {
   // the barrier, counted from the stencil rather than quoted from the source
   // A voxel in grain 1 on the last plane before the interface: the dx = +1
@@ -1124,38 +1151,67 @@ await page.evaluate(() => {
   const dEflat = sameSide - farSide;    // 17 − 9 = +8
   const pick = farSide / 26;            // 9/26 — the flat front's draw
 
-  const rungs = [0, 2, 8, 20];
+  // A SHORT window, because recovery is live and the drive decays across it:
+  // 5 sweeps banks rec = 0.005, which takes a nominal 8 to 7.69, a 3.8 % sag.
+  // At the 40 sweeps this gate first used it is 8 -> 6.06, and the ladder stops
+  // being a ladder in the quantity it is labelled by.
+  const W = 5;
+  const rungs = [0, 2, 6, 8, 20];
   const got = [];
   for (const dH of rungs) {
-    got.push(await page.evaluate(async d => await window.__se.front(d, 40), dH));
+    got.push(await page.evaluate(async (d, w) => await window.__se.front(d, w), dH, W));
   }
+  // the same rung at the two ends of the window range, for the two named effects
+  const one = await page.evaluate(async () => await window.__se.front(8, 1));
+  const sixty = await page.evaluate(async () => await window.__se.front(8, 60));
   const v = got.map(r => r.v);
   const idx = d => rungs.indexOf(d);
   const out = {
-    dEflatCounted: dEflat, shippedH_FLAT_3D: HT.H_FLAT_3D, pickFlat: +pick.toFixed(4),
+    dEflatCounted: dEflat, shippedH_FLAT_3D: HT.H_FLAT_3D, pickFlat: +pick.toFixed(4), window: W,
     ladder: got.map(r => ({ dH: r.dH, v: +r.v.toFixed(4), gained: r.gained })),
     vAt8_vs_pick: +(v[idx(8)] / pick).toFixed(3),
+    vAt6_vs_pick: +(v[idx(6)] / pick).toFixed(3),
+    windowEffect: { s1: +one.v.toFixed(4), s5: +v[idx(8)].toFixed(4), s60: +sixty.v.toFixed(4) },
   };
   // The sub-threshold rungs are asserted NEGLIGIBLE, not zero, and the
   // difference is not pedantry. kT = 0.6 buys sub-barrier moves at
-  // exp(-(8-dH)/kT), so over this window the expected count is ~0.4 flips at
-  // dH = 0 and ~10 at dH = 2, out of 16384 boundary cells x 40 sweeps. Exact
-  // zero is a Poisson draw coming up empty — the first run of this gate read
-  // 0 and 0, the second read 0 and 2 on identical code. An `=== 0` here is a
-  // flake with a physical explanation, so the assertion is the SEPARATION:
-  // sub-threshold creep three orders below the neutral-point rate. It fails the
-  // moment the barrier stops being a barrier, which is the claim being made.
+  // exp(-(8-dH)/kT), so over this window the expected count is a small fraction
+  // of a flip at dH = 0 and about one at dH = 2, out of 16384 boundary cells x
+  // W sweeps. Exact zero is a Poisson draw coming up empty — runs of this gate
+  // on identical code have read both 0 and 2. An `=== 0` here is a flake with a
+  // physical explanation, so the assertion is the SEPARATION: sub-threshold
+  // creep three orders below the neutral-point rate. It fails the moment the
+  // barrier stops being a barrier, which is the claim being made.
   const floor = v[idx(8)] * 1e-3;
   const ok =
     dEflat === HT.H_FLAT_3D             // the source's constant IS the counted one
     && v[idx(0)] < floor                // no drive: creep is noise, not motion
     && v[idx(2)] < floor                // still far under the Boltzmann tail
     && v[idx(8)] > 0 && v[idx(20)] > 0  // liveness: the drive drives
-    && v[idx(8)] > v[idx(2)] && v[idx(20)] > v[idx(8)]   // monotone across bins
-    && got.every(r => r.gained >= 0)    // DIRECTION: never into the low-H grain
+    && v[idx(6)] > v[idx(2)] && v[idx(8)] > v[idx(6)] && v[idx(20)] > v[idx(8)]
+    // DIRECTION, on the rungs that HAVE one. The dH = 0 rung is excluded on
+    // purpose: with both grains at h = 0 the move costs +8 in BOTH directions,
+    // so `gained` there is the difference of two equal-rate Poisson streams
+    // with mean zero, and demanding it be non-negative asserts a direction the
+    // physics does not have — the same flake class this gate's own creep floor
+    // exists to avoid. (Measured: 12 repeats of the 40-sweep window all read
+    // exactly 0, so the risk is small; it is still a claim about noise.)
+    && got.filter(r => r.dH > 0).every(r => r.gained >= 0)
+    // the two brackets that exclude the neighbouring barriers
+    && v[idx(8)] > 0.25 * pick          // a barrier of 10 would put this at 0.035*pick
+    && v[idx(6)] < 0.60 * pick          // a barrier of 6 would put this near pick
+    // and the two named window effects, asserted by direction only: roughening
+    // inside the first sweep puts it ABOVE the flat draw, live recovery puts
+    // the long window below the short one
+    && one.v > pick && one.v > v[idx(8)] && v[idx(8)] > sixty.v
     && v.every(x => x <= 1.0);          // one flip per site per sweep, at most
   out.creepFloor = +floor.toExponential(2);
   out.creepRatios = [0, 2].map(d => +(v[idx(d)] / v[idx(8)]).toExponential(2));
+  // handed to HT3-SE-RECOVERY-STALL: the largest drive this ladder measured
+  // IMMOBILE, so the stall can be checked against a band measured in the same
+  // run rather than against a number written into a docblock
+  immobileTop = rungs.filter(d => v[idx(d)] < floor).reduce((a, b) => Math.max(a, b), 0);
+  out.immobileTop = immobileTop;
   check("HT3-SE-FRONT", ok, out);
 }
 
@@ -1169,12 +1225,23 @@ await page.evaluate(() => {
 // What is not true by construction is that the recovering field reaches the
 // SHADER at all, on the right sweep, applied once and to both sides. So the
 // assertion is a correspondence between two independent experiments: a front
-// driven from ΔH₀ = 20 with recovery live must slow monotonically and STALL
-// DEAD, and it must still be moving in the window where the static ladder says
-// its effective drive is above the floor, and stopped in the window where the
-// static ladder says it is below. Recovery applied twice, per-colour, one sweep
-// stale, or sign-flipped each breaks that correspondence while still producing a
+// driven from ΔH₀ = 20 with recovery live must slow monotonically, STALL, and
+// stall at an effective drive inside the band HT3-SE-FRONT measured immobile in
+// this same run. Recovery applied twice, per-colour, one sweep stale, or
+// sign-flipped each moves where the stall lands while still producing a
 // perfectly monotone decay curve.
+//
+// A STRONGER correspondence was claimed here and in four documents, and it is
+// retracted: that each window's velocity falls between the ladder's velocities
+// at that window's H_S endpoints. It does not. Windows 300 through 700 read
+// 0.0144 down to 0.0003 where the ladder reads 0.0000 at the same drives, one
+// to two orders out — and the cause is not an error in either measurement. A
+// front that has been migrating for hundreds of sweeps is ROUGH, and a rough
+// front moves at drives a flat one cannot; it is the same effect that puts the
+// ladder's own onset near 5–6 rather than at the flat-front barrier of 8. Two
+// experiments that differ in front morphology cannot bracket each other window
+// by window, and nothing here ever asserted that they did — which is the part
+// that should have been caught before it reached three documents as fact.
 {
   const out = await page.evaluate(async () => {
     const S = window.__solidify, s3 = S.sim3d();
@@ -1185,7 +1252,9 @@ await page.evaluate(() => {
     let prev = await window.__se.ones();
     // five windows, not four: at 200-sweep windows the 600→800 pane still
     // averages in the tail of the creep and reads 2e-4 rather than a clean stop.
-    // The stall is asserted EXACTLY, so the ladder runs until it is exact.
+    // The ladder runs one window past that, where every run so far has read a
+    // net displacement of exactly zero voxels — see the assertion for why that
+    // observation is REPORTED and a three-order separation is what is gated.
     for (let k = 0; k < 5; k++) {
       await s3.anneal(200);
       const now = await window.__se.ones();
@@ -1200,14 +1269,35 @@ await page.evaluate(() => {
     return { rows, recFinal: s3.storedRec, storedOn: s3.storedOn };
   });
   const r = out.rows;
+  const last = r[r.length - 1];
   const expectRec = HT.HT_RECOVER_3D * 1000;
+  // The stall is asserted as a SEPARATION, for the same reason HT3-SE-FRONT's
+  // floor is and against the same physics. Every run of this gate so far has
+  // measured a net displacement of exactly zero voxels in the last window, and
+  // an `=== 0` was what it first shipped with — but that number is a Poisson
+  // draw, not a constant. At hEff ≈ 1 the residual flat-front cost is
+  // exp(-7/0.6) ≈ 8.5e-6 per attempt, which is ~0.05 flips per sweep across the
+  // interface, and an isolated voxel on a flat {100} face carries 17 unlike
+  // neighbours and re-dissolves within a sweep or two. So the standing
+  // population is a few hundredths of a voxel and the window reads 0 about
+  // nineteen times in twenty — a one-in-twenty flake, with a physical
+  // explanation, in a gate whose whole subject is that exact zeros here are
+  // luck. Three orders under the opening velocity IS "stalled dead", and it is
+  // the standard the sibling gate already sets.
   const ok =
     r[0].v > 0.05                                    // liveness: it moved at first
     && r.every((x, i) => i === 0 || x.v <= r[i - 1].v) // monotone slowing
-    && r[r.length - 1].v === 0                        // and it STALLED, exactly
-    && r[0].hEff > 2.5 && r[r.length - 1].hEff < 2.0  // across the ladder's floor
+    && Math.abs(last.v) < r[0].v * 1e-3               // and it STALLED
+    && last.v >= 0                                    // without reversing
+    // the cross-gate correspondence: it started ABOVE the measured immobile
+    // band and stalls INSIDE it. `immobileTop` comes off HT3-SE-FRONT's ladder
+    // in this run, so neither end of this comparison is a written-down number.
+    && immobileTop !== null && immobileTop > 0
+    && r[0].hEff > immobileTop && last.hEff <= immobileTop
     && Math.abs(out.recFinal - expectRec) < 1e-9;     // rec banked per sweep, once
   check("HT3-SE-RECOVERY-STALL", ok, {
+    stallRatio: +(Math.abs(last.v) / r[0].v).toExponential(2),
+    immobileTop, stallAtHEff: +last.hEff.toFixed(2), startedAtHEff: +r[0].hEff.toFixed(2),
     rows: r.map(x => ({ S: x.S, v: +x.v.toFixed(4), hEff: +x.hEff.toFixed(2) })),
     recFinal: out.recFinal, expectRec, rate: HT.HT_RECOVER_3D,
   });
@@ -1285,10 +1375,16 @@ await page.evaluate(() => {
 //
 // dE_stored = H(cand) − H(mine), so a UNIFORM field must change nothing: every
 // difference is zero however large the field is. That makes it the one assertion
-// here that can catch a coupling which is wrong in a way that cancels at zero —
-// `−H(mine)` alone, `abs(ΔH)`, a clamp, a rescale, or `rec` applied to one side
-// — every one of which passes HT3-SE-OFF-IDENTITY and still moves boundaries
-// plausibly enough to look like grain growth.
+// here that catches a coupling which is wrong ASYMMETRICALLY and still cancels
+// at an empty field — `−H(mine)` alone, `+H(cand)` alone, or `rec` applied to
+// one side of the difference. Each passes HT3-SE-OFF-IDENTITY and then moves
+// boundaries plausibly enough to look like grain growth.
+//
+// What it does NOT catch, and an earlier version of this note claimed it did:
+// anything that is still zero when the difference is zero. `abs(ΔH)`, a clamp,
+// a rescale — all of them leave a uniform field inert, because the quantity
+// they deform is already 0 everywhere. Those are HT3-SE-FRONT's to catch, where
+// the difference is not zero: a sign or magnitude error there moves the ladder.
 //
 // It also turns "a uniform stored-energy field is inert" from an argument in a
 // docblock into a measurement, for the cost of one arm.
@@ -1656,6 +1752,329 @@ await page.evaluate(() => {
       relErr: +err.toExponential(2), consErr: +consErr.toExponential(2),
     });
   }
+}
+
+// ---------------------------------------------------------------------------
+// HT3-SE-SELECTION (v7.0 C3a) — the physics claim, with a kill criterion that
+// was written down and approved BEFORE the measurement ran.
+//
+// Every other SE gate asserts that the coupling is wired correctly: the barrier
+// is the one the stencil derives, a uniform field is inert, the zero arm is
+// bit-identical, the buffer nothing writes stays unwritten. None of them asserts
+// that the mechanism DOES ANYTHING USEFUL to a real casting, and a milestone
+// whose gates all pass on a bicrystal has measured a fixture, not a model.
+//
+// The claim: a heterogeneous stored-energy field must SELECT. Strain-induced
+// boundary migration is defined by its direction — boundaries sweep INTO the
+// more-deformed grain — so over a treatment the LESS-deformed half of the
+// casting must take volume share from the more-deformed half. That is one
+// number, it has a sign, and it has a null: the same cast annealed with no
+// field at all, partitioned by the SAME labels, where the labels mean nothing.
+//
+// THE PRE-REGISTERED KILL CRITERION, approved before this ran: the driven
+// share shift must be POSITIVE and at least 3x the magnitude of the undriven
+// control's on EVERY replicate. Three casts, three different pours (the LCG
+// seed moves; the work fabric does not, which is exactly what WORK_SALT is
+// fixed for). If it holds on two of three, C3a's drive is noise dressed as a
+// mechanism and this gate is supposed to say so — pre-registering the number is
+// the only thing that stops a threshold from being chosen after the fact to fit
+// whatever came out.
+//
+// The control is doing real work here and is not ceremony. Coarsening removes
+// small grains whatever drives it, so ANY partition of a shrinking grain
+// population drifts; without measuring that drift on the same cast with the
+// same labels there is no way to know whether a positive shift is selection or
+// arithmetic. The 3x is a ratio against the measured drift, not an absolute.
+{
+  const SEEDS = [0x2f6e2b1, 0x71c3d5f, 0x13a97e5];
+  const WORK = 6, SWEEPS = 90;
+  const reps = [];
+  for (const seed of SEEDS) {
+    const r = await page.evaluate(async (seed, WORK, SWEEPS) => {
+      const S = window.__solidify, s3 = S.sim3d(), n = s3.n;
+      S.app.setMaterial("al");
+      await window.__ht3.cast3(2600, 0, seed);
+      // one pour, restored into both arms — HT3-SE-OFF-IDENTITY's reason
+      // verbatim: cast3's freeze loop stops on a wall-clock-sensitive stats
+      // poll, so two successive casts are not the same specimen, and arms that
+      // differ by their CAST cannot witness anything about the kernel
+      const snap = await s3.readGrainVolume();
+      const restore = () => {
+        for (const dir of [0, 1]) {
+          s3.device.queue.writeTexture({ texture: s3.grainTexture(dir) }, snap,
+            { bytesPerRow: n * 4, rowsPerImage: n }, [n, n, n]);
+        }
+      };
+      // the labels: the fabric's own per-id values, read off the CPU mirror
+      // AFTER a deposit. Both arms are partitioned by these, including the
+      // control — where they are labels attached to nothing.
+      s3.deposit(WORK);
+      const h = Float32Array.from(s3.storedCPU());
+      const PORE = 4095;
+      const census = vol => {
+        const cnt = new Uint32Array(4096);
+        for (let i = 0; i < vol.length; i++) {
+          const id = vol[i];
+          if (id > 0 && id < PORE) cnt[id]++;
+        }
+        return cnt;
+      };
+      const c0 = census(snap);
+      // the median h over the ids this cast actually owns — a median, not the
+      // fabric's own mid-point, so the split is 50/50 by GRAIN COUNT on this
+      // specimen rather than on the fabric in the abstract
+      const live = [];
+      for (let id = 1; id < PORE; id++) if (c0[id] > 0) live.push(id);
+      const med = live.map(id => h[id]).sort((a, b) => a - b)[Math.floor(live.length / 2)];
+      const lowShare = cnt => {
+        let lo = 0, all = 0;
+        for (const id of live) { all += cnt[id]; if (h[id] < med) lo += cnt[id]; }
+        return all > 0 ? lo / all : 0;
+      };
+      // volume-weighted mean stored energy over the surviving structure — a
+      // second, independent read of the same claim: selection must LOWER it
+      const meanH = cnt => {
+        let sum = 0, all = 0;
+        for (const id of live) { sum += cnt[id] * h[id]; all += cnt[id]; }
+        return all > 0 ? sum / all : 0;
+      };
+      const arm = async (setup) => {
+        restore();
+        setup(s3);
+        await s3.anneal(SWEEPS);
+        const post = await s3.readGrainVolume();
+        let flips = 0;
+        for (let i = 0; i < snap.length; i++) if (snap[i] !== post[i]) flips++;
+        const c = census(post);
+        let alive = 0;
+        for (const id of live) if (c[id] > 0) alive++;
+        return { share: lowShare(c), meanH: meanH(c), flips, alive };
+      };
+      const driven = await arm(s => s.deposit(WORK));
+      const ctrl = await arm(s => { s.deposit(0); s.clearStored(); });
+      // a fingerprint of the POUR itself. The first cut of this gate asked
+      // whether the three casts had different GRAIN COUNTS — they never do,
+      // because cast3 seeds exactly 2600 and every seed survives a full freeze,
+      // so a clause meant to prove three specimens proved only that the helper
+      // is deterministic. An FNV walk over the id volume is the thing that was
+      // actually meant.
+      let fp = 2166136261;
+      for (let i = 0; i < snap.length; i++) { fp ^= snap[i]; fp = Math.imul(fp, 16777619); }
+      // the ladder, on the default pour only: is the selection GRADED by the
+      // drive, or is any field enough? A single point at mid-dial cannot tell
+      // a working coupling from one weakened fourfold, because the share metric
+      // saturates hard — 0.30 of a possible 0.50 already at a mean of 0.75 J_b.
+      //
+      // `uBar` is what stays sensitive when it does: the volume-weighted mean of
+      // the DIMENSIONLESS fabric over the surviving structure. The labels `h`
+      // are the WORK-scale field, and every rung's actual deposit is the same
+      // fabric scaled — so dividing by WORK puts every rung in one unit whose
+      // as-deposited value is 1, and selection is the distance below it.
+      const ladder = [];
+      if (seed === 0x2f6e2b1) {
+        for (const w of [0.75, 1.5, 3]) {
+          const a = await arm(s => s.deposit(w));
+          ladder.push({ w, dShare: +(a.share - lowShare(c0)).toFixed(5), uBar: +(a.meanH / WORK).toFixed(4) });
+        }
+      }
+      return {
+        seed, grains: live.length, med: +med.toFixed(3), fp: fp >>> 0, ladder,
+        share0: lowShare(c0), meanH0: meanH(c0),
+        driven, ctrl,
+      };
+    }, seed, WORK, SWEEPS);
+    reps.push(r);
+  }
+  const rows = reps.map(r => ({
+    seed: "0x" + r.seed.toString(16),
+    grains: r.grains,
+    dDriven: +(r.driven.share - r.share0).toFixed(5),
+    dCtrl: +(r.ctrl.share - r.share0).toFixed(5),
+    ratio: Math.abs(r.ctrl.share - r.share0) > 0
+      ? +((r.driven.share - r.share0) / Math.abs(r.ctrl.share - r.share0)).toFixed(2)
+      : Infinity,
+    meanH: { before: +r.meanH0.toFixed(3), driven: +r.driven.meanH.toFixed(3), ctrl: +r.ctrl.meanH.toFixed(3) },
+    alive: { driven: r.driven.alive, ctrl: r.ctrl.alive },
+    flips: { driven: r.driven.flips, ctrl: r.ctrl.flips },
+  }));
+  // liveness before verdict: every arm has to have actually annealed something,
+  // and the three pours have to be three different specimens. A gate that
+  // compares two frozen fields passes for the wrong reason (lessons.md:33).
+  const live = reps.every(r => r.driven.flips > 1000 && r.ctrl.flips > 1000)
+    && new Set(reps.map(r => r.fp)).size === 3;
+  // THE PRE-REGISTERED CRITERION, applied exactly as written above
+  const passes = rows.map(r => r.dDriven > 0 && r.ratio >= 3);
+  const ok = live && passes.every(Boolean)
+    // and the direction, on the independent read: the drive must LOWER the
+    // volume-weighted stored energy, and the control must not
+    && reps.every(r => r.driven.meanH < r.meanH0 && r.driven.meanH < r.ctrl.meanH);
+  const ladder = reps.find(r => r.ladder.length)?.ladder ?? [];
+  const uBar0 = (reps[0].meanH0 ?? 0) / WORK;
+  // SENSITIVITY, with the band set after measuring and not before — the repo's
+  // rule for a tolerance, and the opposite of the 3x above, which is
+  // pre-registered precisely because it is a verdict rather than a range.
+  // Measured: dShare 0.296 / 0.441 / 0.495 and uBar 0.606 / 0.377 / 0.227
+  // against an as-deposited 1.0. Both must stay ordered, and the lowest rung —
+  // the one furthest from the share metric's ceiling — must stay in its band,
+  // which is where a coupling weakened by a constant factor shows up first.
+  const graded = ladder.length === 3
+    && ladder[0].dShare < ladder[1].dShare && ladder[1].dShare < ladder[2].dShare
+    && ladder[2].dShare <= rows[0].dDriven + 0.01
+    && ladder[0].uBar > ladder[1].uBar && ladder[1].uBar > ladder[2].uBar
+    && ladder[0].uBar < uBar0
+    && ladder[0].dShare > 0.18 && ladder[0].dShare < 0.40;
+  check("HT3-SE-SELECTION", ok && graded, {
+    criterion: "dDriven > 0 and >= 3x |dCtrl| on all three, pre-registered",
+    live, passes, graded, work: WORK, sweeps: SWEEPS, rows,
+    ladder, uBarAsDeposited: +uBar0.toFixed(4), fps: reps.map(r => r.fp.toString(16)),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// HT3-SE-PANEL (v7.0 C3a) — the cold work's operator surface, and the one thing
+// this milestone REMOVES from it.
+//
+// HT-PIN-PANEL's shape, with the opposite emphasis. C2 added a dial that made
+// the panel say MORE (a pinned limit, a d_lim row); C3a adds one that makes it
+// say LESS, and the withdrawal is the part that can rot silently: the endpoint
+// sentence and the σ_y prediction are printed by code paths that do not know
+// about stored energy, so the failure mode is a panel that keeps confidently
+// predicting an endpoint for a run whose driving force its coefficients were
+// never fitted against.
+//
+// Copper on purpose. It is one of the two materials — cobalt is the other, per
+// HT-TWIN-MATRIX — where `canTreat("twins")` says yes, so this single run also
+// exercises the hold-back: Σ3 plates are allocated GPU-side
+// mid-anneal, which is precisely when the work fabric cannot tell them what
+// they should have inherited, and C3a declines to invent it.
+{
+  const out = await page.evaluate(async () => {
+    const S = window.__solidify;
+    S.app.setMaterial("cu");
+    await window.__ht3.cast3(2600, 0);
+    S.app.startHeat();
+    const panel = document.getElementById("heattreat");
+    if (!panel) return { opened: false };
+    const btn = document.getElementById("htRun");
+    const note = () => document.getElementById("htNote").textContent;
+    for (let i = 0; i < 40 && /waiting/.test(note()); i++) await new Promise(r => setTimeout(r, 100));
+    const dials = panel.querySelectorAll('input[type="range"]');
+    const set = (i, v) => { dials[i].value = String(v); dials[i].dispatchEvent(new Event("input", { bubbles: true })); };
+    const arrowOf = s => (s.match(/→\s*([\d.]+)\s*µm/) ?? [])[1] ?? null;
+    const sweepsOf = s => parseInt((s.match(/([\d,]+) MC sweeps/) ?? [])[1]?.replace(/,/g, "") ?? "0", 10);
+
+    // a hold this 125 µm specimen will accept: copper coarsens fast, so the
+    // domain limit refuses the schedules aluminium runs. Walk DOWN until the
+    // run arms, and record which rung armed it — a gate that silently settles
+    // on a one-minute no-op has measured the dial, not the treatment
+    let hold = 0;
+    for (const m of [30, 15, 8, 4, 2]) {
+      set(1, m);
+      for (let i = 0; i < 30 && btn.disabled; i++) await new Promise(r => setTimeout(r, 100));
+      if (!btn.disabled) { hold = m; break; }
+    }
+    if (!hold) return { opened: true, armed: false, note: note().slice(0, 240) };
+
+    set(2, 30);                                   // a spec, so its sentence can be withdrawn
+    const asCastNote = note();                    // the endpoint, still printed
+    set(5, 4);                                    // ♨ cold work, 4 J_b mean
+    const workedNote = note();
+    const sweeps = sweepsOf(workedNote);
+    // wait for ARMED immediately before clicking, not just at the end of the
+    // hold walk-down. The dials in between each re-run plan(), and the panel's
+    // 4 Hz census poll can land in the same window — a click on a disabled
+    // button is silently a no-op, and the gate then reads an empty card and
+    // reports six regex failures instead of the one thing that went wrong.
+    // (Seen: `report` empty, `revertedArrow` identical to `asCastArrow`, every
+    // card clause false — a treatment that never started.)
+    for (let i = 0; i < 40 && btn.disabled; i++) await new Promise(r => setTimeout(r, 100));
+    const armedAtClick = !btn.disabled;
+    btn.click();
+    for (let i = 0; i < 100 && !S.heat.busy; i++) await new Promise(r => setTimeout(r, 50));
+    const busyDuring = S.heat.busy;
+    for (let i = 0; i < 1200 && S.heat.busy; i++) await new Promise(r => setTimeout(r, 100));
+    const report = document.getElementById("htReport").textContent.replace(/\s+/g, " ");
+    // and back to as cast: the endpoint must come BACK. A withdrawal that
+    // cannot be undone is a broken panel wearing an honest sentence.
+    const setupWorked = S.heat.setup();
+    // …and back to as cast. The endpoint must come BACK — a withdrawal that
+    // cannot be undone is a broken panel wearing an honest sentence — and,
+    // more importantly, the SOLVER must come back with it. The mode selector
+    // lives in `Sim3D.hOn`, so a dial returned to zero stops depositing without
+    // stopping driving; the first cut of this gate checked only the note, which
+    // is the one surface that never touches the solver, and would have passed a
+    // build where the next treatment ran the stored kernel on a field the
+    // operator had dialled away while every printed sentence described an
+    // undriven run. So this arm RUNS AGAIN and reads `storedOn` off the sim.
+    set(5, 0);
+    const revertedNote = note();
+    const setupReverted = S.heat.setup();
+    // A DIAL-FLOOR near-noop for the second run, HT-PIN-PANEL's idiom: the
+    // first treatment left this 125 mu-m specimen at ~40 mu-m, where the domain
+    // limit refuses anything warm, and re-casting is not an option because
+    // reset() clears the stored field and would hide the very thing this arm
+    // exists to catch. Zero sweeps is fine here: the witness is the MODE
+    // SELECTOR read straight off the solver, which run() sets before it looks
+    // at the sweep count at all.
+    set(0, 100); set(1, 2);
+    for (let i = 0; i < 30 && btn.disabled; i++) await new Promise(r => setTimeout(r, 100));
+    const rearmed = !btn.disabled;
+    let storedOnAfter = null, report2 = "";
+    if (rearmed) {
+      btn.click();
+      for (let i = 0; i < 100 && !S.heat.busy; i++) await new Promise(r => setTimeout(r, 50));
+      for (let i = 0; i < 900 && S.heat.busy; i++) await new Promise(r => setTimeout(r, 100));
+      storedOnAfter = S.sim3d().storedOn;
+      report2 = document.getElementById("htReport").textContent.replace(/\s+/g, " ");
+    }
+    S.heat.close();
+    return {
+      opened: true, armed: true, hold, sweeps,
+      dialCount: dials.length,
+      asCastArrow: arrowOf(asCastNote),
+      workedArrow: arrowOf(workedNote),
+      revertedArrow: arrowOf(revertedNote),
+      workedNote: workedNote.slice(0, 700),
+      report: report.slice(0, 1700),
+      setupWorked, setupReverted, armedAtClick, busyDuring, cardLen: report.length,
+      rearmed, storedOnAfter, report2: report2.slice(0, 700),
+    };
+  });
+  const rep = out.report ?? "";
+  const ok = out.opened && out.armed
+    // the treatment actually RAN — asserted before anything is read off the
+    // card, so a click that landed on a disabled button names itself
+    && out.armedAtClick && out.busyDuring && out.cardLen > 0
+    && out.dialCount === 6                                   // the sixth dial, volume only
+    && out.sweeps >= 50                                      // the armed schedule is a real treatment
+    // THE WITHDRAWAL: an endpoint before, none while worked, and it comes back
+    && out.asCastArrow !== null && out.workedArrow === null && out.revertedArrow !== null
+    && /cold work 4\.0 J_b mean/.test(out.workedNote)
+    && /0–8\.0 J_b across grains/.test(out.workedNote)
+    && /law endpoint is withdrawn/.test(out.workedNote)
+    && /a drive, not a strength/.test(out.workedNote)
+    && /judged on the measured census/.test(out.workedNote)       // the spec sentence, withdrawn
+    && !/J\/m³/.test(out.workedNote)                              // never an SI energy density
+    // the card: withdrawn with NO micron figure, the cold-work row, the σ_y
+    // clause that stops "no work hardening" reading as "cold work is absent",
+    // and the twin hold-back, on a material that would otherwise twin
+    && /law endpoint withdrawn/.test(rep) && !/law endpoint [\d.]+ µm/.test(rep)
+    && /cold work 4\.0 J_b mean deposited/.test(rep)
+    && /H_S = H₀\/\(1 \+ rec·H₀\)/.test(rep)
+    && /not a strength/.test(rep)
+    && /twins held back while cold work is dialled/.test(rep)
+    // the share link: six long while worked, with the work BEHIND the
+    // dispersion pair at its off defaults — and back to the three-element
+    // pre-C2 shape the moment the dial returns to zero, so an as-cast link
+    // minted today is byte-what it was before this mode existed
+    && Array.isArray(out.setupWorked) && out.setupWorked.length === 6
+    && out.setupWorked[3] === 0 && out.setupWorked[4] === 2 && out.setupWorked[5] === 4
+    && Array.isArray(out.setupReverted) && out.setupReverted.length === 3
+    // the revert reaches the SOLVER, not just the note: the second run leaves
+    // the mode off, prints a law endpoint again, and carries no cold-work row
+    && out.rearmed && out.storedOnAfter === false
+    && /law endpoint [\d.]+ µm/.test(out.report2) && !/cold work/.test(out.report2);
+  check("HT3-SE-PANEL", ok, out);
 }
 
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 5) : "none");
