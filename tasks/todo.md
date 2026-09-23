@@ -3888,3 +3888,258 @@ The ceiling does not move and no milestone below moves it. `sim.ts` / `sim3d.ts`
 1. **Cast iron leaves the composer at P3.** Fe–C is refused above 0.53 wt% C because past the δ-ferrite peritectic the primary phase is austenite and this solver has one solid phase, which is δ-ferrite. 1045 and 4340 survive at 0.45 and 0.40. This is an intended break of a shipped slider range and it is the only user-visible capability this arc removes — confirm you want it removed rather than left reachable with a loud warning.
 2. **Al–Cu k is double-valued and P0 picks one.** `alloy.ts` ships 0.15 for the Cu-in-Al solute; `materials.ts:61` ships `si.kPart = 0.17` for the same system with an Al–4Cu source sentence. (`params.kPart = 0.14` is the dimensionless knob and stays.) Which one is the app's, or do you want the pair row and the SI block to keep diverging with the reason written into both source strings?
 3. **`docs/PHASE-AUDIT.md` claims per-row offline reproducibility through MatCalc/NIST TDBs + pycalphad.** Do you want that reproduction actually *run* for all 25 rows before P0 ships (a real afternoon, and Mg–Zr, Ni–W and Al–Ti may have no open assessment at all, in which case those rows carry a "no open reproduction path" flag), or shipped with the flag honest and the runs done incrementally?
+
+
+---
+
+## v8 — THE INSTRUMENT, NOT THE BROCHURE: UI/UX overhaul (planned 2026-09-23, NOT STARTED)
+
+Frank's brief (2026-09-23): remove the landing page's 13-stage machinery dive; cut the tool's
+descriptor text and em dashes; make every graph read like a research-paper figure (axes, ticks,
+units, open it up to see the numbers); make the control rail one column with no sideways scroll
+(widen it); put teaching text in a learn mode; look for the UX holes a PhD student or a lab
+would hit. Brainstorm, don't build, the hero that replaces the dive.
+
+Three read-only audits back this plan, copied beside it in `tasks/audits/2026-09-23-*.md`:
+`copy-audit.md` (668 strings, every one traced and given a proposal, ~40 gate couplings),
+`charts-audit.md` (15 plots, none with axes; module design + migration order + couplings),
+`landing-audit.md` (the dive's full dependency map, removal dry-run on a scratch copy).
+Line numbers in them are against `6ec93a1`; re-check before editing (shared worktree).
+
+### What the audit found (the holes)
+
+**Rail**
+- Sideways scroll root cause: `input[type=range]` keeps Chrome's ~129 px intrinsic width
+  (no `min-width: 0`), so 84 label + 129 slider + 62 value + gaps + padding = 305 px of content
+  in a 268 px rail (`app/index.html:39,84-90`; measured scrollWidth 305 vs clientWidth 257).
+  Every slider's VALUE sits off-screen by default, so the numbers are the part you can't see.
+- 70 rail strings, 38 of them descriptors, 58 em dashes. No rail descriptor in ui.ts is
+  pinned by a gate, so this is the cheap win.
+
+**Copy**
+- 372 em dashes in 323 visible strings. Worst files: elements.ts 69, tour.ts 66, alloy.ts 49,
+  heatpanel.ts 48, ui.ts 28. Tour = 3,162 words, 19 steps over 60 words.
+- The four modes each have 3+ names. Tour capitalises control names that are lowercase on
+  screen (COOLING RATE, POUR AND RUN, ENGINEERING · ML MODE); "SI" at tour:295 means "Si".
+- Build internals shown to users: "C3b" (heatpanel.ts:893), "docs/PHASE-AUDIT.md" in the
+  composer, "SECTION TABLE — thinnest first" printed twice (lab.ts:638,727), a phase-diagram
+  source line cut mid-sentence.
+- SEM lens bar is fixed text: `SEM · 15 kV · ×240 · WD 10.2 mm · SE` (app/index.html:349).
+  The model has none of those numbers and ×240 does not follow zoom.
+- Mixed British/American spelling, sometimes in one sentence ("aluminum" label spliced into
+  "aluminium" prose).
+
+**Plots** (15 drawn, zero with axis lines, rounded ticks, gridlines, hover, export or table)
+- HUD sparklines: 110×30, no scale, x is a 160-sample poll ring that keeps recording while
+  paused (main.ts:1768-1786), not sim time.
+- BUG: INTERFACE ΔT plots `1 − interfaceT` = 1.0 (its max) whenever there is no interface,
+  because interfaceT falls back to 0 (hud.ts:60).
+- BUG: the 3D "TEXTURE · IPF" panel projects each grain's crystal z-axis into the sample frame
+  (analyze3d.ts:388-390). That is a [001] pole figure, not an inverse pole figure.
+- PROBABLE BUG (verify first): the lab curve's dashed "liquidus" is drawn at dimensionless
+  T = 1, the pure metal's melting point (lab.ts:776-782), so an alloy's line sits above its
+  real liquidus.
+- 2D analysis panels are always dimensionless even with a calibrated material (their host has
+  no units access, main.ts:940). 3D panels aren't DPR-scaled (blurry). 3D Scheil array grows
+  without bound (analyze3d.ts:175). Lab curve is a 520 px canvas squashed into ~343 px.
+- Canvas text is 9 px; label greys are 3.2–3.9:1 contrast (below 4.5:1). Amber means
+  "measured" in one panel and "model" in the next.
+- Missing plots a researcher expects: live cooling curve during a pour, heat-treat d(t) and
+  schedule, optimizer convergence.
+
+**Layout / first run** (from the browser pass)
+- First load: one tiny seed in a black 1024² field and an empty HUD of dashes. Nothing
+  says "press run" or shows what the tool does.
+- Lab and heat-treat panels float over the canvas AND cover the HUD sparklines.
+- FIELD lens after a pour paints the field pale olive and the top-left HUD text becomes
+  unreadable (no backing plate).
+- Dimensionless material prints "t —", "melt —" while running. A dimensionless number is
+  still a number; show it with its unit label instead of a dash.
+- No "export this run" (parameters + seed + material constants + time series + micrograph
+  with scale bar) for someone who wants to cite or reproduce a run. Share links carry the seed,
+  which is most of the way there.
+
+**Landing**
+- The dive is 13 Three.js stages + a 5-stage SVG fallback, ~2,190 src lines, ~19,900 px of
+  page. three.js is used ONLY by the dive; removing it drops the landing's critical path from
+  ~270 to ~103 kB gzipped (−62%, measured with two scratch builds).
+- The compose act's `.after` paragraph (index.html:549-560, ~179 words) is a wall of text; it
+  is also the front page's only link to the retraction, so a one-line replacement keeps it.
+- Hero stat "0 FRAMEWORKS · HAND-ROLLED WGSL" talks to developers, not to the lab audience.
+
+### Style rules for all new copy (proposed, Frank to confirm)
+
+- Instrument text = label + value + unit. No sentence under a control unless it is a
+  warning. Target ≤ 6 words per control label, 0 descriptor paragraphs in the rail.
+- No em dashes in UI copy. En dashes stay where they are correct typography (Al–Cu, 5–10 K).
+  The lone "—" as an EMPTY readout stays (instrument convention; UNITS-ABSTRACT/NIYAMA pin it).
+- Teaching text lives in learn mode: 1–2 sentences, plain words, a student can read it once.
+- Honesty caveats are never deleted. Each gets a terse on-screen `line` and a learn-mode
+  `sentence`, the same split `elements.ts admit()` already uses. Gates re-point to whichever
+  field holds their phrase.
+- One name per mode, used identically in rail, panel title, tour and learn text.
+- One spelling convention across the app (Frank's call, see questions).
+
+### Phases (each its own commit + gate run; suite = `npm test`, see TESTING.md)
+
+- [ ] **U0 · Rail layout** (smallest, ships first)
+  - [ ] `input[type=range] { min-width: 0 }`; rows become a 3-column grid (label | slider |
+        value) so the value column can never be pushed out.
+  - [ ] Widen the rail 268 → ~340 px (Frank's call on exact width); tune value column for
+        "1.8e3 K/s".
+  - [ ] New gate RAIL-NO-HSCROLL: rail `scrollWidth <= clientWidth` and every `.val` inside
+        the rail's box, at the suite's default viewport AND at 1280×720 and 1920×1080, in 2D
+        and TRUE 3D (lesson: a default viewport is a test condition). Prove it fails on
+        `6ec93a1` before trusting it.
+  - [ ] Check the tour's rail highlights and localStorage section keys still resolve (they key
+        on section titles).
+- [ ] **U1 · Copy: terse instrument + learn mode**
+  - [ ] `src/learn.ts`: one dictionary keyed by control/section id → {label, line, learn}.
+        UI reads `label`/`line`; learn mode reads `learn`.
+  - [ ] Learn-mode toggle (top bar, off by default, remembered per viewer). When on: an ⓘ per
+        rail section and per panel expands its 1–2 sentence explanation. Tour stays and links
+        into the same text.
+  - [ ] Rail first (ui.ts, materials.ts notes): 38 descriptors → delete/shorten/move per
+        copy-audit §3.
+  - [ ] Panels next: lab, heat treat (cold-work note, 88 words), composer (alloy.ts:538 at 94
+        words, elements.ts paragraphs) → `line` + `learn` split.
+  - [ ] Tour: every step ≤ 40 words, control names match the screen exactly.
+  - [ ] Remove build internals (C3b, docs paths, duplicate SECTION TABLE, cut-off source line).
+  - [ ] SEM bar: compute magnification from zoom and drop kV/WD, or drop the bar.
+  - [ ] Unify mode names and spelling.
+  - [ ] Gate couplings updated IN THE SAME COMMIT as the copy they pin (~40, full list in
+        copy-audit §4). Em-dash-pinned ones: ALLOY-OPEN-IDENTITY, GRID-REASON-LINE, LAB4,
+        UNITS-ABSTRACT/NIYAMA. LAB4's `/ — met: /` must be rewritten so :475 is not left
+        testing nothing (lesson: prove the perturbation landed). Minimum lengths (grid lines
+        40–190 chars, not-grown ≥ 60, sources ≥ 40, refusals > 20) bound how short caveats go.
+  - [ ] New gate UI-NO-EMDASH: scan rendered app text (rail, panels, tour, composer opened)
+        for "—" inside prose; allow only the empty-readout glyph.
+- [ ] **U2 · Figures: one plot module, paper style**
+  - [ ] `src/plot/`: hand-rolled canvas, no new dependency. Nice-number ticks (~30-line port
+        of d3-array's tick algorithm), axis titles that always carry a unit or say
+        "dimensionless", pure `layout()` testable without a browser, DPR-correct canvases,
+        ≥ 11 px text, ≥ 4.5:1 contrast, one colour legend (measured vs model).
+  - [ ] Hover crosshair with the value readout; click any plot to expand: large plot + data
+        table + CSV (dimensionless AND SI columns, provenance header with material, seed,
+        grid, unit bridge) + PNG. "Figure" export option: light background, print weights.
+  - [ ] Every series stores the unit bridge in force when it starts (as the lab already does
+        at the pour).
+  - [ ] Migration order (charts-audit): core + browser-free gate (trips CI-SCRIPT-COUNT and
+        TESTING-CHECK-COUNT: update ci.yml, run-tests.mjs, TESTING.md with it) → lab report
+        curve → 2D probe + Scheil → 3D probe + Scheil → HUD (value + unit + min/max on the
+        mini plot, x = sim time, stop recording while paused, click opens the full plot) →
+        new plots (live pour curve, heat-treat schedule + d(t), optimizer convergence) →
+        rose / pole figure / stereology → sweep band → phase diagram last (most tested; keep
+        it SVG, feed it the shared ticks, titles and modal).
+  - [ ] Fix the bugs above: ΔT no-interface, IPF label (rename to "POLE FIGURE [001]" or
+        implement a true IPF), lab liquidus line (verify, then draw the alloy's liquidus),
+        unbounded 3D Scheil array.
+  - [ ] Couplings to respect (charts-audit table): `#foundryCurve` must exist; nothing plot-side
+        inside `#foundryResultsBody`/`#htNote`/`#htReport`/`#labReport`; plots mount INSIDE
+        `#app` as non-canvas wrappers so the screenshot must-differ checks still hide them;
+        `#pdFig` on the landing stays literal markup (PD-LANDING-FIGURE parses it).
+- [ ] **U3 · Layout and first run**
+  - [ ] Dock lab / heat-treat panels so they never cover the HUD or the plots.
+  - [ ] HUD backing plate (legible over every lens, incl. FIELD).
+  - [ ] Dimensionless readouts show numbers with a "dimensionless" unit label, not "—".
+  - [ ] First load: start growing something, with a one-line hint for run/pause.
+  - [ ] "Export run": parameters, seed, material constants, all series (CSV), micrograph PNG
+        with scale bar, one JSON.
+- [ ] **U4 · Landing**
+  - [ ] Remove the dive per landing-audit §1: landing.ts:11, 56-85, 92-107; index.html:43-57,
+        117-177, 316-429; src/dive.ts, dive3d.ts, dendrite.mjs/.d.mts; scripts/gen-dive-art.mjs,
+        dive-art-out.txt; capture-demos.mjs:147-164; docs/dive-column.jpg; ARCHIVE (not delete)
+        docs/dive-art-spec.md.
+  - [ ] SAME COMMIT: verify-composer-grid.mjs:604,607 (LANDING-CLOSURE-CLEAN: drop "dive",
+        6 → 5; it runs in CI) and run-tests.mjs:32-33 (drop the two dive scripts; a missing file
+        aborts the loop and silently skips every GPU gate after it). Delete verify-dive*.mjs
+        (screenshot-only, no assertions). Rewrite verify-scroll-order.mjs comments/block.
+  - [ ] Drop `three`, `@types/three`, `@types/d3-delaunay` (keep `d3-delaunay`: gen-grain.mjs).
+  - [ ] Docs: README.md:17-21, TESTING.md:41-45 + 470-479, CONTRIBUTING.md:15,
+        gen-grain.mjs:2-3 comment.
+  - [ ] Replace compose-act `.after` wall with one line + the retraction link.
+  - [ ] Hero replacement: the rendered dendrite (see "H · Hero" below).
+
+### Hero options (brainstorm; Frank picks)
+
+1. **Recorded simulation loop, full bleed behind the wordmark.** 12–15 s seamless loop of a
+   2048² casting whose grains nucleate and impinge, in the ETCH or ORIENT lens; WebM (VP9/AV1)
+   + H.264 MP4 + poster JPEG, ~2–4 MB. Caption says what it is ("recorded from SOLIDIFY,
+   2048², Al–7Si") with a scale bar. The project's own output, no licence question, works on phones and
+   without WebGPU. `rec` (main.ts:679-697, 12 Mbps WebM, sim canvas only) and
+   `capture-demos.mjs` (deterministic, UI hidden) already exist. Local ffmpeg 4.3.2 lacks
+   libx264, so the MP4 needs the hardware encoder or a full ffmpeg build.
+2. **Real experimental footage.** No cleanly licensed video turned up: the CC-BY Sci Rep 2017
+   supplementary movies (Zhang et al., PMC5736763) are simulations; NASA IDGE images are
+   stills, low-res, some credited to RPI; the IDGE YouTube clip and the Illinois solidification
+   movies need permission. The real route is to FILM IT: NH4Cl–water dendrites on a microscope
+   slide are the classic cheap, safe transparent analogue of metal dendrites (or borrow in-situ
+   footage from a Purdue lab). Then the hero becomes "Experiment | SOLIDIFY" side by side,
+   which is the strongest pitch to a professor because it is a validation.
+3. **Live solver full bleed** behind the wordmark, video fallback. Most "it's real", but GPU
+   load on first paint and battery on laptops, and phones fall back anyway.
+4. **Figure hero.** The live micrograph as panel (a), live f_s(t) as (b), grain-size
+   distribution as (c), styled as a paper figure. Says "instrument" in one glance; reuses U2.
+5. **Scroll-scrubbed time-lapse.** One recorded run, scroll = time, with t and f_s readouts.
+   Keeps a scroll interaction with none of the machinery.
+
+Recommendation: 1 for the hero, 4 as the section right under it, and 2 as the upgrade once
+there is real footage.
+
+### Open questions for Frank
+
+1. Hero: which option (recommendation 1 + 4, then 2)?
+2. Rail width: ~340 px OK, or wider (e.g. 380 px with two-column button grids)?
+3. Spelling: American (mold, modeled, aluminum; matches a US audience and the material label)
+   or British (current prose; three gates pin "mould", "modelled", "dialled")?
+4. The lens and materials acts are also scroll-pinned (3,600 px and 2,200 px). Keep, or unpin
+   them into normal sections now that the dive is gone?
+5. Order: U0 → U1 → U2 → U3 → U4 as written, or landing (U4) first since it is independent?
+
+### Decisions (Frank, 2026-09-23)
+
+1. **Hero:** none of the five as written. A high-fidelity dendrite modelled and rendered in
+   Blender, in the style of oryzo.ai (Lusion): one object centred on a dark canvas, tumbling
+   as you scroll, with text flanking it and its features called out. Frank offered Fable or a
+   GPT model for the build; the Blender work runs on Fable.
+2. **Rail width:** implementer's call.
+3. **Spelling:** American, everywhere, gates re-pointed with the copy.
+4. **Lens and materials acts:** keep as they are (pinned).
+5. **Order:** landing first (U4 + H), then U0 → U1 → U2 → U3.
+
+### H · Hero: the rendered dendrite (spec)
+
+Reference, studied 2026-09-23 on oryzo.ai: a single object centred on a warm dark canvas; one
+warm raking key light that travels across the surface as the object tumbles continuously with
+scroll (a long pinned section); big uppercase display headings on the left, body text on the
+right, both revealed line by line with a blur-in; a soft warm glow in one corner. We borrow the
+STRUCTURE, not the brand: solidify keeps its own palette (--bg #0a0b0d, amber #ffb454, cyan)
+and its own type.
+
+- [ ] **H1 · Geometry (Blender 4.5.11 LTS, portable at
+      `C:\Users\frank\blender-portable\blender-4.5.11-windows-x64\blender.exe`, headless
+      Python, scripts committed under `hero/`).** A procedural cubic dendrite built from the
+      morphology rules, not freehand: six primary arms along ⟨100⟩; paraboloidal tips
+      (Ivantsov), trunk radius saturating behind the tip; secondary arms in the four
+      perpendicular ⟨100⟩ directions, spacing fine near the tip and coarsened further back
+      (some arms lost), lengths growing with distance from the tip; tertiary arms on the
+      longest secondaries; necked secondary roots (Gibbs–Thomson); every skeleton point
+      carries a birth time so the same model can GROW. Smooth union into one watertight
+      surface (points/curves → volume → mesh), faint surface ripple.
+- [ ] **H2 · Look.** Two states: growing (incandescent emission at the newest surface, the
+      growth front) and frozen (satin metal, warm key + cool rim, no floor). Transparent film.
+      Look development by a judge panel of variants before the sequence is committed.
+- [ ] **H3 · Sequence.** Cycles on the Arc 140V (oneAPI verified 2026-09-23), ~180 frames:
+      grow → cool → tumble, square frames 1440² (desktop) + 720² (mobile), WebP with alpha,
+      progressive-load order. A manifest JSON carries per-frame 2D anchors (and an occlusion
+      flag from a ray cast) for each feature called out: tip, primary arm ⟨100⟩, secondary
+      arms and λ₂, tertiary arms, necked root.
+- [ ] **H4 · Page.** Pinned hero (~400vh): wordmark + tagline + CTAs → growth → cool →
+      tumble with callouts one at a time (one short line each, American spelling, no em
+      dashes) → "grow your own" CTA into the instrument. Canvas scrubber (frame = scroll
+      progress), ImageBitmap decode, draws only in view, DPR-correct. Reduced motion and
+      no-JS get a still poster with static labels. Caption, small: a rendered model, not a
+      simulation frame; the instrument below grows real ones.
+- [ ] **H5 · Gates.** Manifest frame count = files on disk = anchor rows; canvas non-blank at
+      several scroll positions; caption present; landing bundle still three-free
+      (LANDING-CLOSURE-CLEAN); CI-SCRIPT-COUNT / TESTING-CHECK-COUNT updated with any new script.

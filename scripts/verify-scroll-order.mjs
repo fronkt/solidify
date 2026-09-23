@@ -1,12 +1,12 @@
-// Asserts the pinned acts never overlap: the dive's pin range must END
-// before the lens act's begins, and lens before materials. This is the
-// regression Frank hit twice ("GPU → lens act → die → …"): the dive trigger
-// was created async after the sim triggers, so their starts were computed
-// without its 8200px pin spacer. Needs WebGPU (so the sim triggers exist);
-// tries headless-with-GPU first, then a headed run.
+// Asserts the pinned acts never overlap: the lens act's pin range must END
+// before the materials act's begins, and both pins must exist. Exits 1 on a
+// missing pin, a wrong order or an overlap. Pins created out of order compute
+// their starts without an earlier pin's spacer and interleave; that happened
+// twice with the scroll dive, which was removed from the landing in v8 U4.
+// Needs WebGPU (so the sim triggers exist); tries headless-with-GPU first,
+// then a headed run.
 import puppeteer from "puppeteer-core";
 
-const OUT = process.argv[2] ?? ".";
 const URL = "http://localhost:5199/";
 const CHROME = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 
@@ -20,7 +20,7 @@ async function attempt(headless) {
   });
   const page = await browser.newPage();
   await page.goto(URL, { waitUntil: "networkidle0", timeout: 30000 });
-  // wait for boot to finish (dive awaited first, then sims + triggers)
+  // wait for boot to finish (sims + triggers)
   const gotSims = await page.waitForFunction("!!window.__landing", { timeout: 12000 }).then(() => true).catch(() => false);
   if (!gotSims) { await browser.close(); return null; }
 
@@ -36,15 +36,6 @@ async function attempt(headless) {
     return { pins, overlaps };
   });
 
-  // walk the page like a reader: shots at dive-end−300, +600, mat start+300
-  const dive = report.pins.find(p => p.id === "dive");
-  if (dive) {
-    for (const [name, y] of [["order-dive-tail", dive.end - 300], ["order-after-dive", dive.end + 600], ["order-mat", (report.pins[2]?.start ?? dive.end + 4000) + 300]]) {
-      await page.evaluate(yy => scrollTo(0, yy), y);
-      await new Promise(r => setTimeout(r, 2300));
-      await page.screenshot({ path: `${OUT}/${name}.png` });
-    }
-  }
   await browser.close();
   return report;
 }
@@ -53,4 +44,17 @@ let rep = await attempt("new");
 if (!rep) { console.log("headless had no WebGPU; going headed"); rep = await attempt(false); }
 if (!rep) { console.log("FAIL: no WebGPU in either mode — cannot verify"); process.exit(1); }
 console.log("PINS", JSON.stringify(rep.pins, null, 1));
-console.log(rep.overlaps.length ? "OVERLAPS!\n" + rep.overlaps.join("\n") : "NO OVERLAP — pinned acts are sequential");
+// A gate, not a report: every required pin must exist (an empty pin list is
+// not "no overlap"), they must start in this order, and no pin may start
+// inside the one before it. A new pinned act (e.g. the v8 H4 hero above the
+// lens act) adds its trigger id here, in scroll order.
+const REQUIRED = ["lensAct", "matAct"];
+const ids = rep.pins.map(p => p.id);
+const missing = REQUIRED.filter(id => !ids.includes(id));
+const at = REQUIRED.map(id => ids.indexOf(id));
+const outOfOrder = missing.length === 0 && at.some((v, i) => i > 0 && v < at[i - 1]);
+if (missing.length || outOfOrder || rep.overlaps.length) {
+  console.log("FAIL", JSON.stringify({ missing, outOfOrder, overlaps: rep.overlaps }, null, 1));
+  process.exit(1);
+}
+console.log(`PASS: NO OVERLAP — pinned acts are sequential (${REQUIRED.join(" → ")})`);

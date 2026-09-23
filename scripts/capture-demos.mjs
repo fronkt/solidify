@@ -144,24 +144,5 @@ await appShot("hero-steel.jpg", () => {
   await page.close();
 }
 
-// the dive: fully-exploded SEM column, full landing viewport
-{
-  const page = await browser.newPage();
-  await page.setViewport({ width: 1600, height: 1000 });
-  await page.goto(`http://localhost:${PORT}/`, { waitUntil: "networkidle0", timeout: 30000 });
-  await new Promise(r => setTimeout(r, 2500));
-  await page.evaluate(() => {
-    const act = document.getElementById("diveAct");
-    const sp = act.closest(".pin-spacer") || act;
-    // THE MICROSCOPE explode is fully open at global progress ≈0.39
-    // (stage weights are non-uniform; its span mid-point works out here)
-    scrollTo(0, sp.getBoundingClientRect().top + scrollY + 0.39 * 19000);
-  });
-  await new Promise(r => setTimeout(r, 2500));
-  await page.screenshot({ path: `${OUT}/dive-column.jpg`, type: "jpeg", quality: 86 });
-  console.log("shot dive-column.jpg");
-  await page.close();
-}
-
 await browser.close();
 console.log("done");

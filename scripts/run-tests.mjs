@@ -2,8 +2,8 @@
 // port the verify-*.mjs scripts expect (5199), waits for it to answer, runs
 // each script in sequence against Frank's installed Chrome, then tears the
 // server down. Requires a WebGPU-capable Chrome at the hardcoded
-// executablePath inside each verify-*.mjs — Windows + a real GPU (or
-// swiftshader), not portable to a generic CI runner. See TESTING.md.
+// executablePath inside each verify-*.mjs — Windows + a real GPU (no script
+// falls back to swiftshader), not portable to a generic CI runner. See TESTING.md.
 import { spawn } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
 
@@ -29,8 +29,6 @@ const SUITE = [
   ["scripts/verify-regimes.mjs"],
   ["scripts/verify-elements.mjs"],
   ["scripts/verify-composer-grid.mjs"],
-  ["scripts/verify-dive.mjs"],
-  ["scripts/verify-dive-fallbacks.mjs"],
   ["scripts/verify-scroll-order.mjs"],
   ["scripts/verify-optimizer.mjs"],
   ["scripts/verify-tools.mjs"],

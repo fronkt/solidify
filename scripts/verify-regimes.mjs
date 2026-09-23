@@ -641,9 +641,9 @@ block("PD-CAP-CEILING", () => {
 block("ALLOY-SHARE-CLAMP", () => {
   const bad = [];
   // the corpus: exactly what encodeMix mints for the nine presets, plus the
-  // landing page's own literal link at index.html:485
+  // landing page's own literal link (the "Pour this alloy" button in index.html #composeAct)
   const corpus = A.FAMOUS.map(p => ({ label: p.label, hash: A.encodeMix(p.mix), mix: p.mix }));
-  corpus.push({ label: "index.html:485", hash: "alloy=al:Si7,Mg0.35,Ti0.12", mix: { base: "al", wt: { Si: 7, Mg: 0.35, Ti: 0.12 } } });
+  corpus.push({ label: "index.html #composeAct 'Pour this alloy'", hash: "alloy=al:Si7,Mg0.35,Ti0.12", mix: { base: "al", wt: { Si: 7, Mg: 0.35, Ti: 0.12 } } });
 
   for (const c of corpus) {
     const ref = [];

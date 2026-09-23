@@ -387,7 +387,7 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
     { name: "the eight-fold refinement, asserted",
       re: /refined the metal eight-fold/,
       fires: '<b>Composition alone refined the metal eight-fold</b>: the growth-restriction mechanism',
-      spares: "call the gap between them an eight-fold refinement by composition" },
+      spares: "The bars are liquidus depressions, not grain counts; an earlier grain-count comparison here was withdrawn" },
     { name: "the animated grain counts",
       re: /data-count="(?:369|46)"/,
       fires: '<div class="lab"><span>A356 + TiB</span><b data-count="369">0</b></div>',

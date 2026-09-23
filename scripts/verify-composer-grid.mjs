@@ -190,8 +190,8 @@ const block = (name, fn) => {
 //    the same melt.
 //
 //    The corpus includes the LANDING PAGE'S OWN link, `#alloy=al:Si7,Mg0.35,
-//    Ti0.12` at index.html:485, which is not a hypothetical share but a URL
-//    this site publishes. It also includes the three that CLAMP — a pre-P3
+//    Ti0.12` behind "Pour this alloy" in index.html #composeAct, which is not
+//    a hypothetical share but a URL this site publishes. It also includes the three that CLAMP — a pre-P3
 //    link asking for 1.5 wt% carbon — because a clamp is part of the contract
 //    now and silently widening it would be as much a break as narrowing it.
 {
@@ -601,10 +601,13 @@ block("LANDING-CLOSURE-CLEAN", () => {
   // the landing closure is required to contain the modules it genuinely does,
   // and the APP closure is required to contain every chemistry module, which
   // proves the walker can reach them at all.
-  const landingHas = ["sim", "render", "shaders", "materials", "dive", "rng"].filter(m => landing.has(m));
+  // the landing's direct static imports (src/landing.ts), minus the side-effect
+  // import of landing-motion; the dive left this list in v8 U4
+  const LANDING_MUST = ["sim", "render", "shaders", "materials", "rng"];
+  const landingHas = LANDING_MUST.filter(m => landing.has(m));
   const appMissing = CHEMISTRY.filter(m => !app.has(m));
 
-  const ok = leaked.length === 0 && landing.size >= 8 && landingHas.length === 6 && appMissing.length === 0;
+  const ok = leaked.length === 0 && landing.size >= 8 && landingHas.length === LANDING_MUST.length && appMissing.length === 0;
   check("LANDING-CLOSURE-CLEAN", ok, {
     landingModules: landing.size, appModules: app.size,
     chemistryReachableFromLanding: leaked,

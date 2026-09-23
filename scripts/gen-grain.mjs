@@ -1,6 +1,6 @@
 // Generates the landing page's grain-boundary background: a seamless, tileable
-// equiaxed polycrystal (the same d3-delaunay Voronoi the specimen puck uses in
-// dive3d.ts, only periodic so it repeats forever without a seam). Run
+// equiaxed polycrystal (a d3-delaunay Voronoi, periodic so it repeats forever
+// without a seam). Run
 // `node scripts/gen-grain.mjs` and paste the emitted <path> d-string into the
 // #grain <pattern> in index.html. Points are Lloyd-relaxed on a torus so grains
 // come out evenly sized (equiaxed) rather than clumped.

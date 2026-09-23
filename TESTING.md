@@ -39,10 +39,10 @@ deliberately not `K_MC`, which the pinning and recrystallization milestones are 
 move.
 
 **Requirements**: a WebGPU-capable Chrome/Chromium at the path hardcoded in each verify script
-(`C:\Program Files\Google\Chrome\Application\chrome.exe`) — Windows with a real GPU. Two of
-them, `verify-dive.mjs` and `verify-dive-fallbacks.mjs`, launch Chrome with
-`--use-angle=swiftshader` unconditionally; **no script detects a missing GPU or retries**, so
-everything else simply fails on a GPU-less host. **This is not portable to a generic hosted CI runner as-is** — the
+(`C:\Program Files\Google\Chrome\Application\chrome.exe`) — Windows with a real GPU. **No
+script falls back to a software renderer** (the two that forced `--use-angle=swiftshader` were
+the dive's, removed with it in v8 U4), so the browser scripts simply fail on a GPU-less host.
+**This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
 only the OS-agnostic steps — typecheck, build, and the thirteen browser-free scripts
 (`verify-units.mjs`, `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
@@ -467,16 +467,13 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   has no thermometer at all (absent, silent), and a casting driven to fracSolid 1.0 reports
   `meanLiqT: null` (absent, silent). That last arm needs `pPore: 0`, because a shrinkage pore
   pins its cell's φ below 0.5 and never freezes, so the stats kernel counts it as liquid forever.
-- **`verify-dive.mjs`** — boots the landing page, confirms the Three.js scroll-dive engaged
-  (not the 2.5D SVG fallback), scrubs through a set of scroll progresses, and captures
-  screenshots + console errors at each one.
-- **`verify-dive-fallbacks.mjs`** — the fallback matrix: WebGL blocked (must fall back to the
-  old SVG camera), `prefers-reduced-motion` (must render a static stage), and a phone viewport
-  on the 3D path.
-- **`verify-scroll-order.mjs`** — asserts the pinned scroll acts never overlap (dive → lens →
-  materials, strictly in order). This is a regression that hit twice: a pinned ScrollTrigger
-  created asynchronously after later pins computed their start offsets without the dive's
-  spacer, so the acts interleaved.
+- **`verify-scroll-order.mjs`** — asserts the pinned scroll acts never overlap (lens →
+  materials, strictly in order). It exits 1 if either pin is missing, if they start out of
+  order, or if one starts inside the other, so an empty pin list cannot pass as "no overlap".
+  A new pinned act adds its trigger id to the script's `REQUIRED` list. The regression it was
+  written for hit twice: a pinned ScrollTrigger created asynchronously after later pins had
+  computed their start offsets without its spacer, so the acts interleaved. That pin was the
+  scroll dive, removed from the landing in v8 U4 along with its two screenshot scripts.
 - **`verify-optimizer.mjs`** — confirms "Engineer it" enters ML mode paused, that the run/pause
   transport gates the CMA-ES loop (it doesn't auto-start), and that exiting the mode restores
   normal transport.

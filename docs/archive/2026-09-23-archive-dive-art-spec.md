@@ -1,3 +1,7 @@
+> Archived 2026-09-23 from `docs/dive-art-spec.md`.
+> The dive act was removed from the landing in v8 U4: its section and CSS in index.html, src/dive.ts, src/dive3d.ts, src/dendrite.mjs, docs/dive-column.jpg, scripts/gen-dive-art.mjs and the two verify-dive scripts are gone.
+> This document describes the removed feature; nothing in the repo implements it now.
+
 # The Dive — art spec (for hand-drawn vector replacements)
 
 The landing's scroll descent ("the dive") renders five stages of scale. Each
