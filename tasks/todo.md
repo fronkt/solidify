@@ -4143,3 +4143,21 @@ and its own type.
 - [ ] **H5 · Gates.** Manifest frame count = files on disk = anchor rows; canvas non-blank at
       several scroll positions; caption present; landing bundle still three-free
       (LANDING-CLOSURE-CLEAN); CI-SCRIPT-COUNT / TESTING-CHECK-COUNT updated with any new script.
+      - 2026-09-23, H4 + H5 built against PLACEHOLDER frames (`hero/make_placeholder_frames.py`;
+        the render overwrites `public/hero/`): `src/hero.ts`, the new `#heroAct`,
+        `verify-hero-manifest.mjs` (6 checks, in CI) and `verify-hero.mjs` (11 checks, suite),
+        every check made to fail once on its own clause. Pin is FRAME_PX 3200 + HOLD_PX 560 (the
+        hold carries "grow your own" and cross-fades to the poster). Open: re-run both gates and
+        re-shoot `solidify-hero-out/page_shots/` on the real frames; `hero/README.md`, which the
+        caption links to, does not exist yet.
+      - 2026-09-24, review pass on H4 + H5: chapters hidden until their timeline exists; a set whose
+        first frame or more than a tenth fails tries the other set, then the still (full live
+        teardown); bounded decode queue; skeleton-first fetch until the first scroll, Save-Data
+        gets the still; the smallest set at least as wide as the canvas (1440 x 900 now loads
+        1200); screen-reader copy for the features and chapter bodies; copy corrected (cool
+        chapter, lambda2, neck, grow body, alt, science page scoping). `verify-hero.mjs` is 12
+        checks (HERO-FALLBACK added); the manifest gate FAILS a PLACEHOLDER under CI. Open: do not
+        stage `public/hero/` until `encode_frames.py` has written the render; push the hero commit
+        to main before deploying (the caption links to `main/hero/README.md`); American spelling
+        in `hero/look.py`, `encode_frames.py`, `dendrite_gen.py` left for after the render (some
+        are identifiers and JSON keys).

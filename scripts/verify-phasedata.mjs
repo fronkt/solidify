@@ -412,7 +412,7 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
     { name: "the hero wordmark claimed as a casting",
       re: /logo is cast by the solver/,
       fires: "A real-time phase-field solidification laboratory in your browser. The logo is cast by the solver.",
-      spares: "every crystal on the page is solved live on your GPU" },
+      spares: "The live solver runs further down the page." },
     { name: "twin nucleation listed as emergent",
       re: /emergent CET, recalescence, twinning/,
       fires: '<div class="stamp"><b>✓</b>emergent CET, recalescence, twinning</div>',

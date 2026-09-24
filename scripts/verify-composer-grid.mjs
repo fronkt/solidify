@@ -602,8 +602,9 @@ block("LANDING-CLOSURE-CLEAN", () => {
   // and the APP closure is required to contain every chemistry module, which
   // proves the walker can reach them at all.
   // the landing's direct static imports (src/landing.ts), minus the side-effect
-  // import of landing-motion; the dive left this list in v8 U4
-  const LANDING_MUST = ["sim", "render", "shaders", "materials", "rng"];
+  // import of landing-motion; the dive left this list in v8 U4 and the hero
+  // (hero.ts, a pre-rendered image sequence) joined it in v8
+  const LANDING_MUST = ["hero", "sim", "render", "shaders", "materials", "rng"];
   const landingHas = LANDING_MUST.filter(m => landing.has(m));
   const appMissing = CHEMISTRY.filter(m => !app.has(m));
 

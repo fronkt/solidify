@@ -1,10 +1,13 @@
-// Landing scroll-story controller. Three real simulations share one GPU device:
-// the pinned ten-lens act, the pinned materials act and the TRUE 3D act. Only
-// the sim currently on screen ticks. GSAP's ScrollTrigger drives the two pins;
-// DOM-only motion lives in landing-motion.ts. Without WebGPU (or with reduced
-// motion) the page shows stills, unpinned.
+// Landing scroll-story controller. The pinned hero (hero.ts) is a pre-rendered
+// image sequence and needs no GPU; below it, three real simulations share one
+// GPU device: the pinned ten-lens act, the pinned materials act and the TRUE 3D
+// act. Only the sim currently on screen ticks. GSAP's ScrollTrigger drives the
+// three pins, created in scroll order; DOM-only motion lives in
+// landing-motion.ts. Without WebGPU (or with reduced motion) the acts below the
+// hero show stills, unpinned.
 
 import "./landing-motion";
+import { bootHero } from "./hero";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Simulation } from "./sim";
@@ -54,6 +57,11 @@ function staticFallback() {
 async function boot() {
   // a pinned scroll story restored mid-pin on reload is disorienting; start clean
   history.scrollRestoration = "manual";
+  // The hero FIRST, and before any await: it does not depend on WebGPU, so it
+  // boots above the gate below, and its pin is created synchronously so it
+  // exists before the lens and materials pins. A pin created after a later one
+  // computes its start without the earlier spacer (verify-scroll-order.mjs).
+  bootHero();
   buildRail(document.getElementById("lensRail")!, 10);
   buildRail(document.getElementById("matRail")!, MAT_STEPS.length);
   if (reduced || !navigator.gpu) return staticFallback();

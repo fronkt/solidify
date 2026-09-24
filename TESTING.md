@@ -6,7 +6,10 @@ npm test
 
 runs the headless verification suite: starts `vite` on port 5199, then drives each script in
 `scripts/verify-*.mjs` against a real WebGPU browser via `puppeteer-core`, and tears the server
-down afterward (`scripts/run-tests.mjs`).
+down afterward (`scripts/run-tests.mjs`). One browser script is the exception:
+`verify-hero.mjs` removes `navigator.gpu` from every page it opens and launches Chrome
+without the WebGPU flags, because the landing hero must work without a GPU, so it needs no GPU
+itself.
 
 **`verify-3d.mjs` is part of that suite as of v5.0.** It was previously run by hand, and — more
 importantly — it printed `FAIL` on a failing check but always exited `0`, so its twenty-three
@@ -25,9 +28,10 @@ fade and Sievert gas porosity — bringing the CI-runnable set to five at the ti
 `verify-rng.mjs` and `verify-experiment.mjs` have since made it seven, v7.1 P0's
 `verify-phasedata.mjs` eight, v7.1 P1's `verify-alloy.mjs` nine, v7.1 P2's
 `verify-phasediagram.mjs` ten, v7.1 P3's `verify-regimes.mjs` eleven, v7.1 P4's
-`verify-elements.mjs` twelve and v7.1 P5's `verify-composer-grid.mjs` thirteen, which is where
-v7.1 P6 leaves it: **thirteen browser-free scripts**, and `CI-SCRIPT-COUNT` now derives that
-number from `ci.yml`'s own run lines and fails if any place this document states it disagrees). They run first in the
+`verify-elements.mjs` twelve and v7.1 P5's `verify-composer-grid.mjs` thirteen, where v7.1 P6
+left it, and v8's `verify-hero-manifest.mjs` fourteen: **fourteen browser-free scripts**, and
+`CI-SCRIPT-COUNT` derives that number from `ci.yml`'s own run lines and fails if any place this
+document states it disagrees). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
 GPU half is not worth starting.
 
@@ -41,14 +45,16 @@ move.
 **Requirements**: a WebGPU-capable Chrome/Chromium at the path hardcoded in each verify script
 (`C:\Program Files\Google\Chrome\Application\chrome.exe`) — Windows with a real GPU. **No
 script falls back to a software renderer** (the two that forced `--use-angle=swiftshader` were
-the dive's, removed with it in v8 U4), so the browser scripts simply fail on a GPU-less host.
+the dive's, removed with it in v8 U4), so the browser scripts simply fail on a GPU-less host,
+except `verify-hero.mjs`, which runs with WebGPU removed and needs no GPU; it still needs the
+hardcoded Chrome path and the 5199 server, so it is not in CI either.
 **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
-only the OS-agnostic steps — typecheck, build, and the thirteen browser-free scripts
+only the OS-agnostic steps — typecheck, build, and the fourteen browser-free scripts
 (`verify-units.mjs`, `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
 `verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
 `verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
-`verify-composer-grid.mjs`; see
+`verify-composer-grid.mjs`, `verify-hero-manifest.mjs`; see
 `.github/workflows/ci.yml`) — rather than
 this suite. If you want to run the physics/UI verification yourself, do it locally.
 
@@ -438,6 +444,41 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   11 K at one end and 54 K at the other. Four of the six FAIL against the pre-P5 tree, verified
   by running them there; the two that pass on both are the non-regression pair, which is what
   they are for.
+- **`verify-hero-manifest.mjs`** (browser-free, v8, in CI) — the landing hero's pre-rendered
+  frame set against the contract that the Blender renderer and the page were both written to:
+  180 square, opaque WebP frames on `#0a0b0d` at 1200 and 600 px, a poster at each size, and
+  `public/hero/manifest.json`. Six checks, each in its own try/catch. `HERO-MANIFEST-SCHEMA`
+  holds the top-level keys, the four chapters (seed 0–11, grow 12–95, cool 96–119, tour
+  120–179) and the five feature windows to the contract exactly, because the page's chapter text
+  and callouts are keyed to them; contiguity, windows inside the tour and windows that do not
+  overlap are asserted on their own as well, so the message names the property that broke. It
+  also requires the poster frame to be a tour frame (the contract's "a tour frame in which all
+  five features are visible"; the placeholder named frame 119, in the cool chapter, until this
+  clause, and now names 120, which has the same camera and the same anchors).
+  `HERO-MANIFEST-ANCHORS` requires 180 rows per feature in the right shape (a point is
+  `[x, y, visible]`, a pair `[x1, y1, x2, y2, visible]`), every coordinate in [0, 1] and every
+  flag 0 or 1, each feature visible for at least half of its own window, no visible in-window
+  anchor within 0.06 of the frame's edge (the page's edge fade ramps over the outer 6 %, and the
+  dot is not faded with it), and all five of the poster's anchors visible, since reduced motion
+  shows every callout at once, and equal to its frame's own rows. `HERO-FILES`
+  requires both sizes' 180 frames and both posters on disk and nothing else in the frame
+  directories, so a stale 181st frame fails. `HERO-WEBP-HEADERS` parses every file's RIFF header
+  by hand (VP8, VP8L and VP8X): the RIFF length equal to the file length, the size's own square
+  dimensions, no alpha, no animation. `HERO-BUDGET` holds each set's total under its budget,
+  12 MiB and 3.5 MiB. `HERO-PAGE-KEYS` ties the page to the manifest by id: every feature has
+  words in `src/hero.ts`, the page has a block for each chapter it keys to, and the no-JS
+  poster is the 1200 file. Each was made to fail once on a scratch copy of the tree, and each
+  failed on its own clause: the grow/cool boundary moved by one frame, a coordinate set to 1.2,
+  a poster anchor flagged invisible, a stray `f180.webp`, a truncated frame, a frame with real
+  alpha (a fully opaque alpha channel is dropped by the encoder and correctly passes), two
+  4 MB frames, a renamed copy key; and, added after review, the poster moved to frame 119, a
+  poster anchor that disagrees with its frame's row, and a visible anchor 0.04 from the edge
+  (0.07 correctly passes). Writing it caught the placeholder generator emitting off-frame
+  coordinates as the tour panned. A manifest whose `source` says PLACEHOLDER
+  (`hero/make_placeholder_frames.py`, the stand-in until the render lands) honors the contract
+  and passes locally with a notice on every run, but FAILS `HERO-MANIFEST-SCHEMA` when
+  `process.env.CI` is set, so a push to main or a PR cannot carry the stand-ins toward a deploy
+  (`HERO_ALLOW_PLACEHOLDER=1` lets one run through on purpose).
 - **`verify-composer-gpu.mjs`** (v7.1 P5) — `COMPOSER-GRID-PANEL`, the grid driven through the
   DOM the way a visitor drives it, and the first gate in this suite that clicks the composer.
   Its own file on the `verify-phasediagram-gpu.mjs` precedent: a panel gate sharing a page with
@@ -467,13 +508,87 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   has no thermometer at all (absent, silent), and a casting driven to fracSolid 1.0 reports
   `meanLiqT: null` (absent, silent). That last arm needs `pPore: 0`, because a shrinkage pore
   pins its cell's φ below 0.5 and never freezes, so the stats kernel counts it as liquid forever.
-- **`verify-scroll-order.mjs`** — asserts the pinned scroll acts never overlap (lens →
-  materials, strictly in order). It exits 1 if either pin is missing, if they start out of
-  order, or if one starts inside the other, so an empty pin list cannot pass as "no overlap".
-  A new pinned act adds its trigger id to the script's `REQUIRED` list. The regression it was
-  written for hit twice: a pinned ScrollTrigger created asynchronously after later pins had
-  computed their start offsets without its spacer, so the acts interleaved. That pin was the
-  scroll dive, removed from the landing in v8 U4 along with its two screenshot scripts.
+- **`verify-scroll-order.mjs`** — asserts the pinned scroll acts never overlap (hero → lens →
+  materials, strictly in order). It exits 1 if any of the three pins is missing, if they start
+  out of order, or if one starts inside another, so an empty pin list cannot pass as "no
+  overlap". A new pinned act adds its trigger id to the script's `REQUIRED` list. The regression
+  it was written for hit twice: a pinned ScrollTrigger created asynchronously after later pins
+  had computed their start offsets without its spacer, so the acts interleaved. That pin was the
+  scroll dive, removed from the landing in v8 U4 along with its two screenshot scripts. The v8
+  hero that replaced it is pinned too, and it is the reason `src/hero.ts` creates its pin
+  synchronously, before `landing.ts` awaits the GPU adapter the lens and materials pins wait on.
+  Moving that call below the materials pin was measured to fail here: the lens pin then starts
+  at 900 px, inside the hero's 0–3760.
+- **`verify-hero.mjs`** (v8) — the landing hero driven by scrolling, against the 5199 server
+  like the rest of the suite. It removes `navigator.gpu` on every page it opens: the hero must
+  not need WebGPU (`landing.ts` boots it above the GPU gate), and without it the lens and
+  materials sims stay off. Twelve checks, each in its own try/catch. `HERO-BOOT` (live mode with
+  no WebGPU, the `heroAct` pin and its length; before the first scroll only the skeleton, frame
+  0 and every 8th frame and the last, 24 files, and after it every frame; the set chosen by the
+  rule, the smallest set at least as wide as the canvas in device px, which at the gate's
+  1440 × 900 is the 1200 set for an 835 px canvas). `HERO-NONBLANK` (canvas pixels that differ
+  from `#0a0b0d` at pin progress 0, 0.5 and 0.95). `HERO-FRAME-FOLLOWS` scrolls forward through
+  all four chapters (seed, grow, cool, tour) and then back, requires the drawn frame to be
+  round(p × 179), and then compares PIXELS: the gate fetches and decodes the expected file
+  itself, draws it the way the page does, and requires the canvas to match it (mean difference
+  under 0.1, measured 0.001 to 0.033) while a frame six away, the control, does not (over 0.5
+  and over three times the match). The difference is taken over the region where either picture
+  has crystal, not the whole canvas, which would divide it by the background's share: at the
+  seed stop that made the control 0.599 against the 0.5 floor, and the region makes it 1.867.
+  An index that moved without the picture moving cannot pass. `HERO-CALLOUTS` requires each
+  callout shown at the visible frame nearest its window's middle, its dot within 1.5 px of the
+  manifest anchor mapped through the canvas's drawn rect by the gate's own mapping, its label
+  outside the frame on its own side, with its copy as written, and alone; then hidden three
+  frames outside its window on either side, at every frame the manifest marks occluded, and in
+  the hold. The occluded clause no longer depends on the render occluding anything: the gate
+  also flips one interior frame's visible flag to 0 in the page's own manifest object and
+  requires the callout hidden there and fully shown on the frames either side, and requires at
+  least one occluded frame tested overall. (An earlier "over no crystal pixels" clause was
+  removed: in live mode the canvas is the frame square, so a label outside it on its own side
+  can never overlap a crystal pixel, and the clause measured nothing.) `HERO-CHAPTERS` requires
+  each chapter's lines fully shown in its chapter and fully hidden elsewhere, split into more
+  than one line, with the copy as written; and, on a second page with the manifest held back
+  2.5 s, no chapter heading visible and the end chapter's link not hit-testable before the text
+  timeline exists, since all three chapters share one place. `HERO-CTA` hit-tests rather than
+  checking visibility: the opening's four links reachable at the top, the faded opening
+  unreachable mid-growth, and the end's single filled CTA reachable in the hold. `HERO-CAPTION`
+  (present, linked to `hero/README.md`, bottom-right and hit-testable at progress 0, 0.5 and
+  0.95). `HERO-REDUCED` (under `prefers-reduced-motion`: no pin, the section scrolls with the
+  page, the poster, all five labels on the poster's anchors, the chapter text stacked and not
+  split). `HERO-NOJS` (JavaScript off: the 1200 poster as a plain `<img>` with alt text).
+  `HERO-MOBILE` (390 × 844 at DPR 3: the 1200 set, by the rule; at every stop of the pin and in
+  the still layout, no horizontal overflow of the document AND no rendered hero text, link,
+  label or nav item past either edge of the screen, measured on the elements and on their
+  text's own extent, because `#heroAct` clips its overflow and `#topnav` is fixed, so neither
+  ever reaches the document's `scrollWidth`; the frame centered with the heading above it and
+  the body below; every feature's label, at the visible frame nearest its window's middle, fully
+  shown, titles only). `HERO-FALLBACK` (the still the code promises, served broken three ways by
+  request interception: no manifest gives the poster alone with no pin left behind; frames 100
+  onward missing from both sets fails each set by count, tries the 600 set after the 1200, and
+  lands on the still with its five labels on the poster's anchors and nothing of live mode left,
+  no extra callouts, no split text, no inline styles on the opening; the whole 1200 set missing
+  runs live on the 600 set, its pixels checked like `HERO-FRAME-FOLLOWS`). `HERO-NO-ERRORS` (no
+  page error, console error or failed same-origin request on any page it opened, except the
+  404s and aborted fetches `HERO-FALLBACK` causes on purpose).
+  Each was made to fail once by breaking the thing it guards, and each failed on its own clause:
+  the pin switched off; the frame never drawn; the target one frame ahead; the anchor mapping
+  shifted 6 px; the cool text never leaving; the end CTA's `pointer-events` removed; the caption
+  relinked; reduced motion booted live; the no-JS poster pointed at the 600 file; the stacked
+  heading rule deleted, and separately a 480 px block after the hero; a thrown error. The
+  clauses added after review were broken the same way, each on a copy restored by hash, and
+  each failed only its own check: the whole set fetched at once (`HERO-BOOT`); frame failures
+  recorded but never acted on (`HERO-FALLBACK`); the pre-timeline hiding rule deleted
+  (`HERO-CHAPTERS`); the phone's chapter body pushed 120 px past the right edge, which left the
+  document's overflow at 0 (`HERO-MOBILE`, on the leaves alone); the visible flag ignored
+  (`HERO-CALLOUTS`); the fallback leaving the live callouts in place (`HERO-FALLBACK`); and the
+  old `dev < 900 ? 600 : 1200` size rule (`HERO-BOOT`, and `HERO-FALLBACK`, because that rule
+  never runs out of sets and so never reaches the still). Two
+  things its first runs taught. The scroll helper returned before ScrollTrigger had SEEN the
+  new scroll, when a stale progress equals a stale scrub and every clause after it is trivially
+  true, so it now waits for the trigger's progress to match the requested position first. And
+  `HERO-CHAPTERS` found a real defect rather than a test one: the cool chapter is 24 frames
+  (~430 px) and its text was fully legible for only ~105 px of that; the reveals were tightened
+  until it holds from about frame 104 to frame 114.
 - **`verify-optimizer.mjs`** — confirms "Engineer it" enters ML mode paused, that the run/pause
   transport gates the CMA-ES loop (it doesn't auto-start), and that exiting the mode restores
   normal transport.
@@ -565,7 +680,7 @@ rebuilt to make that relationship emergent:
 **Physics-behaviour tests (v5.0).**
 
 - **`UNITS-*`** (`verify-units.mjs`) — the scaling layer, checked without a browser, so it is
-  the first of the thirteen browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0 and the v7.1 arc added six more). Nine checks: that kelvin-per-unit really is the heat
+  the first of the fourteen browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0, the v7.1 arc added six more and v8 added `verify-hero-manifest.mjs`). Nine checks: that kelvin-per-unit really is the heat
   equation's own `(L/c_p)/K` for four materials computed independently in the test; that the
   time factor is forced by whichever diffusivity is anchoring; that every converter round-trips;
   that an abstract material reads as *unknown* rather than as zero; that the undercooling dial's
@@ -1005,9 +1120,9 @@ spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 
 that evidence recorded in the constant's own docblock. The drift prints on every run, and
 `HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
-`npm run build` (Vite + `tsc`) plus the thirteen browser-free scripts — `verify-units.mjs`,
+`npm run build` (Vite + `tsc`) plus the fourteen browser-free scripts — `verify-units.mjs`,
 `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
 `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
-`verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`
-and `verify-composer-grid.mjs` — are the checks anyone on any OS can run
+`verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
+`verify-composer-grid.mjs` and `verify-hero-manifest.mjs` — are the checks anyone on any OS can run
 without a GPU, and are what CI actually gates on (`.github/workflows/ci.yml`).

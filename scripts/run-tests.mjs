@@ -29,7 +29,10 @@ const SUITE = [
   ["scripts/verify-regimes.mjs"],
   ["scripts/verify-elements.mjs"],
   ["scripts/verify-composer-grid.mjs"],
+  ["scripts/verify-hero-manifest.mjs"],
   ["scripts/verify-scroll-order.mjs"],
+  // the landing hero driven by scroll (no WebGPU needed; the script removes it)
+  ["scripts/verify-hero.mjs"],
   ["scripts/verify-optimizer.mjs"],
   ["scripts/verify-tools.mjs"],
   ["scripts/verify-passsplit.mjs", String(PORT)],

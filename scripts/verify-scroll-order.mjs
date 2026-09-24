@@ -1,10 +1,11 @@
-// Asserts the pinned acts never overlap: the lens act's pin range must END
-// before the materials act's begins, and both pins must exist. Exits 1 on a
-// missing pin, a wrong order or an overlap. Pins created out of order compute
-// their starts without an earlier pin's spacer and interleave; that happened
-// twice with the scroll dive, which was removed from the landing in v8 U4.
-// Needs WebGPU (so the sim triggers exist); tries headless-with-GPU first,
-// then a headed run.
+// Asserts the pinned acts never overlap: hero → lens → materials, each pin's
+// range ENDING before the next one begins, and all three pins present. Exits 1
+// on a missing pin, a wrong order or an overlap. Pins created out of order
+// compute their starts without an earlier pin's spacer and interleave; that
+// happened twice with the scroll dive (removed in v8 U4), and it is why the v8
+// hero (src/hero.ts), which needs no GPU, creates its pin synchronously before
+// landing.ts awaits the adapter. Needs WebGPU (so the sim triggers exist);
+// tries headless-with-GPU first, then a headed run.
 import puppeteer from "puppeteer-core";
 
 const URL = "http://localhost:5199/";
@@ -46,9 +47,9 @@ if (!rep) { console.log("FAIL: no WebGPU in either mode — cannot verify"); pro
 console.log("PINS", JSON.stringify(rep.pins, null, 1));
 // A gate, not a report: every required pin must exist (an empty pin list is
 // not "no overlap"), they must start in this order, and no pin may start
-// inside the one before it. A new pinned act (e.g. the v8 H4 hero above the
-// lens act) adds its trigger id here, in scroll order.
-const REQUIRED = ["lensAct", "matAct"];
+// inside the one before it. A new pinned act adds its trigger id here, in
+// scroll order; the v8 hero above the lens act is the first entry.
+const REQUIRED = ["heroAct", "lensAct", "matAct"];
 const ids = rep.pins.map(p => p.id);
 const missing = REQUIRED.filter(id => !ids.includes(id));
 const at = REQUIRED.map(id => ids.indexOf(id));

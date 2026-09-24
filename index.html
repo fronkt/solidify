@@ -8,13 +8,24 @@
   <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%230a0b0d"/><text x="32" y="45" font-family="ui-monospace,Consolas,monospace" font-size="36" font-weight="700" text-anchor="middle"><tspan fill="%23ffb454">S</tspan><tspan fill="%23eef1f5">I</tspan></text></svg>' />
   <script>
     // motion gate: pre-hide animated elements only when motion is allowed and
-    // JS is running; a watchdog reveals everything if the modules never boot
+    // JS is running; a watchdog reveals everything if the modules never boot.
+    // hero-live selects the pinned, scroll-scrubbed hero layout before first
+    // paint; without it (no JS, reduced motion) the hero is the still poster.
     (function () {
       if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-      document.documentElement.classList.add("anim");
+      var root = document.documentElement;
+      root.classList.add("anim", "hero-live");
       setTimeout(function () {
-        if (!window.__landingMotion) document.documentElement.classList.remove("anim");
+        if (!window.__landingMotion) root.classList.remove("anim");
       }, 2500);
+      // The landing module is a deferred script, so it has run by
+      // DOMContentLoaded, and bootHero with it, synchronously. A module that
+      // is only slow is waited for rather than timed out (which would repaint
+      // the whole hero as the still, then leave it there); one that failed
+      // to load or threw leaves the still.
+      addEventListener("DOMContentLoaded", function () {
+        if (!window.__hero) root.classList.remove("hero-live");
+      });
     })();
   </script>
   <style>
@@ -39,6 +50,8 @@
     a { color: var(--cyan); text-decoration: none; }
     b { color: var(--text); font-weight: 600; }
     .k { font-size: 11px; letter-spacing: 0.3em; color: var(--dim); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+      clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 
     /* ---------- grain-boundary microstructure backdrop ----------
        Seamless tileable equiaxed polycrystal (d3-delaunay Voronoi), fixed at
@@ -53,29 +66,142 @@
     /* ---------- top nav (appears after the hero) ---------- */
     #topnav { position: fixed; top: 0; left: 0; right: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; padding: 14px 26px; background: rgba(10,11,13,0.82); backdrop-filter: blur(10px); border-bottom: 1px solid transparent; opacity: 0; transform: translateY(-10px); transition: opacity 0.3s, transform 0.3s, border-color 0.3s; pointer-events: none; }
     #topnav.show { opacity: 1; transform: none; pointer-events: auto; border-color: var(--line); }
+    /* its links are the first Tab stops: a keyboard visitor at the top of the
+       page sees the bar they are on */
+    #topnav:focus-within { opacity: 1; transform: none; pointer-events: auto; border-color: var(--line); }
     #topnav .mark { font-weight: 700; letter-spacing: 0.28em; color: #eef1f5; font-size: 13px; }
     #topnav .mark span { color: var(--amber); }
     #topnav nav { display: flex; align-items: center; gap: 22px; font-size: 12px; letter-spacing: 0.08em; }
     #topnav nav a { color: var(--dim); transition: color 0.2s; }
     #topnav nav a:hover { color: var(--amber); }
     #topnav nav a.go { color: #17110a; background: var(--amber); border-radius: 6px; padding: 7px 14px; font-weight: 600; }
+    /* phones: the bar shows over the pinned hero, so it has to fit the width */
+    @media (max-width: 600px) {
+      #topnav { padding: 12px 16px; }
+      #topnav nav { gap: 16px; }
+      #topnav nav a[href="contact/"], #topnav nav a[href^="https://github"] { display: none; }
+    }
+    @media (max-width: 440px) { #topnav nav a[href="science/"] { display: none; } }
 
     /* ---------- acts ---------- */
     .act { position: relative; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 0 22px; }
     .inner { width: 100%; max-width: 1150px; margin: 0 auto; }
 
     /* ---------- ACT 0 · hero ----------
-       The wordmark is TYPE, not a casting: an <h1> of CSS text whose letters are
-       staggered in by anime.js. It was described as solver-cast in this file's
-       own meta description until v7.1 P6, and #heroAct has never held a canvas.
-       The live solver runs further down the page — the lens, material and
-       volumetric acts each own a real one. */
-    #heroAct { flex-direction: column; padding-top: 6dvh; padding-bottom: 62px; background:
-      radial-gradient(1000px 480px at 50% 8%, #161009 0%, transparent 65%); }
-    #wordmark { font-size: clamp(46px, 9.4vw, 118px); letter-spacing: 0.2em; color: #eef1f5; font-weight: 700; line-height: 1.1; margin-bottom: 8px; text-shadow: 0 0 60px rgba(255, 140, 40, 0.12); }
+       One RENDERED dendrite (a Blender model, not a solver frame; the caption
+       says so and links the recipe), scrubbed by scroll from pre-rendered
+       frames in public/hero/. src/hero.ts owns it and never touches WebGPU.
+       The wordmark is TYPE, not a casting: an <h1> of CSS text whose letters
+       anime.js staggers in. The live solver runs further down the page.
+       Two layouts:
+       - STILL, the default (no JS, reduced motion, Save-Data, frames that fail
+         to load): the poster, its five callouts, the chapter text stacked below;
+       - LIVE (html.hero-live, set by the gate above): the section is pinned and
+         everything sits over one centered canvas. The canvas is a square of side
+         --S; the chapter text and the callout labels live in the void beside it.
+       The frames are opaque #0a0b0d, so the hero's own background is opaque
+       too: a square of frame on the grain backdrop would show its edges. */
+    #heroAct { --gut: clamp(20px, 3.9vw, 64px); display: block; padding: 13dvh 22px 72px; background: var(--bg); overflow: hidden; }
+    .heroGlow { position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background: radial-gradient(62% 58% at 0% 0%, rgba(255, 146, 56, 0.085), transparent 72%); }
+    #heroOpen { position: relative; z-index: 4; max-width: 1150px; margin: 0 auto; }
+    #wordmark { font-size: clamp(44px, 8vw, 128px); letter-spacing: 0.12em; color: #eef1f5; font-weight: 700; line-height: 0.95; margin-left: -0.05em; text-shadow: 0 0 60px rgba(255, 140, 40, 0.12); }
     #wordmark span { color: var(--amber); }
-    #heroCopy { text-align: center; max-width: 820px; }
-    #heroCopy .tag { font-size: clamp(14px, 1.8vw, 17px); letter-spacing: 0.08em; color: #b9bfc9; line-height: 1.6; }
+    #heroOpen .tag { margin-top: 20px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #9aa3af; line-height: 1.8; max-width: 64ch; }
+    #heroOpen .cta { justify-content: flex-start; margin-top: 26px; }
+    #heroStage { position: relative; z-index: 3; max-width: 1150px; margin: 56px auto 0; display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 560px) minmax(0, 1fr); gap: 0 30px; align-items: center; }
+    .heroFrame { grid-column: 2; grid-row: 1; position: relative; aspect-ratio: 1; }
+    #heroStill { display: block; width: 100%; height: 100%; }
+    #heroCanvas { display: none; }
+    .heroLabels { display: flex; flex-direction: column; gap: 26px; }
+    .heroLabels.left { grid-column: 1; grid-row: 1; align-items: flex-end; }
+    .heroLabels.right { grid-column: 3; grid-row: 1; align-items: flex-start; }
+    .callout[data-side="left"] { text-align: right; }
+    .coTitle { display: block; font-size: 12px; font-weight: 600; letter-spacing: 0.18em; line-height: 18px; color: #eef1f5; }
+    .coLine { display: block; margin-top: 5px; font-size: 13px; line-height: 1.55; color: #9aa3af; max-width: 27ch; }
+    .callout[data-side="left"] .coLine { margin-left: auto; }
+    #heroMarks { position: absolute; left: 0; top: 0; z-index: 4; overflow: visible; pointer-events: none; }
+    #heroMarks .leader { fill: none; stroke: #8b93a1; stroke-width: 1; }
+    #heroMarks .shape { fill: none; stroke: var(--amber); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    #heroMarks .dot { fill: var(--amber); stroke: #0a0b0d; stroke-width: 1.5; }
+    .heroCaption { grid-column: 2; grid-row: 2; justify-self: end; margin-top: 14px; font-size: 11px; letter-spacing: 0.06em; color: var(--cyan); opacity: 0.85; transition: opacity 0.2s; }
+    .heroCaption:hover { opacity: 1; }
+    .chap { position: relative; z-index: 4; max-width: 1150px; margin: 72px auto 0; display: grid;
+      grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); gap: 20px 56px; align-items: start; }
+    .chapHead { font-size: clamp(30px, 3.6vw, 64px); font-weight: 700; line-height: 1.02; letter-spacing: -0.02em; text-transform: uppercase; color: #eef1f5; }
+    .chapBody { font-size: 15px; line-height: 1.72; color: var(--text); max-width: 38ch; }
+    .chapSide .cta { justify-content: flex-start; margin-top: 24px; }
+    .chap .ln { display: block; }
+    /* the line splitter groups by word, and a word broken at its hyphen would
+       leave half of itself orphaned on a line of its own */
+    .nw { white-space: nowrap; }
+    #scrollCue { display: none; }
+    .heroFade { position: relative; height: 0; }
+    .heroFade::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 160px; pointer-events: none;
+      background: linear-gradient(var(--bg), rgba(10, 11, 13, 0)); }
+    /* STILL, stacked: the labels in a band above the poster and a band below
+       it. The same query as the live layout's stacked one below and as
+       STACKED in hero.ts, which draws the leaders for whichever layout this
+       picked; a portrait tablet would otherwise get 78 px side columns. */
+    @media (max-width: 759px), (orientation: portrait) {
+      #heroStage { grid-template-columns: minmax(0, 1fr); gap: 18px 0; }
+      .heroFrame { grid-column: 1; grid-row: 2; }
+      .heroLabels { flex-direction: row; flex-wrap: wrap; gap: 10px 18px; }
+      .heroLabels.left { grid-column: 1; grid-row: 1; justify-content: flex-start; align-items: flex-end; }
+      .heroLabels.right { grid-column: 1; grid-row: 3; justify-content: flex-end; align-items: flex-start; }
+      .heroCaption { grid-column: 1; grid-row: 4; margin-top: 0; }
+    }
+    @media (max-width: 759px) {
+      #heroAct { padding-top: 96px; }
+      /* one title line, reserved: the labels arrive with the manifest, and an
+         empty band would let them push the poster down when they do */
+      .heroLabels.left { min-height: 18px; }
+      .chap { grid-template-columns: minmax(0, 1fr); margin-top: 48px; }
+      .coLine { display: none; }
+      .coTitle { font-size: 11px; letter-spacing: 0.14em; }
+    }
+
+    /* LIVE: the pinned stage. --S is the frame's side: as tall as the screen,
+       but never so wide that the text columns beside it drop under ~220 px. */
+    .hero-live #heroAct { height: 100vh; height: 100dvh; padding: 0;
+      --S: min(100dvh, 58vw, calc(100vw - 2 * var(--gut) - 440px)); }
+    .hero-live #heroOpen { position: absolute; left: var(--gut); top: max(11dvh, 80px); margin: 0; max-width: calc(100vw - 2 * var(--gut)); }
+    .hero-live #heroStage { position: absolute; inset: 0; margin: 0; max-width: none; display: block; }
+    .hero-live .heroFrame { position: absolute; left: 50%; top: 50%; width: var(--S); height: var(--S); translate: -50% -50%;
+      /* a close-up's crystal fades out at the frame's edge instead of being cut by it */
+      -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent), linear-gradient(to bottom, transparent, #000 6%, #000 94%, transparent);
+      -webkit-mask-composite: source-in; mask-composite: intersect; }
+    .hero-live #heroStill { display: none; }
+    .hero-live #heroCanvas { display: block; width: 100%; height: 100%; }
+    .hero-live .heroLabels { position: absolute; inset: 0; display: block; z-index: 5; pointer-events: none; }
+    .hero-live .callout { position: absolute; left: 0; top: 0; opacity: 0; visibility: hidden; }
+    .hero-live .heroCaption { position: absolute; right: var(--gut); bottom: 18px; margin: 0; z-index: 6; }
+    .hero-live .chap { position: absolute; inset: 0; z-index: 5; margin: 0; max-width: none; display: block; pointer-events: none; }
+    /* The three chapters share one place, so until hero.ts has built their
+       timeline (it adds hero-ready) all three would print over each other.
+       visibility, not display: the line splitter has to measure them; and on
+       the section, not the lines, which GSAP's autoAlpha sets to inherit. */
+    .hero-live #heroAct:not(.hero-ready) .chap { visibility: hidden; }
+    .hero-live .chapHead { position: absolute; left: var(--gut); top: 47%; translate: 0 -50%;
+      width: calc((100vw - var(--S)) / 2 - var(--gut) + var(--S) * 0.1); }
+    .hero-live .chapSide { position: absolute; right: var(--gut); top: 53%; translate: 0 -50%;
+      width: min(340px, calc((100vw - var(--S)) / 2 - var(--gut) + var(--S) * 0.09)); }
+    .hero-live .chapSide .cta { pointer-events: auto; }
+    .hero-live .chap .ln, .hero-live .chapSide .cta, .hero-live #heroOpen { will-change: opacity, filter, transform; }
+    .hero-live #scrollCue { display: block; position: absolute; left: 50%; bottom: 20px; translate: -50% 0; z-index: 6; color: #8b93a1; font-size: 10px; letter-spacing: 0.3em; }
+    .hero-live #scrollCue::after { content: "▾"; display: block; text-align: center; margin-top: 3px; }
+    .anim #scrollCue::after { animation: cue 1.8s ease-in-out infinite; }
+    @keyframes cue { 0%, 100% { transform: translateY(0); opacity: 0.6; } 50% { transform: translateY(5px); opacity: 1; } }
+    @media (max-width: 759px), (orientation: portrait) {
+      .hero-live #heroAct { --S: min(92vw, 50dvh, 640px); }
+      .hero-live .heroFrame { top: 53%; }
+      .hero-live #heroOpen { top: 84px; }
+      .hero-live .chapHead { left: var(--gut); right: var(--gut); width: auto; top: calc(53% - var(--S) / 2 - 16px); translate: 0 -100%; font-size: clamp(26px, 7.8vw, 48px); }
+      .hero-live .chapSide { left: var(--gut); right: var(--gut); width: auto; top: calc(53% + var(--S) / 2 + 22px); translate: none; }
+      .hero-live #scrollCue { left: var(--gut); translate: none; }
+    }
+
     .cta { margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
     .cta a { position: relative; overflow: hidden; display: inline-block; letter-spacing: 0.08em; border-radius: 8px; padding: 13px 24px; font-size: 13.5px; border: 1px solid var(--line); transition: box-shadow 0.2s, border-color 0.2s, color 0.2s; white-space: nowrap; }
     .cta a.primary { background: var(--amber); color: #17110a; border-color: var(--amber); font-weight: 600; }
@@ -88,17 +214,6 @@
     .cta a.ghost:hover::after { transform: scaleX(1); }
     .cta a:active { scale: 0.97; }
     a:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 8px; }
-
-    .stats { margin-top: 40px; display: grid; grid-template-columns: repeat(2, auto); gap: 20px 48px; }
-    @media (min-width: 700px) { .stats { grid-template-columns: repeat(5, auto); gap: 20px 38px; } }
-    .stat { text-align: center; }
-    .stat b { display: block; font-size: 22px; font-weight: 600; color: #eef1f5; font-variant-numeric: tabular-nums; }
-    .stat span { display: block; margin-top: 4px; font-size: 10px; color: var(--dim); letter-spacing: 0.14em; }
-
-    #scrollCue { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); color: var(--dim); font-size: 10px; letter-spacing: 0.3em; }
-    #scrollCue::after { content: "▾"; display: block; text-align: center; margin-top: 3px; }
-    .anim #scrollCue::after { animation: cue 1.8s ease-in-out infinite; }
-    @keyframes cue { 0%, 100% { transform: translateY(0); opacity: 0.6; } 50% { transform: translateY(5px); opacity: 1; } }
 
     /* ---------- shared sim panel ---------- */
     .simBox { position: relative; width: 100%; aspect-ratio: 1; max-width: min(560px, 66vh); margin: 0 auto; border-radius: 14px; overflow: hidden; border: 1px solid #1d222b; background: #07080a; box-shadow: 0 24px 70px rgba(0,0,0,0.55); }
@@ -194,7 +309,7 @@
     footer a:hover::after { transform: scaleX(1); }
 
     /* motion pre-states (html.anim only) */
-    .anim #heroCopy > *, .anim .stats { opacity: 0; }
+    .anim #heroOpen > * { opacity: 0; }
     .anim #composeAct .chip, .anim #composeAct .arrow, .anim #composeAct .after, .anim #composeAct .cta, .anim .bars, .anim .barhead, .anim .pdrow, .anim #qLine { opacity: 0; }
     .anim .stamp, .anim #sciAct .cta, .anim #sciAct .sub2 { opacity: 0; }
   </style>
@@ -221,27 +336,54 @@
   </header>
 
   <main>
-    <!-- ACT 0 · hero -->
+    <!-- ACT 0 · hero: one rendered dendrite, scrubbed by scroll (src/hero.ts).
+         The chapter blocks are keyed to public/hero/manifest.json's chapters;
+         the five feature callouts are built by hero.ts from its features. -->
     <section class="act" id="heroAct">
-      <div id="heroCopy">
+      <div class="heroGlow" aria-hidden="true"></div>
+      <div id="heroOpen">
         <h1 id="wordmark">SOLID<span>IFY</span></h1>
-        <p class="tag">Watch metal freeze: a real phase-field solidification laboratory, live in your browser.</p>
+        <p class="tag">Watch metal freeze. A phase-field solidification lab, live in your browser.</p>
         <div class="cta">
           <a class="primary" href="app/">Open the instrument</a>
           <a class="ghost" href="app/?tour=1">Take the tour</a>
           <a class="ghost" href="science/">The science</a>
           <a class="ghost" href="contact/">Contact</a>
         </div>
-        <div class="stats">
-          <div class="stat"><b data-count="1048576">1,048,576</b><span>CELLS SOLVED IN REAL TIME</span></div>
-          <div class="stat"><b data-count="60" data-suffix=" fps">60 fps</b><span>ON A MID-RANGE GPU</span></div>
-          <div class="stat"><b data-count="10">10</b><span>LENSES ON ONE GROWTH</span></div>
-          <div class="stat"><b data-count="7077888">7,077,888</b><span>VOXELS IN TRUE 3D MODE</span></div>
-          <div class="stat"><b>0</b><span>FRAMEWORKS · HAND-ROLLED WGSL</span></div>
+      </div>
+      <div id="heroStage">
+        <div class="heroLabels left"></div>
+        <div class="heroFrame">
+          <!-- lazy: in the live layout this is display: none and is not fetched
+               (the canvas loads its own poster); the still layouts show it in the
+               first screen, so it loads at once there, and without JS lazy
+               loading is off and it loads as a plain image -->
+          <img id="heroStill" src="hero/poster-1200.webp" loading="lazy" width="1200" height="1200"
+               alt="A rendered metal dendrite in satin steel on a dark background: six main arms along the axes of a cube, each lined with rows of side branches, the longest carrying smaller branches of their own." />
+          <canvas id="heroCanvas" role="img" aria-label="A rendered metal dendrite that grows from a glowing seed, cools to bare metal and turns as you scroll."></canvas>
+        </div>
+        <div class="heroLabels right"></div>
+        <svg id="heroMarks" aria-hidden="true"></svg>
+        <a class="heroCaption" href="https://github.com/fronkt/solidify/blob/main/hero/README.md">Rendered model, not a simulation frame.</a>
+      </div>
+      <div class="chap" data-chap="grow">
+        <h2 class="chapHead">It grows in branches.</h2>
+        <div class="chapSide"><p class="chapBody">A metal crystal freezing out of its melt does not stay a ball. It sends arms out along the directions its lattice prefers.</p></div>
+      </div>
+      <div class="chap" data-chap="cool">
+        <h2 class="chapHead">Then it cools, its shape locked in.</h2>
+        <div class="chapSide"><p class="chapBody">The whole crystal becomes one grain of the metal, and its branches set the fine structure inside it. Both shape how the metal behaves.</p></div>
+      </div>
+      <div class="chap" data-chap="end">
+        <h2 class="chapHead">Grow your own.</h2>
+        <div class="chapSide">
+          <p class="chapBody">The instrument solves the <span class="nw">phase-field</span> equations on your GPU. Change the melt and the branches change.</p>
+          <div class="cta"><a class="primary" href="app/">Open the instrument</a></div>
         </div>
       </div>
       <div id="scrollCue">SCROLL</div>
     </section>
+    <div class="heroFade" aria-hidden="true"></div>
 
     <!-- ACT 1 · one crystal, ten instruments -->
     <section class="act" id="lensAct">
@@ -372,7 +514,7 @@
     <!-- ACT 4 · the science -->
     <section class="act" id="sciAct">
       <div class="inner">
-        <div class="k">NO SCRIPTS · NO PARTICLES · TWO EQUATIONS</div>
+        <div class="k">THE INSTRUMENT · NO SCRIPTS · NO PARTICLES · TWO EQUATIONS</div>
         <div id="eq" style="margin-top: 22px;"><span id="eqText">τ ∂φ/∂t = ∇·(ε²∇φ) + φ(1−φ)(φ−½+m) &nbsp;·&nbsp; ∂T/∂t = ∇²T + K ∂φ/∂t</span><span class="cursor"></span></div>
         <div class="sub2">Kobayashi (1993) anisotropic phase-field · Warren–Boettinger dilute alloy · ASTM E112 metallography</div>
         <div class="stamps">

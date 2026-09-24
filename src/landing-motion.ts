@@ -1,8 +1,9 @@
-// DOM-side motion for the scroll story (anime.js v4): hero copy entrance,
-// stat count-ups, composer-act chips/Q/bars, equation typing, magnetic CTAs,
-// top-nav reveal. Sim-coupled scroll work (pins, lens/material switching)
-// lives in landing.ts. The inline <head> gate adds html.anim only when motion
-// is allowed; a watchdog reveals everything if this module never runs.
+// DOM-side motion for the scroll story (anime.js v4): the wordmark's entrance,
+// composer-act chips/Q/bars, equation typing, magnetic CTAs, top-nav reveal.
+// Sim-coupled scroll work (pins, lens/material switching) lives in landing.ts;
+// the hero's scroll scrub (frames, chapter text, callouts) lives in hero.ts.
+// The inline <head> gate adds html.anim only when motion is allowed; a
+// watchdog reveals everything if this module never runs.
 
 import { animate, createTimeline, stagger, utils } from "animejs";
 
@@ -76,15 +77,8 @@ function heroEntrance() {
     duration: 950,
     delay: stagger(46),
   }, 240);
-  tl.add("#heroCopy .tag", { opacity: [0, 1], translateY: [16, 0], duration: 750 }, 500);
-  tl.add("#heroCopy .cta", { opacity: [0, 1], translateY: [14, 0], duration: 700 }, 700);
-  tl.add(".stats", { opacity: [0, 1], translateY: [14, 0], duration: 700 }, 950);
-  tl.call(() => {
-    document.querySelectorAll<HTMLElement>(".stats b[data-count]").forEach(el => {
-      const suffix = el.dataset.suffix ?? "";
-      countUp(el, parseInt(el.dataset.count!, 10), n => n.toLocaleString("en-US") + suffix);
-    });
-  }, 1000);
+  tl.add("#heroOpen .tag", { opacity: [0, 1], translateY: [16, 0], duration: 750 }, 500);
+  tl.add("#heroOpen .cta", { opacity: [0, 1], translateY: [14, 0], duration: 700 }, 700);
 }
 
 /**
