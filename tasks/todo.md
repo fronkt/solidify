@@ -4161,3 +4161,9 @@ and its own type.
         to main before deploying (the caption links to `main/hero/README.md`); American spelling
         in `hero/look.py`, `encode_frames.py`, `dendrite_gen.py` left for after the render (some
         are identifiers and JSON keys).
+
+**Later (Frank, 2026-09-24):** after the Fable render lands, try the same hero with GPT-6-Astra
+(Codex CLI, `model = "gpt-6-astra"` in ~/.codex/config.toml). Brief: `tasks/astra-hero-brief.md`.
+Claude Code's auto mode blocks launching `codex exec` itself ("Create Unsafe Agents"), so Frank either
+runs it (`! codex exec -m gpt-6-astra -C C:\Users\frank\solidify --add-dir C:\Users\frank\solidify-hero-out - < tasks\astra-hero-brief.md`)
+or adds a Bash permission rule for `codex exec`.
