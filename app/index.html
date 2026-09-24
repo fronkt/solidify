@@ -17,7 +17,44 @@
       --amber: #ffb454;
       --cyan: #56d4dd;
       --font: ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+      /* the control rail's width. Everything anchored beside the rail offsets
+         by --rail-inset (0 while the rail is hidden), and everything centered
+         is placed or capped by it so it cannot reach the rail, so this is the
+         one number to change (verify-rail.mjs checks the result).
+         Every pixel of it comes out of the visible melt: the canvas cover-fits
+         the whole window (render.ts clientToCover) and the 3D camera centers
+         on it, so the rail hides the domain's right edge rather than shrinking
+         the view (26.6% of its width at 1280x720; 20.9% at the old 268px).
+         On a phone it gives way, down to the 280px a slider row's three tracks
+         need (104 + 48 + 11ch, plus padding, scrollbar and border), which keeps
+         CONTROLS in its place beside it down to a 390px window (#railToggle's
+         own clamp keeps it on screen below that). At that width only the
+         calibrated coupling readout, 17 characters, wraps onto a second line */
+      --rail-w: clamp(280px, calc(100vw - 110px), 340px);
     }
+    body {
+      --rail-inset: var(--rail-w);
+      /* the width the rail leaves */
+      --free-w: calc(100vw - var(--rail-inset));
+      /* the bottom-center items (hint, SEM bar, mode panels) are centered on
+         the window and capped at 100% - 2 x this, so they reach neither the
+         rail nor the transport bar, whose right edge is at 316px; the floor
+         holds that second promise while the rail is hidden */
+      --center-inset: max(var(--rail-inset), 316px);
+      /* Two layout steps on --free-w, each 0px above its width and 1px below
+         it, used as a unit (22 * var(--x) is 22px or 0). Media queries cannot
+         read a custom property; this way hiding the rail or changing --rail-w
+         moves the breakpoints with it. The x 1000 makes the ramp between 0 and
+         1px a thousandth of a pixel wide.
+           --lens-squeeze: the lens bar (at its 424px floor, right edge 567)
+             and the TRUE 3D switch (168 wide, 14 from the rail) no longer fit
+             side by side with a 20px gap, so the switch drops below the bar.
+           --lens-own-row: the bar no longer fits beside CONTROLS (77 wide)
+             either, so it takes a row of its own under the switch. */
+      --lens-squeeze: clamp(0px, (770px - var(--free-w)) * 1000, 1px);
+      --lens-own-row: clamp(0px, (680px - var(--free-w)) * 1000, 1px);
+    }
+    body.railHidden { --rail-inset: 0px; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; }
     #canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
@@ -36,7 +73,10 @@
     #readouts div { color: #9aa1ab; }
     #readouts b { color: #e8ebef; font-weight: 500; }
 
-    #rail { position: absolute; top: 0; right: 0; bottom: 0; width: 268px; background: rgba(15,17,21,0.92); border-left: 1px solid var(--line); overflow-y: auto; padding: 14px 14px 90px; backdrop-filter: blur(6px); transition: transform 0.25s ease; scrollbar-width: thin; scrollbar-color: #2b313b transparent; }
+    /* overflow-wrap: anywhere lets no word, value or source string set a
+       min-content width wider than the rail; long text wraps inside it instead
+       (the rail must never scroll sideways, verify-rail.mjs) */
+    #rail { position: absolute; top: 0; right: 0; bottom: 0; width: var(--rail-w); background: rgba(15,17,21,0.92); border-left: 1px solid var(--line); overflow-y: auto; overflow-wrap: anywhere; padding: 14px 14px 90px; backdrop-filter: blur(6px); transition: transform 0.25s ease; scrollbar-width: thin; scrollbar-color: #2b313b transparent; }
     #rail.hidden { transform: translateX(100%); }
     /* the lab's report — same slide mechanism as #rail, mirrored to the opposite
        edge so the two never compete for space; no dimmed backdrop, the live sim
@@ -47,16 +87,20 @@
     #foundryResults .frHead { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; letter-spacing: 0.2em; color: #56d4dd; }
     #foundryResults .frHead span { flex: 1; }
     #foundryResults .frHead button { font-size: 10px; padding: 3px 8px; }
-    #railToggle { position: absolute; top: 14px; right: 282px; z-index: 5; transition: right 0.25s ease; }
-    body.railHidden #railToggle { right: 14px; }
-    /* the 2D ↔ 3D activation switch floats directly below CONTROLS and slides with the rail */
-    #dimSwitch { position: absolute; top: 50px; right: 282px; z-index: 5; width: 168px; transition: right 0.25s ease; }
-    body.railHidden #dimSwitch { right: 14px; }
+    /* never further left than its own width from the window's edge (77 + 14):
+       below a 390px window the rail stops giving way and would otherwise push
+       the one control that moves it off screen */
+    #railToggle { position: absolute; top: 14px; right: min(calc(var(--rail-inset) + 14px), calc(100% - 91px)); z-index: 5; transition: right 0.25s ease; }
+    /* the 2D ↔ 3D activation switch floats directly below CONTROLS and slides
+       with the rail; below the lens bar instead while the two cannot share
+       the top band (--lens-squeeze), back under CONTROLS once the bar has a
+       row of its own (--lens-own-row) */
+    #dimSwitch { position: absolute; top: calc(50px + 22 * (var(--lens-squeeze) - var(--lens-own-row))); right: calc(var(--rail-inset) + 14px); z-index: 5; width: 168px; transition: right 0.25s ease, top 0.25s ease; }
     #dimSwitch .actswitch { margin: 0; background: rgba(15,17,21,0.85); backdrop-filter: blur(6px); }
     .actswitch.disabled { opacity: 0.45; pointer-events: none; }
-    #viewcube { position: absolute; top: 96px; right: 282px; z-index: 5; width: 92px; height: 92px;
-      transition: right 0.25s ease, opacity 0.3s; display: none; touch-action: none; }
-    body.railHidden #viewcube { right: 14px; }
+    /* under the switch, and under the lens bar when that has its own row */
+    #viewcube { position: absolute; top: calc(96px + 22 * var(--lens-squeeze) + 32 * var(--lens-own-row)); right: calc(var(--rail-inset) + 14px); z-index: 5; width: 92px; height: 92px;
+      transition: right 0.25s ease, top 0.25s ease, opacity 0.3s; display: none; touch-action: none; }
     body.mode3d #viewcube { display: block; }
     /* 2D-only chrome folds away in TRUE-3D mode (the HUD, tour, overlay and
        scale bar stay — the 3D probe crosshair and SLICE scale bar live there);
@@ -68,26 +112,40 @@
     /* floating SECTION PLANE panel (SLICE lens) */
     #slicePop { position: absolute; left: 18px; bottom: 62px; width: 252px; display: none; z-index: 6;
       background: rgba(15,17,21,0.9); border: 1px solid var(--line); border-radius: 6px;
-      padding: 9px 11px 8px; backdrop-filter: blur(6px); }
+      padding: 9px 11px 8px; backdrop-filter: blur(6px);
+      /* its three rows (depth, tilt, turn) print at most "360°" */
+      --row-lab: 44px; --row-val: 5ch; }
     #slicePop .t { font-size: 9px; letter-spacing: 0.18em; color: var(--dim); margin-bottom: 7px; }
     #slicePop .btnrow { margin-bottom: 7px; }
     #slicePop select { margin-top: 4px; }
     /* 3D analysis panels (stereology / IPF) — same slot as the 2D #apanels */
-    #apanels3 { position: absolute; right: 282px; bottom: 84px; display: flex; flex-direction: column;
-      gap: 8px; transition: right 0.25s ease; pointer-events: none; }
-    body.railHidden #apanels3 { right: 14px; }
+    #apanels3 { position: absolute; right: calc(var(--rail-inset) + 14px); bottom: 84px; display: flex; flex-direction: column;
+      gap: 8px; transition: right 0.25s ease; pointer-events: none; z-index: 1; }
     body:not(.mode3d) #apanels3 { display: none; }
     #apanels3 .apanel { pointer-events: auto; }
     .sec { margin-bottom: 15px; }
     .sec h2 { font-size: 10px; letter-spacing: 0.25em; color: var(--dim); margin-bottom: 8px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
     .sec h2 .tog { margin-left: auto; cursor: pointer; color: var(--dim); font-size: 11px; }
-    .row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
-    .row label { flex: 0 0 84px; color: var(--text); font-size: 11.5px; }
-    /* wider than it used to be: these read in real units now ("1.8e3 K/s"), not
-       as bare two-decimal numbers */
-    .row .val { flex: 0 0 62px; text-align: right; color: var(--amber); font-size: 11px; }
+    /* label | slider | value, as a grid so the value column can never be pushed
+       out of the row. The slider is the only track that gives; the value track
+       is at least 11ch, one more than the widest real-unit rate the rail has
+       been seen to print ("2.9e+9 K/s", verify-rail.mjs), so a two-digit
+       exponent still fits, and grows to fit a longer composite readout
+       (coupling λ with its W₀/d₀) by taking width from the slider rather than
+       from the rail. font-size is set here so `ch` means the value's own 11px
+       digit. */
+    .row { display: grid; grid-template-columns: var(--row-lab, 104px) minmax(48px, 1fr) minmax(var(--row-val, 11ch), auto);
+      align-items: center; column-gap: 8px; margin-bottom: 7px; font-size: 11px; }
+    .row label { color: var(--text); font-size: 11.5px; line-height: 1.3; }
+    .row .val { text-align: right; color: var(--amber); font-size: 11px; font-variant-numeric: tabular-nums; }
     .row .val.unreal { color: #e06c60; }
     input[type="range"] { flex: 1; appearance: none; height: 2px; background: #333a45; border-radius: 1px; outline: none; }
+    /* min-width: 0 drops Chrome's ~129px intrinsic slider width, which is what
+       used to push every value off the side of a 268px rail. Only in a grid
+       row, whose slider track has its own 48px floor: a slider in a flex row
+       elsewhere (the optimizer's target, the composer) keeps the intrinsic
+       width as its floor rather than shrinking to nothing */
+    .row input[type="range"] { width: 100%; min-width: 0; }
     input[type="range"]::-webkit-slider-thumb { appearance: none; width: 11px; height: 11px; border-radius: 50%; background: var(--amber); border: 2px solid #0a0b0d; box-shadow: 0 0 0 1px #4a4235; cursor: ew-resize; }
     button { font-family: var(--font); font-size: 11px; letter-spacing: 0.06em; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 6px 9px; cursor: pointer; }
     button:hover { border-color: #3a424e; color: #fff; }
@@ -235,7 +293,15 @@
     .hiddenSec { display: none; }
 
     /* lens grid */
-    #views { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: repeat(5, auto); gap: 2px; background: rgba(15,17,21,0.85); border: 1px solid var(--line); border-radius: 6px; padding: 3px; backdrop-filter: blur(6px); }
+    /* centered in the space the rail leaves; the 424px floor keeps it off
+       #head's widest line (18 inset + 242, the sub line and the width #matline
+       is capped at, + 20 gap + ~143, half this bar's 286px). On a narrow window
+       it cannot also clear the chrome beside the rail: below --lens-squeeze
+       the TRUE 3D switch drops under it, and below --lens-own-row it takes a
+       row of its own under the switch, where it keeps the same center until
+       that would bring it within 14px of the rail (the min() below; 157 =
+       14 + 143) */
+    #views { position: absolute; top: calc(14px + 78 * var(--lens-own-row)); left: min(max(calc(var(--free-w) / 2), 424px), calc(var(--free-w) - 157px)); transform: translateX(-50%); transition: left 0.25s ease, top 0.25s ease; display: grid; grid-template-columns: repeat(5, auto); gap: 2px; background: rgba(15,17,21,0.85); border: 1px solid var(--line); border-radius: 6px; padding: 3px; backdrop-filter: blur(6px); }
     #views button { border: none; background: transparent; padding: 4px 10px; border-radius: 4px; color: var(--dim); font-size: 10.5px; }
     #views button.on { background: #232833; color: #fff; }
 
@@ -261,21 +327,36 @@
     #tourBtn { position: absolute; left: 18px; bottom: 62px; }
     #tourBtn.hide { display: none; }
 
-    #hud { position: absolute; right: 282px; bottom: 14px; display: flex; gap: 10px; transition: right 0.25s ease; pointer-events: none; }
-    body.railHidden #hud { right: 14px; }
+    /* capped so it never reaches the transport bar (right edge 316 + 18): a
+       narrower window stacks its cards upward (wrap-reverse) instead of
+       spreading them over the run button, and one too narrow for a single
+       128px card (the width the rail leaves under 334 + 128 + 14 = 476) folds
+       it away (the max-height step) rather than let a card spill over the
+       bar. Its upper rows pass under the analysis columns (#apanels) when
+       those are open */
+    #hud { position: absolute; right: calc(var(--rail-inset) + 14px); bottom: 14px; max-width: calc(100% - var(--rail-inset) - 14px - 334px);
+      max-height: clamp(0px, (100vw - var(--rail-inset) - 476px) * 1000, 100vh); overflow: hidden;
+      display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; gap: 10px; transition: right 0.25s ease; pointer-events: none; }
     .spark { background: rgba(15,17,21,0.85); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px 4px; }
     .spark .t { font-size: 9px; letter-spacing: 0.15em; color: var(--dim); margin-bottom: 2px; }
     .spark canvas { display: block; }
 
-    #scalebar { position: absolute; right: 282px; top: 64px; display: none; align-items: center; gap: 8px; color: #111; background: rgba(238,235,225,0.9); border-radius: 4px; padding: 5px 10px; font-size: 11px; transition: right .25s ease; }
-    body.railHidden #scalebar { right: 14px; }
+    /* under the readouts (eight rows in both modes, 78 to 211px), a slot no
+       analysis panel reaches (#thermbar sits there too, but only under THERM,
+       never under ETCH or SLICE). Beside the rail it sat under the TRUE 3D
+       switch (top 50, z-index 5) at every width, and lower down that column
+       it would meet the analysis panels on a short window */
+    #scalebar { position: absolute; left: 18px; top: 222px; display: none; align-items: center; gap: 8px; color: #111; background: rgba(238,235,225,0.9); border-radius: 4px; padding: 5px 10px; font-size: 11px; }
     #scalebar .bar { width: 80px; height: 4px; background: #111; }
 
     /* lens-specific overlays */
     #thermbar { position: absolute; left: 18px; top: 220px; display: none; width: 14px; height: 160px; border-radius: 3px; border: 1px solid var(--line); background: linear-gradient(to top, #05010a, #30064e, #a3195b, #e35b1c, #f7b731, #fffbe0); }
     #thermbar .lo, #thermbar .hi { position: absolute; left: 20px; font-size: 10px; color: var(--dim); }
     #thermbar .hi { top: -3px; } #thermbar .lo { bottom: -3px; }
-    #sembar { position: absolute; left: 50%; transform: translateX(-50%); bottom: 14px; display: none; background: rgba(10,10,10,0.85); border: 1px solid #333; color: #cfcfcf; font-size: 10.5px; letter-spacing: 0.12em; padding: 5px 14px; border-radius: 3px; }
+    /* bottom-center items stay centered on the window but are capped at
+       100% - 2 x --center-inset, so the right edge never reaches the rail and
+       the left edge never reaches the transport bar, rail shown or hidden */
+    #sembar { position: absolute; left: 50%; transform: translateX(-50%); max-width: calc(100% - 2 * var(--center-inset) - 36px); bottom: 14px; display: none; background: rgba(10,10,10,0.85); border: 1px solid #333; color: #cfcfcf; font-size: 10.5px; letter-spacing: 0.12em; padding: 5px 14px; border-radius: 3px; }
 
     #gate { position: absolute; inset: 0; background: var(--bg); display: none; align-items: center; justify-content: center; text-align: center; z-index: 50; }
     #gate .in { max-width: 460px; padding: 24px; }
@@ -283,10 +364,35 @@
     #gate p { color: var(--dim); line-height: 1.6; font-size: 12.5px; }
     #gate p b { color: var(--amber); }
 
-    #hint { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); color: var(--dim); font-size: 11px; letter-spacing: 0.08em; pointer-events: none; opacity: 0.85; transition: opacity 1s; }
+    #hint { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 2 * var(--center-inset) - 36px); text-align: center; color: var(--dim); font-size: 11px; letter-spacing: 0.08em; pointer-events: none; opacity: 0.85; transition: opacity 1s; }
     #hint.gone { opacity: 0; }
 
-    #matline { margin-top: 3px; font-size: 11px; color: var(--amber); letter-spacing: 0.06em; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
+    /* the four mode panels (lab, heat treat, optimizer, challenge), each
+       setting its own design width as --cap. Centered on the window and
+       capped by --center-inset like the hint, but never narrower than 300px:
+       their form rows need 252 (a formbits row is 118 + 60 + 58 + 2 x 8) plus
+       the panel's padding, and under that the cap made them scroll sideways
+       or paint their values over the rail. A panel held at 300px slides off
+       center as far as it must to stay in the band between the transport bar
+       and the rail (334px to the rail's edge less 18: the clamp on left).
+       Once it no longer fits in that band (--over, a 0/1px step like the
+       ones on body) it lifts clear of the bar instead (--lift: its bottom to
+       66px, the bar's top at 57 plus 9) and may use the width under it, down
+       to 18px from the window's edge */
+    .modepanel {
+      --pw: max(min(var(--cap), calc(100vw - 2 * var(--center-inset) - 36px)), min(300px, calc(100vw - 36px)));
+      --over: clamp(0px, (var(--pw) + var(--rail-inset) + 352px - 100vw) * 1000, 1px);
+      --lift: calc(52 * var(--over));
+      position: absolute; bottom: calc(14px + var(--lift)); width: var(--pw);
+      left: clamp(calc(18px + 316 * (1px - var(--over)) + var(--pw) / 2), 50%,
+                  calc(100% - var(--rail-inset) - 18px - var(--pw) / 2));
+      transform: translateX(-50%);
+    }
+
+    /* capped at the sub line's width, which is what #views' 424px floor
+       budgets for: a long alloy name (a share link's can be any length) wraps
+       under it instead of running beneath the lens bar */
+    #matline { margin-top: 3px; max-width: 242px; overflow-wrap: anywhere; font-size: 11px; color: var(--amber); letter-spacing: 0.06em; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
     /* the melt's clamps and refusals, on the same surface as its name — a
        deep-linked alloy has no composer open to show them in */
     /* pointer-events:none because #head is the one absolutely-positioned overlay
@@ -301,9 +407,12 @@
     .scilink { display: block; margin: 4px 0 10px; font-size: 10.5px; color: var(--dim); text-decoration: none; letter-spacing: 0.08em; }
     .scilink:hover { color: var(--amber); }
 
-    /* analysis panels: bottom-right column, left of the rail */
-    #apanels { position: absolute; right: 282px; bottom: 84px; display: flex; flex-direction: column; gap: 8px; transition: right 0.25s ease; pointer-events: none; }
-    body.railHidden #apanels { right: 14px; }
+    /* analysis panels: bottom-right column, left of the rail, above the HUD.
+       z-index 1 (here and on #apanels3) paints them over the HUD, which a
+       narrow window wraps upward behind them: the HUD is the passive one of
+       the two, and raising the columns instead would push them into the TRUE
+       3D switch and the view cube on a short window */
+    #apanels { position: absolute; right: calc(var(--rail-inset) + 14px); bottom: 84px; display: flex; flex-direction: column; gap: 8px; transition: right 0.25s ease; pointer-events: none; z-index: 1; }
     /* container passes clicks through to the melt; the panels themselves are
        interactive (the ⤢ enlarge button must win over tap-to-seed) */
     .apanel { display: none; pointer-events: auto; background: rgba(15,17,21,0.88); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px 6px; }

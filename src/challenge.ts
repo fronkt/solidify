@@ -55,8 +55,11 @@ export class Challenge {
   private mkPanel(html: string): HTMLElement {
     this.panel?.remove();
     const p = document.createElement("div");
+    // placed and sized by .modepanel (app/index.html), so it can reach neither
+    // the rail nor the transport bar
+    p.className = "modepanel";
     p.style.cssText =
-      "position:absolute;left:50%;transform:translateX(-50%);bottom:14px;width:min(560px,86vw);" +
+      "--cap:560px;" +
       "background:rgba(15,17,21,0.94);border:1px solid #262b33;border-radius:8px;padding:14px 18px;" +
       "backdrop-filter:blur(6px);z-index:7;font-size:12px;line-height:1.6;";
     p.innerHTML = html;

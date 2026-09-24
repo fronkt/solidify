@@ -241,15 +241,22 @@ export class Optimizer {
     this.panel?.remove();
     const p = document.createElement("div");
     p.id = "lab";
+    // placed and sized by .modepanel (app/index.html), so it can reach neither
+    // the rail nor the transport bar, whose run button it tells you to press
+    p.className = "modepanel";
     p.style.cssText =
-      "position:absolute;left:50%;transform:translateX(-50%);bottom:14px;width:min(720px,86vw);" +
+      "--cap:720px;" +
       "background:rgba(15,17,21,0.93);border:1px solid #262b33;border-radius:8px;padding:10px 14px;backdrop-filter:blur(6px);z-index:6;";
     const head = document.createElement("div");
-    head.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:6px;font-size:11px;";
+    // wraps on a narrow panel: the target slider moves to the next line at its
+    // 110px floor rather than being squeezed to nothing (it used to reach 0 px
+    // at 1024 wide), and exit stays at the right end of whichever line it is on
+    head.style.cssText = "display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-bottom:6px;font-size:11px;";
     head.innerHTML = `<span style="letter-spacing:.2em;color:#56d4dd">⚙ ENGINEERING · ML MODE</span>
       <span>target ASTM <b style="color:#ffb454">G ${this.targetASTM}</b></span>
-      <input id="labTarget" type="range" min="1" max="5.5" step="0.5" value="${this.targetASTM}" style="width:110px;flex:1;max-width:150px">`;
+      <input id="labTarget" type="range" min="1" max="5.5" step="0.5" value="${this.targetASTM}" style="flex:1 1 110px;min-width:110px;max-width:150px">`;
     const stop = document.createElement("button");
+    stop.style.marginLeft = "auto";
     stop.textContent = "exit";
     stop.addEventListener("click", () => this.stop());
     head.append(stop);

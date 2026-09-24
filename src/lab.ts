@@ -362,9 +362,13 @@ export class Lab {
     this.panel?.remove();
     const p = document.createElement("div");
     p.id = "foundry";
+    // placed and sized by .modepanel (app/index.html), so it can reach neither
+    // the rail nor the transport bar; the max-height leaves room for the lift
+    // that clears the bar on a narrow window
+    p.className = "modepanel";
     p.style.cssText =
-      "position:absolute;left:50%;transform:translateX(-50%);bottom:14px;width:min(320px,90vw);" +
-      "max-height:calc(100vh - 28px);overflow-y:auto;" +
+      "--cap:320px;" +
+      "max-height:calc(100vh - 28px - var(--lift, 0px));overflow-y:auto;" +
       "background:rgba(15,17,21,0.93);border:1px solid #262b33;border-radius:8px;padding:14px 16px 12px;" +
       "backdrop-filter:blur(6px);z-index:6;font-size:11px;";
     const head = document.createElement("div");

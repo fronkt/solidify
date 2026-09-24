@@ -598,6 +598,68 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   census to the printed decimal, the verdict must judge the spec as dialled at the pour even
   when the dial is shoved to 999 mid-run, a no-spec pour must carry no verdict row, and the
   model metal must refuse by name) and the heat-treat share-link gates.
+- **`verify-rail.mjs`** (v8 U0): the control rail never scrolls sideways, every slider's value
+  is on screen, and nothing sits under the rail or on the chrome beside it. Seven checks,
+  measured in the real app at 1280x720, 1440x900, 1920x1080, 1024x768 and 960x1000 (a
+  half-screen window on a 1920 display), in 2D and TRUE 3D, with every rail section opened by
+  clicking its heading, and every box read only after the CSS transitions a resize or a rail
+  toggle starts have finished. `RAIL-NO-HSCROLL` (rail `scrollWidth <= clientWidth`),
+  `RAIL-ROWS-INSIDE` (every slider row is a grid, and its label, slider and value sit inside the
+  rail's content box; no zero-width value; at least 15 values per sample), `RAIL-TEXT-WRAPS`
+  (every rendered element AND every rendered line of text inside the content box),
+  `RAIL-VAL-FITS` (each slider driven to its min and then its max in a real material, reading
+  every value after every step: each stays on one line inside the rail; liveness is per state,
+  so the calibrated sweep must have read the coupling λ row, 17 characters with its W₀/d₀, and
+  some sweep must have printed a K/s rate in exponent form, 10 characters, the widest seen being
+  `2.9e+9 K/s` from the 3D sweep), `RAIL-CLEAR` (with every lens legend and analysis panel that
+  can appear beside the rail switched on, and all of it again with the rail hidden: no chrome
+  and no mode panel overlaps the rail; the items sized against the transport bar, meaning the
+  mode panels, the hint, the SEM bar and the HUD, stay clear of it; the lens bar, `#head`'s
+  three text lines measured as rendered text with a long alloy name in `#matline`, the
+  readouts, CONTROLS, the TRUE 3D switch, the view cube and the scale bar never overlap one
+  another; and every open mode panel holds its content, with no sideways scroll, nothing
+  painted past its content box, and no slider in it under 60 px), `RAIL-HIDE` (at 1280x720
+  and on a 390x844 phone: the toggle moves the whole rail off screen, and CONTROLS, the
+  switch, the view cube, the HUD and both analysis columns to 14 px from the window's edge and
+  the lens bar's center to where the CSS puts it; showing the rail again puts each back
+  beside it; CONTROLS is on screen in every state) and `SLICE-ROWS-INSIDE` (the SECTION PLANE
+  popup, whose rows share the grid). It also writes six screenshots,
+  `rail-{2d,3d}-{top,mid,bottom}.png` at 1440x900, to the output directory for a person to
+  look at.
+
+  Puppeteer hides scrollbars in headless mode by default, which hands the rail 10 px no visitor
+  gets, so this script launches with `ignoreDefaultArgs: ["--hide-scrollbars"]` and requires a
+  real scrollbar in at least one sample. It was proved against the defect before it was trusted:
+  on the old CSS (268 px rail, flex rows, no `min-width: 0` on the slider) it fails six of its
+  seven clauses, `RAIL-NO-HSCROLL` with exactly the audit's 305 against 257. With the old row
+  rules on the new 340 px rail, `RAIL-NO-HSCROLL` alone would have passed (the rows come to 291
+  of 301 px) while sub-panel values ran into the padding and the calibrated readouts wrapped,
+  which is why the content-box and one-line clauses exist. `RAIL-CLEAR`, `RAIL-HIDE`,
+  `SLICE-ROWS-INSIDE` and `RAIL-TEXT-WRAPS` were each broken on purpose once (heat-treat panel
+  sized to the window, hide transform fixed at 268 px, the popup's column override removed,
+  notes forced onto one line) and each failed on its own clause. That last one is why
+  `RAIL-TEXT-WRAPS` measures text lines as well as element boxes: a one-line note running past
+  its own block leaves the block's box where it was, and the element half passed it.
+
+  A review of the first cut found what the gate could not see then: at 1024x768 the HUD's
+  cards covered the transport bar's pause, x1 and rec buttons, the optimizer's target slider
+  was 0 px wide, the TRUE 3D switch covered the CURV lens button, and the scale bar sat under
+  that switch at every width (it did before the rail change too); at 960 the lab and
+  heat-treat panels scrolled sideways or painted values over the rail; with the rail hidden
+  the hint and the mode panels reached the transport bar; and the pooled `RAIL-VAL-FITS` floor
+  passed on the 3D rate alone. The clauses added for those were proved the same way, by injecting each defect
+  as a style or script override after load (no source edit) and running the whole gate:
+  `#hud` uncapped, the switch pinned at `top: 50px`, the scale bar put back beside the rail,
+  `body.railHidden #hud` given a fixed offset and `setCalibrated` made a no-op failed
+  `RAIL-CLEAR` (the HUD over the transport bar at 1024 and 960; switch over lens bar; switch
+  over scale bar at all five widths), `RAIL-HIDE` (`hud not at the edge`) and `RAIL-VAL-FITS`
+  (`calibratedCouplingRead: false`, with `2.9e+9 K/s` still printed). The panel floor removed,
+  `--center-inset` tied back to the rail, the optimizer's header unwrapped with its slider
+  floor dropped, and `#matline` uncapped failed `RAIL-CLEAR` on the panels' overflow at 960,
+  a 0 px slider at 1024 and 960, the hint over the transport bar with the rail hidden, and
+  `#matline` under the lens bar at 1024. The mode panels themselves stayed clear of the
+  transport bar in that run: their own `left` clamp (`.modepanel`, `app/index.html`) is a
+  second guard that does not depend on `--center-inset`.
 - **`verify-scale3d.mjs`** — the 3D half of the v5.0 length-anchor change, on its own so it
   does not need the full 30-check volume suite to re-run: both solvers carry one resolution,
   the volume's `eqDiamUm` actually follows it (doubling the pitch doubles the reported diameter

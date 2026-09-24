@@ -884,7 +884,8 @@ export class UI {
     this.bridgePanel.style.display = p.scen === 1 ? "block" : "none";
     this.weldPanel.style.display = p.scen === 2 ? "block" : "none";
     this.alloyPanel.style.display = host.getAlloyOn() ? "block" : "none";
-    this.pixelRow.style.display = !m3 && host.getPixel() > 0 ? "flex" : "none";
+    // "" rather than "flex": a slider row is a grid (app/index.html .row)
+    this.pixelRow.style.display = !m3 && host.getPixel() > 0 ? "" : "none";
 
     this.runBtn.textContent = host.isRunning() ? "⏸ pause" : "▶ run";
     this.runBtn.classList.toggle("accent", !host.isRunning());

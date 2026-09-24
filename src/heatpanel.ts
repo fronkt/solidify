@@ -495,8 +495,11 @@ export class HeatPanel {
 
     const p = document.createElement("div");
     p.id = "heattreat";
+    // placed and sized by .modepanel (app/index.html), so it can reach neither
+    // the rail nor the transport bar
+    p.className = "modepanel";
     p.style.cssText =
-      "position:absolute;left:50%;transform:translateX(-50%);bottom:14px;width:min(700px,88vw);" +
+      "--cap:700px;" +
       "background:rgba(15,17,21,0.93);border:1px solid #262b33;border-radius:8px;padding:10px 14px;" +
       "backdrop-filter:blur(6px);z-index:6;font-size:11px;";
 
@@ -517,7 +520,9 @@ export class HeatPanel {
     head.append(exit);
 
     const form = document.createElement("div");
-    form.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:6px 16px;margin-bottom:8px;";
+    // 252px: a formbits row's own minimum (118 label + 60 slider + 58 value +
+    // 2 x 8 gap), so a second column only opens when both columns hold a row
+    form.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(252px,1fr));gap:6px 16px;margin-bottom:8px;";
     // the spec dial's ceiling is material-relative for the same reason the
     // temperature's is: σ_y at a 4 µm grain — finer than any casting this
     // instrument pours — is the strongest number Hall–Petch can honestly ask
