@@ -13,8 +13,9 @@ dendrite is and to name its parts; the physics lives in the instrument, not in t
 | file | what it is |
 | --- | --- |
 | `dendrite_gen.py` | the geometry: skeleton model (growth laws, coarsening, necking, side-branch competition), union of spheres to SDF to mesh, topology gate (one closed genus-0 surface or exit code 2), clay preview renders, features JSON |
-| `look.py` | the look: satin-steel Principled BSDF, the camera-space light rig with a warmth control (key 2600 K to 3200 K, rim 6000 K to 7000 K, a faint warm bounce card that fades out), the Filmic view; one `Look` class the sequence renderer drives. The blackbody emission of the earlier rounds is still in the file behind `emission`, which the sequence sets to 0 |
-| `render_sequence.py` | the 180-frame sequence: per-frame mesh rebuild through the grow chapter (the t-independent skeleton is built once and memoized), warmth, one smooth camera path, anchors (projection + occlusion test), resumable, per-frame timing log |
+| `look.py` | the look: satin-steel Principled BSDF, the camera-space light rig with a warmth control (key 2600 K to 3200 K, rim 6000 K to 7000 K, fill 4800 K to 6000 K, a faint 3400 K bounce card that fades out), the Filmic view; one `Look` class the sequence renderer drives. The blackbody emission of the earlier rounds is still in the file behind `emission`, which the sequence sets to 0 |
+| `render_sequence.py` | the 180-frame sequence: per-frame mesh rebuild through the grow chapter (the t-independent skeleton is built once and memoized), a finer close-up mesh for the tertiary and neck windows, warmth, one smooth camera path, anchors (projection + occlusion test on the mesh each frame renders), resumable, per-frame timing log |
+| `topo_check.py` | topology audit (one closed genus-0 surface) of any generator module's stages, or with `--fine` of the close-up mesh |
 | `encode_frames.py` | plain Python: composites the transparent masters onto `#0a0b0d`, writes the WebP sets, the posters, `manifest.json` and a contact sheet |
 | `make_placeholder_frames.py` | stand-in frames written to the same contract before the render existed; `public/hero/` holds them until `encode_frames.py` writes the render over them, and `verify-hero-manifest.mjs` fails them under CI |
 
@@ -34,7 +35,12 @@ Outputs go to `public/hero/` (`1200/f000..f179.webp`, `600/f000..f179.webp`, `po
 * `cool` 96-119: the light rig eases to neutral (key 3200 K, rim 7000 K, bounce off): the freeze is told with
   light, not with emission (two judge rounds rejected every glow). The turn continues to a three-quarter rest.
 * `tour` 120-179: the frozen crystal tumbles from feature to feature, holding on each inside its window:
-  `tip` 122-133, `primary` 134-145, `lambda2` 146-157, `tertiary` 158-167, `neck` 168-179.
+  `tip` 122-133, `primary` 134-145, `lambda2` 146-157, `tertiary` 158-167, `neck` 168-179. The close-up frames
+  (158-179, framed narrower than 0.45 model units) render the same t = 1 crystal meshed on a 0.002 SDF grid instead
+  of 0.004 (same skeleton, same closing and opening radii, so only the resolution changes), with a minimum
+  tertiary tip radius, so tips stay round at that scale. The neck is the side arm whose root is most visibly
+  necked on that mesh, measured by ray casts (the closing fills most of the model's neck), seen level from the
+  front with the trunk running up the left of center and the arm reaching right.
 
 `manifest.json` carries, per frame and per feature, the anchor the page draws its callout at: `[x, y, visible]`
 for a point, `[x1, y1, x2, y2, visible]` for a pair, x and y as fractions of the frame from the top-left.
@@ -56,11 +62,14 @@ Run these from the repo root (the script and output paths are relative to it), i
 ```bat
 set BLENDER=C:/Users/frank/blender-portable/blender-4.5.11-windows-x64/blender.exe
 
-:: 1. geometry check (no render): every stage must be one closed genus-0 surface, else exit code 2
+:: 1. geometry check (no render): every stage must be one closed genus-0 surface, else exit code 2; the second line
+::    checks the close-up mesh (about 5 min)
 "%BLENDER%" -b --factory-startup --python hero/dendrite_gen.py -- --stages 0.03,0.1,0.3,0.6,1.0 --seed 7 --name sweep --no-render
+"%BLENDER%" -b --factory-startup --python hero/topo_check.py -- --module hero/dendrite_gen.py --stages 1.0 --fine --strict -- --seed 7
 
-:: 2. the sequence (about 2 h on the Arc 140V: 25-35 s per frame to render plus 1-40 s to rebuild the mesh
-::    through the grow chapter; resumable, re-run to continue; --force re-renders; log in <out>/render_log.txt)
+:: 2. the sequence (about 2 h 10 min on the Arc 140V: ~5 min of setup (skeleton, both t = 1 meshes), 25-38 s per
+::    frame to render, 40-65 s on the close-up mesh (158-179), plus 1-40 s to rebuild the mesh through the grow
+::    chapter; resumable, re-run to continue; --force re-renders; log in <out>/render_log.txt)
 "%BLENDER%" -b --factory-startup --python hero/render_sequence.py -- --out C:/Users/frank/solidify-hero-out/v3/seq --res 1200 --samples 96 --seed 7 --frames 0-179
 
 :: 3. composite, WebP sets, posters, manifest, contact sheet

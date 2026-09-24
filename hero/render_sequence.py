@@ -25,9 +25,15 @@ consecutive frames. The frame width through seed / grow / cool is the projected 
 AT THAT FRAME'S ORIENTATION, scaled by t and combined with the nucleus, divided by the wanted span, so the crystal
 spans 0.78 of the frame height from frame 95 on whatever the turn does. The light rig rides in camera space
 (look.py), so every frame shares one light geometry.
+Close-up mesh: tour frames framed narrower than FINE_WIDTH (the tertiary and neck windows, 158-179) render the t = 1
+crystal meshed on a 0.002 SDF grid instead of the generator's 0.004 (build_fine_mesh: same skeleton, same arm states,
+same closing and opening radii in model units, so only the resolution changes at the switch), with a minimum tertiary
+tip radius (TERT_TIP_MIN), and pass the generator's topology gate (one closed genus-0 surface) or the log says so.
 Anchors: the five feature points (from the generator's own skeleton at t = 1) are projected with
 bpy_extras.object_utils.world_to_camera_view and tested for occlusion with scene.ray_cast from the camera;
-visible = 1 only if the first surface the ray meets is the crystal within the point's own surface distance.
+visible = 1 only if the first surface the ray meets is the crystal within the point's own surface distance, on the
+mesh that frame renders. The neck is the secondary whose root is visibly necked ON THE MESH (pick_neck measures the
+waist by ray casts from the arm's axis; the closing fills a shallow model neck), and its anchor sits at that waist.
 Frames before the crystal has reached t = 1 (i < 95) carry visible = 0: the frozen features do not exist yet.
 Resumable: a frame whose PNG already exists is skipped (unless --force); the anchor pass runs over all 180
 frames at the end of every run and writes seq/frames.json, which encode_frames.py reads. Every frame's build and
@@ -52,6 +58,7 @@ import numpy as np
 
 import bpy
 from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 from bpy_extras.object_utils import world_to_camera_view
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -79,6 +86,34 @@ TURN_DEG = 25.0
 TURN_EL = 22.0
 DEFAULT_OUT = 'C:/Users/frank/solidify-hero-out/v3/seq'
 X, Y, Z = np.eye(3)
+# the close-up mesh: tour frames framed narrower than FINE_WIDTH (frame width at the target, model units: frame 157 is
+# 0.48, 158 is 0.42, so the tertiary and neck windows 158-179) render the same t = 1 crystal meshed on a finer SDF
+# grid. At the generator's 0.004 voxel a secondary tip (rho 0.009) is 2.2 voxels and a tertiary tip (0.0054) 1.35,
+# and the closing / opening (erode by fillet + opening, dilate back) squeezes a tertiary's core below one voxel, so
+# the secondary tips mesh as chisel bevels and the tertiary tips as cones with a nub once a tip spans 20+ px. The
+# skeleton, the arm states (channel caps, necks) and the closing / opening radii stay the generator's, in model units,
+# so the shape does not change at the switch, only its resolution. The skeleton and every voxel-dependent growth rule
+# still see A.voxel.
+FINE_WIDTH = 0.45
+FINE_VOXEL = 0.002
+FINE_SMOOTH_ITERS = 4        # the generator smooths 2 iterations at 0.004; half the edge length needs more passes for
+                             # the same smoothing length (4 at 0.002 smooths ~0.7 of it and shrinks thin parts half as
+                             # much, so nothing thins visibly at the switch)
+# the neck view (frames 168-179, keys at 172 and 179): camera direction tilt_x X + side normal + tilt_d * arm direction
+# (per key), the arm's screen angle phi (deg, 0 = right, y down), the waist anchor's frame position, frame width
+# (for a row-3 arm: a level view from -y, drifting 3 deg below level; the trunk runs up the left of center), and kd, the
+# key light's extra desaturation toward white: the trunk's key-lit flank fills more of this frame than any other tour
+# view, and the key is the rig's one warm lamp, so without it the neck frames read warm (midtone R/B 1.14 against
+# 1.08-1.12 on the rest of the tour; Light.specular_factor has no effect in Cycles 4.5, so the key cannot be made less
+# specular alone). Eased in over the glide from the tertiary view like ev.
+NECK_VIEW = dict(tilt_x=(0.30, 0.34), tilt_d=(0.0, 0.05), phi=0.0, sx=0.62, sy=0.50, width=0.22, lens=80.0, fstop=8.0,
+                 ev=-0.1, kd=0.12)
+TERT_TIP_MIN = 0.008         # minimum tertiary tip radius in the close-up mesh (model units; the tertiary rho is 0.0054):
+                             # one extra sphere of this radius just behind each living tertiary's apex (the apex does not
+                             # move), capped by the arm's own envelope radius there so a thin, capped tertiary gets no knob.
+                             # The opening erodes a cap by 0.004 before growing it back, so the cap's core must stay a few
+                             # voxels wide: at 0.0065 the longest tertiaries still ended in a 2-3 px point, at 0.008 they
+                             # are round
 
 
 # ---- skeleton cache ------------------------------------------------------------------------------
@@ -199,11 +234,12 @@ def projected_extent(points, f, r, u):
 
 
 def key(frame, frm, width, P, sx=0.5, sy=0.5, roll=None, axis=X, theta=-30.0, lens=55.0, fstop=16.0, ev=0.0,
-        span_pts=None, span_frac=None):
+        span_pts=None, span_frac=None, kd=0.0):
     """one camera key. frm = direction the camera looks from; width = frame width at the target depth (model
     units), or derived from span_pts / span_frac (projected extent of the points / fraction of the frame);
     P = the world point that must project at (sx, sy) (frame fractions, origin top-left); roll from `axis`
-    at screen angle `theta` unless given directly."""
+    at screen angle `theta` unless given directly; kd = added desaturation of the key light toward white (eased
+    along the path like ev)."""
     az, el = angles_of(frm)
     if roll is None:
         roll = roll_for(frm, axis, theta)
@@ -211,7 +247,7 @@ def key(frame, frm, width, P, sx=0.5, sy=0.5, roll=None, axis=X, theta=-30.0, le
         f, r, u = basis(frm, roll)
         width = projected_extent(span_pts, f, r, u) / float(span_frac)
     return dict(f=int(frame), az=float(az), el=float(el), roll=float(roll), lens=float(lens), width=float(width),
-                P=[float(x) for x in P], sx=float(sx), sy=float(sy), fstop=float(fstop), ev=float(ev))
+                P=[float(x) for x in P], sx=float(sx), sy=float(sy), fstop=float(fstop), ev=float(ev), kd=float(kd))
 
 
 def _unwrap(keys, name):
@@ -236,7 +272,7 @@ def interp_keys(keys, f):
             break
     w = smoothstep((f - k0['f']) / float(max(k1['f'] - k0['f'], 1)))
     out = {'f': f}
-    for name in ('az', 'el', 'roll', 'lens', 'sx', 'sy', 'ev'):
+    for name in ('az', 'el', 'roll', 'lens', 'sx', 'sy', 'ev', 'kd'):
         out[name] = k0[name] + (k1[name] - k0[name]) * w
     for name in ('width', 'fstop'):
         out[name] = math.exp(math.log(k0[name]) + (math.log(k1[name]) - math.log(k0[name])) * w)
@@ -291,7 +327,7 @@ class Schedule:
     def full_state(self, f):
         st = self.turn_state(f)
         return dict(f=f, az=st['az'], el=st['el'], roll=0.0, lens=55.0, width=self.width_full(f),
-                    P=[0.0, 0.0, 0.0], sx=0.5, sy=0.5, fstop=16.0, ev=0.0)
+                    P=[0.0, 0.0, 0.0], sx=0.5, sy=0.5, fstop=16.0, ev=0.0, kd=0.0)
 
     def tour_keys(self):
         P = self.pts
@@ -333,18 +369,18 @@ class Schedule:
         # sharp thing (label right)
         ks.append(key(161, (0.413, -0.492, 0.766), 0.32, te, 0.34, 0.50, axis=Z, theta=-150, lens=80, fstop=2.2, ev=-0.1))
         ks.append(key(165, (0.440, -0.510, 0.740), 0.32, te, 0.34, 0.50, axis=Z, theta=-150, lens=80, fstop=2.2, ev=-0.1))
-        # neck: the necked secondary in profile next to the trunk, seen from the side perpendicular to the arm
-        # (from above for a -y arm, from the front for a +z arm), tilted a little toward the arm's tip; the trunk
-        # runs across the frame and the arm hangs from it (or rises, and then the anchor sits low instead of high);
-        # label right
+        # neck: the necked secondary in profile, seen from the side perpendicular to the arm and the trunk (from the
+        # front for a -z or +z arm, from above for a -y arm), tilted a little toward the trunk's tip and the arm's tip
+        # (NECK_VIEW) and rolled so the arm points at NECK_VIEW['phi'] on screen: the trunk runs up the left of center
+        # and the arm reaches right from it against the void, so the waist (the anchor) sits right of center (label
+        # right) and the trunk, seen side on with the key raking across it, neither fills the frame as a flat slab nor
+        # runs into its right edge
         n = side_normal(nd)
-        v1 = unit(0.30 * X + 1.00 * n + 0.50 * nd)
-        v2 = unit(0.34 * X + 0.98 * n + 0.55 * nd)
-        theta_n = -20.0
-        _fv, _r, u1 = basis(v1, roll_for(v1, X, theta_n))
-        sy_n = 0.42 if float(np.dot(nd, u1)) < 0.0 else 0.58
-        ks.append(key(172, v1, 0.30, ne, 0.36, sy_n, axis=X, theta=theta_n, lens=80, fstop=8.0, ev=-0.1))
-        ks.append(key(179, v2, 0.30, ne, 0.36, sy_n, axis=X, theta=theta_n, lens=80, fstop=8.0, ev=-0.1))
+        NV = NECK_VIEW
+        for fk, tx, td in ((172, NV['tilt_x'][0], NV['tilt_d'][0]), (179, NV['tilt_x'][1], NV['tilt_d'][1])):
+            v = unit(tx * X + 1.00 * n + td * nd)
+            ks.append(key(fk, v, NV['width'], ne, NV['sx'], NV['sy'], axis=nd, theta=NV['phi'], lens=NV['lens'],
+                          fstop=NV['fstop'], ev=NV['ev'], kd=NV['kd']))
         for name in ('az', 'el', 'roll'):
             _unwrap(ks, name)
         return ks
@@ -353,6 +389,10 @@ class Schedule:
         if f <= TOUR0:
             return self.full_state(f)
         return interp_keys(self.keys, f)
+
+    def fine(self, f):
+        """frame f renders the close-up mesh (a tour frame framed narrower than FINE_WIDTH)."""
+        return f > TOUR0 and self.state(f)['width'] < FINE_WIDTH
 
     def view(self, f):
         """the look.Look.frame() view dict for frame f, plus the camera basis."""
@@ -378,32 +418,40 @@ def surface_distance(ob, p):
     return float((Vector([float(x) for x in p]) - loc).length) if ok else 0.0
 
 
-def pick_neck(px, t, exclude):
-    """the +x arm secondary with the deepest waist (neck / body radius < 0.9), row 1 (-y) strongly preferred
-    over row 2 (+z) (the rows the rest view faces; the neck view is built from the picked arm's direction),
-    mid-arm, not one of the lambda2 pair (that pair's dots stay unshared), preferably without tertiaries of its
-    own (a clean profile)."""
+# row 3 (-z) first: its arms hang from the trunk's underside, and the neck view of one (from -y, level, the arm pointing
+# right) keeps the tertiary view's roll (-z already points down-right there), so the glide 165 -> 172 is a descent and
+# a zoom, not a spin; a row-2 arm pointed right needs a 150 deg roll (32 deg per frame), a row-1 arm has no root neck
+# the mesh shows (best silhouette ratio 0.92, at 1.2 root radii). Rows 2 / 1 stay as fallbacks for other seeds.
+NECK_ROW_PENALTY = {3: 0.0, 2: 0.05, 1: 0.05}
+NECK_MAX_RATIO = 0.92                    # silhouette waist / section above it: a pinch that reads at the neck framing
+
+
+def pick_neck(px, t, exclude, bvh):
+    """the +x arm secondary whose root is most visibly necked ON THE MESH (bvh: the mesh the neck window renders). The
+    model's neck is a short Gaussian waist just outside the trunk, and the closing (fillet) fills most of it (at seed 7
+    the deepest root necks on the +x arm, rows 1-3, measure 0.87 silhouette waist / section above). So each candidate
+    (a row in NECK_ROW_PENALTY; mid-arm; not one of the lambda2 pair, whose dots stay unshared; alive with a model
+    neck and > 5 tip radii of protrusion) is measured with mesh_waist, and the pick is
+    the smallest silhouette waist / section-above ratio (+ NECK_ROW_PENALTY, + 0.01 per tertiary it hosts: a cleaner
+    profile) among those under NECK_MAX_RATIO whose fillet onto the trunk is wider than the waist (a pinch, not a
+    taper). Returns (score, arm, waist dict) or None."""
     best = None
     cands = []
     for c in px.children:
-        if c.idx in exclude or c.row not in (1, 2):
+        if c.idx in exclude or c.row not in NECK_ROW_PENALTY:
             continue
         if not (c.alive and (c.L - c.R_root) > 5.0 * c.rho and c.k_neck > 0.0):
             continue
         if not (0.25 * px.L < c.s_par < 0.85 * px.L):
             continue
-        s = np.linspace(c.R_root, c.L, 200)
-        r, _, _ = DG.arm_profile(c, t, c.L - s, shift=False)
-        i_neck = int(np.argmin(r[: len(r) // 2]))
-        r_body = float(r[i_neck:].max())
-        ratio = float(r[i_neck]) / r_body if r_body > 0 else 1.0
-        if ratio >= 0.9:
+        w = mesh_waist(bvh, c, t)
+        if w is None or w['ratio'] is None or w['ratio'] >= NECK_MAX_RATIO or not (w['flare'] or 0.0) > w['r_neck']:
             continue
-        score = ratio + (0.0 if c.row == 1 else 0.5) + (0.03 if any(g.alive for g in c.children) else 0.0)
-        cands.append((round(score, 3), c.row, round(c.s_par, 3), round(ratio, 3)))
+        score = w['ratio'] + NECK_ROW_PENALTY[c.row] + 0.01 * sum(1 for g in c.children if g.alive)
+        cands.append((round(score, 3), c.idx, c.row, round(c.s_par, 3), w['ratio'], w['r_neck'], w['r_out']))
         if best is None or score < best[0]:
-            best = (score, c, float(s[i_neck]), float(r[i_neck]), r_body, ratio)
-    print('[seq] neck candidates (score, row, s_par, neck/body):', sorted(cands)[:8])
+            best = (score, c, w)
+    print('[seq] neck candidates on the mesh (score, arm, row, s_par, waist/above, r_waist, r_above):', sorted(cands)[:8])
     return best
 
 
@@ -431,11 +479,11 @@ def feature_points(ob, arms, feats):
     t_root, t_tip = np.asarray(te['root']), np.asarray(te['tip'])
     tert = t_root + (t_tip - t_root) * 0.8
     host_dir = unit(np.asarray(te['parent_secondary_tip']) - np.asarray(te['parent_secondary_root']))
-    nk = pick_neck(px, 1.0, ex)
+    nk = pick_neck(px, 1.0, ex, mesh_bvh(ob))
     if nk is None:
-        raise SystemExit('no necked secondary found on the +x arm outside the lambda2 pair')
-    _, c, s_neck, r_neck, r_body, ratio = nk
-    neck = c.origin + c.d * (s_neck + 0.35 * r_body)
+        raise SystemExit('no secondary on the +x arm outside the lambda2 pair has a waist visible on the mesh')
+    _, c, wst = nk
+    neck = c.origin + c.d * (c.R_root + wst['h_neck'])        # on the arm's axis at the measured waist
     pts = {
         'tip': [tip],
         'primary': [np.array([0.30 * L, 0.0, 0.0]), np.array([0.92 * L, 0.0, 0.0])],
@@ -449,9 +497,10 @@ def feature_points(ob, arms, feats):
         'primary_length': round(L, 5),
         'lambda2': {'row': lp['row'], 'spacing': lp['spacing'], 'roots': [la.tolist(), lb.tolist()]},
         'tertiary': {'host_row': te['host_row'], 'length': te['length'], 'point': tert.tolist(), 'direction': te['direction']},
-        'neck': {'row': c.row, 's_par': round(c.s_par, 5), 'neck_radius': round(r_neck, 5), 'body_radius': round(r_body, 5),
-                 'neck_to_body_ratio': round(ratio, 4), 'arm_age': round(c.age, 4), 'point': neck.tolist(),
-                 'direction': c.d.tolist()},
+        'neck': {'arm': c.idx, 'row': c.row, 's_par': round(c.s_par, 5), 'arm_age': round(c.age, 4), 'point': neck.tolist(),
+                 'direction': c.d.tolist(), 'mesh_waist_height': wst['h_neck'], 'mesh_waist_radius': wst['r_neck'],
+                 'mesh_radius_above': wst['r_out'], 'mesh_root_flare': wst['flare'], 'mesh_waist_ratio': wst['ratio'],
+                 'root_rmax': wst['rr']},
         'tip': tip.tolist(),
         'primary_pair': [pts['primary'][0].tolist(), pts['primary'][1].tolist()],
     }
@@ -515,6 +564,14 @@ def build_mesh(A, t):
     """dendrite_gen.build at growth time t; drops the helper skeleton object and orphan data."""
     t0 = time.perf_counter()
     ob, me, arms, co, stats, ok = DG.build(A, t)
+    _drop_helpers()
+    secs = time.perf_counter() - t0
+    print('[seq] mesh t=%.4f: %d verts, gate %s, %.1fs' % (t, len(me.vertices), 'PASS' if ok else 'FAIL', secs))
+    sys.stdout.flush()
+    return ob, arms, ok, secs
+
+
+def _drop_helpers():
     for o in list(bpy.data.objects):
         if o.name.startswith('DendriteSkeleton'):
             m = o.data
@@ -527,10 +584,136 @@ def build_mesh(A, t):
     for m in list(bpy.data.meshes):
         if m.users == 0:
             bpy.data.meshes.remove(m)
+
+
+def fine_points(arms, t, A, voxel, tip_min):
+    """the generator's sphere set (dendrite_gen.collect_points) with the arms sampled for a `voxel` grid instead of
+    A.voxel, plus the tertiary tip spheres: for each living tertiary that protrudes at least 2 tip_min, one sphere
+    of radius r = min(tip_min, envelope radius r behind the apex) centered r behind the apex. Returns (points,
+    number of tip spheres, their radii)."""
+    out = {'pos': [np.zeros((1, 3))], 'rad': [np.array([DG.nucleus_radius(A, t)])], 'birth': [np.array([0.0])],
+           'gen': [np.array([-1], dtype=np.int32)], 'arm': [np.array([-1], dtype=np.int32)]}
+    for a in arms:
+        DG.sample_arm(a, t, voxel, out)
+    radii = []
+    if tip_min > 0.0:
+        for a in arms:
+            if not (a.alive and a.gen == 2) or (a.L - a.R_root) < 2.0 * tip_min:
+                continue
+            r = tip_min
+            for _ in range(3):             # the envelope r behind the apex, never a knob wider than the arm there
+                r = min(tip_min, float(DG.arm_profile(a, t, np.array([r]), shift=False)[0][0]))
+            if r <= 0.0:
+                continue
+            tb = float(DG.arm_profile(a, t, np.array([r]), shift=True)[2][0])
+            out['pos'].append((a.origin + a.d * (a.L - r))[None, :])
+            out['rad'].append(np.array([r]))
+            out['birth'].append(np.array([tb]))
+            out['gen'].append(np.array([2], dtype=np.int32))
+            out['arm'].append(np.array([a.idx], dtype=np.int32))
+            radii.append(r)
+    return {k: np.concatenate(v) for k, v in out.items()}, len(radii), radii
+
+
+def build_fine_mesh(A, t, voxel=FINE_VOXEL, smooth_iters=FINE_SMOOTH_ITERS, tip_min=TERT_TIP_MIN):
+    """the close-up mesh: dendrite_gen.build's steps at growth time t with the same skeleton (memoized), the same arm
+    states (update_states with the generator's A, so every voxel-dependent growth rule sees A.voxel) and the same
+    closing and opening radii in model units, but the spheres sampled for, and the SDF meshed on, a `voxel` grid,
+    the tertiary tip spheres added (fine_points) and smooth_iters Laplacian passes. Runs the generator's topology
+    gate on the result. Returns (object, arms, gate ok, seconds, topology dict)."""
+    t0 = time.perf_counter()
+    arms = DG.build_skeleton(A, np.random.default_rng(A.seed))
+    DG.update_states(arms, t, A)
+    pts, n_tip, radii = fine_points(arms, t, A, voxel, tip_min)
+    skel = DG.make_skeleton_object(pts)
+    ng = DG.build_gn_tree(voxel, A.fillet, t, A.open_voxels * A.voxel)
+    mod = skel.modifiers.new('DendriteSDF', 'NODES')
+    mod.node_group = ng
+    me = DG.evaluated_mesh(skel)
+    skel.modifiers.remove(mod)
+    ob = bpy.data.objects.new('Dendrite', me)
+    bpy.context.scene.collection.objects.link(ob)
+    if smooth_iters > 0:
+        sm = ob.modifiers.new('Smooth', 'SMOOTH')
+        sm.factor = 0.5
+        sm.iterations = smooth_iters
+        me2 = DG.evaluated_mesh(ob)
+        ob.modifiers.remove(sm)
+        ob.data = me2
+        bpy.data.meshes.remove(me)
+        me = me2
+    me.shade_smooth()
+    me.name = 'DendriteFine'
+    _drop_helpers()
+    co, _bb = DG.mesh_bbox(me)
+    topo = DG.mesh_topology(me, co)
+    ok = bool(topo['single_closed_genus0_surface'])
     secs = time.perf_counter() - t0
-    print('[seq] mesh t=%.4f: %d verts, gate %s, %.1fs' % (t, len(me.vertices), 'PASS' if ok else 'FAIL', secs))
+    print('[seq] fine mesh t=%.4f voxel %.4f: %d verts, %d faces, chi %d, components %d, genus %s, gate %s; %d tertiary '
+          'tip spheres (radius %.4f..%.4f); %.1fs' % (
+              t, voxel, topo['vertices'], topo['faces'], topo['euler_characteristic'], topo['components'],
+              topo['genus_total'], 'PASS' if ok else 'FAIL', n_tip, min(radii) if radii else 0.0,
+              max(radii) if radii else 0.0, secs))
+    if topo.get('small_components'):
+        print('[seq] fine mesh small components:', json.dumps(topo['small_components']))
     sys.stdout.flush()
-    return ob, arms, ok, secs
+    topo = dict(topo, voxel=voxel, smooth_iters=smooth_iters, tip_min=tip_min, tip_spheres=n_tip)
+    return ob, arms, ok, secs, topo
+
+
+def mesh_bvh(ob):
+    dg = bpy.context.evaluated_depsgraph_get()
+    return BVHTree.FromObject(ob, dg)
+
+
+def mesh_waist(bvh, c, t, n_h=49, n_az=24):
+    """the root of side arm c as rendered: rays from the arm's axis outward at heights h above the parent's envelope
+    surface (0 .. 4 root radii rr); the first hit is the arm's own surface. Two profiles: r(h), the median radius over
+    n_az azimuths, and the SILHOUETTE half-width s(h), the mean of the rays along +-X (the trunk axis, which is the
+    in-image direction across the arm in a profile view from the side normal) and 10 deg either side of them, i.e.
+    the half-width of the outline a viewer sees. The waist is the narrowest silhouette in 0.1 .. 1.3 rr (a ROOT
+    neck, just above the fillet onto the trunk); the section above it is the MEDIAN silhouette over 0.75 .. 2.5 rr
+    above the waist (a median, so a tertiary's root further up does not pass for a body); the flare is the widest
+    silhouette below the waist (that fillet). ratio = waist / above: a pinch reads below ~0.9 when the flare is wider
+    than the waist too. Returns a dict (model units) or None."""
+    rr = DG.root_rmax(c, t)
+    hs = np.linspace(0.0, 4.0 * rr, n_h)
+    ang = np.linspace(0.0, 2.0 * math.pi, n_az, endpoint=False)
+    dirs = [Vector([float(x) for x in (math.cos(a) * c.e1 + math.sin(a) * c.e2)]) for a in ang]
+    xs = unit(X - float(np.dot(X, c.d)) * c.d)
+    ys = unit(np.cross(c.d, xs))
+    sil = [Vector([float(v) for v in (sg * (math.cos(b) * xs + math.sin(b) * ys))])
+           for sg in (1.0, -1.0) for b in (math.radians(-10.0), 0.0, math.radians(10.0))]
+    prof = np.full(n_h, np.nan)
+    half = np.full(n_h, np.nan)
+    for i, h in enumerate(hs):
+        p = Vector([float(x) for x in (c.origin + c.d * (c.R_root + h))])
+        rs = []
+        for v in dirs:
+            loc, _n, _i, dist = bvh.ray_cast(p, v, 5.0 * rr)
+            if loc is not None:
+                rs.append(dist)
+        if len(rs) >= n_az // 2:
+            prof[i] = float(np.median(rs))
+        ss = []
+        for v in sil:
+            loc, _n, _i, dist = bvh.ray_cast(p, v, 5.0 * rr)
+            if loc is not None:
+                ss.append(dist)
+        if len(ss) == len(sil):
+            half[i] = float(np.mean(ss))
+    lo = (hs >= 0.1 * rr) & (hs <= 1.3 * rr) & np.isfinite(half)
+    if not lo.any():
+        return None
+    i_n = int(np.flatnonzero(lo)[np.argmin(half[lo])])
+    up = (hs >= hs[i_n] + 0.75 * rr) & (hs <= hs[i_n] + 2.5 * rr) & np.isfinite(half)
+    below = (hs < hs[i_n]) & np.isfinite(half)
+    s_out = float(np.median(half[up])) if up.any() else float('nan')
+    return dict(h=[round(float(x), 5) for x in hs], r=[round(float(x), 5) for x in prof],
+                s=[round(float(x), 5) for x in half], rr=round(rr, 5), h_neck=round(float(hs[i_n]), 5),
+                r_neck=round(float(half[i_n]), 5), r_out=round(s_out, 5),
+                ratio=round(float(half[i_n]) / s_out, 4) if s_out > 0 else None,
+                flare=round(float(half[below].max()), 5) if below.any() else None)
 
 
 # ---- CLI -----------------------------------------------------------------------------------------
@@ -625,12 +808,25 @@ def main():
                 t, len(ob.data.vertices), 'PASS' if ok else 'FAIL', secs, sum(1 for a in arms if a.alive)))
         return
 
-    # the t = 1 crystal first: features, anchor points, the tour keys
+    # the t = 1 crystal first, both meshes (the generator's and the close-up one): features, anchor points, the tour
+    # keys. The neck is picked on the close-up mesh, the one its window renders. Both stay in memory for the run; the
+    # one not rendering is unlinked from the scene, so renders and ray casts only ever see one crystal
+    coll = bpy.context.scene.collection
     ob1, arms1, ok1, _ = build_mesh(A, 1.0)
+    reach1 = max(a.L for a in arms1 if a.gen == 0)
+    feats1 = DG.extract_features(arms1, 1.0, A, A.seed)
+    obf, _armsf, okf, secs_f, topo_f = build_fine_mesh(A, 1.0)      # the arms stay in their t = 1 state
+    log('[seq] fine mesh (t = 1, voxel %.4f): %d verts, gate %s (chi %d, %d component(s), genus %s), %.1fs' % (
+        FINE_VOXEL, topo_f['vertices'], 'PASS' if okf else 'FAIL', topo_f['euler_characteristic'], topo_f['components'],
+        topo_f['genus_total'], secs_f))
+    if not okf:
+        log('[seq] WARNING: the fine mesh FAILS the topology gate (one closed genus-0 surface)')
+    kept = {False: (ob1, ok1), True: (obf, okf)}
+    bpy.context.view_layer.update()
+    pts, finfo = feature_points(obf, arms1, feats1)
+    coll.objects.unlink(obf)
     L.adopt(ob1)
     bpy.context.view_layer.update()
-    feats1 = DG.extract_features(arms1, 1.0, A, A.seed)
-    pts, finfo = feature_points(ob1, arms1, feats1)
     tips = np.array([tp['position'] for tp in feats1['tips']])
     S = Schedule(A, tips, pts)
     tol = {fid: [1.6 * surface_distance(ob1, p) + EPS_VIS for p in pts[fid]] for fid, _k, _a, _b in FEATURES}
@@ -638,7 +834,7 @@ def main():
         S.arm_extent(GROW1), S.L1, S.width_full(0), S.width_full(GROW0), S.width_full(GROW1), S.width_full(TOUR0)))
     log('[seq] features: ' + json.dumps(finfo))
     log('[seq] visibility tolerances: ' + json.dumps({k: [round(x, 4) for x in v] for k, v in tol.items()}))
-    data['meta'].update(dict(seed=A_.seed, res=res, samples=samples, device=L.device, exposure=A_.exposure, look=L.p,
+    data['meta'].update(dict(seed=A_.seed, res=res, samples=samples, device=L.device, exposure=A_.exposure, look=dict(L.p),
                              emission=0.0, warmth='1 through frame %d, smoothstep to 0 at frame %d' % (GROW1, COOL1),
                              features=finfo, tolerances=tol, extent95=S.arm_extent(GROW1), L1=S.L1, keys=S.keys,
                              chapters=[dict(id=n, **{'from': a, 'to': b}) for n, a, b in CHAPTERS],
@@ -647,17 +843,41 @@ def main():
     atomic_json(fpath, data)
 
     scene = bpy.context.scene
-    current_t = 1.0
-    cur_ob, cur_arms, cur_ok = ob1, arms1, ok1
+    current_t, cur_fine = 1.0, False
+    cur_ob, cur_reach, cur_ok = ob1, reach1, ok1
+    fine_frames = [f for f in range(N_FRAMES) if S.fine(f)]
+    data['meta']['fine_mesh'] = dict(width_below=FINE_WIDTH, voxel=FINE_VOXEL, generator_voxel=A.voxel,
+                                     smooth_iters=FINE_SMOOTH_ITERS, tertiary_tip_min=TERT_TIP_MIN,
+                                     frames=[fine_frames[0], fine_frames[-1]] if fine_frames else [],
+                                     build_seconds=round(secs_f, 1),
+                                     topology={k: v for k, v in topo_f.items() if k != 'small_components'})
+    atomic_json(fpath, data)
 
-    def ensure_mesh(t):
-        nonlocal current_t, cur_ob, cur_arms, cur_ok
-        if abs(t - current_t) < 1e-9 and cur_ob is not None:
+    def ensure_mesh(t, fine=False):
+        """the mesh frame i renders: the generator's (dendrite_gen.build) or, for the close-up tour frames, the fine
+        one; the two t = 1 meshes are kept (unlinked while not in use), any other t is built and dropped."""
+        nonlocal current_t, cur_fine, cur_ob, cur_reach, cur_ok
+        fine = bool(fine) and abs(t - 1.0) < 1e-9
+        if abs(t - current_t) < 1e-9 and fine == cur_fine and cur_ob is not None:
             return 0.0
-        ob, arms, ok, secs = build_mesh(A, t)
+        if abs(current_t - 1.0) < 1e-9 and L.ob is not None:      # park a kept mesh (L.adopt would delete it)
+            if L.ob.name in coll.objects:
+                coll.objects.unlink(L.ob)
+            L.ob = None
+        secs = 0.0
+        if abs(t - 1.0) < 1e-9:
+            ob, ok = kept[fine]
+            if ob.name not in coll.objects:
+                coll.objects.link(ob)
+            reach = reach1
+        else:
+            ob, arms, ok, secs = build_mesh(A, t)
+            reach = max(a.L for a in arms if a.gen == 0)
+            if not ok:
+                log('[seq] WARNING: the generator mesh at t=%.4f FAILS the topology gate' % t)
         L.adopt(ob)
         bpy.context.view_layer.update()
-        current_t, cur_ob, cur_arms, cur_ok = t, ob, arms, ok
+        current_t, cur_fine, cur_ob, cur_reach, cur_ok = t, fine, ob, reach, ok
         return secs
 
     # ---- render pass ------------------------------------------------------------------------------
@@ -673,21 +893,24 @@ def main():
     t_run0 = time.perf_counter()
     done = 0
     scene.cycles.samples = samples
+    key_desat0 = L.p['key_desat']                      # the neutral rig's key desaturation; the keys add st['kd']
     for f in todo:
         t = t_of(f)
-        build_s = ensure_mesh(t)
+        build_s = ensure_mesh(t, S.fine(f))
         scene.render.use_persistent_data = f >= GROW1        # the mesh stops changing at frame 95
         st, view, _b = S.view(f)
         cam = L.frame(view)
         w = warmth_of(f)
+        L.p['key_desat'] = min(key_desat0 + st.get('kd', 0.0), 1.0)
         L.set_warmth(w)
-        reach = max(a.L for a in cur_arms if a.gen == 0)
+        reach = cur_reach
         L.set_growth(reach, t, DG.nucleus_radius(A, t))      # the age term of the roughness is normalized by t
         s = scale_of(f)
         cur_ob.scale = (s, s, s)
         png = os.path.join(out, 'f%03d.png' % f)
         secs = L.render(png)
         rec = dict(chapter=chapter_of(f), t=round(t, 5), warmth=round(w, 5), scale=round(s, 4), reach=round(reach, 5),
+                   mesh='fine' if cur_fine else 'generator', voxel=FINE_VOXEL if cur_fine else A.voxel,
                    verts=len(cur_ob.data.vertices), gate='PASS' if cur_ok else 'FAIL', build_seconds=round(build_s, 1),
                    render_seconds=secs, samples=samples,
                    state={k: (round(v, 5) if isinstance(v, float) else v) for k, v in st.items()},
@@ -700,23 +923,29 @@ def main():
         log('[seq] frame %03d  %-4s t=%.3f w=%.2f  build %5.1fs render %5.1fs  | %d/%d done, %.1f min elapsed, ~%.1f min left' % (
             f, rec['chapter'], t, w, build_s, secs, done, len(todo), el / 60.0, el / 60.0 / done * (len(todo) - done)))
 
-    # ---- anchor pass (all 180 frames, on the t = 1 crystal) ---------------------------------------
-    ensure_mesh(1.0)
-    cur_ob.scale = (1.0, 1.0, 1.0)
-    L.set_warmth(0.0)
-    L.set_growth(max(a.L for a in cur_arms if a.gen == 0), 1.0, DG.nucleus_radius(A, 1.0))
+    # ---- anchor pass (all 180 frames, on the t = 1 crystal as each frame renders it: the close-up frames on the
+    # fine mesh) ---------------------------------------------------------------------------------------------------
     t0 = time.perf_counter()
-    for f in range(N_FRAMES):
-        st, view, _b = S.view(f)
-        cam = L.frame(view)
-        bpy.context.view_layer.update()
-        rows, rows_px = anchor_rows(scene, L.cam, cur_ob, pts, res, frozen=f >= GROW1, tol=tol)
-        rec = data['frames'].setdefault(str(f), {})
-        rec.update(dict(chapter=chapter_of(f), t=round(t_of(f), 5), warmth=round(warmth_of(f), 5), scale=round(scale_of(f), 4),
-                        anchors=rows, anchors_px=rows_px,
-                        state={k: (round(v, 5) if isinstance(v, float) else v) for k, v in st.items()},
-                        camera=dict(dist=cam['dist'], target=cam['target'], lens=cam['lens'], fstop=cam['fstop'],
-                                    exposure=cam['exposure'])))
+    groups = {False: [f for f in range(N_FRAMES) if f not in fine_frames], True: fine_frames}
+    for fine in (cur_fine, not cur_fine):
+        if not groups[fine]:
+            continue
+        ensure_mesh(1.0, fine)
+        cur_ob.scale = (1.0, 1.0, 1.0)
+        L.set_warmth(0.0)
+        L.set_growth(reach1, 1.0, DG.nucleus_radius(A, 1.0))
+        for f in groups[fine]:
+            st, view, _b = S.view(f)
+            cam = L.frame(view)
+            bpy.context.view_layer.update()
+            rows, rows_px = anchor_rows(scene, L.cam, cur_ob, pts, res, frozen=f >= GROW1, tol=tol)
+            rec = data['frames'].setdefault(str(f), {})
+            rec.update(dict(chapter=chapter_of(f), t=round(t_of(f), 5), warmth=round(warmth_of(f), 5),
+                            scale=round(scale_of(f), 4), anchors=rows, anchors_px=rows_px,
+                            anchor_mesh='fine' if fine else 'generator',
+                            state={k: (round(v, 5) if isinstance(v, float) else v) for k, v in st.items()},
+                            camera=dict(dist=cam['dist'], target=cam['target'], lens=cam['lens'], fstop=cam['fstop'],
+                                        exposure=cam['exposure'])))
     # poster candidates: tour frames with all five features visible
     cands = [f for f in range(TOUR0, N_FRAMES) if all(data['frames'][str(f)]['anchors'][fid][-1] == 1 for fid, _k, _a, _b in FEATURES)]
     data['meta']['poster_candidates'] = cands

@@ -90,10 +90,13 @@ CLI, plain python (PIL): feather + composite every still onto the page colour, w
 Round 4 (the final sequence, render_sequence.py): NO emission. Two judge rounds rejected every glow as plastic or
 wrong physics, so the sequence is built with Look(emission=0): the emission branch is left out of the shader
 entirely and the crystal is satin steel in every frame. The freeze is told with LIGHT instead: set_warmth(w) eases
-every lamp's color temperature between a warm rig at w = 1 (key ~2600 K, rim ~5200 K, fill ~5000 K, plus a faint
-2300 K bounce card under the crystal, as if lit from the melt) and the final neutral rig at w = 0 (key 3200 K, rim
+every lamp's color temperature between a warm rig at w = 1 (key 2600 K, rim 6000 K, fill 4800 K, plus a faint
+3400 K bounce card under the crystal, as if lit from the melt) and the final neutral rig at w = 0 (key 3200 K, rim
 7000 K, fill 6000 K, bounce off). The sequence holds w = 1 through seed and grow and eases it to 0 across the cool
-chapter. Subtle on purpose: the metal reads as steel throughout.
+chapter. Subtle on purpose: the metal reads as steel throughout. The warmth is a global cast (the big fill), not a
+reflection: the bounce was 2300 K until a smoke pass showed its mirror image turning the vertical -z trunk into a gold
+rod; measured at 600 px (crystal pixels, HSV S > 0.5 at hue 15-45 / midtone R/B): frame 60 7.1 % / 1.29 -> 0.7 % /
+1.27, frame 95 8.1 % / 1.29 -> 0.6 % / 1.27, frame 110 5.0 % / 1.20 -> 0.8 % / 1.18; the tour (w = 0) is unchanged.
 
 Import (sequence renderer):
   import look
@@ -192,13 +195,17 @@ LOOK = dict(
     emission=1.0,                 # multiplier on the emission strength; 0 leaves the emission branch out of the
                                   # shader entirely (the final sequence: no glow anywhere)
     key_kelvin=3200.0, rim_kelvin=7000.0, fill_kelvin=6000.0,                  # the neutral rig (warmth 0)
-    key_kelvin_warm=2600.0, rim_kelvin_warm=6000.0, fill_kelvin_warm=5600.0,   # the warm rig (warmth 1)
+    key_kelvin_warm=2600.0, rim_kelvin_warm=6000.0, fill_kelvin_warm=4800.0,   # the warm rig (warmth 1); the fill,
+                                  # the largest and softest lamp, carries the warm cast (5600 K before the gold-rod fix)
     key_desat_warm=0.60,          # the key's mix toward white at warmth 1 (0.40 at warmth 0): a 2600 K key at the
                                   # frozen rig's desaturation rendered the steel as brass (midtone R/B 1.5-1.7); the
                                   # warm rig is meant to read as steel under warm light (R/B ~1.3)
     key_warm_gain=1.12,           # key power at warmth 1 (a 2600 K blackbody carries less luminance than 3200 K)
     bounce=1.0,                   # power multiplier of the warm bounce card under the crystal; it is on at warmth 1
-    bounce_kelvin=2300.0,         # and off at warmth 0 (the frozen rig has no warm light from below)
+    bounce_kelvin=3400.0,         # and off at warmth 0 (the frozen rig has no warm light from below). At 2300 K its
+                                  # mirror image turned the vertical -z trunk into a gold rod (9 % of the crystal's
+                                  # pixels strongly orange, HSV S > 0.5 at hue 15-45, at frames 60 and 95); at 3400 K it is
+                                  # a pale warm lift (0.4-0.8 %), and the warm story is a global cast (fill 4800 K)
 )
 
 # view_from = direction the camera looks FROM (towards target). fill_h / fill_w = fraction of the frame the
