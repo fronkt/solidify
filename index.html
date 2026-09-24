@@ -3,18 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SOLIDIFY — watch metal freeze</title>
+  <title>SOLIDIFY · watch metal freeze</title>
   <meta name="description" content="A real-time phase-field solidification laboratory in your browser. Grow dendrites, switch ten lenses on one live casting, pour alloys, engineer grain structure." />
-  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%230a0b0d"/><text x="32" y="45" font-family="ui-monospace,Consolas,monospace" font-size="36" font-weight="700" text-anchor="middle"><tspan fill="%23ffb454">S</tspan><tspan fill="%23eef1f5">I</tspan></text></svg>' />
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%230a0a0a"/><text x="32" y="46" font-family="Arial,Helvetica,sans-serif" font-size="40" text-anchor="middle" fill="%23f2f2f2">S</text></svg>' />
   <script>
     // motion gate: pre-hide animated elements only when motion is allowed and
     // JS is running; a watchdog reveals everything if the modules never boot.
     // hero-live selects the pinned, scroll-scrubbed hero layout before first
     // paint; without it (no JS, reduced motion) the hero is the still poster.
+    // A screen under 560 px tall (a phone held sideways) gets the still too:
+    // the pinned column cannot fit it, and the still scrolls like a page.
+    // landing.ts reads the same query for the lens and melt pins.
     (function () {
-      if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
       var root = document.documentElement;
-      root.classList.add("anim", "hero-live");
+      // a script runs: the acts' live canvases may start. Without it (no JS)
+      // their stills show and the counters that only a scroll advances go.
+      root.classList.add("js");
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      root.classList.add("anim");
+      if (!matchMedia("(max-height: 560px)").matches) root.classList.add("hero-live");
       setTimeout(function () {
         if (!window.__landingMotion) root.classList.remove("anim");
       }, 2500);
@@ -28,447 +35,508 @@
       });
     })();
   </script>
+  <!-- the design system: every color, type size and radius below is a token
+       from this file (docs/DESIGN.md) -->
+  <link rel="stylesheet" href="/src/design/tokens.css" />
   <style>
-    :root {
-      --bg: #0a0b0d;
-      --panel: #111318;
-      --line: #262b33;
-      --text: #c9cdd4;
-      --dim: #6b7280;
-      --amber: #ffb454;
-      --cyan: #56d4dd;
-      --font: ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
-    }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html { background: var(--bg); scroll-behavior: auto; scrollbar-color: #c98a3a #0a0b0d; }
-    body { background: transparent; color: var(--text); font-family: var(--font); overflow-x: hidden; }
-    ::selection { background: var(--amber); color: #17110a; }
-    ::-webkit-scrollbar { width: 10px; background: #0a0b0d; }
-    ::-webkit-scrollbar-track { background: #0a0b0d; }
-    ::-webkit-scrollbar-thumb { background: #c98a3a; border-radius: 5px; border: 2px solid #0a0b0d; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--amber); }
-    a { color: var(--cyan); text-decoration: none; }
-    b { color: var(--text); font-weight: 600; }
-    .k { font-size: 11px; letter-spacing: 0.3em; color: var(--dim); }
-    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
-      clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
-
-    /* ---------- grain-boundary microstructure backdrop ----------
-       Seamless tileable equiaxed polycrystal (d3-delaunay Voronoi), fixed at
-       z-index -1 behind every act. It is static: nothing animates it.
-       Regen the tile with `node scripts/gen-grain.mjs`. */
-    #grain { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
-      pointer-events: none; color: var(--line); opacity: var(--gbase, 0.6); }
-    #grain path { fill: none; stroke: currentColor; stroke-width: 1; }
-    /* reduced motion: a fainter backdrop */
-    @media (prefers-reduced-motion: reduce) { #grain { --gbase: 0.45; } }
-
-    /* ---------- top nav (appears after the hero) ---------- */
-    #topnav { position: fixed; top: 0; left: 0; right: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; padding: 14px 26px; background: rgba(10,11,13,0.82); backdrop-filter: blur(10px); border-bottom: 1px solid transparent; opacity: 0; transform: translateY(-10px); transition: opacity 0.3s, transform 0.3s, border-color 0.3s; pointer-events: none; }
-    #topnav.show { opacity: 1; transform: none; pointer-events: auto; border-color: var(--line); }
-    /* its links are the first Tab stops: a keyboard visitor at the top of the
-       page sees the bar they are on */
-    #topnav:focus-within { opacity: 1; transform: none; pointer-events: auto; border-color: var(--line); }
-    #topnav .mark { font-weight: 700; letter-spacing: 0.28em; color: #eef1f5; font-size: 13px; }
-    #topnav .mark span { color: var(--amber); }
-    #topnav nav { display: flex; align-items: center; gap: 22px; font-size: 12px; letter-spacing: 0.08em; }
-    #topnav nav a { color: var(--dim); transition: color 0.2s; }
-    #topnav nav a:hover { color: var(--amber); }
-    #topnav nav a.go { color: #17110a; background: var(--amber); border-radius: 6px; padding: 7px 14px; font-weight: 600; }
-    /* phones: the bar shows over the pinned hero, so it has to fit the width */
-    @media (max-width: 600px) {
-      #topnav { padding: 12px 16px; }
-      #topnav nav { gap: 16px; }
-      #topnav nav a[href="contact/"], #topnav nav a[href^="https://github"] { display: none; }
-    }
-    @media (max-width: 440px) { #topnav nav a[href="science/"] { display: none; } }
+    html { scroll-behavior: auto; }
+    body { overflow-x: hidden; }
+    /* emphasis is brightness, not weight (DESIGN.md: Inter 500 is for buttons
+       and the active item only) */
+    b { color: var(--fg); font-weight: 400; }
+    .kicker { margin: 0; }
 
     /* ---------- acts ---------- */
-    .act { position: relative; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 0 22px; }
-    .inner { width: 100%; max-width: 1150px; margin: 0 auto; }
+    .act { position: relative; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 0 var(--page-x); }
 
     /* ---------- ACT 0 · hero ----------
        One RENDERED dendrite (a Blender model, not a solver frame; the caption
        says so and links the recipe), scrubbed by scroll from pre-rendered
        frames in public/hero/. src/hero.ts owns it and never touches WebGPU.
-       The wordmark is TYPE, not a casting: an <h1> of CSS text whose letters
-       anime.js staggers in. The live solver runs further down the page.
+       Figure 03's layout, dark: the render on the left, ONE copy column on
+       the right. The opening, the three chapters and the tour's spec rail all
+       live in that column and replace each other as the page scrolls.
        Two layouts:
        - STILL, the default (no JS, reduced motion, Save-Data, frames that fail
-         to load): the poster, its five callouts, the chapter text stacked below;
-       - LIVE (html.hero-live, set by the gate above): the section is pinned and
-         everything sits over one centered canvas. The canvas is a square of side
-         --S; the chapter text and the callout labels live in the void beside it.
-       The frames are opaque #0a0b0d, so the hero's own background is opaque
-       too: a square of frame on the grain backdrop would show its edges. */
-    #heroAct { --gut: clamp(20px, 3.9vw, 64px); display: block; padding: 13dvh 22px 72px; background: var(--bg); overflow: hidden; }
-    .heroGlow { position: absolute; inset: 0; z-index: 2; pointer-events: none;
-      background: radial-gradient(62% 58% at 0% 0%, rgba(255, 146, 56, 0.085), transparent 72%); }
-    #heroOpen { position: relative; z-index: 4; max-width: 1150px; margin: 0 auto; }
-    #wordmark { font-size: clamp(44px, 8vw, 128px); letter-spacing: 0.12em; color: #eef1f5; font-weight: 700; line-height: 0.95; margin-left: -0.05em; text-shadow: 0 0 60px rgba(255, 140, 40, 0.12); }
-    #wordmark span { color: var(--amber); }
-    #heroOpen .tag { margin-top: 20px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #9aa3af; line-height: 1.8; max-width: 64ch; }
-    #heroOpen .cta { justify-content: flex-start; margin-top: 26px; }
-    #heroStage { position: relative; z-index: 3; max-width: 1150px; margin: 56px auto 0; display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 560px) minmax(0, 1fr); gap: 0 30px; align-items: center; }
-    .heroFrame { grid-column: 2; grid-row: 1; position: relative; aspect-ratio: 1; }
+         to load): the poster left, the opening and the numbered feature rail
+         right, the chapters in a row of three below;
+       - LIVE (html.hero-live, set by the gate above): the section is pinned,
+         the frame is a square of side --S at the left gutter, and the copy
+         column is laid over the space to its right.
+       The section's background is --bg, the value hero.ts paints behind each
+       frame, so the frame's masked edge fades into the page. */
+    #heroAct {
+      --gut: var(--page-x);
+      --colgap: clamp(32px, 5vw, 96px);
+      --band: 56px;                     /* the caption's line under the frame */
+      display: block; min-height: 0; padding: calc(var(--header-h) + var(--s-10)) var(--gut) var(--s-20);
+      background: var(--bg); overflow: hidden; container-type: inline-size;
+    }
+    #heroStage { position: relative; display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--s-12) var(--s-8); align-items: start; }
+    .heroMedia { grid-column: 1 / 7; grid-row: 1 / span 2; margin: 0; }
+    .heroCopy { display: contents; }
+    .heroOpen { grid-column: 8 / 13; grid-row: 1; }
+    .heroTour { grid-column: 8 / 13; grid-row: 2; }
+    .heroTour:not(:has(.callout)) { display: none; }
+    .chap { grid-row: 3; padding-top: var(--s-8); border-top: 1px solid var(--rule); }
+    .chap[data-chap="grow"] { grid-column: 1 / 5; }
+    .chap[data-chap="cool"] { grid-column: 5 / 9; }
+    .chap[data-chap="end"] { grid-column: 9 / 13; }
+    .heroFrame { position: relative; aspect-ratio: 1;
+      /* A thin 6% fade at the square's four sides, so an arm the close-ups
+         cut at the edge does not end in a hard line. Nothing else: no
+         vignette, no ellipse (DESIGN.md: flat, no gradients on media). A mask
+         only; the canvas pixels the gates compare are untouched. */
+      -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent),
+        linear-gradient(to bottom, transparent, black 6%, black 94%, transparent);
+      -webkit-mask-composite: source-in; mask-composite: intersect; }
     #heroStill { display: block; width: 100%; height: 100%; }
     #heroCanvas { display: none; }
-    .heroLabels { display: flex; flex-direction: column; gap: 26px; }
-    .heroLabels.left { grid-column: 1; grid-row: 1; align-items: flex-end; }
-    .heroLabels.right { grid-column: 3; grid-row: 1; align-items: flex-start; }
-    .callout[data-side="left"] { text-align: right; }
-    .coTitle { display: block; font-size: 12px; font-weight: 600; letter-spacing: 0.18em; line-height: 18px; color: #eef1f5; }
-    .coLine { display: block; margin-top: 5px; font-size: 13px; line-height: 1.55; color: #9aa3af; max-width: 27ch; }
-    .callout[data-side="left"] .coLine { margin-left: auto; }
+    /* the page's honesty line: nav style (13 px), not a tag, and an underline
+       in its own color so it reads as the link it is */
+    .heroCaption { display: inline-block; margin-top: var(--s-3); font: 400 var(--t-nav)/1.4 var(--font-display);
+      text-transform: uppercase; letter-spacing: var(--track-nav); color: var(--fg-3);
+      text-decoration-color: currentColor; transition: color 0.15s; }
+    .heroCaption:hover { color: var(--fg); }
     #heroMarks { position: absolute; left: 0; top: 0; z-index: 4; overflow: visible; pointer-events: none; }
-    #heroMarks .leader { fill: none; stroke: #8b93a1; stroke-width: 1; }
-    #heroMarks .shape { fill: none; stroke: var(--amber); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-    #heroMarks .dot { fill: var(--amber); stroke: #0a0b0d; stroke-width: 1.5; }
-    .heroCaption { grid-column: 2; grid-row: 2; justify-self: end; margin-top: 14px; font-size: 11px; letter-spacing: 0.06em; color: var(--cyan); opacity: 0.85; transition: opacity 0.2s; }
-    .heroCaption:hover { opacity: 1; }
-    .chap { position: relative; z-index: 4; max-width: 1150px; margin: 72px auto 0; display: grid;
-      grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); gap: 20px 56px; align-items: start; }
-    .chapHead { font-size: clamp(30px, 3.6vw, 64px); font-weight: 700; line-height: 1.02; letter-spacing: -0.02em; text-transform: uppercase; color: #eef1f5; }
-    .chapBody { font-size: 15px; line-height: 1.72; color: var(--text); max-width: 38ch; }
-    .chapSide .cta { justify-content: flex-start; margin-top: 24px; }
-    .chap .ln { display: block; }
-    /* the line splitter groups by word, and a word broken at its hyphen would
-       leave half of itself orphaned on a line of its own */
+    #heroMarks .leader { fill: none; stroke: var(--fg-3); stroke-width: 1; }
+    #heroMarks .shape { fill: none; stroke: var(--fg); stroke-width: 1.25; stroke-linecap: round; stroke-linejoin: round; }
+    #heroMarks .dot { fill: var(--fg); stroke: var(--bg); stroke-width: 1.5; }
+    #heroMarks .num { fill: var(--fg); font: 400 var(--t-tag) var(--font-display); letter-spacing: var(--track-nav); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+
+    /* the copy column's blocks: kicker, display title, body-l, CTAs */
+    .heroBlock > .kicker { margin-bottom: var(--s-5); }
+    .heroTitle, .chapHead { margin: 0; font: 400 var(--hero-t, var(--t-display))/1 var(--font-display);
+      letter-spacing: var(--track-display); color: var(--fg); text-wrap: balance; }
+    .chap .chapHead { --hero-t: var(--t-display-2); }
+    .heroBody, .chapBody { margin: var(--s-6) 0 0; max-width: 36ch; font: 400 var(--t-body-l)/1.6 var(--font-body);
+      letter-spacing: var(--track-body); color: var(--fg-2); text-wrap: pretty; }
+    .heroBlock .cta { margin-top: var(--s-8); display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: var(--s-4) var(--s-6); }
+    /* a compound broken at its hyphen would strand half of itself on a line */
     .nw { white-space: nowrap; }
+
+    /* the tour's five features as a spec rail: index, title, one line; the
+       active row in --fg, the rest in --fg-3 (hero.ts sets .is-on) */
+    /* .heroTour is a container: the rail's shape follows the column it gets,
+       not the screen (the live column is narrow at 1024 px, wide at 1920) */
+    .heroTour { container: tour / inline-size; }
+    .heroRail { list-style: none; margin: var(--s-5) 0 0; padding: 0; border-bottom: 1px solid var(--rule); }
+    /* the title track is sized to the title face: 13 px Space Grotesk, whose
+       longest title ("SECONDARY ARM SPACING λ₂") is about 182 px */
+    .heroRail .callout { display: grid; grid-template-columns: 2.4em minmax(0, 11.75em) minmax(0, 1fr); gap: var(--s-4);
+      align-items: baseline; padding: var(--s-4) 0; border-top: 1px solid var(--rule); color: var(--fg-3); transition: color 0.2s; }
+    .heroRail .callout.is-on { color: var(--fg); }
+    /* titles are written in capitals (hero.ts COPY): a text-transform would
+       turn the λ of λ₂ into a capital lambda */
+    .coIdx, .coTitle { font: 400 var(--t-nav)/1.4 var(--font-display); letter-spacing: var(--track-nav); }
+    .coLine { font: 400 var(--t-body)/1.45 var(--font-body); letter-spacing: var(--track-body); text-wrap: pretty; }
+    /* a narrow column (1024 x 768, a tablet): the line goes under its title
+       instead of into a third track a hundred px wide */
+    @container tour (max-width: 480px) {
+      .heroRail .callout { grid-template-columns: 2.4em minmax(0, 1fr); row-gap: var(--s-1); padding: var(--s-3) 0; }
+      .coLine { grid-column: 2; }
+    }
+    /* on a phone the rail shows titles only; live, the row in view has its
+       line here, in a slot of fixed height so the rows never move */
+    .railNote { display: none; }
     #scrollCue { display: none; }
-    .heroFade { position: relative; height: 0; }
-    .heroFade::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 160px; pointer-events: none;
-      background: linear-gradient(var(--bg), rgba(10, 11, 13, 0)); }
-    /* STILL, stacked: the labels in a band above the poster and a band below
-       it. The same query as the live layout's stacked one below and as
-       STACKED in hero.ts, which draws the leaders for whichever layout this
-       picked; a portrait tablet would otherwise get 78 px side columns. */
+
+    /* STILL, stacked: one column, the poster first. The same query as the
+       live layout's stacked one below and as STACKED in hero.ts. */
     @media (max-width: 759px), (orientation: portrait) {
-      #heroStage { grid-template-columns: minmax(0, 1fr); gap: 18px 0; }
-      .heroFrame { grid-column: 1; grid-row: 2; }
-      .heroLabels { flex-direction: row; flex-wrap: wrap; gap: 10px 18px; }
-      .heroLabels.left { grid-column: 1; grid-row: 1; justify-content: flex-start; align-items: flex-end; }
-      .heroLabels.right { grid-column: 1; grid-row: 3; justify-content: flex-end; align-items: flex-start; }
-      .heroCaption { grid-column: 1; grid-row: 4; margin-top: 0; }
+      #heroStage { grid-template-columns: minmax(0, 1fr); gap: var(--s-10) 0; }
+      .heroMedia, .heroOpen, .heroTour, .chap[data-chap] { grid-column: 1; grid-row: auto; }
+      .heroMedia { max-width: 640px; width: 100%; justify-self: center; }
+      /* the rail belongs with the poster its numbers point at */
+      .heroOpen { order: 1; }
+      .heroTour { order: 2; }
+      .chap { order: 3; }
     }
     @media (max-width: 759px) {
-      #heroAct { padding-top: 96px; }
-      /* one title line, reserved: the labels arrive with the manifest, and an
-         empty band would let them push the poster down when they do */
-      .heroLabels.left { min-height: 18px; }
-      .chap { grid-template-columns: minmax(0, 1fr); margin-top: 48px; }
+      #heroAct { padding-top: calc(var(--header-h) + var(--s-5)); }
+      .heroTitle { --hero-t: min(var(--t-display), 11.5cqw); }
+      .heroRail .callout { grid-template-columns: 2.4em minmax(0, 1fr); padding: var(--s-3) 0; }
       .coLine { display: none; }
-      .coTitle { font-size: 11px; letter-spacing: 0.14em; }
+      .hero-live .railNote { display: block; min-height: 3.2em; margin: var(--s-4) 0 0; max-width: 36ch;
+        font: 400 var(--t-body)/1.6 var(--font-body); letter-spacing: var(--track-body); color: var(--fg-2); }
     }
 
-    /* LIVE: the pinned stage. --S is the frame's side: as tall as the screen,
-       but never so wide that the text columns beside it drop under ~220 px. */
-    .hero-live #heroAct { height: 100vh; height: 100dvh; padding: 0;
-      --S: min(100dvh, 58vw, calc(100vw - 2 * var(--gut) - 440px)); }
-    .hero-live #heroOpen { position: absolute; left: var(--gut); top: max(11dvh, 80px); margin: 0; max-width: calc(100vw - 2 * var(--gut)); }
+    /* LIVE: the pinned stage, measured in the section's own units (cqw/cqh),
+       so a classic scrollbar never pushes the copy column past the edge. --S
+       is the frame's side: 52% of the width at most, and short of the header
+       and the caption's line. */
+    .hero-live #heroAct { height: 100vh; height: 100dvh; padding: 0; container-type: size;
+      --S: min(52cqw - var(--gut), 100cqh - var(--header-h) - var(--band) - 16px);
+      --fx: var(--gut);
+      --fy: calc(var(--header-h) + (100cqh - var(--header-h) - var(--band) - var(--S)) / 2);
+      --cx: calc(var(--fx) + var(--S) + var(--colgap));
+      /* the column runs to the page's right inset, where the header's pill
+         ends and every act's rail ends */
+      --cw: calc(100cqw - var(--cx) - var(--gut)); }
+    /* whole pixels for the frame's side and offsets: a fractional square at a
+       fractional position gets a backing store one device pixel taller than
+       wide (701 x 702 at 1440 x 900), which letterboxes every frame by half a
+       pixel. round() where it exists; the unrounded values stand otherwise. */
+    @supports (width: round(down, 1.5px, 1px)) {
+      .hero-live #heroAct { --S: round(down, min(52cqw - var(--gut), 100cqh - var(--header-h) - var(--band) - 16px), 1px);
+        --fy: round(down, var(--header-h) + (100cqh - var(--header-h) - var(--band) - var(--S)) / 2, 1px); }
+    }
     .hero-live #heroStage { position: absolute; inset: 0; margin: 0; max-width: none; display: block; }
-    .hero-live .heroFrame { position: absolute; left: 50%; top: 50%; width: var(--S); height: var(--S); translate: -50% -50%;
-      /* a close-up's crystal fades out at the frame's edge instead of being cut by it.
-         --edge (side fade) and --vin (where the corner falloff starts) are set per
-         frame by hero.ts: a thin 6% fade on the wide shots, so no arm tip is clipped,
-         widening to a soft ellipse on the tour's close-ups, so the square never reads
-         as a box. Masks only; the canvas pixels the gates compare are untouched. */
-      --edge: 6%; --vin: 100%;
-      -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--edge), #000 calc(100% - var(--edge)), transparent),
-        linear-gradient(to bottom, transparent, #000 var(--edge), #000 calc(100% - var(--edge)), transparent),
-        radial-gradient(farthest-corner, #000 var(--vin), transparent 100%);
-      -webkit-mask-composite: source-in, source-in; mask-composite: intersect; }
+    .hero-live .heroMedia { position: absolute; left: var(--fx); top: var(--fy); width: var(--S); }
+    .hero-live .heroFrame { width: var(--S); height: var(--S); }
     .hero-live #heroStill { display: none; }
     .hero-live #heroCanvas { display: block; width: 100%; height: 100%; }
-    .hero-live .heroLabels { position: absolute; inset: 0; display: block; z-index: 5; pointer-events: none; }
-    .hero-live .callout { position: absolute; left: 0; top: 0; opacity: 0; visibility: hidden; }
-    .hero-live .heroCaption { position: absolute; right: var(--gut); bottom: 18px; margin: 0; z-index: 6; }
-    .hero-live .chap { position: absolute; inset: 0; z-index: 5; margin: 0; max-width: none; display: block; pointer-events: none; }
-    /* The three chapters share one place, so until hero.ts has built their
-       timeline (it adds hero-ready) all three would print over each other.
-       visibility, not display: the line splitter has to measure them; and on
-       the section, not the lines, which GSAP's autoAlpha sets to inherit. */
-    .hero-live #heroAct:not(.hero-ready) .chap { visibility: hidden; }
-    .hero-live .chapHead { position: absolute; left: var(--gut); top: 47%; translate: 0 -50%;
-      width: calc((100vw - var(--S)) / 2 - var(--gut) + var(--S) * 0.1); }
-    .hero-live .chapSide { position: absolute; right: var(--gut); top: 53%; translate: 0 -50%;
-      width: min(340px, calc((100vw - var(--S)) / 2 - var(--gut) + var(--S) * 0.09)); }
-    .hero-live .chapSide .cta { pointer-events: auto; }
-    .hero-live .chap .ln, .hero-live .chapSide .cta, .hero-live #heroOpen { will-change: opacity, filter, transform; }
-    .hero-live #scrollCue { display: block; position: absolute; left: 50%; bottom: 20px; translate: -50% 0; z-index: 6; color: #8b93a1; font-size: 10px; letter-spacing: 0.3em; }
-    .hero-live #scrollCue::after { content: "▾"; display: block; text-align: center; margin-top: 3px; }
-    .anim #scrollCue::after { animation: cue 1.8s ease-in-out infinite; }
-    @keyframes cue { 0%, 100% { transform: translateY(0); opacity: 0.6; } 50% { transform: translateY(5px); opacity: 1; } }
+    .hero-live .heroCaption { position: absolute; left: 0; top: calc(100% + var(--s-3)); margin: 0; z-index: 6; white-space: nowrap; }
+    .hero-live .heroCopy { position: absolute; z-index: 5; left: var(--cx); top: var(--fy); width: var(--cw); height: var(--S);
+      display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; pointer-events: none;
+      --hero-t: min(var(--t-display), 11cqh, var(--cw) / 6.2); }
+    .hero-live .heroCopy > .heroBlock { grid-area: 1 / 1; min-width: 0; }
+    .hero-live .heroCopy a { pointer-events: auto; }
+    .hero-live .chap { padding: 0; border: 0; }
+    .hero-live .chap .chapHead { --hero-t: inherit; }
+    /* The chapters and the rail share one place, so until hero.ts has built
+       their timeline (it adds hero-ready) they would print over each other.
+       visibility, not display: nothing may change the column's measure. */
+    .hero-live #heroAct:not(.hero-ready) .chap, .hero-live #heroAct:not(.hero-ready) .heroTour { visibility: hidden; }
+    .hero-live .heroBlock, .hero-live .heroTour { will-change: opacity, transform; }
+    /* level with the caption, right-aligned to the page's inset (the copy
+       column's right edge is that inset) */
+    .hero-live #scrollCue { display: block; position: absolute; z-index: 6; left: calc(100cqw - var(--gut)); top: calc(var(--fy) + var(--S) + var(--s-3));
+      translate: -100% 0; font: 400 var(--t-nav)/1.4 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg-3); }
     @media (max-width: 759px), (orientation: portrait) {
-      .hero-live #heroAct { --S: min(92vw, 50dvh, 640px); }
-      .hero-live .heroFrame { top: 53%; }
-      .hero-live #heroOpen { top: 84px; }
-      .hero-live .chapHead { left: var(--gut); right: var(--gut); width: auto; top: calc(53% - var(--S) / 2 - 16px); translate: 0 -100%; font-size: clamp(26px, 7.8vw, 48px); }
-      .hero-live .chapSide { left: var(--gut); right: var(--gut); width: auto; top: calc(53% + var(--S) / 2 + 22px); translate: none; }
-      .hero-live #scrollCue { left: var(--gut); translate: none; }
+      .hero-live #heroAct { --S: min(100cqw - 2 * var(--gut), 48cqh, 640px);
+        --fx: calc((100cqw - var(--S)) / 2); --fy: calc(var(--header-h) + var(--s-2));
+        --cx: var(--gut); --cw: calc(100cqw - 2 * var(--gut)); }
+      @supports (width: round(down, 1.5px, 1px)) {
+        .hero-live #heroAct { --S: round(down, min(100cqw - 2 * var(--gut), 48cqh, 640px), 1px);
+          --fx: round(down, (100cqw - var(--S)) / 2, 1px); }
+      }
+      .hero-live .heroCopy { top: calc(var(--fy) + var(--S) + var(--s-12)); height: auto; bottom: var(--s-4); align-items: start;
+        --hero-t: min(var(--t-display), 11.5cqw, 6.2cqh); }
+      .hero-live #scrollCue { left: calc(var(--fx) + var(--S)); top: calc(var(--fy) + var(--S) + var(--s-3)); }
     }
 
-    .cta { margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
-    .cta a { position: relative; overflow: hidden; display: inline-block; letter-spacing: 0.08em; border-radius: 8px; padding: 13px 24px; font-size: 13.5px; border: 1px solid var(--line); transition: box-shadow 0.2s, border-color 0.2s, color 0.2s; white-space: nowrap; }
-    .cta a.primary { background: var(--amber); color: #17110a; border-color: var(--amber); font-weight: 600; }
-    .cta a.primary::after { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 42%, rgba(255,255,255,0.5) 50%, transparent 58%); transform: translateX(-130%); transition: transform 0.55s ease; pointer-events: none; }
-    .cta a.primary:hover { box-shadow: 0 0 34px rgba(255,180,84,0.35); }
-    .cta a.primary:hover::after { transform: translateX(130%); }
-    .cta a.ghost { color: var(--text); }
-    .cta a.ghost::after { content: ""; position: absolute; left: 24px; right: 24px; bottom: 9px; height: 1px; background: var(--cyan); opacity: 0.75; transform: scaleX(0); transform-origin: left; transition: transform 0.3s ease; }
-    .cta a.ghost:hover { border-color: #3a424e; color: #fff; }
-    .cta a.ghost:hover::after { transform: scaleX(1); }
-    .cta a:active { scale: 0.97; }
-    a:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 8px; }
+    /* ---------- the acts below the hero: media on one side, a spec column
+       on the other (DESIGN.md section 6) ----------
+       Figure's layout, the hero's measure: the media is a square of side --M,
+       at most 52% of the width less the gutter (the hero's own --S rule) and
+       short of the header and the act's padding, so a pinned act always fits
+       its screen; one column of copy and specs beside it. The lens and TRUE
+       3D acts put the media on the right, so the page alternates. */
+    .specAct { --pad: var(--s-8); padding: calc(var(--header-h) + var(--pad)) var(--page-x) var(--pad); }
+    .specGrid { width: 100%; display: grid; align-items: center;
+      --M: min(52vw - var(--page-x), 100dvh - var(--header-h) - 2 * var(--pad));
+      grid-template-columns: var(--M) minmax(0, 1fr); column-gap: clamp(32px, 5vw, 96px); }
+    .specGrid--flip { grid-template-columns: minmax(0, 1fr) var(--M); }
+    .specGrid--flip > .specMedia { order: 2; }
+    .specMedia { margin: 0; min-width: 0; }
+    /* the column fills its track, so every rail ends on the page's inset (or
+       the gap to the media); .specBody caps the reading measure itself */
+    .specCol { width: 100%; min-width: 0; }
+    .specTop { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-4); }
+    .specCount { font-variant-numeric: tabular-nums; }
+    .specName { margin: var(--s-5) 0 0; font: 400 var(--t-display-2)/1.02 var(--font-display); letter-spacing: var(--track-display); color: var(--fg); text-wrap: balance; }
+    .specBody { margin: var(--s-4) 0 var(--s-8); max-width: 40ch; min-height: 3.2em; font: 400 var(--t-body-l)/1.6 var(--font-body);
+      letter-spacing: var(--track-body); color: var(--fg-2); text-wrap: pretty; }
+    .specCol .spec__row { padding: var(--s-4) 0; }
+    .specCol .segs { margin-top: var(--s-6); }
+    .specCol .cta { margin-top: var(--s-8); justify-content: flex-start; }
 
-    /* ---------- shared sim panel ---------- */
-    .simBox { position: relative; width: 100%; aspect-ratio: 1; max-width: min(560px, 66vh); margin: 0 auto; border-radius: 14px; overflow: hidden; border: 1px solid #1d222b; background: #07080a; box-shadow: 0 24px 70px rgba(0,0,0,0.55); }
-    .simBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-    .simBox img.fb { display: none; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    /* the live canvas: square-edged, no card, no border. The still image is
+       the default; html.js (the head gate) swaps in the canvas, and landing.ts
+       swaps it back (.nogpu) when there is no WebGPU or motion is reduced. */
+    .simBox { position: relative; width: var(--M); aspect-ratio: 1; overflow: hidden; background: var(--bg-media); }
+    .simBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: none; }
+    .simBox img.fb { display: block; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .js .simBox canvas { display: block; }
+    .js .simBox img.fb { display: none; }
     .nogpu .simBox canvas { display: none; }
     .nogpu .simBox img.fb { display: block; }
-
-    /* ---------- ACT 1 · ten lenses (pinned) ---------- */
-    #lensAct { background: transparent; }
-    .lensGrid { display: grid; grid-template-columns: 1fr; gap: 34px; align-items: center; width: 100%; max-width: 1150px; }
-    @media (min-width: 940px) { .lensGrid { grid-template-columns: 5fr 6fr; gap: 56px; } }
-    #lensName { font-size: clamp(52px, 9vw, 118px); font-weight: 700; letter-spacing: 0.04em; color: var(--amber); line-height: 1.05; margin: 14px 0 10px; }
-    #lensDesc { font-size: 13.5px; color: var(--dim); line-height: 1.7; max-width: 40ch; min-height: 3.4em; }
-    .rail { display: flex; gap: 7px; margin-top: 26px; }
-    .rail i { width: 18px; height: 3px; background: #2a303b; border-radius: 2px; transition: background 0.25s, height 0.25s; }
-    .rail i.on { background: var(--amber); }
-
-    /* ---------- ACT 2 · materials (pinned) ---------- */
-    #matAct { background:
-      radial-gradient(900px 500px at 22% 50%, #14100a 0%, transparent 60%); }
-    .matGrid { display: grid; grid-template-columns: 1fr; gap: 34px; align-items: center; width: 100%; max-width: 1150px; }
-    @media (min-width: 940px) { .matGrid { grid-template-columns: 6fr 5fr; gap: 56px; } }
+    /* a still has no sequence to step through: no "01 / 10", no segments */
+    html:not(.js) .specCount, html:not(.js) .segs, .nogpu .specCount, .nogpu .segs { display: none; }
     /* the 3D demo falls back alone when 2D WebGPU works but the volume can't */
     #threeDAct.no3d canvas { display: none; }
     #threeDAct.no3d img.fb { display: block; }
-    #matName { font-size: clamp(46px, 7.6vw, 96px); font-weight: 700; letter-spacing: 0.05em; color: #eef1f5; line-height: 1.05; margin: 14px 0 6px; }
-    #matTemp { font-size: 14px; color: var(--amber); letter-spacing: 0.1em; }
-    #matFact { margin-top: 14px; font-size: 13.5px; color: var(--dim); line-height: 1.7; max-width: 42ch; min-height: 3.4em; }
 
-    /* ---------- ACT 3 · composer teaser ---------- */
-    #composeAct { background: transparent; }
-    #composeAct .inner { max-width: 860px; }
-    .chips { margin: 22px 0 8px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-    .chip { border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; font-size: 13px; color: var(--text); background: rgba(17,19,24,0.7); }
-    .chip b { color: var(--amber); font-weight: 600; }
-    .chips .arrow { color: var(--dim); }
-    .chip.result { border-color: var(--amber); color: #eef1f5; }
-    #qLine { margin-top: 20px; font-size: 15px; color: var(--dim); letter-spacing: 0.04em; }
-    #qLine b { color: var(--amber); font-size: 24px; font-variant-numeric: tabular-nums; }
-    .bars { margin-top: 12px; display: grid; gap: 16px; max-width: 640px; }
-    .barRow .lab { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); margin-bottom: 6px; letter-spacing: 0.08em; }
-    .barRow .lab b { font-size: 16px; color: #eef1f5; font-variant-numeric: tabular-nums; }
-    .barRow .track { height: 10px; background: #171b22; border-radius: 5px; overflow: hidden; }
-    .barRow .fill { height: 100%; width: 0%; border-radius: 5px; }
-    .barRow.hi .fill { background: linear-gradient(90deg, #b06a1e, var(--amber)); }
-    .barRow.lo .fill { background: #39404d; }
-    .barhead { margin-top: 30px; font-size: 10px; letter-spacing: 0.18em; color: var(--dim); text-transform: uppercase; }
-    .bars.named { margin-top: 12px; }
+    /* stacked: media on top, the column under it, both on the page's left
+       inset; the canvas shrinks so a pinned act still fits a phone's screen */
+    @media (max-width: 759px), (orientation: portrait) {
+      .specGrid, .specGrid--flip { grid-template-columns: minmax(0, 1fr); row-gap: var(--s-5); align-content: start;
+        --M: min(100vw - 2 * var(--page-x), 40dvh, 560px); }
+      .specGrid > .specMedia, .specGrid--flip > .specMedia { order: 0; justify-self: start; }
+      /* the rail as a two-column grid of label-over-value cells */
+      .specCol .spec { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--s-5); }
+      .specCol .spec__row { grid-template-columns: minmax(0, 1fr); gap: var(--s-1); padding: var(--s-3) 0; align-content: start; }
+      .specCol .spec__value { text-align: left; }
+    }
+    /* a short desktop screen (a 1366 x 768 laptop under its browser chrome,
+       657 px): the column's type and rhythm tighten with the height, so a
+       pinned act's whole column still sits between the header and the
+       bottom edge */
+    @media (min-width: 760px) and (max-height: 760px) {
+      .specAct { --pad: var(--s-4); }
+      .specName { font-size: clamp(32px, 6.5vh, 56px); margin-top: var(--s-3); }
+      .specBody { margin: var(--s-2) 0 var(--s-4); min-height: 0; }
+      .specCol .spec__row { padding: var(--s-2) 0; }
+      .specCol .spec__value { font-size: clamp(24px, 4.5vh, 44px); }
+      .specCol .spec__value--text { font-size: var(--t-body-l); }
+      .specCol .segs { margin-top: var(--s-4); }
+    }
+    @media (max-width: 759px) {
+      .specAct { --pad: var(--s-4); }
+      .specGrid, .specGrid--flip { --M: min(100vw - 2 * var(--page-x), 36dvh); }
+      .specName { margin-top: var(--s-3); }
+      .specBody { margin: var(--s-2) 0 var(--s-4); font-size: var(--t-body); min-height: 3em; line-height: 1.5; }
+      .specCol .spec__value--text { font-size: var(--t-body); line-height: 1.35; }
+      .specCol .segs { margin-top: var(--s-4); }
+    }
+
+    /* ---------- ACT 3 · the alloy composer ----------
+       The drawn Al–Si diagram is this act's media (left), its caveat under
+       it, then the two mixes' liquidus depressions; the spec column (right)
+       holds the recipe, Q, the pour and what equilibrium leaves. */
+    /* the melt act's template: media --M on the left, so the column starts on
+       the same line as the hero's and the melt act's */
+    #composeAct { align-items: flex-start; }
+    #composeAct .specGrid { align-items: start; }
+    .chips { margin: 0 0 var(--s-8); display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 var(--s-3); border: 1px solid var(--rule-strong);
+      border-radius: var(--r-tag); font: 400 var(--t-ui)/1 var(--font-body); color: var(--fg-2); white-space: nowrap; }
+    .chip b { font-weight: 400; color: var(--fg); }
+    .chips .arrow { color: var(--fg-3); font: 400 var(--t-ui)/1 var(--font-body); }
+    #composeSpec .spec__value b { font-weight: 400; }
+    .bars { margin-top: var(--s-4); display: grid; gap: var(--s-5); }
+    .barRow .lab { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-4); margin-bottom: var(--s-2);
+      font: 400 var(--t-ui)/1.35 var(--font-body); color: var(--fg-3); }
+    .barRow .lab b { font: 400 var(--t-heading)/1.1 var(--font-display); color: var(--fg); font-variant-numeric: tabular-nums; }
+    .barRow .track { height: 2px; background: var(--rule); overflow: hidden; }
+    .barRow .fill { height: 100%; width: 0%; }
+    .barRow.hi .fill { background: var(--fg); }
+    .barRow.lo .fill { background: var(--fg-3); }
+    /* the kicker names the quantity; the formula keeps its own case */
+    .barhead { margin-top: var(--s-10); padding-top: var(--s-5); border-top: 1px solid var(--rule);
+      display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s-2) var(--s-4); }
+    .barf { font: 400 var(--t-ui)/1.35 var(--font-body); color: var(--fg-3); }
     /* the drawn Al-Si diagram (v7.1 P6). Every number in it is an attribute on
        the markup, never a constant in landing-motion.ts: the motion module reads
        the geometry back out of the SVG, so phasedata.ts stays out of the landing
        chunk and PD-DOC-CONSTANTS still gets one file to check the values in. */
-    .pdrow { margin-top: 32px; display: grid; grid-template-columns: minmax(0, 430px) minmax(0, 1fr); gap: 30px; align-items: center; max-width: 860px; }
-    #pdFig { width: 100%; height: auto; }
-    #pdFig .ax { stroke: #39404d; stroke-width: 1; }
-    #pdFig .liq { stroke: var(--amber); stroke-width: 1.8; fill: none; }
-    #pdFig .sol, #pdFig .inv { stroke: #7d8794; stroke-width: 1.3; fill: none; }
-    #pdFig .csm { stroke: var(--cyan); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.8; }
-    #pdFig .drop { stroke: var(--amber); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.65; }
-    #pdFig .dot { fill: var(--amber); stroke: #0a0b0d; stroke-width: 1.6; }
-    #pdFig .tick { fill: var(--dim); font-size: 10px; letter-spacing: 0.06em; }
-    #pdFig .lbl { fill: #4d545e; font-size: 9px; letter-spacing: 0.1em; }
-    #pdFig .band { fill: var(--amber); opacity: 0; transition: opacity 0.4s ease; }
-    #pdFig .band.on { opacity: 0.08; }
-    .pdside .pdk { font-size: 10px; letter-spacing: 0.18em; color: var(--dim); margin-top: 14px; }
-    .pdside .pdk.first { margin-top: 0; }
-    #pdC { font-size: 20px; color: var(--amber); font-variant-numeric: tabular-nums; margin-top: 3px; }
-    #pdPhase { font-size: 20px; color: #eef1f5; margin-top: 3px; }
-    .pdnote { margin-top: 14px; font-size: 11.5px; line-height: 1.65; color: var(--dim); max-width: 46ch; }
-    @media (max-width: 780px) { .pdrow { grid-template-columns: minmax(0, 1fr); gap: 20px; } }
-    #composeAct .after { margin-top: 26px; font-size: 13px; color: var(--dim); line-height: 1.7; max-width: 60ch; }
-    #composeAct .cta { justify-content: flex-start; }
+    .pdrow { margin: 0; }
+    #pdFig { display: block; width: 100%; height: auto; }
+    #pdFig .ax { stroke: var(--rule-strong); stroke-width: 1; }
+    #pdFig .liq { stroke: var(--fg); stroke-width: 1.5; fill: none; }
+    #pdFig .sol, #pdFig .inv { stroke: var(--fg-3); stroke-width: 1.2; fill: none; }
+    #pdFig .csm { stroke: var(--fg-3); stroke-width: 1; stroke-dasharray: 3 3; }
+    #pdFig .drop { stroke: var(--fg-3); stroke-width: 1; stroke-dasharray: 2 3; }
+    #pdFig .dot { fill: var(--fg); stroke: var(--bg); stroke-width: 1.6; }
+    /* --pd-k (landing-motion.ts: user units per CSS px) keeps the text at the
+       tick role's 11 screen px however wide the figure is drawn */
+    #pdFig .tick { fill: var(--fg-3); font: 400 calc(var(--t-tick) * var(--pd-k, 1)) var(--font-body); }
+    #pdFig .lbl { fill: var(--fg-3); font-size: calc(var(--t-tick) * var(--pd-k, 1)); }
+    #pdFig .band { fill: var(--fg); opacity: 0; transition: opacity 0.4s ease; }
+    #pdFig .band.on { opacity: 0.05; }
+    /* the act's two caveats are copy, not labels: --fg-2 (DESIGN.md: no gray
+       long copy on black) */
+    .pdnote { margin: var(--s-4) 0 0; max-width: 56ch; font: 400 var(--t-ui)/1.6 var(--font-body); color: var(--fg-2); }
+    #composeAct .after { margin: var(--s-6) 0 0; max-width: 60ch; font: 400 var(--t-ui)/1.6 var(--font-body); color: var(--fg-2); }
+    .cta { margin-top: var(--s-8); display: flex; gap: var(--s-4) var(--s-6); flex-wrap: wrap; align-items: center; justify-content: flex-start; }
+    /* stacked, the diagram leads, as every act's media does */
+    @media (max-width: 759px), (orientation: portrait) {
+      #composeAct .specGrid { row-gap: var(--s-10); }
+      /* its media is a figure with no width of its own: it fills the column */
+      #composeAct .specGrid > .specMedia { justify-self: stretch; }
+    }
 
-    /* ---------- ACT 4 · science finale ---------- */
-    #sciAct { flex-direction: column; text-align: center; background:
-      radial-gradient(900px 480px at 50% 90%, #131009 0%, transparent 60%); }
-    #eq { font-size: clamp(15px, 2.6vw, 24px); color: #eef1f5; letter-spacing: 0.02em; min-height: 1.6em; }
-    #eq .cursor { display: inline-block; width: 0.55em; height: 1.1em; background: var(--amber); vertical-align: -0.15em; margin-left: 2px; }
-    .anim #eq .cursor { animation: blink 0.9s steps(1) infinite; }
-    @keyframes blink { 50% { opacity: 0; } }
-    #sciAct .sub2 { margin-top: 14px; color: var(--dim); font-size: 13px; }
-    .stamps { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
-    .stamp { border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; font-size: 12px; color: var(--dim); letter-spacing: 0.06em; }
-    .stamp b { color: var(--amber); margin-right: 8px; }
-    #sciAct .cta { margin-top: 44px; }
-    #sciAct .cta a.primary { font-size: 15px; padding: 16px 34px; }
-
-    footer { color: var(--dim); font-size: 11.5px; letter-spacing: 0.06em; line-height: 2; border-top: 1px solid var(--line); padding: 26px 22px 40px; text-align: center; }
-    footer .cite { color: #4d545e; font-size: 10.5px; }
-    footer a { position: relative; }
-    footer a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 2px; height: 1px; background: var(--cyan); transform: scaleX(0); transform-origin: left; transition: transform 0.25s ease; }
-    footer a:hover::after { transform: scaleX(1); }
+    /* ---------- ACT 4 · the science ----------
+       Copy left; right, a stacked spec rail: the two equations the solver
+       integrates, then what it is built on and what emerges. */
+    #sciAct .specGrid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: start; }
+    #sciAct .specCol { max-width: 560px; }
+    .sciSpec { width: 100%; max-width: 720px; justify-self: end; }
+    .sciSpec .spec__row { padding: var(--s-5) 0; }
+    .eqn { font: 400 var(--t-heading)/1.4 var(--font-body); letter-spacing: 0; color: var(--fg); overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
+    @media (max-width: 759px), (orientation: portrait) {
+      #sciAct .specGrid { grid-template-columns: minmax(0, 1fr); row-gap: var(--s-10); }
+      .sciSpec { justify-self: stretch; max-width: none; }
+    }
+    @media (max-width: 759px) {
+      .eqn { font-size: var(--t-body-l); white-space: normal; }
+      /* label over value, as in the other acts' phone rails */
+      .sciSpec .spec__row { grid-template-columns: minmax(0, 1fr); gap: var(--s-1); padding: var(--s-4) 0; }
+      .sciSpec .spec__value { text-align: left; }
+      .sciSpec .spec__value--text { font-size: var(--t-body-l); line-height: 1.35; }
+    }
 
     /* motion pre-states (html.anim only) */
     .anim #heroOpen > * { opacity: 0; }
-    .anim #composeAct .chip, .anim #composeAct .arrow, .anim #composeAct .after, .anim #composeAct .cta, .anim .bars, .anim .barhead, .anim .pdrow, .anim #qLine { opacity: 0; }
-    .anim .stamp, .anim #sciAct .cta, .anim #sciAct .sub2 { opacity: 0; }
+    .anim #composeAct .chip, .anim #composeAct .arrow, .anim #composeAct .after, .anim #composeAct .cta, .anim .bars, .anim .barhead, .anim .pdrow, .anim #composeSpec { opacity: 0; }
+    .anim #sciAct .spec__row, .anim #sciAct .cta { opacity: 0; }
+    /* focus beats a pre-state (WCAG 2.4.7): a link tabbed to before its
+       reveal has run shows at once. !important outranks the inline opacity
+       and transform anime.js writes during the reveal. */
+    .anim #heroOpen > :focus-within,
+    .anim #composeAct :is(.after, .cta):focus-within,
+    .anim #sciAct .cta:focus-within { opacity: 1 !important; transform: none !important; }
   </style>
 </head>
 <body>
-  <!-- grain-boundary microstructure backdrop (tileable Voronoi, gen-grain.mjs) -->
-  <svg id="grain" aria-hidden="true">
-    <defs>
-      <pattern id="grainPat" width="420" height="420" patternUnits="userSpaceOnUse">
-        <path d="M9.3 0L0 60.6 M12.9 382.6L14.6 385.2 M14.6 385.2L9.3 420 M0 379.7L12.9 382.6 M328.6 103.7L292 0 M420 60.6L419.5 64.1 M419.5 64.1L343.2 106.7 M343.2 106.7L328.6 103.7 M292 420L288.7 410.5 M288.7 410.5L336.1 361 M336.1 361L420 379.7 M55.7 276.3L12.9 382.6 M0 218L47.1 253.9 M47.1 253.9L55.7 276.3 M319.7 278.1L418.8 217.1 M418.8 217.1L420 218 M336.1 361L319.7 278.1 M287.3 132.5L271.9 249.4 M271.9 249.4L209.3 261.3 M209.3 261.3L150.4 174.3 M150.4 174.3L150.7 159.6 M150.7 159.6L196.5 116.2 M196.5 116.2L287.3 132.5 M196.5 116.2L185.2 47.9 M185.2 47.9L230 0 M328.6 103.7L287.3 132.5 M230 420L241.2 408 M241.2 408L288.7 410.5 M271.9 249.4L319.7 278.1 M241.2 408L171.6 327.5 M171.6 327.5L170.7 318 M170.7 318L209.3 261.3 M150.7 159.6L73.2 111.1 M73.2 111.1L70.8 104.4 M70.8 104.4L117.7 27.2 M117.7 27.2L185.2 47.9 M343.2 106.7L418.3 212.9 M418.3 212.9L418.8 217.1 M150.4 174.3L47.1 253.9 M0 210.6L73.2 111.1 M418.3 212.9L420 210.6 M170.7 318L55.7 276.3 M117.7 27.2L104.6 0 M104.6 420L99.6 409.6 M99.6 409.6L171.6 327.5 M99.6 409.6L14.6 385.2 M70.8 104.4L0 64.4 M420 64.4L419.5 64.1"/>
-      </pattern>
-    </defs>
-    <rect width="100%" height="100%" fill="url(#grainPat)"/>
-  </svg>
-
-  <header id="topnav">
-    <div class="mark">SOLID<span>IFY</span></div>
-    <nav>
-      <a href="science/">the science</a>
-      <a href="contact/">contact</a>
-      <a href="https://github.com/fronkt/solidify">github</a>
-      <a class="go" href="app/">open the instrument</a>
-    </nav>
+  <!-- the site header: wordmark left, nav labels and the one filled pill right
+       (DESIGN.md section 5). landing-motion.ts keeps it transparent while the
+       page sits at its top. -->
+  <header class="hdr" id="topnav">
+    <a class="hdr__mark" href="./">SOLIDIFY</a>
+    <div class="hdr__right">
+      <nav class="hdr__links" aria-label="Main">
+        <a class="hdr__link" href="app/">Instrument</a>
+        <a class="hdr__link" href="science/">Science</a>
+        <a class="hdr__link" href="contact/">Contact</a>
+        <a class="hdr__link" href="https://github.com/fronkt/solidify">GitHub</a>
+      </nav>
+      <details class="hdr__menu">
+        <summary class="hdr__link">Menu</summary>
+        <nav class="hdr__drop panel panel--overlay" aria-label="Main">
+          <a class="hdr__link" href="app/">Instrument</a>
+          <a class="hdr__link" href="science/">Science</a>
+          <a class="hdr__link" href="contact/">Contact</a>
+          <a class="hdr__link" href="https://github.com/fronkt/solidify">GitHub</a>
+        </nav>
+      </details>
+      <a class="btn btn--primary" href="app/" aria-label="Open the instrument"><span>Open<span class="hdr__long"> the instrument</span></span></a>
+    </div>
   </header>
 
   <main>
     <!-- ACT 0 · hero: one rendered dendrite, scrubbed by scroll (src/hero.ts).
          The chapter blocks are keyed to public/hero/manifest.json's chapters;
-         the five feature callouts are built by hero.ts from its features. -->
+         the five feature rows of the rail are built by hero.ts from its
+         features. -->
     <section class="act" id="heroAct">
-      <div class="heroGlow" aria-hidden="true"></div>
-      <div id="heroOpen">
-        <h1 id="wordmark">SOLID<span>IFY</span></h1>
-        <p class="tag">Watch metal freeze. A phase-field solidification lab, live in your browser.</p>
-        <div class="cta">
-          <a class="primary" href="app/">Open the instrument</a>
-          <a class="ghost" href="app/?tour=1">Take the tour</a>
-          <a class="ghost" href="science/">The science</a>
-          <a class="ghost" href="contact/">Contact</a>
-        </div>
-      </div>
       <div id="heroStage">
-        <div class="heroLabels left"></div>
-        <div class="heroFrame">
-          <!-- lazy: in the live layout this is display: none and is not fetched
-               (the canvas loads its own poster); the still layouts show it in the
-               first screen, so it loads at once there, and without JS lazy
-               loading is off and it loads as a plain image -->
-          <img id="heroStill" src="hero/poster-1200.webp" loading="lazy" width="1200" height="1200"
-               alt="A rendered metal dendrite in satin steel on a dark background: six main arms along the axes of a cube, each lined with rows of side branches, the longest carrying smaller branches of their own." />
-          <canvas id="heroCanvas" role="img" aria-label="A rendered metal dendrite that grows from a small seed into six branching arms and turns as you scroll."></canvas>
+        <figure class="heroMedia">
+          <div class="heroFrame">
+            <!-- lazy: in the live layout this is display: none and is not fetched
+                 (the canvas loads its own poster); the still layouts show it in the
+                 first screen, so it loads at once there, and without JS lazy
+                 loading is off and it loads as a plain image -->
+            <img id="heroStill" src="hero/poster-1200.webp" loading="lazy" width="1200" height="1200"
+                 alt="A rendered dendrite, a cubic metal crystal with a satin finish, on a dark background: six main arms along the axes of a cube, each lined with rows of side branches, the longest carrying smaller branches of their own." />
+            <canvas id="heroCanvas" role="img" aria-label="A rendered metal dendrite that grows from a small seed into six branching arms and turns as you scroll."></canvas>
+          </div>
+          <a class="heroCaption" href="https://github.com/fronkt/solidify/blob/main/hero/README.md">Rendered model, not a simulation frame.</a>
+        </figure>
+        <div class="heroCopy">
+          <div id="heroOpen" class="heroOpen heroBlock">
+            <p class="kicker">Phase-field · WebGPU</p>
+            <h1 class="heroTitle">Watch metal freeze.</h1>
+            <p class="heroBody">A phase-field solidification lab, live in your browser. Grow dendrites, pour alloys, read the grains.</p>
+            <div class="cta">
+              <a class="btn" href="app/?tour=1">Take the tour</a>
+              <a class="btn btn--text" href="science/">Read the science</a>
+            </div>
+          </div>
+          <div class="chap heroBlock" data-chap="grow">
+            <p class="kicker">Growth</p>
+            <h2 class="chapHead">It grows in branches.</h2>
+            <div class="chapSide"><p class="chapBody">A metal crystal freezing out of its melt does not stay a ball. It sends arms out along the directions its lattice prefers.</p></div>
+          </div>
+          <div class="chap heroBlock" data-chap="cool">
+            <p class="kicker">Cooling</p>
+            <h2 class="chapHead">It coarsens as it cools.</h2>
+            <div class="chapSide"><p class="chapBody">While melt remains between the arms, thin ones melt back and thick ones grow. The slower it cools, the coarser the spacing it keeps.</p></div>
+          </div>
+          <div class="chap heroBlock" data-chap="end">
+            <p class="kicker">The instrument</p>
+            <h2 class="chapHead">Grow your own.</h2>
+            <div class="chapSide">
+              <p class="chapBody">The instrument solves the <span class="nw">phase-field</span> equations on your GPU. Change the melt and the branches change.</p>
+              <div class="cta"><a class="btn btn--more" href="app/">Open the instrument</a></div>
+            </div>
+          </div>
+          <div class="heroTour heroBlock" aria-hidden="true">
+            <p class="kicker">Up close</p>
+            <ol class="heroRail"></ol>
+            <p class="railNote"></p>
+          </div>
         </div>
-        <div class="heroLabels right"></div>
         <svg id="heroMarks" aria-hidden="true"></svg>
-        <a class="heroCaption" href="https://github.com/fronkt/solidify/blob/main/hero/README.md">Rendered model, not a simulation frame.</a>
       </div>
-      <div class="chap" data-chap="grow">
-        <h2 class="chapHead">It grows in branches.</h2>
-        <div class="chapSide"><p class="chapBody">A metal crystal freezing out of its melt does not stay a ball. It sends arms out along the directions its lattice prefers.</p></div>
-      </div>
-      <div class="chap" data-chap="cool">
-        <h2 class="chapHead">Then it cools, its shape locked in.</h2>
-        <div class="chapSide"><p class="chapBody">The whole crystal becomes one grain of the metal, and its branches set the fine structure inside it. Both shape how the metal behaves.</p></div>
-      </div>
-      <div class="chap" data-chap="end">
-        <h2 class="chapHead">Grow your own.</h2>
-        <div class="chapSide">
-          <p class="chapBody">The instrument solves the <span class="nw">phase-field</span> equations on your GPU. Change the melt and the branches change.</p>
-          <div class="cta"><a class="primary" href="app/">Open the instrument</a></div>
-        </div>
-      </div>
-      <div id="scrollCue">SCROLL</div>
+      <div id="scrollCue" aria-hidden="true">SCROLL</div>
     </section>
-    <div class="heroFade" aria-hidden="true"></div>
 
-    <!-- ACT 1 · one crystal, ten instruments -->
-    <section class="act" id="lensAct">
-      <div class="lensGrid">
-        <div class="lensCopy">
-          <div class="k">ONE CRYSTAL · TEN INSTRUMENTS</div>
-          <div id="lensName">MELT</div>
-          <p id="lensDesc">Incandescent blackbody glow — the halo around every growing tip is latent heat escaping.</p>
-          <div class="rail" id="lensRail"></div>
+    <!-- ACT 1 · one casting, ten lenses: the live melt right, its spec column
+         left. landing.ts fills the rail (LENS_SPEC plus live readouts) and
+         the segments. The still (no WebGPU, reduced motion, no script) is an
+         ORIENT capture, and data-lens says so: the column as shipped, and as
+         landing.ts restores it for the still, describes THAT lens. -->
+    <section class="act specAct" id="lensAct">
+      <div class="specGrid specGrid--flip">
+        <div class="specMedia">
+          <div class="simBox">
+            <canvas id="lensSim" role="img" aria-label="Live simulation, MELT lens"></canvas>
+            <img class="fb" src="snowflake.jpg" data-lens="ORIENT" alt="A six-armed crystal seen through the ORIENT lens: one grain, one color" />
+          </div>
         </div>
-        <div class="simBox">
-          <canvas id="lensSim"></canvas>
-          <img class="fb" src="snowflake.jpg" alt="Dendrite viewed through the SOLIDIFY lenses" />
+        <div class="specCol">
+          <div class="specTop"><p class="kicker">One casting · ten lenses</p><span class="kicker specCount" id="lensCount">02 / 10</span></div>
+          <h2 class="specName" id="lensName">ORIENT</h2>
+          <p class="specBody" id="lensDesc">Polarized light: every grain shows in its own color.</p>
+          <dl class="spec" id="lensSpec"></dl>
+          <div class="segs" id="lensRail" aria-hidden="true"></div>
         </div>
       </div>
     </section>
 
-    <!-- ACT 2 · materials -->
-    <section class="act" id="matAct">
-      <div class="matGrid">
-        <div class="simBox">
-          <canvas id="matSim"></canvas>
-          <img class="fb" src="hero.jpg" alt="A field of white-hot steel dendrites solidifying" />
+    <!-- ACT 2 · melt types: the live melt left, its spec column right. Every
+         number in the rail is read from materials.ts by landing.ts. -->
+    <section class="act specAct" id="matAct">
+      <div class="specGrid">
+        <div class="specMedia">
+          <div class="simBox">
+            <canvas id="matSim" role="img" aria-label="Live simulation, Steel melt"></canvas>
+            <img class="fb" src="hero.jpg" alt="A field of white-hot steel dendrites solidifying" />
+          </div>
         </div>
-        <div class="matCopy">
-          <div class="k">THE MELT GLOWS EXACTLY AS HOT AS ITS PHYSICS SAYS</div>
-          <div id="matName">STEEL</div>
-          <div id="matTemp">Fe–C · pours at ~1540 °C</div>
-          <p id="matFact">White-hot. Four-fold δ-ferrite dendrites, the brightest melt in the instrument.</p>
-          <div class="rail" id="matRail"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ACT 2.5 · TRUE 3D: a live volumetric dendrite, raymarched -->
-    <section class="act" id="threeDAct">
-      <div class="matGrid">
-        <div class="simBox">
-          <canvas id="d3Sim"></canvas>
-          <img class="fb" src="dendrite3d.jpg" alt="A six-armed dendrite growing in the volumetric 3D solver, raymarched" />
-        </div>
-        <div class="matCopy">
-          <div class="k">AND THEN THE MISSING DIMENSION</div>
-          <div id="d3Name">TRUE 3D</div>
-          <div id="d3Temp">the same equations · all three dimensions · raymarched live</div>
-          <p id="d3Fact">A real cubic dendrite grows <b>six</b> arms, not four. Flip the TRUE 3D
-          switch and the instrument solves the full volumetric phase-field — millions of voxels —
-          then orbits it like a CAD model: section it on any plane, x-ray it for shrinkage
-          porosity, and print the crystal you grew as an STL. This one is growing live on your
-          GPU right now.</p>
+        <div class="specCol">
+          <div class="specTop"><p class="kicker">Melt types</p><span class="kicker specCount" id="matCount">01 / 04</span></div>
+          <h2 class="specName" id="matName">Steel</h2>
+          <p class="specBody" id="matFact">It pours white-hot, the brightest melt in the instrument.</p>
+          <dl class="spec" id="matSpec"></dl>
+          <div class="segs" id="matRail" aria-hidden="true"></div>
         </div>
       </div>
     </section>
 
-    <!-- ACT 3 · compose an alloy -->
-    <section class="act" id="composeAct">
-      <div class="inner">
-        <div class="k">COMPOSE AN ALLOY, ELEMENT BY ELEMENT</div>
-        <div class="chips">
-          <span class="chip">Al <b>base</b></span>
-          <span class="arrow">+</span>
-          <span class="chip">Si <b>7.0 wt%</b></span>
-          <span class="arrow">+</span>
-          <span class="chip">Mg <b>0.35 wt%</b></span>
-          <span class="arrow">+</span>
-          <span class="chip">Ti <b>0.12 wt%</b></span>
-          <span class="arrow">=</span>
-          <span class="chip result">A356 + TiB refiner</span>
+    <!-- ACT 2.5 · TRUE 3D: a live volumetric dendrite, raymarched, right -->
+    <section class="act specAct" id="threeDAct">
+      <div class="specGrid specGrid--flip">
+        <div class="specMedia">
+          <div class="simBox">
+            <canvas id="d3Sim" role="img" aria-label="Live 3D dendrite, raymarched"></canvas>
+            <img class="fb" src="dendrite3d.jpg" alt="A six-armed dendrite growing in the volumetric 3D solver, raymarched" />
+          </div>
         </div>
-        <div id="qLine">growth restriction factor &nbsp;<b data-q="71">Q = 71 K</b></div>
+        <div class="specCol">
+          <p class="kicker">The third dimension</p>
+          <h2 class="specName" id="d3Name">TRUE 3D</h2>
+          <p class="specBody" id="d3Fact">A cubic crystal grows six arms, not four. In the instrument you can section the volume, x-ray it for porosity and export it as an STL.</p>
+          <dl class="spec" id="d3Spec"></dl>
+        </div>
+      </div>
+    </section>
 
-        <div class="pdrow">
+    <!-- ACT 3 · compose an alloy: the drawn Al–Si diagram left, the recipe and
+         its numbers right -->
+    <section class="act specAct" id="composeAct">
+      <div class="specGrid">
+        <div class="specMedia">
+        <figure class="pdrow">
           <!-- Al–Si, drawn as straight chords between the cited invariant points,
                exactly the way the composer draws it. data-c is where the pour
                lands, data-csm the solubility limit it has to cross to get there;
                landing-motion.ts reads both off this element. -->
-          <svg id="pdFig" viewBox="0 0 430 212" data-c="7.0" data-csm="1.65" role="img"
-               aria-label="Aluminium–silicon phase diagram. Aluminium dissolves 1.65 wt% silicon; the A356 pour sits at 7.0 wt%, past that limit, where equilibrium leaves aluminium plus silicon.">
+          <svg id="pdFig" viewBox="0 0 411 212" data-c="7.0" data-csm="1.65" role="img"
+               aria-label="Aluminum–silicon phase diagram. Aluminum dissolves 1.65 wt% silicon; the A356 pour sits at 7.0 wt%, past that limit, where equilibrium leaves aluminum plus silicon.">
             <rect class="band lean" x="46" y="18" width="47.7" height="162"></rect>
             <rect class="band rich on" x="93.7" y="18" width="316.3" height="162"></rect>
             <line class="csm" x1="93.7" y1="18" x2="93.7" y2="180"></line>
@@ -486,19 +554,12 @@
             <text class="tick" x="40" y="166" text-anchor="end">577 °C</text>
             <text class="tick lbl" x="186" y="154" text-anchor="middle">(Al) + (Si) eutectic</text>
           </svg>
+          <figcaption class="pdnote">Aluminum dissolves 1.65 wt% silicon and no more. Past that line the
+          casting is two phases and this solver grows one, so the app names the silicon it will not
+          grow rather than drawing both.</figcaption>
+        </figure>
 
-          <div class="pdside">
-            <div class="pdk first">THE POUR</div>
-            <div id="pdC">Si 7.0 wt%</div>
-            <div class="pdk">EQUILIBRIUM LEAVES</div>
-            <div id="pdPhase">(Al) + (Si)</div>
-            <p class="pdnote">Aluminium dissolves 1.65 wt% silicon and no more. Past that line the
-            casting is two phases and this solver has one — so the app names the silicon it will
-            not grow rather than drawing you a picture of both.</p>
-          </div>
-        </div>
-
-        <div class="barhead">liquidus depression ΔT<sub>L</sub> = Σm<sub>i</sub>c<sub>i</sub> — the same two mixes</div>
+        <div class="barhead"><span class="kicker">Liquidus depression</span><span class="barf">ΔT<sub>L</sub> = Σ m<sub>i</sub>c<sub>i</sub>, two mixes</span></div>
         <div class="bars">
           <div class="barRow hi">
             <div class="lab"><span>A356 + TiB · Q ≈ 71 K</span><b data-count="44.7" data-dec="1" data-suffix=" K">44.7 K</b></div>
@@ -509,37 +570,95 @@
             <div class="track"><div class="fill" data-w="3.6"></div></div>
           </div>
         </div>
-
         <p class="after">The bars are liquidus depressions, not grain counts; an earlier grain-count comparison here was withdrawn, and <a href="science/">the science page</a> has the record.</p>
-        <div class="cta">
-          <a class="primary" href="app/#alloy=al:Si7,Mg0.35,Ti0.12">Pour this alloy</a>
-          <a class="ghost" href="app/">Mix your own</a>
+        </div>
+
+        <div class="specCol">
+          <p class="kicker">Alloy composer</p>
+          <h2 class="specName">A356 + TiB</h2>
+          <p class="specBody">Add elements to a base metal by weight. The composer reports the liquidus shift, Q and where the mix sits on its phase diagram.</p>
+          <div class="chips" role="group" aria-label="The recipe">
+            <span class="chip">Al <b>base</b></span>
+            <span class="arrow">+</span>
+            <span class="chip">Si <b>7.0 wt%</b></span>
+            <span class="arrow">+</span>
+            <span class="chip">Mg <b>0.35 wt%</b></span>
+            <span class="arrow">+</span>
+            <span class="chip">Ti <b>0.12 wt%</b></span>
+          </div>
+          <dl class="spec" id="composeSpec">
+            <div class="spec__row" id="qLine"><dt class="spec__label">growth restriction factor Q</dt><dd class="spec__value"><b data-q="71">71</b><span class="spec__unit">K</span></dd></div>
+            <div class="spec__row"><dt class="spec__label">the pour</dt><dd class="spec__value" id="pdC">Si <span data-v>7.0</span><span class="spec__unit">wt%</span></dd></div>
+            <div class="spec__row"><dt class="spec__label">equilibrium leaves</dt><dd class="spec__value" id="pdPhase">(Al) + (Si)</dd></div>
+          </dl>
+          <div class="cta">
+            <a class="btn btn--more" href="app/#alloy=al:Si7,Mg0.35,Ti0.12">Pour this alloy</a>
+            <a class="btn btn--text" href="app/">Mix your own</a>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- ACT 4 · the science -->
-    <section class="act" id="sciAct">
-      <div class="inner">
-        <div class="k">THE INSTRUMENT · NO SCRIPTS · NO PARTICLES · TWO EQUATIONS</div>
-        <div id="eq" style="margin-top: 22px;"><span id="eqText">τ ∂φ/∂t = ∇·(ε²∇φ) + φ(1−φ)(φ−½+m) &nbsp;·&nbsp; ∂T/∂t = ∇²T + K ∂φ/∂t</span><span class="cursor"></span></div>
-        <div class="sub2">Kobayashi (1993) anisotropic phase-field · Warren–Boettinger dilute alloy · ASTM E112 metallography</div>
-        <div class="stamps">
-          <div class="stamp"><b>✓</b>canonical dendrite morphology</div>
-          <div class="stamp"><b>✓</b>emergent CET, recalescence, twin competition</div>
-          <div class="stamp"><b>✓</b>honest units, labelled approximations</div>
+    <!-- ACT 4 · the science: copy left, the equations and what the model is
+         built on right, as a stacked spec rail -->
+    <section class="act specAct" id="sciAct">
+      <div class="specGrid">
+        <div class="specCol">
+          <p class="kicker">The science</p>
+          <h2 class="specName">No scripts. No particles.</h2>
+          <p class="specBody">The crystal and the heat around it are two coupled fields, solved cell by cell on your GPU. Pour an alloy and a third field, the solute, joins them.</p>
+          <div class="cta">
+            <a class="btn btn--more" href="science/">Read the science</a>
+            <a class="btn btn--text" href="app/">Open the instrument</a>
+          </div>
         </div>
-        <div class="cta">
-          <a class="primary" href="app/">Open the instrument</a>
-          <a class="ghost" href="science/">Read the science</a>
-        </div>
+        <dl class="spec sciSpec">
+          <div class="spec__row spec__row--stack"><dt class="spec__label">phase field φ</dt><dd class="spec__value eqn">τ ∂φ/∂t = ∇·(ε²∇φ) + φ(1−φ)(φ−½+m)</dd></div>
+          <div class="spec__row spec__row--stack"><dt class="spec__label">heat T</dt><dd class="spec__value eqn">∂T/∂t = ∇²T + K ∂φ/∂t</dd></div>
+          <div class="spec__row"><dt class="spec__label">phase-field model</dt><dd class="spec__value spec__value--text">Kobayashi (1993), anisotropic</dd></div>
+          <div class="spec__row"><dt class="spec__label">alloy</dt><dd class="spec__value spec__value--text">Warren–Boettinger, dilute</dd></div>
+          <div class="spec__row"><dt class="spec__label">grain size</dt><dd class="spec__value spec__value--text">ASTM E112</dd></div>
+          <div class="spec__row"><dt class="spec__label">emergent</dt><dd class="spec__value spec__value--text">CET, recalescence, twin competition</dd></div>
+        </dl>
       </div>
     </section>
   </main>
 
-  <footer>
-    built by Frank Cai · <a href="https://github.com/fronkt/solidify">source on GitHub</a> · <a href="science/">the science</a> · <a href="contact/">contact</a><br/>
-    <span class="cite">Needs a WebGPU browser for the live pages: Chrome, Edge, Safari 26+, recent Firefox.</span>
+  <!-- Figure's footer matrix (tokens.css .ftr); science and contact carry the
+       same one -->
+  <footer class="ftr">
+    <div class="ftr__grid">
+      <div class="ftr__brand">
+        <a class="hdr__mark" href="./">SOLIDIFY</a>
+        <p>A phase-field solidification lab, live in your browser.</p>
+      </div>
+      <nav aria-label="Instrument">
+        <p class="ftr__label">Instrument</p>
+        <ul class="ftr__links">
+          <li><a href="app/">Open the instrument</a></li>
+          <li><a href="app/?tour=1">Take the tour</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Science">
+        <p class="ftr__label">Science</p>
+        <ul class="ftr__links">
+          <li><a href="science/">The science</a></li>
+          <li><a href="https://github.com/fronkt/solidify/blob/main/hero/README.md">How the hero is rendered</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Project">
+        <p class="ftr__label">Project</p>
+        <ul class="ftr__links">
+          <li><a href="https://github.com/fronkt/solidify">Source on GitHub</a></li>
+          <li><a href="https://github.com/fronkt/solidify/issues/new">Report an issue</a></li>
+          <li><a href="contact/">Contact</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="ftr__base">
+      <span>Built by Frank Cai</span>
+      <span>Needs a WebGPU browser for the live pages: Chrome, Edge, Safari 26+, recent Firefox.</span>
+    </div>
   </footer>
 
   <script type="module" src="/src/landing.ts"></script>

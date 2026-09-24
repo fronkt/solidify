@@ -1,24 +1,18 @@
-// DOM-side motion for the scroll story (anime.js v4): the wordmark's entrance,
-// composer-act chips/Q/bars, equation typing, magnetic CTAs, top-nav reveal.
+// DOM-side motion for the scroll story (anime.js v4): the hero opening's
+// entrance, the composer act's reveal (chips, Q, the Al–Si marker, bars), the
+// science act's rows, and the header's state (src/design/header.ts).
 // Sim-coupled scroll work (pins, lens/material switching) lives in landing.ts;
-// the hero's scroll scrub (frames, chapter text, callouts) lives in hero.ts.
-// The inline <head> gate adds html.anim only when motion is allowed; a
-// watchdog reveals everything if this module never runs.
+// the hero's scroll scrub (frames, chapter text, the feature rail) lives in
+// hero.ts. The inline <head> gate adds html.anim only when motion is allowed; a
+// watchdog reveals everything if this module never runs. Every reveal is
+// opacity and a short translate, nothing else.
 
-import { animate, createTimeline, stagger, utils } from "animejs";
+import { animate, stagger, utils } from "animejs";
+import { topnav } from "./design/header";
 
 declare global { interface Window { __landingMotion?: boolean } }
 
 const root = document.documentElement;
-
-// top-nav reveal runs even for reduced-motion users (it is navigation, not decor)
-function topnav() {
-  const nav = document.getElementById("topnav")!;
-  const hero = document.getElementById("heroAct")!;
-  const onScroll = () => nav.classList.toggle("show", scrollY > hero.offsetHeight * 0.72);
-  addEventListener("scroll", onScroll, { passive: true });
-  onScroll();
-}
 
 function countUp(el: HTMLElement, target: number, format: (n: number) => string,
   duration = 1500, decimals = 0) {
@@ -32,53 +26,12 @@ function countUp(el: HTMLElement, target: number, format: (n: number) => string,
   });
 }
 
-function splitLetters(h1: HTMLElement) {
-  // rebuild "SOLID<span>IFY</span>" as per-letter spans, preserving the amber
-  // span; screen readers keep the intact label
-  h1.setAttribute("aria-label", h1.textContent ?? "SOLIDIFY");
-  const frag = document.createDocumentFragment();
-  for (const node of [...h1.childNodes]) {
-    const amber = node.nodeName === "SPAN";
-    for (const ch of node.textContent ?? "") {
-      const s = document.createElement("span");
-      s.className = amber ? "ltr ltr-a" : "ltr ltr-w";
-      s.textContent = ch;
-      s.setAttribute("aria-hidden", "true");
-      s.style.display = "inline-block";
-      s.style.opacity = "0";
-      if (amber) s.style.color = "var(--amber)";
-      frag.append(s);
-    }
-  }
-  h1.textContent = "";
-  h1.append(frag);
-}
-
+/** The hero opening (kicker, title, body, CTAs) rises into place once, in
+ *  order: opacity and a short translate, no blur. */
 function heroEntrance() {
-  const h1 = document.querySelector<HTMLElement>("#wordmark");
-  if (h1) {
-    splitLetters(h1);
-    utils.set(h1, { opacity: 1 });   // letters own their visibility now
-  }
-  const tl = createTimeline({ defaults: { ease: "outExpo" } });
-  // the wordmark solidifies: letters rise, unblur, cool from molten amber to white
-  tl.add(".ltr-w", {
-    opacity: [0, 1],
-    translateY: [30, 0],
-    filter: ["blur(8px)", "blur(0px)"],
-    color: ["#ffb454", "#eef1f5"],
-    duration: 950,
-    delay: stagger(46),
-  }, 0);
-  tl.add(".ltr-a", {
-    opacity: [0, 1],
-    translateY: [30, 0],
-    filter: ["blur(8px)", "blur(0px)"],
-    duration: 950,
-    delay: stagger(46),
-  }, 240);
-  tl.add("#heroOpen .tag", { opacity: [0, 1], translateY: [16, 0], duration: 750 }, 500);
-  tl.add("#heroOpen .cta", { opacity: [0, 1], translateY: [14, 0], duration: 700 }, 700);
+  animate("#heroOpen > *", {
+    opacity: [0, 1], translateY: [16, 0], duration: 700, ease: "outCubic", delay: stagger(80, { start: 80 }),
+  });
 }
 
 /**
@@ -109,7 +62,8 @@ function pdMarker(host: HTMLElement) {
   const drop = fig.querySelector<SVGLineElement>(".drop");
   const lean = fig.querySelector<SVGRectElement>(".band.lean");
   const rich = fig.querySelector<SVGRectElement>(".band.rich");
-  const cEl = document.getElementById("pdC");
+  // the pour's value is the number inside #pdC; its element and unit stay put
+  const cEl = document.querySelector<HTMLElement>("#pdC [data-v]");
   const phEl = document.getElementById("pdPhase");
   if (!sol || !dot || !drop || !lean || !rich || !cEl || !phEl) return;
   const num = (el: Element, a: string) => parseFloat(el.getAttribute(a) ?? "");
@@ -129,13 +83,13 @@ function pdMarker(host: HTMLElement) {
     drop.setAttribute("x1", x.toFixed(2));
     drop.setAttribute("x2", x.toFixed(2));
     drop.setAttribute("y1", y.toFixed(2));
-    cEl.textContent = `Si ${c.toFixed(1)} wt%`;
+    cEl.textContent = c.toFixed(1);
     // the crossing itself: at and past C_SM the casting is two phases, and the
     // end state must land back on exactly the markup the page shipped with
     const past = st.t >= 1 ? rich0 : c >= cSm;
     rich.classList.toggle("on", past);
     lean.classList.toggle("on", st.t >= 1 ? lean0 : !past);
-    phEl.textContent = st.t >= 1 ? phase0 : past ? "(Al) + (Si)" : "(Al) — everything dissolves";
+    phEl.textContent = st.t >= 1 ? phase0 : past ? "(Al) + (Si)" : "(Al) only";
   };
   paint();   // rewind to 0 wt% before the row fades in, so nothing jumps
   animate(st, { t: 1, duration: 1500, delay: 900, ease: "inOutCubic", onUpdate: paint });
@@ -149,18 +103,19 @@ function composeReveal() {
     animate("#composeAct .chip, #composeAct .arrow", {
       opacity: [0, 1], translateY: [16, 0], duration: 550, ease: "outCubic", delay: stagger(80),
     });
-    animate("#qLine", { opacity: [0, 1], duration: 500, delay: 500, ease: "outCubic" });
+    animate("#composeSpec", { opacity: [0, 1], duration: 500, delay: 500, ease: "outCubic" });
+    // the Q row's value is the number alone; its unit is a sibling span
     const q = host.querySelector<HTMLElement>("#qLine b")!;
     // REWIND BEFORE THE ROW FADES IN, the same way pdMarker does below. P6 made
     // the shipped text the FINAL value so a reduced-motion reader is not left
-    // staring at a zero — but countUp starts at zero and overwrites, so without
+    // staring at a zero. But countUp starts at zero and overwrites, so without
     // this the reader is shown the answer at partial opacity, watches it drop to
     // near nothing, and waits while it climbs back. Measured before the fix:
     // "44.7 K" readable at 0.909 opacity, "3.0 K" at 0.937, "44.7 K" again only
     // at t = 2.7 s. These two lines run only under html.anim, so the fallback
     // copy is untouched.
-    q.textContent = "Q = 0 K";
-    setTimeout(() => countUp(q, parseInt(q.dataset.q!, 10), n => `Q = ${n} K`, 1300), 550);
+    q.textContent = "0";
+    setTimeout(() => countUp(q, parseInt(q.dataset.q!, 10), n => String(n), 1300), 550);
     animate([".pdrow", ".barhead", ".bars", "#composeAct .after", "#composeAct .cta"], {
       opacity: [0, 1], translateY: [16, 0], duration: 650, ease: "outCubic", delay: stagger(140, { start: 650 }),
     });
@@ -178,48 +133,39 @@ function composeReveal() {
   io.observe(host);
 }
 
+/** The Al–Si figure's text is sized in the SVG's user units, so it grows with
+ *  the figure: drawn 918 px wide (1920 x 1080) an 11-unit tick is 25 px on
+ *  screen, heavier than the copy beside it. --pd-k is the figure's user units
+ *  per CSS px, and index.html multiplies the tick size by it, so the ticks
+ *  stay at the tick role's 11 px at any width. Without this module the text
+ *  scales as drawn. Geometry is untouched (PD-LANDING-FIGURE reads it). */
+function pdTextScale() {
+  const fig = document.getElementById("pdFig") as SVGSVGElement | null;
+  const units = fig?.viewBox.baseVal.width ?? 0;
+  if (!fig || !(units > 0)) return;
+  const set = () => {
+    const w = fig.getBoundingClientRect().width;
+    if (w > 0) fig.style.setProperty("--pd-k", (units / w).toFixed(4));
+  };
+  new ResizeObserver(set).observe(fig);
+  set();
+}
+
+/** The science act's rail rises row by row, then its links. The equations are
+ *  set whole: no typing, no cursor. */
 function sciReveal() {
   const host = document.getElementById("sciAct")!;
-  const eqText = document.getElementById("eqText")!;
-  const full = eqText.textContent ?? "";
   const io = new IntersectionObserver(es => {
     if (!es.some(e => e.isIntersecting)) return;
     io.disconnect();
-    eqText.textContent = "";
-    const obj = { i: 0 };
-    animate(obj, {
-      i: full.length,
-      duration: 2100,
-      ease: "linear",
-      modifier: utils.round(0),
-      onUpdate: () => { eqText.textContent = full.slice(0, obj.i); },
-    });
-    animate("#sciAct .sub2", { opacity: [0, 1], duration: 600, delay: 1400, ease: "outCubic" });
-    animate(".stamp", { opacity: [0, 1], translateY: [14, 0], duration: 550, ease: "outCubic", delay: stagger(140, { start: 1700 }) });
-    animate("#sciAct .cta", { opacity: [0, 1], translateY: [14, 0], duration: 650, delay: 2200, ease: "outCubic" });
-  }, { threshold: 0.4 });
+    animate("#sciAct .spec__row", { opacity: [0, 1], translateY: [14, 0], duration: 550, ease: "outCubic", delay: stagger(90, { start: 150 }) });
+    animate("#sciAct .cta", { opacity: [0, 1], translateY: [14, 0], duration: 600, delay: 500, ease: "outCubic" });
+  }, { threshold: 0.3 });
   io.observe(host);
 }
 
-function magnetic() {
-  for (const a of document.querySelectorAll<HTMLElement>(".cta a, #topnav nav a.go")) {
-    a.addEventListener("pointermove", e => {
-      if (e.pointerType !== "mouse") return;
-      const r = a.getBoundingClientRect();
-      animate(a, {
-        translateX: ((e.clientX - r.left) / r.width - 0.5) * 8,
-        translateY: ((e.clientY - r.top) / r.height - 0.5) * 6,
-        duration: 180,
-        ease: "out(2)",
-      });
-    });
-    a.addEventListener("pointerleave", () => {
-      animate(a, { translateX: 0, translateY: 0, duration: 550, ease: "outElastic(1, .55)" });
-    });
-  }
-}
-
 topnav();
+pdTextScale();
 
 if (root.classList.contains("anim")) {
   try {
@@ -227,7 +173,6 @@ if (root.classList.contains("anim")) {
     heroEntrance();
     composeReveal();
     sciReveal();
-    magnetic();
   } catch (err) {
     console.error("[solidify] landing motion failed:", err);
     root.classList.remove("anim");

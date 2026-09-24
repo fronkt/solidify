@@ -4479,13 +4479,65 @@ first, then U2/U3 build on it. Binding spec: `docs/DESIGN.md`.
 - [ ] **D0 · Tokens + fonts.** `src/design/tokens.css` (the only place a color, size or radius
       is written), self-hosted fonts (@fontsource), component classes (btn, spec rail, tabs,
       inputs, tags, panels). Linked from all four pages.
-- [ ] **D1 · Landing, science, contact.** Figure header + nav pills; hero render left, one copy
+      - 2026-09-24: built. `tokens.css` holds every color, type size, spacing step, radius and
+        the chrome sizes; Space Grotesk 400, Inter Variable and JetBrains Mono 400 from
+        @fontsource (no Google Fonts request); components: btn (+ primary, text, more, sm,
+        pressed/toggled/disabled), spec rail (+ text values, stacked rows, live tick), segments,
+        tabs (+ pill lens bar), tags and status, panels (+ overlay), inputs, slider, switch,
+        header (+ phone menu), footer matrix. Linked from the landing, science and contact
+        pages. After review: `--overlay` 0.86 to 0.90 (`--fg-3` on it over a white pixel was
+        4.0:1, now 4.58:1; DESIGN.md's table updated), one content frame (`--page-max` 1760 px,
+        `--page-x` the inset every page edge uses, header included), `scroll-padding-top` under
+        the fixed header, the live-value tick a one-shot 150 ms keyframe, the phone menu's links
+        in `--fg-2`, and the narrow-phone header rule moved here from three page copies (under
+        360 px the pill reads "Open", its name still "Open the instrument"). NOT ticked: the
+        fourth page, `app/index.html`, does not link it yet; that lands with D2, which restyles
+        the tool.
+- [x] **D1 · Landing, science, contact.** Figure header + nav pills; hero render left, one copy
       column right, the tour's five features as a spec rail with a leader line; lens / melt-type
       / TRUE 3D acts with live-canvas + spec column (real values: live sim readouts,
       `materials.ts`); footer matrix; `#grain`, `.heroGlow`, amber and cyan gone; hero copy
       honesty fixes from the v4 ideation critique ("its shape locked in" is wrong: arms keep
       coarsening; "one grain" must not ride on a steel label; alt text says satin finish, not
       steel). Gates re-pointed, never loosened.
+      - 2026-09-24: built, then a 37-finding review fixed (every finding verified before its
+        fix; none rejected as unreal, one deferred, below). Layout: one content frame for every
+        edge (at 1440 all run 48..1392 px, at 1920 80..1840, header, hero, acts, compose, science,
+        footer and contact alike); the compose act on the melt act's template, its diagram's
+        viewBox trimmed so the plot meets the bars; the hero copy column to the page inset; the
+        tour rail's title track sized to the title face, `text-wrap: pretty`, and a container
+        query that stacks each row's line under its title in a narrow column (1024 x 768 now
+        fits: 187..597 px in a 143..641 column); a short-screen compaction (1366 x 657 fits at
+        every lens and melt stop); screens under 560 px tall (a phone sideways) get the still
+        hero and unpinned acts whose lens and melt steps follow the scroll; phones left-align
+        the act media and the compose diagram leads. Type: caption and SCROLL at 13 px nav
+        style; emphasis is brightness, not Inter 500; science section titles in the heading
+        role, its running text at a 36em measure (~72 characters, not 96), the note paragraphs
+        spaced and wrapped; contact's title at display-2, its address in Inter; caveats in
+        `--fg-2`; the Al–Si ticks held at 11 screen px at any figure width. Honesty: the still
+        lens act names the lens its image was captured through (ORIENT, from the img's
+        `data-lens`), its counters hidden; the glow row is "glow scale · MELT lens display, not
+        a measurement"; steel's and aluminum's melting points say "pure Fe" / "pure Al"; the
+        TRUE 3D symmetry is worded from the volume's own `aniMode3`; "One casting · ten
+        lenses"; the science act names the solute field. No-JS: the acts show their stills (the
+        stills are the default, `html.js` swaps in the canvases). Accessibility: focus clears
+        the header, a link tabbed to before its reveal shows at once, the canvases are named
+        images, the recipe a group, the hero's feature list read once, contact's copy control a
+        button with a status region, the close-up vignette removed (a 6% edge only). Gates:
+        `verify-hero.mjs` 13 checks (HERO-FIT new; HERO-CHAPTERS' end-link selector fixed and
+        required to exist; HERO-MOBILE requires the row shown and its line slot visible),
+        `verify-landing-acts.mjs` 9 (LANDING-A11Y new; LENS-LIVE and 3D-SPEC compare against
+        the gate's own read of a frozen sim; MAT-SPEC derives the "pure X" note from
+        `si.source`; ACT-LAYOUT adds 1366 x 657 and 844 x 390; STILL adds the lens-vs-image
+        and no-JS clauses); every new or re-pointed clause shown failing on a planted defect,
+        files restored by sha1. Green: typecheck, build, the 14 CI scripts, scroll-order, hero,
+        landing acts. Shots: `solidify-hero-out/d1_shots/final/` (38). Ticked: every D1 item
+        in the line above is on the page and gated.
+      - Deferred, outside D1's files: the first screen is a title beside a near-empty square,
+        because frame 0 is a ~25 px seed (finding 5; `hero/timeline.json`, see H v4 A2), and
+        the frames' own background, rgb(9,11,12) against `--bg` rgb(10,10,10), shows as a
+        faint soft-edged box around the render at 1920 (H v4 A6). The science page's long-form
+        prose still carries em dashes and "artefact" / "aluminium": U1e's sweep.
 - [ ] **D2 · The tool.** Top chrome (learn, controls, TRUE 3D) and lens bar in the nav style;
       the rail as spec rows (Inter labels, mono tabular values, pill buttons, achromatic
       sliders); HUD as a spec rail on `--overlay`; mode panels, composer modal, tour and learn
@@ -4506,8 +4558,70 @@ frames only. Recommendation: B staged, A first.
       720 set (phones download the 1200 set today); fling gate in verify-hero.
 - [ ] **A:** one planned camera path (spline, quaternions, motion caps, soft holds, ~700 deg one
       way), linear growth time, newborn-arm radius ramp, lathe tour, pull-back ending on a real
-      frame; 560 frames, ~6.2 h render; segment-packed, content-hashed, AVIF. Awaiting Frank:
-      A only, or A then B.
+      frame; 560 frames, ~6.2 h render; segment-packed, content-hashed, AVIF. **Frank
+      (2026-09-24): B, staged, A first; build off the existing hero pipeline, more frames,
+      more camera turns.**
+      - [x] A1 hero/timeline.json: one source for N, chapters, feature windows (new order
+            PRIMARY > TIP > λ₂ > TERTIARY > NECK), px_per_frame; read by render_sequence.py,
+            encode_frames.py, verify-hero-manifest.mjs, and (after D1) imported by hero.ts.
+            - 2026-09-24: `hero/timeline.json` (726 frames, 11 px/frame, hold 560: pin 8,546 px;
+              seed 0-29, grow 30-129, branch 130-229, cool 230-297, tour 298-598, pullback 599-725;
+              windows = 17-frame hold ± 10, gaps between; poster = 725; growth t 0.03 -> 1 linear over
+              0-229; warmth over cool). `path_plan.load_timeline` is the reader; render_sequence,
+              encode_frames (manifest **version 2** = v1 fields + `px_per_frame`, `hold_px`, feature
+              `hold` / `label`) and make_placeholder_frames read it; no 180 / chapter literal left in
+              hero/*.py. Open: verify-hero-manifest.mjs and hero.ts still hard-code 180 / v1 (A5).
+      - [x] A2 path planner: keys → centripetal Catmull-Rom + quaternion spline, re-timed by
+            projected screen motion, caps (<= 12 px/frame at 1200, <= 0.03 ln-width/frame),
+            soft holds (>= 3 px/frame, never 0), one-way ~700 deg with a +-15 deg elevation
+            wave, lathe tour around the +x trunk, pull-back ending on the poster pose; analytic
+            motion report (max/median step ratio < 4; today 46).
+            - 2026-09-24: `hero/path_plan.py` -> `v4/path.json` + `path_report.{txt,json,png}`, exit 1
+              on a broken cap; `render_sequence.py` takes its camera from path.json (v3 keys gone).
+              CHECK PASS: p90 max 11.68 px, median 6.10, max/median 1.92; ln-width max 0.026; roll
+              (twist about the view axis) max 0.96 deg/frame; holds 3.2-3.4 px/frame; every anchor
+              visible (Blender ray casts, close-up mesh) for its whole window and hold; poster 725
+              shows all five. Turn 572 deg of view direction (seed 97, grow 225, branch 114, cool 25,
+              tour 94, pullback 17), not ~700. **Trade the caps forced:** the storyboard's 560 frames
+              (cool + tour + pull-back 284) cannot hold close-ups under 12 px/frame: each unit of
+              ln(width) costs ~70 frames (dolly parallax) and the pans the rest (measured legs at a
+              flat cap speed: hand-over 56, glides 43/45/27/38, pull-back 108), so N went to 726
+              (`path_plan.py --propose` sizes the legs), px_per_frame 12.5 -> 11 to keep the pin in the
+              7.5-8.7k band, closest shot W 0.50 (v3 0.22), orbit 480 deg (540 hits the twist cap).
+      - [ ] A3 generator: linear growth time, newborn arms ramp their protrusion in, neck
+            re-picked nearer the root, fine mesh for every frozen frame (no mid-glide swap),
+            per-t mesh cache on disk; small-amplitude coarsening through cool so the copy is
+            true on screen.
+            - 2026-09-24 (with A1/A2): linear growth time (timeline.growth), fine mesh for every
+              frozen frame (229 on), neck re-pick DONE in render_sequence. Finding: no +x root
+              between 0.25 and 0.60 L shows a waist on the close-up mesh (coalesced roots keep no
+              neck); the pick is arm 63, +z row, 0.67 L, waist 0.87 (v3: 0.71 L). The tertiary is
+              re-picked beside lambda2 and the neck (a -y tertiary on the +z host at 0.54 L). Still
+              open: protrusion ramp, per-t mesh cache, coarsening through cool, key light trailing
+              the camera (path.json carries `orbit_deg` per frame for it).
+      - [ ] A4 fast preview (Workbench/EEVEE, low res) of the whole path from the cache; after D1,
+            load it in the page behind a dev flag so Frank can feel the scroll before the
+            Cycles night.
+            - 2026-09-24: minimal mode exists: `render_sequence.py --preview --workbench
+              --coarse-frozen [--frames ...]` + `encode_frames.py --contact-only --from-masters`;
+              24 frames in ~5 min (`v4/preview_sheet.png`). A whole-path preview is ~1 h until the
+              mesh cache lands (the growth rebuilds dominate).
+      - [ ] A5 page engine (after D1 lands in hero.ts): spring playhead, display-rate decode,
+            blend on slow steps only, set pick by CSS width x min(DPR, 2) + 720 set, segments +
+            content-hashed dir + immutable cache headers; verify-hero rewritten, not loosened.
+      - [ ] A6 the Cycles render (main session, resumable, ~6 h), encode, gates, commit.
+            (2026-09-24: 726 frames now; a 4-frame probe at 1200 / 96 spp measured growth 22 s build
+            + 33 s render at t 0.79, frozen 30-33 s wide and 50 s at the f/4 close-up, 4.3 min setup:
+            ~8 h in all.)
+            - Settle BEFORE the Cycles night (from the D1 review, 2026-09-24; hero/ was outside D1):
+              (1) the first screen: frame 0 is a ~25 px seed in a ~700 px square, so a visitor's
+              first view is the title beside a void (1440, 1920 and 390 alike). Frame the seed
+              chapter so the crystal fills at least a third of the square at frame 0 (a closer
+              seed camera, or growth starting above t 0.03), or start the pin on the first grow
+              frame. (2) The frames' background is rgb(9,11,12), the page's `--bg` rgb(10,10,10):
+              through the 6% edge fade it reads as a faint soft-edged box around the render at
+              1920. Render on `--bg` exactly. The anchors-only pass for the 726-frame timeline
+              finished 17:29 (all five anchors visible in their windows and holds).
 - [ ] **B (if chosen):** finer branching with faster tips in a colder melt, coarsening +
       pinch-off, honest remelt, new melts: ice (hexagonal) and the app's icosahedral model,
       lineup; copy says the [111] view is three-fold.

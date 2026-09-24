@@ -278,7 +278,9 @@ block("HERO-PAGE-KEYS", () => {
   if (noWords.length) bad.push({ featuresWithNoCopy: noWords });
   if (orphanWords.length) bad.push({ copyWithNoFeature: orphanWords });
   const html = readFileSync(SRC("index.html"), "utf8");
-  const blocks = [...html.matchAll(/class="chap" data-chap="([\w-]+)"/g)].map(x => x[1]);
+  // `chap` as one class among any others (the blocks are also `heroBlock`s of
+  // the copy column), never as part of a longer class name
+  const blocks = [...html.matchAll(/class="(?:[^"]*\s)?chap(?:\s[^"]*)?"\s+data-chap="([\w-]+)"/g)].map(x => x[1]);
   // the page's text chapters: grow (seed + grow), cool, and end (after the
   // last frame); the tour speaks through the callouts alone
   const chIds = (m.chapters ?? []).map(c => c.id);

@@ -3,60 +3,101 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%230a0b0d"/><text x="32" y="45" font-family="ui-monospace,Consolas,monospace" font-size="36" font-weight="700" text-anchor="middle"><tspan fill="%23ffb454">S</tspan><tspan fill="%23eef1f5">I</tspan></text></svg>' />
-  <title>SOLIDIFY — the science</title>
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%230a0a0a"/><text x="32" y="46" font-family="Arial,Helvetica,sans-serif" font-size="40" text-anchor="middle" fill="%23f2f2f2">S</text></svg>' />
+  <title>SOLIDIFY · the science</title>
   <meta name="description" content="The phase-field model behind SOLIDIFY: equations, numerics, what is quantitative, what is qualitative, and how it was verified." />
+  <!-- the design system: every color, type size and radius below is a token
+       from this file (docs/DESIGN.md) -->
+  <link rel="stylesheet" href="/src/design/tokens.css" />
   <style>
-    :root { --bg: #0a0b0d; --panel: #101216; --line: #232833; --text: #b8c0cc; --bright: #eef1f5; --dim: #5b6675; --amber: #ffb454; --cyan: #56d4dd; --font: "SF Mono", "Cascadia Code", Consolas, monospace; }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: var(--bg); color: var(--text); font-family: var(--font); line-height: 1.7; font-size: 13.5px; }
-    ::selection { background: var(--amber); color: #17110a; }
-    ::-webkit-scrollbar { width: 10px; background: #0a0b0d; }
-    ::-webkit-scrollbar-thumb { background: #c98a3a; border-radius: 5px; border: 2px solid #0a0b0d; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--amber); }
-    html { scrollbar-color: #c98a3a #0a0b0d; }
-    .wrap { max-width: 780px; margin: 0 auto; padding: 48px 22px 80px; }
-    header { margin-bottom: 42px; }
-    header h1 { color: var(--bright); font-size: 24px; letter-spacing: 0.3em; }
-    header h1 span { color: var(--amber); }
-    header .sub { color: var(--dim); margin-top: 6px; font-size: 12.5px; }
-    nav.top { margin-top: 14px; display: flex; gap: 14px; font-size: 12px; }
-    nav.top a { color: var(--cyan); text-decoration: none; }
-    nav.top a:hover { color: var(--amber); }
-    h2 { color: var(--bright); font-size: 15px; letter-spacing: 0.14em; margin: 44px 0 12px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
-    p { margin-bottom: 13px; }
-    b { color: var(--bright); font-weight: 600; }
-    i { color: var(--cyan); font-style: normal; }
-    .eq { background: var(--panel); border: 1px solid var(--line); border-left: 2px solid var(--amber); border-radius: 4px; padding: 12px 16px; margin: 14px 0; color: var(--bright); font-size: 13.5px; overflow-x: auto; white-space: nowrap; }
-    .eq .c { color: var(--dim); font-size: 11.5px; white-space: normal; }
-    ul { margin: 0 0 13px 18px; }
-    li { margin-bottom: 7px; }
-    .note { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; margin: 16px 0; font-size: 12.5px; }
-    .note .t { color: var(--amber); letter-spacing: 0.14em; font-size: 10.5px; margin-bottom: 6px; }
-    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 12px; }
-    th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); }
-    th { color: var(--dim); font-weight: 500; letter-spacing: 0.1em; font-size: 10.5px; }
-    td b { color: var(--amber); font-weight: 500; }
-    img { max-width: 100%; border-radius: 6px; border: 1px solid var(--line); margin: 10px 0; }
-    .refs { font-size: 12px; color: var(--dim); }
-    .refs li { margin-bottom: 8px; }
-    footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--dim); font-size: 11.5px; }
-    footer a { color: var(--cyan); text-decoration: none; }
-    sub, sup { font-size: 0.72em; }
+    /* Long form, editorial: one reading column of Inter body at 16 px, section
+       titles in the heading role (Inter 22 px, sentence case) under a
+       nav-style section number, equations and tables set between 1 px rules,
+       figures square-edged, notes as panels. The frame is 760 px for tables,
+       equations and figures; running text keeps a 36em measure inside it
+       (576 px, about 72 characters a line of Inter, not 96). Not ch: Inter's
+       "0" is wider than its average letter, so 68ch measured 87 a line. */
+    .doc { max-width: calc(760px + 2 * var(--gutter)); margin: 0 auto; padding: 0 var(--gutter) var(--s-24); }
+    .pageHead { padding: calc(var(--header-h) + var(--s-20)) 0 var(--s-16); border-bottom: 1px solid var(--rule); }
+    .pageHead h1 { margin: var(--s-5) 0 0; font: 400 var(--t-display-2)/1.02 var(--font-display); letter-spacing: var(--track-display); color: var(--fg); }
+    .pageHead .lead { margin: var(--s-6) 0 0; max-width: 46ch; font: 400 var(--t-body-l)/1.6 var(--font-body); color: var(--fg-2); }
+    .doc h2 { margin: var(--s-20) 0 var(--s-6); font: 400 var(--t-heading)/1.1 var(--font-body); letter-spacing: var(--track-body); color: var(--fg); }
+    .doc h2 .secN { display: block; margin-bottom: var(--s-3); font: 400 var(--t-nav)/1 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg-3); font-variant-numeric: tabular-nums; }
+    .doc p:not(.kicker), .doc li { font: 400 var(--t-body)/1.65 var(--font-body); letter-spacing: var(--track-body); color: var(--fg-2); }
+    .doc p:not(.kicker) { margin: 0 0 var(--s-4); }
+    .doc > p:not(.kicker), .doc > ul, .note p { max-width: 36em; }
+    /* emphasis is brightness, not weight (DESIGN.md: Inter 500 is for buttons
+       and the active item only) */
+    .doc b { color: var(--fg); font-weight: 400; }
+    .doc i { font-style: italic; }
+    .doc code { font: 400 0.84em/1 var(--font-mono); color: var(--fg-2); overflow-wrap: anywhere; }
+    .doc ul { margin: 0 0 var(--s-4); padding-left: var(--s-5); }
+    .doc li { margin-bottom: var(--s-2); }
+    .doc li::marker { color: var(--fg-3); }
+    .doc sub, .doc sup { font-size: 0.72em; }
+    /* an equation: set in the body face, larger, between 1 px rules; its gloss under it */
+    .eq { margin: var(--s-6) 0; padding: var(--s-4) 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+      font: 400 var(--t-body-l)/1.5 var(--font-body); color: var(--fg); overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
+    .eq + .eq { margin-top: calc(-1 * var(--s-6)); border-top: 0; }
+    .eq .c { margin-top: var(--s-1); font: 400 var(--t-ui)/1.5 var(--font-body); color: var(--fg-3); white-space: normal; }
+    /* a boxed aside: the panel spec, on --surface */
+    .note { margin: var(--s-8) 0; padding: var(--s-6); background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-panel);
+      font: 400 var(--t-body)/1.65 var(--font-body); color: var(--fg-2); }
+    .note .t { margin: 0 0 var(--s-3); padding-bottom: var(--s-3); border-bottom: 1px solid var(--rule);
+      font: 400 var(--t-nav)/1.3 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav); color: var(--fg); }
+    /* the note's paragraphs: 12 px apart, none after the last, so the panel's
+       padding is even. It has to outrank .doc p:not(.kicker) above. */
+    .doc .note p:not(.kicker) { margin: var(--s-3) 0 0; }
+    /* tables: 1 px rules, nav-style heads, no fills */
+    .doc table { width: 100%; margin: var(--s-6) 0 var(--s-8); border-collapse: collapse; border-top: 1px solid var(--rule-strong); }
+    .doc th, .doc td { padding: var(--s-3) var(--s-4) var(--s-3) 0; text-align: left; vertical-align: top; border-bottom: 1px solid var(--rule); }
+    .doc th { font: 400 var(--t-nav-tool)/1.3 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav); color: var(--fg-3); }
+    .doc td { font: 400 var(--t-ui)/1.55 var(--font-body); color: var(--fg-2); }
+    .doc td:first-child { color: var(--fg); }
+    .doc td b { color: var(--fg); font-weight: 400; }
+    /* figures: square-edged, no frame */
+    .doc img { display: block; width: 100%; height: auto; margin: var(--s-8) 0; border-radius: var(--r-media); }
+    .refs li { font-size: var(--t-ui); line-height: 1.6; }
+    @media (max-width: 759px) {
+      .pageHead { padding-top: calc(var(--header-h) + var(--s-12)); padding-bottom: var(--s-10); }
+      .doc h2 { margin-top: var(--s-16); }
+      /* a wide table scrolls inside its own box instead of widening the page */
+      .doc table { display: block; overflow-x: auto; }
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <h1>SOLID<span>IFY</span> · THE SCIENCE</h1>
-      <div class="sub">what the instrument actually solves, why it looks like real metallography, and where the model's honesty ends</div>
-      <nav class="top">
-        <a href="../">← home</a>
-        <a href="../app/">open the instrument →</a>
+  <!-- the site header (tokens.css .hdr, src/design/header.ts) -->
+  <header class="hdr" id="topnav">
+    <a class="hdr__mark" href="../">SOLIDIFY</a>
+    <div class="hdr__right">
+      <nav class="hdr__links" aria-label="Main">
+        <a class="hdr__link" href="../app/">Instrument</a>
+        <a class="hdr__link" href="../science/" aria-current="page">Science</a>
+        <a class="hdr__link" href="../contact/">Contact</a>
+        <a class="hdr__link" href="https://github.com/fronkt/solidify">GitHub</a>
       </nav>
-    </header>
+      <details class="hdr__menu">
+        <summary class="hdr__link">Menu</summary>
+        <nav class="hdr__drop panel panel--overlay" aria-label="Main">
+          <a class="hdr__link" href="../app/">Instrument</a>
+          <a class="hdr__link" href="../science/" aria-current="page">Science</a>
+          <a class="hdr__link" href="../contact/">Contact</a>
+          <a class="hdr__link" href="https://github.com/fronkt/solidify">GitHub</a>
+        </nav>
+      </details>
+      <a class="btn btn--primary" href="../app/" aria-label="Open the instrument"><span>Open<span class="hdr__long"> the instrument</span></span></a>
+    </div>
+  </header>
 
-    <h2>1 · THE MODEL</h2>
+  <main class="doc">
+    <div class="pageHead">
+      <p class="kicker">How it works</p>
+      <h1>The science</h1>
+      <p class="lead">What the instrument actually solves, why it looks like real metallography, and where the model's honesty ends.</p>
+    </div>
+
+    <h2><span class="secN">01</span> The model</h2>
     <p>SOLIDIFY integrates the <b>Kobayashi (1993) anisotropic phase-field model</b> for an undercooled
     melt, extended to many grains and a dilute solute. Two coupled fields live on every cell of a
     512²–2048² grid: an order parameter <i>φ</i> (0 = liquid, 1 = solid) and a temperature <i>T</i>,
@@ -77,7 +118,7 @@
     no drawn arms, no prebaked snowflakes, no particle effects. The landing page opens on a rendered
     model, and says so.</p>
 
-    <h2>2 · WHY DENDRITES HAPPEN</h2>
+    <h2><span class="secN">02</span> Why dendrites happen</h2>
     <p>A flat solidification front in an undercooled melt is unstable: any bump reaches into colder
     liquid, dumps its latent heat faster, and grows faster still — the <b>Mullins–Sekerka
     instability</b>. Latent heat (the K ∂φ/∂t term) makes each growing tip warm its own
@@ -90,7 +131,7 @@
     morphology), and with a pulled thermal frame it reproduces <b>columnar growth and the
     columnar-to-equiaxed transition</b> — all canonical, all emergent.</p>
 
-    <h2>3 · MANY GRAINS AND TWINS</h2>
+    <h2><span class="secN">03</span> Many grains and twins</h2>
     <p>Each nucleus carries its own crystallographic orientation θ₀ in a grain-ID field that
     propagates just ahead of the moving front: a newly solidifying cell adopts the identity of its
     most-solid neighbour. Where two fronts meet, growth stops and a <b>grain boundary</b> is frozen
@@ -103,7 +144,7 @@
     <b>12-branched snowflake</b>. Twin boundaries etch faint in the micrograph lens, as coherent
     boundaries do under a real etchant.</p>
 
-    <h2>4 · THE ALLOY CHEMISTRY</h2>
+    <h2><span class="secN">04</span> The alloy chemistry</h2>
     <p>The solute field implements a Warren–Boettinger-type dilute alloy: the growing solid rejects
     solute (partition coefficient k &lt; 1), which piles up ahead of the front and lowers the local
     melting point — <b>constitutional undercooling</b>, the engine of most real dendrites. The
@@ -123,12 +164,12 @@
     and labels every clamp it has to make.</p>
     <div class="note">
       <div class="t">A RESULT THAT WAS MEASURED WRONG TWICE</div>
-      Before v4.0 this page reported a clean demonstration: under identical nucleation
+      <p>Before v4.0 this page reported a clean demonstration: under identical nucleation
       (a fixed 12 seeds/s rain) and cooling, grain-refined A356+TiB froze into 369 grains
       while nearly-pure Al–1Zn gave 46 coarse ones. Under the site model that comparison
       inverted — the lean alloy came out finer — and v4.0 withdrew the claim. v5.0 went
       back to it and found that <b>the inversion was an artefact too</b>. Two flaws, and
-      neither is physics:
+      neither is physics:</p>
       <p><b>Equal bath temperature is not equal undercooling.</b> A356's liquidus sits at
       0.821 where the lean alloy's is 0.993, so at a common start temperature the refined
       charge began <i>above its own liquidus</i> and could not nucleate at all until it had
@@ -187,10 +228,10 @@
       replays byte-identically per seed (<code>EXP-REPRO-LIVE</code>), and every sweep it
       renders must name the variable it held fixed and prove the arms actually sat there
       (<code>EXP-SWEEP-CONTROLLED</code>).</p>
-      The composer's reported chemistry — ΔT<sub>L</sub>, Q, k<sub>eff</sub> — is computed
+      <p>The composer's reported chemistry — ΔT<sub>L</sub>, Q, k<sub>eff</sub> — is computed
       from the textbook coefficients throughout. Its conversion into the solver's units was
       itself wrong until v5.0: it used a flat 100 K per dimensionless degree for every metal,
-      where the model's own factor is (L/c<sub>p</sub>)/K — about 249 K for aluminium.
+      where the model's own factor is (L/c<sub>p</sub>)/K — about 249 K for aluminium.</p>
     </div>
     <p>The ANALYZE section adds foundry instruments: a <b>cooling-curve probe</b> (a thermal-analysis
     cup test — recalescence shows as the dip-and-rise), a <b>Scheil overlay</b> comparing the
@@ -198,7 +239,7 @@
     measured interface temperature, and an <b>SDAS ruler</b> that measures secondary dendrite arm
     spacing by linear intercept, the same way a metallographer does it.</p>
 
-    <h2>5 · NUMERICS AND THE GPU</h2>
+    <h2><span class="secN">05</span> Numerics and the GPU</h2>
     <ul>
       <li><b>Explicit Euler</b> on a uniform grid, dimensionless units, dt held inside the stable
       envelope of the scheme; every UI slider range is clamped so instability is unreachable.</li>
@@ -214,7 +255,7 @@
       counts → ASTM G), and the cooling-curve probe all come from a single reduction pass.</li>
     </ul>
 
-    <h2>6 · THE THIRD DIMENSION</h2>
+    <h2><span class="secN">06</span> The third dimension</h2>
     <p>The TRUE 3D switch replaces the 2D grid with a full <b>volumetric solver</b> — up to 192³
     ≈ 7.1 million voxels stepping the same Kobayashi equations in three dimensions. Surface-energy
     anisotropy becomes a function of the interface normal n̂ in each grain's own crystal frame
@@ -261,7 +302,7 @@
     per-section parameter), and each measurable independently by the lab's own per-section
     census.</p>
 
-    <h2>7 · NUCLEATION, AND THE LAB</h2>
+    <h2><span class="secN">07</span> Nucleation, and the lab</h2>
     <p>Earlier versions of this instrument let you set the undercooling, the cooling rate
     <i>and</i> a nucleation rate in nuclei per second. That last slider was wrong, and a reader
     with a solidification background spotted it immediately: <b>the nucleation rate is not
@@ -310,7 +351,7 @@
     four regions of the one casting, so the section-thickness effect is a measurement, not an
     illustration.</p>
 
-    <h2>8 · THE CALIBRATED SOLVER</h2>
+    <h2><span class="secN">08</span> The calibrated solver</h2>
     <p>Everything above this point is a <i>similarity</i> model. It grows the right shapes for the
     right reasons, but its interface width and relaxation time are dials — you pick ε̄ and τ, a
     dendrite appears, and its tip radius is a shape rather than a prediction. The SCALE panel has
@@ -593,7 +634,7 @@
     a validity bound of its own, τ<sub>0</sub>V/W<sub>0</sub> ≲ 0.2, which a deeply undercooled pure
     melt reaches by λ ≈ 4 — the app reports λ and the ratio it implies so that stays visible.</p>
 
-    <h2>9 · HEAT TREATMENT — THE SECOND CLOCK</h2>
+    <h2><span class="secN">09</span> Heat treatment: the second clock</h2>
     <p>Everything above runs on the solidification clock, and under the calibrated solver a timestep
     on that clock is of order 10⁻⁷ s. A heat treatment is four hours — about 10¹¹ timesteps — so the
     phase-field solver can never be integrated through one: not slowly, not on a bigger GPU, not
@@ -646,7 +687,7 @@
 
     <div class="note">
       <div class="t">A NUCLEATION MECHANISM THAT WAS BUILT AND MEASURED DEAD, TWICE</div>
-      The plan's twin-spawn mechanism — a per-cell flip at the migrating boundary, the same idiom
+      <p>The plan's twin-spawn mechanism — a per-cell flip at the migrating boundary, the same idiom
       the growth twins use — was built exactly as designed and measured dead: 3 of 512 spawned twins
       survived 300 sweeps, and none survived 450. Adding the mobility gate (true physics) helped by
       5× and was still dead. The real killer was geometric: a cell adopting a one-voxel twin pays
@@ -656,7 +697,7 @@
       insert them. So nucleation here is a stamped {111} plate in exact Σ3 registry on a probed
       boundary, and everything after birth is the pass's own physics. <b>The plate is the one
       inserted thing</b> — stated here for the same reason the 2D solver does not claim to resolve
-      capillary-length nucleation.
+      capillary-length nucleation.</p>
     </div>
 
     <p><b>Homogenization</b> is its own pass — masked isotropic diffusion of solute through the
@@ -887,7 +928,7 @@
     steel's one-hour anneal at 0.85 T<sub>m</sub> says 296 µm, the volume is 188 µm across, and the
     model declines to pretend otherwise.</p>
 
-    <h2>10 · WHAT'S QUANTITATIVE, WHAT'S QUALITATIVE</h2>
+    <h2><span class="secN">10</span> What's quantitative, what's qualitative</h2>
     <table>
       <tr><th>CLAIM</th><th>STATUS</th></tr>
       <tr><td>Dendrite/seaweed/snowflake morphology, tip selection, side-branching</td><td><b>canonical</b> — matches the published Kobayashi figures</td></tr>
@@ -927,7 +968,7 @@
     <p>The rule throughout: anything the instrument displays as a number is computed, and anything
     that is a stylistic choice is labelled as one.</p>
 
-    <h2>11 · REFERENCES</h2>
+    <h2><span class="secN">11</span> References</h2>
     <ul class="refs">
       <li>R. Kobayashi, “Modeling and numerical simulations of dendritic crystal growth,” <i>Physica D</i> 63 (1993) 410–423.</li>
       <li>Ph. Thévoz, J.L. Desbiolles &amp; M. Rappaz, “Modeling of equiaxed microstructure formation in casting,” <i>Metall. Trans. A</i> 20 (1989) 311–322 — the Gaussian site-distribution nucleation model.</li>
@@ -960,11 +1001,45 @@
       <li>ASTM E112, <i>Standard Test Methods for Determining Average Grain Size</i>.</li>
     </ul>
 
-    <footer>
-      built by Frank Cai · <a href="https://github.com/fronkt/solidify">source on GitHub</a> ·
-      <a href="../app/">open the instrument</a> · <a href="../contact/">contact</a>
-    </footer>
-  </div>
+  </main>
+
+  <!-- Figure's footer matrix (tokens.css .ftr), the landing's own -->
+  <footer class="ftr">
+    <div class="ftr__grid">
+      <div class="ftr__brand">
+        <a class="hdr__mark" href="../">SOLIDIFY</a>
+        <p>A phase-field solidification lab, live in your browser.</p>
+      </div>
+      <nav aria-label="Instrument">
+        <p class="ftr__label">Instrument</p>
+        <ul class="ftr__links">
+          <li><a href="../app/">Open the instrument</a></li>
+          <li><a href="../app/?tour=1">Take the tour</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Science">
+        <p class="ftr__label">Science</p>
+        <ul class="ftr__links">
+          <li><a href="../science/">The science</a></li>
+          <li><a href="https://github.com/fronkt/solidify/blob/main/hero/README.md">How the hero is rendered</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Project">
+        <p class="ftr__label">Project</p>
+        <ul class="ftr__links">
+          <li><a href="https://github.com/fronkt/solidify">Source on GitHub</a></li>
+          <li><a href="https://github.com/fronkt/solidify/issues/new">Report an issue</a></li>
+          <li><a href="../contact/">Contact</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="ftr__base">
+      <span>Built by Frank Cai</span>
+      <span>Needs a WebGPU browser for the live pages: Chrome, Edge, Safari 26+, recent Firefox.</span>
+    </div>
+  </footer>
+
+  <script type="module" src="/src/design/page.ts"></script>
   <script data-goatcounter="https://frankcai2.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>

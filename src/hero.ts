@@ -13,21 +13,29 @@
 // exists before the lens and materials pins (a pin created after a later one
 // computes its start without the earlier spacer; verify-scroll-order.mjs).
 //
+// Layout (index.html, docs/DESIGN.md section 6): the render on the left, one
+// copy column on the right. The opening, the grow / cool / end chapters and
+// the tour's spec rail of the five features share that column.
+//
 // LIVE (motion allowed, html.hero-live): #heroAct is pinned for FRAME_PX +
-// HOLD_PX of scroll. The frame is round(frame progress x 179); chapter text is
-// revealed line by line (SplitText, blur-in, scrubbed); a feature's callout is
-// shown only inside its frame window and only while its anchor is visible.
+// HOLD_PX of scroll. The frame is round(frame progress x 179); each chapter
+// block fades and rises into the column (opacity and translate only, scrubbed)
+// and leaves before the next arrives. During the tour the rail row of the
+// feature in view is bright, the rest dim; its mark and a 1 px leader from the
+// row to its anchor show only inside the feature's frame window and only while
+// the anchor is visible. Stacked (phones, portrait), the rail sits under the
+// frame and the mark carries the row's number instead of a leader.
 // STILL (reduced motion, Save-Data, or the frames failing to load): the poster
-// with all five callouts from manifest.poster.anchors and the chapter text
-// stacked. A frame set is failed when its first frame or more than a tenth of
-// it does not arrive; the other set is tried once before the still.
-// No JS at all: the poster <img> in index.html, nothing else.
+// with all five numbered marks from manifest.poster.anchors beside the rail,
+// and the chapters in a row below. A frame set is failed when its first frame
+// or more than a tenth of it does not arrive; the other set is tried once
+// before the still.
+// No JS at all: the poster <img> in index.html, the opening and the chapters.
 
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { SplitText } from "gsap/SplitText";
 
-gsap.registerPlugin(ScrollTrigger, SplitText);
+gsap.registerPlugin(ScrollTrigger);
 
 /** Scroll distance over which frames 0..N-1 play. */
 export const FRAME_PX = 3200;
@@ -43,13 +51,18 @@ const MAX_FETCH = 6;
 /** createImageBitmap calls in flight at once; the rest wait, and a frame the
  *  scrub has already left behind is never started. */
 const MAX_DECODE = 3;
-const BG = "#0a0b0d";
 /** Must match the stacked-layout media query in index.html (the still layout's
  *  and the live one's are the same query). */
 const STACKED = "(max-width: 759px), (orientation: portrait)";
 /** What tells the page the visitor is moving: until one of these, only the
  *  skeleton of the frame set is fetched. */
 const RELEASE = ["scroll", "wheel", "touchstart", "keydown", "pointerdown"] as const;
+
+/** The page canvas color, the --bg token (src/design/tokens.css): the canvas
+ *  paints it behind each frame, so the frame's masked edge fades into the
+ *  page. Read when first painted, once the stylesheet has applied. */
+let bgColor = "";
+const pageBg = () => (bgColor ||= getComputedStyle(document.documentElement).getPropertyValue("--bg").trim()) || "black";
 
 type Row = number[];
 interface Span { id: string; from: number; to: number }
@@ -68,12 +81,12 @@ export interface HeroManifest {
 }
 
 type Mark = "dot" | "arrow" | "bracket";
-const COPY: Record<string, { title: string; line: string; side: "left" | "right"; mark: Mark }> = {
-  tip: { title: "TIP", line: "A paraboloid, rounded by surface tension.", side: "left", mark: "dot" },
-  primary: { title: "PRIMARY ARM ⟨100⟩", line: "Grows along a cube axis of the crystal.", side: "left", mark: "arrow" },
-  lambda2: { title: "SECONDARY ARM SPACING λ₂", line: "Finer spacing usually means a stronger casting.", side: "right", mark: "bracket" },
-  tertiary: { title: "TERTIARY ARM", line: "A branch on a branch.", side: "right", mark: "dot" },
-  neck: { title: "NECKED ROOT", line: "Side arms thin here, and some melt off.", side: "right", mark: "dot" },
+const COPY: Record<string, { title: string; line: string; mark: Mark }> = {
+  tip: { title: "TIP", line: "A paraboloid, rounded by surface tension.", mark: "dot" },
+  primary: { title: "PRIMARY ARM ⟨100⟩", line: "Grows along a cube axis of the crystal.", mark: "arrow" },
+  lambda2: { title: "SECONDARY ARM SPACING λ₂", line: "Finer spacing usually means a stronger casting.", mark: "bracket" },
+  tertiary: { title: "TERTIARY ARM", line: "A branch on a branch.", mark: "dot" },
+  neck: { title: "NECKED ROOT", line: "Side arms thin here, and some melt off.", mark: "dot" },
 };
 
 interface Rect { x: number; y: number; w: number; h: number }
@@ -81,12 +94,17 @@ type Pt = [number, number];
 
 interface Callout {
   f: Feature;
+  /** the feature's row in the rail */
   el: HTMLElement;
   g: SVGGElement;
   dots: SVGCircleElement[];
   shape: SVGPathElement;
   leader: SVGPolylineElement;
+  num: SVGTextElement;
+  /** the mark's opacity: inside the window, anchor visible, outside the hold */
   alpha: number;
+  /** the row is the one in view (bright) */
+  on: boolean;
 }
 
 interface HeroHook {
@@ -104,7 +122,7 @@ interface HeroHook {
   framePx: number;
   holdPx: number;
   st: ScrollTrigger | null;
-  callouts(): { id: string; alpha: number }[];
+  callouts(): { id: string; alpha: number; on: boolean }[];
 }
 declare global { interface Window { __hero?: HeroHook } }
 
@@ -148,48 +166,58 @@ function svg<K extends keyof SVGElementTagNameMap>(tag: K, cls: string): SVGElem
   return e;
 }
 
-function makeCallouts(features: Feature[], host: (side: "left" | "right") => HTMLElement,
-  marks: SVGSVGElement): Callout[] {
+/** One rail row and one mark per feature the page has words for, numbered in
+ *  manifest order. */
+function makeCallouts(features: Feature[], rail: HTMLElement, marks: SVGSVGElement): Callout[] {
   const out: Callout[] = [];
   for (const f of features) {
     const c = COPY[f.id];
     if (!c) continue;   // a feature the page has no words for is not drawn
-    const el = document.createElement("div");
+    const n = String(out.length + 1).padStart(2, "0");
+    const el = document.createElement("li");
     el.className = "callout";
     el.dataset.f = f.id;
-    el.dataset.side = c.side;
-    // read once, from #heroFeatures: a live callout is hidden outside its
-    // window, which would leave a screen reader nothing most of the time
+    // read once, from #heroFeatures: the rail is only on screen during the
+    // tour, which would leave a screen reader nothing most of the time
     el.setAttribute("aria-hidden", "true");
+    const i = document.createElement("span");
+    i.className = "coIdx";
+    i.textContent = n;
     const t = document.createElement("span");
     t.className = "coTitle";
     t.textContent = c.title;
     const l = document.createElement("span");
     l.className = "coLine";
     l.textContent = c.line;
-    el.append(t, l);
-    host(c.side).append(el);
+    el.append(i, t, l);
+    rail.append(el);
     const g = svg("g", "mark");
     g.dataset.f = f.id;
     const leader = svg("polyline", "leader");
     const shape = svg("path", "shape");
     const dots = [svg("circle", "dot"), svg("circle", "dot")];
     for (const d of dots) d.setAttribute("r", "3.6");
-    g.append(leader, shape, ...dots);
+    const num = svg("text", "num");
+    num.textContent = n;
+    num.style.display = "none";
+    g.append(leader, shape, ...dots, num);
     marks.append(g);
-    out.push({ f, el, g, dots, shape, leader, alpha: 0 });
+    out.push({ f, el, g, dots, shape, leader, num, alpha: 0, on: false });
   }
   return out;
 }
 
-/** The five feature explanations as one static, visually hidden list that the
- *  picture points at, so they can be read at any scroll position and on a
- *  phone, where the callouts show titles only. */
+/** The five feature explanations as one static list that the picture points
+ *  at (aria-describedby), so they can be read at any scroll position and on a
+ *  phone, where the rail shows titles only. HIDDEN, not visually hidden:
+ *  aria-describedby still resolves hidden content, so the image keeps its
+ *  description, and the reading order does not read the five items a second
+ *  time as loose text. */
 function describe(section: HTMLElement, features: Feature[]): void {
   document.getElementById("heroFeatures")?.remove();
   const ul = document.createElement("ul");
   ul.id = "heroFeatures";
-  ul.className = "sr-only";
+  ul.hidden = true;
   for (const f of features) {
     const c = COPY[f.id];
     if (!c) continue;
@@ -226,19 +254,35 @@ function drawMark(c: Callout, pts: Pt[]): Pt {
       + `M${(hx + nx).toFixed(1)} ${(hy + ny).toFixed(1)}L${b[0].toFixed(1)} ${b[1].toFixed(1)}L${(hx - nx).toFixed(1)} ${(hy - ny).toFixed(1)}`);
     return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
   }
-  // bracket: a dimension line offset from the two roots, toward the label side
+  // bracket: a dimension line offset from the two roots, toward the rail (right)
   put(c.dots[0], a); put(c.dots[1], b);
   let nx = -uy, ny = ux;
-  const want = COPY[c.f.id].side === "right" ? 1 : -1;
-  if (Math.abs(nx) > 0.2 ? Math.sign(nx) !== want : ny > 0) { nx = -nx; ny = -ny; }
+  if (Math.abs(nx) > 0.2 ? nx < 0 : ny > 0) { nx = -nx; ny = -ny; }
   const o = 11;
   const p = (q: Pt, k: number) => `${(q[0] + nx * k).toFixed(1)} ${(q[1] + ny * k).toFixed(1)}`;
   c.shape.setAttribute("d", `M${p(a, 4)}L${p(a, o + 4)}M${p(b, 4)}L${p(b, o + 4)}M${p(a, o)}L${p(b, o)}`);
   return [(a[0] + b[0]) / 2 + nx * o, (a[1] + b[1]) / 2 + ny * o];
 }
 
-function setLeader(c: Callout, from: Pt, elbow: Pt, to: Pt) {
-  c.leader.setAttribute("points", [from, elbow, to].map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" "));
+/** The row's number beside the mark (the still and the stacked layouts, where
+ *  no leader is drawn): up and right of the mark's root dot, or of the
+ *  bracket's dimension line, which would otherwise run through it. */
+function drawNum(c: Callout, pts: Pt[], start: Pt | null) {
+  const at = start && COPY[c.f.id].mark === "bracket" ? start : pts[0];
+  c.num.style.display = start && at ? "" : "none";
+  if (!start || !at) return;
+  c.num.setAttribute("x", (at[0] + 9).toFixed(1));
+  c.num.setAttribute("y", (at[1] - 9).toFixed(1));
+}
+
+function setLeader(c: Callout, pts: Pt[] | null) {
+  c.leader.setAttribute("points", pts ? pts.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ") : "");
+}
+
+function setOn(c: Callout, on: boolean) {
+  if (c.on === on) return;
+  c.on = on;
+  c.el.classList.toggle("is-on", on);
 }
 
 // --------------------------------------------------------------------- boot
@@ -274,22 +318,19 @@ async function bootStill(section: HTMLElement, known?: HeroManifest, mode: "stil
   const img = document.getElementById("heroStill") as HTMLImageElement | null;
   const stage = document.getElementById("heroStage");
   const marks = document.getElementById("heroMarks") as SVGSVGElement | null;
-  if (!img || !stage || !marks) return;
+  const rail = section.querySelector<HTMLElement>(".heroRail");
+  if (!img || !stage || !marks || !rail) return;
   let m: HeroManifest;
   if (known) m = known;
   else {
     try { m = await loadManifest(); } catch { return; }   // the poster alone, as with no JS
   }
   h.manifest = m;
-  const hosts = {
-    left: section.querySelector<HTMLElement>(".heroLabels.left")!,
-    right: section.querySelector<HTMLElement>(".heroLabels.right")!,
-  };
-  const cs = makeCallouts(m.features, s => hosts[s], marks);
+  const cs = makeCallouts(m.features, rail, marks);
   describe(section, m.features);
-  h.callouts = () => cs.map(c => ({ id: c.f.id, alpha: c.alpha }));
-  // the labels change the section's height (bands above and below the poster
-  // when stacked), and any pin below was measured without them
+  h.callouts = () => cs.map(c => ({ id: c.f.id, alpha: c.alpha, on: c.on }));
+  // the rail changes the section's height, and any pin below was measured
+  // without it
   ScrollTrigger.refresh();
   const place = () => {
     const sr = stage.getBoundingClientRect();
@@ -298,37 +339,18 @@ async function bootStill(section: HTMLElement, known?: HeroManifest, mode: "stil
     const ir = img.getBoundingClientRect();
     const R = contain({ x: ir.left - sr.left, y: ir.top - sr.top, w: ir.width, h: ir.height },
       img.naturalWidth || 1, img.naturalHeight || 1);
-    const stacked = matchMedia(STACKED).matches;
-    const at = new Map<string, Pt[]>();
+    // every feature at once: all five rows bright, each mark numbered like
+    // its row (five leaders across the poster would cross each other)
     for (const c of cs) {
       const row = m.poster.anchors[c.f.id];
-      at.set(c.f.id, row ? points(row).map(([x, y]) => [R.x + x * R.w, R.y + y * R.h] as Pt) : []);
-    }
-    // order each column (or band) by where its anchors sit, so leaders cross less
-    for (const host of [hosts.left, hosts.right]) {
-      const kids = cs.filter(c => c.el.parentElement === host);
-      const key = (c: Callout) => { const p = at.get(c.f.id)![0]; return p ? (stacked ? p[0] : p[1]) : 0; };
-      kids.sort((a, b) => key(a) - key(b)).forEach(c => host.append(c.el));
-    }
-    for (const c of cs) {
-      const row = m.poster.anchors[c.f.id];
-      const pts = at.get(c.f.id)!;
+      const pts = row ? points(row).map(([x, y]) => [R.x + x * R.w, R.y + y * R.h] as Pt) : [];
       const show = !!row && row[row.length - 1] === 1 && pts.length > 0;
       c.alpha = show ? 1 : 0;
+      setOn(c, show);
       c.el.style.visibility = c.g.style.visibility = show ? "" : "hidden";
-      if (!show) continue;
-      const start = drawMark(c, pts);
-      const lr = c.el.getBoundingClientRect();
-      const L = { x: lr.left - sr.left, y: lr.top - sr.top, w: lr.width, h: lr.height };
-      const left = COPY[c.f.id].side === "left";
-      if (stacked) {
-        // bands above (left-side features) and below (right-side ones) the poster
-        const ex = L.x + L.w / 2, ey = left ? L.y + L.h + 6 : L.y - 6;
-        setLeader(c, start, [ex, ey + (left ? 10 : -10)], [ex, ey]);
-      } else {
-        const ex = left ? L.x + L.w + 10 : L.x - 10, ey = L.y + 9;
-        setLeader(c, start, [ex + (left ? 22 : -22), ey], [ex, ey]);
-      }
+      setLeader(c, null);
+      if (!show) { drawNum(c, pts, null); continue; }
+      drawNum(c, pts, drawMark(c, pts));
     }
   };
   const run = () => requestAnimationFrame(place);
@@ -341,19 +363,16 @@ async function bootStill(section: HTMLElement, known?: HeroManifest, mode: "stil
 function bootLive(section: HTMLElement): void {
   const canvas = document.getElementById("heroCanvas") as HTMLCanvasElement | null;
   const marks = document.getElementById("heroMarks") as SVGSVGElement | null;
+  const rail = section.querySelector<HTMLElement>(".heroRail");
   const ctx = canvas?.getContext("2d", { alpha: false });
-  if (!canvas || !marks || !ctx) { void bootStill(section); return; }
-  live(section, canvas, ctx, marks);
+  if (!canvas || !marks || !rail || !ctx) { void bootStill(section); return; }
+  live(section, canvas, ctx, marks, rail);
 }
 
 function live(section: HTMLElement, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D,
-  marks: SVGSVGElement): void {
+  marks: SVGSVGElement, rail: HTMLElement): void {
   const root = document.documentElement;
   const h = hook({ mode: "live" });
-  const hosts = {
-    left: section.querySelector<HTMLElement>(".heroLabels.left")!,
-    right: section.querySelector<HTMLElement>(".heroLabels.right")!,
-  };
 
   const proxy = { p: 0 };
   let m: HeroManifest | null = null;
@@ -361,8 +380,6 @@ function live(section: HTMLElement, canvas: HTMLCanvasElement, ctx: CanvasRender
   let size = 0;
   let cs: Callout[] = [];
   let text: gsap.core.Timeline | null = null;
-  let splits: SplitText[] = [];
-  let srBodies: HTMLElement[] = [];
   let targetF = 0;          // smoothed frame position, float
   let target = 0;           // round(targetF)
   let dir = 1;              // which way the scrub last moved: its neighbors decode first
@@ -373,7 +390,7 @@ function live(section: HTMLElement, canvas: HTMLCanvasElement, ctx: CanvasRender
   let onScreen = true;
   let dead = false;         // fell back to the still: every callback below is a no-op
   let rect: Rect = { x: 0, y: 0, w: 1, h: 1 };   // drawn frame rect, section px
-  let W = 1, H = 1, gut = 20, stacked = false;
+  let stacked = false;
 
   // ----------------------------------------------------------- frame store
   // One frame SET (a size) at a time. `gen` names it: a fetch or a decode
@@ -555,21 +572,7 @@ function live(section: HTMLElement, canvas: HTMLCanvasElement, ctx: CanvasRender
     rafPending = true;
     requestAnimationFrame(drawNow);
   };
-  const paintBg = () => { ctx.fillStyle = BG; ctx.fillRect(0, 0, canvas.width, canvas.height); };
-  /** The tour's close-ups fill the square, so the frame's edge fade widens into
-   *  a soft ellipse as the camera moves in (the first 5 frames after the tour
-   *  starts) and narrows again as the hold cross-fades to the wide poster. */
-  const frameEl = canvas.parentElement as HTMLElement | null;
-  let edgeKey = "";
-  const setEdge = (f: number, mix: number) => {
-    const tourFrom = m?.chapters.find(c => c.id === "tour")?.from ?? Infinity;
-    const c = Math.min(1, Math.max(0, (f - tourFrom - 1) / 5)) * (1 - mix);
-    const k = c.toFixed(2);
-    if (!frameEl || k === edgeKey) return;
-    edgeKey = k;
-    frameEl.style.setProperty("--edge", `${(6 + 12 * c).toFixed(1)}%`);
-    frameEl.style.setProperty("--vin", `${(100 - 48 * c).toFixed(1)}%`);
-  };
+  const paintBg = () => { ctx.fillStyle = pageBg(); ctx.fillRect(0, 0, canvas.width, canvas.height); };
   function drawNow() {
     rafPending = false;
     if (dead || !m || !onScreen) return;
@@ -606,13 +609,13 @@ function live(section: HTMLElement, canvas: HTMLCanvasElement, ctx: CanvasRender
     drawn = have;
     h.frame = have;
     h.posterMix = mix;
-    setEdge(have, mix);
     placeCallouts();
   }
 
   // ------------------------------------------------------------ callouts
+  const note = section.querySelector<HTMLElement>(".railNote");
   const windowAlpha = (f: Feature) => {
-    // eased on the smoothed position so a label glides in and out; the last
+    // eased on the smoothed position so a mark glides in and out; the last
     // window runs to the final frame and hands its fade to the hold instead
     const fin = smooth((targetF - (f.from - 0.5)) / 1.5);
     const fout = f.to >= N - 1 ? 1 : 1 - smooth((targetF - (f.to - 1)) / 1.5);
@@ -620,125 +623,102 @@ function live(section: HTMLElement, canvas: HTMLCanvasElement, ctx: CanvasRender
   };
   function placeCallouts() {
     if (!m || drawn < 0) return;
+    const sr = section.getBoundingClientRect();
+    let lit: Callout | null = null;
     for (const c of cs) {
       const row = m.anchors[c.f.id]?.[drawn];
       const inWindow = drawn >= c.f.from && drawn <= c.f.to;
+      // the row stays lit through its whole window, the rail's place in the
+      // tour; the mark and the leader go wherever the anchor is hidden
+      setOn(c, inWindow && hold < 0.5);
+      if (c.on) lit = c;
       const a = row && inWindow && row[row.length - 1] === 1 ? windowAlpha(c.f) * (1 - hold) : 0;
       c.alpha = a;
       const vis = a > 0.001 ? "visible" : "hidden";
-      c.el.style.opacity = c.g.style.opacity = a.toFixed(3);
-      c.el.style.visibility = c.g.style.visibility = vis;
+      c.g.style.opacity = a.toFixed(3);
+      c.g.style.visibility = vis;
       if (vis === "hidden" || !row) continue;
-      placeOne(c, row, a);
+      placeOne(c, row, sr);
     }
+    // a phone's rail shows titles only: the lit row's line goes under it
+    // (index.html hides this slot wherever the rows carry their own lines)
+    const line = lit ? COPY[lit.f.id].line : "";
+    if (note && note.textContent !== line) note.textContent = line;
   }
-  function placeOne(c: Callout, row: Row, a: number) {
+  function placeOne(c: Callout, row: Row, sr: DOMRect) {
     const pts = points(row).map(([x, y]) => [rect.x + x * rect.w, rect.y + y * rect.h] as Pt);
     const start = drawMark(c, pts);
-    const left = COPY[c.f.id].side === "left";
-    const w = c.el.offsetWidth, hh = c.el.offsetHeight;
-    const slide = stacked ? 0 : (1 - a) * 10 * (left ? -1 : 1);
-    let lx: number, ly: number;
-    if (!stacked) {
-      // in the void beside the frame, never over it: the label's inner edge
-      // stops GAP px short of the drawn rect
-      const GAP = 20;
-      ly = clamp(start[1] - 9, H * 0.18, H * 0.84 - hh);
-      lx = left ? rect.x - GAP - w : rect.x + rect.w + GAP;
-      const ex = left ? lx + w + 10 : lx - 10, ey = ly + 9;
-      setLeader(c, start, [ex + (left ? 26 : -26), ey], [ex, ey]);
-    } else {
-      // stacked: in the band above or below the frame, whichever is nearer the
-      // anchor, and under it, so the leader runs short and nearly vertical
-      // instead of across the whole crystal
-      const above = start[1] < rect.y + rect.h / 2;
-      ly = above ? rect.y - 16 - hh : rect.y + rect.h + 16;
-      lx = clamp(start[0] - w / 2, gut, W - gut - w);
-      const ex = clamp(start[0], lx + 8, lx + w - 8), ey = above ? ly + hh + 6 : ly - 6;
-      setLeader(c, start, [ex, ey + (above ? 10 : -10)], [ex, ey]);
+    if (stacked) {
+      // under the frame the rail is a list, not a column beside it: the mark
+      // carries the row's number instead of a leader across the crystal
+      setLeader(c, null);
+      drawNum(c, pts, start);
+      return;
     }
-    c.el.style.transform = `translate(${(lx + slide).toFixed(1)}px, ${ly.toFixed(1)}px)`;
+    drawNum(c, pts, null);
+    // a 1 px leader from the mark to the row's left edge, level with its title
+    const t = (c.el.querySelector(".coTitle") ?? c.el).getBoundingClientRect();
+    const x = c.el.getBoundingClientRect().left - sr.left - 14;
+    const y = t.top - sr.top + t.height / 2;
+    setLeader(c, [start, [x - 26, y], [x, y]]);
   }
 
   // ---------------------------------------------------------------- text
+  /** Each block of the copy column rises into place and leaves the same way:
+   *  opacity and a short translate, scrubbed by the pin. The kicker, heading
+   *  and body stay in the accessibility tree at opacity 0; a CTA goes to
+   *  visibility: hidden too, so it cannot be focused or hit while gone. */
   function buildText() {
     if (!m) return;
     const t0 = text ? text.time() : 0;
     // revert, not kill: a killed timeline leaves its inline styles behind, and
     // the rebuilt one would record them as its starting state
     text?.revert();
-    splits.forEach(s => s.revert());
-    splits = [];
-    // the chapter bodies, once, as plain text for screen readers: the split
-    // lines below are aria-hidden, and hidden outright outside their chapter
-    if (!srBodies.length) {
-      for (const p of section.querySelectorAll<HTMLElement>(".chap .chapBody")) {
-        const s = document.createElement("span");
-        s.className = "sr-only";
-        s.textContent = (p.textContent ?? "").replace(/\s+/g, " ").trim();
-        p.before(s);
-        srBodies.push(s);
-      }
-    }
     const tl = gsap.timeline({ paused: true });
     const at = (frame: number) => (frame / (N - 1)) * FRAME_PX;
     const ch = Object.fromEntries(m.chapters.map(c => [c.id, c]));
     const grow = ch.grow ?? { from: 12, to: 95 }, cool = ch.cool ?? { from: 96, to: 119 };
+    const tour = ch.tour ?? { from: 120, to: 179 };
 
-    // The opening (wordmark, tagline, CTAs) leaves as the nucleus appears. It
-    // fades by OPACITY, so the page's only <h1> stays in the accessibility
-    // tree; only the links go to visibility: hidden (unfocusable, not
-    // hit-testable) once they are gone.
-    tl.fromTo("#heroOpen", { opacity: 1, y: 0, filter: "blur(0px)" },
-      { opacity: 0, y: -46, filter: "blur(10px)", duration: 260, ease: "power1.in" }, 30);
-    tl.fromTo("#heroOpen .cta", { visibility: "inherit" }, { visibility: "hidden", duration: 1, ease: "none" }, 289);
+    // The opening leaves as the nucleus appears. It fades by OPACITY, so the
+    // page's only <h1> stays in the accessibility tree; only the links go to
+    // visibility: hidden (unfocusable, not hit-testable) once they are gone.
+    tl.fromTo("#heroOpen", { opacity: 1, y: 0 }, { opacity: 0, y: -24, duration: 200, ease: "power1.in" }, 30);
+    tl.fromTo("#heroOpen .cta", { visibility: "inherit" }, { visibility: "hidden", duration: 1, ease: "none" }, 229);
     tl.fromTo("#scrollCue", { autoAlpha: 1 }, { autoAlpha: 0, duration: 120, ease: "none" }, 0);
 
     // Positions are in px of pin travel. The cool chapter is only 24 frames
-    // (~430 px), so the reveals are quick (~190 px in, ~140 px out) and the grow
-    // text is fully gone before the cool text arrives in the same place: the
-    // cool block then reads in full from about frame 104 to frame 114.
-    const chapter = (id: string, inAt: number, outAt: number | null) => {
-      const box = section.querySelector<HTMLElement>(`.chap[data-chap="${id}"]`);
+    // (~430 px), so the reveals are quick (~140 px in, ~100 px out) and the
+    // grow text is fully gone before the cool text arrives in the same place.
+    const block = (box: HTMLElement | null, inAt: number, outAt: number | null) => {
       if (!box) return;
-      const head = box.querySelector<HTMLElement>(".chapHead");
-      const body = box.querySelector<HTMLElement>(".chapBody");
+      const words = [...box.querySelectorAll<HTMLElement>(".kicker, .chapHead, .chapBody")];
       const cta = box.querySelector<HTMLElement>(".cta");
-      const lines: Element[] = [];
-      if (head) {
-        // aria "auto": the heading keeps its name while its lines are hidden
-        const s = new SplitText(head, { type: "lines", tag: "span", linesClass: "ln" });
-        splits.push(s);
-        lines.push(...s.lines);
-        tl.fromTo(s.lines, { autoAlpha: 0, yPercent: 45, filter: "blur(16px)" },
-          { autoAlpha: 1, yPercent: 0, filter: "blur(0px)", duration: 110, stagger: 30, ease: "power2.out" }, inAt);
-      }
-      if (body) {
-        // aria "hidden", not "auto": a <p> cannot be named, and screen readers
-        // would read nothing; the sr-only copy above carries the sentence
-        const s = new SplitText(body, { type: "lines", tag: "span", linesClass: "ln", aria: "hidden" });
-        splits.push(s);
-        lines.push(...s.lines);
-        tl.fromTo(s.lines, { autoAlpha: 0, y: 14, filter: "blur(8px)" },
-          { autoAlpha: 1, y: 0, filter: "blur(0px)", duration: 100, stagger: 22, ease: "power2.out" }, inAt + 50);
+      if (words.length) {
+        tl.fromTo(words, { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 100, stagger: 14, ease: "power2.out" }, inAt);
+        if (outAt !== null) tl.to(words, { opacity: 0, y: -12, duration: 80, stagger: 6, ease: "power1.in" }, outAt);
       }
       if (cta) {
-        tl.fromTo(cta, { autoAlpha: 0, y: 14, filter: "blur(6px)" },
-          { autoAlpha: 1, y: 0, filter: "blur(0px)", duration: 110, ease: "power2.out" }, inAt + 130);
-        lines.push(cta);
+        tl.fromTo(cta, { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 100, ease: "power2.out" }, inAt + 14 * words.length);
+        if (outAt !== null) tl.to(cta, { autoAlpha: 0, y: -12, duration: 80, ease: "power1.in" }, outAt + 6 * words.length);
       }
-      if (outAt !== null)
-        tl.to(lines, { autoAlpha: 0, yPercent: -30, filter: "blur(10px)", duration: 90, stagger: 8, ease: "power1.in" }, outAt);
     };
+    const chapter = (id: string, inAt: number, outAt: number | null) =>
+      block(section.querySelector<HTMLElement>(`.chap[data-chap="${id}"]`), inAt, outAt);
     chapter("grow", at(grow.from) + 120, at(grow.to) - 230);
     chapter("cool", at(cool.from) - 40, at(cool.to) - 90);
-    // Stacked, the end body lands in the band under the frame where the last
-    // callout is still fading, so it waits for the hold's cross-fade to finish
-    chapter("end", FRAME_PX + (matchMedia(STACKED).matches ? TO_POSTER_PX : 40), null);
+    // the rail arrives with the tour and leaves as the hold begins; the end
+    // chapter waits for it, since they share the column
+    const tourBox = section.querySelector<HTMLElement>(".heroTour");
+    if (tourBox) {
+      tl.fromTo(tourBox, { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 100, ease: "power2.out" }, at(tour.from) - 20);
+      tl.to(tourBox, { autoAlpha: 0, y: -12, duration: 80, ease: "power1.in" }, FRAME_PX + 10);
+    }
+    chapter("end", FRAME_PX + 120, null);
     tl.set({}, {}, TOTAL_PX);   // the timeline spans the whole pin, in px
     text = tl;
     tl.time(t0 || proxy.p * TOTAL_PX);
-    // every chapter now has its reveal state: index.html hides them until then
+    // every block now has its reveal state: index.html hides them until then
     section.classList.add("hero-ready");
   }
 
@@ -761,17 +741,10 @@ function live(section: HTMLElement, canvas: HTMLCanvasElement, ctx: CanvasRender
   function measure() {
     const sr = section.getBoundingClientRect();
     const cr = canvas.getBoundingClientRect();
-    W = sr.width; H = sr.height;
-    gut = parseFloat(getComputedStyle(section).getPropertyValue("--gut")) || 20;
     stacked = matchMedia(STACKED).matches;
     rect = contain({ x: cr.left - sr.left, y: cr.top - sr.top, w: cr.width, h: cr.height }, 1, 1);
-    marks.setAttribute("width", String(W));
-    marks.setAttribute("height", String(H));
-    // a label may only be as wide as the void it sits in
-    for (const c of cs) {
-      const room = stacked ? W - 2 * gut : (COPY[c.f.id].side === "left" ? rect.x : W - rect.x - rect.w) - gut - 20;
-      c.el.style.maxWidth = `${Math.max(120, Math.floor(room))}px`;
-    }
+    marks.setAttribute("width", String(sr.width));
+    marks.setAttribute("height", String(sr.height));
     placeCallouts();
   }
 
@@ -866,7 +839,7 @@ function live(section: HTMLElement, canvas: HTMLCanvasElement, ctx: CanvasRender
   h.st = st;
 
   /** The still, with everything live mode made taken down first: the pin and
-   *  its tween, the text timeline and its splits, the live callouts, the
+   *  its tween, the text timeline, the live rail rows and marks, the
    *  observers and listeners, the fetches and the decoded frames. Runs once. */
   const fail = (err: unknown) => {
     if (dead) return;
@@ -877,12 +850,9 @@ function live(section: HTMLElement, canvas: HTMLCanvasElement, ctx: CanvasRender
     tween.kill();
     text?.revert();
     text = null;
-    splits.forEach(s => s.revert());
-    splits = [];
-    for (const s of srBodies) s.remove();
-    srBodies = [];
     for (const c of cs) { c.el.remove(); c.g.remove(); }
     cs = [];
+    if (note) note.textContent = "";
     ro.disconnect();
     io.disconnect();
     dprMq?.removeEventListener("change", onDpr);
@@ -910,9 +880,9 @@ function live(section: HTMLElement, canvas: HTMLCanvasElement, ctx: CanvasRender
     m = man;
     h.manifest = man;
     N = man.frames;
-    cs = makeCallouts(man.features, s => hosts[s], marks);
+    cs = makeCallouts(man.features, rail, marks);
     describe(section, man.features);
-    h.callouts = () => cs.map(c => ({ id: c.f.id, alpha: c.alpha }));
+    h.callouts = () => cs.map(c => ({ id: c.f.id, alpha: c.alpha, on: c.on }));
     buildText();
     measure();
     useSize(pick(devPx())!);

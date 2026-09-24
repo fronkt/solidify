@@ -31,6 +31,9 @@ const SUITE = [
   ["scripts/verify-composer-grid.mjs"],
   ["scripts/verify-hero-manifest.mjs"],
   ["scripts/verify-scroll-order.mjs"],
+  // v8 D1: the live acts below the hero, their spec rails read from the sims
+  // and materials.ts, their layout, footer and copy
+  ["scripts/verify-landing-acts.mjs", String(PORT)],
   // the landing hero driven by scroll (no WebGPU needed; the script removes it)
   ["scripts/verify-hero.mjs"],
   ["scripts/verify-optimizer.mjs"],

@@ -43,7 +43,7 @@ restraint: desktop.fm (Refero `cb266ff9-…`): the render is the only source of 
 | `--bg` | `#0a0a0a` | page canvas; hero render background (hero.ts paints the same value) |
 | `--bg-media` | `#000000` | full-bleed media fields, if a section wants true black |
 | `--surface` | `#111111` | solid panel, modal body |
-| `--overlay` | `rgba(10,10,10,0.86)` + `backdrop-filter: blur(12px)` | panels floating over a live canvas |
+| `--overlay` | `rgba(10,10,10,0.90)` + `backdrop-filter: blur(12px)` | panels floating over a live canvas (0.90 keeps `--fg-3` at 4.5:1 over a white pixel) |
 | `--fg` | `#f2f2f2` | primary text, filled button, active state |
 | `--fg-2` | `#bdbdbd` | long-form body copy (Figure's rule: gray is never used for long copy on black) |
 | `--fg-3` | `#8a8a8a` | labels, units, metadata, inactive nav (5.7:1 on `--bg`) |
@@ -110,7 +110,9 @@ the active item only. No other weights.
 **Spec rail (Figure's "technical specification rail").**
 - Rows stacked, each with a 1 px `--rule` top border and 16–20 px padding.
 - Label: Inter 13–14px `--fg-3`, left. It may carry a second, smaller line.
-- Value: `stat`, right-aligned, `--fg`. The unit follows at 0.45em in `--fg-3`.
+- Value: `stat`, right-aligned, `--fg`. The unit follows at 0.45em in `--fg-3`. A value that
+  is a word or phrase rather than a number (a crystal structure, an instrument name) uses the
+  `heading` role instead (`.spec__value--text`), since `stat` size would not fit beside its label.
 - A live value updates in place with no animation beyond a 150 ms opacity tick, and its
   label says what it is (for example "solid fraction · live").
 - Values whose true unit is model units say so.

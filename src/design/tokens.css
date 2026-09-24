@@ -1,0 +1,416 @@
+/* SOLIDIFY design system (docs/DESIGN.md, v8 D0).
+ *
+ * The ONLY place a color, a type size or a radius is written. Pages and
+ * modules read these through var(); a hex value anywhere else in src/ or in
+ * the page markup is a review finding (DESIGN.md section 7).
+ *
+ * Figure 03 in dark mode: achromatic chrome, flat, square-edged media,
+ * metrics as spec rows, one filled pill per view. Color lives only inside
+ * rendered or simulated imagery.
+ *
+ * Fonts are self-hosted from npm (@fontsource) and bundled by Vite: no
+ * Google Fonts request. Every @font-face in these files uses
+ * font-display: swap. */
+@import "@fontsource/space-grotesk/400.css";
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource/jetbrains-mono/400.css";
+
+/* ------------------------------------------------------------------ tokens */
+:root {
+  color-scheme: dark;
+
+  /* color (DESIGN.md section 2) */
+  --bg: #0a0a0a;             /* page canvas; hero.ts paints the same value */
+  --bg-media: #000000;       /* full-bleed media fields */
+  --surface: #111111;        /* solid panel, modal body */
+  /* 0.90, not less: --fg-3 labels on it keep 4.5:1 even over a white pixel
+     (4.58:1; 0.86 gave 4.0:1 over the white-hot melt) */
+  --overlay: rgba(10, 10, 10, 0.9);
+  --overlay-blur: 12px;
+  --fg: #f2f2f2;             /* primary text, filled button, active state */
+  --fg-2: #bdbdbd;           /* long-form body copy */
+  --fg-3: #8a8a8a;           /* labels, units, metadata, inactive nav (5.7:1 on --bg) */
+  --fg-4: #5c5c5c;           /* disabled and decorative only, never informative text */
+  --rule: #262626;           /* 1 px dividers, spec-rail rules */
+  --rule-strong: #3a3a3a;    /* input underline, slider track, outline-button border */
+  --focus: #f2f2f2;
+
+  /* families (section 3) */
+  --font-display: "Space Grotesk", "Inter Variable", system-ui, sans-serif;
+  --font-body: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  /* type sizes (section 3) */
+  --t-display: clamp(56px, 7.5vw, 112px);
+  --t-display-2: clamp(40px, 5vw, 72px);
+  --t-stat: clamp(32px, 3.6vw, 52px);
+  --t-media: 28px;
+  --t-heading: 22px;
+  --t-body-l: 17px;
+  --t-body: 16px;
+  --t-button: 14px;
+  --t-button-tool: 12.5px;
+  --t-wordmark: 15px;
+  --t-nav: 13px;
+  --t-ui: 13px;
+  --t-value: 13px;
+  --t-nav-tool: 12px;
+  --t-ui-min: 12px;
+  --t-tag: 11px;
+  --t-tick: 11px;
+
+  /* tracking */
+  --track-display: -0.01em;
+  --track-nav: 0.02em;
+  --track-wordmark: 0.08em;
+  --track-body: -0.01em;
+
+  /* spacing, 4 px base (section 4) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+  --s-20: 80px;
+  --s-24: 96px;
+
+  /* radii: binary, sharp or round (section 4) */
+  --r-button: 24px;
+  --r-button-tool: 14px;
+  --r-panel: 12px;
+  --r-tag: 9999px;
+  --r-media: 0;
+
+  /* chrome */
+  --header-h: 72px;
+  --gutter: clamp(16px, 3.3vw, 48px);
+  /* ONE content frame for every page: content never runs wider than
+     --page-max, and --page-x is the inset that centers it (the gutter until
+     the screen is wider than the frame plus two gutters). The header, the
+     hero, every act, the contact page and the footer all use it, so their
+     edges line up at any width. vw, not %: the same length in every box. */
+  --page-max: 1760px;
+  --page-x: max(var(--gutter), (100vw - var(--page-max)) / 2);
+  --btn-h: 40px;
+  --btn-h-tool: 28px;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+@media (max-width: 759px) {
+  :root { --header-h: 60px; }
+}
+
+/* ------------------------------------------------------ base element styles */
+*, *::before, *::after { box-sizing: border-box; }
+html {
+  background: var(--bg);
+  color: var(--fg-2);
+  -webkit-text-size-adjust: 100%;
+  /* a link focused by keyboard, an anchor jump or scrollIntoView stops clear
+     of the fixed header (WCAG 2.4.11); plain scrollTo calls are unaffected */
+  scroll-padding-top: calc(var(--header-h) + var(--s-4));
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule-strong) transparent;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg-2);
+  font-family: var(--font-body);
+  font-size: var(--t-body);
+  line-height: 1.5;
+  letter-spacing: var(--track-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+::selection { background: var(--fg); color: var(--bg); }
+::-webkit-scrollbar { width: 8px; height: 8px; background: transparent; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: var(--r-tag); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+a {
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+a:hover { text-decoration: none; }
+img, canvas, video { border-radius: var(--r-media); }
+
+/* type roles, as classes for markup that is not a component */
+.t-display { font: 400 var(--t-display)/1 var(--font-display); letter-spacing: var(--track-display); color: var(--fg); }
+.t-display-2 { font: 400 var(--t-display-2)/1.02 var(--font-display); letter-spacing: var(--track-display); color: var(--fg); }
+.t-media { font: 400 var(--t-media)/1.11 var(--font-display); text-transform: uppercase; color: var(--fg); }
+.t-heading { font: 400 var(--t-heading)/1.1 var(--font-body); letter-spacing: var(--track-body); color: var(--fg); }
+.t-body-l { font: 400 var(--t-body-l)/1.6 var(--font-body); letter-spacing: var(--track-body); color: var(--fg-2); }
+.t-nav, .kicker {
+  font: 400 var(--t-nav)/1 var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: var(--track-nav);
+  color: var(--fg-3);
+}
+.t-value { font: 400 var(--t-value)/1.35 var(--font-mono); font-variant-numeric: tabular-nums; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+/* ---------------------------------------------------------------- buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
+  height: var(--btn-h); padding: 0 var(--s-5);
+  border: 1px solid var(--rule-strong); border-radius: var(--r-button);
+  background: transparent; color: var(--fg);
+  font: 500 var(--t-button)/1.2 var(--font-body); letter-spacing: 0;
+  text-decoration: none; white-space: nowrap; cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s, scale 0.12s;
+}
+.btn:hover { border-color: var(--fg); text-decoration: none; }
+.btn:active { scale: 0.96; }
+.btn--primary { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.btn--primary:hover { background: var(--fg-2); border-color: var(--fg-2); }
+/* the trailing chevron is decoration: an empty alternative keeps it out of the
+   accessible name, which stays the link's own words */
+.btn--primary::after, .btn--more::after {
+  content: "\203A"; content: "\203A" / "";
+  font-size: 1.3em; line-height: 0; margin-left: 2px; translate: 0 -0.05em;
+}
+.btn--text {
+  height: auto; padding: 0; border: 0; border-radius: 0;
+  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px;
+}
+.btn--text:hover { text-decoration: none; }
+.btn.is-on, .btn[aria-pressed="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.btn:disabled, .btn[aria-disabled="true"] {
+  color: var(--fg-4); border-color: var(--rule); background: transparent; cursor: not-allowed; scale: none;
+}
+.btn--sm { height: var(--btn-h-tool); padding: 0 var(--s-3); border-radius: var(--r-button-tool); font-size: var(--t-button-tool); }
+
+/* ------------------------------------------------------------- spec rail */
+/* Figure's technical specification rail: label left, value right in large
+   type, rows split by 1 px rules. A value is real (a live readout or a cited
+   source), never decorative. */
+.spec { list-style: none; margin: 0; padding: 0; border-bottom: 1px solid var(--rule); }
+.spec__row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: var(--s-4);
+  padding: var(--s-5) 0; border-top: 1px solid var(--rule);
+}
+.spec__label { font: 400 var(--t-ui)/1.35 var(--font-body); color: var(--fg-3); }
+.spec__label small { display: block; margin-top: var(--s-1); font-size: var(--t-ui-min); color: var(--fg-3); }
+.spec__value {
+  font: 400 var(--t-stat)/1.11 var(--font-display); color: var(--fg); text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* a live value's update: ONE 150 ms opacity tick that ends at full opacity
+   (the page restarts it on each new value), never a dimmed hold */
+@keyframes spec-tick { from { opacity: 0.75; } to { opacity: 1; } }
+.spec__value.is-tick { animation: spec-tick 150ms linear; }
+.spec__unit { margin-left: 0.2em; font-size: 0.45em; color: var(--fg-3); }
+.spec__unit--tight { margin-left: 0; }   /* a suffix that joins its number: 4-fold */
+.spec__value.is-empty .spec__unit { display: none; }   /* "—", never "— %" */
+/* a <dl> rail: rows are <div class="spec__row"><dt>..</dt><dd>..</dd></div> */
+.spec dt, .spec dd { margin: 0; }
+.spec:empty { display: none; }
+/* a value that is a word rather than a number (what a lens shows, a crystal
+   structure) takes the heading role, still right-aligned; numbers keep stat */
+.spec__value--text {
+  font: 400 var(--t-heading)/1.25 var(--font-body); letter-spacing: var(--track-body);
+  text-wrap: balance; overflow-wrap: anywhere;
+}
+/* a value too long for the right edge (an equation) sits under its label */
+.spec__row--stack { grid-template-columns: minmax(0, 1fr); gap: var(--s-2); }
+.spec__row--stack .spec__value { text-align: left; }
+
+/* progress through a set (lenses, melts): a row of thin segments, the
+   current one --fg */
+.segs { display: flex; gap: var(--s-1); }
+.segs > i { flex: 1 1 0; height: 2px; background: var(--rule-strong); transition: background-color 0.25s; }
+.segs > i.is-on { background: var(--fg); }
+
+/* ------------------------------------------------------------------- tabs */
+.tabs { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-6); }
+.tabs__tab {
+  padding: var(--s-2) 0; border: 0; border-bottom: 1px solid transparent; background: none;
+  font: 400 var(--t-nav)/1 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav);
+  color: var(--fg-3); text-decoration: none; cursor: pointer; transition: color 0.15s, border-color 0.15s;
+}
+.tabs__tab:hover { color: var(--fg); }
+.tabs__tab.is-on, .tabs__tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--fg); }
+/* the tool's lens bar: the active label is an inverted pill */
+.tabs--pill { gap: var(--s-1); }
+.tabs--pill .tabs__tab { padding: var(--s-2) var(--s-3); border: 0; border-radius: var(--r-tag); }
+.tabs--pill .tabs__tab.is-on, .tabs--pill .tabs__tab[aria-selected="true"] { background: var(--fg); color: var(--bg); }
+
+/* ------------------------------------------------------------ tags, status */
+.tag {
+  display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 var(--s-3);
+  border: 1px solid var(--rule-strong); border-radius: var(--r-tag);
+  font: 400 var(--t-tag)/1 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav);
+  color: var(--fg-3); white-space: nowrap;
+}
+/* no color means status: a warning leads with "!" in --fg at 500, a running
+   state with a dot */
+.status--warn { color: var(--fg); font-weight: 500; }
+.status--warn::before { content: "! "; }
+.status--run::before { content: "\25CF\00A0"; }
+
+/* ----------------------------------------------------------------- panels */
+.panel {
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-panel);
+  padding: var(--s-5); color: var(--fg-2);
+}
+.panel--overlay {
+  background: var(--overlay);
+  -webkit-backdrop-filter: blur(var(--overlay-blur)); backdrop-filter: blur(var(--overlay-blur));
+}
+.panel__head {
+  margin: 0 0 var(--s-4); padding-bottom: var(--s-3); border-bottom: 1px solid var(--rule);
+  font: 400 var(--t-nav)/1 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav); color: var(--fg);
+}
+
+/* ----------------------------------------------------------------- inputs */
+.input, .select {
+  appearance: none; -webkit-appearance: none;
+  padding: 6px 0; border: 0; border-bottom: 1px solid var(--rule-strong); border-radius: 0;
+  background: transparent; color: var(--fg); font: 400 var(--t-ui)/1.35 var(--font-body);
+}
+.input::placeholder { color: var(--fg-3); }
+.input:focus, .select:focus { outline: none; border-bottom-color: var(--fg); }
+.input:focus-visible, .select:focus-visible { outline: none; border-bottom-color: var(--fg); }
+.select option { background: var(--surface); color: var(--fg); }
+
+/* slider: 2 px track, the filled part in --fg (set --fill from script), a
+   12 px --fg thumb that takes the focus ring */
+.range {
+  --fill: 0%;
+  appearance: none; -webkit-appearance: none;
+  width: 100%; height: 16px; margin: 0; background: transparent; cursor: pointer;
+}
+.range:focus { outline: none; }
+.range::-webkit-slider-runnable-track {
+  height: 2px; border-radius: 0;
+  background: linear-gradient(to right, var(--fg) var(--fill), var(--rule-strong) var(--fill));
+}
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 12px; height: 12px; margin-top: -5px;
+  border: 0; border-radius: var(--r-tag); background: var(--fg);
+}
+.range:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--focus); outline-offset: 2px; }
+.range::-moz-range-track { height: 2px; background: var(--rule-strong); border: 0; }
+.range::-moz-range-progress { height: 2px; background: var(--fg); }
+.range::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: var(--r-tag); background: var(--fg); }
+.range:focus-visible::-moz-range-thumb { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* switch: 28 x 16, 1 px border; checked fills --fg with a --bg knob */
+.switch {
+  appearance: none; -webkit-appearance: none; position: relative; flex: none;
+  width: 28px; height: 16px; margin: 0; border: 1px solid var(--rule-strong); border-radius: var(--r-tag);
+  background: transparent; cursor: pointer; transition: background-color 0.15s, border-color 0.15s;
+}
+.switch::before {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px;
+  border-radius: var(--r-tag); background: var(--fg-3); transition: translate 0.15s var(--ease), background-color 0.15s;
+}
+.switch:checked { background: var(--fg); border-color: var(--fg); }
+.switch:checked::before { translate: 12px 0; background: var(--bg); }
+
+/* ----------------------------------------------------------------- header */
+/* Landing, science, contact. Transparent over the page's first screen; the
+   page script adds .is-top there and removes it once the page scrolls, so
+   without a script the bar keeps its overlay and stays legible over anything. */
+.hdr {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  height: var(--header-h); padding: 0 var(--page-x);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-6);
+  background: var(--overlay);
+  -webkit-backdrop-filter: blur(var(--overlay-blur)); backdrop-filter: blur(var(--overlay-blur));
+  border-bottom: 1px solid var(--rule);
+  transition: background-color 0.25s, border-color 0.25s;
+}
+.hdr.is-top {
+  background: transparent; border-bottom-color: transparent;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.hdr__mark {
+  font: 400 var(--t-wordmark)/1 var(--font-display); letter-spacing: var(--track-wordmark);
+  color: var(--fg); text-decoration: none;
+}
+.hdr__right { display: flex; align-items: center; gap: var(--s-8); }
+.hdr__links { display: flex; align-items: center; gap: var(--s-8); }
+.hdr__link {
+  font: 400 var(--t-nav)/1 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav);
+  color: var(--fg-3); text-decoration: none; transition: color 0.15s;
+}
+.hdr__link:hover, .hdr__link[aria-current="page"] { color: var(--fg); text-decoration: none; }
+/* the phone menu's panel hangs from the header itself (a fixed box, so the
+   containing block), spanning its gutters, not from the MENU control */
+.hdr__menu { display: none; }
+.hdr__menu > summary { list-style: none; cursor: pointer; padding: var(--s-2) 0; }
+.hdr__menu > summary::-webkit-details-marker { display: none; }
+.hdr__menu[open] > summary { color: var(--fg); }
+.hdr__drop {
+  position: absolute; top: calc(100% + var(--s-2)); left: var(--page-x); right: var(--page-x);
+  display: flex; flex-direction: column; gap: 0; padding: var(--s-2) var(--s-5);
+}
+/* --fg-2, not the bar's --fg-3: the panel sits over the hero render, and
+   --fg-3 on --overlay over a bright pixel is the contrast floor exactly */
+.hdr__drop .hdr__link { padding: var(--s-4) 0; border-top: 1px solid var(--rule); color: var(--fg-2); }
+.hdr__drop .hdr__link[aria-current="page"], .hdr__drop .hdr__link:hover { color: var(--fg); }
+.hdr__drop .hdr__link:first-child { border-top: 0; }
+@media (max-width: 759px) {
+  .hdr__right { gap: var(--s-5); }
+  .hdr__links { display: none; }
+  .hdr__menu { display: block; }
+  .hdr .btn { padding: 0 var(--s-4); }
+}
+/* narrow phones: the wordmark, MENU and the pill at full padding need about
+   400 px */
+@media (max-width: 400px) {
+  .hdr { gap: var(--s-3); }
+  .hdr__right { gap: var(--s-3); }
+  .hdr .btn { padding: 0 var(--s-3); }
+}
+/* and under 360 px (WCAG 1.4.10 reflows to 320) the pill says "Open" only.
+   Its aria-label keeps the accessible name "Open the instrument", which
+   starts with the visible word (SC 2.5.3). display: none rather than a
+   visually hidden span: clipped text still lays out past the screen edge.
+   The label is ONE span inside the pill, so the button's flex gap (meant
+   for the chevron) never opens between "Open" and "the". */
+@media (max-width: 359px) {
+  .hdr .btn--primary .hdr__long { display: none; }
+}
+
+/* ----------------------------------------------------------------- footer */
+/* Figure's footer matrix (landing, science, contact): a brand column, then
+   grouped links under nav-style labels, 40 px between groups, a 1 px top
+   rule, and a base line for the credit and the browser note. */
+.ftr { border-top: 1px solid var(--rule); padding: var(--s-16) var(--page-x) var(--s-8); background: var(--bg); }
+.ftr__grid {
+  display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); gap: var(--s-10);
+}
+.ftr__brand p { margin: var(--s-5) 0 0; max-width: 32ch; font: 400 var(--t-body)/1.5 var(--font-body); color: var(--fg-2); }
+.ftr__label { margin: 0 0 var(--s-5); font: 400 var(--t-nav)/1 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav); color: var(--fg-3); }
+.ftr__links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-3); }
+.ftr__links a { font: 400 var(--t-body)/1.5 var(--font-body); color: var(--fg); text-decoration: none; }
+.ftr__links a:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.ftr__base {
+  margin: var(--s-16) 0 0; padding-top: var(--s-5); border-top: 1px solid var(--rule);
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s-2) var(--s-8);
+  font: 400 var(--t-ui)/1.5 var(--font-body); color: var(--fg-3);
+}
+@media (max-width: 759px) {
+  .ftr { padding-top: var(--s-12); }
+  .ftr__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-10) var(--s-6); }
+  .ftr__brand { grid-column: 1 / -1; }
+  .ftr__base { margin-top: var(--s-12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, .hdr, .tabs__tab, .switch, .switch::before, .segs > i { transition: none; }
+  .spec__value.is-tick { animation: none; }
+  .btn:active { scale: none; }
+}

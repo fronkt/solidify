@@ -3,75 +3,143 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SOLIDIFY — contact</title>
+  <title>SOLIDIFY · contact</title>
   <meta name="description" content="Questions, feedback, bug reports, or collaboration around SOLIDIFY, the in-browser phase-field solidification laboratory." />
-  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%230a0b0d"/><text x="32" y="45" font-family="ui-monospace,Consolas,monospace" font-size="36" font-weight="700" text-anchor="middle"><tspan fill="%23ffb454">S</tspan><tspan fill="%23eef1f5">I</tspan></text></svg>' />
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%230a0a0a"/><text x="32" y="46" font-family="Arial,Helvetica,sans-serif" font-size="40" text-anchor="middle" fill="%23f2f2f2">S</text></svg>' />
+  <!-- the design system: every color, type size and radius below is a token
+       from this file (docs/DESIGN.md) -->
+  <link rel="stylesheet" href="/src/design/tokens.css" />
   <style>
-    :root { --bg: #0a0b0d; --panel: #101216; --line: #232833; --text: #b8c0cc; --bright: #eef1f5; --dim: #5b6675; --amber: #ffb454; --cyan: #56d4dd; --font: "SF Mono", "Cascadia Code", Consolas, monospace; }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: var(--bg); color: var(--text); font-family: var(--font); line-height: 1.7; font-size: 13.5px; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 40px 22px; }
-    ::selection { background: var(--amber); color: #17110a; }
-    ::-webkit-scrollbar { width: 10px; background: #0a0b0d; }
-    ::-webkit-scrollbar-thumb { background: #c98a3a; border-radius: 5px; border: 2px solid #0a0b0d; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--amber); }
-    html { scrollbar-color: #c98a3a #0a0b0d; }
-    .wrap { max-width: 560px; width: 100%; }
-    h1 { color: var(--bright); font-size: 22px; letter-spacing: 0.3em; }
-    h1 span { color: var(--amber); }
-    .sub { color: var(--dim); margin: 8px 0 34px; font-size: 12.5px; }
-    a { color: var(--cyan); text-decoration: none; }
-    a:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 8px; }
-
-    .card { display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; margin-bottom: 14px; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; cursor: pointer; color: var(--text); }
-    .card:hover { border-color: #3a4150; transform: translateY(-2px); box-shadow: 0 14px 40px rgba(0,0,0,0.35); }
-    .card:active { transform: translateY(0) scale(0.99); }
-    .card h2 { font-size: 13px; letter-spacing: 0.14em; color: var(--amber); margin-bottom: 6px; font-weight: 600; }
-    .card p { font-size: 12px; color: var(--dim); }
-    .card .addr { margin-top: 8px; font-size: 12.5px; color: var(--bright); letter-spacing: 0.04em; display: none; }
-    .card.revealed .addr { display: block; }
-
-    .row { display: flex; gap: 10px; margin-top: 4px; }
-    .mini { flex: 1; text-align: center; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 11.5px; color: var(--dim); transition: border-color 0.2s, color 0.2s; }
-    .mini:hover { border-color: var(--amber); color: var(--amber); }
-
-    .note { margin-top: 26px; font-size: 11px; color: var(--dim); line-height: 1.8; }
-    .note b { color: var(--text); font-weight: 500; }
-    nav { margin-top: 30px; display: flex; gap: 16px; font-size: 12px; border-top: 1px solid var(--line); padding-top: 18px; }
-    nav a:hover { color: var(--amber); }
+    /* Figure's contact layout, dark: the title left, the ways to reach me
+       right as a spec rail, each row a label and one action. There is no
+       form: the address is assembled at runtime and handed to the mail app. */
+    .contact { min-height: 100dvh; padding: calc(var(--header-h) + var(--s-20)) var(--page-x) var(--s-20); }
+    .contactGrid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      gap: var(--s-12) clamp(32px, 5vw, 96px); align-items: start; }
+    /* display-2, the science page's title size: display is the landing
+       hero's alone */
+    .contact h1 { margin: var(--s-5) 0 0; font: 400 var(--t-display-2)/1.02 var(--font-display); letter-spacing: var(--track-display); color: var(--fg); }
+    .contact .lead { margin: var(--s-6) 0 0; max-width: 36ch; font: 400 var(--t-body-l)/1.6 var(--font-body); color: var(--fg-2); }
+    .contactSide { width: 100%; max-width: 720px; justify-self: end; }
+    .ways .spec__row { align-items: center; padding: var(--s-6) 0; }
+    .ways .spec__label { font: 400 var(--t-heading)/1.2 var(--font-body); letter-spacing: var(--track-body); color: var(--fg); }
+    /* the rows' descriptions are instructions, up to three lines: copy, so
+       --fg-2 */
+    .ways .spec__label small { margin-top: var(--s-2); max-width: 44ch; font: 400 var(--t-ui)/1.5 var(--font-body); color: var(--fg-2); }
+    .ways dd { display: flex; flex-direction: column; align-items: flex-end; gap: var(--s-3); }
+    /* an address is words, not a number: Inter, not the mono face */
+    .addr { font: 400 var(--t-ui)/1.35 var(--font-body); color: var(--fg); }
+    /* empty, it takes no room and no gap, yet stays in the accessibility tree:
+       it is the live region that reads out the address once revealed */
+    .addr:empty { position: absolute; }
+    .ask { margin: var(--s-10) 0 0; padding: var(--s-6); }
+    .ask p { margin: 0; font: 400 var(--t-body)/1.6 var(--font-body); color: var(--fg-2); }
+    .ask b { color: var(--fg); font-weight: 400; }
+    @media (max-width: 759px), (orientation: portrait) {
+      .contact { padding-top: calc(var(--header-h) + var(--s-12)); padding-bottom: var(--s-12); }
+      .contactGrid { grid-template-columns: minmax(0, 1fr); }
+      .contactSide { justify-self: stretch; max-width: none; }
+    }
+    @media (max-width: 759px) {
+      .ways .spec__row { grid-template-columns: minmax(0, 1fr); gap: var(--s-4); }
+      .ways dd { align-items: flex-start; }
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>SOLID<span>IFY</span> · CONTACT</h1>
-    <div class="sub">questions, feedback, bug reports, collaboration — all welcome</div>
-
-    <a class="card" id="mailCard" href="#">
-      <h2>✉ EMAIL ME</h2>
-      <p>Fastest for questions, feedback, or anything else. Click to open your mail app — or reveal and copy the address below.</p>
-      <div class="addr" id="addr"></div>
-    </a>
-
-    <a class="card" href="https://github.com/fronkt/solidify/issues/new" rel="noopener">
-      <h2>⌗ OPEN A GITHUB ISSUE</h2>
-      <p>Best for bugs and feature ideas — they stay public and tracked. For rendering bugs, please include your browser and GPU (the fps readout's grid size helps too).</p>
-    </a>
-
-    <div class="row">
-      <a class="mini" id="copyBtn" href="#">copy address</a>
-      <a class="mini" href="https://github.com/fronkt/solidify" rel="noopener">view the source</a>
+  <!-- the site header (tokens.css .hdr, src/design/header.ts) -->
+  <header class="hdr" id="topnav">
+    <a class="hdr__mark" href="../">SOLIDIFY</a>
+    <div class="hdr__right">
+      <nav class="hdr__links" aria-label="Main">
+        <a class="hdr__link" href="../app/">Instrument</a>
+        <a class="hdr__link" href="../science/">Science</a>
+        <a class="hdr__link" href="../contact/" aria-current="page">Contact</a>
+        <a class="hdr__link" href="https://github.com/fronkt/solidify">GitHub</a>
+      </nav>
+      <details class="hdr__menu">
+        <summary class="hdr__link">Menu</summary>
+        <nav class="hdr__drop panel panel--overlay" aria-label="Main">
+          <a class="hdr__link" href="../app/">Instrument</a>
+          <a class="hdr__link" href="../science/">Science</a>
+          <a class="hdr__link" href="../contact/" aria-current="page">Contact</a>
+          <a class="hdr__link" href="https://github.com/fronkt/solidify">GitHub</a>
+        </nav>
+      </details>
+      <a class="btn btn--primary" href="../app/" aria-label="Open the instrument"><span>Open<span class="hdr__long"> the instrument</span></span></a>
     </div>
+  </header>
 
-    <div class="note">
-      Found the physics doing something wrong? That is the report I most want — say which
-      <b>lens</b>, <b>material</b>, and <b>scenario</b> — 2D or TRUE 3D — and what you expected instead.
+  <main class="contact">
+    <div class="contactGrid">
+      <div>
+        <p class="kicker">Contact</p>
+        <h1>Get in touch.</h1>
+        <p class="lead">Questions, feedback, bug reports, collaboration: all welcome.</p>
+      </div>
+
+      <div class="contactSide">
+        <dl class="spec ways">
+          <div class="spec__row">
+            <dt class="spec__label">Email<small>Fastest for questions and feedback. Opens your mail app; the address shows here too.</small></dt>
+            <dd>
+              <a class="btn btn--more" id="mailCard" href="#">Email me</a>
+              <span class="addr" id="addr" role="status"></span>
+              <button type="button" class="btn btn--text" id="copyBtn">Copy address</button>
+            </dd>
+          </div>
+          <div class="spec__row">
+            <dt class="spec__label">GitHub issue<small>Best for bugs and feature ideas: they stay public and tracked. For rendering bugs, include your browser and GPU, and the grid size from the fps readout.</small></dt>
+            <dd><a class="btn btn--more" href="https://github.com/fronkt/solidify/issues/new" rel="noopener">Open an issue</a></dd>
+          </div>
+          <div class="spec__row">
+            <dt class="spec__label">Source<small>The whole instrument, open.</small></dt>
+            <dd><a class="btn btn--text" href="https://github.com/fronkt/solidify" rel="noopener">View the source</a></dd>
+          </div>
+        </dl>
+        <div class="panel ask">
+          <p>Found the physics doing something wrong? That is the report I most want. Say which
+          <b>lens</b>, <b>material</b> and <b>scenario</b> (2D or TRUE 3D), and what you expected instead.</p>
+        </div>
+      </div>
     </div>
+  </main>
 
-    <nav>
-      <a href="../">← home</a>
-      <a href="../app/">the instrument</a>
-      <a href="../science/">the science</a>
-    </nav>
-  </div>
+  <!-- Figure's footer matrix (tokens.css .ftr), the landing's own -->
+  <footer class="ftr">
+    <div class="ftr__grid">
+      <div class="ftr__brand">
+        <a class="hdr__mark" href="../">SOLIDIFY</a>
+        <p>A phase-field solidification lab, live in your browser.</p>
+      </div>
+      <nav aria-label="Instrument">
+        <p class="ftr__label">Instrument</p>
+        <ul class="ftr__links">
+          <li><a href="../app/">Open the instrument</a></li>
+          <li><a href="../app/?tour=1">Take the tour</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Science">
+        <p class="ftr__label">Science</p>
+        <ul class="ftr__links">
+          <li><a href="../science/">The science</a></li>
+          <li><a href="https://github.com/fronkt/solidify/blob/main/hero/README.md">How the hero is rendered</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Project">
+        <p class="ftr__label">Project</p>
+        <ul class="ftr__links">
+          <li><a href="https://github.com/fronkt/solidify">Source on GitHub</a></li>
+          <li><a href="https://github.com/fronkt/solidify/issues/new">Report an issue</a></li>
+          <li><a href="../contact/">Contact</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="ftr__base">
+      <span>Built by Frank Cai</span>
+      <span>Needs a WebGPU browser for the live pages: Chrome, Edge, Safari 26+, recent Firefox.</span>
+    </div>
+  </footer>
 
   <script>
     // address assembled at runtime so HTML scrapers never see it
@@ -81,22 +149,20 @@
       var addr = u + "@" + d;
       var card = document.getElementById("mailCard");
       var addrEl = document.getElementById("addr");
-      var subject = encodeURIComponent("SOLIDIFY — ");
+      var subject = encodeURIComponent("SOLIDIFY: ");
       card.addEventListener("click", function (e) {
         e.preventDefault();
         addrEl.textContent = addr;
-        card.classList.add("revealed");
         location.href = "mailto:" + addr + "?subject=" + subject;
       });
-      document.getElementById("copyBtn").addEventListener("click", function (e) {
-        e.preventDefault();
+      document.getElementById("copyBtn").addEventListener("click", function () {
         addrEl.textContent = addr;
-        card.classList.add("revealed");
         navigator.clipboard && navigator.clipboard.writeText(addr);
-        this.textContent = "copied ✓";
+        this.textContent = "Copied";
       });
     })();
   </script>
+  <script type="module" src="/src/design/page.ts"></script>
   <script data-goatcounter="https://frankcai2.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
