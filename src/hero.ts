@@ -556,6 +556,20 @@ function live(section: HTMLElement, canvas: HTMLCanvasElement, ctx: CanvasRender
     requestAnimationFrame(drawNow);
   };
   const paintBg = () => { ctx.fillStyle = BG; ctx.fillRect(0, 0, canvas.width, canvas.height); };
+  /** The tour's close-ups fill the square, so the frame's edge fade widens into
+   *  a soft ellipse as the camera moves in (the first 5 frames after the tour
+   *  starts) and narrows again as the hold cross-fades to the wide poster. */
+  const frameEl = canvas.parentElement as HTMLElement | null;
+  let edgeKey = "";
+  const setEdge = (f: number, mix: number) => {
+    const tourFrom = m?.chapters.find(c => c.id === "tour")?.from ?? Infinity;
+    const c = Math.min(1, Math.max(0, (f - tourFrom - 1) / 5)) * (1 - mix);
+    const k = c.toFixed(2);
+    if (!frameEl || k === edgeKey) return;
+    edgeKey = k;
+    frameEl.style.setProperty("--edge", `${(6 + 12 * c).toFixed(1)}%`);
+    frameEl.style.setProperty("--vin", `${(100 - 48 * c).toFixed(1)}%`);
+  };
   function drawNow() {
     rafPending = false;
     if (dead || !m || !onScreen) return;
@@ -592,6 +606,7 @@ function live(section: HTMLElement, canvas: HTMLCanvasElement, ctx: CanvasRender
     drawn = have;
     h.frame = have;
     h.posterMix = mix;
+    setEdge(have, mix);
     placeCallouts();
   }
 

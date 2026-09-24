@@ -169,9 +169,16 @@
     .hero-live #heroOpen { position: absolute; left: var(--gut); top: max(11dvh, 80px); margin: 0; max-width: calc(100vw - 2 * var(--gut)); }
     .hero-live #heroStage { position: absolute; inset: 0; margin: 0; max-width: none; display: block; }
     .hero-live .heroFrame { position: absolute; left: 50%; top: 50%; width: var(--S); height: var(--S); translate: -50% -50%;
-      /* a close-up's crystal fades out at the frame's edge instead of being cut by it */
-      -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent), linear-gradient(to bottom, transparent, #000 6%, #000 94%, transparent);
-      -webkit-mask-composite: source-in; mask-composite: intersect; }
+      /* a close-up's crystal fades out at the frame's edge instead of being cut by it.
+         --edge (side fade) and --vin (where the corner falloff starts) are set per
+         frame by hero.ts: a thin 6% fade on the wide shots, so no arm tip is clipped,
+         widening to a soft ellipse on the tour's close-ups, so the square never reads
+         as a box. Masks only; the canvas pixels the gates compare are untouched. */
+      --edge: 6%; --vin: 100%;
+      -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--edge), #000 calc(100% - var(--edge)), transparent),
+        linear-gradient(to bottom, transparent, #000 var(--edge), #000 calc(100% - var(--edge)), transparent),
+        radial-gradient(farthest-corner, #000 var(--vin), transparent 100%);
+      -webkit-mask-composite: source-in, source-in; mask-composite: intersect; }
     .hero-live #heroStill { display: none; }
     .hero-live #heroCanvas { display: block; width: 100%; height: 100%; }
     .hero-live .heroLabels { position: absolute; inset: 0; display: block; z-index: 5; pointer-events: none; }
@@ -360,7 +367,7 @@
                loading is off and it loads as a plain image -->
           <img id="heroStill" src="hero/poster-1200.webp" loading="lazy" width="1200" height="1200"
                alt="A rendered metal dendrite in satin steel on a dark background: six main arms along the axes of a cube, each lined with rows of side branches, the longest carrying smaller branches of their own." />
-          <canvas id="heroCanvas" role="img" aria-label="A rendered metal dendrite that grows from a glowing seed, cools to bare metal and turns as you scroll."></canvas>
+          <canvas id="heroCanvas" role="img" aria-label="A rendered metal dendrite that grows from a small seed into six branching arms and turns as you scroll."></canvas>
         </div>
         <div class="heroLabels right"></div>
         <svg id="heroMarks" aria-hidden="true"></svg>
