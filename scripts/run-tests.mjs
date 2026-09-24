@@ -4,7 +4,7 @@
 // server down. Requires a WebGPU-capable Chrome at the hardcoded
 // executablePath inside each verify-*.mjs — Windows + a real GPU (no script
 // falls back to swiftshader), not portable to a generic CI runner. See TESTING.md.
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const PORT = 5199;
@@ -78,7 +78,19 @@ async function waitForServer(timeoutMs = 20000) {
   throw new Error(`vite dev server never answered at ${URL}`);
 }
 
-const server = spawn("npx", ["vite", "--port", String(PORT), "--strictPort"], { shell: true, stdio: "inherit" });
+// With shell: true the child is the shell, and kill() ends only the shell:
+// npx and vite lived on holding the port after every run. Take down the whole
+// tree (taskkill /T on Windows, the process group elsewhere).
+const WIN = process.platform === "win32";
+const server = spawn("npx", ["vite", "--port", String(PORT), "--strictPort"], { shell: true, stdio: "inherit", detached: !WIN });
+let serverDown = false;
+function stopServer() {
+  if (serverDown) return;
+  serverDown = true;
+  if (WIN) spawnSync("taskkill", ["/pid", String(server.pid), "/T", "/F"], { stdio: "ignore" });
+  else { try { process.kill(-server.pid, "SIGTERM"); } catch { server.kill(); } }
+}
+for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { stopServer(); process.exit(130); });
 
 let failed = false;
 try {
@@ -91,7 +103,7 @@ try {
   console.error(err.message);
   failed = true;
 } finally {
-  server.kill();
+  stopServer();
 }
 
 process.exit(failed ? 1 : 0);

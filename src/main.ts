@@ -27,6 +27,7 @@ import { SOLVER } from "./shaders";
 import { calibrate, defaultLambda, pouredMixSource, A_T, type QuantSetup } from "./quant";
 import * as experiment from "./experiment";
 import { WT_PER_C0 } from "./alloy";
+import { STATUS_LEARN } from "./learn/panels";
 
 /** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
 const SPEED_MULTS = [1, 2, 4] as const;
@@ -163,8 +164,8 @@ async function boot() {
   }
   let mode3dPending = false;
 
-  const HINT_2D = "tap the melt to nucleate a crystal · shift-tap for a twin · scroll or pinch to zoom · right-drag to pan";
-  const HINT_3D = "tap to nucleate in the volume · drag to orbit · wheel to dolly · right-drag to pan";
+  const HINT_2D = "tap: seed · shift-tap: twin · scroll or pinch: zoom · right-drag: pan";
+  const HINT_3D = "tap: seed · drag: orbit · wheel: dolly · right-drag: pan";
   const setHintMode = (m3: boolean) => {
     const h = document.getElementById("hint")!;
     h.textContent = m3 ? HINT_3D : HINT_2D;
@@ -637,7 +638,7 @@ async function boot() {
         // name over another metal's still-live thermometer, clock, Γ, ε₄ and
         // heat-treatment laws. Reporting the refusal is what lets the caller
         // decline to do that.
-        alloyCaveats = [`there is no material called "${k}" in this build — the melt is still ${MATERIALS[material].label}`];
+        alloyCaveats = [`no material "${k}" in this build · melt still ${MATERIALS[material].label}`];
         return false;
       }
       material = k;
@@ -807,17 +808,23 @@ async function boot() {
       if (!(mode === "3d" && sim3d) || slice.style !== 5) return null;
       const u = unitsNow();
       if (!u.known) {
-        return "relative ramp — the model metal carries no kelvin or second, so there is no threshold to calibrate";
+        return { line: "relative ramp · no SI units, so no threshold", learn: STATUS_LEARN.niyamaModel };
       }
       const clock = sim3d.alloyActive ? "solute-diffusion clock" : "thermal clock";
       if (material === "steel") {
         const risk = lastStats3?.nyRiskFrac;
-        return `Ny_crit ${u.fmtNiyama(sim3d.params.nyCrit)} — Niyama 1982 steel radiographic criterion`
-          + (risk != null ? ` · ${(risk * 100).toFixed(1)} % of the measured frozen volume below it` : "")
-          + ` · shrinkage feeding only — gas porosity is the Sievert card's business · ${clock}`;
+        return {
+          line: `Ny_crit ${u.fmtNiyama(sim3d.params.nyCrit)} (Niyama 1982, steel radiography)`
+            + (risk != null ? ` · ${(risk * 100).toFixed(1)} % of frozen volume below it` : "")
+            + ` · shrinkage only (gas: lab report) · ${clock}`,
+          learn: STATUS_LEARN.niyamaSteel,
+        };
       }
-      return `relative map — no calibrated Ny threshold for this alloy class (the 0.775 criterion is steel radiography)`
-        + ` · ramp full scale ≈ ${u.fmtNiyama(sim3d.params.nyCrit)} · shrinkage feeding only · ${clock}`;
+      return {
+        line: `relative map · no Ny threshold for this alloy (0.775 is for steel)`
+          + ` · full scale ≈ ${u.fmtNiyama(sim3d.params.nyCrit)} · shrinkage only · ${clock}`,
+        learn: STATUS_LEARN.niyamaOther,
+      };
     },
     getSym3: () => (sim3d?.params.aniMode3 === 2 ? 6 : sim3d?.params.aniMode3 === 3 ? 5 : 4),
     setSym3(j) {
@@ -1001,7 +1008,7 @@ async function boot() {
       // over the material that is still live — a wrong label is worse than an
       // absent one, and this is the site that produced it.
       if (!app.setMaterial(materialKey)) {
-        alloyCaveats = [`this alloy asks for a base metal ("${materialKey}") that this build does not carry — nothing was poured, and the melt is still ${MATERIALS[material].label}`];
+        alloyCaveats = [`no base metal "${materialKey}" in this build · nothing poured · melt still ${MATERIALS[material].label}`];
         ui.sync();
         return;
       }
@@ -1554,6 +1561,10 @@ async function boot() {
   window.addEventListener("keydown", e => { if (e.key === "Tab") kbNav = true; }, true);
   window.addEventListener("keydown", e => {
     if (e.target instanceof HTMLInputElement) return;
+    // the alloy composer is a modal: its own keys (Escape, Tab) are handled
+    // there, and Space or a digit must not run, pause or re-lens the melt
+    // behind it
+    if (composer.isOpen()) return;
     const kbFocused = kbNav && e.target instanceof Element && e.target.matches("button, select");
     if (e.code === "Space" && !kbFocused) { e.preventDefault(); app.setRun(!app.isRunning()); ui.sync(); }
     if (mode === "3d") {
@@ -1568,27 +1579,54 @@ async function boot() {
   });
 
   // -------------------------------------------------------------- scale bar
+  /** the round length whose bar comes closest to `target` css px, inside (lo, hi) */
+  const niceBar = (umPerCssPx: number, lengths: number[], fallback: number, target = 80, lo = 30, hi = 160): number => {
+    let bestUm = fallback;
+    let bestErr = Infinity;
+    for (const um of lengths) {
+      const w = um / umPerCssPx;
+      const err = Math.abs(w - target);
+      if (w > lo && w < hi && err < bestErr) { bestErr = err; bestUm = um; }
+    }
+    return bestUm;
+  };
+  const fmtUmLen = (um: number) => (um >= 1000 ? `${(um / 1000).toPrecision(3)} mm` : `${um.toPrecision(3)} µm`);
+
   function updateScalebar() {
+    const v = mode === "3d" ? view3d : view;
+    const semLens = mode === "3d" ? 4 : 6;
+    if (v !== 2 && v !== semLens) return;
     let umPerCssPx: number;
     if (mode === "3d") {
-      // 3D: shown for the SLICE lens (a section micrograph earns a scale bar);
+      // 3D: the SLICE lens (a section micrograph earns a scale bar) and SEM;
       // scale taken at the camera-target distance, voxel = the 2D cell pitch
-      if (view3d !== 2 || !renderer3d || !sim3d) return;
+      if (!renderer3d || !sim3d) return;
       umPerCssPx = sim3d.umPerCell / renderer3d.cssPerVoxel();
     } else {
-      if (view !== 2) return;
       const cssPxPerCell = renderer.cssPxPerCell(sim.n);
       umPerCssPx = sim.umPerCell / cssPxPerCell;
     }
-    let bestUm = 100;
-    let bestErr = Infinity;
-    for (const um of [5, 10, 20, 50, 100, 200, 500]) {
-      const w = um / umPerCssPx;
-      const err = Math.abs(w - 80);
-      if (w > 30 && w < 160 && err < bestErr) { bestErr = err; bestUm = um; }
+    if (!(umPerCssPx > 0) || !Number.isFinite(umPerCssPx)) return;
+    if (v === 2) {
+      const bestUm = niceBar(umPerCssPx, [5, 10, 20, 50, 100, 200, 500], 100);
+      (document.querySelector("#scalebar .bar") as HTMLElement).style.width = `${bestUm / umPerCssPx}px`;
+      document.getElementById("scalelabel")!.textContent = `${bestUm} µm`;
+      return;
     }
-    (document.querySelector("#scalebar .bar") as HTMLElement).style.width = `${bestUm / umPerCssPx}px`;
-    document.getElementById("scalelabel")!.textContent = `${bestUm} µm`;
+    // The SEM lens's data bar (v8 U1b). The render is SEM-styled, not an
+    // electron microscope: the model has no beam voltage, working distance or
+    // detector, and a fixed "×240" did not follow zoom. So the bar prints only
+    // what the model does have, both from the live zoom and the cell pitch: the
+    // horizontal field width of this view and a scale bar. In 3D the view is a
+    // perspective, measured at the camera target, hence the "≈".
+    // a shorter bar than the ETCH lens's (about 40 px, never over 52), so the
+    // strip fits beside the rail on a 1024px window; the 1-2-5 lengths step by
+    // at most 2.5x, so (18, 52) always holds one of them
+    const bestUm = niceBar(umPerCssPx, [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000], 100, 40, 18, 52);
+    const hfw = canvas.clientWidth * umPerCssPx;
+    (document.querySelector("#sembar .bar") as HTMLElement).style.width = `${bestUm / umPerCssPx}px`;
+    document.getElementById("semscale")!.textContent = bestUm >= 1000 ? `${bestUm / 1000} mm` : `${bestUm} µm`;
+    document.getElementById("semhfw")!.textContent = (mode === "3d" ? "≈ " : "") + fmtUmLen(hfw);
   }
 
   // ------------------------------------------------------------------ loop
@@ -1899,10 +1937,10 @@ async function boot() {
           // derivation are meant to differ.
           if (linkClamped.length) {
             clampedChem = { alloyOn: dp.alloyOn!, c0: dp.c0!, mLiq: dp.mLiq!, kPart: dp.kPart!, dSol: dp.dSol! };
-            alloyCaveats.push(`this link's solver settings were minted from a composition this build no longer pours (${linkClamped.join(", ")}), so the chemistry the solver runs was re-derived from the restored mix rather than restored from the link`);
+            alloyCaveats.push(`link chemistry re-derived from the mix: this build no longer pours its composition (${linkClamped.join(", ")})`);
           }
         } else {
-          alloyCaveats = [`this link's mix is ${BASES[mix.base]?.label ?? mix.base}-based but its material is ${MATERIALS[shared.m].label} — the chemistry was not applied, and the calibration uses the material's own coefficients`];
+          alloyCaveats = [`link mix is ${BASES[mix.base]?.label ?? mix.base}-based, material ${MATERIALS[shared.m].label}: chemistry not applied · calibration uses the material's coefficients`];
         }
       } else if (linkRefusals.length) {
         alloyCaveats = linkRefusals;
@@ -1950,7 +1988,7 @@ async function boot() {
     // The name is only honoured when the material it belongs to was accepted.
     if (shared.n) {
       if (sharedMaterialTook) alloyName = shared.n;
-      else alloyCaveats = [`this link names the melt "${shared.n}" on a base metal ("${shared.m}") this build does not carry — the name was not applied, and the melt is still ${MATERIALS[material].label}`];
+      else alloyCaveats = [`link names "${shared.n}" on base metal "${shared.m}", not in this build: name not applied · melt still ${MATERIALS[material].label}`];
     }
     app.resetArmed();   // stages it ARMED; resetArmed keeps the schedule
     // the heat-treat setup: reopen the panel with the link's dialled schedule,

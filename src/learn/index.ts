@@ -10,7 +10,8 @@
  *
  * Where the words live:
  *  - `learn/<area>.ts` holds one area's entries: `learn/rail.ts` for the
- *    control rail now; the panels, the composer and the tour add their own
+ *    control rail, `learn/panels.ts` for the mode panels, the analysis panels
+ *    and the status lines (U1b); the composer and the tour add their own
  *    files and register them the same way.
  *  - A caveat is a `Caveat`: a terse `line` that is on screen while the caveat
  *    applies (see the interface for the two tooltip exceptions), and the
@@ -135,7 +136,7 @@ export class Explainer {
   readonly body: HTMLDivElement;
   private open = false;
 
-  constructor(label: string, text: string, private onToggle: () => void) {
+  constructor(label: string, text: string, private onToggle: (opened: boolean) => void) {
     this.body = document.createElement("div");
     this.body.className = "lrnText lrnSec";
     this.body.id = `lrn-${++uid}`;
@@ -153,8 +154,14 @@ export class Explainer {
       e.stopPropagation();
       this.open = !this.open;
       this.button.setAttribute("aria-expanded", String(this.open));
-      this.onToggle();
+      this.onToggle(this.open);
     });
+  }
+
+  /** close it without a click (another explanation in an exclusive layer opened) */
+  collapse() {
+    this.open = false;
+    this.button.setAttribute("aria-expanded", "false");
   }
 
   apply(on: boolean) {
@@ -172,15 +179,25 @@ interface Item { apply(on: boolean): void }
  */
 export class LearnLayer {
   private items: Item[] = [];
+  private explainers: Explainer[] = [];
 
-  /** `refresh` re-runs the surface's own refresh, which ends in `apply()` */
-  constructor(private refresh: () => void) {}
+  /**
+   * `refresh` re-runs the surface's own refresh, which ends in `apply()`.
+   * `exclusive`: opening one explanation closes the others (v8 U1b, for the
+   * analysis columns, which grow upward from the bottom of the window and
+   * would otherwise climb under the top bar with every panel explained).
+   */
+  constructor(private refresh: () => void, private exclusive = false) {}
 
   /** an "i" button inside `header` (before `before`, if given); returns it with its body */
   explain(header: HTMLElement, label: string, text: string, before: Node | null = null): Explainer {
-    const ex = new Explainer(label, text, () => this.refresh());
+    const ex = new Explainer(label, text, opened => {
+      if (opened && this.exclusive) for (const o of this.explainers) if (o !== ex) o.collapse();
+      this.refresh();
+    });
     header.insertBefore(ex.button, before);
     this.items.push(ex);
+    this.explainers.push(ex);
     return ex;
   }
 
@@ -232,5 +249,35 @@ export class LearnLayer {
 
   apply(on = isLearnOn()) {
     for (const it of this.items) it.apply(on);
+  }
+}
+
+// ----------------------------------------------------- slots in HTML strings
+
+const escHtml = (s: string) =>
+  s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+
+/**
+ * A learn paragraph inside markup a panel writes as an HTML string (a plan
+ * note, a report row, v8 U1b). The text rides in an attribute and the element
+ * renders EMPTY: `fillLearnSlots` writes it in only while learn mode is on. So
+ * with learn off a panel's textContent is exactly its instrument text, which
+ * matters because the panel gates read #htNote, #htReport and the lab report
+ * as text; an `.lrnText` hidden by display alone would still be in there.
+ */
+export function learnSlot(text: string): string {
+  return text ? `<div class="lrnText" data-lrn="${escHtml(text)}" style="display:none"></div>` : "";
+}
+
+/** fill (learn on) or empty (off) every slot under `root`: after each render, and on a toggle */
+export function fillLearnSlots(root: ParentNode | null | undefined, on = isLearnOn()): void {
+  if (!root) return;
+  for (const el of root.querySelectorAll<HTMLElement>("[data-lrn]")) {
+    const t = on ? el.dataset.lrn ?? "" : "";
+    if (el.textContent !== t) el.textContent = t;
+    el.style.display = t ? "" : "none";
+    // a shown slot is a block, so a <br> right after it would add a blank
+    // line (app/index.html hides `.lrnText.on + br`); a hidden one needs it
+    el.classList.toggle("on", !!t);
   }
 }

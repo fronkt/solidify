@@ -462,7 +462,10 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   const estOK = a.text.includes("⟨A⟩-equivalent");
   // the card prints the spec through fmtMPa — assert with the same formatter
   const latchOK = a.text.includes(`spec σ_y ≥ ${fmtMPa(30)} MPa`) && !a.text.includes("≥ 999 MPa");
-  const verdictWord = / — met: /.test(a.text) ? "met" : /missed/.test(a.text) ? "missed" : "none";
+  // v8 U1b: the verdict reads "spec σ_y ≥ N MPa · met: casting at N MPa" (was
+  // " — met: "); " · met: " is the met row's own token, which the missed row
+  // ("· missed: ") and the refusal row never print
+  const verdictWord = / · met: /.test(a.text) ? "met" : / · missed: /.test(a.text) ? "missed" : "none";
   const verdictOK = sigA != null && verdictWord === (shown(Number(sigA)) >= shown(30) ? "met" : "missed");
 
   const b = await pour(0);
@@ -472,7 +475,7 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   // the model metal has no si block: a dialled spec must come back refused by
   // name — a Hall–Petch verdict from invented constants would be worse than none
   const c = await pour(30, "generic");
-  const refuseC = /no strength\s?constants/.test(c.text) && !/ — met: |missed: /.test(c.text);
+  const refuseC = /no strength\s?constants/.test(c.text) && !/ · met: | · missed: /.test(c.text);
 
   const ok = rowOK && estOK && latchOK && verdictOK && sigRowB && noSpecRowB && refuseC;
   console.log("LAB4", ok ? "OK" : "FAIL", JSON.stringify({

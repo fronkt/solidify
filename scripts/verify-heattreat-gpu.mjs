@@ -1948,10 +1948,30 @@ let immobileTop = null;
 // mid-anneal, which is precisely when the work fabric cannot tell them what
 // they should have inherited, and C3a declines to invent it.
 {
-  const out = await page.evaluate(async () => {
+  // the specimen as the panel sees it, so the headroom below is measured
+  // against the panel's own domain limit (HT.domainLimitUm, heatpanel plan())
+  const spec = await page.evaluate(async () => {
     const S = window.__solidify;
     S.app.setMaterial("cu");
     await window.__ht3.cast3(2600, 0);
+    return { n: S.sim3d().n, um: S.sim3d().umPerCell };
+  });
+  const limUm = HT.domainLimitUm(spec.n, spec.um);
+  // The first (worked) run's law endpoint must sit at most this fraction of
+  // the limit. The stored-energy drive grows grains PAST the law's endpoint
+  // (the endpoint is curvature-driven growth alone), and the revert arm's
+  // second treatment only arms while the post-anneal d̄ is under the limit.
+  // Arming on the longest hold whose endpoint merely fit under the limit put
+  // the worked d̄ right at it by construction: 40.9, 42.2 and 43.4 µm against
+  // 42.9 on identical code, the last refusing the rearm (the U1b flake).
+  // Measured, not guessed: 0.8 is NOT enough. The 30 min rung's endpoint is
+  // 33.2 µm against a 42.7 µm limit (0.777) and the worked anneal still
+  // reached 40.9 µm, the drive adding 7.7 µm (23 %) over the endpoint. At
+  // 0.65 the arm drops to a shorter hold (about 27 µm, so about 34 µm worked,
+  // some 8 µm under the limit against a run-to-run spread of about 1.5)
+  const HEADROOM = 0.65;
+  const out = await page.evaluate(async (limUm, HEADROOM) => {
+    const S = window.__solidify;
     S.app.startHeat();
     const panel = document.getElementById("heattreat");
     if (!panel) return { opened: false };
@@ -1963,17 +1983,31 @@ let immobileTop = null;
     const arrowOf = s => (s.match(/→\s*([\d.]+)\s*µm/) ?? [])[1] ?? null;
     const sweepsOf = s => parseInt((s.match(/([\d,]+) MC sweeps/) ?? [])[1]?.replace(/,/g, "") ?? "0", 10);
 
-    // a hold this 125 µm specimen will accept: copper coarsens fast, so the
-    // domain limit refuses the schedules aluminium runs. Walk DOWN until the
-    // run arms, and record which rung armed it — a gate that silently settles
-    // on a one-minute no-op has measured the dial, not the treatment
-    let hold = 0;
-    for (const m of [30, 15, 8, 4, 2]) {
-      set(1, m);
-      for (let i = 0; i < 30 && btn.disabled; i++) await new Promise(r => setTimeout(r, 100));
-      if (!btn.disabled) { hold = m; break; }
+    // a schedule this 125 µm specimen will accept WITH headroom: copper
+    // coarsens fast, so the domain limit refuses the schedules aluminium runs.
+    // Walk DOWN the hold at the default temperature, then down the temperature
+    // dial, until a rung arms with its law endpoint at most HEADROOM x the
+    // limit and still buys >= 50 sweeps, and record every rung tried: a gate
+    // that silently settles on a one-minute no-op has measured the dial, not
+    // the treatment
+    const T0 = Number(dials[0].value), Tmin = Number(dials[0].min);
+    let hold = 0, tempC = T0, endpointUm = null;
+    const rungs = [];
+    search: for (const drop of [0, 50, 100, 150, 200]) {
+      const t = T0 - drop;
+      if (t < Tmin) break;
+      set(0, t);
+      for (const m of [30, 15, 8, 4, 2]) {
+        set(1, m);
+        for (let i = 0; i < 30 && btn.disabled; i++) await new Promise(r => setTimeout(r, 100));
+        if (btn.disabled) { rungs.push({ t, m, armed: false }); continue; }
+        const e = Number(arrowOf(note()));
+        const sw = sweepsOf(note());
+        rungs.push({ t, m, endpointUm: e, sweeps: sw });
+        if (e > 0 && e <= HEADROOM * limUm && sw >= 50) { hold = m; tempC = t; endpointUm = e; break search; }
+      }
     }
-    if (!hold) return { opened: true, armed: false, note: note().slice(0, 240) };
+    if (!hold) return { opened: true, armed: false, limUm, rungs, note: note().slice(0, 240) };
 
     set(2, 30);                                   // a spec, so its sentence can be withdrawn
     const asCastNote = note();                    // the endpoint, still printed
@@ -1989,10 +2023,19 @@ let immobileTop = null;
     // card clause false — a treatment that never started.)
     for (let i = 0; i < 40 && btn.disabled; i++) await new Promise(r => setTimeout(r, 100));
     const armedAtClick = !btn.disabled;
+    // run() clears `busy` BEFORE its after-census and the card (heatpanel.ts
+    // run(): the finally, then `await measure()`, then report()), so a read
+    // the moment busy drops can land before the card exists (seen in the U1b
+    // review: `report` empty on a run that did anneal, its d̄ printed on the
+    // next card). Wait for the card to CHANGE from what it was at the click
+    const cardAt = () => document.getElementById("htReport").innerHTML;
+    const waitCard = async was => { for (let i = 0; i < 100 && cardAt() === was; i++) await new Promise(r => setTimeout(r, 100)); };
+    const card0 = cardAt();
     btn.click();
     for (let i = 0; i < 100 && !S.heat.busy; i++) await new Promise(r => setTimeout(r, 50));
     const busyDuring = S.heat.busy;
     for (let i = 0; i < 1200 && S.heat.busy; i++) await new Promise(r => setTimeout(r, 100));
+    await waitCard(card0);
     const report = document.getElementById("htReport").textContent.replace(/\s+/g, " ");
     // and back to as cast: the endpoint must come BACK. A withdrawal that
     // cannot be undone is a broken panel wearing an honest sentence.
@@ -2010,8 +2053,9 @@ let immobileTop = null;
     const revertedNote = note();
     const setupReverted = S.heat.setup();
     // A DIAL-FLOOR near-noop for the second run, HT-PIN-PANEL's idiom: the
-    // first treatment left this 125 mu-m specimen at ~40 mu-m, where the domain
-    // limit refuses anything warm, and re-casting is not an option because
+    // first treatment left this 125 mu-m specimen at ~34 mu-m (the headroom
+    // above keeps it under the ~42.7 mu-m limit, so this rung arms), where the
+    // domain limit refuses anything warm, and re-casting is not an option because
     // reset() clears the stored field and would hide the very thing this arm
     // exists to catch. Zero sweeps is fine here: the witness is the MODE
     // SELECTOR read straight off the solver, which run() sets before it looks
@@ -2021,15 +2065,23 @@ let immobileTop = null;
     const rearmed = !btn.disabled;
     let storedOnAfter = null, report2 = "";
     if (rearmed) {
+      // the same race: until the new card lands, #htReport still holds the
+      // FIRST run's, which carries a cold-work row
+      const card1 = cardAt();
       btn.click();
       for (let i = 0; i < 100 && !S.heat.busy; i++) await new Promise(r => setTimeout(r, 50));
       for (let i = 0; i < 900 && S.heat.busy; i++) await new Promise(r => setTimeout(r, 100));
+      await waitCard(card1);
       storedOnAfter = S.sim3d().storedOn;
       report2 = document.getElementById("htReport").textContent.replace(/\s+/g, " ");
     }
     S.heat.close();
     return {
-      opened: true, armed: true, hold, sweeps,
+      opened: true, armed: true, hold, tempC, sweeps,
+      // the chosen rung's headroom, in the gate's own output
+      limUm: +limUm.toFixed(1), endpointUm, headroom: +(endpointUm / limUm).toFixed(3), rungs,
+      // what the worked anneal actually left, against that limit (the rearm needs it under)
+      workedAfterUm: Number((report.match(/after\s+d̄ ([\d.]+) µm/) ?? [])[1] ?? NaN),
       dialCount: dials.length,
       asCastArrow: arrowOf(asCastNote),
       workedArrow: arrowOf(workedNote),
@@ -2039,9 +2091,10 @@ let immobileTop = null;
       setupWorked, setupReverted, armedAtClick, busyDuring, cardLen: report.length,
       rearmed, storedOnAfter, report2: report2.slice(0, 700),
     };
-  });
+  }, limUm, HEADROOM);
   const rep = out.report ?? "";
   const ok = out.opened && out.armed
+    && out.headroom > 0 && out.headroom <= HEADROOM                // the arm left room for the drive (<= 0.65)
     // the treatment actually RAN — asserted before anything is read off the
     // card, so a click that landed on a disabled button names itself
     && out.armedAtClick && out.busyDuring && out.cardLen > 0
@@ -2062,7 +2115,7 @@ let immobileTop = null;
     && /cold work 4\.0 J_b mean deposited/.test(rep)
     && /H_S = H₀\/\(1 \+ rec·H₀\)/.test(rep)
     && /not a strength/.test(rep)
-    && /twins held back while cold work is dialled/.test(rep)
+    && /twins held back while cold work is dialed/.test(rep)            // v8 U1b: US spelling (was "dialled")
     // the share link: six long while worked, with the work BEHIND the
     // dispersion pair at its off defaults — and back to the three-element
     // pre-C2 shape the moment the dial returns to zero, so an as-cast link

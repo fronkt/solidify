@@ -52,6 +52,8 @@ export interface PorosityResult {
   cRejected: number;
   /** non-null when the material has no solubility data and porosity is refused */
   note: string | null;
+  /** the refusal's learn-mode sentence, beside its line (v8 U1b) */
+  noteLearn?: string;
 }
 
 /**
@@ -63,7 +65,9 @@ export function hydrogenPorosity(si: MaterialSI | null | undefined, atmo: Atmosp
   if (!si || si.hL == null || si.hS == null) {
     return {
       pPore: 0, cLiquid: 0, cSolid: 0, cRejected: 0,
-      note: "no hydrogen-solubility data for this material — gas porosity from dissolved hydrogen is not modelled here",
+      note: "not modeled (no hydrogen-solubility data for this material)",
+      noteLearn: "Gas pores form when hydrogen dissolved in the liquid is pushed out as it freezes. Without "
+        + "this material's hydrogen solubility there is nothing to compute, so no number is invented.",
     };
   }
   const root = Math.sqrt(Math.max(0, PH2[atmo] ?? 0));

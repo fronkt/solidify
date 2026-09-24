@@ -48,7 +48,8 @@ Flip one switch and the instrument solves the **full volumetric phase-field** �
 - **Nine lenses** on the volume — MELT, ORIENT, SLICE, FIELD (x-ray), SEM, RINGS, THERM, NEON,
   CURV.
 - **Serial sectioning** — a free section plane (depth/tilt/turn) with a CT sweep mode; the cut
-  face renders as Nital/Klemm's/Beraha's etches, an EBSD IPF map, or a Niyama porosity-risk map.
+  face renders as Nital/Klemm's/Beraha's etches, an EBSD-style orientation map (hue from each
+  grain's [001] axis in the sample frame), or a Niyama porosity-risk map.
 - **Shrinkage porosity** — a generation-stamped feed flood from the riser marks starved liquid;
   pockets that solidify unfed become pores that x-ray dark in FIELD, with live porosity % and the
   Niyama criterion recorded at every freezing voxel. As of v6.2 the record is honest to its own
@@ -57,8 +58,8 @@ Flip one switch and the instrument solves the **full volumetric phase-field** �
   steel radiographic threshold for steel, and refusing by name to judge any other alloy class.
   The lab card adds the Clyne–Davies hot-tearing timing ratio off the pour's own f_s(t), labelled
   as a timing ratio: RDG needs mechanics this solver does not carry.
-- **Stereology + IPF panels** — grain size measured on the section plane vs the true 3D census
-  (the classic stereological underestimate, live), and an inverse-pole-figure texture scatter.
+- **Stereology + pole-figure panels** — grain size measured on the section plane vs the true 3D
+  census (the classic stereological underestimate, live), and [001] / symmetry-axis pole figures.
 - **Take it home** — export the crystal as a watertight **STL** (surface-nets mesh, printable),
   record a 6-second **360° turntable** webm, or share the whole setup as a link.
 - **Reproducible casts** (v7.0) — every stochastic choice (grain orientations, where the
@@ -119,7 +120,7 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   coefficients, and titanium changes sign between Al and Ni. Since v7.1 every pair also carries
   its own cited `source`, and every pair has a binary invariant row in `src/phasedata.ts` whose
   numbers are independently recomputed from open CALPHAD databases (`docs/PHASE-AUDIT.md`). That
-  table carries a version — currently 1.1.0 — which is bumped on any row change and which
+  table carries a version — currently 1.1.1 — which is bumped on any row change and which
   `PD-DOC-CONSTANTS` requires this file and the science page to quote, so a retired invariant
   cannot sit in a document after the table has moved on. The composer reports the real
   chemistry — liquidus shift ΔT_L = Σmᵢcᵢ and growth restriction factor Q = Σmᵢcᵢ(kᵢ−1) —

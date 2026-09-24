@@ -67,7 +67,7 @@ export const RAIL_LEARN: readonly LearnEntry[] = [
       // "solute field"; the calibrated solver's alloy model is quantitative
       // (anti-trapping on), so the qualifier is conditional
       "solute field": "a dilute solute, qualitative unless calibrated",
-      "⚗ compose alloy…": "build a real alloy, element by element",
+      "⚗ alloy composer…": "build a real alloy, element by element",
       "composition c₀": "how much solute, in model units",
       "liquidus slope": "how far solute lowers the freezing point",
       "solute D": "how fast solute spreads in the liquid",
@@ -125,15 +125,17 @@ export const RAIL_LEARN: readonly LearnEntry[] = [
   {
     id: "sec:VOLUME · 3D",
     text: "Tools for the TRUE 3D volume. Stereology shows how much a flat section under-measures grain size, "
-      + "and the IPF map and pole figure show which way the grains point.",
+      + "and the two pole figures show which way the grains' crystal axes point.",
     hints: {
       // "usually": the panel's ratio compares the mean-section-area diameter
-      // with the volume-equivalent one, which is about π/4 only for equal
-      // spheres; a broad size spread or columnar grains cut lengthwise can
-      // read 1 or more
+      // with the volume-equivalent one, which is √(2/3) ≈ 0.82 for equal
+      // spheres (U1b corrected the panel's old π/4, the mean-diameter ratio);
+      // a broad size spread or columnar grains cut lengthwise can read 1 or more
       "stereology (2D section vs 3D)": "a flat section usually reads grains small",
-      "IPF map": "colors grains by crystal axis",
-      "pole figure ⟨100⟩ / (0001)": "where the grains' axes point",
+      // v8 U1b: this panel was "IPF map"; it plots each grain's [001] axis in
+      // the sample frame, which is a pole figure (analyze3d.ts)
+      "pole figure [001]": "each grain's [001] axis, sized by volume",
+      "pole figure ⟨100⟩ / (0001)": "every symmetry axis of each grain",
     },
   },
   {

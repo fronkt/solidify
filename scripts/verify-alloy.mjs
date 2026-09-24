@@ -263,6 +263,7 @@ const r4 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(4));
     const bad = Object.entries(d.params).filter(([, v]) => !Number.isFinite(v)).map(([k]) => k);
     if (bad.length) nanEscapes.push({ mix: JSON.stringify(mix), nonFinite: bad });
     if (/NaN|undefined|Infinity/.test(d.dT0Source)) nanEscapes.push({ mix: JSON.stringify(mix), why: "NaN in dT0Source" });
+    if (/NaN|undefined|Infinity/.test(d.dT0Line ?? "")) nanEscapes.push({ mix: JSON.stringify(mix), why: "NaN in dT0Line" });
   }
 
   const distinct = new Set(shapes.map(s => s.first)).size;
@@ -286,7 +287,7 @@ const r4 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(4));
 //
 //    Not "A356 differs from Al-4Cu": two different wrong numbers also differ.
 {
-  const bad = [], regimes = {};
+  const bad = [], regimes = {}, dilutePresets = [];
   for (const p of A.FAMOUS) {
     const d = A.derive(p.mix);
     const base = A.BASES[p.mix.base];
@@ -342,9 +343,33 @@ const r4 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(4));
       }
       // no source string may ever carry a negative kelvin figure or a NaN
       if (/-\d+(\.\d+)? K/.test(d.dT0Source)) bad.push({ preset: p.label, why: "negative kelvin figure in the source string" });
+      // THE SAME CLAUSES ON THE ON-SCREEN LINE (v8 U1c). dT0Source is the
+      // learn-mode text now; `dT0Line` is what the composer prints with learn
+      // mode off, so the warning, the real range and the ratio (or their
+      // absence) must hold there too, or the caveat has left the screen
+      if (!(d.dT0Line ?? "").includes("EXTRAPOLATED GAUGE")) bad.push({ preset: p.label, why: "extrapolated gauge not labelled on screen" });
+      if (primary > 0) {
+        if (!(d.dT0Line ?? "").includes(primary.toFixed(1))) bad.push({ preset: p.label, why: `real primary range ${primary.toFixed(1)} K not on screen` });
+        if (!/x the real one/.test(d.dT0Line ?? "")) bad.push({ preset: p.label, why: "ratio not on screen" });
+      } else {
+        if (/x the real one/.test(d.dT0Line ?? "")) bad.push({ preset: p.label, why: "on-screen ratio against a non-existent primary range" });
+        if (!/no primary freezing range left/.test(d.dT0Line ?? "")) bad.push({ preset: p.label, why: "the screen does not say the primary range is absent" });
+      }
+      if (/-\d+(\.\d+)? K/.test(d.dT0Line ?? "")) bad.push({ preset: p.label, why: "negative kelvin figure in the on-screen line" });
+    }
+    // A DILUTE line prints a solidus temperature, and that number is the
+    // straight-line extrapolation TmC + (m/k)c, not the alloy's solidus
+    // (2024's reads 579.6 °C against a real one near 500 °C): the qualifier
+    // stays on screen with it, as the learn text's "straight-line" does
+    if (d.dT0Regime === "DILUTE") {
+      dilutePresets.push(p.label);
+      if (!/linear solidus \d/.test(d.dT0Line ?? "")) bad.push({ preset: p.label, why: "the on-screen solidus is not marked as the linear extrapolation" });
+      if (!/straight-line solidus/.test(d.dT0Source)) bad.push({ preset: p.label, why: "the learn text does not say the solidus is straight-line" });
     }
     if (/NaN|undefined|Infinity/.test(d.dT0Source)) bad.push({ preset: p.label, why: "NaN/undefined/Infinity in the source string" });
     if (!d.dT0Source || d.dT0Source.length < 40) bad.push({ preset: p.label, why: "thin dT0Source" });
+    if (/NaN|undefined|Infinity/.test(d.dT0Line ?? "")) bad.push({ preset: p.label, why: "NaN/undefined/Infinity in the on-screen line" });
+    if (!d.dT0Line || d.dT0Line.length < 20 || d.dT0Line === d.dT0Source) bad.push({ preset: p.label, why: "no on-screen dT0Line of its own" });
   }
 
   // A356 — the case the milestone exists for. Pinned on the MECHANISM: the
@@ -377,8 +402,8 @@ const r4 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(4));
   }).filter(Boolean);
 
   check("CALIB-MIX-OWN", bad.length === 0 && a356Ok && branchOk && isoOk
-    && usesOwn.every(u => u.differs), {
-    bad, regimes, branchOk, isoOk,
+    && usesOwn.every(u => u.differs) && dilutePresets.length >= 1, {
+    bad, regimes, branchOk, isoOk, dilutePresets,
     isoCase: { mix: "Fe-10Cr", dT0: r4(iso.dT0), regime: iso.dT0Regime },
     a356: {
       dT0_K: r4(a356.dT0, 2), regime: a356.dT0Regime,
@@ -420,9 +445,14 @@ const r4 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(4));
     if (d.dT0 !== null) bad.push({ label: c.label, why: "refused but still returned a number" });
     if (!d.dT0Source.includes(c.clause)) bad.push({ label: c.label, why: `clause not named: ${d.dT0Source.slice(0, 90)}` });
     if (!d.dT0Source.includes(c.needle)) bad.push({ label: c.label, why: `offending value not named (${c.needle})` });
+    // and on screen (v8 U1c): the refusal's line keeps its clause and its value
+    if (!(d.dT0Line ?? "").includes(c.clause)) bad.push({ label: c.label, why: `clause not on screen: ${String(d.dT0Line).slice(0, 90)}` });
+    if (!(d.dT0Line ?? "").includes(c.needle)) bad.push({ label: c.label, why: `offending value not on screen (${c.needle})` });
   }
   // the three clauses are genuinely different mechanisms, not one string
   const clauses = new Set(CASES.map(c => { try { return A.derive(c.mix).dT0Source; } catch { return "threw:" + c.label; } }));
+  const lineClauses = new Set(CASES.map(c => { try { return A.derive(c.mix).dT0Line; } catch { return "threw:" + c.label; } }));
+  if (lineClauses.size !== CASES.length) bad.push({ why: `${lineClauses.size} distinct on-screen refusal lines for ${CASES.length} cases` });
   // POSITIVE POLARITY, and it is what stops this gate from being satisfied by a
   // function that refuses everything: 8 of the 9 shipped presets DO calibrate,
   // and every one of them on its own chemistry.

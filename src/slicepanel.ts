@@ -3,6 +3,9 @@
 // toggle (serial sectioning; pair with ⏺ rec for the classic lab video), and
 // the cut-face style select (the etch cabinet).
 
+import { LearnLayer, onLearnChange, type Caveat } from "./learn";
+import { panelHintFor, panelText } from "./learn/panels";
+
 export interface SliceHost {
   getSliceAxis(): number; setSliceAxis(a: number): void;
   getSliceOff(): number; setSliceOff(v: number): void;
@@ -10,9 +13,10 @@ export interface SliceHost {
   getSliceTurn(): number; setSliceTurn(v: number): void;
   getSliceSweep(): boolean; setSliceSweep(b: boolean): void;
   getCutStyle(): number; setCutStyle(v: number): void;
-  /** the Niyama style's legend line — null hides it. Owned by the host
-   *  because it needs units, the material and the live census. */
-  niyamaLegend(): string | null;
+  /** the Niyama style's legend: a terse line and its learn sentence, or null
+   *  to hide it. Owned by the host because it needs units, the material and
+   *  the live census. */
+  niyamaLegend(): Caveat | null;
 }
 
 export const CUT_STYLES = [
@@ -20,7 +24,10 @@ export const CUT_STYLES = [
   "plain Nital etch",
   "Klemm's tint etch",
   "Beraha's tint etch",
-  "EBSD / IPF map",
+  // not "IPF": the shader (shaders3d.ts cutHue) colors each grain by its
+  // [001] axis in the SAMPLE frame, the same thing the [001] pole figure
+  // plots, not by an inverse-pole-figure standard-triangle key
+  "EBSD-style orientation map",
 ];
 
 export class SlicePanel {
@@ -31,14 +38,19 @@ export class SlicePanel {
   private sweepChk!: HTMLInputElement;
   private styleSel!: HTMLSelectElement;
   private nyNote!: HTMLElement;
+  private nyLearn!: HTMLElement;
   private visible = false;
+  /** learn mode's "i", hint and the legend's learn sentence */
+  private learn = new LearnLayer(() => this.learn.apply());
 
   constructor(private host: SliceHost) {
     this.root = document.getElementById("slicePop")!;
     const h = document.createElement("div");
     h.className = "t";
+    h.style.cssText = "display:flex;align-items:center;gap:6px";
     h.textContent = "SECTION PLANE";
     this.root.append(h);
+    this.root.append(this.learn.explain(h, "about the section plane", panelText("SECTION PLANE")).body);
 
     const prow = document.createElement("div");
     prow.className = "btnrow";
@@ -87,9 +99,10 @@ export class SlicePanel {
     this.sweepChk.type = "checkbox";
     this.sweepChk.addEventListener("change", () => host.setSliceSweep(this.sweepChk.checked));
     const span = document.createElement("span");
-    span.textContent = "CT sweep — serial sectioning (pair with ⏺ rec)";
+    span.textContent = "CT sweep";
     sweepRow.append(this.sweepChk, span);
     this.root.append(sweepRow);
+    panelHintFor(this.learn, "SECTION PLANE", sweepRow);
 
     this.styleSel = document.createElement("select");
     CUT_STYLES.forEach((label, i) => {
@@ -103,15 +116,19 @@ export class SlicePanel {
 
     const note = document.createElement("div");
     note.className = "matnote";
-    note.textContent = "shift-drag on the melt scrubs the depth · tap the cut to seed on it";
+    note.textContent = "shift-drag: depth · tap the cut: seed";
     this.root.append(note);
 
-    // the Niyama style's legend: threshold + provenance, or the honest refusal
+    // the Niyama style's legend: threshold + provenance, or the honest refusal,
+    // with its learn sentence under it
     this.nyNote = document.createElement("div");
     this.nyNote.className = "matnote";
     this.nyNote.style.display = "none";
     this.root.append(this.nyNote);
+    this.nyLearn = this.learn.para(this.nyNote, "", { needsAnchorText: true });
+    onLearnChange(() => this.learn.apply());
     this.syncNow();
+    this.learn.apply();
   }
 
   /** append a late-arriving cut style (e.g. the Niyama ramp) */
@@ -144,9 +161,15 @@ export class SlicePanel {
         this.offInp.value = String(this.host.getSliceOff());
       }
       const legend = this.host.niyamaLegend();
-      const shown = legend ?? "";
+      const shown = legend?.line ?? "";
+      const was = this.nyNote.style.display;
       if (this.nyNote.textContent !== shown) this.nyNote.textContent = shown;
       this.nyNote.style.display = legend ? "block" : "none";
+      const learn = legend?.learn ?? "";
+      if (this.nyLearn.textContent !== learn || this.nyNote.style.display !== was) {
+        this.nyLearn.textContent = learn;
+        this.learn.apply();
+      }
     }
   }
 }

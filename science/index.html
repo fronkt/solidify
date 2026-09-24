@@ -254,7 +254,7 @@
     cavity, which is how real turbine-blade single crystals are actually made. The foundry
     instruments follow: the cooling-curve probe (ctrl-tap any voxel), the Scheil overlay, an
     SDAS ruler that measures λ₂ along any dragged line through the volume, and a stereographic
-    pole figure beside the IPF map. The lab's mould is a rasterized geometry library — shell,
+    [001] pole figure beside the symmetry-axis pole figure. The lab's mould is a rasterized geometry library — shell,
     plate, step, wedge — sharing one voxel-mask entry point regardless of shape. The <b>step
     block</b> is the classic foundry teaching casting: four section thicknesses fed from one
     common pour, each freezing at its own rate purely from wall-conduction geometry (no
@@ -377,7 +377,7 @@
 
     <p><b>And now it is drawn.</b> The composer carries a phase diagram for the poured mix's
     dominant binary — the solute with the largest |m·c| — built from the cited invariants in
-    <code>phasedata.ts</code> (table version <b>1.1.0</b>, bumped on any row change, and every row
+    <code>phasedata.ts</code> (table version <b>1.1.1</b>, bumped on any row change, and every row
     independently recomputed from openly-licensed CALPHAD assessments in
     <a href="https://github.com/fronkt/solidify/blob/main/docs/PHASE-AUDIT.md">docs/PHASE-AUDIT.md</a>
     so a reader can check any one of them without taking this file's word for it) and drawn as
@@ -407,8 +407,8 @@
     <p><b>Which phases, and which of them are actually grown.</b> A diagram is only worth drawing
     if it answers the question a founder asks first: at THIS composition, what does equilibrium
     leave when the casting is frozen? The composer answers it in two columns, and the milestone is
-    the gap between them. PHASES EQUILIBRIUM PREDICTS is read off the cited invariants; PHASES
-    THIS SOLVER GROWS is always exactly one, the base-rich primary, because <code>sim.ts</code>
+    the gap between them. EQUILIBRIUM LEAVES is read off the cited invariants; SOLVER GROWS is
+    always exactly one, the base-rich primary, because <code>sim.ts</code>
     and <code>sim3d.ts</code> carry one φ field and one solid phase. A356 at 7 wt% Si is past the
     1.65 wt% that dissolves in (Al), so equilibrium ends it as (Al) + (Si) and the lever rule puts
     49 % of the casting through the 577 °C eutectic — Gulliver–Scheil, which assumes a constant

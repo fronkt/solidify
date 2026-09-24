@@ -286,18 +286,18 @@ export const CHAPTERS: Chapter[] = [
   {
     title: "The alloy",
     body: "Real metals are alloys. The growing solid rejects solute, which piles up ahead of the front and lowers the local melting point — constitutional undercooling, the engine of most real dendrites. The rejected solute freezes into the last liquid between the arms.",
-    watch: "Blue-green halos hug the interface. Switch to XRAY — the segregation shows up exactly the way it does in synchrotron radiographs of real solidifying alloys. Then open COMPOSE ALLOY and mix your own: it reports the growth restriction factor Q that foundries use to predict grain refinement. Whether Q refines the grains in THIS instrument is a separate question, and one this project has answered wrong twice — the science page walks through both mistakes and the controlled comparison that settled it.",
+    watch: "Blue-green halos hug the interface. Switch to XRAY — the segregation shows up exactly the way it does in synchrotron radiographs of real solidifying alloys. Then open ALLOY COMPOSER and mix your own: it reports the growth restriction factor Q that foundries use to predict grain refinement. Whether Q refines the grains in THIS instrument is a separate question, and one this project has answered wrong twice — the science page walks through both mistakes and the controlled comparison that settled it.",
     apply: SCENES.alloy,
   },
   {
     title: "The line you can cross",
-    body: "A composition is a point on a phase diagram, and the diagram decides what the casting is made of. COMPOSE ALLOY draws the binary your mix is nearest — the assessed system of whichever solute carries the most weight — as straight chords between cited invariant points, with your pour marked on it. Aluminium dissolves 1.65 wt% silicon and no more. Past that line the equilibrium casting is (Al) + (Si), and this solver has exactly one solid phase.",
+    body: "A composition is a point on a phase diagram, and the diagram decides what the casting is made of. ALLOY COMPOSER draws the binary your mix is nearest — the assessed system of whichever solute carries the most weight — as straight chords between cited invariant points, with your pour marked on it. Aluminium dissolves 1.65 wt% silicon and no more. Past that line the equilibrium casting is (Al) + (Si), and this solver has exactly one solid phase.",
     watch: "Tap A356 in the quick-fill row. The pour lands at 7 wt% Si, well right of the 1.65 wt% line, and the shaded band names what equilibrium leaves there: (Al) + (Si). Drag SI below 1.65 and the band jumps to the lean side of the diagram and the readout goes single-phase. Drag it back and the app names the phase it will not grow: the (Si) of the 577 °C eutectic. That eutectic constituent — (Al) and (Si) together — is about half the casting by the lever rule, and none of it is simulated. That refusal is the whole point: the diagram is cited data, the solver has one solid phase, and the app would rather say so than draw you a picture of both.",
     apply(a) { SCENES.alloy(a); a.openComposer(); },
   },
   {
     title: "Engineer it",
-    body: "Grain size sets strength — finer is stronger (Hall–Petch). A process engineer tunes cooling and inoculation to hit a target grain size. This opens ENGINEERING · ML MODE, where a CMA-ES optimizer does that job: it runs one casting after another, measures the ASTM grain number, and learns the recipe. It starts paused — press ▶ RUN to set it going, PAUSE to freeze any casting and inspect it.",
+    body: "Grain size sets strength — finer is stronger (Hall–Petch). A process engineer tunes cooling and inoculation to hit a target grain size. This opens the OPTIMIZER panel, where a CMA-ES search does that job: it runs one casting after another, measures the ASTM grain number, and learns the recipe. It starts paused — press ▶ RUN to set it going, PAUSE to freeze any casting and inspect it.",
     watch: "Once running it replays dozens of fast castings back to back. Early ones nucleate heavily and look like a chaotic blizzard of grains — that is the optimizer exploring, not a glitch. Its genes are the initial melt undercooling, the inoculant charge and a three-stage cooling schedule, and the last two are coupled: the schedule decides how much of the charge ever fires, so it cannot tune one without disturbing the other. Watch |ΔG| shrink as it converges; drag the target toward G 1 and the grains thin out, toward G 5 and they multiply. Or fight it yourself with CHALLENGE.",
     apply(a) { a.startOptimizer(); },
   },
@@ -362,7 +362,7 @@ export const CHAPTERS: Chapter[] = [
   {
     part: "THE INSTRUMENT",
     title: "Alloy",
-    body: "The dilute-solute field: composition, liquidus slope, and diffusivity sliders, plus partition k in ADVANCED. The ⚗ COMPOSE ALLOY builder goes further — pick a base metal, add elements in wt%, and read the real chemistry: liquidus shift and the growth restriction factor Q that foundries use to predict grain refinement.",
+    body: "The dilute-solute field: composition, liquidus slope, and diffusivity sliders, plus partition k in ADVANCED. The ⚗ ALLOY COMPOSER builder goes further — pick a base metal, add elements in wt%, and read the real chemistry: liquidus shift and the growth restriction factor Q that foundries use to predict grain refinement.",
     watch: "Pour A356 + TiB against Al–1Zn on the same charge and cooling and the two castings do come out different — but not because Q refined one of them. An alloy's liquidus is depressed, so at a common bath temperature the two charges are not equally undercooled and have not reached the same solid fraction when you compare them. Control both and they agree to within noise. The science page works through that in full, and through the inverted answer that was also an artefact. Compositions are shareable as #alloy links.",
     hl: ["sec:ALLOY"],
   },

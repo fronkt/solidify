@@ -232,8 +232,9 @@ const CU = M.MATERIALS.cu.si;
   want("twins, no SFE", "twins", { ...base, si: { ...AL, sfe: undefined } }, false, "stacking-fault");
   want("twins, high SFE (Al)", "twins", { ...base, si: { ...AL, sfe: 166 } }, false, "too high");
   want("twins, low SFE (Cu)", "twins", { ...base, si: { ...CU, sfe: 45 }, key: "cu" }, true);
-  want("twins, structural veto", "twins", { ...base, si: { ...STEEL, sfe: 20, twinNote: "modelled as delta-ferrite here." }, key: "steel" }, false, "ferrite");
-  want("oxide, no constant", "oxide", { ...base, si: { ...AL, oxA0: 0 } }, false, "not modelled");
+  want("twins, structural veto", "twins", { ...base, si: { ...STEEL, sfe: 20, twinNote: "modeled as delta-ferrite here." }, key: "steel" }, false, "ferrite");
+  // v8 U1b: American spelling on screen ("not modeled"; was "not modelled")
+  want("oxide, no constant", "oxide", { ...base, si: { ...AL, oxA0: 0 } }, false, "not modeled");
   want("oxide, Al", "oxide", base, true);
   want("decarb, not steel", "decarb", base, false, "carbon");
   want("decarb, steel", "decarb", { ...base, si: STEEL, key: "steel" }, true);

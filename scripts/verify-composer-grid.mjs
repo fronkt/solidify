@@ -34,7 +34,7 @@ const check = (name, ok, detail) => {
   if (!ok) failures++;
   console.log(name, ok ? "OK" : "FAIL", detail === undefined ? "" : JSON.stringify(detail));
 };
-const NAMES = ["ALLOY-OPEN-IDENTITY", "ALLOY-SHARE-PRE-P5", "GRID-LAYOUT-TOTAL", "GRID-REASON-LINE", "LANDING-CLOSURE-CLEAN", "GRID-DOC-CLAIMS"];
+const NAMES = ["ALLOY-OPEN-IDENTITY", "ALLOY-SHARE-PRE-P5", "GRID-LAYOUT-TOTAL", "GRID-REASON-LINE", "LANDING-CLOSURE-CLEAN", "GRID-DOC-CLAIMS", "COMPOSER-COPY"];
 
 // The guarded load, for the same reason verify-elements.mjs has one: run
 // against a tree where one of these modules does not exist, an unguarded
@@ -42,6 +42,15 @@ const NAMES = ["ALLOY-OPEN-IDENTITY", "ALLOY-SHARE-PRE-P5", "GRID-LAYOUT-TOTAL",
 // of a single gate name — and a gate that cannot report looks exactly like a
 // gate nobody ran, which is precisely the tree a non-vacuity proof uses.
 let E, A, C, MAT;
+// COMPOSER-COPY's extra modules load on their own, so a tree without the
+// composer's learn file (anything before v8 U1c) fails that ONE gate by name
+// instead of taking the other six down with it
+let PD = null, F = null, LC = null, copyLoadError = null;
+try {
+  PD = await server.ssrLoadModule("/src/phasedata.ts");
+  F = await server.ssrLoadModule("/src/phasediagram.ts");
+  LC = await server.ssrLoadModule("/src/learn/composer.ts");
+} catch (e) { copyLoadError = String(e).split("\n")[0].slice(0, 160); }
 try {
   E = await server.ssrLoadModule("/src/elements.ts");
   A = await server.ssrLoadModule("/src/alloy.ts");
@@ -71,6 +80,13 @@ const block = (name, fn) => {
 //    difference between "I did not change alloy.ts" and "alloy.ts does not
 //    behave differently", and only the second is a gate.
 //
+//    RE-BASELINED ON PURPOSE IN v8 U1c, AND ONLY THE WORDS. Three of the four
+//    clamp strings carried an em dash, and the copy pass replaced each with a
+//    colon ("strong alloy: model depression capped ..."). Every number in the
+//    table below is the da16b5f measurement, untouched; the clamp strings are
+//    the U1c wording, byte for byte, so a clamp that fires differently still
+//    fails here, and so does any further rewording that is not made on purpose.
+//
 //    THREE CLAUSES, AND THE SECOND AND THIRD ARE WHAT MAKE THE FIRST MEAN
 //    ANYTHING. Equality is trivially satisfiable — two zeros are equal, an
 //    empty case list has no failures, and a comparator that always returns true
@@ -83,39 +99,39 @@ const block = (name, fn) => {
 {
   const REF = {
     "A356": [1, 0.49, 0.39610039582583667, 0.13749638205499282, 0.8761904761904763, []],
-    "A356+TiB": [1, 0.498, 0.3600538071682195, 0.12, 0.8711111111111113, ["Q saturates the model (k floored) — refinement still shows"]],
+    "A356+TiB": [1, 0.498, 0.3600538071682195, 0.12, 0.8711111111111113, ["Q saturates the model (k floored): refinement still shows"]],
     "AA2024": [1, 0.39333333333333337, 0.24748866498740554, 0.30033800494641383, 0.8, []],
-    "1045 steel": [1, 0.09666666666666666, 0.8, 0.23965580823601718, 1.5, ["strong alloy — model depression capped so growth stays watchable"]],
-    "4340 steel": [1, 0.26333333333333336, 0.8, 0.36400089806915126, 0.9660759493670886, ["strong alloy — model depression capped so growth stays watchable"]],
-    "IN718 (lite)": [1, 0.6333333333333333, 0.3473684210526316, 0.55343294640652, 0.6560000000000001, ["strong alloy — model depression capped so growth stays watchable"]],
-    "AZ91": [1, 0.6466666666666666, 0.3402061855670103, 0.35416289592760175, 0.8, ["strong alloy — model depression capped so growth stays watchable"]],
-    "tin bronze": [1, 0.5333333333333333, 0.41250000000000003, 0.16000000000000003, 0.7200000000000001, ["strong alloy — model depression capped so growth stays watchable"]],
-    "galv. bath": [1, 0.05, 0.1344, 0.12, 0.8, ["Q saturates the model (k floored) — refinement still shows"]],
+    "1045 steel": [1, 0.09666666666666666, 0.8, 0.23965580823601718, 1.5, ["strong alloy: model depression capped so growth stays watchable"]],
+    "4340 steel": [1, 0.26333333333333336, 0.8, 0.36400089806915126, 0.9660759493670886, ["strong alloy: model depression capped so growth stays watchable"]],
+    "IN718 (lite)": [1, 0.6333333333333333, 0.3473684210526316, 0.55343294640652, 0.6560000000000001, ["strong alloy: model depression capped so growth stays watchable"]],
+    "AZ91": [1, 0.6466666666666666, 0.3402061855670103, 0.35416289592760175, 0.8, ["strong alloy: model depression capped so growth stays watchable"]],
+    "tin bronze": [1, 0.5333333333333333, 0.41250000000000003, 0.16000000000000003, 0.7200000000000001, ["strong alloy: model depression capped so growth stays watchable"]],
+    "galv. bath": [1, 0.05, 0.1344, 0.12, 0.8, ["Q saturates the model (k floored): refinement still shows"]],
     "al-Cu": [1, 0.6666666666666666, 0.20464231738035266, 0.17000000000000004, 0.8, []],
-    "al-Si": [1, 0.7, 0.31428571428571433, 0.1200000000000001, 0.8800000000000001, ["composition saturates the model solute field", "strong alloy — model depression capped so growth stays watchable"]],
-    "al-Mg": [1, 0.6666666666666666, 0.33, 0.51, 0.8, ["strong alloy — model depression capped so growth stays watchable"]],
+    "al-Si": [1, 0.7, 0.31428571428571433, 0.1200000000000001, 0.8800000000000001, ["composition saturates the model solute field", "strong alloy: model depression capped so growth stays watchable"]],
+    "al-Mg": [1, 0.6666666666666666, 0.33, 0.51, 0.8, ["strong alloy: model depression capped so growth stays watchable"]],
     "al-Zn": [1, 0.6666666666666666, 0.1, 0.43999999999999995, 0.8, []],
-    "al-Fe": [1, 0.11666666666666667, 0.18056675062972294, 0.12, 0.6400000000000001, ["Q saturates the model (k floored) — refinement still shows"]],
-    "al-Ti": [1, 0.05, 0.1, 0.9, 0.5599999999999999, ["liquidus raised (peritectic-dominated) — model runs it as a weak depressant"]],
-    "fe-C": [1, 0.05, 0.8, 0.17000000000000004, 1.5, ["strong alloy — model depression capped so growth stays watchable"]],
-    "fe-Mn": [1, 0.6666666666666666, 0.33, 0.76, 0.7200000000000001, ["strong alloy — model depression capped so growth stays watchable"]],
-    "fe-Si": [1, 0.3333333333333333, 0.66, 0.52, 0.8, ["strong alloy — model depression capped so growth stays watchable"]],
-    "fe-Ni": [1, 0.6666666666666666, 0.33, 0.83, 0.7200000000000001, ["strong alloy — model depression capped so growth stays watchable"]],
+    "al-Fe": [1, 0.11666666666666667, 0.18056675062972294, 0.12, 0.6400000000000001, ["Q saturates the model (k floored): refinement still shows"]],
+    "al-Ti": [1, 0.05, 0.1, 0.9, 0.5599999999999999, ["liquidus raised (peritectic-dominated): model runs it as a weak depressant"]],
+    "fe-C": [1, 0.05, 0.8, 0.17000000000000004, 1.5, ["strong alloy: model depression capped so growth stays watchable"]],
+    "fe-Mn": [1, 0.6666666666666666, 0.33, 0.76, 0.7200000000000001, ["strong alloy: model depression capped so growth stays watchable"]],
+    "fe-Si": [1, 0.3333333333333333, 0.66, 0.52, 0.8, ["strong alloy: model depression capped so growth stays watchable"]],
+    "fe-Ni": [1, 0.6666666666666666, 0.33, 0.83, 0.7200000000000001, ["strong alloy: model depression capped so growth stays watchable"]],
     "fe-Cr": [1, 0.6666666666666666, 0.1, 0.9, 0.7200000000000001, []],
     "fe-Mo": [1, 0.3333333333333333, 0.23305263157894737, 0.8, 0.6400000000000001, []],
-    "ni-Nb": [1, 0.4, 0.5499999999999999, 0.48, 0.6400000000000001, ["strong alloy — model depression capped so growth stays watchable"]],
-    "ni-Ti": [1, 0.3333333333333333, 0.66, 0.6000000000000001, 0.7200000000000001, ["strong alloy — model depression capped so growth stays watchable"]],
+    "ni-Nb": [1, 0.4, 0.5499999999999999, 0.48, 0.6400000000000001, ["strong alloy: model depression capped so growth stays watchable"]],
+    "ni-Ti": [1, 0.3333333333333333, 0.66, 0.6000000000000001, 0.7200000000000001, ["strong alloy: model depression capped so growth stays watchable"]],
     "ni-Al": [1, 0.4, 0.31447147651006707, 0.87, 0.8, []],
     "ni-Cr": [1, 0.6666666666666666, 0.1, 0.9, 0.7200000000000001, []],
     "ni-Mo": [1, 0.4, 0.20755117449664426, 0.8, 0.6400000000000001, []],
-    "ni-W": [1, 0.4, 0.1, 0.9, 0.5599999999999999, ["liquidus raised (peritectic-dominated) — model runs it as a weak depressant"]],
-    "mg-Al": [1, 0.6666666666666666, 0.33, 0.37, 0.8, ["strong alloy — model depression capped so growth stays watchable"]],
+    "ni-W": [1, 0.4, 0.1, 0.9, 0.5599999999999999, ["liquidus raised (peritectic-dominated): model runs it as a weak depressant"]],
+    "mg-Al": [1, 0.6666666666666666, 0.33, 0.37, 0.8, ["strong alloy: model depression capped so growth stays watchable"]],
     "mg-Zn": [1, 0.4, 0.5260744985673351, 0.12, 0.8, []],
-    "mg-Zr": [1, 0.05, 0.1, 0.9, 0.5599999999999999, ["liquidus raised (peritectic-dominated) — model runs it as a weak depressant"]],
-    "cu-Sn": [1, 0.6666666666666666, 0.33, 0.16000000000000003, 0.7200000000000001, ["strong alloy — model depression capped so growth stays watchable"]],
+    "mg-Zr": [1, 0.05, 0.1, 0.9, 0.5599999999999999, ["liquidus raised (peritectic-dominated): model runs it as a weak depressant"]],
+    "cu-Sn": [1, 0.6666666666666666, 0.33, 0.16000000000000003, 0.7200000000000001, ["strong alloy: model depression capped so growth stays watchable"]],
     "cu-Zn": [1, 0.7, 0.25722488038277513, 0.86, 0.8, ["composition saturates the model solute field"]],
-    "cu-Ni": [1, 0.6666666666666666, 0.1, 0.9, 0.7200000000000001, ["liquidus raised (peritectic-dominated) — model runs it as a weak depressant"]],
-    "zn-Al": [1, 0.33, 0.504, 0.12, 0.8, ["Q saturates the model (k floored) — refinement still shows"]],
+    "cu-Ni": [1, 0.6666666666666666, 0.1, 0.9, 0.7200000000000001, ["liquidus raised (peritectic-dominated): model runs it as a weak depressant"]],
+    "zn-Al": [1, 0.33, 0.504, 0.12, 0.8, ["Q saturates the model (k floored): refinement still shows"]],
   };
 
   block("ALLOY-OPEN-IDENTITY", () => {
@@ -462,14 +478,16 @@ block("GRID-REASON-LINE", () => {
   // have and one it must NOT — and the must-not half is the half that matters,
   // because the wrong branch's text usually contains the right branch's words.
   const BRANCH = [
-    ["fe", "N", /genuinely dissolves and follows Sieverts/, /REACTS|essentially nil/],
-    ["ni", "N", /genuinely dissolves and follows Sieverts/, /REACTS|essentially nil/],
-    ["al", "N", /does not dissolve, it REACTS — to AlN/, /genuinely dissolves|Mg3N2|essentially nil/],
-    ["mg", "N", /does not dissolve, it REACTS — to Mg3N2/, /genuinely dissolves|AlN|essentially nil/],
-    ["cu", "N", /essentially nil.*purge gas for copper/, /genuinely dissolves|REACTS/],
-    ["zn", "N", /essentially nil, and this table has no practice/, /genuinely dissolves|REACTS|purge gas/],
-    ["cu", "O", /Tough-pitch copper carries 0\.02-0\.05 wt% oxygen on purpose/, /does not stay dissolved|probed in-ladle/],
-    ["fe", "O", /oxygen does dissolve — it is probed in-ladle/, /does not stay dissolved|Tough-pitch/],
+    ["fe", "N", /genuinely dissolves and follows Sieverts/, /reacts|essentially nil/i],
+    ["ni", "N", /genuinely dissolves and follows Sieverts/, /reacts|essentially nil/i],
+    // v8 U1c de-dashed these lines and lowercased "REACTS"; the markers moved
+    // with the words, and each must-not still names the other branch's marker
+    ["al", "N", /does not dissolve, it reacts to form AlN/, /genuinely dissolves|Mg3N2|essentially nil/],
+    ["mg", "N", /does not dissolve, it reacts to form Mg3N2/, /genuinely dissolves|AlN|essentially nil/],
+    ["cu", "N", /essentially nil.*purge gas for copper/, /genuinely dissolves|reacts/i],
+    ["zn", "N", /essentially nil, and this table has no practice/, /genuinely dissolves|reacts|purge gas/i],
+    ["cu", "O", /Tough-pitch copper carries 0\.02–0\.05 wt% oxygen on purpose/, /does not stay dissolved|probed in-ladle/],
+    ["fe", "O", /oxygen does dissolve \(it is probed in-ladle\)/, /does not stay dissolved|Tough-pitch/],
     ["al", "O", /oxygen does not stay dissolved at all/, /probed in-ladle|Tough-pitch/],
     ["al", "H", /the porosity layer already models it/, /carries no solubility data/],
     ["fe", "H", /carries no solubility data for iron \/ steel/, /already models it/],
@@ -480,7 +498,9 @@ block("GRID-REASON-LINE", () => {
     ["fe", "C", /^Assessed: m -78 K\/wt%, k 0\.17, and a cited peritectic at 1495 °C/, /geometry check|every proportion|eutectic/],
     // carbon in ALUMINIUM takes the "carried elsewhere" branch, not the bare
     // no-row one — it is a solute this composer has, in another melt
-    ["al", "C", /C is carried as a solute in iron \/ steel, but Al–C has no coefficient row/, /^Assessed|geometry check|will not invent one/],
+    // the last must-not is the generic no-row branch's own marker, which v8
+    // U1c reworded from "will not invent one" to "none will be invented"
+    ["al", "C", /C is carried as a solute in iron \/ steel, but Al–C has no coefficient row/, /^Assessed|geometry check|none will be invented/],
     // the must-not is the OTHER assessed branch's marker: a row that survives
     // its geometry check says "and a cited <kind> at <T> °C", and this one says
     // "but the <kind> row at <T> °C fails its own geometry check"
@@ -491,8 +511,8 @@ block("GRID-REASON-LINE", () => {
     ["cu", "Pb", /monotectic at 955 °C/, /unchecked|no coefficient row/],
     ["al", "Pb", /monotectic at 659 °C/, /955|unchecked/],
     ["fe", "Pb", /refused for being unchecked, not for demixing/, /monotectic/],
-    ["al", "Al", /IS this melt/, /no coefficient row/],
-    ["fe", "Fe", /IS this melt/, /no coefficient row/],
+    ["al", "Al", /is this melt's own metal/, /no coefficient row/],
+    ["fe", "Fe", /is this melt's own metal/, /no coefficient row/],
     ["al", "Ar", /noble gas/, /halogen|Sieverts/],
     ["al", "Cl", /halogen/, /noble gas|Sieverts/],
     // all four rungs of the not-primordial ladder, one pin each. Curium is
@@ -719,6 +739,176 @@ block("GRID-DOC-CLAIMS", () => {
     bracketHolds, marginsNamed, lowMarginK: lowMargin, highMarginK: highMargin,
     measured: { changed: changed.length, unchanged, stripeOnly: gainedStripeOnly.map(r => r.symbol),
       assessedAtProbe: assessedAtProbe.length, lostAtOne },
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. COMPOSER-COPY (v8 U1c) — every string the alloy composer can print, held
+//    to docs/COPY-STYLE.md, from the functions that compute it.
+//
+//    The composer's text is almost all COMPUTED (708 grid lines, the vapor
+//    and size readouts, derive()'s caveats, the phase diagram's notes), so no
+//    browser sample can reach more than a handful of branches; this drives
+//    the producers directly, over every pair and the shapes the grid scan
+//    cannot reach, and sorts what they return into the two registers:
+//      LINES  what stays on screen: no prose em dash (the lone "—" empty
+//             glyph is not prose), no British spelling, no repo path or
+//             milestone code, no NaN/undefined/null, one line under 200
+//             characters;
+//      LEARN  what learn mode adds: the same bans, and 1 to 2 sentences.
+//    PAIRING: every caveat line derive() raises (refusal, ungrown phase,
+//    clamp) has its learn text in `d.learn`, every figure note has one, and
+//    no learn text simply repeats its line.
+//    The phase diagram's source line is the row's `cite`: all 25 rows carry
+//    a complete one (no "…"), and layout() hands the figure exactly that.
+//    The detectors are run on a fixture first, both polarities, so a
+//    detector that caught nothing would fail here rather than pass the tree.
+block("COMPOSER-COPY", () => {
+  if (!PD || !F || !LC) {
+    check("COMPOSER-COPY", false, { threw: copyLoadError, note: "phasedata.ts, phasediagram.ts or learn/composer.ts does not load on this tree" });
+    return;
+  }
+  const proseDash = s => typeof s === "string" && s.includes("—") && s.trim() !== "—";
+  const BRITISH = /aluminium|vapour|vaporis|modelled|labelled|linearis|colour|behaviour|favour|sulphur|centre|\bgrey|mould|programme|artefact/i;
+  const INTERNAL = /docs\/|\.md\b|\.ts\b|PHASE-AUDIT|\bv\d+\.\d+ P\d\b|\bU1[a-d]\b|\bC3[ab]\b/;
+  const PLACEHOLDER = /\bNaN\b|\bundefined\b|\bnull\b|\[object/;
+  const sentences = t => (String(t).match(/[.!?](?=\s|$)/g) ?? []).length;
+  const lineBad = s => typeof s !== "string" || !s.trim() || proseDash(s) || BRITISH.test(s) || INTERNAL.test(s)
+    || PLACEHOLDER.test(s) || s.length > 200 || /\n/.test(s);
+  const learnBad = s => typeof s !== "string" || !s.trim() || proseDash(s) || BRITISH.test(s) || INTERNAL.test(s)
+    || PLACEHOLDER.test(s) || sentences(s) < 1 || sentences(s) > 2;
+
+  // the fixture: each ban fires on a string built to trip it, and none fires
+  // on the shapes the copy is allowed (the empty glyph, en dashes in ranges
+  // and alloy systems, a two-sentence explanation)
+  const fixtureLine = ["a — b", "aluminium melt", "see docs/PHASE-AUDIT.md", "x NaN y", "x".repeat(201)].every(lineBad)
+    && !["—", "Al–Cu, 5–10 K", "ΔT₀ 42.0 K · dilute"].some(lineBad);
+  const fixtureLearn = ["One. Two. Three.", "no sentence end", "The vapour rises."].every(learnBad)
+    && !["One sentence here.", "First one. Second one."].some(learnBad);
+
+  const lines = [], learn = [], unpaired = [];
+  const L = (where, s) => lines.push([where, s]);
+  const T = (where, s) => learn.push([where, s]);
+
+  // ---- the grid: every pair's line, sentence and readouts, at the probe
+  //      composition and at the two compositions the probe cannot reach
+  const bases = Object.keys(A.BASES);
+  const admitAll = (tag, a) => {
+    if (!a) return;
+    L(`${tag} line`, a.line); T(`${tag} sentence`, a.sentence);
+    if (a.vapour) { L(`${tag} vapor`, a.vapour.line); T(`${tag} vapor`, a.vapour.text); }
+    if (a.size) { L(`${tag} size`, a.size.line); T(`${tag} size`, a.size.text); }
+  };
+  for (const bk of bases) for (const r of E.ELEMENTS) admitAll(`${bk}-${r.symbol}`, E.admit(bk, r.symbol, E.probeWt(bk, r.symbol)));
+  for (const bk of bases) for (const el of Object.keys(A.BASES[bk].solutes)) {
+    const b = A.soluteBound(bk, el);
+    L(`${bk}-${el} bound`, b.source);
+    if (A.BASES[bk].solutes[el].note) L(`${bk}-${el} note`, A.BASES[bk].solutes[el].note);
+    if (b.ceiling != null) for (const w of [b.ceiling, +(b.ceiling + b.step).toFixed(4)]) admitAll(`${bk}-${el}@${w}`, E.admit(bk, el, w));
+  }
+  for (const w of [NaN, -1, 101, Infinity]) admitAll(`fe-Cr@${w}`, E.admit("fe", "Cr", w));
+
+  // ---- derive(): the presets, every pair across its range, and every
+  //      refusal shape, with the caveats paired to their learn text
+  const mixes = A.FAMOUS.map(f => [f.label, f.mix]);
+  for (const bk of bases) for (const el of Object.keys(A.BASES[bk].solutes)) {
+    const b = A.soluteBound(bk, el);
+    for (const w of [E.probeWt(bk, el), b.max, b.max / 3, b.ceiling ?? b.max]) mixes.push([`${bk}-${el}@${w}`, { base: bk, wt: { [el]: w } }]);
+  }
+  mixes.push(["unknown el", { base: "al", wt: { Cu: 4.4, Xx: 3 } }], ["NaN", { base: "al", wt: { Cu: NaN } }],
+    ["negative", { base: "al", wt: { Si: -2 } }], ["over 100", { base: "al", wt: { Si: 1e308 } }],
+    // each under its own invariant, 120 wt% together
+    ["sum over 100", { base: "al", wt: { Zn: 90, Cu: 30 } }], ["unknown base", { base: "unobtanium", wt: { Cu: 1 } }],
+    ["past a ceiling", { base: "fe", wt: { C: 0.6, Mn: 0.7 } }], ["at a ceiling", { base: "al", wt: { Si: 12.6 } }],
+    ["pure", { base: "al", wt: {} }], ["k = 1", { base: "ni", wt: { Cr: 5 } }], ["k outside", A.FAMOUS[1].mix]);
+  const refusalKinds = new Set(), clampKinds = new Set(), notGrownSeen = new Set();
+  const regimesSeen = new Set();
+  for (const [tag, mix] of mixes) {
+    const d = A.derive(mix);
+    L(`${tag} dT0`, d.dT0Line); T(`${tag} dT0`, d.dT0Source);
+    regimesSeen.add(d.dT0Regime);
+    if (d.regimeLine || d.regimeSource) { L(`${tag} regime`, d.regimeLine); T(`${tag} regime`, d.regimeSource); }
+    for (const [kind, list] of [["refusal", d.refusals], ["notGrown", d.notGrown], ["clamp", d.clamps]]) {
+      for (const s of list) {
+        L(`${tag} ${kind}`, s);
+        const why = d.learn?.[s];
+        if (!why || why === s) unpaired.push(`${tag} ${kind}: ${s.slice(0, 60)}`);
+        else T(`${tag} ${kind}`, why);
+        if (kind === "refusal") refusalKinds.add(s.replace(/[\d.]+/g, "#").slice(0, 18));
+        if (kind === "clamp") clampKinds.add(s);
+        if (kind === "notGrown") notGrownSeen.add(tag);
+      }
+    }
+    for (const p of d.phases) { L(`${tag} phase ${p.el}`, p.line); T(`${tag} phase ${p.el}`, p.source); }
+  }
+  // share-link refusals (#matcaveat only, so lines, no learn half)
+  for (const h of ["alloy=zz:Si7", "alloy=al:Cu.", "alloy=al:Si7,Qq3", "alloy=al:Si1.2.3", "alloy=al:Si99", "alloy=fe:C0.525", "alloy=al:Cu44"]) {
+    const r = []; A.decodeMix(h, r);
+    for (const s of r) L(`link ${h}`, s);
+  }
+
+  // ---- the phase diagram: every drawable preset and pair, with the melt on
+  //      the diagram, off it, and the wrong metal in the crucible
+  const noteKinds = new Set();
+  let figures = 0, citesMatch = 0;
+  for (const [tag, mix] of mixes) {
+    for (const [mc, key] of [[null, undefined], [650, "al"], [5000, undefined]]) {
+      const f = F.layout(mix, mc, key);
+      if (!f.ok) { L(`${tag} figure refused`, f.reason); if (f.learn) T(`${tag} figure refused`, f.learn); continue; }
+      figures++;
+      L(`${tag} caption`, f.caption);
+      if (f.band) L(`${tag} band`, f.band.label);
+      for (const m of f.markers) L(`${tag} marker`, m.label);
+      for (const n of f.notes) {
+        L(`${tag} note`, n.line);
+        if (!n.learn || n.learn === n.line) unpaired.push(`${tag} note: ${n.line.slice(0, 60)}`);
+        else T(`${tag} note`, n.learn);
+        noteKinds.add(n.line.split(/[: ]/)[0]);
+      }
+      L(`${tag} source`, `source: ${f.cite}`);
+      const row = PD.BINARY[mix.base]?.[f.solute];
+      if (row && f.cite === row.cite) citesMatch++;
+    }
+  }
+  const citeBad = Object.entries(PD.BINARY).flatMap(([bk, r]) => Object.entries(r)
+    .filter(([, row]) => typeof row.cite !== "string" || row.cite.length < 30 || row.cite.length > 130
+      || /…|\.\.\./.test(row.cite) || lineBad(row.cite))
+    .map(([el, row]) => `${bk}-${el}: ${String(row.cite).slice(0, 60)}`));
+  const citeRows = Object.values(PD.BINARY).reduce((n, r) => n + Object.keys(r).length, 0);
+
+  // ---- the composer's own learn entries and caveats
+  // a hint is ONE line under its readout row: the rail's rule (verify-rail
+  // RAIL-LEARN), at most 48 characters and no closing period
+  const hintBad = [];
+  for (const e of LC.COMPOSER_LEARN) {
+    T(e.id, e.text);
+    for (const [k, h] of Object.entries(e.hints ?? {})) {
+      L(`${e.id} hint ${k}`, h);
+      if (h.length > 48 || /\.$/.test(h)) hintBad.push(`${k}: ${h}`);
+    }
+  }
+  if (hintBad.length) unpaired.push(...hintBad.map(h => `hint too long for one line: ${h}`));
+  for (const [k, c] of Object.entries(LC.COMPOSER_CAVEATS)) { if (c.line) L(`caveat ${k}`, c.line); T(`caveat ${k}`, c.learn); }
+
+  const badLines = lines.filter(([, s]) => lineBad(s)).map(([w, s]) => `${w}: ${String(s).slice(0, 90)}`);
+  const badLearn = learn.filter(([, s]) => learnBad(s)).map(([w, s]) => `${w} (${sentences(s)} sentences): ${String(s).slice(0, 90)}`);
+  // LIVENESS: the producers were really driven, across their branches
+  const vaporComputed = lines.some(([w, s]) => w.endsWith("vapor") && / atm/.test(s));
+  const vaporRefused = lines.some(([w, s]) => w.endsWith("vapor") && /not computed/.test(s));
+  const live = lines.length >= 3000 && learn.length >= 2500 && vaporComputed && vaporRefused
+    && refusalKinds.size >= 6 && clampKinds.size === 4 && notGrownSeen.size >= 10
+    && ["DILUTE", "PAST-REFERENCE", "ISOMORPHOUS", "REFUSED"].every(r => regimesSeen.has(r))
+    && figures >= 60 && noteKinds.has("cursor") && noteKinds.has("straight") && noteKinds.has("dashed");
+  const ok = fixtureLine && fixtureLearn && badLines.length === 0 && badLearn.length === 0 && unpaired.length === 0
+    && citeBad.length === 0 && citeRows === 25 && citesMatch === figures && live;
+  check("COMPOSER-COPY", ok, {
+    fixtureCaught: { line: fixtureLine, learn: fixtureLearn },
+    linesRead: lines.length, learnRead: learn.length, figuresDrawn: figures,
+    refusalKinds: refusalKinds.size, clampKinds: clampKinds.size, mixesWithAnUngrownPhase: notGrownSeen.size,
+    dT0Regimes: [...regimesSeen], noteKinds: [...noteKinds],
+    badLines: badLines.slice(0, 6), badLineCount: badLines.length,
+    badLearn: badLearn.slice(0, 6), badLearnCount: badLearn.length,
+    unpaired: unpaired.slice(0, 6), citeBad, citeRows, citesMatch,
   });
 });
 

@@ -5,6 +5,8 @@
 import type { Simulation } from "./sim";
 import { Nucleation } from "./nucleation";
 import { stream } from "./rng";
+import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
+import { OPT_CAVEATS, panelText } from "./learn/panels";
 
 export interface OptHost {
   swapSim(n: number): Simulation;
@@ -172,9 +174,19 @@ export class Optimizer {
   private strip!: HTMLElement;
   private status!: HTMLElement;
   private report!: HTMLElement;
+  /** learn mode's "i" on the panel header (rebuilt with the panel) */
+  private learn = new LearnLayer(() => this.applyLearn());
   private finishing = false;
 
-  constructor(private host: OptHost) {}
+  constructor(private host: OptHost) {
+    onLearnChange(() => this.applyLearn());
+  }
+
+  private applyLearn() {
+    if (!this.active || !this.panel) return;
+    this.learn.apply();
+    fillLearnSlots(this.panel);
+  }
 
   start(currentGrid: number, opts: OptStartOpts = {}) {
     if (this.active) return;
@@ -221,9 +233,9 @@ export class Optimizer {
   private refreshStatus() {
     if (!this.status) return;
     if (!this.running && this.episode === 0)
-      this.status.innerHTML = 'paused — press <b style="color:#ffb454">▶ RUN</b> (bottom-left) to start optimizing';
+      this.status.innerHTML = 'paused · <b style="color:#ffb454">▶ run</b> to start';
     else if (!this.running)
-      this.status.textContent = `paused at casting #${this.episode} · press ▶ run to resume`;
+      this.status.textContent = `paused · casting #${this.episode} · ▶ run to resume`;
     else if (this.episode === 0)
       this.status.textContent = "casting #1 …";
   }
@@ -252,7 +264,7 @@ export class Optimizer {
     // 110px floor rather than being squeezed to nothing (it used to reach 0 px
     // at 1024 wide), and exit stays at the right end of whichever line it is on
     head.style.cssText = "display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-bottom:6px;font-size:11px;";
-    head.innerHTML = `<span style="letter-spacing:.2em;color:#56d4dd">⚙ ENGINEERING · ML MODE</span>
+    head.innerHTML = `<span style="letter-spacing:.2em;color:#56d4dd">⚙ OPTIMIZER</span>
       <span>target ASTM <b style="color:#ffb454">G ${this.targetASTM}</b></span>
       <input id="labTarget" type="range" min="1" max="5.5" step="0.5" value="${this.targetASTM}" style="flex:1 1 110px;min-width:110px;max-width:150px">`;
     const stop = document.createElement("button");
@@ -260,13 +272,13 @@ export class Optimizer {
     stop.textContent = "exit";
     stop.addEventListener("click", () => this.stop());
     head.append(stop);
+    // learn mode: the "i" right after the title; the intro is one terse line
+    // with the full explanation in learn mode
+    this.learn = new LearnLayer(() => this.applyLearn());
+    const ex = this.learn.explain(head, "about the optimizer", panelText("optimizer"), head.children[1]);
     const desc = document.createElement("div");
     desc.style.cssText = "font-size:10.5px;color:#8891a0;line-height:1.55;margin-bottom:8px;";
-    desc.innerHTML = "A <b style=\"color:#cfd6df\">CMA-ES optimizer</b> searches for a casting recipe " +
-      "(cooling schedule + inoculant charge) that lands on your target grain size. Each tile below is " +
-      "<b style=\"color:#cfd6df\">one full casting</b> it tried — early runs nucleate heavily and look chaotic while it explores; " +
-      "watch <b style=\"color:#cfd6df\">|ΔG|</b> shrink as it learns. When it converges it stops and " +
-      "<b style=\"color:#cfd6df\">reports the winning recipe</b>, which you can load into the instrument and run yourself.";
+    desc.innerHTML = OPT_CAVEATS.intro.line + learnSlot(OPT_CAVEATS.intro.learn);
     const strip = document.createElement("div");
     strip.style.cssText = "display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;min-height:86px;align-items:flex-end;";
     const report = document.createElement("div");
@@ -275,13 +287,14 @@ export class Optimizer {
       "border-radius:6px;background:rgba(255,180,84,0.06);font-size:11px;line-height:1.7;";
     const status = document.createElement("div");
     status.id = "labStatus";
-    status.style.cssText = "margin-top:6px;font-size:11px;color:#6b7280;";
-    p.append(head, desc, strip, report, status);
+    status.style.cssText = "margin-top:6px;font-size:11px;color:#8891a0;";
+    p.append(head, ex.body, desc, strip, report, status);
     document.getElementById("app")!.append(p);
     this.panel = p;
     this.strip = strip;
     this.status = status;
     this.report = report;
+    this.applyLearn();
     const slider = p.querySelector("#labTarget") as HTMLInputElement;
     if (this.lockTarget) {
       slider.disabled = true;
@@ -400,16 +413,18 @@ export class Optimizer {
     const f = (x: number) => x.toFixed(2);
     this.report.innerHTML =
       `<div style="letter-spacing:.18em;color:#ffb454;margin-bottom:4px">` +
-      (onTarget ? "⚑ CONVERGED — RECIPE FOUND" : "⚑ SEARCH STALLED — BEST RECIPE SO FAR") + `</div>` +
-      `<div style="color:#c9cdd4">Best casting: <b style="color:#ffb454">G ${r.astm !== null ? r.astm.toFixed(1) : "—"}</b>` +
-      ` (target G ${this.targetASTM} · |ΔG| ${this.best.toFixed(2)}) after ${this.episode} castings.</div>` +
+      (onTarget ? "⚑ CONVERGED · RECIPE FOUND" : "⚑ STALLED · BEST RECIPE SO FAR") + `</div>` +
+      (onTarget ? "" : learnSlot(OPT_CAVEATS.stalled.learn)) +
+      `<div style="color:#c9cdd4">best <b style="color:#ffb454">G ${r.astm !== null ? r.astm.toFixed(1) : "—"}</b>` +
+      ` · target G ${this.targetASTM} · |ΔG| ${this.best.toFixed(2)} · ${this.episode} castings</div>` +
       `<div style="color:#8891a0">undercooling <b style="color:#c9cdd4">${f(r.undercool)}</b> · ` +
       `inoculant <b style="color:#c9cdd4">${r.nmax.toFixed(0)}</b> sites · ` +
       `cooling early <b style="color:#c9cdd4">${f(r.cool[0])}</b> → mid <b style="color:#c9cdd4">${f(r.cool[1])}</b> → late <b style="color:#c9cdd4">${f(r.cool[2])}</b></div>`;
     const row = document.createElement("div");
     row.style.cssText = "display:flex;gap:8px;margin-top:7px";
     const applyB = document.createElement("button");
-    applyB.textContent = "⚗ apply recipe to the instrument";
+    // verify-optimizer finds this button by the word "apply"
+    applyB.textContent = "⚗ apply recipe";
     applyB.style.cssText = "border-color:#ffb454;color:#ffb454";
     applyB.addEventListener("click", () => {
       const rec = this.bestRecipe!;
@@ -426,17 +441,18 @@ export class Optimizer {
       this.refreshStatus();
     });
     const linkB = document.createElement("button");
-    linkB.textContent = "⎘ copy recipe link";
+    linkB.textContent = "⎘ recipe link";
     linkB.addEventListener("click", () => {
       void navigator.clipboard.writeText(this.host.shareRecipeLink(this.bestRecipe!)).then(() => {
         linkB.textContent = "copied ✓";
-        setTimeout(() => { linkB.textContent = "⎘ copy recipe link"; }, 1400);
+        setTimeout(() => { linkB.textContent = "⎘ recipe link"; }, 1400);
       });
     });
     row.append(applyB, moreB, linkB);
     this.report.append(row);
     this.report.style.display = "block";
-    this.status.textContent = "paused on the result · apply the recipe, keep searching, or move the target slider";
+    fillLearnSlots(this.report);
+    this.status.textContent = "paused on result";
   }
 
   /** drive one animation frame while active (only when the transport is running) */

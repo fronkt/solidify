@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%230a0b0d"/><text x="32" y="45" font-family="ui-monospace,Consolas,monospace" font-size="36" font-weight="700" text-anchor="middle"><tspan fill="%23ffb454">S</tspan><tspan fill="%23eef1f5">I</tspan></text></svg>' />
-  <title>SOLIDIFY — instrument</title>
-  <meta name="description" content="Real-time phase-field solidification instrument: dendrites, castings, welds, alloys — live on your GPU." />
+  <title>SOLIDIFY · instrument</title>
+  <meta name="description" content="Real-time phase-field solidification instrument: dendrites, castings, welds and alloys, live on your GPU." />
   <style>
     :root {
       --bg: #0a0b0d;
@@ -62,7 +62,20 @@
              141 + 14 = 742), so it takes a row of its own under the switch. */
       --lens-squeeze: clamp(0px, (770px - var(--free-w)) * 1000, 1px);
       --lens-own-row: clamp(0px, (744px - var(--free-w)) * 1000, 1px);
+      /* The top band: the bottom of the top chrome, plus 8px. The mode
+         panels, the analysis columns and nothing else bottom-anchored may
+         grow past it (they scroll instead), so none of them can paint over
+         the lens bar, the learn toggle, CONTROLS or the TRUE 3D switch, which
+         would leave no way to turn learn mode off or leave the mode. 84 is the
+         TRUE 3D switch's bottom (50 + 34), 22 more while it sits under the
+         lens bar (--lens-squeeze); 142 the lens bar's own when it has a row of
+         its own (the switch is back at 84 then, and a phone's --learn-drop
+         puts it at 120) */
+      --top-band: calc(92px + 22 * var(--lens-squeeze) + 36 * var(--lens-own-row));
     }
+    /* TRUE 3D adds the view cube under the switch: its bottom is 188 (96 +
+       92), moved down with the switch and the lens bar */
+    body.mode3d { --top-band: calc(196px + 22 * var(--lens-squeeze) + 32 * var(--lens-own-row)); }
     body.railHidden { --rail-inset: 0px; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; }
@@ -95,7 +108,7 @@
     #foundryResults.hidden { transform: translateX(-100%); }
     #foundryResults .frHead { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; letter-spacing: 0.2em; color: #56d4dd; }
     #foundryResults .frHead span { flex: 1; }
-    #foundryResults .frHead button { font-size: 10px; padding: 3px 8px; }
+    #foundryResults .frHead button:not(.lrnInfo) { font-size: 10px; padding: 3px 8px; }
     /* never further left than its own width from the window's edge (77 + 14):
        below a 390px window the rail stops giving way and would otherwise push
        the one control that moves it off screen */
@@ -111,7 +124,10 @@
        row of its own (--lens-own-row) */
     #dimSwitch { position: absolute; top: calc(50px + 22 * (var(--lens-squeeze) - var(--lens-own-row)) + 36 * var(--learn-drop)); right: calc(var(--rail-inset) + 14px); z-index: 5; width: 168px; transition: right 0.25s ease, top 0.25s ease; }
     #dimSwitch .actswitch { margin: 0; background: rgba(15,17,21,0.85); backdrop-filter: blur(6px); }
-    .actswitch.disabled { opacity: 0.45; pointer-events: none; }
+    /* not pointer-events:none: the unavailable switch must still show its
+       title (why it is unavailable) on hover; the click handler ignores it */
+    .actswitch.disabled { opacity: 0.45; cursor: not-allowed; }
+    .actswitch.disabled:hover { border-color: var(--line); color: var(--dim); }
     /* under the switch, and under the lens bar when that has its own row */
     #viewcube { position: absolute; top: calc(96px + 22 * var(--lens-squeeze) + 32 * var(--lens-own-row)); right: calc(var(--rail-inset) + 14px); z-index: 5; width: 92px; height: 92px;
       transition: right 0.25s ease, top 0.25s ease, opacity 0.3s; display: none; touch-action: none; }
@@ -124,7 +140,11 @@
     body.mode3d #apanels { display: none !important; }
     body.mode3d #probeMark, body.mode3d #rulerLine, body.mode3d #rulerText { display: none !important; }
     /* floating SECTION PLANE panel (SLICE lens) */
+    /* capped under the scale bar the SLICE lens shows (its bottom at 245, + 7),
+       so learn mode's explanation, hint and Niyama sentence make it scroll
+       rather than climb over the readouts (78 to 211) and the scale bar */
     #slicePop { position: absolute; left: 18px; bottom: 62px; width: 252px; display: none; z-index: 6;
+      max-height: calc(100% - 62px - 252px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #2b313b transparent;
       background: rgba(15,17,21,0.9); border: 1px solid var(--line); border-radius: 6px;
       padding: 9px 11px 8px; backdrop-filter: blur(6px);
       /* its three rows (depth, tilt, turn) print at most "360°" */
@@ -160,6 +180,11 @@
     .row .val { text-align: right; color: var(--amber); font-size: 11px; font-variant-numeric: tabular-nums; }
     .row .val.unreal { color: #e06c60; }
     input[type="range"] { flex: 1; appearance: none; height: 2px; background: #333a45; border-radius: 1px; outline: none; }
+    /* the outline: none above (and on select below) is for the pointer; a
+       keyboard user still needs to see which slider or select has focus, with
+       the ring .lrnInfo and the section headers use */
+    input[type="range"]:focus-visible, select:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+    input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px var(--cyan); }
     /* min-width: 0 drops Chrome's ~129px intrinsic slider width, which is what
        used to push every value off the side of a 268px rail. Only in a grid
        row, whose slider track has its own 48px floor: a slider in a flex row
@@ -176,10 +201,13 @@
     .btnrow button { flex: 1 1 auto; }
     .checkrow { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; font-size: 11.5px; cursor: pointer; user-select: none; }
     .checkrow input { accent-color: var(--amber); }
-    /* activation switch: render-mode toggles (Illustrator-style "this costs GPU") */
-    .actswitch { display: flex; align-items: center; gap: 9px; margin: 9px 0 7px; padding: 7px 9px;
-      border: 1px solid var(--line); border-radius: 6px; cursor: pointer; user-select: none;
-      font-size: 11px; letter-spacing: 0.1em; color: var(--dim); transition: border-color 0.25s, color 0.25s; }
+    /* activation switch: render-mode toggles (Illustrator-style "this costs GPU").
+       A <button role="switch"> (ui.ts actSwitch), so it undoes the global
+       button look: full width, no fill, text left */
+    .actswitch { display: flex; align-items: center; gap: 9px; width: 100%; margin: 9px 0 7px; padding: 7px 9px;
+      border: 1px solid var(--line); border-radius: 6px; cursor: pointer; user-select: none; background: transparent;
+      text-align: left; font-size: 11px; letter-spacing: 0.1em; color: var(--dim); transition: border-color 0.25s, color 0.25s; }
+    .actswitch:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
     .actswitch .track { flex: 0 0 auto; width: 34px; height: 18px; border-radius: 999px;
       background: #1b1f26; border: 1px solid #333a45; position: relative; transition: background 0.25s, border-color 0.25s; }
     .actswitch .knob { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%;
@@ -218,6 +246,9 @@
     .lrnText { margin: 5px 0 8px; padding-left: 8px; border-left: 2px solid rgba(86,212,221,0.45);
       font-size: 10.5px; line-height: 1.5; color: #9aa1ab; letter-spacing: 0; font-weight: 400; }
     .lrnText.lrnSec { margin: -2px 0 10px; }
+    /* a filled learn slot in a panel's note is already a block: the <br> the
+       next line starts with would only add a blank line (src/learn fillLearnSlots) */
+    .lrnText.on + br { display: none; }
     .lrnHint { margin: -3px 0 7px; font-size: 10px; line-height: 1.4; color: #8a93a0; }
     /* a button row and a select carry no bottom margin of their own */
     .btnrow + .lrnHint, select + .lrnHint { margin-top: 4px; }
@@ -249,16 +280,30 @@
       body:has(#tour.show) #composer .card { padding-bottom: 118px; }
     }
     #composer .card { width: min(500px, 94vw); max-height: 88vh; overflow-y: auto; overflow-x: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; box-shadow: 0 18px 60px rgba(0,0,0,0.55); }
-    #composer .chead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    /* the learn "i" sits right after the title and the close button stays at
+       the far end (v8 U1c); the caption rows below are uppercase by CSS, and
+       the "i" must stay a lowercase italic i */
+    #composer .chead { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
     #composer .chead h3 { font-size: 12px; letter-spacing: 0.25em; color: var(--amber); font-weight: 600; }
+    /* the modal's own learn switch (the top bar's is under the backdrop while
+       this is open): pushed right, beside the close button, cyan when on like
+       the top bar's */
+    #composer .chead .lrnToggle { margin-left: auto; font-size: 10px; padding: 3px 8px; }
+    #composer .chead .lrnToggle.on { border-color: var(--cyan); color: var(--cyan); }
+    #composer .chead .lrnToggle:focus-visible, #composer .chead .x:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
     #composer .chead .x { border: none; background: none; color: var(--dim); font-size: 14px; }
-    #composer .cnote { font-size: 10px; line-height: 1.5; color: var(--dim); margin-bottom: 12px; }
+    #composer .lrnInfo { text-transform: none; }
+    /* caveat grays in the composer are #8891a0 (5.8:1 on the card), as the
+       panels' are since v8 U1b; var(--dim) is 3.9:1 there, so NO text here
+       uses it (the ✕ glyphs of .x and .rm are controls, not text, and pass
+       the 3:1 a control needs) */
+    #composer .cnote { font-size: 10px; line-height: 1.5; color: #8891a0; margin-bottom: 12px; }
     #composer .bases { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
     #composer .bases button { flex: 1 1 30%; }
     #composer .crow { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
     #composer .crow b { flex: 0 0 22px; color: var(--amber); font-size: 12px; }
     #composer .crow input { flex: 1; }
-    #composer .crow .cv { flex: 0 0 128px; text-align: right; font-size: 10.5px; color: var(--text); }
+    #composer .crow .cv { flex: 0 0 136px; text-align: right; font-size: 10.5px; color: var(--text); }
     #composer .crow .rm { border: none; background: none; color: var(--dim); padding: 2px 4px; }
     #composer .addrow { display: flex; gap: 6px; margin: 8px 0 12px; }
     #composer .addrow select { flex: 1; width: auto; min-width: 0; text-overflow: ellipsis; }
@@ -271,22 +316,25 @@
        than let them be reached. min-width holds the cells at 19px and lets the
        grid scroll sideways inside a card that does not. */
     #composer .gridwrap { border-top: 1px solid var(--line); padding-top: 10px; margin-bottom: 12px; }
-    #composer .gcap { font-size: 10px; letter-spacing: 0.14em; color: var(--amber); margin-bottom: 5px; text-transform: uppercase; }
+    #composer .gcap { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 0.14em; color: var(--amber); margin-bottom: 5px; text-transform: uppercase; }
     #composer .gscroll { overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; }
     #composer .grid { display: grid; grid-template-columns: repeat(18, 1fr); gap: 1px; min-width: 342px; }
     #composer .gcell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
       font-size: 8.5px; letter-spacing: 0; padding: 0; border-radius: 2px;
-      background: var(--panel2); border: 1px solid var(--line); color: #7d8794; }
+      background: var(--panel2); border: 1px solid var(--line); color: #9aa1ab; }
     #composer .gcell[data-frow="1"] { margin-top: 5px; }
     #composer .gcell[data-tier="ASSESSED"] { color: var(--amber); border-color: #7a5a2c; background: #1c1710; }
     #composer .gcell[data-tier="OUTSIDE-THE-MODEL"] { color: #c96a5b; border-color: #55352f; }
-    #composer .gcell[data-tier="REFUSED-PAIR"] { color: #7d8794; }
+    /* #9aa1ab is 6.8:1 on --panel2, raised so the tier below can reach 4.5:1
+       and still read dimmer than this one */
+    #composer .gcell[data-tier="REFUSED-PAIR"] { color: #9aa1ab; }
     /* dimmest of the four, and DELIBERATELY still readable. The argument this
        whole grid makes is that a greyed-out cell teaches nothing and a computed
        refusal teaches a lot, so a tier rendered until it disappears would be
        the same failure wearing a colour. Every cell here is legible and every
-       cell answers when tapped. */
-    #composer .gcell[data-tier="NOT-A-SOLUTE"] { color: #5b6675; border-color: #1c2027; }
+       cell answers when tapped: #7a8390 is 4.6:1 on --panel2 (#5b6675 was
+       3.0:1, under the 4.5:1 an 8.5px label on an active button needs). */
+    #composer .gcell[data-tier="NOT-A-SOLUTE"] { color: #7a8390; border-color: #1c2027; }
     #composer .gcell[data-in="1"] { background: #33270f; color: #fff; }
     #composer .gcell[data-self="1"] { color: var(--cyan); border-color: #2c545a; background: #101b1d; }
     /* the vapour band is a SECOND channel, not a tier: zinc over iron is both
@@ -296,44 +344,48 @@
     #composer .gcell[data-vap="BOILS"] { box-shadow: inset 0 -2px 0 #c96a5b; }
     #composer .gcell.sel { outline: 1px solid var(--cyan); outline-offset: -1px; }
     #composer .gcell:hover { color: #fff; border-color: #3a424e; }
-    #composer .glegend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 7px; font-size: 8.5px; color: var(--dim); }
+    #composer .glegend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 7px; font-size: 8.5px; color: #8891a0; }
     #composer .glegend span { display: flex; align-items: center; gap: 4px; }
     #composer .glegend span::before { content: ""; width: 8px; height: 8px; border-radius: 2px; border: 1px solid var(--line); background: var(--panel2); }
     #composer .glegend span[data-tier="ASSESSED"]::before { border-color: #7a5a2c; background: #1c1710; box-shadow: inset 0 0 0 3px var(--amber); }
     #composer .glegend span[data-tier="OUTSIDE-THE-MODEL"]::before { border-color: #55352f; box-shadow: inset 0 0 0 3px #c96a5b; }
-    #composer .glegend span[data-tier="REFUSED-PAIR"]::before { box-shadow: inset 0 0 0 3px #7d8794; }
-    #composer .glegend span[data-tier="NOT-A-SOLUTE"]::before { border-color: #1c2027; box-shadow: inset 0 0 0 3px #5b6675; }
+    #composer .glegend span[data-tier="REFUSED-PAIR"]::before { box-shadow: inset 0 0 0 3px #9aa1ab; }
+    #composer .glegend span[data-tier="NOT-A-SOLUTE"]::before { border-color: #1c2027; box-shadow: inset 0 0 0 3px #7a8390; }
     #composer .glegend span[data-self]::before { border-color: #2c545a; background: #101b1d; box-shadow: inset 0 0 0 3px var(--cyan); }
     #composer .glegend span[data-vap]::before { border-color: var(--line); box-shadow: inset 0 -2px 0 #d9985a; }
     #composer .gwhy { margin-top: 9px; border-left: 2px solid var(--line); padding-left: 7px; }
     #composer .gwhy .ghead { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
     #composer .gwhy .ghead b { font-size: 13px; color: var(--amber); font-weight: 500; }
-    #composer .gwhy .ghead span { font-size: 8.5px; letter-spacing: 0.12em; color: var(--dim); text-transform: uppercase; }
+    #composer .gwhy .ghead span { font-size: 8.5px; letter-spacing: 0.12em; color: #8891a0; text-transform: uppercase; }
     #composer .gwhy[data-tier="ASSESSED"] .ghead span { color: var(--amber); }
     #composer .gwhy .gline { font-size: 11px; line-height: 1.5; color: var(--text); }
-    #composer .gwhy .gp { font-size: 9.5px; line-height: 1.55; color: var(--dim); margin-top: 6px; }
+    #composer .gwhy .gp { font-size: 9.5px; line-height: 1.55; color: #8891a0; margin-top: 6px; }
     #composer .famous { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
-    #composer .famous button { font-size: 10px; padding: 4px 7px; color: var(--dim); }
+    #composer .famous button { font-size: 10px; padding: 4px 7px; color: #8891a0; }
     #composer .famous button:hover { color: var(--amber); border-color: var(--amber); }
     #composer .derived { border-top: 1px solid var(--line); padding-top: 10px; margin-bottom: 12px; }
     #composer .aname { font-size: 15px; color: #fff; letter-spacing: 0.04em; margin-bottom: 8px; }
-    #composer .drow { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); margin-bottom: 4px; }
+    #composer .drow { display: flex; justify-content: space-between; font-size: 11px; color: #8891a0; margin-bottom: 4px; }
     #composer .drow b { color: var(--amber); font-weight: 500; }
     #composer .clamp { font-size: 10px; color: #d9985a; margin-top: 4px; }
     /* the two columns (v7.1 P3): what equilibrium leaves vs what the solver grows */
     #composer .phases { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
     #composer .phases div { border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; }
-    #composer .phases span { display: block; font-size: 8.5px; letter-spacing: 0.1em; color: var(--dim); margin-bottom: 3px; }
+    #composer .phases span { display: block; font-size: 8.5px; letter-spacing: 0.1em; color: #8891a0; margin-bottom: 3px; }
     #composer .phases b { font-size: 11.5px; color: var(--amber); font-weight: 500; }
     #composer .phases div:last-child b { color: var(--cyan); }
-    #composer .src { font-size: 10px; color: var(--dim); line-height: 1.4; margin-top: 6px; border-left: 2px solid var(--line); padding-left: 7px; }
+    #composer .src { font-size: 10px; color: #8891a0; line-height: 1.4; margin-top: 6px; border-left: 2px solid var(--line); padding-left: 7px; }
     /* the drawn phase diagram (v7.1 P2). Its own container, because .derived's
        innerHTML is replaced on every slider frame and would rebuild the SVG. */
     #composer .figwrap { border-top: 1px solid var(--line); padding-top: 10px; margin-bottom: 12px; }
-    #composer .pdcap { font-size: 10px; letter-spacing: 0.14em; color: var(--amber); margin-bottom: 5px; text-transform: uppercase; }
+    #composer .pdhead { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+    #composer .pdcap { font-size: 10px; letter-spacing: 0.14em; color: var(--amber); text-transform: uppercase; }
     #composer .pdsvg { display: block; width: 100%; height: auto; background: #0d0f13; border-radius: 4px; }
-    #composer .pdnotes { font-size: 9.5px; line-height: 1.5; color: var(--dim); margin-top: 7px; }
-    #composer .pdsrc { font-size: 9px; line-height: 1.45; color: #4d545e; margin-top: 5px; border-left: 2px solid var(--line); padding-left: 7px; }
+    /* one note per line (v8 U1c; they were one run-on paragraph joined by dots) */
+    #composer .pdnotes { font-size: 9.5px; line-height: 1.5; color: #8891a0; margin-top: 7px; }
+    #composer .pdnote + .pdnote, #composer .pdnotes .lrnText + .pdnote { margin-top: 3px; }
+    /* the source line: #8891a0 is 5.8:1 on the card's #111318 (#4d545e was 2.4:1) */
+    #composer .pdsrc { font-size: 9px; line-height: 1.45; color: #8891a0; margin-top: 5px; border-left: 2px solid var(--line); padding-left: 7px; }
     #composer .cfoot { display: flex; gap: 8px; }
     #composer .cfoot .pour { flex: 1; border-color: var(--amber); color: var(--amber); font-weight: 600; padding: 8px; }
     .hiddenSec { display: none; }
@@ -354,7 +406,13 @@
     /* transport: bottom-left, under the tour button */
     #transport { position: absolute; left: 18px; bottom: 18px; display: flex; gap: 4px; background: rgba(15,17,21,0.85); border: 1px solid var(--line); border-radius: 6px; padding: 4px; backdrop-filter: blur(6px); }
     #transport button { min-width: 64px; }
-    #armed { position: absolute; left: 18px; bottom: 96px; color: var(--cyan); font-size: 11px; letter-spacing: 0.12em; pointer-events: none; text-shadow: 0 1px 4px rgba(0,0,0,0.9); display: none; }
+    /* backed like the other chrome: it floats over the live canvas, which the
+       ETCH lens paints near-white at t = 0 (the only time ARMED shows), where
+       the cyan line and its learn sentence were 1.5:1 and 2.2:1 with a shadow
+       alone; on this backing they are >= 6:1 */
+    #armed { position: absolute; left: 18px; bottom: 96px; color: var(--cyan); font-size: 11px; letter-spacing: 0.12em; pointer-events: none; display: none;
+      background: rgba(15,17,21,0.9); padding: 4px 8px; border-radius: 4px; }
+    #armed .lrnText { margin-bottom: 2px; }
 
     /* z-index 31 puts the tour one layer above #composer's z-index 30 (v7.1
        P6). The chapter that opens the composer would otherwise bury its own
@@ -402,7 +460,12 @@
     /* bottom-center items stay centered on the window but are capped at
        100% - 2 x --center-inset, so the right edge never reaches the rail and
        the left edge never reaches the transport bar, rail shown or hidden */
-    #sembar { position: absolute; left: 50%; transform: translateX(-50%); max-width: calc(100% - 2 * var(--center-inset) - 36px); bottom: 14px; display: none; background: rgba(10,10,10,0.85); border: 1px solid #333; color: #cfcfcf; font-size: 10.5px; letter-spacing: 0.12em; padding: 5px 14px; border-radius: 3px; }
+    /* 0.06em tracking and a short scale bar (main.ts: 18 to 52px) keep the
+       strip on one line in the 308px a 1024px window leaves beside the rail;
+       narrower than that it breaks between the groups, never inside a value */
+    #sembar { position: absolute; left: 50%; transform: translateX(-50%); max-width: calc(100% - 2 * var(--center-inset) - 36px); bottom: 14px; display: none; background: rgba(10,10,10,0.85); border: 1px solid #333; color: #cfcfcf; font-size: 10.5px; letter-spacing: 0.06em; padding: 5px 12px; border-radius: 3px; }
+    #sembar .nw { white-space: nowrap; }
+    #sembar .bar { display: inline-block; vertical-align: middle; height: 4px; width: 40px; background: #cfcfcf; margin-left: 2px; }
 
     #gate { position: absolute; inset: 0; background: var(--bg); display: none; align-items: center; justify-content: center; text-align: center; z-index: 50; }
     #gate .in { max-width: 460px; padding: 24px; }
@@ -424,7 +487,11 @@
        Once it no longer fits in that band (--over, a 0/1px step like the
        ones on body) it lifts clear of the bar instead (--lift: its bottom to
        66px, the bar's top at 57 plus 9) and may use the width under it, down
-       to 18px from the window's edge */
+       to 18px from the window's edge. Upward it stops at the top band and
+       scrolls past it: learn mode's hints and explanations, or a long heat
+       treat report, would otherwise carry it over the top chrome (it paints
+       at z-index 6, over the learn toggle and CONTROLS at 5) or off the top
+       of the window, header and exit button included */
     .modepanel {
       --pw: max(min(var(--cap), calc(100vw - 2 * var(--center-inset) - 36px)), min(300px, calc(100vw - 36px)));
       --over: clamp(0px, (var(--pw) + var(--rail-inset) + 352px - 100vw) * 1000, 1px);
@@ -433,6 +500,8 @@
       left: clamp(calc(18px + 316 * (1px - var(--over)) + var(--pw) / 2), 50%,
                   calc(100% - var(--rail-inset) - 18px - var(--pw) / 2));
       transform: translateX(-50%);
+      max-height: calc(100vh - 14px - var(--lift) - var(--top-band));
+      overflow-y: auto; scrollbar-width: thin; scrollbar-color: #2b313b transparent;
     }
 
     /* capped at the sub line's width, which is what #views' 424px floor
@@ -459,6 +528,13 @@
        the two, and raising the columns instead would push them into the TRUE
        3D switch and the view cube on a short window */
     #apanels { position: absolute; right: calc(var(--rail-inset) + 14px); bottom: 84px; display: flex; flex-direction: column; gap: 8px; transition: right 0.25s ease; pointer-events: none; z-index: 1; }
+    /* Both columns grow upward from the bottom, so they stop at the top band
+       and scroll past it (a wheel or a drag on a panel scrolls the column):
+       every panel open plus an explanation in learn mode, or the three 3D
+       panels on a short window, used to climb under the TRUE 3D switch, the
+       view cube and the lens bar, headers and "i" buttons out of reach */
+    #apanels, #apanels3 { max-height: calc(100% - 84px - var(--top-band)); overflow-y: auto; overflow-x: hidden;
+      scrollbar-width: thin; scrollbar-color: #2b313b transparent; }
     /* container passes clicks through to the melt; the panels themselves are
        interactive (the ⤢ enlarge button must win over tap-to-seed) */
     .apanel { display: none; pointer-events: auto; background: rgba(15,17,21,0.88); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px 6px; }
@@ -489,7 +565,7 @@
     <div id="readouts"></div>
     <div id="views"></div>
     <div id="transport"></div>
-    <div id="armed">ARMED — stage your melt, then run</div>
+    <div id="armed">ARMED · ▶ run to start</div>
     <!-- the two toggles come BEFORE the rail so the tab order matches the
          screen (they sit at the top; the rail's controls follow). z-index 5
          keeps them above the rail (z-index auto) wherever they overlap it -->
@@ -505,10 +581,15 @@
     <svg id="overlay"></svg>
     <div id="scalebar"><div class="bar"></div><span id="scalelabel">100 µm</span></div>
     <div id="thermbar"><span class="hi">T<sub>m</sub></span><span class="lo">cold</span></div>
-    <div id="sembar">SEM · 15 kV · ×240 · WD 10.2 mm · SE</div>
+    <!-- SEM-style render: the model has no beam voltage, working distance or
+         detector, so the bar carries only what it has, filled from the live
+         zoom (main.ts updateScalebar): the view's width (an SEM's horizontal
+         field width, in plain words) and a scale bar. Each value keeps its
+         unit on its line (.nw) -->
+    <div id="sembar">SEM-style · <span class="nw"><span id="semhfw">—</span> wide</span> · <span class="nw"><span class="bar"></span> <span id="semscale">—</span></span></div>
     <button id="tourBtn">▸ tour</button>
     <div id="tour"></div>
-    <div id="hint">tap the melt to nucleate a crystal · shift-tap for a twin · scroll or pinch to zoom · right-drag to pan</div>
+    <div id="hint">tap: seed · shift-tap: twin · scroll or pinch: zoom · right-drag: pan</div>
     <div id="gate"><div class="in">
       <h1>SOLIDIFY</h1>
       <p>This instrument runs a real phase-field simulation on your GPU and needs <b>WebGPU</b>.<br/><br/>

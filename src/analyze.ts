@@ -1,5 +1,7 @@
 import type { Simulation, StatsResult, PhysParams } from "./sim";
 import type { Renderer } from "./render";
+import { LearnLayer, onLearnChange } from "./learn";
+import { panelText } from "./learn/panels";
 
 // Foundry-style analysis instruments:
 //  - cooling-curve probe: T(t) at one cell, straight off the stats reduction —
@@ -48,14 +50,24 @@ export class Analyze {
   private bigCtx: CanvasRenderingContext2D | null = null;
   private bigWrap: HTMLElement | null = null;
 
+  /** learn mode's "i" on each panel's title bar; one explanation open at a
+   *  time, so the column cannot climb under the top bar */
+  private learn = new LearnLayer(() => this.learn.apply(), true);
+
   constructor(private host: AnalyzeHost) {
-    const mkPanel = (id: string, title: string) => {
+    const mkPanel = (id: string, title: string, learnKey: string) => {
       const p = document.createElement("div");
       p.className = "apanel";
       p.id = id;
-      p.innerHTML = `<div class="t" style="display:flex;align-items:center">` +
-        `<span style="flex:1">${title}</span>` +
-        `<button class="zoomBtn" title="enlarge" style="padding:0 6px;font-size:12px;line-height:1.4">⤢</button></div>`;
+      p.innerHTML = `<div class="t" style="display:flex;align-items:center;gap:6px">` +
+        `<span>${title}</span>` +
+        `<button class="zoomBtn" title="enlarge" style="margin-left:auto;padding:0 6px;font-size:12px;line-height:1.4">⤢</button></div>`;
+      // the "i" right after the title; its text under the title bar, no
+      // wider than the plot (the column is as wide as its widest child)
+      const t = p.querySelector(".t") as HTMLElement;
+      const ex = this.learn.explain(t, `about ${title.toLowerCase()}`, panelText(learnKey), t.querySelector(".zoomBtn"));
+      ex.body.style.maxWidth = "252px";
+      t.after(ex.body);
       const c = document.createElement("canvas");
       const W = 252, H = 128;
       c.width = W * devicePixelRatio;
@@ -68,9 +80,11 @@ export class Analyze {
       p.querySelector(".zoomBtn")!.addEventListener("click", () => this.openBig(which, title));
       return { p, ctx: c.getContext("2d")! };
     };
-    const a = mkPanel("probePanel", "COOLING CURVE · PROBE");
-    const b = mkPanel("scheilPanel", "SCHEIL fs–T · PREDICTED vs MEASURED");
-    const c = mkPanel("texPanel", "TEXTURE · GRAIN ORIENTATION ROSE");
+    const a = mkPanel("probePanel", "COOLING CURVE · PROBE", "COOLING CURVE · PROBE");
+    const b = mkPanel("scheilPanel", "SCHEIL fs–T · PREDICTED vs MEASURED", "SCHEIL");
+    const c = mkPanel("texPanel", "TEXTURE · GRAIN ORIENTATION ROSE", "TEXTURE · GRAIN ORIENTATION ROSE");
+    onLearnChange(() => this.learn.apply());
+    this.learn.apply();
     this.probePanel = a.p; this.probeCtx = a.ctx;
     this.scheilPanel = b.p; this.scheilCtx = b.ctx;
     this.texPanel = c.p; this.texCtx = c.ctx;
@@ -278,7 +292,7 @@ export class Analyze {
     ctx.font = `${9 * dpr * fs}px monospace`;
     if (!rose || rose.reduce((a, b) => a + b, 0) === 0) {
       ctx.fillStyle = "#5b6675";
-      ctx.fillText("no grains yet — grow something", m, h / 2);
+      ctx.fillText("no grains yet", m, h / 2);
       return;
     }
     const j = Math.max(1, Math.round(p.aniMode));
@@ -360,7 +374,7 @@ export class Analyze {
     if (!p.alloyOn) {
       ctx.fillStyle = "#5b6675";
       ctx.font = `${10 * dpr * fs}px monospace`;
-      ctx.fillText("enable ALLOY (or pour one) for Scheil", m, h / 2);
+      ctx.fillText("needs the solute field (ALLOY)", m, h / 2);
       return;
     }
     // analytic Scheil path of the pseudo-binary

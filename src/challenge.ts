@@ -4,6 +4,8 @@
 
 import type { StatsResult } from "./sim";
 import { stream } from "./rng";
+import { LearnLayer, onLearnChange } from "./learn";
+import { panelText } from "./learn/panels";
 
 export interface ChallengeHost {
   swapGrid(n: number): void;
@@ -28,8 +30,12 @@ export class Challenge {
   private playerG: number | null = null;
   private playerScore = Infinity;
   private panel: HTMLElement | null = null;
+  /** learn mode's "i" on each panel's header (rebuilt with it) */
+  private learn = new LearnLayer(() => this.learn.apply());
 
-  constructor(private host: ChallengeHost) {}
+  constructor(private host: ChallengeHost) {
+    onLearnChange(() => this.learn.apply());
+  }
 
   start() {
     if (this.active) return;
@@ -65,6 +71,14 @@ export class Challenge {
     p.innerHTML = html;
     document.getElementById("app")!.append(p);
     this.panel = p;
+    // every challenge panel opens with its title line: the "i" goes on it
+    const head = p.firstElementChild as HTMLElement;
+    head.style.display = "flex";
+    head.style.alignItems = "center";
+    head.style.gap = "8px";
+    this.learn = new LearnLayer(() => this.learn.apply());
+    head.after(this.learn.explain(head, "about the challenge", panelText("challenge")).body);
+    this.learn.apply();
     return p;
   }
 
@@ -78,14 +92,14 @@ export class Challenge {
   }
 
   private showBrief() {
+    // the player's controls are the rail's own, named as the rail prints them
     const p = this.mkPanel(`
-      <div style="letter-spacing:.2em;color:#56d4dd;font-size:10px;margin-bottom:6px">CHALLENGE · YOU vs CMA-ES</div>
-      <div>Cast a specimen with mean grain size <b style="color:#ffb454">ASTM G ${this.target}</b>.
-      Drive <b>cooling rate</b> and <b>nucleation /s</b> live while it freezes — you have t = ${TIME_LIMIT}.
-      Then the optimizer gets ${AI_CASTINGS} castings at the same target.</div>
+      <div style="letter-spacing:.2em;color:#56d4dd;font-size:10px;margin-bottom:6px">CHALLENGE · YOU vs OPTIMIZER</div>
+      <div>target <b style="color:#ffb454">ASTM G ${this.target}</b> · time limit t ${TIME_LIMIT} (model time)</div>
+      <div style="color:#8891a0">your controls: <b>cooling rate</b>, <b>inoculant n_max</b> · then the optimizer: ${AI_CASTINGS} castings</div>
       <div class="nav" style="display:flex;gap:8px;margin-top:10px"></div>`);
     const nav = p.querySelector(".nav")!;
-    this.btn(nav, "▶ start my casting", () => this.beginPlayer(), true);
+    this.btn(nav, "▶ start", () => this.beginPlayer(), true);
     this.btn(nav, "cancel", () => this.stop());
   }
 
@@ -94,7 +108,7 @@ export class Challenge {
     this.host.armPlayerRound(0.7);
     this.mkPanel(`
       <div style="letter-spacing:.2em;color:#56d4dd;font-size:10px;margin-bottom:6px">CHALLENGE · YOUR CASTING</div>
-      <div>Target <b style="color:#ffb454">G ${this.target}</b> — drive <b>cooling rate</b> and <b>nucleation /s</b> now!
+      <div>target <b style="color:#ffb454">G ${this.target}</b> · steer <b>cooling rate</b>, <b>inoculant n_max</b>
       <span id="chTime" style="color:#6b7280"></span></div>`);
   }
 
@@ -131,7 +145,7 @@ export class Challenge {
         <div>OPTIMIZER<br/><b style="color:${youWin ? "#c9cdd4" : "#ffb454"}">${fmt(aiG, aiScore)}</b></div>
       </div>
       <div style="color:${youWin ? "#ffb454" : "#e06c60"};font-weight:600">
-        ${youWin ? "You beat the optimizer. Metallurgist instincts intact." : "The optimizer wins this one — rematch?"}</div>
+        ${youWin ? "you win" : "optimizer wins"}</div>
       <div class="nav" style="display:flex;gap:8px;margin-top:10px"></div>`);
     const nav = p.querySelector(".nav")!;
     this.btn(nav, "⚔ rematch", () => { this.active = false; this.panel?.remove(); this.panel = null; this.start(); }, true);

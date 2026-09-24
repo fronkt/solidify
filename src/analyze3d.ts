@@ -1,12 +1,21 @@
 // 3D analysis instruments: the STEREOLOGY panel (2D section metallography vs
 // the true 3D grain sizes — the classic Saltykov lesson, and the OptiGrain
-// tie-in) and the IPF TEXTURE panel (stereographic projection of every grain's
-// crystal axis, sized by volume). Zero extra GPU work for IPF: it reads the
-// CPU quaternion mirror + the last stats census.
+// tie-in) and the two texture panels. The first projects every grain's crystal
+// [001] axis into the SAMPLE frame (stereographic, sample z at the center,
+// sized by volume): that is a [001] pole figure. It was titled "IPF" until
+// v8 U1b, but an inverse pole figure plots the SAMPLE axis in the CRYSTAL frame
+// (the standard triangle), which this does not do. The second plots every
+// symmetry axis family (⟨100⟩, (0001) or the 5-fold axes). Zero extra GPU work
+// for either: they read the CPU quaternion mirror + the last stats census.
 
 import type { Sim3D, StatsResult3D } from "./sim3d";
 import type { SlicePlane } from "./render3d";
 import { DEFAULT_UM_PER_CELL } from "./units";
+import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
+import { STATUS_LEARN, panelText } from "./learn/panels";
+
+/** the [001] pole-figure panel's title, also its enlarged view's */
+const POLE001_TITLE = "TEXTURE · POLE FIGURE [001]";
 
 export interface An3Host {
   sim3d(): Sim3D | null;
@@ -79,17 +88,26 @@ export class Analyze3D {
   private curve: { t: number; T: number; phi: number }[] = [];
   private scheil: { fs: number; Ti: number }[] = [];
 
+  /** learn mode's "i" on each panel's title bar; one explanation open at a
+   *  time, so the column cannot climb under the top bar */
+  private learn = new LearnLayer(() => this.learn.apply(), true);
+  /** the second texture panel's title: its axis family follows the symmetry */
+  private poleTitle!: HTMLElement;
+
   constructor(private host: An3Host) {
     const root = document.getElementById("apanels3")!;
-    const mk = (title: string, onBig: (() => void) | null) => {
+    const mk = (title: string, learnKey: string, onBig: (() => void) | null) => {
       const p = document.createElement("div");
       p.className = "apanel";
       const t = document.createElement("div");
       t.className = "t";
-      t.textContent = title;
+      t.style.cssText = "display:flex;align-items:center;gap:6px";
+      const name = document.createElement("span");
+      name.textContent = title;
+      t.append(name);
+      let z: HTMLButtonElement | null = null;
       if (onBig) {
-        t.style.display = "flex";
-        const z = document.createElement("button");
+        z = document.createElement("button");
         z.className = "zoomBtn";
         z.textContent = "⤢";
         z.title = "enlarge";
@@ -97,30 +115,36 @@ export class Analyze3D {
         z.addEventListener("click", onBig);
         t.append(z);
       }
-      p.append(t);
+      // the "i" right after the title; its text no wider than the plot
+      const ex = this.learn.explain(t, `about ${title.toLowerCase()}`, panelText(learnKey), z);
+      ex.body.style.maxWidth = "236px";
+      p.append(t, ex.body);
       root.append(p);
       return p;
     };
-    this.probePanel = mk("COOLING CURVE · PROBE (3D)", null);
+    this.probePanel = mk("COOLING CURVE · PROBE (3D)", "COOLING CURVE · PROBE", null);
     this.probeCv = document.createElement("canvas");
     this.probeCv.width = 236; this.probeCv.height = 128;
     this.probePanel.append(this.probeCv);
-    this.scheilPanel = mk("SCHEIL fs–T · PREDICTED vs MEASURED", null);
+    this.scheilPanel = mk("SCHEIL fs–T · PREDICTED vs MEASURED", "SCHEIL", null);
     this.scheilCv = document.createElement("canvas");
     this.scheilCv.width = 236; this.scheilCv.height = 128;
     this.scheilPanel.append(this.scheilCv);
-    this.stereoPanel = mk("STEREOLOGY · SECTION vs TRUE 3D", null);
+    this.stereoPanel = mk("STEREOLOGY · SECTION vs TRUE 3D", "STEREOLOGY", null);
     this.stereoBody = document.createElement("div");
     this.stereoBody.style.cssText = "font-size:10.5px;line-height:1.55;color:#9aa1ab;width:236px";
     this.stereoPanel.append(this.stereoBody);
-    this.ipfPanel = mk("TEXTURE · IPF (grain axes)", () => this.openBig());
+    this.ipfPanel = mk(POLE001_TITLE, "POLE FIGURE [001]", () => this.openBig());
     this.ipfCv = document.createElement("canvas");
     this.ipfCv.width = 236; this.ipfCv.height = 190;
     this.ipfPanel.append(this.ipfCv);
-    this.polePanel = mk("TEXTURE · POLE FIGURE ⟨100⟩", null);
+    this.polePanel = mk("TEXTURE · POLE FIGURE ⟨100⟩", "POLE FIGURE", null);
+    this.poleTitle = this.polePanel.querySelector(".t span") as HTMLElement;
     this.poleCv = document.createElement("canvas");
     this.poleCv.width = 236; this.poleCv.height = 190;
     this.polePanel.append(this.poleCv);
+    onLearnChange(() => { this.learn.apply(); fillLearnSlots(this.stereoBody); });
+    this.learn.apply();
   }
 
   setStereoOn(b: boolean) { this.stereoOn = b; this.stereoPanel.style.display = b ? "block" : "none"; }
@@ -184,7 +208,7 @@ export class Analyze3D {
     card.style.cssText = "background:#111318;border:1px solid #262b33;border-radius:8px;padding:12px 14px";
     const head = document.createElement("div");
     head.style.cssText = "display:flex;align-items:center;margin-bottom:6px;color:#ffb454;font-size:11px;letter-spacing:0.2em";
-    head.textContent = "TEXTURE · IPF (grain axes)";
+    head.textContent = POLE001_TITLE;
     const x = document.createElement("button");
     x.textContent = "✕";
     x.style.cssText = "margin-left:auto;border:none;background:none;color:#6b7280;cursor:pointer";
@@ -234,14 +258,19 @@ export class Analyze3D {
     const g2 = n2 >= 3 && meanAmm > 0 ? 3.322 * Math.log10(1 / meanAmm) - 2.954 : null;
     const d3 = st?.eqDiamUm ?? 0;
     const ratio = d3 > 0 && d2 > 0 ? d2 / d3 : null;
+    // d̄₂ is the circle of the MEAN section area, so the equal-sphere reference
+    // is √(2/3) ≈ 0.82 (mean area of a random section = 2/3 of the great
+    // circle's). π/4, printed here before v8 U1b, is the mean section DIAMETER
+    // ratio, a different statistic this panel does not compute.
     this.stereoBody.innerHTML =
-      `on this section: <b style="color:#e8ebef">${n2}</b> grains · d̄₂ <b style="color:#ffb454">${d2.toFixed(0)} µm</b>` +
+      `section: <b style="color:#e8ebef">${n2}</b> grains · d̄₂ <b style="color:#ffb454">${d2.toFixed(0)} µm</b>` +
       (g2 != null ? ` · ASTM G ${g2.toFixed(1)}` : "") + "<br>" +
-      `true 3D census: <b style="color:#e8ebef">${st?.grainCount ?? "—"}</b> grains · d̄₃ <b style="color:#56d4dd">${d3 ? d3.toFixed(0) + " µm" : "—"}</b><br>` +
+      `3D: <b style="color:#e8ebef">${st?.grainCount ?? "—"}</b> grains · d̄₃ <b style="color:#56d4dd">${d3 ? d3.toFixed(0) + " µm" : "—"}</b><br>` +
       (ratio != null
-        ? `section / true = <b style="color:#e8ebef">${ratio.toFixed(2)}</b> — a plane cuts most grains off-centre, so 2D metallography under-measures (≈ π/4 for spheres)`
-        : "grow some grains, then compare") +
-      (sec.poreVox > 0 ? `<br>pores cut by this section: <b style="color:#e06c60">${sec.poreVox}</b> vox` : "");
+        ? `d̄₂/d̄₃ <b style="color:#e8ebef">${ratio.toFixed(2)}</b> (equal spheres ≈ 0.82)` + learnSlot(STATUS_LEARN.stereology)
+        : "no grains yet") +
+      (sec.poreVox > 0 ? `<br>pores on section: <b style="color:#e06c60">${sec.poreVox}</b> vox` : "");
+    fillLearnSlots(this.stereoBody);
   }
 
   /** T(t) at the probe voxel — liquidus reference + cyan arrest marker (2D port) */
@@ -254,7 +283,7 @@ export class Analyze3D {
     ctx.font = "9px ui-monospace, Consolas, monospace";
     if (!d.length || !p) {
       ctx.fillStyle = "#6b7280";
-      ctx.fillText("waiting for the probe… (ctrl-tap moves it)", 8, h / 2);
+      ctx.fillText("probe: no data yet", 8, h / 2);
       return;
     }
     const TL = p.alloyOn === 1 ? 1 - p.mLiq * p.c0 : 1;
@@ -294,7 +323,7 @@ export class Analyze3D {
     ctx.font = "9px ui-monospace, Consolas, monospace";
     if (!p || p.alloyOn !== 1) {
       ctx.fillStyle = "#6b7280";
-      ctx.fillText("enable ALLOY — Scheil needs a solute field", 8, h / 2);
+      ctx.fillText("needs the solute field (ALLOY)", 8, h / 2);
       return;
     }
     const T = (fs: number) => 1 - p.mLiq * p.c0 * Math.pow(Math.max(1 - fs, 1e-3), p.kPart - 1);
@@ -334,6 +363,16 @@ export class Analyze3D {
     ctx.font = "9px ui-monospace, Consolas, monospace";
     if (!s3 || !st) return;
     const mode = s3.params.aniMode3;
+    // the title names the axis family actually plotted (cubic ⟨100⟩, hexagonal
+    // (0001), icosahedral 5-fold), the same words the plot's own label uses
+    const fam = mode === 2 ? "(0001)" : mode === 3 ? "5-FOLD" : "⟨100⟩";
+    const title = `TEXTURE · POLE FIGURE ${fam}`;
+    if (this.poleTitle.textContent !== title) {
+      this.poleTitle.textContent = title;
+      // the "i" is named after its panel, so a screen reader hears the title
+      // that is on screen, not the ⟨100⟩ it was built with
+      this.polePanel.querySelector(".lrnInfo")?.setAttribute("aria-label", `about ${title.toLowerCase()}`);
+    }
     const phi = 0.85065081, sg = 0.52573111;
     const AXES: [number, number, number][] =
       mode === 2 ? [[0, 0, 1]] :

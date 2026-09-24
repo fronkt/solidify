@@ -74,7 +74,7 @@ export const ROOM_C = 20;
 export const SCHEDULES: Record<string, { label: string; note: string; build: (tmC: number) => HeatSchedule }> = {
   stressRelief: {
     label: "stress relief",
-    note: "Low and slow. Relieves residual stress — which this model does not carry, so expect the report to say nothing microstructural happened.",
+    note: "Low and slow. Relieves residual stress, which this model does not carry, so expect the report to say nothing microstructural happened.",
     build: tmC => ({
       name: "stress relief",
       startC: ROOM_C,
@@ -689,7 +689,8 @@ export interface TreatContext {
   solidFraction: number;
 }
 
-export interface Verdict { ok: boolean; why: string }
+/** `why` is the terse on-screen refusal; `learn`, when present, its learn-mode sentence (v8 U1b) */
+export interface Verdict { ok: boolean; why: string; learn?: string }
 
 const OK: Verdict = { ok: true, why: "" };
 
@@ -704,30 +705,31 @@ const OK: Verdict = { ok: true, why: "" };
  */
 export function canTreat(p: Process, c: TreatContext): Verdict {
   if (c.solidFraction < 0.02) {
-    return { ok: false, why: "nothing solid to treat yet — pour a casting first." };
+    return { ok: false, why: "nothing solid to treat yet: pour a casting first" };
   }
   const si = c.si;
   if (!si) {
     return {
       ok: false,
-      why: "this material is an abstract identity with no SI properties, so there is no "
-        + "activation energy to put in an Arrhenius law. Pick a real material.",
+      why: "abstract material (no SI data): no activation energy for an Arrhenius law · pick a real material",
+      learn: "Grain growth speeds up with temperature by an Arrhenius law, which needs the material's "
+        + "measured activation energy. This material has no real data, so there is nothing to compute.",
     };
   }
 
   switch (p) {
     case "grain":
       if (!(si.ggA0 > 0) || !(si.ggQ > 0)) {
-        return { ok: false, why: "no grain-growth coefficients (ggA0, ggQ) were looked up for this material." };
+        return { ok: false, why: "no grain-growth coefficients (ggA0, ggQ) for this material" };
       }
       return OK;
 
     case "homogenize":
       if (!c.alloy) {
-        return { ok: false, why: "no solute field to homogenize — turn the alloy on first." };
+        return { ok: false, why: "no solute field to homogenize: turn the alloy on first" };
       }
       if (!(si.Ds0 > 0)) {
-        return { ok: false, why: "no solid-state diffusion coefficient (Ds0) was looked up for this material." };
+        return { ok: false, why: "no solid-state diffusivity (Ds0) for this material" };
       }
       return OK;
 
@@ -740,25 +742,25 @@ export function canTreat(p: Process, c: TreatContext): Verdict {
         };
       }
       if (!c.cubic) {
-        return { ok: false, why: "Σ3 annealing twins are an FCC phenomenon; this material does not grow on a cubic lattice here." };
+        return { ok: false, why: "Σ3 annealing twins need a cubic (FCC) lattice; this material is not cubic here" };
       }
       if (si.twinNote) return { ok: false, why: si.twinNote };
       if (si.sfe === undefined) {
-        return { ok: false, why: "no stacking-fault energy was looked up for this material, and it is what decides whether annealing twins form at all." };
+        return { ok: false, why: "no stacking-fault energy for this material (it decides whether twins form)" };
       }
       if (si.sfe > SFE_TWIN_LIMIT) {
         return {
           ok: false,
-          why: `stacking-fault energy is ${si.sfe.toFixed(0)} mJ/m² — too high. Annealing twins `
-            + `form readily below about ${SFE_TWIN_LIMIT} mJ/m² and are essentially absent above it, `
-            + `which is why annealed copper is full of them and annealed aluminium has none.`,
+          why: `stacking-fault energy ${si.sfe.toFixed(0)} mJ/m² too high: twins need < ~${SFE_TWIN_LIMIT} mJ/m²`,
+          learn: "Annealing twins form easily only when the stacking-fault energy is low, which is why annealed "
+            + "copper is full of them and annealed aluminum has none.",
         };
       }
       return OK;
 
     case "oxide":
       if (!(si.oxA0 > 0)) {
-        return { ok: false, why: "oxidation is not modelled for this material — there is no parabolic rate constant in the table." };
+        return { ok: false, why: "oxidation not modeled: no parabolic rate constant for this material" };
       }
       return OK;
 

@@ -24,6 +24,9 @@ import { hydrogenPorosity, type PorosityResult } from "./porosity";
 import { hallPetch, fmtMPa, shownMPa } from "./heattreat";
 import { censusDbarUm, type Census } from "./heatpanel";
 import type { MoldKind } from "./sim3d";
+import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
+import { LAB_CAVEATS, LAB_CARDS, panelHintFor, panelText } from "./learn/panels";
+import { THERMAL_LEARN } from "./thermal";
 
 export interface LabHost {
   getMode(): "2d" | "3d";
@@ -94,13 +97,10 @@ export const LAB_DEFAULT: LabSetup = {
 
 interface Sample { t: number; T: number; fs: number; fired: number }
 
-/** `three` gates the porosity clause — porosity is a 3D field only */
+/** `three` gates the porosity clause: porosity is a 3D field only */
 const atmoNote = (atmo: string, three: boolean): string => {
-  if (atmo === "air") {
-    return "oxide films on the melt surface — extra wall nucleation sites"
-      + (three ? ", and more porosity" : "");
-  }
-  return atmo === "argon" ? "clean cover gas: no oxide films" : "clean melt: no oxide films";
+  if (atmo === "air") return three ? "oxide films add wall sites and porosity" : "oxide films add wall sites";
+  return atmo === "argon" ? "clean cover gas, no oxide films" : "clean melt, no oxide films";
 };
 
 export class Lab {
@@ -158,8 +158,22 @@ export class Lab {
   private plateau = 0;
   /** the sandbox's porosity setting, restored when the lab closes */
   private porePrev: number | null = null;
+  /** learn mode's "i" and hints on the setup panel (rebuilt with it) and the report's */
+  private learn = new LearnLayer(() => this.applyLearn());
+  private reportLearn = new LearnLayer(() => this.applyLearn());
 
-  constructor(host: LabHost) { this.host = host; }
+  constructor(host: LabHost) {
+    this.host = host;
+    onLearnChange(() => this.applyLearn());
+  }
+
+  /** show or hide everything learn mode adds, on both panels */
+  private applyLearn() {
+    this.learn.apply();
+    this.reportLearn.apply();
+    fillLearnSlots(this.panel);
+    fillLearnSlots(this.resultsPanel);
+  }
 
   /** how strongly a dirty (air) melt seeds its own walls */
   get filmFraction(): number { return this.setup.atmosphere === "air" ? 0.25 : 0; }
@@ -189,7 +203,7 @@ export class Lab {
     title.textContent = "⚗ RUN REPORT";
     const copy = document.createElement("button");
     copy.textContent = "⎘ copy";
-    copy.title = "copy this experiment as a share link";
+    copy.title = "copy share link";
     copy.addEventListener("click", () => {
       void navigator.clipboard.writeText(this.host.labShareLink()).then(() => {
         copy.textContent = "copied ✓";
@@ -202,9 +216,15 @@ export class Lab {
     head.append(title, copy, close);
     const body = document.createElement("div");
     body.id = "foundryResultsBody";
-    r.append(head, body);
+    // the "i" sits right after the title text, and its text between the
+    // header and the report body, never inside #foundryResultsBody
+    this.reportLearn = new LearnLayer(() => this.applyLearn());
+    const ex = this.reportLearn.explain(title, "about the run report", panelText("run report"));
+    ex.button.style.cssText = "margin-left:8px;vertical-align:middle;";
+    r.append(head, ex.body, body);
     document.getElementById("app")!.append(r);
     this.resultsPanel = r;
+    this.applyLearn();
   }
 
   /** open (default: flip) the results panel — a plain class toggle, the
@@ -363,22 +383,23 @@ export class Lab {
     const p = document.createElement("div");
     p.id = "foundry";
     // placed and sized by .modepanel (app/index.html), so it can reach neither
-    // the rail nor the transport bar; the max-height leaves room for the lift
-    // that clears the bar on a narrow window
+    // the rail nor the transport bar, and capped in height under the top
+    // chrome (it scrolls past that)
     p.className = "modepanel";
     p.style.cssText =
       "--cap:320px;" +
-      "max-height:calc(100vh - 28px - var(--lift, 0px));overflow-y:auto;" +
       "background:rgba(15,17,21,0.93);border:1px solid #262b33;border-radius:8px;padding:14px 16px 12px;" +
       "backdrop-filter:blur(6px);z-index:6;font-size:11px;";
     const head = document.createElement("div");
     head.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:10px;";
-    head.innerHTML = `<span style="letter-spacing:.25em;font-size:10px;font-weight:600;color:#8891a0">⚗ LAB MODE</span>
-      <span style="color:#6b7280;font-size:10.5px">set the experiment up, then run it</span>`;
+    head.innerHTML = `<span style="letter-spacing:.25em;font-size:10px;font-weight:600;color:#8891a0">⚗ LAB MODE</span>`;
     const exit = document.createElement("button");
     exit.textContent = "exit";
+    exit.style.marginLeft = "auto";
     exit.addEventListener("click", () => this.close());
     head.append(exit);
+    this.learn = new LearnLayer(() => this.applyLearn());
+    const ex = this.learn.explain(head, "about lab mode", panelText("lab mode"), exit);
 
     const u = this.host.units();
     this.propsAtBuild = u.props;
@@ -392,29 +413,33 @@ export class Lab {
     this.setup.specMPa = Math.min(this.setup.specMPa, specMax);
     const form = document.createElement("div");
     form.style.cssText = "display:flex;flex-direction:column;gap:9px;margin-bottom:12px;";
-    form.append(
+    const rows: HTMLElement[] = [
       select("atmosphere", ["argon", "vacuum", "air"], this.setup.atmosphere, v => { this.setup.atmosphere = v as LabSetup["atmosphere"]; this.refresh(); }),
-      range("inoculant (sites)", 0, 3000, 10, this.setup.inoculant, v => { this.setup.inoculant = v; }),
+      range("inoculant sites", 0, 3000, 10, this.setup.inoculant, v => { this.setup.inoculant = v; }),
       // hold above the liquidus fades the refiner: the live readout is the
       // fraction of the added sites that survive settling to the pour
       range("hold before pour", 0, 120, 5, this.setup.holdMin, v => { this.setup.holdMin = v; }, 0,
         v => v <= 0 ? "0 min" : `${v} min · ${(fadeFactor(v) * 100).toFixed(0)} %`),
-      // shown in real units: a superheat is kelvin above the liquidus and a mould
+      // shown in real units: a superheat is kelvin above the liquidus and a mold
       // sits at a temperature, and neither means anything as a bare 0.12
       range("pour superheat", 0, 0.35, 0.01, this.setup.superheat, v => { this.setup.superheat = v; }, 2,
         v => u.known ? `${u.kelvin(v).toFixed(0)} K` : v.toFixed(2)),
-      range("mould temperature", -0.2, 0.6, 0.02, this.setup.moldT, v => { this.setup.moldT = v; }, 2,
+      range("mold temperature", -0.2, 0.6, 0.02, this.setup.moldT, v => { this.setup.moldT = v; }, 2,
         v => u.known ? `${u.celsius(v).toFixed(0)} °C` : v.toFixed(2)),
-      select("cooling programme", ["furnace", "air", "quench", "soak"], this.setup.program, v => { this.setup.program = v; this.refresh(); }),
-      // L4: the pre-pour spec — 0 means no spec, and the card then measures
+      select("cooling program", ["furnace", "air", "quench", "soak"], this.setup.program, v => { this.setup.program = v; this.refresh(); }),
+      // L4: the pre-pour spec. 0 means no spec, and the card then measures
       // without judging (a verdict against a spec nobody set would be invented)
       range("spec σ_y (as-cast)", 0, specMax, specStep, this.setup.specMPa,
         v => { this.setup.specMPa = v; this.refresh(); }, 0,
         v => v > 0 ? `≥ ${fmtMPa(v)} MPa` : "no spec"),
-      this.moldRow = check("mould walls", this.setup.moldWalls, v => { this.setup.moldWalls = v; }),
-      this.moldKindRow = select("mould shape", ["shell", "plate", "step", "wedge"], this.setup.mold,
+      this.moldRow = check("mold walls", this.setup.moldWalls, v => { this.setup.moldWalls = v; }),
+      this.moldKindRow = select("mold shape", ["shell", "plate", "step", "wedge"], this.setup.mold,
         v => { this.setup.mold = v as MoldKind; }),
-    );
+    ];
+    form.append(...rows);
+    // learn mode: one hint under each control, shown only while it is (the
+    // mold rows are 3D only), matched by the label the row prints
+    for (const el of rows) panelHintFor(this.learn, "lab mode", el);
 
     const note = document.createElement("div");
     note.id = "foundryNote";
@@ -437,9 +462,9 @@ export class Lab {
 
     const status = document.createElement("div");
     status.id = "foundryStatus";
-    status.style.cssText = "margin-top:6px;color:#6b7280;";
+    status.style.cssText = "margin-top:6px;color:#8891a0;";
 
-    p.append(head, form, note, row, status);
+    p.append(head, ex.body, form, note, row, status);
     document.getElementById("app")!.append(p);
     this.panel = p;
     this.statusEl = status;
@@ -467,20 +492,18 @@ export class Lab {
     const three = this.host.getMode() === "3d";
     if (this.moldRow) this.moldRow.style.display = three ? "" : "none";
     if (this.moldKindRow) this.moldKindRow.style.display = three ? "" : "none";
-    const atmoScope = three
-      ? "only what the walls and the porosity look like."
-      : "only what the walls look like — porosity is a 3D field, so in 2D the atmosphere "
-        + "changes wall nucleation and nothing else.";
+    // the atmosphere is a melt-cleanliness proxy, not a nucleation control; the
+    // caveat line says so on screen, with its scope in this dimension
+    const cav = three ? LAB_CAVEATS.atmosphere3d : LAB_CAVEATS.atmosphere2d;
     note.innerHTML =
-      `<b style="color:#cfd6df">${this.setup.atmosphere}</b> — ${atmoNote(this.setup.atmosphere, three)}. ` +
-      "Atmosphere is a melt-cleanliness proxy here, not a nucleation control: it cannot change how " +
-      "readily the bulk liquid nucleates, " + atmoScope + this.specNote();
+      `<b style="color:#cfd6df">${this.setup.atmosphere}</b>: ${atmoNote(this.setup.atmosphere, three)}` +
+      `<br>${cav.line}${learnSlot(cav.learn)}` + this.specNote();
+    fillLearnSlots(note);
+    this.learn.apply();
     go.textContent = this.running ? "■ abort" : "▶ pour and run";
     if (!this.statusEl) return;
     if (!this.running) {
-      this.statusEl.textContent = this.hasResults
-        ? "run finished — ▤ results has the report"
-        : "ready: the charge is set up but nothing has been poured yet";
+      this.statusEl.textContent = this.hasResults ? "done · ▤ results" : "ready · nothing poured";
       return;
     }
     const last = this.series[this.series.length - 1];
@@ -488,27 +511,28 @@ export class Lab {
     const T = (v: number) => (uu.known ? uu.fmtC(v) : v.toFixed(2));
     this.statusEl.innerHTML =
       `<b style="color:#cfd6df">${this.run.name}</b> · stage ${this.run.stageIndex + 1}/${this.run.stageCount} ` +
-      `(${this.run.stageLabel}) · set-point <b style="color:#cfd6df">${T(this.run.setpoint)}</b>` +
+      // the stage's target in the same units as the set-point beside it
+      `(${this.run.stageLabel(T)}) · set-point <b style="color:#cfd6df">${T(this.run.setpoint)}</b>` +
       (last ? ` · melt <b style="color:#cfd6df">${T(last.T)}</b> · solid ${(last.fs * 100).toFixed(1)} %` : "") +
       ` · sites <b style="color:#cfd6df">${this.host.nucFired()}</b>/${this.host.nucMax().toFixed(0)}` +
       ` · ΔT max ${uu.known ? uu.fmtK(this.host.maxUndercool()) : this.host.maxUndercool().toFixed(3)}` +
       (this.intervened ? " · <span style=\"color:#ffb454\">operator intervened</span>" : "");
   }
 
-  /** the report-card line for hydrogen gas porosity — the real chemistry always,
+  /** the report-card line for hydrogen gas porosity: the real chemistry always,
    *  plus the note that the resulting pore field only appears in the volume */
   private porosityLine(three: boolean): string {
     const por = this.porosity;
     if (!por) return "";
-    if (por.note) return `<div style="color:#8891a0">gas porosity: ${por.note}</div>`;
+    if (por.note) return `<div style="color:#8891a0">gas porosity: ${por.note}</div>${learnSlot(por.noteLearn ?? "")}`;
     const cav = three
       ? ""
-      : " <span style=\"color:#6b7280\">— the pore field itself is 3D, so run this in the volume to see it</span>";
-    return `<div>dissolved hydrogen <b style="color:#cfd6df">${por.cLiquid.toFixed(2)}</b> `
+      : ` <span style="color:#8891a0">· ${LAB_CAVEATS.pores2d.line}</span>`;
+    return `<div>dissolved H <b style="color:#cfd6df">${por.cLiquid.toFixed(2)}</b> `
       + `cm³/100 g (Sievert √p, ${this.setup.atmosphere}) → `
       + `<b style="color:#ffb454">${por.cRejected.toFixed(2)}</b> rejected on freezing`
-      + (por.pPore > 0.005 ? `, pore bias <b style="color:#cfd6df">${por.pPore.toFixed(3)}</b>` : ", below the pore threshold")
-      + cav + `</div>`;
+      + (por.pPore > 0.005 ? ` · pore bias <b style="color:#cfd6df">${por.pPore.toFixed(3)}</b>` : " · below pore threshold")
+      + cav + `</div>` + (three ? "" : learnSlot(LAB_CAVEATS.pores2d.learn));
   }
 
   /**
@@ -524,11 +548,11 @@ export class Lab {
     const uu = this.host.units();
     const ms = (t: number) => uu.known ? uu.fmtTime(t) : `Δt ${t.toFixed(2)}`;
     if (r.csc == null) {
-      return `<div style="color:#8891a0">hot-tear susceptibility (Clyne–Davies): ${r.notes[0] ?? "not resolvable"}</div>`;
+      return `<div style="color:#8891a0">hot-tear CSC (Clyne–Davies): ${r.notes[0] ?? "not resolvable"}</div>`;
     }
-    return `<div>hot-tear susceptibility (Clyne–Davies) CSC <b style="color:#cfd6df">${r.csc.toFixed(2)}</b> `
-      + `<span style="color:#6b7280">— t_v ${ms(r.tV!)} / t_r ${ms(r.tR!)} off the global f_s record; a timing ratio, `
-      + `not a stress prediction (RDG needs mechanics this solver does not carry)</span></div>`;
+    return `<div>hot-tear CSC (Clyne–Davies) <b style="color:#cfd6df">${r.csc.toFixed(2)}</b> `
+      + `<span style="color:#8891a0">· t_v ${ms(r.tV!)} / t_r ${ms(r.tR!)} · ${LAB_CAVEATS.hotTear.line}</span></div>`
+      + learnSlot(LAB_CAVEATS.hotTear.learn);
   }
 
   /**
@@ -545,19 +569,17 @@ export class Lab {
     const u = this.host.units();
     const si = u.props;
     if (!si) {
-      return `<br>A spec of ≥ ${fmtMPa(spec)} MPa is dialled, but this material carries no strength `
-        + `constants (σ₀, k_HP) — the card will refuse the verdict rather than judge from invented numbers.`;
+      const c = LAB_CAVEATS.specNoConstants;
+      return `<br>spec ≥ ${fmtMPa(spec)} MPa · ${c.line}${learnSlot(c.learn)}`;
     }
     if (shownMPa(spec) <= shownMPa(si.s0)) {
-      return `<br>The ≥ ${fmtMPa(spec)} MPa spec sits at or under the friction stress σ₀ = `
-        + `${fmtMPa(si.s0)} MPa — any grain size meets it.`;
+      return `<br>spec ≥ ${fmtMPa(spec)} MPa: at or under σ₀ ${fmtMPa(si.s0)} MPa, met at any grain size`;
     }
     const dNeedUm = ((si.kHP / (spec - si.s0)) ** 2) * 1e6;
-    const fine = dNeedUm < u.micron(2)
-      ? ` — finer than this grid resolves (2 cells = ${u.fmtLen(2)}), so at this resolution the spec cannot honestly be met`
-      : "";
-    return `<br>The ≥ ${fmtMPa(spec)} MPa spec needs d̄ ≤ ${u.fmtLen(u.fromMicron(dNeedUm))} `
-      + `(Hall–Petch inverted) — more inoculant, a shorter hold and a faster programme all push finer${fine}.`;
+    const tooFine = dNeedUm < u.micron(2);
+    const fine = tooFine ? ` · ${LAB_CAVEATS.specTooFine.line} (2 cells = ${u.fmtLen(2)})` : "";
+    return `<br>spec ≥ ${fmtMPa(spec)} MPa needs d̄ ≤ ${u.fmtLen(u.fromMicron(dNeedUm))} (Hall–Petch)${fine}`
+      + learnSlot(tooFine ? LAB_CAVEATS.specTooFine.learn : LAB_CAVEATS.specNeeds.learn);
   }
 
   /**
@@ -573,38 +595,37 @@ export class Lab {
   private strengthBlock(census: Census | null, three: boolean): string {
     const si = this.siAtPour;
     const spec = this.specAtPour;
-    const dim = (s: string) => `<span style="color:#6b7280">${s}</span>`;
+    const dim = (s: string) => `<span style="color:#8891a0">${s}</span>`;
     if (!si) {
       // canTreat doctrine: refuse by name rather than judge from invented numbers
       return spec > 0
-        ? `<div style="color:#8891a0">spec σ_y ≥ ${fmtMPa(spec)} MPa — this material carries no strength `
-          + `constants (σ₀, k_HP), so a Hall–Petch verdict is not modelled here</div>`
+        ? `<div style="color:#8891a0">spec σ_y ≥ ${fmtMPa(spec)} MPa · no strength constants (σ₀, k_HP): `
+          + `no Hall–Petch verdict</div>` + learnSlot(LAB_CAVEATS.specNoConstants.learn)
         : "";
     }
     const dUm = census ? censusDbarUm(census, three ? "3d" : "2d", this.umAtPour) : 0;
     if (!(dUm > 0)) {
       return spec > 0
-        ? `<div style="color:#8891a0">spec σ_y ≥ ${fmtMPa(spec)} MPa — no grain census landed, so there `
-          + `is nothing measured to judge it against</div>`
+        ? `<div style="color:#8891a0">spec σ_y ≥ ${fmtMPa(spec)} MPa · no census: not judged</div>`
         : "";
     }
     const sig = hallPetch(si, dUm * 1e-6);
     const est = three ? "⟨V⟩-equivalent" : "⟨A⟩-equivalent";
     const u = this.host.units();
     const rows: string[] = [];
-    rows.push(`<div>as-cast census: <b style="color:#cfd6df">${census!.grainCount}</b> grains · `
-      + `d̄ <b style="color:#cfd6df">${u.fmtLen(u.fromMicron(dUm))}</b>`
+    rows.push(`<div>census: <b style="color:#cfd6df">${census!.grainCount}</b> grains · `
+      + `d̄ <b style="color:#cfd6df">${u.fmtLen(u.fromMicron(dUm))}</b> ${dim(`(${est})`)}`
       + (census!.astm != null ? ` · ASTM <b style="color:#cfd6df">G ${census!.astm.toFixed(1)}</b>` : "")
       + `</div>`);
     rows.push(`<div>σ_y (Hall–Petch) <b style="color:#cfd6df">${fmtMPa(sig)} MPa</b> `
-      + dim(`— grain-size strengthening alone on the measured ${est} d̄: no precipitates, no work `
-        + `hardening, and the µm under the √d̄ are the declared resolution`) + `</div>`);
+      + dim(`· ${LAB_CAVEATS.hallPetch.line}`) + `</div>` + learnSlot(LAB_CAVEATS.hallPetch.learn));
+    // the verdict word follows " · ", which verify-tools LAB4 keys on
     if (spec > 0) {
       rows.push(shownMPa(sig) >= shownMPa(spec)
-        ? `<div>spec σ_y ≥ ${fmtMPa(spec)} MPa — <b style="color:#8fe38f">met</b>: the casting stands at ${fmtMPa(sig)} MPa</div>`
-        : `<div>spec σ_y ≥ ${fmtMPa(spec)} MPa — <span style="color:#c96a5b">missed</span>: the casting stands at `
-          + `${fmtMPa(sig)} MPa ` + dim(`— a finer pour closes it (more inoculant, a shorter hold, a faster `
-            + `programme), and the furnace can only move it further away`) + `</div>`);
+        ? `<div>spec σ_y ≥ ${fmtMPa(spec)} MPa · <b style="color:#8fe38f">met</b>: casting at ${fmtMPa(sig)} MPa</div>`
+        : `<div>spec σ_y ≥ ${fmtMPa(spec)} MPa · <span style="color:#c96a5b">missed</span>: casting at `
+          + `${fmtMPa(sig)} MPa ` + dim(`· ${LAB_CAVEATS.missedAsCast.line}`) + `</div>`
+          + learnSlot(LAB_CAVEATS.missedAsCast.learn));
     }
     return rows.join("");
   }
@@ -624,27 +645,23 @@ export class Lab {
       const label = u.fmtLen(u.fromMicron(s.heightVox * this.umAtPour));
       if (s.census.grainCount < 3) {
         return `<tr><td>${label}</td><td colspan="2" style="color:#8891a0">too few grains `
-          + `(${s.census.grainCount}) to report d̄</td></tr>`;
+          + `(${s.census.grainCount})</td></tr>`;
       }
       if (!si) {
-        return `<tr><td>${label}</td><td colspan="2" style="color:#8891a0">material carries no `
-          + `strength constants</td></tr>`;
+        return `<tr><td>${label}</td><td colspan="2" style="color:#8891a0">no strength constants</td></tr>`;
       }
       const dUm = censusDbarUm(s.census, "3d", this.umAtPour);
       if (!(dUm > 0)) {
-        return `<tr><td>${label}</td><td colspan="2" style="color:#8891a0">no census landed</td></tr>`;
+        return `<tr><td>${label}</td><td colspan="2" style="color:#8891a0">no census</td></tr>`;
       }
       const sig = hallPetch(si, dUm * 1e-6);
       return `<tr><td>${label}</td><td>${u.fmtLen(u.fromMicron(dUm))}</td><td>${fmtMPa(sig)} MPa</td></tr>`;
     }).join("");
-    return `<div style="margin:6px 0 8px;padding:8px 10px;border:1px solid #1d222a;border-radius:6px;`
-      + `background:rgba(255,255,255,0.015)">`
-      + `<div style="letter-spacing:.15em;color:#56d4dd;margin-bottom:5px;font-size:10px">SECTION TABLE — thinnest first</div>`
-      + `<div style="color:#6b7280;margin-bottom:5px">one pour, four section thicknesses — a grain `
-      + `spanning two sections counts in both, the same thing a metallographer's per-field measurement does</div>`
-      + `<table style="width:100%;border-collapse:collapse"><tr style="color:#8891a0">`
+    // the card's own title names it (buildReport); what the table means and
+    // why a grain can count twice is the card's learn text
+    return `<table style="width:100%;border-collapse:collapse"><tr style="color:#8891a0">`
       + `<th style="text-align:left">thickness</th><th style="text-align:left">local d̄</th>`
-      + `<th style="text-align:left">σ_y</th></tr>${rows}</table></div>`;
+      + `<th style="text-align:left">σ_y</th></tr>${rows}</table>`;
   }
 
   // ------------------------------------------------------------ report
@@ -659,6 +676,8 @@ export class Lab {
     head.className = "t";
     head.textContent = title;
     el.append(head);
+    // what the card is, for learn mode: an empty slot until it is on
+    el.insertAdjacentHTML("beforeend", learnSlot(LAB_CARDS[title] ?? ""));
     if (typeof body === "string") el.insertAdjacentHTML("beforeend", body);
     else el.append(body);
     return el;
@@ -690,7 +709,7 @@ export class Lab {
     body.insertAdjacentHTML("beforeend",
       `<div style="color:#8891a0;margin-bottom:8px">${this.setup.program} · ${this.setup.atmosphere} · superheat `
       + `${uu.known ? uu.kelvin(this.setup.superheat).toFixed(0) + " K" : this.setup.superheat.toFixed(2)}`
-      + ` · mould ${uu.known ? uu.fmtC(this.setup.moldT) : this.setup.moldT.toFixed(2)}</div>`);
+      + ` · mold ${uu.known ? uu.fmtC(this.setup.moldT) : this.setup.moldT.toFixed(2)}</div>`);
 
     const canvas = document.createElement("canvas");
     canvas.id = "foundryCurve";
@@ -715,42 +734,43 @@ export class Lab {
       cell("freezing range T<sub>L</sub>−T<sub>S</sub>", ta.freezeRange != null ? dK(ta.freezeRange) : em),
       cell("local solidification time t<sub>f</sub>", ta.tf != null ? (uu.known ? uu.fmtTime(ta.tf) : "Δt " + ta.tf.toFixed(2)) : em),
       cell("liquid cooling rate", ta.rateLiquid != null ? uu.fmtRate(ta.rateLiquid) : em),
-      cell("f<sub>s</sub> from the curve vs the census", ta.fsRms != null ? `±${(ta.fsRms * 100).toFixed(1)} %` : em),
+      cell("f<sub>s</sub> curve vs census (RMS)", ta.fsRms != null ? `±${(ta.fsRms * 100).toFixed(1)} %` : em),
     ].join("");
+    const probe = LAB_CAVEATS.probeIsLiquidMean;
     body.append(Lab.rcard("COOLING-CURVE ANALYSIS",
       `<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px 18px">${ta2}</div>`
-      + ta.notes.map(n => `<div style="color:#8891a0;margin-top:5px">— ${n}</div>`).join("")
-      + `<div style="color:#6b7280;margin-top:6px;line-height:1.5">The "thermocouple" is the mean temperature of the <i>remaining liquid</i>, not a `
-      + `fixed probe: as cold cells freeze they leave the average, so part of any recalescence shown is that selection effect. `
-      + `The trace ends at the solidus — past it there is no liquid left to read.</div>`));
+      + ta.notes.map(n => `<div style="color:#8891a0;margin-top:5px">· ${n}</div>${learnSlot(THERMAL_LEARN[n] ?? "")}`).join("")
+      + `<div style="color:#8891a0;margin-top:6px;line-height:1.5">${probe.line}</div>${learnSlot(probe.learn)}`));
 
-    // L4: census, strength and — if a spec was dialled at the pour — the verdict
+    // L4: census, strength and, if a spec was dialed at the pour, the verdict
     const strengthHtml = this.strengthBlock(census, p.scen === 4);
     if (strengthHtml) body.append(Lab.rcard("AS-CAST STRENGTH", strengthHtml));
 
-    if (sections) body.append(Lab.rcard("SECTION TABLE — thinnest first", this.sectionTable(sections)));
+    if (sections) body.append(Lab.rcard("SECTION TABLE · THINNEST FIRST", this.sectionTable(sections)));
 
     const summaryHtml =
-      `<div>nucleation-model ratchet: deepest undercooling <b style="color:#ffb454">`
-      + `${uu.known ? uu.fmtK(this.host.maxUndercool()) : "ΔT " + this.host.maxUndercool().toFixed(3)}</b>` +
-      ` <span style="color:#6b7280">(the site model's own global measure, alongside the curve's ΔT<sub>N</sub> above)</span></div>` +
+      `<div>ΔT max (site model) <b style="color:#ffb454">`
+      + `${uu.known ? uu.fmtK(this.host.maxUndercool()) : "ΔT " + this.host.maxUndercool().toFixed(3)}</b></div>`
+      + learnSlot(LAB_CAVEATS.siteModel.learn) +
       (this.setup.holdMin > 0
-        ? `<div>grain refiner: <b style="color:#cfd6df">${this.setup.inoculant}</b> sites added, held `
-          + `<b style="color:#cfd6df">${this.setup.holdMin} min</b> above the liquidus → `
-          + `<b style="color:#ffb454">${(this.fadeF * 100).toFixed(0)} %</b> survived settling `
+        ? `<div>refiner <b style="color:#cfd6df">${this.setup.inoculant}</b> sites · hold `
+          + `<b style="color:#cfd6df">${this.setup.holdMin} min</b> → `
+          + `<b style="color:#ffb454">${(this.fadeF * 100).toFixed(0)} %</b> survive `
           + `(<b style="color:#cfd6df">${this.effInoc}</b> active at pour)</div>`
+          + learnSlot(LAB_CAVEATS.refinerFade.learn)
         : "") +
       `<div>inoculant used <b style="color:#cfd6df">${this.host.nucFired()}</b> of ${this.host.nucMax().toFixed(0)} sites ` +
       `(${this.host.nucMax() > 0 ? ((this.host.nucFired() / this.host.nucMax()) * 100).toFixed(0) : "0"} %)</div>` +
-      `<div>final solid fraction <b style="color:#cfd6df">${last ? (last.fs * 100).toFixed(1) : "—"} %</b>` +
-      (p.scen === 4 ? " · volume census in the VOLUME · 3D panels" : "") + `</div>` +
+      `<div>final solid fraction <b style="color:#cfd6df">${last ? `${(last.fs * 100).toFixed(1)} %` : "—"}</b>` +
+      (p.scen === 4 ? " · 3D census: VOLUME · 3D panels" : "") + `</div>` +
       this.cscLine() +
       this.porosityLine(p.scen === 4);
     body.append(Lab.rcard("RUN SUMMARY", summaryHtml));
 
     body.insertAdjacentHTML("beforeend", this.intervened
-      ? `<div style="color:#ffb454">⚠ the operator changed the conditions while this run was in progress — treat it as a demonstration, not a measurement</div>`
-      : `<div style="color:#6b7280">conditions held for the whole run</div>`);
+      ? `<div style="color:#ffb454">${LAB_CAVEATS.intervened.line}</div>${learnSlot(LAB_CAVEATS.intervened.learn)}`
+      : `<div style="color:#8891a0">conditions held for the whole run</div>`);
+    fillLearnSlots(body);
 
     this.drawCurve(canvas, ta);
     this.hasResults = true;

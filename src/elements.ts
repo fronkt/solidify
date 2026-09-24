@@ -351,17 +351,19 @@ const serial = (xs: string[]): string =>
 export interface DemixEntry {
   /** one line, and it carries this system's own number where there is one */
   line: string;
-  /** the paragraph */
+  /** the learn-mode sentence (v8 U1c): one sentence, the admission adds the second */
   text: string;
 }
 
 export const DEMIX_CHECKED: Record<string, DemixEntry> = {
   "cu-Pb": {
-    line: "Cu–Pb separates into two liquids — a monotectic at 955 °C, and this solver carries one liquid field.",
-    text: "Cu–Pb has a liquid miscibility gap with a monotectic at 955 °C: the melt separates into a copper-rich and a lead-rich liquid, which is exactly what leaded bronzes exploit and exactly what a solver carrying ONE liquid cannot represent.",
+    line: "Cu–Pb separates into two liquids (monotectic at 955 °C); this solver carries one liquid field.",
+    // ABOVE, not below: the two liquids coexist in the miscibility dome over
+    // the monotectic, and under 955 °C the system is (Cu) plus a Pb-rich liquid
+    text: "Copper and lead separate into two liquids above the 955 °C monotectic, one rich in copper and one rich in lead, which is what leaded bronzes rely on.",
   },
   "al-Bi": {
-    line: "Al–Bi separates into two liquids — a monotectic at 657 °C, and this solver carries one liquid field.",
+    line: "Al–Bi separates into two liquids (monotectic at 657 °C); this solver carries one liquid field.",
     // "a few degrees ABOVE pure aluminium's melting point" is what this string
     // said, and 657 °C is three and a half degrees BELOW the 933.5 K this same
     // file carries for aluminium. P4's second review found it and recorded the
@@ -369,19 +371,21 @@ export const DEMIX_CHECKED: Record<string, DemixEntry> = {
     // never reached the file. Two of them, from the same review round, both
     // written up as done. That is a process defect and it is named in the P5
     // ledger rather than quietly corrected a second time.
-    text: "Al–Bi has a liquid miscibility gap with a monotectic at 657 °C, a few degrees below pure aluminium's melting point — two liquids, and this solver has one.",
+    // the split happens on entering the dome ABOVE the monotectic; the
+    // monotectic is where the Al-rich liquid gives (Al) plus the second liquid
+    text: "Aluminum and bismuth do not fully mix as liquids: they split into two liquids above the 657 °C monotectic, which sits a few degrees below the melting point of pure aluminum.",
   },
   "al-In": {
-    line: "Al–In separates into two liquids — a monotectic at 639 °C, and this solver carries one liquid field.",
-    text: "Al–In has a liquid miscibility gap with a monotectic at 639 °C — two liquids, and this solver has one.",
+    line: "Al–In separates into two liquids (monotectic at 639 °C); this solver carries one liquid field.",
+    text: "Aluminum and indium do not fully mix as liquids: they split into two liquids above the 639 °C monotectic.",
   },
   "al-Pb": {
-    line: "Al–Pb separates into two liquids — a monotectic at 659 °C, and this solver carries one liquid field.",
-    text: "Al–Pb has a liquid miscibility gap with a monotectic at 659 °C; the lead-rich liquid is what makes free-machining aluminium free-machining, and it is a second liquid phase this solver does not carry.",
+    line: "Al–Pb separates into two liquids (monotectic at 659 °C); this solver carries one liquid field.",
+    text: "Aluminum and lead do not fully mix as liquids: they split into two liquids above the 659 °C monotectic, and the lead-rich droplets are what make free-machining aluminum easy to cut.",
   },
   "fe-Ag": {
-    line: "Fe–Ag hardly mixes as a liquid at all — one of the widest gaps in the transition metals, and no single melt to freeze.",
-    text: "Fe–Ag is one of the widest liquid miscibility gaps among the transition metals — iron and silver are very nearly immiscible as liquids — so there is no single melt for this solver to freeze.",
+    line: "Fe–Ag hardly mixes even as a liquid (one of the widest gaps among transition metals): no single melt to freeze.",
+    text: "Iron and silver barely mix even when molten, one of the widest liquid gaps among the transition metals, so there is no single melt to freeze.",
   },
 };
 
@@ -507,7 +511,16 @@ export interface VapourAdvisory {
   /** atm at this composition */
   p: number;
   band: VapourBand;
-  /** always non-empty; contains the computed pressure and the word "atm" whenever there is one */
+  /**
+   * the on-screen line (v8 U1c): the pressure, its temperature and its caveat
+   * in instrument form, or `p(X) not computed: <reason>`. Contains " atm"
+   * exactly when a pressure was computed.
+   */
+  line: string;
+  /**
+   * the learn-mode sentences: the same result explained. Always non-empty;
+   * contains the computed pressure and the word "atm" whenever there is one
+   */
   text: string;
 }
 
@@ -555,9 +568,13 @@ export function vapourAt(baseKey: string, elSym: string, wt: number, TOverride?:
   // computed 0 atm and the NEGLIGIBLE band, and the only trace left was the
   // literal word in the prose — "Cr at NaN wt% exerts 0.0e+0 atm, which is
   // negligible". A number this app cannot compute is refused, not floored.
+  // every refusal below: the on-screen line names the reason, the learn text explains it
+  const noData = (line: string, text: string, xv = x): VapourAdvisory =>
+    ({ base: baseKey, el: elSym, wt, x: xv, T, pPure: NaN, p: NaN, band: "NO-DATA",
+      line: `p(${elSym}) not computed: ${line}`, text });
   if (!Number.isFinite(held)) {
-    return { base: baseKey, el: elSym, wt, x: NaN, T, pPure: NaN, p: NaN, band: "NO-DATA",
-      text: `${describeWt(wt)}, so there is no composition to evaluate ${elSym}'s vapour pressure at — nothing is computed rather than a zero being printed.` };
+    return noData(describeWt(wt),
+      `${describeWt(wt)}, so there is no composition to evaluate ${elSym}'s vapor pressure at, and nothing is computed rather than a zero printed.`, NaN);
   }
   // ONE CELL OF THE GRID EXTRAPOLATES PAST A CRITICAL POINT, and it is named
   // rather than modelled. Clausius–Clapeyron with a temperature-independent
@@ -568,8 +585,8 @@ export function vapourAt(baseKey: string, elSym: string, wt: number, TOverride?:
   // critical temperature, so this is the single cell affected, and it prints a
   // refusal rather than a large confident number.
   if (elSym === "Hg" && T > 1750) {
-    return { base: baseKey, el: elSym, wt, x, T, pPure: NaN, p: NaN, band: "NO-DATA",
-      text: `${base.label} melts at ${(T - 273.15).toFixed(0)} °C, above mercury's critical temperature of about 1477 °C. Past a critical point there is no liquid in equilibrium with a vapour and therefore no vapour pressure at all, so this rule does not extrapolate into it — mercury and molten iron do not coexist as two phases in the sense this number would describe.` };
+    return noData(`${base.label} melts at ${(T - 273.15).toFixed(0)} °C, above mercury's critical temperature (about 1477 °C)`,
+      `Above its critical temperature (about 1477 °C) mercury cannot exist as a liquid next to its own vapor, so a vapor pressure over molten ${base.label} at ${(T - 273.15).toFixed(0)} °C has no meaning. The rule is not stretched past the conditions it describes.`);
   }
   // AND ONE CLASS OF CELL HAS NO SOLUTION TO APPLY RAOULT'S LAW TO. The rule is
   // p_i = x_i·p_pure, and x_i presumes the element is IN the melt at that mole
@@ -587,26 +604,29 @@ export function vapourAt(baseKey: string, elSym: string, wt: number, TOverride?:
   // describes — and it is stated rather than silently skipped, because an
   // absent number is not a zero.
   if (NOBLE.includes(elSym)) {
-    return { base: baseKey, el: elSym, wt, x, T, pPure: NaN, p: NaN, band: "NO-DATA",
-      text: `Raoult's law needs a solution, and this one does not exist: ${elSym} is a noble gas whose measured solubility in a metal melt is of order a part per billion to a part per million by mole, so a partial pressure computed at ${wt} wt% would be arithmetic about a composition no melt reaches. Nothing is computed here rather than a confident number printed beside the refusal that contradicts it.` };
+    return noData(`Raoult's law needs a solution, and this one does not exist`,
+      `Raoult's law needs a solution, and this one does not exist: ${elSym} dissolves in molten metal only at parts per billion to parts per million by mole, so a pressure computed at ${wt} wt% would describe a melt that cannot exist. No number is printed beside the refusal it would contradict.`);
   }
   if (MOLECULAR_VAPOUR.includes(elSym)) {
-    return { base: baseKey, el: elSym, wt, x, T, pPure: NaN, p: NaN, band: "NO-DATA",
-      text: `${elSym}'s vapour is molecular rather than monatomic, and Clausius–Clapeyron needs an enthalpy per mole of the species that leaves the liquid. This table stores ΔH_vap per mole of ATOMS, so the exponent would be wrong by the atom count — no pressure is printed rather than one that is off by a factor of two, four or eight.` };
+    return noData(`its vapor is molecular rather than monatomic`,
+      `${elSym}'s vapor is molecular rather than monatomic, but this table stores the heat of vaporization per mole of atoms, so the formula would be off by the number of atoms in the molecule (two, four or eight). No pressure is printed rather than a wrong one.`);
   }
   if (!Number.isFinite(T) || row.Tb == null || row.dHvap == null) {
-    return {
-      base: baseKey, el: elSym, wt, x, T, pPure: NaN, p: NaN, band: "NO-DATA",
-      text: row.Tb == null || row.dHvap == null
-        ? `no boiling point or enthalpy of vaporisation has been measured for ${elSym}, so no vapour pressure over liquid ${base.label} is computed — the two numbers the rule needs do not exist for this element.`
-        : `${base.label} carries no melting point in this build, so there is no temperature to evaluate ${elSym}'s vapour pressure at.`,
-    };
+    return row.Tb == null || row.dHvap == null
+      ? noData(`no boiling point or heat of vaporization has been measured`,
+        `No boiling point or heat of vaporization has been measured for ${elSym}, and the rule needs both, so no vapor pressure over liquid ${base.label} is computed.`)
+      : noData(`${base.label} has no melting point`,
+        `${base.label} carries no melting point in this build, so there is no temperature to evaluate ${elSym}'s vapor pressure at.`);
   }
   const pPure = Math.exp(-(row.dHvap * 1000) / R_GAS * (1 / T - 1 / row.Tb));
   const p = x * pPure;
   const band: VapourBand = p >= 1 ? "BOILS" : p >= FUME_ATM ? "FUME" : "NEGLIGIBLE";
-  const head = `at ${base.label}'s ${(T - 273.15).toFixed(0)} °C melting point, ${elSym} at ${wt} wt% (x = ${x.toFixed(3)}) exerts ${fmtP(p)} atm`;
-  const pure = `pure ${elSym} would exert ${fmtP(pPure)} atm at that temperature`;
+  const TC = (T - 273.15).toFixed(0);
+  // the pressure at this composition comes BEFORE the pure element's in both
+  // strings: GRID-DOC-CLAIMS reads the README's mercury numbers off `text` in
+  // that order
+  const readout = `p(${elSym}) ${fmtP(p)} atm at ${TC} °C, ${wt} wt% (x ${x.toFixed(3)}) · pure ${elSym} ${fmtP(pPure)} atm`;
+  const head = `At ${base.label}'s ${TC} °C melting point, ${elSym} at ${wt} wt% (x = ${x.toFixed(3)}) would exert ${fmtP(p)} atm and pure ${elSym} ${fmtP(pPure)} atm`;
   // The ideality caveat rides every line that could change a decision, and is
   // replaced by the reason it cannot matter on the lines that could not.
   // AND WHERE THE APP ALREADY KNOWS THE SOLUTION IS NOT IDEAL, IT SAYS SO. A
@@ -616,8 +636,11 @@ export function vapourAt(baseKey: string, elSym: string, wt: number, TOverride?:
   // caveat would be two statements about the same melt that do not agree.
   const knownNonIdeal = Object.hasOwn(DEMIX_CHECKED, `${baseKey}-${elSym}`);
   const ideal = knownNonIdeal
-    ? `This is Raoult's law times Clausius–Clapeyron and it assumes an IDEAL solution, which for THIS pair is known to be false: ${base.symbol}–${elSym} has a liquid miscibility gap, and a miscibility gap IS an activity coefficient far above one. The number above is what an ideal solution would do and this pair is not one, so read it as an ordering rather than as a pressure.`
-    : `This is Raoult's law times Clausius–Clapeyron: it assumes an IDEAL solution, and the activity coefficient that would correct it is a number this app does not carry. Cu–30Zn computes 1.4 atm by this rule and brass is real, so the rule advises and never refuses.`;
+    ? `This is Raoult's law times Clausius–Clapeyron, which assumes an ideal solution, and ${base.symbol}–${elSym} is not one (it separates into two liquids, so its activity is far above ideal): read the number as an ordering, not a pressure.`
+    : `This is Raoult's law times Clausius–Clapeyron, which assumes an ideal solution; the activity coefficient that would correct it is not carried, and Cu–30Zn computes 1.4 atm by this rule while brass is cast every day, so the rule advises and never refuses.`;
+  const idealLine = knownNonIdeal
+    ? `ideal-solution estimate, but ${base.symbol}–${elSym} demixes: an ordering, not a pressure`
+    : "ideal-solution estimate (no activity coefficient)";
   // THE NEGLIGIBLE BAND IS THE ONE PLACE THE IDEALITY CAVEAT IS DROPPED, so the
   // claim that replaces it has to be true. "No activity coefficient could lift a
   // number this small" is not: strongly positive-deviation systems reach γ° of
@@ -628,13 +651,16 @@ export function vapourAt(baseKey: string, elSym: string, wt: number, TOverride?:
   // cross the 0.01 atm threshold, and the caveat rides every line above that.
   const safeFromGamma = p * GAMMA_HEADROOM < FUME_ATM;
   const text = band === "BOILS"
-    ? `${head}, above one atmosphere — ${pure}, so this addition would boil out of the melt as fast as it went in unless the melt is held under pressure or the element is plunged. ${ideal}`
+    ? `${head}: above one atmosphere, so the addition boils out about as fast as it goes in unless the melt is held under pressure or the element is plunged below the surface. ${ideal}`
     : band === "FUME"
-      ? `${head} — ${pure}. Below a boil and well above nothing: this is the fume band, where the addition survives the melt and the fume is a hazard rather than a loss. ${ideal}`
+      ? `${head}: the fume band, where the addition stays in the melt but gives off a fume that is a health hazard rather than a loss. ${ideal}`
       : safeFromGamma
-        ? `${head}, which is negligible — ${pure}. Even a ${GAMMA_HEADROOM}-fold activity-coefficient correction leaves this under the ${FUME_ATM} atm fume threshold, which is why this line does not carry the ideality caveat the others do.`
-        : `${head}, which is under the ${FUME_ATM} atm fume threshold — ${pure} — but only just, and this rule assumes an IDEAL solution. A strongly positive-deviation system can carry an activity coefficient of ten or a hundred, which would put a number this close to the threshold across it. Treat it as unresolved rather than as clean.`;
-  return { base: baseKey, el: elSym, wt, x, T, pPure, p, band, text };
+        ? `${head}, which is negligible. Even a ${GAMMA_HEADROOM}-fold activity-coefficient correction leaves it under the ${FUME_ATM} atm fume threshold, so it needs no ideal-solution caveat.`
+        : `${head}: under the ${FUME_ATM} atm fume threshold, but only just. This assumes an ideal solution, and a strongly non-ideal pair (an activity coefficient of ten to a hundred) could push it across, so treat it as unresolved.`;
+  const line = band === "BOILS" ? `boils: ${readout} · ${idealLine}`
+    : band === "FUME" ? `fume: ${readout} · ${idealLine}`
+      : `negligible: ${readout}${safeFromGamma ? "" : " · ideal-solution estimate, close to the fume threshold"}`;
+  return { base: baseKey, el: elSym, wt, x, T, pPure, p, band, line, text };
 }
 
 // ---------------------------------------------------------------------------
@@ -646,8 +672,14 @@ export interface SizeNote {
   /** Hägg's r_solute/r_base for the interstitial screen; null when it does not apply */
   hagg: number | null;
   interstitial: boolean;
+  /** the on-screen line (v8 U1c): the rule, the number and where it falls */
+  line: string;
+  /** the learn-mode sentences: what the rule is and what it means here */
   text: string;
 }
+
+/** a radius convention in the words a reader knows */
+const RADIUS_WORD: Record<RadiusKind, string> = { "teatum-cn12": "metallic", "covalent": "covalent", "none": "no" };
 
 export function sizeNote(baseKey: string, elSym: string): SizeNote | null {
   const base = Object.hasOwn(BASES, baseKey) ? BASES[baseKey] : undefined;
@@ -655,8 +687,10 @@ export function sizeNote(baseKey: string, elSym: string): SizeNote | null {
   const bRow = base ? BY_SYMBOL[base.symbol] : undefined;
   if (!base || !row) return null;
   if (row.radiusCN12 == null || bRow?.radiusCN12 == null) {
+    const which = row.radiusCN12 == null ? elSym : base.symbol;
     return { dRpct: null, hagg: null, interstitial: false,
-      text: `no radius is tabulated for ${row.radiusCN12 == null ? elSym : base.symbol}, so no size comparison is made — an absent number is not a zero.` };
+      line: `size factor n/a: no radius for ${which}`,
+      text: `No radius is tabulated for ${which}, so no size comparison is made; an absent number is not a zero.` };
   }
   const ratio = row.radiusCN12 / bRow.radiusCN12;
   const dR = (ratio - 1) * 100;
@@ -676,20 +710,38 @@ export function sizeNote(baseKey: string, elSym: string): SizeNote | null {
     // divides exactly the same covalent radius by exactly the same metallic one
     // and is the number this branch trusts. The reason is interstitial versus
     // substitutional, and nothing else.
+    //
+    // v8 U1c: the learn text is two sentences, so the second is the ONE clause
+    // that matters most for this pair: the scope warning off a transition-metal
+    // base, else cementite for Fe–C, else boron's two sites in iron.
+    //
+    // THE OPENING IS CONDITIONAL ON THE SCOPE, and the U1c review is why. "N is
+    // small enough to sit in the gaps between Al atoms" printed right under
+    // "it does not dissolve here, it reacts to form AlN": off a transition-metal
+    // base the small radius is a fact and the interstitial site is not, so the
+    // sentence says only the first, and the scope caveat keeps HEAD's
+    // "necessary, never sufficient". Boron is on both site types in iron, so it
+    // "can sit" in the gaps, and its sentence is iron's alone (ni-B printed it).
     const fits = ratio < HAGG_LIMIT;
     const inScope = HAGG_BASES.includes(baseKey);
     const isFeC = baseKey === "fe" && elSym === "C";
-    const scope = inScope
-      ? ""
-      : ` Hägg's criterion is a rule for TRANSITION-METAL interstitial compounds — the hydrides, carbides, nitrides and borides of titanium, vanadium, chromium, iron and their neighbours — and ${base.label} is not one of those, so the ratio is reported and not read as a prediction. Being inside it is a necessary structural condition for a simple interstitial phase and never a sufficient one: what an sp-metal base forms with ${elSym} is a salt-like or covalent compound, or nothing that dissolves at all.`;
-    const cementite = isFeC && !fits
-      ? " That is why Fe3C is a complex orthorhombic carbide rather than a simple interstitial phase — the canonical case, and the one this criterion is usually quoted for."
-      : "";
-    const boron = elSym === "B"
-      ? " Boron is the awkward one of the four: in iron it is documented on BOTH substitutional and interstitial sites, which is exactly why it segregates to austenite grain boundaries and why hardenability boron is dosed in tens of ppm."
-      : "";
+    const where = fits ? "inside" : ratio < HAGG_LIMIT * 1.05 ? "just outside" : "well outside";
+    const ratioClause = `Hägg's radius ratio (a simple interstitial phase needs r/R below ${HAGG_LIMIT}; here it is ${ratio.toFixed(3)})`;
+    const first = !inScope
+      ? `${elSym} atoms are small next to ${base.symbol} atoms, so the size check is ${ratioClause}, not the 15 % substitution rule.`
+      : `${elSym} ${elSym === "B" ? `can sit in the gaps between ${base.symbol} atoms` : `is small enough to sit in the gaps between ${base.symbol} atoms instead of replacing them`}, so it is screened by ${ratioClause}, not by the 15 % substitution rule.`;
+    // "is not a transition metal" would be false for copper (a d-block row, see
+    // HAGG_BASES), so the scope is named by the compounds the rule describes
+    const second = !inScope
+      ? ` Hägg's rule describes the carbides, nitrides, borides and hydrides of transition metals such as Ti, V, Cr and Fe, so here the ratio is for reference only: fitting it is necessary for a simple interstitial phase, never sufficient, and ${elSym} forms a salt-like or covalent compound with ${base.label}, or no phase at all.`
+      : isFeC && !fits
+        ? " That is why cementite (Fe3C) is a complex orthorhombic carbide rather than a simple interstitial phase, the textbook case for this rule."
+        : elSym === "B" && baseKey === "fe"
+          ? " In iron, boron sits on both substitutional and interstitial sites, which is why it gathers at austenite grain boundaries and is dosed in tens of ppm."
+          : "";
     return { dRpct: dR, hagg: ratio, interstitial: true,
-      text: `${elSym} in ${base.symbol} is screened by Hägg's interstitial criterion, not by Hume-Rothery's 15 %: r/R = ${ratio.toFixed(3)} against Hägg's ${HAGG_LIMIT} limit for a simple interstitial structure, so it is ${fits ? "inside" : ratio < HAGG_LIMIT * 1.05 ? "just outside" : "well outside"} it.${cementite}${scope} The substitutional number would be ${dR.toFixed(1)} %, and it is meaningless here — not because the two radii come from different conventions, which the ratio above shares, but because an interstitial atom never occupies a substitutional site.${boron}` };
+      line: `Hägg r/R ${ratio.toFixed(3)} vs ${HAGG_LIMIT}: ${where}${inScope ? "" : " (base outside Hägg's scope: reference only)"} · Hume-Rothery n/a (interstitial)`,
+      text: `${first}${second}` };
   }
   const mixed = row.radiusKind !== bRow.radiusKind;
   // "every casting solute this app carries is limited by an invariant" was
@@ -700,10 +752,14 @@ export function sizeNote(baseKey: string, elSym: string): SizeNote | null {
     .filter(x => x.row2.invariant === "isomorphous");
   const total = Object.values(BINARY).reduce((n, r) => n + Object.keys(r).length, 0);
   const isIso = iso.some(x => x.bk === baseKey && x.e === elSym);
+  const rule = "The Hume-Rothery rule says metals whose atoms differ in size by less than about 15 % can replace each other widely in the crystal.";
   return { dRpct: dR, hagg: null, interstitial: false,
-    text: `Hume-Rothery size factor for ${elSym} in ${base.symbol}: ${dR.toFixed(1)} % (${Math.abs(dR) <= 15 ? "inside" : "outside"} the ±15 % band that favours extensive substitutional solubility)${mixed ? `, computed across two different radius conventions — ${elSym}'s is ${row.radiusKind}, ${base.symbol}'s is ${bRow.radiusKind} — so it is indicative and not a measurement` : ""}. ${isIso
-      ? `And here it is the relevant question rather than a note: ${base.symbol}–${elSym} is one of the ${iso.length} isomorphous pairs in this table, soluble in each other in every proportion, which is what extensive substitutional solubility looks like.`
-      : `This is a note, not a gate: the casting solutes this app carries are DILUTE, and ${total - iso.length} of the ${total} are bounded by an invariant — a different question from whether the two form an extensive solid solution. The ${iso.length} that are not bounded are the isomorphous pairs, where this rule is the relevant one.`}` };
+    line: `Hume-Rothery Δr ${dR.toFixed(1)} % (${Math.abs(dR) <= 15 ? "inside" : "outside"} ±15 %)`
+      + (mixed ? ` · ${RADIUS_WORD[row.radiusKind]} vs ${RADIUS_WORD[bRow.radiusKind]} radii: indicative only` : "")
+      + (isIso ? " · isomorphous pair" : " · a hint, not a filter"),
+    text: isIso
+      ? `${rule} ${base.symbol}–${elSym} is one of the ${iso.length} isomorphous pairs here, soluble in each other in every proportion, which is that rule at work.`
+      : `${rule} Here it is a hint, not a filter: the solutes this composer carries are dilute, and ${total - iso.length} of the ${total} stop at an invariant, which is a different question.` };
 }
 
 // ---------------------------------------------------------------------------
@@ -715,7 +771,11 @@ export interface Admission {
   wt: number;
   tier: AdmitTier;
   reason: AdmitReason;
-  /** always non-empty, and longer than 25 characters for every non-ASSESSED pair */
+  /**
+   * The learn-mode explanation (v8 U1c): 1 to 2 plain sentences, shown under
+   * the line only while learn mode is on. Always non-empty, and longer than 25
+   * characters for every non-ASSESSED pair.
+   */
   sentence: string;
   /**
    * The same refusal in ONE line, for a grid cell that has room for one.
@@ -785,13 +845,13 @@ function gasSentence(baseKey: string, base: { symbol: string; label: string; mat
   const si = MATERIALS[base.materialKey]?.si;
   const carriesH = si != null && si.hL != null && si.hS != null;
   if (elSym === "H") {
+    const sieverts = "Hydrogen dissolves as single atoms and follows Sieverts' law (C = S·√p), so the gas above the melt sets its content, not a weight you add.";
     const text = carriesH
-      ? `Hydrogen is not a composer solute: it dissolves atomically and obeys Sieverts' law, C = S·√p, so its content is set by the atmosphere over the melt and not by a weight you add. In ${base.label} it is already modelled — `
-        + `the hydrogen porosity layer carries this material's own liquid and solid solubilities and the collapse between them on freezing, which is the mechanism, and the atmosphere control is where you change it.`
-      : `Hydrogen is not a composer solute: it dissolves atomically and obeys Sieverts' law, C = S·√p, so its content is set by the atmosphere over the melt rather than by a weight you add. The hydrogen porosity layer that models it carries no solubility data for ${base.label} — only aluminium's Ransley–Neufeld values are entered — so for this base there is nothing to point at either.`;
+      ? `${sieverts} In ${base.label} the hydrogen porosity layer carries this material's own liquid and solid solubilities (the drop between them on freezing is what makes pores), and the atmosphere control changes it.`
+      : `${sieverts} The hydrogen porosity layer carries no solubility data for ${base.label}; only aluminum's Ransley–Neufeld values are entered.`;
     return { text, line: carriesH
-      ? `Hydrogen follows Sieverts' C = S·√p, not a weight — and in ${base.label} the porosity layer already models it. Use the atmosphere control.`
-      : `Hydrogen follows Sieverts' C = S·√p, not a weight — and the porosity layer carries no solubility data for ${base.label} to point at.` };
+      ? `Hydrogen follows Sieverts' C = S·√p, not a weight; in ${base.label} the porosity layer already models it. Use the atmosphere control.`
+      : `Hydrogen follows Sieverts' C = S·√p, not a weight, and the porosity layer carries no solubility data for ${base.label}.` };
   }
   if (elSym === "N") {
     // AND THE PHYSICS IS NOT BASE-INDEPENDENT EVEN THOUGH THE TIER IS. In iron
@@ -802,12 +862,12 @@ function gasSentence(baseKey: string, base: { symbol: string; label: string; mat
     // does not happen. In copper and zinc its solubility is essentially nil,
     // which is why nitrogen is a purge gas for copper rather than an addition.
     return N_DISSOLVES.includes(baseKey)
-      ? { text: `Nitrogen is not a composer solute: in ${base.label} it dissolves atomically from a diatomic gas and obeys Sieverts' law, so its content follows the partial pressure over the melt rather than a weight you add. That is not the whole story and this refusal says so — nitrogen is a DELIBERATE addition in nitrogen-strengthened austenitic stainless, charged as a nitrided ferroalloy and behaving as a solute — but this composer carries no nitrogen coefficient row and the porosity layer models hydrogen only.`,
-        line: `In ${base.label} nitrogen genuinely dissolves and follows Sieverts' law — a partial pressure over the melt, not a weight, and no coefficient row here.` }
-      : { text: `Nitrogen is not a composer solute, and in ${base.label} not for the Sieverts reason that applies in steel: ${baseKey === "al" || baseKey === "mg" ? `it does not dissolve here, it REACTS — to ${baseKey === "al" ? "AlN" : "Mg3N2"} — so the equilibrium is nitride formation rather than a Henrian dissolution and there is no meaningful Sieverts constant to quote` : `its solubility here is essentially nil${baseKey === "cu" ? ", which is why nitrogen serves as a purge and stirring gas for copper rather than as an addition" : ", and this table has no nitrogen practice to report for it either way"}`}. Nothing in this model carries a nitride phase.`,
+      ? { text: `In ${base.label} nitrogen dissolves atomically from a diatomic gas and follows Sieverts' law, so the gas above the melt sets its content, not a weight you add. It is also a deliberate addition in nitrogen-strengthened stainless steels, but the composer has no nitrogen data row and the porosity layer models hydrogen only.`,
+        line: `In ${base.label} nitrogen genuinely dissolves and follows Sieverts' law: set by the gas over the melt, not a weight, and no coefficient row here.` }
+      : { text: `Nitrogen is not a composer solute, and in ${base.label} not for the Sieverts reason that applies in steel: ${baseKey === "al" || baseKey === "mg" ? `it does not dissolve here, it reacts to form ${baseKey === "al" ? "AlN" : "Mg3N2"}, so there is no Sieverts constant to quote` : `its solubility here is essentially nil${baseKey === "cu" ? ", which is why nitrogen serves as a purge and stirring gas for copper rather than as an addition" : ", and this table has no nitrogen practice to report either way"}`}. This model has no nitride phase.`,
         line: baseKey === "al" || baseKey === "mg"
-          ? `In ${base.label} nitrogen does not dissolve, it REACTS — to ${baseKey === "al" ? "AlN" : "Mg3N2"} — so there is no Sieverts constant to quote here.`
-          : `In ${base.label} nitrogen's solubility is essentially nil${baseKey === "cu" ? " — it is a purge gas for copper, not an addition" : ", and this table has no practice to report either way"}.` };
+          ? `In ${base.label} nitrogen does not dissolve, it reacts to form ${baseKey === "al" ? "AlN" : "Mg3N2"}, so there is no Sieverts constant to quote here.`
+          : `In ${base.label} nitrogen's solubility is essentially nil${baseKey === "cu" ? "; it is a purge gas for copper, not an addition" : ", and this table has no practice to report either way"}.` };
   }
   // OXYGEN IS THE ONE THIS FILE GOT FLATLY WRONG FOR COPPER. "It does not stay
   // dissolved" is true for aluminium and magnesium, where oxygen reports to
@@ -817,15 +877,16 @@ function gasSentence(baseKey: string, base: { symbol: string; label: string; mat
   // distinction. For iron, dissolved oxygen is measured in-ladle with a probe
   // precisely because it stays dissolved until an Al or Si addition takes it.
   if (baseKey === "cu") {
-    return { text: `Oxygen is not a composer solute here, and copper is the base where that is least obvious: tough-pitch copper carries 0.02-0.05 wt% oxygen deliberately, "oxygen-free" versus "tough pitch" is a compositional grade distinction, and the Cu-Cu2O eutectic at 1066 °C is a real invariant on a real binary. It is refused because this model has no oxide phase and no cited Cu-O coefficient row — an absence of data, not an absence of chemistry, and it is the one oxygen cell in this grid where a user would be right to expect a number.`,
-      line: `Tough-pitch copper carries 0.02-0.05 wt% oxygen on purpose — refused for having no oxide phase and no Cu-O row, not for being insoluble.` };
+    return { text: `Oxygen is refused here although copper is where that is least obvious: tough-pitch copper carries 0.02–0.05 wt% oxygen on purpose, and the Cu–Cu2O eutectic at 1066 °C is a real invariant. It is refused because this model has no oxide phase and no cited Cu–O row, a gap in data rather than in chemistry, and the one oxygen cell where a number would be fair to expect.`,
+      line: `Tough-pitch copper carries 0.02–0.05 wt% oxygen on purpose. Refused: no oxide phase and no Cu–O row, not insolubility.` };
   }
   if (baseKey === "fe" || baseKey === "ni") {
-    return { text: `Oxygen is not a composer solute: in ${base.label} it does dissolve — dissolved oxygen is measured in-ladle with an oxygen probe precisely because it stays in solution until an aluminium or silicon addition takes it out — but what happens next is deoxidation and a slag, and this model carries no oxide phase, no activity and no slag. It is refused for having nowhere to go in this solver rather than for being insoluble.`,
-      line: `In ${base.label} oxygen does dissolve — it is probed in-ladle — but what follows is deoxidation and a slag, and this model carries neither.` };
+    // base-neutral: this branch serves nickel too, and "steelmakers" was iron's
+    return { text: `In ${base.label} oxygen stays dissolved until an aluminum or silicon addition takes it out, which is why it is measured in the ladle with an oxygen probe. What follows is deoxidation and a slag, and this model has no oxide phase, no activity and no slag, so the refusal is about the solver, not solubility.`,
+      line: `In ${base.label} oxygen does dissolve (it is probed in-ladle), but what follows is deoxidation and a slag, and this model carries neither.` };
   }
-  return { text: `Oxygen is not a composer solute: in ${base.label} it does not stay dissolved at all — it reports to the dross and to the oxide skin, which is melt handling rather than composition. Nothing in this model carries an oxide phase or an activity.`,
-    line: `In ${base.label} oxygen does not stay dissolved at all — it reports to the dross and the oxide skin, which is melt handling and not composition.` };
+  return { text: `In ${base.label} oxygen does not stay dissolved: it reports to the dross and to the oxide skin, which is melt handling rather than composition. This model has no oxide phase or activity.`,
+    line: `In ${base.label} oxygen does not stay dissolved at all: it reports to the dross and the oxide skin (melt handling, not composition).` };
 }
 
 /**
@@ -867,7 +928,7 @@ export function admit(baseKey: string, elSym: string, wt: number): Admission | n
   // the ones the gate happened to drive. A weight of exactly zero is NOT here:
   // derive() does not refuse it either, it simply has nothing to add.
   if (!Number.isFinite(wt) || wt < 0 || wt > 100) {
-    return out("NOT-A-COMPOSITION", `For ${elSym} in ${base.label}, ${describeWt(wt)}${wt < 0 ? " — a melt cannot contain less than none of something" : wt > 100 ? " — a weight percent cannot exceed 100" : ""}. Nothing is claimed about this pair from it, and the solver refuses the same input for the same reason rather than propagating it into every readout.`,
+    return out("NOT-A-COMPOSITION", `For ${elSym} in ${base.label}, ${describeWt(wt)}${wt < 0 ? ": a melt cannot contain less than none of something" : wt > 100 ? ": a weight percent cannot exceed 100" : ""}. Nothing is claimed about this pair from it, and the solver refuses the same input rather than carrying it into every readout.`,
       `${describeWt(wt)}, so nothing is claimed about ${base.symbol}–${elSym} at all.`);
   }
 
@@ -882,14 +943,14 @@ export function admit(baseKey: string, elSym: string, wt: number): Admission | n
     // is no melt to add it to" was a metallurgical claim and a false one, in a
     // metallurgy file.
     const synthetic = row.Z >= 104
-      ? `${elSym} (Z ${row.Z}) is a transactinide: it has only ever existed as single atoms, produced one at a time in an accelerator, with half-lives from hours at the lightest of them down to milliseconds at the heaviest. There is no melt to add it to and nothing thermophysical about it has been measured, so this table carries nulls rather than predictions.`
+      ? `${elSym} (Z ${row.Z}) is a transactinide: only single atoms have ever been made, one at a time in an accelerator, with half-lives from hours down to milliseconds. There is no melt to add it to and nothing about it has been measured, so the table keeps blanks instead of guesses.`
       : row.Z >= 99
-        ? `${elSym} (Z ${row.Z}) does not occur on Earth and is made in atom-to-microgram quantities by irradiation. It has no bulk metallurgy to model — where a property has been measured at all this table carries it, and nulls the rest rather than predicting.`
+        ? `${elSym} (Z ${row.Z}) does not occur on Earth and is made in atom-to-microgram amounts by irradiation. There is no bulk metal to model; any property that has been measured is kept and the rest is left blank.`
         : row.Z > 92
-          ? `${elSym} (Z ${row.Z}) is transuranic: not primordial, but not exotic either — it is bred in reactors rather than accelerators, and the ones just past uranium exist in quantity (plutonium by the tonne, americium by the kilogram, and δ-phase Pu–Ga is a real casting alloy). It is refused here because this composer carries no coefficient row for it and because it is not something a foundry charges, not because there is no melt.`
-          : `${elSym} (Z ${row.Z}) is not primordial: every terrestrial atom of it is a decay-chain member or a fission product, and it is radioactive on a timescale short enough that none survived the Earth's formation. It is not something a foundry charges, whatever its metallurgy would be.`;
+          ? `${elSym} (Z ${row.Z}) is transuranic: not primordial, but bred in reactors, and the first few past uranium exist in bulk (plutonium by the tonne; δ-phase Pu–Ga is a real casting alloy). It is refused because the composer has no data row for it and foundries do not charge it, not because it cannot melt.`
+          : `${elSym} (Z ${row.Z}) is not primordial: every atom of it on Earth comes from a decay chain or from fission, and none survived from the Earth's formation. Foundries do not charge it, whatever its metallurgy would be.`;
     const syntheticLine = row.Z >= 104
-      ? `${elSym} (Z ${row.Z}) has only ever existed as single atoms in an accelerator — there is no melt to add it to.`
+      ? `${elSym} (Z ${row.Z}) has only ever existed as single atoms in an accelerator: there is no melt to add it to.`
       : row.Z >= 99
         ? `${elSym} (Z ${row.Z}) is made in atom-to-microgram quantities and has no bulk metallurgy to model.`
         : row.Z > 92
@@ -898,7 +959,7 @@ export function admit(baseKey: string, elSym: string, wt: number): Admission | n
           // true of the first few and false of berkelium and californium,
           // which are made in milligrams. The paragraph says "the ones just
           // past uranium"; the line said it of all of them.
-          ? `${elSym} (Z ${row.Z}) is reactor-bred, and the ones just past uranium exist in quantity — refused for having no coefficient row, not for having no melt.`
+          ? `${elSym} (Z ${row.Z}) is reactor-bred, and the ones just past uranium exist in quantity. Refused for having no coefficient row, not for having no melt.`
           : `${elSym} (Z ${row.Z}) is not primordial: a decay-chain member or a fission product, not something a foundry charges.`;
     return out("NOT-PRIMORDIAL", synthetic, syntheticLine);
   }
@@ -907,12 +968,12 @@ export function admit(baseKey: string, elSym: string, wt: number): Admission | n
     // that an absent number is not a zero: the Henry's-law constants for He, Ne
     // and Ar in liquid Al, Cu, Ag and Fe HAVE been measured, at mole fractions
     // of order 1e-9 to 1e-6, and entrapped argon is a real porosity mechanism.
-    return out("NOBLE-GAS", `${elSym} is a noble gas: a closed shell and no metallic bond to form. Its solubility in a metal melt has been measured and is of order a part per billion to a part per million by mole — a laboratory number rather than a foundry variable, and not a zero. Argon and helium are what a foundry covers a melt WITH rather than what it adds, and the atmosphere control is where they belong in this app; entrapped argon is a porosity mechanism, which is a bubble and not a solute.`,
-      `${elSym} is a noble gas: measured solubility of order a part per billion by mole — a cover gas, not an addition.`);
+    return out("NOBLE-GAS", `${elSym} is a noble gas: its outer shell is full, so it forms no metallic bond, and its measured solubility in molten metal is about a part per billion to a part per million by mole (small, but not zero). Foundries use argon and helium to cover a melt rather than as additions (here that is the atmosphere control), and trapped argon makes pores as bubbles, not as a solute.`,
+      `${elSym} is a noble gas: measured solubility around a part per billion by mole. A cover gas, not an addition.`);
   }
   if (HALOGEN.includes(elSym)) {
-    return out("HALOGEN", `${elSym} is a halogen: with a metal it makes an ionic salt or a volatile halide, not a solid solution. Halide chemistry is real foundry practice on the OUTSIDE of the melt — chloride-fluoride salts are the flux that covers and cleans it, and modern magnesium melting is mostly fluxless under a cover gas (SF6, SO2 or a fluorinated replacement) that works by growing a protective MgF2 film, so fluorine is still what protects a magnesium melt even where the salt has gone. A flux and a film sit on the melt; this composer describes what is dissolved in it.`,
-      `${elSym} is a halogen: with a metal it makes a salt or a volatile halide — flux chemistry, on top of the melt rather than in it.`);
+    return out("HALOGEN", `${elSym} is a halogen: with a metal it forms an ionic salt or a volatile halide, not a solid solution. Halides work on the outside of the melt (chloride-fluoride fluxes cover and clean it, and magnesium is melted under a fluorine-bearing cover gas that grows a protective MgF2 film), while the composer describes what is dissolved in it.`,
+      `${elSym} is a halogen: with a metal it forms a salt or a volatile halide. Flux chemistry, on top of the melt, not in it.`);
   }
   if (GAS_SPECIES.includes(elSym)) {
     const g = gasSentence(baseKey, base, elSym);
@@ -922,17 +983,17 @@ export function admit(baseKey: string, elSym: string, wt: number): Admission | n
   // --- from here the answer depends on the base.
   if (elSym === base.symbol) {
     const asSolute = Object.values(BASES).filter(b => Object.hasOwn(b.solutes, elSym)).map(b => b.label);
-    return out("IS-THE-BASE", `${elSym} IS the base metal here — the melt is already ${base.label}, and "add ${elSym} to ${base.label}" is not a composition. ${asSolute.length
+    return out("IS-THE-BASE", `${elSym} is the base metal here: the melt is already ${base.label}, so adding ${elSym} to it is not a composition. ${asSolute.length
       ? `Pick another base to see ${elSym} as a solute: this composer carries it as one in ${serial(asSolute)}.`
       : `This composer carries ${elSym} only as a base metal, never as a solute in another one.`}`,
       asSolute.length
-        ? `${elSym} IS this melt. It is carried as a solute in ${serial(asSolute)} — switch the base to see it.`
-        : `${elSym} IS this melt, and this composer carries it only as a base metal, never as a solute.`);
+        ? `${elSym} is this melt's own metal. It is carried as a solute in ${serial(asSolute)}: switch the base to see it.`
+        : `${elSym} is this melt's own metal, and this composer carries it only as a base metal, never as a solute.`);
   }
 
   const key = `${baseKey}-${elSym}`;
   if (Object.hasOwn(DEMIX_CHECKED, key)) {
-    return out("DEMIXES", `${DEMIX_CHECKED[key].text} This is not a gap in the data — the system is well assessed and this app has read it. It is a limit of the solver: one liquid field, one solid field, and a monotectic needs two of the first.`,
+    return out("DEMIXES", `${DEMIX_CHECKED[key].text} It is a limit of the solver, not missing data: a monotectic needs two liquids, and the solver carries one liquid and one solid.`,
       DEMIX_CHECKED[key].line);
   }
 
@@ -946,10 +1007,10 @@ export function admit(baseKey: string, elSym: string, wt: number): Admission | n
     // never disagree about whether a composition is pourable.
     if (bound?.ceiling != null && wt >= bound.ceiling) {
       const at = wt === bound.ceiling;
-      return out("PAST-THE-INVARIANT", `${elSym} at ${wt} wt% is ${at ? "exactly at" : "past"} the ${bound.ceiling} wt% ${base.symbol}–${elSym} invariant liquid (${pdRow.invariant} at ${pdRow.Tinv} °C). ${at
-        ? `A melt at that composition freezes ON the horizontal, and this solver grows one solid phase.`
-        : `Past it the first phase to freeze is no longer the base-rich one, and this solver grows exactly one solid — the base-rich primary.`} This is real chemistry the model cannot carry, not missing data: the slider reaches ${bound.max} wt% and the pair is assessed everywhere below that.`,
-        `${wt} wt% is ${at ? "exactly at" : "past"} the ${bound.ceiling} wt% ${base.symbol}–${elSym} ${pdRow.invariant} — the first solid stops being (${base.symbol}). Assessed up to ${bound.max} wt%.`);
+      return out("PAST-THE-INVARIANT", `${elSym} at ${wt} wt% is ${at ? "exactly at" : "past"} the ${bound.ceiling} wt% ${base.symbol}–${elSym} invariant liquid (${pdRow.invariant} at ${pdRow.Tinv} °C), so ${at
+        ? "the melt freezes on the invariant horizontal"
+        : "the first phase to freeze is no longer the base-rich one"}, and this solver grows only the base-rich primary. This is real chemistry the model cannot carry, not missing data: the slider stops at ${bound.max} wt% and the pair is assessed below that.`,
+        `${wt} wt% is ${at ? "exactly at" : "past"} the ${bound.ceiling} wt% ${base.symbol}–${elSym} ${pdRow.invariant}: the first solid stops being (${base.symbol}). Assessed up to ${bound.max} wt%.`);
     }
     // AND ONE ASSESSED ROW IS KNOWN TO BE GEOMETRICALLY IMPOSSIBLE. v7.1 P2
     // found Ni–W: its invariant at 1495 °C sits above pure nickel's 1455 °C, so
@@ -961,9 +1022,9 @@ export function admit(baseKey: string, elSym: string, wt: number): Admission | n
     // readout says is derived from those two sources" would be false for it.
     const placed = phasesFor(baseKey, elSym, Math.max(wt, 1e-6));
     const contradicts = placed?.regime === "UNASSESSED";
-    return out("CITED-PAIR", `${base.symbol}–${elSym} is assessed: a cited dilute coefficient row (m ${solute.m} K/wt%, k ${solute.k}) and a cited ${pdRow.invariant} row from the same binary, so this addition can be poured${contradicts
-      ? `. But this row does not survive its own geometry check — the invariant temperature and the two compositions in it cannot all be right at once, and the phase readout and the drawn diagram both refuse it for that reason. What is poured here is the coefficient row; nothing about which phases the casting ends with is claimed.`
-      : ` and everything the readout says about it is derived from those two sources.`}`,
+    return out("CITED-PAIR", `${base.symbol}–${elSym} is assessed: a cited dilute data row (m ${solute.m} K/wt%, k ${solute.k}) and a cited ${pdRow.invariant} row from the same binary, so it can be poured${contradicts
+      ? `. But the invariant row fails its own geometry check (its temperature and its two compositions cannot all be right), so only the coefficient row is poured and no phase is claimed.`
+      : `, and everything the readout says about it comes from those two sources.`}`,
       // AN ISOMORPHOUS ROW HAS NO INVARIANT TEMPERATURE, and the first draft of
       // this line quoted `Tinv` unconditionally — so Fe–Cr and Cu–Ni, the two
       // pairs in this table that are soluble in every proportion, advertised
@@ -973,7 +1034,7 @@ export function admit(baseKey: string, elSym: string, wt: number): Admission | n
       // this file refuses to do everywhere else. `GRID-REASON-LINE`'s
       // placeholder ban caught it on the first run.
       contradicts
-        ? `Assessed and pourable — m ${solute.m} K/wt%, k ${solute.k} — but the ${pdRow.invariant} row at ${pdRow.Tinv} °C fails its own geometry check, so no phase is claimed.`
+        ? `Assessed and pourable (m ${solute.m} K/wt%, k ${solute.k}), but the ${pdRow.invariant} row at ${pdRow.Tinv} °C fails its own geometry check: no phase is claimed.`
         // NO CALL TO ACTION IN HERE, and the first draft had one — every
         // assessed line ended "Click to add it to the melt." A classifier over
         // (base, element, wt) does not know what is already in the crucible, so
@@ -982,40 +1043,40 @@ export function admit(baseKey: string, elSym: string, wt: number): Admission | n
         // fact about the panel's state; this function's job is the chemistry.
         // The composer says it, and only when it is true.
         : pdRow.Tinv == null
-          ? `Assessed: m ${solute.m} K/wt%, k ${solute.k}, and a cited ${pdRow.invariant} binary — soluble in every proportion, with no invariant to stop at.`
+          ? `Assessed: m ${solute.m} K/wt%, k ${solute.k}, and a cited ${pdRow.invariant} binary: soluble in every proportion, with no invariant to stop at.`
           : `Assessed: m ${solute.m} K/wt%, k ${solute.k}, and a cited ${pdRow.invariant} at ${pdRow.Tinv} °C.`);
   }
 
   if (DEMIX_ELEMENTS.includes(elSym)) {
     const where = Object.keys(DEMIX_CHECKED).filter(k => k.endsWith(`-${elSym}`))
       .map(k => { const b = k.split("-")[0]; return `${Object.hasOwn(BASES, b) ? BASES[b].symbol : b}–${elSym}`; });
-    return out("NOT-CHECKED-FOR-DEMIXING", `${base.symbol}–${elSym} has NOT been checked for a liquid miscibility gap in this build. ${elSym} forms one with a base this app does carry (${serial(where)}), and the list of checked systems here is hand-entered and short — so the honest answer is that this pair's liquid behaviour is unknown to this model, not that it demixes. An unchecked system is refused for being unchecked.`,
-      `${elSym} demixes from a base this app carries (${serial(where)}), but ${base.symbol}–${elSym} was never checked — refused for being unchecked, not for demixing.`);
+    return out("NOT-CHECKED-FOR-DEMIXING", `${base.symbol}–${elSym} has not been checked for a liquid miscibility gap: ${elSym} does form one in ${serial(where)}, and the list of checked systems is short and hand-entered. So this pair's liquid behavior is unknown here, and it is refused for being unchecked, not for demixing.`,
+      `${elSym} demixes in ${serial(where)}, but ${base.symbol}–${elSym} was never checked: refused for being unchecked, not for demixing.`);
   }
 
   if (NONMETAL_SOLUTE.includes(elSym)) {
     const inIron = baseKey === "fe";
-    return out("NO-ASSESSMENT", `${elSym} in ${base.label} has no coefficient row in this build, and that is the whole reason it is refused — deliberately, rather than as a dissolved gas. ${elSym} is compositional: it arrives in the charge and leaves through the slag, unlike hydrogen, nitrogen and oxygen, whose content is set by the atmosphere over the melt. In iron it is one of the canonical low-k segregators, the physics this solver models best. ${inIron
-      ? `Entering Fe–${elSym} as a cited solute is the single best addition this table could take.`
-      : `Its behaviour in ${base.label} is a different question again, and this build has not assessed ${base.symbol}–${elSym} either; the iron pair is the one worth entering first.`}`,
+    return out("NO-ASSESSMENT", `${elSym} in ${base.label} has no data row, and that is the only reason it is refused: unlike hydrogen, nitrogen and oxygen, whose content the gas above the melt sets, ${elSym} arrives in the charge and leaves in the slag. In iron it is a classic low-k segregating element, the physics this solver models best, ${inIron
+      ? `and adding Fe–${elSym} as a cited solute is the single best addition this table could take.`
+      : `and ${base.symbol}–${elSym} has not been assessed either, so the iron pair is the one to add first.`}`,
       inIron
-        ? `${elSym} is compositional, not a dissolved gas — a canonical low-k segregator in iron, and Fe–${elSym} is the best row this table could still take.`
-        : `${elSym} is compositional, not a dissolved gas, and ${base.symbol}–${elSym} has no coefficient row here — the iron pair is the one worth entering first.`);
+        ? `${elSym} is compositional, not a dissolved gas: a canonical low-k segregator in iron, and Fe–${elSym} is the best row this table could still take.`
+        : `${elSym} is compositional, not a dissolved gas, and ${base.symbol}–${elSym} has no coefficient row here; the iron pair is the one worth entering first.`);
   }
 
   const alsoIn = Object.values(BASES).filter(b => b !== base && Object.hasOwn(b.solutes, elSym)).map(b => b.label);
   if (alsoIn.length > 0) {
-    return out("NO-ASSESSMENT", `${elSym} is a solute this composer carries — in ${serial(alsoIn)} — but no ${base.symbol}–${elSym} coefficient row has been entered, so there is no m, no k and no invariant to place a composition against. The pair is not refused because the chemistry is impossible; it is refused because this build has not assessed it, and inventing a coefficient to fill the cell is the one thing this table will not do.`,
-      `${elSym} is carried as a solute in ${serial(alsoIn)}, but ${base.symbol}–${elSym} has no coefficient row — no m, no k, no invariant to place a composition against.`);
+    return out("NO-ASSESSMENT", `${elSym} is a solute in ${serial(alsoIn)}, but no ${base.symbol}–${elSym} data row has been entered, so there is no m, no k and no invariant. The pair is refused because it has not been assessed, not because the chemistry is impossible, and the table never invents a coefficient.`,
+      `${elSym} is carried as a solute in ${serial(alsoIn)}, but ${base.symbol}–${elSym} has no coefficient row: no m, no k, no invariant to place a composition against.`);
   }
 
-  return out("NO-ASSESSMENT", `${base.symbol}–${elSym} has no assessed row in this build: no cited liquidus slope, no partition coefficient, and no invariant. ${size?.dRpct != null ? `The size factor is ${size.dRpct.toFixed(1)} %, which is a hint and not an assessment` : "There is not even a radius to compare"} — this table admits a pair only when a real source states its numbers, and it has 25 of those.`,
+  return out("NO-ASSESSMENT", `${base.symbol}–${elSym} has no assessed row: no cited liquidus slope, partition coefficient or invariant. ${size?.dRpct != null ? `Its size factor is ${size.dRpct.toFixed(1)} %, a hint rather than an assessment` : "There is not even a radius to compare"}, and a pair is admitted only when a real source gives its numbers (25 pairs have that).`,
     // NO SIZE FACTOR IN THIS LINE, and it was in the first draft. The panel
     // prints the line, then the paragraph, then the size note — and all three
     // quoted the same percentage, so tapping an unassessed cell produced the
     // same number three times in eight lines. The line is the compressed claim;
     // the hint belongs to the two channels that exist to carry it.
-    `No ${base.symbol}–${elSym} row in this build: no liquidus slope, no partition coefficient, no invariant — and this table will not invent one to fill the cell.`);
+    `No ${base.symbol}–${elSym} row in this build: no liquidus slope, partition coefficient or invariant, and none will be invented.`);
 }
 
 /**

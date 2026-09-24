@@ -16,7 +16,14 @@
 //
 // Every rail sample is measured twice since v8 U1a: with learn mode off, and
 // with it on and every section's explanation expanded, so the learn text is
-// held to the same no-sideways-scroll and wrap rules as the instrument.
+// held to the same no-sideways-scroll and wrap rules as the instrument. Since
+// the v8 U1b review the same holds OUTSIDE the rail: every mode panel is
+// sampled again with learn mode on and its "i" open, and so are the analysis
+// columns (one explanation open per column) and the SECTION PLANE popup, plus
+// a heat treat panel carrying a real 4 h anneal's report. Learn mode is what
+// made those grow: the first cut of U1b let the heat treat panel run off the
+// top of the window and the lab panel, the columns and the popup climb over
+// the learn toggle, CONTROLS, the TRUE 3D switch and the readouts.
 //
 // Nine checks:
 //   RAIL-NO-HSCROLL     rail.scrollWidth <= rail.clientWidth, every sample
@@ -39,10 +46,16 @@
 //                       it; the lens bar, #head's text lines, the readouts,
 //                       the learn toggle, CONTROLS, the TRUE 3D switch, the
 //                       view cube and the scale bar never overlap one
-//                       another; every open mode
+//                       another, and (v8 U1b review) none of them is
+//                       overlapped by an open mode panel, an analysis column
+//                       or the SECTION PLANE popup, all of which grow upward
+//                       and must stop under the top chrome, nor does any of
+//                       those three start above the window's top edge;
+//                       every open mode
 //                       panel holds its content (no sideways scroll, nothing
 //                       past its content box) and no slider in it is under
-//                       60px. All of it with the rail shown AND hidden.
+//                       60px. All of it with the rail shown AND hidden, and
+//                       every mode panel with learn mode off AND on.
 //   RAIL-HIDE           the hide toggle moves the whole rail off screen and
 //                       every rail-anchored element (CONTROLS, the switch, the
 //                       view cube, the HUD, both analysis columns, and the lens
@@ -54,7 +67,8 @@
 //                       no room (a phone with the rail open); both placements
 //                       must have been expected in some sample
 //   SLICE-ROWS-INSIDE   the SECTION PLANE popup shares the .row grid; its rows
-//                       stay inside its own box
+//                       stay inside its own box, learn mode off and on, and
+//                       with learn on its hint is shown and one line
 //   RAIL-LEARN          (v8 U1a) learn mode is off for a new viewer and then
 //                       renders nothing in the rail; the top bar's toggle
 //                       (aria-pressed) turns it on; every section header then
@@ -71,13 +85,20 @@
 //                       control does; every hint the rail's entries declare
 //                       found its control; the setting survives a reload; and
 //                       with localStorage throwing, the page still boots and
-//                       the toggle and the section headers still work
+//                       the toggle and the section headers still work. The
+//                       panels' side (v8 U1b review): every hint the panel
+//                       entries declare was bound by some panel, matched by
+//                       the label its control prints; in every learn-on panel
+//                       sample learn text rendered, and each panel hint is
+//                       one line and shows exactly when its control does; and
+//                       every panel learn string is 1 to 2 sentences
 //   RAIL-NO-EMDASH      (v8 U1a) no em dash in the rail's rendered prose or
 //                       tooltips, learn mode off and on, in every sampled
 //                       state and with a composer mix poured in calibrated
 //                       mode, nor in any rail learn string, material note or
-//                       source, SCALE group line in any material, or the
-//                       calibration line of any famous preset poured; the
+//                       source, SCALE group line in any material, the
+//                       calibration line of any famous preset poured, or any
+//                       panel learn string, hint or caveat line; the
 //                       exact "—" empty-value glyph is allowed. Both copies
 //                       of the detector are self-tested on a fixture first
 //
@@ -191,6 +212,27 @@ const PROBE = LONG => {
   const proseDash = s => typeof s === "string" && s.includes("—") && s !== "—";
   const learnIsOn = () => document.getElementById("learnToggle")?.getAttribute("aria-pressed") === "true";
   const infos = () => [...rail().querySelectorAll(".lrnInfo")];
+  /** (v8 U1b review) learn mode inside a panel or the popup: every hint shows
+   *  exactly when learn is on and its control (the element right before it)
+   *  shows, on one line; and how much learn text is on screen */
+  const hintAudit = root => {
+    const learn = learnIsOn();
+    const hintBad = [];
+    let hints = 0;
+    const rg = document.createRange();
+    for (const h of root.querySelectorAll(".lrnHint")) {
+      const ctrl = h.previousElementSibling;
+      const shown = vis(h), ctrlShown = !!ctrl && vis(ctrl);
+      if (shown !== (learn && ctrlShown)) hintBad.push({ hint: h.textContent, shown, ctrlShown });
+      if (!shown) continue;
+      hints++;
+      rg.selectNodeContents(h);
+      const n = new Set([...rg.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.top))).size;
+      if (n !== 1) hintBad.push({ hint: h.textContent, lines: n });
+    }
+    const lrnVisible = [...root.querySelectorAll(".lrnInfo, .lrnText, .lrnHint")].filter(vis).length;
+    return { learn, hints, hintBad, lrnVisible };
+  };
 
   window.__railProbe = {
     vis, proseDash,
@@ -201,6 +243,22 @@ const PROBE = LONG => {
       if (on) for (const b of infos()) if (vis(b) && b.getAttribute("aria-expanded") !== "true") b.click();
       window.__solidify.ui.sync();
       return learnIsOn();
+    },
+    /** (v8 U1b review) open learn mode's "i" everywhere outside the rail: all
+     *  of them in the open mode panels and the SECTION PLANE popup, the FIRST
+     *  visible one in each analysis column (their layers are exclusive, one
+     *  explanation at a time); returns how many explanations are then shown */
+    openPanelInfos() {
+      const roots = [...document.querySelectorAll("#app > .modepanel, #slicePop")].filter(vis);
+      for (const root of roots)
+        for (const b of root.querySelectorAll(".lrnInfo")) if (vis(b) && b.getAttribute("aria-expanded") !== "true") b.click();
+      for (const id of ["apanels", "apanels3"]) {
+        const b = [...document.querySelectorAll(`#${id} .lrnInfo`)].find(vis);
+        if (b && b.getAttribute("aria-expanded") !== "true") b.click();
+      }
+      window.__solidify.ui.sync();
+      return [...document.querySelectorAll("#app > .modepanel .lrnSec, #slicePop .lrnSec, #apanels .lrnSec, #apanels3 .lrnSec")]
+        .filter(vis).length;
     },
     /** what learn mode shows right now, per section header and per hint */
     learnState() {
@@ -334,11 +392,12 @@ const PROBE = LONG => {
      *  the rail. Plus the top chrome's pairwise overlaps: the lens bar, the
      *  readouts, CONTROLS, the TRUE 3D switch, the view cube, the scale bar
      *  and #head's three text lines, measured as rendered text with a long
-     *  alloy name in #matline (the analysis columns are left out: they are
-     *  bottom-anchored, and with all three 3D panels on a short window they
-     *  climb into the view cube, from 134px against its bottom at 188 at
-     *  1180x800, which paints over them at z-index 5; that predates the rail
-     *  change) */
+     *  alloy name in #matline; and since the v8 U1b review the bottom-anchored
+     *  items that grow up into that chrome: the open mode panels, the analysis
+     *  columns and the SECTION PLANE popup (the columns were left out before:
+     *  with all three 3D panels on a short window they climbed into the view
+     *  cube, 134px against its bottom at 188 at 1180x800; app/index.html now
+     *  caps all of them at --top-band and they scroll) */
     chrome() {
       const rb = rail().getBoundingClientRect();
       const SKIP = new Set(["canvas", "rail", "overlay", "gate", "composer"]);
@@ -365,15 +424,35 @@ const PROBE = LONG => {
       };
       mat.textContent = matWas;
       for (const n of ["views", "readouts", "learnToggle", "railToggle", "dimSwitch", "viewcube", "scalebar"]) if (boxes[n]) top[n] = boxes[n];
+      // (v8 U1b review) the bottom-anchored items that grow upward: every
+      // open mode panel, both analysis columns and the SECTION PLANE popup.
+      // Each is held against everything above, never against another of them
+      // (a mode panel paints over an analysis column by design), and none may
+      // start above the window. Their box is their clipped scroll box, so a
+      // capped item that scrolls is measured where it is drawn
+      const BOTTOM = new Set();
+      const scrolls = {};
+      const bottomItems = [...document.querySelectorAll("#app > .modepanel")].filter(vis)
+        .map(p => [`panel ${p.id || "challenge"}`, p]);
+      for (const id of ["apanels", "apanels3", "slicePop"]) if (boxes[id]) bottomItems.push([id, document.getElementById(id)]);
+      for (const [n, el] of bottomItems) {
+        const b = el.getBoundingClientRect();
+        if (b.width < 1 || b.height < 1) continue;
+        top[n] = [r1(b.left), r1(b.top), r1(b.right), r1(b.bottom)];
+        BOTTOM.add(n);
+        scrolls[n] = el.scrollHeight > el.clientHeight + 1;
+      }
+      const offTop = [...BOTTOM].filter(n => top[n][1] < -TOL).map(n => ({ name: n, top: top[n][1] }));
       const HEAD = new Set(["head h1", "head .sub", "#matline"]);
       const names = Object.keys(top).filter(n => top[n]);
       const clash = [];
       for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) {
         const [a, b] = [names[i], names[j]];
         if (HEAD.has(a) && HEAD.has(b)) continue;
+        if (BOTTOM.has(a) && BOTTOM.has(b)) continue;
         if (hit(top[a], top[b])) clash.push({ a, b, boxA: top[a], boxB: top[b] });
       }
-      return { seen, hits, boxes, top: names, clash };
+      return { seen, hits, boxes, top: names, clash, bottom: [...BOTTOM], offTop, scrolls };
     },
     /** every open mode panel: sideways scroll, anything painted outside its
      *  content box, and the width of each slider in it */
@@ -399,7 +478,8 @@ const PROBE = LONG => {
             if (b.width > 0 && outside(b, box)) bad.push({ textLine: t.textContent.trim().slice(0, 32), left: r1(b.left), right: r1(b.right), box: [r1(box.x0), r1(box.x1)] });
         }
         const sliders = [...p.querySelectorAll("input[type=range]")].filter(vis).map(i => r1(i.getBoundingClientRect().width));
-        out.push({ name: p.id || "(challenge)", width: r1(p.getBoundingClientRect().width), nBad: bad.length, bad: bad.slice(0, 4), sliders });
+        out.push({ name: p.id || "(challenge)", width: r1(p.getBoundingClientRect().width), nBad: bad.length, bad: bad.slice(0, 4), sliders,
+          ...hintAudit(p) });
       }
       return out;
     },
@@ -441,7 +521,7 @@ const PROBE = LONG => {
     slicePop() {
       const sp = document.getElementById("slicePop");
       if (!vis(sp)) return { visible: false };
-      return { visible: true, ...rowAudit(sp, contentBox(sp)) };
+      return { visible: true, ...rowAudit(sp, contentBox(sp)), ...hintAudit(sp) };
     },
     /** the rail, CONTROLS, and every other visible element anchored beside
      *  the rail (its right edge), plus the lens bar's center */
@@ -518,7 +598,9 @@ const panelOpened = [];
 // they open.
 const clearOfTransport = new Set(["hint", "sembar", "hud"]);
 const railState = () => S(() => document.body.classList.contains("railHidden") ? "hidden" : "shown");
-async function sampleChrome(mode, what) {
+/** `learn`: this sample has learn mode on, with the explanations outside the
+ *  rail open (`opened` of them, from openPanelInfos) */
+async function sampleChrome(mode, what, { learn = false, opened = 0 } = {}) {
   const rail = await railState();
   for (const [w, h] of VIEWPORTS) {
     await setVP(w, h);
@@ -529,18 +611,30 @@ async function sampleChrome(mode, what) {
     const overTransport = !t ? [] : Object.entries(c.boxes)
       .filter(([n, b]) => clearOfTransport.has(n) && b[2] > t[0] && b[0] < t[2] && b[3] > t[1] && b[1] < t[3])
       .map(([n, b]) => ({ name: n, box: b, transport: t }));
-    chromeSamples.push({ mode, what, rail, vp: `${w}x${h}`, hits: c.hits, overTransport, transportSeen: !!t, top: c.top, clash: c.clash, panels });
+    chromeSamples.push({ mode, what, rail, vp: `${w}x${h}`, learn, opened, hits: c.hits, overTransport, transportSeen: !!t,
+      top: c.top, clash: c.clash, bottom: c.bottom, offTop: c.offTop, scrolls: c.scrolls, panels });
   }
 }
-/** open a mode panel, sample, close it; the panel must actually have appeared */
+/** learn mode on and every explanation outside the rail open, sample, learn off */
+async function sampleLearnChrome(mode, what) {
+  await S(() => window.__railProbe.learnSet(true));
+  const opened = await S(() => window.__railProbe.openPanelInfos());
+  await sleep(200);
+  await sampleChrome(mode, `${what} · learn`, { learn: true, opened });
+  await S(() => window.__railProbe.learnSet(false));
+}
+/** open a mode panel, sample it with learn mode off and then on, close it;
+ *  the panel must actually have appeared. `open` may be async; what it
+ *  returns is kept as `ret` (the treated heat treat state's liveness) */
 async function samplePanel(mode, what, open, close) {
   const before = new Set((await S(() => window.__railProbe.chrome())).seen);
-  await page.evaluate(open);
+  const ret = await page.evaluate(open);
   await sleep(600);
   const fresh = (await S(() => window.__railProbe.chrome())).seen.filter(n => !before.has(n));
   fresh.forEach(n => clearOfTransport.add(n));
-  panelOpened.push({ mode, what, rail: await railState(), appeared: fresh.length > 0, names: fresh });
+  panelOpened.push({ mode, what, rail: await railState(), appeared: fresh.length > 0, names: fresh, ret: ret ?? null });
   await sampleChrome(mode, what);
+  await sampleLearnChrome(mode, what);
   await page.evaluate(close);
   await sleep(400);
 }
@@ -657,12 +751,52 @@ await page.evaluate(() => {
   S.ui.sync();
 });
 await sampleChrome("2d", "ETCH lens + analysis panels");
+// learn on, one explanation open in the column: it grows upward
+await sampleLearnChrome("2d", "ETCH lens + analysis panels");
 await page.evaluate(() => { window.__solidify.app.setView(6); window.__solidify.ui.sync(); });   // SEM bar
 await sampleChrome("2d", "SEM lens + analysis panels");
 await samplePanel("2d", "lab", () => window.__solidify.app.startLab(), () => window.__solidify.lab.close());
 await samplePanel("2d", "heat treat", () => window.__solidify.app.startHeat(), () => window.__solidify.heat.close());
 await samplePanel("2d", "optimizer", () => window.__solidify.app.startOptimizer(), () => window.__solidify.opt.stop());
 await samplePanel("2d", "challenge", () => window.__solidify.app.startChallenge(), () => window.__solidify.challenge.stop());
+// (v8 U1b review) a heat treat panel carrying a real report: a 4 h anneal of
+// a seeded 512² aluminum casting (verify-heattreat-gpu's pour). With learn
+// mode on its card took the uncapped panel to -48px at 1024x768, header and
+// exit button off screen; `ret` proves the card was really there
+await samplePanel("2d", "heat treat after a 4 h anneal", async () => {
+  const S = window.__solidify;
+  S.app.setRun(false);
+  S.app.setGrid(512);
+  await new Promise(r => setTimeout(r, 400));
+  const s = S.sim();
+  let rs = 0x9e3779b9 >>> 0;
+  const rnd = () => { rs = (rs * 1664525 + 1013904223) >>> 0; return rs / 4294967296; };
+  Object.assign(s.params, { scen: 0, heatIn: 0, coolRate: 0.6, alloyOn: 0, twinProb: 0, noiseAmp: 0.01, aniMode: 4, delta: 0.04, latent: 1.4 });
+  s.reset(1 - 0.9);
+  for (let i = 0; i < 1600; i++) s.addSeed(rnd() * s.n, rnd() * s.n, 2.5, rnd() * Math.PI * 2);
+  for (let i = 0; i < 12; i++) await s.stepSync(0);
+  let fs = 0;
+  for (let k = 0; k < 60; k++) {
+    await s.stepSync(120);
+    const st = await s.readStats();
+    if (st) fs = st.fracSolid;
+    if (fs > 0.985) break;
+  }
+  S.app.startHeat();
+  const panel = document.getElementById("heattreat");
+  const btn = document.getElementById("htRun");
+  const note = () => document.getElementById("htNote").textContent;
+  for (let i = 0; i < 40 && /waiting/.test(note()); i++) await new Promise(r => setTimeout(r, 100));
+  const hold = panel.querySelectorAll('input[type="range"]')[1];
+  hold.value = "240";
+  hold.dispatchEvent(new Event("input", { bubbles: true }));
+  for (let i = 0; i < 40 && btn.disabled; i++) await new Promise(r => setTimeout(r, 100));
+  const armed = !btn.disabled;
+  btn.click();
+  for (let i = 0; i < 100 && !S.heat.busy; i++) await new Promise(r => setTimeout(r, 50));
+  for (let i = 0; i < 1200 && S.heat.busy; i++) await new Promise(r => setTimeout(r, 100));
+  return { fs: +fs.toFixed(3), armed, card: document.getElementById("htReport").textContent.length };
+}, () => window.__solidify.heat.close());
 // and again with the rail hidden: --rail-inset drops to 0 there, and the
 // transport-bar clause has to hold without the rail's width doing the work
 await toggleRail();
@@ -706,6 +840,29 @@ for (const [w, h] of VIEWPORTS) {
   slices.push({ vp: `${w}x${h}`, ...(await S(() => window.__railProbe.slicePop())) });
 }
 await sampleChrome("3d", "SLICE lens + analysis panels");
+// learn on: the popup's explanation and hint, and one explanation open in the
+// column, the popup measured for its rows and hint at every viewport too. On
+// the Niyama cut style, the popup's tallest state (its legend line and that
+// line's learn sentence), which is what took it over the readouts and the
+// scale bar before it was capped; the style goes back to the default after
+const setCutStyle = last => S(`(() => {
+  const sel = document.querySelector("#slicePop select");
+  sel.value = String(${last} ? sel.options.length - 1 : 0);
+  sel.dispatchEvent(new Event("change", { bubbles: true }));
+  window.__solidify.ui.sync();
+  return sel.selectedOptions[0]?.textContent ?? null;
+})()`);
+const niyamaStyle = await setCutStyle(true);
+await sleep(300);
+await S(() => window.__railProbe.learnSet(true));
+await S(() => window.__railProbe.openPanelInfos());
+for (const [w, h] of VIEWPORTS) {
+  await setVP(w, h);
+  slices.push({ vp: `${w}x${h}`, style: niyamaStyle, ...(await S(() => window.__railProbe.slicePop())) });
+}
+await S(() => window.__railProbe.learnSet(false));
+await sampleLearnChrome("3d", "SLICE lens (Niyama style) + analysis panels");
+await setCutStyle(false);
 await page.evaluate(() => { window.__solidify.app.setView3d(4); window.__solidify.ui.sync(); });   // SEM bar
 await sampleChrome("3d", "SEM lens + analysis panels");
 await samplePanel("3d", "lab", () => window.__solidify.app.startLab(), () => window.__solidify.lab.close());
@@ -723,6 +880,13 @@ await sampleHide("3d");
 await setVP(1440, 900);
 const learnRun = { boot: learnBoot };
 learnRun.audit = await S(() => window.__solidify.ui.learnAudit());
+// the panels' hints (v8 U1b review), read with the rail's audit above and so
+// before the reload below resets the record: every panel has been built by
+// now, lab mode and heat treat in both modes and the SECTION PLANE popup, so
+// every declared hint must be bound. (Through the app's own module, not a
+// page-side import of learn/panels.ts, which vite can serve as a second,
+// empty instance.)
+learnRun.panelAudit = learnRun.audit.panelHints;
 // a freshly loaded page, learn stored off: the samples above expanded every
 // explanation, and an explanation stays expanded while learn is toggled
 const reloadPage = async () => {
@@ -929,6 +1093,23 @@ const sources = await S(async () => {
   }
   for (const [k, t] of Object.entries(R.RAIL_NOTES)) out.push(["learn", `note ${k}`, t]);
   for (const [k, c] of Object.entries(R.RAIL_CAVEATS)) out.push(["line", `caveat ${k}`, c.line], ["learn", `caveat ${k}`, c.learn]);
+  // what learn mode shows outside the rail (v8 U1b review): the panel
+  // entries and their hints, the panels' caveat pairs, the report cards' and
+  // status lines' sentences, and the lab report's thermal notes
+  const P = await import("/src/learn/panels.ts");
+  const TH = await import("/src/thermal.ts");
+  for (const e of P.PANEL_LEARN) {
+    out.push(["learn", e.id, e.text]);
+    for (const [k, h] of Object.entries(e.hints ?? {})) out.push(["hint", `${e.id} ${k}`, h]);
+  }
+  for (const [group, caveats] of [["lab", P.LAB_CAVEATS], ["heat", P.HEAT_CAVEATS], ["opt", P.OPT_CAVEATS]])
+    for (const [k, c] of Object.entries(caveats)) {
+      if (c.line) out.push(["line", `${group} ${k}`, c.line]);
+      out.push(["learn", `${group} ${k}`, c.learn]);
+    }
+  for (const [k, t] of Object.entries(P.LAB_CARDS)) out.push(["learn", `card ${k}`, t]);
+  for (const [k, t] of Object.entries(P.STATUS_LEARN)) out.push(["learn", `status ${k}`, t]);
+  for (const [k, t] of Object.entries(TH.THERMAL_LEARN)) out.push(["line", `thermal ${k.slice(0, 24)}`, k], ["learn", `thermal ${k.slice(0, 24)}`, t]);
   const m3 = M.to3D({ label: "", note: "", learn: "", params: { aniMode: 2 } });
   out.push(["line", "note3d", m3.note3d], ["learn", "learn3d", m3.learn3d]);
   for (const r of [0, 0.5, 50, 5e3, 5e5, 5e7]) out.push(["line", `regime ${r}`, U.regimeOf(r)]);
@@ -1032,6 +1213,8 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   const bad = chromeSamples.filter(s => s.hits.length).map(s => ({ ...where(s), hits: s.hits }));
   const overTransport = chromeSamples.filter(s => s.overTransport.length).map(s => ({ ...where(s), over: s.overTransport }));
   const clash = chromeSamples.filter(s => s.clash.length).map(s => ({ ...where(s), clash: s.clash.slice(0, 3) }));
+  // (v8 U1b review) a bottom-anchored item that starts above the window
+  const offTop = chromeSamples.filter(s => s.offTop.length).map(s => ({ ...where(s), offTop: s.offTop }));
   const audits = chromeSamples.flatMap(s => s.panels.map(p => ({ ...where(s), ...p })));
   const panelBad = audits.filter(p => p.nBad).map(p => ({ ...where(p), panel: p.name, width: p.width, bad: p.bad }));
   const thinSliders = audits.filter(p => p.sliders.some(w => w < 60)).map(p => ({ ...where(p), panel: p.name, sliders: p.sliders }));
@@ -1052,16 +1235,34 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   const topMissing = [...new Set(chromeSamples.flatMap(s => ALWAYS.filter(n => !s.top.includes(n))))];
   const topSomewhere = ["viewcube", "scalebar"].filter(n => !chromeSamples.some(s => s.top.includes(n)));
   const slidersMeasured = audits.reduce((n, p) => n + p.sliders.length, 0);
-  const ok = bad.length === 0 && overTransport.length === 0 && clash.length === 0 && panelBad.length === 0
+  // Liveness for the learn-on half (v8 U1b review): every mode panel opened
+  // (13, the treated heat treat included) was sampled with learn off and on
+  // at every viewport, the learn-on samples really had explanations open,
+  // and the states tall enough to need the cap were reached: each of the
+  // bottom-anchored items was capped (it scrolled) in some learn-on sample,
+  // and the treated heat treat's card was really on screen. Without these a
+  // learn toggle that never turned on, or a short panel, would pass the
+  // clash clause for free.
+  const learnSamples = chromeSamples.filter(s => s.learn);
+  const learnUnopened = learnSamples.filter(s => !(s.opened > 0)).map(where);
+  const cappedSomewhere = name => learnSamples.some(s => s.scrolls?.[name]);
+  const uncapped = ["apanels", "apanels3", "slicePop"].filter(n => !cappedSomewhere(n));
+  const panelCapped = learnSamples.some(s => Object.entries(s.scrolls ?? {}).some(([n, v]) => n.startsWith("panel ") && v));
+  const treated = panelOpened.find(p => p.what === "heat treat after a 4 h anneal");
+  const treatedOk = !!treated?.ret && treated.ret.armed === true && treated.ret.fs > 0.9 && treated.ret.card > 100;
+  const ok = bad.length === 0 && overTransport.length === 0 && clash.length === 0 && offTop.length === 0 && panelBad.length === 0
     && thinSliders.length === 0 && missing.length === 0 && notOpened.length === 0
-    && panelOpened.length === 12 && hiddenOpened === 6 && hiddenSamples === 8 * VIEWPORTS.length
-    && audits.length === 12 * VIEWPORTS.length && slidersMeasured >= 100
+    && panelOpened.length === 13 && hiddenOpened === 6 && hiddenSamples === 14 * VIEWPORTS.length
+    && audits.length === 26 * VIEWPORTS.length && slidersMeasured >= 100
+    && audits.filter(p => p.learn).length === 13 * VIEWPORTS.length && learnUnopened.length === 0
+    && uncapped.length === 0 && panelCapped && treatedOk
     && topMissing.length === 0 && topSomewhere.length === 0 && chromeSamples.every(s => s.transportSeen);
   check("RAIL-CLEAR", ok, {
-    samples: chromeSamples.length, hiddenSamples, panelAudits: audits.length, slidersMeasured,
+    samples: chromeSamples.length, learnSamples: learnSamples.length, hiddenSamples, panelAudits: audits.length, slidersMeasured,
     panels: panelOpened.map(p => `${p.mode} ${p.what}: ${p.names.join(", ")}`),
+    treated: treated?.ret ?? null, cappedInLearn: { uncapped, panelCapped }, learnUnopened: learnUnopened.slice(0, 4),
     missing, notOpened, topMissing, topSomewhere, underRail: bad.slice(0, 8), overTransport: overTransport.slice(0, 8),
-    clash: clash.slice(0, 6), panelOverflow: panelBad.slice(0, 6), thinSliders: thinSliders.slice(0, 6),
+    clash: clash.slice(0, 6), offTop: offTop.slice(0, 6), panelOverflow: panelBad.slice(0, 6), thinSliders: thinSliders.slice(0, 6),
   });
 }
 
@@ -1084,7 +1285,13 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
 
 {
   const bad = slices.filter(s => !s.visible || s.bad.length || s.rows < 3);
-  check("SLICE-ROWS-INSIDE", slices.length === VIEWPORTS.length && bad.length === 0, { rows: slices[0]?.rows, bad: bad.slice(0, 4) });
+  // learn on (v8 U1b review): the CT sweep hint shown, on one line, and shown
+  // exactly when its control is; learn off: no learn text at all
+  const learnBad = slices.filter(s => s.learn ? (s.hints < 1 || s.hintBad.length || !(s.lrnVisible >= 3)) : (s.hints || s.lrnVisible))
+    .map(s => ({ vp: s.vp, learn: s.learn, hints: s.hints, hintBad: s.hintBad, lrnVisible: s.lrnVisible }));
+  const nLearn = slices.filter(s => s.learn).length;
+  check("SLICE-ROWS-INSIDE", slices.length === 2 * VIEWPORTS.length && nLearn === VIEWPORTS.length && bad.length === 0
+    && learnBad.length === 0, { rows: slices[0]?.rows, learnSamples: nLearn, bad: bad.slice(0, 4), learnBad: learnBad.slice(0, 4) });
 }
 
 // sentence count of a learn text: a sentence ends at . ! or ? before a space
@@ -1151,6 +1358,20 @@ const proseDash = s => typeof s === "string" && s.includes("—") && s !== "—"
   const b = r.blocked;
   if (!b.booted || b.throws !== true || b.aria !== "true" || !(b.infosShown >= 12) || !b.headerToggles || b.ownErrors.length)
     why.push({ storageBlocked: b });
+  // the panels (v8 U1b review): every hint the panel entries declare was
+  // bound, matched by the label its control prints (a label that drifted
+  // from its entry's key would drop its hint silently); in every learn-on
+  // panel sample learn text rendered, and in every learn-off one none did;
+  // every panel hint shown is one line and shows exactly with its control
+  const pa = r.panelAudit;
+  if (!pa || pa.hintsDeclared < 16 || pa.hintsUnbound.length) why.push({ panelAudit: pa });
+  const pAudits = chromeSamples.flatMap(s => s.panels.map(p => ({ what: s.what, vp: s.vp, rail: s.rail, ...p })));
+  const pHintBad = pAudits.filter(p => p.hintBad.length).map(p => ({ what: p.what, vp: p.vp, panel: p.name, bad: p.hintBad.slice(0, 3) }));
+  const pDark = pAudits.filter(p => p.learn && !(p.lrnVisible > 0)).map(p => `${p.what} ${p.vp}`);
+  const pLeak = pAudits.filter(p => !p.learn && p.lrnVisible > 0).map(p => `${p.what} ${p.vp}`);
+  const pHints = pAudits.filter(p => p.learn).reduce((n, p) => n + p.hints, 0);
+  if (pHintBad.length || pDark.length || pLeak.length || !(pHints >= 100))
+    why.push({ panelHints: pHints, hintBad: pHintBad.slice(0, 4), learnDark: pDark.slice(0, 4), learnLeak: pLeak.slice(0, 4) });
   // every learn string any material or state can show is 1 to 2 sentences,
   // and every hint is short enough for one line
   const shape = sources.filter(([k, , t]) => (k === "learn" && (sentences(t) < 1 || sentences(t) > 2))
@@ -1158,6 +1379,7 @@ const proseDash = s => typeof s === "string" && s.includes("—") && s !== "—"
   if (shape.length) why.push({ shape: shape.slice(0, 6) });
   check("RAIL-LEARN", why.length === 0, {
     sections: a.sections, hintsDeclared: a.hintsDeclared, fewestHints,
+    panelHintsDeclared: pa?.hintsDeclared, panelHintsUnbound: pa?.hintsUnbound, panelHintsShown: pHints,
     keys: r.keys.map(k => `Shift+Tab ${k.before.focused ? "reached" : "MISSED"} the "i"; ${k.key}: ${k.before.expanded} -> ${k.after.expanded}, section ${k.after.open === k.before.open ? "unchanged" : "TOGGLED"}${k.runToggled ? ", RUN TOGGLED" : ""}`),
     header: `Shift+Tab x2 ${r.headKeys.s0.headFocused ? "reached" : "MISSED"} the header; Enter: ${r.headKeys.s0.open} -> ${r.headKeys.s1.open}, Space: -> ${r.headKeys.s2.open}`,
     space: r.space.map(s => `${s.where}: run ${s.flipped ? "flipped" : "NOT FLIPPED"}${s.restored ? "" : ", NOT RESTORED"}${s.pressed ? ", BUTTON PRESSED AGAIN" : ""}`),

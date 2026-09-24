@@ -235,7 +235,14 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   asserts the identity ΔT₀·k_eff = Q, and asserts that every preset which calibrates differs
   from the material default. `CALIB-MIX-REFUSE` drives six mixes with no reference interval
   and asserts WHICH clause fired for each — a refusal naming the wrong mechanism is a wrong
-  statement rather than an absent one. `CALIB-MIX-OFF-IDENTITY` is the one that protects the
+  statement rather than an absent one. Since v8 U1c `dT0Source` is the learn-mode text and
+  `dT0Line` is what the composer prints with learn mode off, so both gates hold the on-screen
+  line to the same clauses: the EXTRAPOLATED GAUGE label, the real primary range and the ratio
+  (or, for 4340, "no primary freezing range left" and no ratio), no negative kelvin figure, and
+  each refusal's clause and offending value, six distinct lines for six cases. A DILUTE line
+  prints a solidus temperature, and `CALIB-MIX-OWN` requires it to say "linear solidus" (the
+  learn text "straight-line solidus"), with at least one shipped preset in that branch: the
+  number is TmC + (m/k)c, and 2024's reads 579.6 °C against a real solidus near 500 °C. `CALIB-MIX-OFF-IDENTITY` is the one that protects the
   rest of the suite: with no poured mix, `calibrate()` is `Object.is`-identical to a verbatim
   transcription of the pre-P1 implementation across 324 comparisons, and the two materials
   with no `si` block are asserted by NAME and by count rather than by both sides returning
@@ -269,7 +276,19 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   while its marker floated 30.8 K above the drawn line, because Cu–Sn's dilute slope and its
   invariant chord disagree by half again. The residual must also start on the drawn liquidus, end
   on the marker, and decompose additively into its two causes — the other solutes and the
-  chord-versus-dilute gap — with both causes shown dominant for some shipped preset. `PD-NO-ROW-REFUSES` drives eleven
+  chord-versus-dilute gap — with both causes shown dominant for some shipped preset. Since the
+  v8 U1c review it also reads the NOTE that explains that bar, over the presets and three named
+  cases (Ni–5Nb–1W, Al–0.175Fe, Al–1Cu): each printed part carries its own direction, "down"
+  (it puts the marker below the drawn line) or "up", that direction matches the sign of the
+  part it describes, and the signed parts add up to the signed total the note prints (the U1c
+  cut gave the first part no direction, so Ni–5Nb–1W's 1.0 K from W, which raises the
+  liquidus, read as "below"); a residual that rounds to 0.0 K prints no note, no part prints as
+  0.0 K and no note ends on a colon; opposite-signed parts and a silent residual must each be
+  met at least once. And the standing chord note may call the chords "the boundaries the solver
+  uses" only on an isomorphous figure, whose lines are drawn from the solver's own m and k: an
+  invariant row's chords join the pure metal to the cited invariant point while the solver
+  integrates the dilute slope, so neither the line nor its learn text may claim it there (every
+  pair, drawn at half its slider range). `PD-NO-ROW-REFUSES` drives eleven
   undrawable cases — the five materials with no alloy base, an unknown material, a pure melt, an
   unknown base, an inherited object key, all-zero weights and the geometrically impossible ni-W
   row — and requires each refusal to exceed 40 characters, at least five distinct reasons among the eleven, and
@@ -277,6 +296,8 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   that refused everything cannot pass. `PD-FIGURE-CURSOR` settles the three absences without a
   GPU: a temperature on the diagram is drawn, one off it is NOT drawn and IS named, and null is
   silent — "no liquid left" and "below the axis" are different facts and the panel says so.
+  (A figure note is `{ line, learn }` since v8 U1c; the naming is required of the LINE, the
+  half on screen with learn mode off.)
   `PD-CHAPTER-PURE` (v7.1 P6) gates the claim the new tour chapter makes, on the layer where it
   can be gated: the chapter opens the composer and tells the reader to drag SI across 1.65 wt%,
   and it cannot step them through the modal, so what it asserts has to be true of `layout()` and
@@ -296,12 +317,17 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   of BOTH of its boundaries: C_inv ∓ 1e-9 and C_SM ∓ 1e-9, with the exact regime asserted on
   each side rather than "A356 comes out two-phase", which one hardcoded branch would satisfy.
   Across C_inv the NAME of the first phase to freeze must change, and both names are read out of
-  the table — `(Al)` from BASES, `theta-Al2Cu` from the row — so two empty strings cannot pass
+  the table — `(Al)` from BASES, `θ-Al2Cu` from the row — so two empty strings cannot pass
   as "different". The two rows whose base solid is the peritectic PRODUCT (Al–Ti, Mg–Zr) have
   C_inv < C_SM, so their whole two-phase band lies past the invariant; that topology is asserted
   separately, and it is why C_inv is tested first — in the other order those rows report
   SINGLE-PHASE for a melt whose first solid is Al3Ti. It also gates the shaded band on the P2
-  figure, whose edges are `Object.is`-exactly the row's own C_SM and C_inv.
+  figure, whose edges are `Object.is`-exactly the row's own C_SM and C_inv. Since v8 U1c each
+  regime has two halves, the learn-mode `source` and the on-screen `line`, and both are held at
+  every sample: the line present, number-clean and naming its own solute, and a SINGLE-PHASE
+  line keeping its qualifiers on screen ("at T_inv", "at equilibrium" and "no solvus below
+  T_inv"), because a bare "single-phase" reads as the casting's state when cold and 2024 is
+  (Al) + θ at room temperature.
   `PD-INVARIANT-BAND` recomputes the lever rule and Gulliver–Scheil inside the gate to 1e-9 over
   every eutectic row and asserts the ordering lever ≤ Scheil at every sampled composition, both
   monotone in composition. It also pins the two things an adversarial review corrected in this
@@ -310,7 +336,10 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   consumes only part of it and the rest freezes below T_p) and the retired, false explanation —
   that the lever rule and Scheil "do not describe a peritectic" — is BANNED from coming back; and
   a reactant-peritectic melt richer than the reaction's own product must report the primary
-  CONSUMED and drop it from the equilibrium set, while a leaner one must retain it. Its anchors are INDEPENDENT statements rather than the same formula
+  CONSUMED and drop it from the equilibrium set, while a leaner one must retain it. The
+  peritectic's on-screen regime line (what the readout and the figure print with learn mode off)
+  must name the reaction and say "no fraction", and, for the row whose product composition is a
+  bracket (Fe–Ni), say "bracket", the same clauses the learn text is held to. Its anchors are INDEPENDENT statements rather than the same formula
   twice: as k → 0 the solid takes nothing, so mass balance alone fixes the eutectic share at
   c₀/C_inv and Gulliver–Scheil must approach it; the lever rule is linear, so a quarter of the
   way across the band it is exactly 0.25, which a flipped lever gives as 0.75. Pb–Sn
@@ -322,8 +351,11 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   `PD-REGIME-EXACT` handles separately. `ALLOY-PHASES-NAMED` drives both
   polarities over the nine presets: seven emit at least one `notGrown` line and two emit none,
   with every line containing that row's own second-phase token, and the two columns
-  (PHASES EQUILIBRIUM PREDICTS / PHASES THIS SOLVER GROWS) must differ by exactly as many phases
-  as there are lines. `PD-CAP-CEILING` asserts the POSTCONDITION rather than the implementation —
+  (EQUILIBRIUM LEAVES / SOLVER GROWS) must differ by exactly as many phases as there are
+  lines. The lines are the on-screen half since v8 U1c, so a peritectic's refusal is read off the
+  line as "no fraction", and every line must carry its learn text (`notGrownLearn`, the same
+  string `derive()` files under the line in `d.learn`), where a peritectic's still says "No
+  fraction is put on it". `PD-CAP-CEILING` asserts the POSTCONDITION rather than the implementation —
   for any input, the solutes `derive()` actually used carry no composition at or past their own
   C_inv — by all three routes: the slider bound, a share link, and `window.__solidify.alloy`.
   It fails on the pre-P3 tree for all 25 pairs. Five pairs where the hand-picked cap reached past
@@ -357,7 +389,7 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   known; Ga, Sn, Sb, Bi, Mn, Hg, Pa, Am). Densities are gate-local, the same idiom
   `verify-regimes.mjs` uses for Pb–Sn — a check on the shipped table, not cargo in the bundle.
   `EL-TIER-TOTAL` drives all 6 × 118 = 708 pairs: exactly one of four tiers each, deterministic,
-  never null, and every non-ASSESSED sentence over 25 characters (the shortest is 186). The
+  never null, and every non-ASSESSED sentence over 25 characters (the shortest is 177). The
   distinctness clause counts sentence SKELETONS — base labels, element symbols and every number
   replaced — because the naive distinct-string count is vacuous when every sentence interpolates
   its own element: measured on this tree it is 488 of 708, and it would pass a file that said
@@ -368,7 +400,12 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   and the ASSESSED count equal to the number of pairs holding both a cited `Solute.source` and a
   `phasedata` row — 25, computed rather than written. Every one of the 708 is then driven through
   `derive()` as well, and ASSESSED must hold if and only if the pour is accepted, so an admission
-  and a pour cannot drift apart. `EL-TROUTON-CROSSCHECK` checks the vaporisation data against a
+  and a pour cannot drift apart. Every PAST-THE-INVARIANT answer, driven at the ceiling and one
+  step past it, must carry its own wt% and its ceiling in BOTH halves: the sentence (learn mode)
+  and the `line` the reason panel shows with learn mode off. Since v8 U1c the sentence is the learn-mode text and the vapor
+  advisory has two halves too, the on-screen `line` and the learn `text`: each half must carry
+  " atm" exactly when a pressure was computed, and a refused one must say which of the five
+  reasons applies without printing a pressure. `EL-TROUTON-CROSSCHECK` checks the vaporisation data against a
   physical law instead of against itself. The fixed-point check originally planned for this slot
   was a tautology — p(T_b) = exp(0) = 1 atm for ANY enthalpy — so a zinc row carrying 11.5 kJ/mol
   instead of 115 would have passed it while turning 59 atm over liquid iron into 1.5 and
@@ -380,7 +417,9 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   tree and each reproducing the literature value the milestone plan quoted before any of it was
   written. The direction that would be a bug is asserted too: applied as a REFUSAL this rule
   refuses brass, so Cu–30Zn must compute above one atmosphere, must stay ASSESSED, and its line
-  must name the activity coefficient the app does not have. Bands are asserted at the composition
+  must name the activity coefficient the app does not have (both halves, since v8 U1c). The
+  ideal-solution caveat is held on both halves as well: kept by the lines between the cutoff and
+  the fume threshold, dropped only where the hundredfold headroom holds. Bands are asserted at the composition
   each claim is about — pure zinc into a charge BOILS, 1 wt% dissolved is a FUME — which is a
   distinction the first draft of the gate got wrong. `ALLOY-MOVES-THE-PHYSICS` replaces the
   deleted bundle-delta metric: every assessed pair at its own probe composition must move the
@@ -396,7 +435,7 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   small integer — "the ceiling binds for 5 pairs" is satisfied by any document containing the
   character 5, a lesson this repo wrote down at P3.
 - **`verify-composer-grid.mjs`** (browser-free, v7.1 P5) — the periodic grid the composer now
-  opens with. Six checks, module load guarded the same way. `ALLOY-OPEN-IDENTITY` is the
+  opens with. Seven checks, module load guarded the same way. `ALLOY-OPEN-IDENTITY` is the
   keystone and it is a NON-REGRESSION gate by construction, which is the honest description:
   P5 adds no pourable chemistry — ASSESSED is the same 25 pairs — so all 9 presets and all 25
   legacy pairs must derive a bit-identical `{alloyOn, c0, mLiq, kPart, dSol}` tuple and an
@@ -410,7 +449,9 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   required to produce a DIFFERENT tuple so a comparator stuck at "equal" fails, and the same
   mix with its keys reordered required to still MATCH so the comparator is not merely
   sensitive to something else. `Object.is`, not `===`, so a sign-flipped zero counts as a
-  difference. `ALLOY-SHARE-PRE-P5` restores fifteen links minted before this arc — including
+  difference. The clamp STRINGS in that reference were re-baselined on purpose in v8 U1c, when
+  three of them lost an em dash to a colon; every number is still the da16b5f measurement.
+  `ALLOY-SHARE-PRE-P5` restores fifteen links minted before this arc — including
   the landing page's own published `#alloy=al:Si7,Mg0.35,Ti0.12` and the three that clamp
   against a P3 ceiling — and requires the mix, the refusals, the `clamped[]` signal and the
   re-encoded string to be unchanged; then proves structurally that no grid cell can put a new
@@ -423,7 +464,10 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   its own sentence (the mechanical form of "composed, not truncated"), none leaks a
   placeholder, the 708 lines carry 33 distinct skeletons with no two reasons sharing one, and
   **29 cells are pinned by BRANCH with a marker each must carry and one it must not** — the
-  shape P4's second review proved a count of shapes cannot replace. It also holds the
+  shape P4's second review proved a count of shapes cannot replace. (v8 U1c de-dashed these
+  lines, so the markers that held an em dash, "REACTS — to AlN" and "oxygen does dissolve — it
+  is probed in-ladle", now read "reacts to form AlN" and "(it is probed in-ladle)", and a
+  must-not that named another branch's old words follows that branch's new ones.) It also holds the
   composition the grid asks at: 25 pairs are ASSESSED at each pair's own `probeWt` and only 22
   at a flat 1 wt%, and the three that would have painted as refusals are named (al-Ti, fe-C,
   mg-Zr). `LANDING-CLOSURE-CLEAN` walks the static-import closure from `src/landing.ts` and
@@ -441,9 +485,22 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   bare small integer. It caught two of its own subjects while being written: "at half its own
   invariant composition" (false wherever the ceiling exceeds 2 wt%, since `probeWt` is a `min`)
   and a fume-stripe mechanism given as "hundreds of degrees" when the measured bracket is
-  11 K at one end and 54 K at the other. Four of the six FAIL against the pre-P5 tree, verified
-  by running them there; the two that pass on both are the non-regression pair, which is what
-  they are for.
+  11 K at one end and 54 K at the other. Four of the six P5 checks FAIL against the pre-P5 tree,
+  verified by running them there; the two that pass on both are the non-regression pair, which
+  is what they are for. `COMPOSER-COPY` (v8 U1c) holds every string the composer can print to
+  `docs/COPY-STYLE.md`, read from the functions that compute it rather than from a browser
+  sample, because almost all of it is computed: all 708 grid lines and sentences with their
+  vapor and size readouts (and the past-the-invariant and not-a-composition compositions the
+  probe cannot reach), `derive()` over the presets, every pair at four compositions and every
+  refusal shape, the share-link refusals, and `layout()` over all of those with the melt on the
+  diagram, off it and in the wrong crucible. It sorts them into LINES (on screen: no prose em
+  dash, no British spelling, no repo path or milestone code, no NaN/undefined/null, one line
+  under 200 characters) and LEARN texts (the same bans, and 1 to 2 sentences), and requires
+  every caveat line `derive()` raises and every figure note to carry a learn text of its own.
+  The phase diagram's source line is each row's `cite`, all 25 of which must be complete (no
+  "…") and 30–130 characters, and the figure must print exactly that one. Both detectors are run
+  on a fixture first, and liveness requires computed and refused vapor lines, six refusal
+  kinds, all four clamps, all four ΔT₀ regimes and the cursor, chord and dashed-line notes.
 - **`verify-hero-manifest.mjs`** (browser-free, v8, in CI) — the landing hero's pre-rendered
   frame set against the contract that the Blender renderer and the page were both written to:
   180 square, opaque WebP frames on `#0a0b0d` at 1200 and 600 px, a poster at each size, and
@@ -492,7 +549,38 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   DIFFER. The vapour stripe is checked as a SECOND channel: Al → Fe puts a fume mark on sodium,
   potassium, calcium and cadmium, none of which changed tier, so a grid wired to the tier alone
   cannot pass. And the three ceiling pairs are added by click and required to land one step
-  UNDER their invariant rather than on it.
+  UNDER their invariant rather than on it. `COMPOSER-LEARN` (v8 U1c) reads the modal in its two
+  registers as VISIBLE text, with 1045 steel poured and the mercury cell open: learn mode off
+  shows each caveat's line (the grid line, the vapor line, `dT0Line`, the ungrown-phase line, a
+  clamp) and none of their learn texts, with no learn element and no "i" on screen; learn mode
+  on adds each learn text from the same producer, the three "i" buttons (composer, element
+  screen, phase diagram) and the readout hints, and the header's "i" opens exactly the
+  composer's own explanation; turned off again, it all goes. In both states no prose em dash is
+  in the modal's visible text or its tooltips. Since the U1c review: learn mode is switched with
+  the MODAL'S OWN toggle, and only after `elementFromPoint` at its centre returns it (the top
+  bar's toggle sits under the overlay, where a real click closed the modal, and the old gate's
+  scripted `toggle.click()` skipped the hit test that would have shown it); the hint count is
+  exact for each state (five for 1045, a peritectic with no "freezes at T_inv" row, six for
+  A356 poured through its quick-fill) and `composer.learnAudit()` must report every declared
+  hint bound; the ASSESSED Mn cell already in the 1045 melt is opened with learn off and on, so
+  the tier chip "assessed · pourable" and the in-melt call to action (the composer's own
+  literals, which no other gate renders) are scanned for dashes too; and no learn paragraph is
+  shown twice, with the figure's repeats of the readout's clamp and regime paragraphs counted as
+  held back, so the dedupe is seen working. `COMPOSER-DIALOG` (U1c review) drives the modal with
+  real key presses: opened from the rail's own button with focus on it, the card is a
+  `role="dialog"` with `aria-modal` and a label, focus moves into its header, every child of
+  `#app` but `#tour` is inert, Tab from the last stop wraps to the first and Shift+Tab back,
+  Space does not run the melt behind it, the reason panel is a polite live region describing
+  the picked cell, and Escape closes it, lifts the inert and returns focus to the button; the
+  positive control is that with the modal closed Space runs the melt again. Every clause the
+  U1c review added here and in the browser-free gates above was proved able to fail with no
+  worktree edit: fifteen perturbations of a scratch copy of the tree, each confirmed landed,
+  each FAILing its own gate with its own named reason while that script's other checks stayed
+  OK, each file restored byte for byte from the tree; and two runs of this file against a second
+  dev server serving the copy with thirteen browser-side perturbations (a drifted hint key, an
+  em dash in the tier chip, the dedupe off, the modal's toggle not hit-testable, focus left
+  behind, no inert, no Tab or Shift+Tab wrap, Space reaching the melt, no live region, no
+  Escape, inert left after close, focus not returned), each read off its own flag.
 - **`verify-phasediagram-gpu.mjs`** (v7.1 P2, joined by `TOUR-PD-STEP` in P6) — `PD-CURSOR-LIVE`, the cursor against a real cast.
   Its own file, and that is the point: written inside `verify-quant.mjs` first, it could not pass
   there, because every QPF-* block above it stages the solver by writing `frozenT`, `dx` and `dt`
@@ -591,13 +679,42 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   until it holds from about frame 104 to frame 114.
 - **`verify-optimizer.mjs`** — confirms "Engineer it" enters ML mode paused, that the run/pause
   transport gates the CMA-ES loop (it doesn't auto-start), and that exiting the mode restores
-  normal transport.
+  normal transport. It mostly logs; its one verdict, `EXIT`, sets the exit code: the mode is
+  left by the panel's `exit` button found by its text (v8 U1b: the header's first button is now
+  learn mode's "i", which the old `#lab button` selector clicked instead, leaving the mode
+  open), and afterwards the optimizer, the engineering transport and the panel must all be
+  gone; a missing button fails by name. Until the U1b review this step never ran whenever the
+  search converged inside the burst budget, because that branch applied the recipe and exited
+  the process first, so the exit path was untested exactly when the run went well. It now runs
+  on both paths: after an apply the script re-enters the mode and leaves it by the button.
+  Proved able to fail with no worktree edit, twice, each time a second dev server serving the
+  tree through one logged in-memory change to `src/optimizer.ts` and a copy of this script
+  differing only in its hardcoded port: the button printing "leave" failed `EXIT` with
+  `exitButtonFound: false`, and a button whose click does nothing failed it with the optimizer,
+  its engineering transport and its panel all still up; exit code 1 both times. (Every run
+  since has ended on the report branch, converged or stalled, so the paused branch's copy of
+  the step is the one that rarely runs.)
 - **`verify-tools.mjs`** — the v1.8 tool batch (faceted growth, `#set=` share-link round-trip,
   the analysis-panel enlarge modal, the specimen-tilt view) plus the v4.0 physics checks below,
   the lab gates (`LAB`, and v6.1's `LAB4` — the σ_y row must BE Hall–Petch on the gate's own
   census to the printed decimal, the verdict must judge the spec as dialled at the pour even
   when the dial is shoved to 999 mid-run, a no-spec pour must carry no verdict row, and the
   model metal must refuse by name) and the heat-treat share-link gates.
+
+  v8 U1b re-pinned `LAB4`'s verdict with the copy pass. The row now reads
+  `spec σ_y ≥ N MPa · met: casting at N MPa` (or `· missed:`), and the gate keys on
+  ` · met: ` / ` · missed: `. It keyed on ` — met: ` and a bare `/missed/` before; de-dashing
+  the row alone would have made the verdict clause read "none" and left the refusal guard's
+  "met" half matching nothing. The estimator name the gate reads (`⟨A⟩-equivalent`) moved from
+  the σ_y caveat to the census row, beside the d̄ it defines. The report's learn-mode sentences
+  are empty `data-lrn` slots filled only while learn mode is on (`src/learn` `learnSlot`), so
+  this gate, which runs with learn mode off, reads exactly the instrument's text; the same holds
+  for `#htNote` and `#htReport` below. Proved able to fail with no worktree edit: a second vite
+  server on a spare port served the tree through a transform that made three logged in-memory
+  changes to `src/lab.ts` (the met and missed tokens renamed, and the model metal's refusal made
+  to print ` · missed: `), and a copy of this script differing only in its hardcoded port ran
+  against it: `LAB4` FAILed with `verdictWord: "none"` and `refuseC: false`, and the other 15
+  checks stayed OK.
 - **`verify-rail.mjs`** (v8 U0): the control rail never scrolls sideways, every slider's value
   is on screen, and nothing sits under the rail or on the chrome beside it; since v8 U1a also
   that learn mode works and that no prose em dash reaches the rail in the states and strings
@@ -712,6 +829,37 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   with the rail hidden, where the old clause accepted "under" anywhere (`RAIL-CLEAR` saw that
   drop only at 1024 and 960, as the switch reaching the lens bar). The other five checks stayed
   OK.
+
+  The U1b review extended the gate past the rail, because learn mode is what makes the other
+  bottom-anchored surfaces grow and nothing sampled them with it on. Every mode panel sample is
+  now taken twice, learn off and then on with the panel's "i" open (13 panels opened, 130 panel
+  audits, 70 of them with the rail hidden); the analysis columns are sampled with learn on and
+  one explanation open per column, in 2D (ETCH) and TRUE 3D (SLICE, with the SECTION PLANE
+  popup's explanation open too); and one more panel state carries a real report: a 4 h anneal
+  of a seeded 512² aluminum casting, whose card (with learn on) had taken the uncapped heat treat
+  panel to -48 px at 1024x768. `RAIL-CLEAR` then holds every open mode panel, both columns and
+  the popup against the top chrome (the lens bar, `#head`'s lines, the readouts, the learn
+  toggle, CONTROLS, the TRUE 3D switch, the view cube and the scale bar), never against one
+  another, and fails any of them whose top is above the window; its liveness requires the
+  learn-on samples to have had explanations open, each column and the popup and some mode panel
+  to have been capped (scrolling) in a learn-on sample, and the treated card to have been on
+  screen. `RAIL-LEARN` adds the panels' hint audit (`panelLearnAudit()` in
+  `src/learn/panels.ts`: every declared panel hint bound, matched by the label its control
+  prints, 16 today), learn text in every learn-on panel audit and none in a learn-off one, and
+  every panel hint one line and shown exactly with its control; the panel learn strings, hints,
+  caveat lines, report-card and status sentences and the thermal notes join the module strings
+  that `RAIL-LEARN` holds to 1 to 2 sentences and `RAIL-NO-EMDASH` scans. `SLICE-ROWS-INSIDE`
+  samples the popup with learn on as well (on the Niyama cut style, its tallest state), its CT
+  sweep hint shown and on one line. Proved able to fail with no worktree edit: a second dev
+  server on a spare port served the tree through a vite config whose plugin made three logged
+  in-memory changes (the three `--top-band` caps removed from `app/index.html`, the lab's
+  "mold shape" hint keyed "mould shape", and the CT sweep hint put back to its two-line text),
+  and the whole gate ran against it. `RAIL-CLEAR` FAILed on the clauses it gained: panels above
+  the window (the lab panel at -31 px at 1280x720 with learn on, the treated heat treat at
+  -185 px at 1024x768 and -22 px at 960x1000, the 3D column at -78 px), the lab panel and the 2D
+  column over the learn toggle, CONTROLS, the TRUE 3D switch and the lens bar, and the liveness
+  (nothing capped). `RAIL-LEARN` FAILed on `panelHintsUnbound: ["panel:lab mode|mould shape"]`
+  and `SLICE-ROWS-INSIDE` on the hint's two lines. The other six checks stayed OK.
 - **`verify-scale3d.mjs`** — the 3D half of the v5.0 length-anchor change, on its own so it
   does not need the full 30-check volume suite to re-run: both solvers carry one resolution,
   the volume's `eqDiamUm` actually follows it (doubling the pitch doubles the reported diameter
@@ -897,7 +1045,11 @@ does: `verify-heattreat.mjs` checks the arithmetic anywhere Node runs,
   refusals); `HT-TWIN-MATRIX` tests the shipped *data*: Cu and Co twin, Al and Ni refuse with
   their SFE printed, steel and SCN refuse structurally, HCP refuses before SFE is even
   consulted — annealed copper full of Σ3 twins and annealed aluminium with none, from one
-  machinery and two numbers.
+  machinery and two numbers. Since v8 U1b the refusals are terse on-screen lines (the long
+  explanations moved to a `learn` field beside them) in American spelling, so the oxide case's
+  required word is "not modeled" (was "not modelled"). Proved able to fail: the gate run through
+  a vite config whose transform put "not modelled" back in memory (logged as landed) FAILed
+  `HT-REFUSE` alone.
 - **`HT-INCIPIENT` / `HT-DOMAIN-LIMIT`** — the two honest walls. φ is frozen, so a schedule
   above the melting point is not a treatment the model can integrate — and in a real shop it
   ruins the casting; same limit, two reasons. And steel's own sourced coefficients predict
@@ -1180,6 +1332,42 @@ H_S ≥ 0, H_S ≤ H₀, and H_S strictly decreasing in S. Nine gates:
   the twin hold-back. The
   card's measured before/after rows and the post-run spec verdict STAND, because they stand on a
   census.
+
+  v8 U1b made the note and the card terse (each long sentence is now a learn-mode slot, empty
+  while learn mode is off) and kept every phrase this gate and `HT-PANEL`/`HT-PIN-PANEL`/
+  `HT3-PANEL` read, with one spelling change: the hold-back row reads "twins held back while
+  cold work is dialed" (was "dialled"), and the clause was re-pinned with it. Proved able to
+  fail: a second vite server served the tree with that one word put back in memory (logged as
+  landed) and this script ran against it on its spare port. `HT3-SE-PANEL` FAILed with the
+  other 25 checks OK, and on the gate's own logged output the hold-back clause was the only
+  false one ("dialled" on the card).
+
+  The revert arm flaked until the U1b review, by construction. Its second treatment only arms
+  while the first worked anneal leaves d̄ under the 125 µm specimen's domain limit (125.4 / ∛25
+  = 42.9 µm), and the arm used to walk the hold down only until the law endpoint fit under that
+  limit. The stored-energy drive grows grains past the law's endpoint (the endpoint prices
+  curvature-driven growth alone), so the worked d̄ landed at the limit: 42.2, 43.4 and 40.9 µm
+  on identical code, and at 43.4 the 100 °C near-noop refused to arm and the gate failed on
+  `rearmed` alone. The arm now picks a schedule WITH headroom: it walks the hold down (30, 15,
+  8, 4, 2 min), then the temperature dial in 50 °C steps if no hold qualifies, until the law
+  endpoint is at most 0.65 of the panel's own limit (`HT.domainLimitUm` on the specimen as the
+  panel sees it) and the schedule still buys ≥ 50 sweeps. 0.65 was measured, not guessed: the
+  review's first suggestion, 0.8, kept the same 30 min rung (endpoint 33.2 µm against a 42.7 µm
+  limit, 0.777), and the worked anneal still reached 40.9 µm, the drive adding 7.7 µm (23 %)
+  over the endpoint. At 0.65 it arms at 8 min (25.1 µm, 0.587, 969 sweeps) and the worked
+  anneal leaves 33.6 and 34.7 µm in two runs, about 8 µm under the limit. Every rung tried,
+  the chosen endpoint, the limit, their ratio and the worked d̄ are in the gate's output, and
+  `headroom ≤ 0.65` is part of the verdict, so a panel whose endpoints drift up past every rung
+  fails by name instead of flaking on the rearm: run with the bound at 0.3 (a copy of the script
+  piped to node with that one constant changed), `HT3-SE-PANEL` FAILed with `armed: false` and
+  all 25 rungs listed, 880 °C down to 680 °C (where the endpoints reach 11.4 µm but buy only 6
+  to 20 sweeps), and the other 25 checks stayed OK.
+
+  The same review found the arm reading the card too early: `run()` clears `busy` before its
+  after-census and the card, so a read the moment `busy` drops could land before the card
+  existed (an empty `report` on a run that did anneal), and the second run's read could land
+  on the FIRST run's card, which carries a cold-work row. Both reads now wait for `#htReport`
+  to change from what it held at the click.
 - **`SE-STRUCTURE` / `HT-TEMP-SENSITIVITY`** (browser-free, in CI) — the halves that survive
   where there is no GPU. `SE-STRUCTURE` is `PIN-STRUCTURE`'s idiom applied to the one thing C3a
   cannot witness with a number: the PLAIN variant carries no stored text at all and still carries
@@ -1221,11 +1409,14 @@ reads as "cold work is not modelled at all", which after C3a is false. The sweep
 by the GRAIN-GROWTH law's Arrhenius integral, so this furnace cannot yet price a
 recrystallization anneal below the grain-growth window: a low-temperature recrystallization
 schedule buys ~0 sweeps and nothing happens. And Σ3 annealing twinning is HELD BACK whenever cold
-work is dialled, with the card saying why — a twin plate's id is allocated GPU-side mid-anneal,
-so it would be born carrying whatever the work fabric had assigned to an id nobody had used yet,
-and a plate that draws less than the parent it sits inside eats that parent instead of twinning
-it. Nucleation of new strain-free grains is C3b and is not in this milestone — C3a is the FIELD
-and the DRIVE.
+work is dialed. Since v8 U1b the card names the hold-back in one line ("twins held back while
+cold work is dialed: twinning in deformed grains is not modeled yet", the phrase `HT3-SE-PANEL`
+pins) and learn mode gives the reason in plain words: a new twin could start with the wrong
+stored energy and be consumed by its parent grain. The mechanism behind that sentence, no longer
+on screen: a twin plate's id is allocated GPU-side mid-anneal, so it would be born carrying
+whatever the work fabric had assigned to an id nobody had used yet, and a plate that draws less
+than the parent it sits inside eats that parent instead of twinning it. Nucleation of new
+strain-free grains is C3b and is not in this milestone — C3a is the FIELD and the DRIVE.
 
 **A note on `GG3-KMC`'s tolerance.** The calibration pours are now seeded LCGs rather than
 `Math.random()`, which made the 2D `GG-KMC` byte-identical run to run. The 3D one still moves,

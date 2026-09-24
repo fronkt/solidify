@@ -173,6 +173,23 @@ block("PD-REGIME-EXACT", () => {
         counts[p.regime] = (counts[p.regime] ?? 0) + 1;
         if (!p.source || p.source.length < 40) why.push(`thin source at ${w} wt%`);
         if (/NaN|undefined|Infinity/.test(p.source)) why.push(`NaN/undefined in the source at ${w} wt%`);
+        // THE ON-SCREEN HALF (v8 U1c). `source` is the learn-mode text now and
+        // `line` is what the composer and the figure print with learn off, so
+        // it is held too: present, number-clean, naming its own solute.
+        if (!p.line || !p.line.trim()) why.push(`no on-screen line at ${w} wt%`);
+        else {
+          if (/NaN|undefined|Infinity/.test(p.line)) why.push(`NaN/undefined in the on-screen line at ${w} wt%`);
+          if (!p.line.includes(el)) why.push(`the on-screen line at ${w} wt% does not name ${el}`);
+        }
+        // and a single-phase line keeps its qualifiers ON SCREEN: single-phase
+        // at the invariant temperature, at equilibrium, with no solvus below.
+        // The U1c pass left only "single-phase" there, which reads as the
+        // casting's state when cold, and 2024 is (Al) + θ at room temperature.
+        if (p.regime === "SINGLE-PHASE") {
+          if (!/at equilibrium/.test(p.line ?? "")) why.push(`single-phase line at ${w} wt% drops "at equilibrium"`);
+          if (!(p.line ?? "").includes(`no solvus below ${Tinv} °C`)) why.push(`single-phase line at ${w} wt% drops the solvus caveat`);
+          if (!(p.line ?? "").includes(`at ${Tinv} °C`)) why.push(`single-phase line at ${w} wt% drops the invariant temperature`);
+        }
         if (!p.equilibrium?.length) why.push(`no equilibrium phase list at ${w} wt%`);
         if (p.equilibrium.some(x => !x || x.length < 2)) why.push(`empty phase name at ${w} wt%`);
       }
@@ -291,6 +308,12 @@ block("PD-INVARIANT-BAND", () => {
           && p.source.includes(PD.reactionText(row))
           && p.notGrown != null && p.notGrown.includes(PD.shortPhase(row.second));
         if (!named) bad.push({ key, why: "peritectic did not refuse the fraction by name", source: p.source.slice(0, 120) });
+        // AND ON SCREEN (v8 U1c): `source` is learn-mode text now, and the
+        // regime `line` is what shows with learn off, in the readout and the
+        // figure note. The reaction and the refusal of a number must be there.
+        if (!(p.line ?? "").includes(PD.reactionText(row)) || !/no fraction/.test(p.line ?? "")) {
+          bad.push({ key, why: "the on-screen regime line does not name the reaction and refuse the fraction", line: String(p.line).slice(0, 140) });
+        }
         // AND IT MUST REFUSE FOR THE RIGHT REASON. The first version of this
         // refusal said the lever rule and Gulliver–Scheil "describe a liquid
         // freezing to two solids and neither describes a liquid and a solid
@@ -318,8 +341,12 @@ block("PD-INVARIANT-BAND", () => {
           if (lean.consumesPrimary) bad.push({ key, why: `a melt leaner than the product ${row.Csecond} wt% reports the primary consumed` });
           if (!lean.equilibrium.includes(`(${A.BASES[bk].symbol})`)) bad.push({ key, why: "a retained primary is missing from the equilibrium set" });
           consumedRows.push(key);
-        } else if (!/not carry it as a number|does not carry as a number|bracket/i.test(p.source)) {
-          bad.push({ key, why: "a row with no product composition does not say so" });
+        } else {
+          if (!/not carry it as a number|does not carry as a number|bracket/i.test(p.source)) {
+            bad.push({ key, why: "a row with no product composition does not say so" });
+          }
+          // the undecided fate stays on screen too
+          if (!/bracket/.test(p.line ?? "")) bad.push({ key, why: "the on-screen line does not say the product composition is a bracket", line: String(p.line).slice(0, 140) });
         }
         excl.push(key);
         continue;
@@ -412,6 +439,7 @@ block("ALLOY-PHASES-NAMED", () => {
   const bad = [], census = [];
   let withLines = 0, withoutLines = 0;
   const allLines = [];
+  const allLearn = [];
 
   for (const p of A.FAMOUS) {
     const d = A.derive(p.mix);
@@ -451,6 +479,17 @@ block("ALLOY-PHASES-NAMED", () => {
       if (!/grow/.test(n)) why.push("a line that does not say the solver does not grow it");
       allLines.push(n);
     }
+    // and every line carries its learn sentences (v8 U1c), from the same
+    // branch: a line with no learn text, or learn text with no line, is a
+    // caveat half-deleted
+    for (const ph of d.phases) {
+      if ((ph.notGrown == null) !== (ph.notGrownLearn == null)) why.push(`${ph.el}: a notGrown line and its learn text disagree about existing`);
+      if (ph.notGrownLearn != null) {
+        if (ph.notGrownLearn.length < 40) why.push(`${ph.el}: a thin learn text`);
+        if (d.learn?.[ph.notGrown] !== ph.notGrownLearn) why.push(`${ph.el}: derive() does not carry the line's learn text`);
+        allLearn.push(ph.notGrownLearn);
+      }
+    }
     // the two columns must agree with the lines: a phase equilibrium predicts
     // and the solver does not grow is exactly a phase in the left column and
     // not in the right
@@ -488,8 +527,13 @@ block("ALLOY-PHASES-NAMED", () => {
   // eutectic ones must say measurably different things
   const distinctLines = new Set(allLines).size;
   const hasFraction = allLines.some(n => /%/.test(n));
-  const hasRefusal = allLines.some(n => /peritectic/.test(n) && /No fraction is put on it/.test(n));
-  const hasConsumed = allLines.some(n => /consumes the .* ENTIRELY|ends as .* and the solver grows/.test(n));
+  // v8 U1c: these lines are the on-screen half now (the learn sentences sit in
+  // SolutePhases.notGrownLearn), so the peritectic's refusal is the terse
+  // "no fraction" the line ends on, and the consumed case is read off the
+  // line's own "consumes all the (Fe) ... ends as ... and the solver grows"
+  const hasRefusal = allLines.some(n => /peritectic/.test(n) && /no fraction/i.test(n))
+    && allLearn.some(n => /peritectic/.test(n) && /No fraction is put on it/.test(n));
+  const hasConsumed = allLines.some(n => /consumes all the .* ends as .* and the solver grows/.test(n));
   const hasScheilOnly = allLines.some(n => /Gulliver–Scheil|Gulliver-Scheil/.test(n) && /within the/.test(n));
 
   const ok = bad.length === 0 && withLines >= 1 && withoutLines >= 1

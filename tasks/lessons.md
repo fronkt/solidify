@@ -22,6 +22,13 @@ follow-up edits into the scratchpad and apply them after the run reports, and wh
 with a puppeteer navigation or context error, read the vite log for `page reload` BEFORE
 diagnosing anything else.
 
+**And a third time in v8 U1b** (2026-09-24): a one-line wording fix to `src/lab.ts` while
+`verify-heattreat-gpu.mjs` ran killed it in `GG-LADDER` with the same error. This file had not
+been read at the start of that session. What actually prevents it is procedural: read this
+file before the first gate run, and treat "a browser gate is running" as "src/** and
+app/index.html are read-only" (index.html reloads the page too), parking every fix found in a
+screenshot until the run reports.
+
 **Rule:** once `npm run test` (or any single browser-driven `verify-*.mjs`) is launched against
 the dev server, make NO further edits to `src/**` until it finishes. If a checkpoint run is
 launched in the background to keep working in parallel, only touch files the suite doesn't

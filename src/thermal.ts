@@ -147,6 +147,23 @@ function smooth(t: number[], T: number[], half: number): { Ts: number[]; dT: num
   return { Ts, dT };
 }
 
+// The analysis notes are shown in the lab report, one terse line each (v8
+// U1b). The two that needed a fuller explanation keep it here, beside the
+// line, the way a model module keeps its caveat's learn half (learn/index.ts).
+// verify-thermal pins the prefixes "no recalescence" and "no liquidus".
+// (what the detector knows is that the departure stayed under its threshold,
+// not that the curve never left the slope)
+const NO_LIQUIDUS = "no liquidus arrest resolved: departure from the liquid-cooling slope below the detection threshold";
+const FS_MISMATCH = "curve f_s disagrees with the census: the method assumes a point thermocouple";
+
+/** learn-mode sentences for the notes that carry one, keyed by the note's line */
+export const THERMAL_LEARN: Readonly<Record<string, string>> = {
+  [NO_LIQUIDUS]: "Freezing releases heat, which bends the curve above its earlier cooling slope; here that bend "
+    + "stayed under the detection threshold. A strong quench can look like this.",
+  [FS_MISMATCH]: "Reconstructing the solid fraction from a cooling curve assumes one thermocouple at a point, "
+    + "but this probe averages the shrinking liquid. The mismatch comes from the method, not the solver.",
+};
+
 /**
  * Analyse a cooling curve. `s` is the raw lab series; only the leading run of
  * samples with a valid (positive) liquid temperature is used for the temperature
@@ -166,14 +183,14 @@ export function analyseCurve(s: TASample[], opt: AnalyseOpt = {}): ThermalAnalys
   while (end < s.length && s[end].T > 0) end++;
   const v = s.slice(0, end);
   if (v.length < 8) {
-    notes.push("cooling curve too short to analyse — fewer than eight liquid samples recorded");
+    notes.push("curve too short to analyze: fewer than 8 liquid samples");
     return empty;
   }
 
   const t = v.map(p => p.t);
   const T = v.map(p => p.T);
   const span = t[t.length - 1] - t[0];
-  if (span <= 0) { notes.push("no time elapsed across the recorded samples"); return empty; }
+  if (span <= 0) { notes.push("zero time span across the recorded samples"); return empty; }
 
   const { Ts, dT } = smooth(t, T, Math.max(o.window * span, 1e-6));
   const deriv = t.map((tt, i) => ({ t: tt, dTdt: dT[i] }));
@@ -185,7 +202,7 @@ export function analyseCurve(s: TASample[], opt: AnalyseOpt = {}): ThermalAnalys
   const solidus: Landmark | null = solidReached
     ? { t: t[v.length - 1], T: Ts[v.length - 1] }
     : null;
-  if (!solidus) notes.push("the run ended with liquid still present — no solidus recorded");
+  if (!solidus) notes.push("liquid left at the end: no solidus recorded");
 
   // baseline: fit the pure-liquid cooling over the first baseFrac of the span. Its
   // residual σ sets the bar both the arrest and the recalescence must clear.
@@ -218,8 +235,7 @@ export function analyseCurve(s: TASample[], opt: AnalyseOpt = {}): ThermalAnalys
       }
     }
   }
-  if (!nadir) notes.push("no recalescence arrest — the melt cooled through freezing without "
-    + "recovering, so there is no nucleation nadir to report");
+  if (!nadir) notes.push("no recalescence: the melt cooled straight through, so no nucleation nadir");
 
   // liquidus arrest: the first sustained departure of the curve above the
   // extrapolated pure-liquid baseline (latent heat makes the real curve warmer
@@ -234,10 +250,9 @@ export function analyseCurve(s: TASample[], opt: AnalyseOpt = {}): ThermalAnalys
         break;
       }
     }
-    if (!liquidus) notes.push("no liquidus arrest resolved — the curve never departed its "
-      + "liquid-cooling slope by the detection threshold (a strong quench can look like this)");
+    if (!liquidus) notes.push(NO_LIQUIDUS);
   } else {
-    notes.push("too few pre-arrest samples to fit a liquid-cooling baseline");
+    notes.push("too few pre-arrest samples for a liquid-cooling baseline");
   }
 
   const rateLiquid = base ? base.b : null;
@@ -286,13 +301,9 @@ export function analyseCurve(s: TASample[], opt: AnalyseOpt = {}): ThermalAnalys
         ss += (der[i] - m) * (der[i] - m);
       }
       fsRms = Math.sqrt(ss / der.length);
-      if (fsRms > 0.15) notes.push("the solid fraction reconstructed from the curve misses the "
-        + "measured census by a wide margin — the single-sided Newtonian method assumes a point "
-        + "thermocouple, and this probe is the mean of the shrinking liquid, so the disagreement is "
-        + "the method's, not the solver's");
+      if (fsRms > 0.15) notes.push(FS_MISMATCH);
     } else {
-      notes.push("the curve showed no latent-heat excess over the Newtonian baseline, so solid "
-        + "fraction could not be reconstructed from it");
+      notes.push("no latent-heat excess over the Newtonian baseline: f_s not reconstructed");
     }
   }
 
@@ -365,12 +376,12 @@ export function cscClyneDavies(s: { t: number; fs: number }[]): CSCResult {
   const t40 = cross(0.40);
   const t90 = cross(0.90);
   const t99 = cross(0.99);
-  if (t40 == null) notes.push("f_s never reached 0.40 — no feeding stage to measure");
-  if (t90 == null) notes.push("f_s never reached 0.90 — the vulnerable stage never began");
-  if (t99 == null && t90 != null) notes.push("f_s never reached 0.99 — the record ends inside the vulnerable stage");
+  if (t40 == null) notes.push("f_s never reached 0.40: no feeding stage to measure");
+  if (t90 == null) notes.push("f_s never reached 0.90: the vulnerable stage never began");
+  if (t99 == null && t90 != null) notes.push("f_s never reached 0.99: the record ends inside the vulnerable stage");
   const tV = t90 != null && t99 != null ? t99 - t90 : null;
   const tR = t40 != null && t90 != null ? t90 - t40 : null;
   const csc = tV != null && tR != null && tR > 0 ? tV / tR : null;
-  if (csc == null && notes.length === 0) notes.push("degenerate record — zero-length feeding stage");
+  if (csc == null && notes.length === 0) notes.push("degenerate record: zero-length feeding stage");
   return { csc, tV, tR, notes };
 }

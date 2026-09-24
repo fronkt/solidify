@@ -82,11 +82,16 @@ export class ProgramRun {
 
   stop() { this.done = true; }
 
-  /** label of the stage currently running, for the live status line */
-  get stageLabel(): string {
+  /**
+   * label of the stage currently running, for the live status line. `fmt`
+   * prints the ramp's target temperature: the caller's own formatter (°C for
+   * a real material), so the target never shows as a bare model number
+   * beside a set-point printed in real units
+   */
+  stageLabel(fmt: (t: number) => string = t => t.toFixed(2)): string {
     if (this.done) return "complete";
     const s = this.stages[this.idx];
-    return s.kind === "ramp" ? `ramp → ${s.to.toFixed(2)}` : "hold";
+    return s.kind === "ramp" ? `ramp → ${fmt(s.to)}` : "hold";
   }
 
   get stageIndex(): number { return this.idx; }

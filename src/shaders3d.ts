@@ -1133,7 +1133,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 // ------------------------------------------------------------- render pass
 // RParams3D slot map (144 B; vec4s at byte offsets 48/64/80/96/112/128)
 // flags bits 4–7 = cut-face style: 0 orientation tint · 1 Nital · 2 Klemm's ·
-// 3 Beraha's · 4 EBSD-IPF · 5 Niyama ramp
+// 3 Beraha's · 4 EBSD-style orientation map (sample-frame [001] hue, not an
+// IPF key) · 5 Niyama ramp
 export const R3 = {
   view: 0, n: 1, canvasW: 2, canvasH: 3,
   time: 4, res0: 5, res1: 6, flags: 7,

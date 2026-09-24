@@ -37,6 +37,8 @@ import { K0, type MaterialSI } from "./units";
 import { HOMOG_D2 } from "./shaders";
 import { HOMOG_D3 } from "./shaders3d";
 import { range } from "./formbits";
+import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
+import { HEAT_CAVEATS as HC, panelHintFor, panelText } from "./learn/panels";
 
 /**
  * The one definition of d̄ the H6 verdict stands on — ⟨A⟩-equivalent circle in
@@ -216,7 +218,7 @@ const THERMAL_LENSES_3D = [0, 6];
 const ORIENT3 = 1;
 
 type Plan =
-  | { ok: false; why: string }
+  | { ok: false; why: string; learn?: string }
   | {
       ok: true;
       sch: HeatSchedule;
@@ -307,8 +309,19 @@ export class HeatPanel {
    * would silently discard a restored link.
    */
   private restore: [number, number, number, number?, number?, number?] | null = null;
+  /** learn mode's "i" and hints (rebuilt with the panel); the note's and the
+   *  report's learn sentences are slots in their HTML (learnSlot) */
+  private learn = new LearnLayer(() => this.applyLearn());
 
-  constructor(host: HeatHost) { this.host = host; }
+  constructor(host: HeatHost) {
+    this.host = host;
+    onLearnChange(() => this.applyLearn());
+  }
+
+  private applyLearn() {
+    this.learn.apply();
+    fillLearnSlots(this.panel);
+  }
 
   /** the dialled setup, for the share link: temperature °C, hold min, spec MPa,
    *  and (v7.0 C2, optional tail per the lab-tuple doctrine) the dispersion's
@@ -411,17 +424,17 @@ export class HeatPanel {
   private plan(c: Census | null): Plan {
     // no census yet is NOT "nothing solid" — before the first measurement
     // lands, the panel does not know what is on stage and must not claim to
-    if (!c) return { ok: false, why: "waiting for the first grain census…" };
+    if (!c) return { ok: false, why: "waiting for a grain census…" };
     const si = this.host.si();
     const ctx = this.ctx(c);
     const v = canTreat("grain", ctx);
-    if (!v.ok) return { ok: false, why: v.why };
-    if (!si) return { ok: false, why: "no SI identity." }; // canTreat already said it better
+    if (!v.ok) return { ok: false, why: v.why, learn: v.learn };
+    if (!si) return { ok: false, why: "no SI identity" }; // canTreat already said it better
     if (c.grainCount < 3) {
       return {
         ok: false,
-        why: `a starting grain size needs at least three grains to mean anything, and this `
-          + `casting has ${c.grainCount}. Pour a finer casting (add inoculant) first.`,
+        why: `needs ≥ 3 grains for a grain size (this casting has ${c.grainCount}): pour a finer casting first `
+          + `(more inoculant)`,
       };
     }
 
@@ -430,9 +443,9 @@ export class HeatPanel {
     if (ints.peakFracTm >= INCIPIENT_FRAC) {
       return {
         ok: false,
-        why: `${this.tC.toFixed(0)} °C is ${(ints.peakFracTm * 100).toFixed(0)} % of the melting point. `
-          + `Past ${(INCIPIENT_FRAC * 100).toFixed(0)} % the grain boundaries liquate — incipient melting — `
-          + `and a model that holds φ frozen cannot honestly integrate a schedule that would have melted the specimen.`,
+        why: `${this.tC.toFixed(0)} °C = ${(ints.peakFracTm * 100).toFixed(0)} % of T_m, past the `
+          + `${(INCIPIENT_FRAC * 100).toFixed(0)} % limit: ${HC.incipient.line}`,
+        learn: HC.incipient.learn,
       };
     }
 
@@ -442,11 +455,10 @@ export class HeatPanel {
     if (dPredUm > limUm) {
       return {
         ok: false,
-        why: `the law says ${fmtUm(dPredUm)}: `
-          + `D^n − D₀^n = ∫k·dt with this material's sourced coefficients predicts `
-          + `${fmtUm(d0Um)} → ${fmtUm(dPredUm)} over ${fmtDur(ints.seconds)}. But grain statistics on this `
-          + `${fmtUm(this.host.gridN() * this.host.umPerCell())} specimen stop meaning anything past ~${fmtUm(limUm)} `
-          + `— the model refuses to pretend otherwise. Shorten the schedule or cool it down.`,
+        why: `law says ${fmtUm(dPredUm)} (${fmtUm(d0Um)} → ${fmtUm(dPredUm)} in ${fmtDur(ints.seconds)}), `
+          + `past the ~${fmtUm(limUm)} limit of this ${fmtUm(this.host.gridN() * this.host.umPerCell())} `
+          + `specimen · ${HC.domain.line}`,
+        learn: HC.domain.learn,
       };
     }
 
@@ -512,12 +524,15 @@ export class HeatPanel {
     // that milestone was routed to textContent, and this sink, five lines above
     // the new #htCaveat in the same function, was the one left raw.)
     head.innerHTML = `<span style="letter-spacing:.2em;color:#ffb454">♨ HEAT TREAT</span>
-      <span style="color:#8891a0">the second clock — solid state, real hours, on <b id="htMat" style="color:#cfd6df"></b></span>`;
+      <span style="color:#8891a0">solid state · <b id="htMat" style="color:#cfd6df"></b></span>`;
     head.querySelector("#htMat")!.textContent = this.host.materialLabel();
     const exit = document.createElement("button");
     exit.textContent = "exit";
+    exit.style.marginLeft = "auto";
     exit.addEventListener("click", () => this.close());
     head.append(exit);
+    this.learn = new LearnLayer(() => this.applyLearn());
+    const ex = this.learn.explain(head, "about heat treat", panelText("heat treat"), head.children[1]);
 
     const form = document.createElement("div");
     // 252px: a formbits row's own minimum (118 label + 60 slider + 58 value +
@@ -567,24 +582,36 @@ export class HeatPanel {
       this.restore = null;
     }
     const umPC = this.host.umPerCell();
+    // each row sits in its own grid cell with its learn hint under it (a hint
+    // loose in the grid would take a cell of its own); the gates find the
+    // dials by position, `querySelectorAll('input[type="range"]')`, which the
+    // wrapper does not change. The hint is matched by the label the row prints
+    const cell = (row: HTMLElement): HTMLElement => {
+      const w = document.createElement("div");
+      w.append(row);
+      panelHintFor(this.learn, "heat treat", row);
+      return w;
+    };
     form.append(
-      range("temperature", tMin, tMax, 5, this.tC,
+      cell(range("temperature", tMin, tMax, 5, this.tC,
         v => { this.tC = v; this.refresh(); }, 0,
-        v => si ? `${v.toFixed(0)} °C · ${((v + K0) / si.Tm).toFixed(2)} T_m` : `${v.toFixed(0)} °C`),
-      range("hold time", 1, 720, 1, this.holdMin,
+        v => si ? `${v.toFixed(0)} °C · ${((v + K0) / si.Tm).toFixed(2)} T_m` : `${v.toFixed(0)} °C`)),
+      cell(range("hold time", 1, 720, 1, this.holdMin,
         v => { this.holdMin = v; this.refresh(); }, 0,
-        v => v < 120 ? `${v.toFixed(0)} min` : `${(v / 60).toFixed(1)} h`),
-      range("spec σ_y", 0, specMax, specStep, this.specMPa,
+        v => v < 120 ? `${v.toFixed(0)} min` : `${(v / 60).toFixed(1)} h`)),
+      cell(range("spec σ_y", 0, specMax, specStep, this.specMPa,
         v => { this.specMPa = v; this.refresh(); }, 0,
-        v => v > 0 ? `≥ ${fmtMPa(v)} MPa` : "no spec"),
-      // the Zener dispersion (v7.0 C2) — appended AFTER spec on purpose: the
+        v => v > 0 ? `≥ ${fmtMPa(v)} MPa` : "no spec")),
+      // the Zener dispersion (v7.0 C2), appended AFTER spec on purpose: the
       // panel gates drive the first three dials positionally
-      range("dispersion", 0, 0.12, 0.005, this.pinF,
+      cell(range("dispersion", 0, 0.12, 0.005, this.pinF,
         v => { this.pinF = v; this.refresh(); }, 3,
-        v => v > 0 ? `${(v * 100).toFixed(1)} vol %` : "no dispersion"),
-      range("particle radius", 1, 5, 1, this.pinR,
+        // "none", not "no dispersion": the value cell is 58px, and the one
+        // unbreakable 64px word overflowed its row once the panel scrolled
+        v => v > 0 ? `${(v * 100).toFixed(1)} vol %` : "none")),
+      cell(range("particle radius", 1, 5, 1, this.pinR,
         v => { this.pinR = v; this.refresh(); }, 0,
-        v => `${v.toFixed(0)} cells · ${(v * umPC).toFixed(1)} µm`),
+        v => `${v.toFixed(0)} cells · ${(v * umPC).toFixed(1)} µm`)),
     );
     // the cold work (v7.0 C3a) — SIXTH, and in the volume only. Appended last
     // for the same positional reason C2's pair was, and rendered conditionally
@@ -595,11 +622,11 @@ export class HeatPanel {
     // J/m³: this app has no SI↔Potts energy bridge, deliberately (heattreat.ts
     // says why), and a dial labelled in joules would be claiming one.
     if (this.host.getMode() === "3d") {
-      form.append(range("cold work", 0, WORK_MAX, WORK_STEP, this.workJb,
+      form.append(cell(range("cold work", 0, WORK_MAX, WORK_STEP, this.workJb,
         v => { this.workJb = v; this.refresh(); }, 1,
         v => v > 0
           ? `${v.toFixed(1)} J_b mean · 0–${(2 * v).toFixed(1)} across grains`
-          : "as cast (no cold work)"));
+          : "as cast")));
     }
 
     const note = document.createElement("div");
@@ -614,7 +641,7 @@ export class HeatPanel {
     go.addEventListener("click", () => (this.busy ? (this.abortReq = true) : void this.run()));
     const status = document.createElement("span");
     status.id = "htStatus";
-    status.style.cssText = "color:#6b7280;";
+    status.style.cssText = "color:#8891a0;";
     row.append(go, status);
 
     const report = document.createElement("div");
@@ -629,7 +656,7 @@ export class HeatPanel {
     caveat.id = "htCaveat";
     caveat.style.cssText = "display:none;color:#d9985a;line-height:1.5;margin-bottom:8px;";
 
-    p.append(head, form, caveat, note, row, report);
+    p.append(head, ex.body, form, caveat, note, row, report);
     document.getElementById("app")!.append(p);
     this.panel = p;
     this.noteEl = note;
@@ -653,29 +680,39 @@ export class HeatPanel {
     }
     this.runBtn.textContent = this.busy ? "■ abort" : "♨ run treatment";
     if (this.busy) return; // the run loop owns the status line
+    // every branch below writes the note, then fills its learn slots
+    this.writeNote();
+    fillLearnSlots(this.noteEl);
+    this.learn.apply();
+  }
+
+  private writeNote() {
+    if (!this.noteEl || !this.runBtn) return;
     const plan = this.plan(this.census);
     if (!plan.ok) {
-      this.noteEl.innerHTML = `<span style="color:#c96a5b">refused</span> — ${plan.why}`;
+      // the gates find "refused" in the note's first 120 characters
+      this.noteEl.innerHTML = `<span style="color:#c96a5b">refused</span>: ${plan.why}${learnSlot(plan.learn ?? "")}`;
       this.runBtn.disabled = true;
       return;
     }
     this.runBtn.disabled = false;
     const { ints, d0Um, dPredUm, sweeps, capped, dCapUm } = plan;
     const grew = dPredUm - d0Um > 0.05;
+    // every arrow in the schedule line is followed by a word: the gates read
+    // the note's FIRST "→ <number> µm" as the law's prediction
     const head =
       `ramp ${RAMP_UP} °C/min → hold ${fmtDur(this.holdMin * 60)} at ${this.tC.toFixed(0)} °C `
-      + `→ furnace-cool ${RAMP_DOWN} °C/min · ${fmtDur(ints.seconds)} of real time.`;
+      + `→ furnace-cool ${RAMP_DOWN} °C/min · ${fmtDur(ints.seconds)} real time`;
+    const over = (tail: string) => ` · <span style="color:#ffb454">over the ${this.consts().cap.toLocaleString()}-sweep `
+      + `budget: truncated at ${((this.consts().cap / sweeps) * 100).toFixed(0)} %${tail}</span>`;
     // v7.0 C3a: cold work WITHDRAWS the endpoint, so it takes its own branch
-    // before either of the two that print one. Both of those sentences are
+    // before either of the two that print one. Both of those lines are
     // predictions from the sourced coefficients, and the coefficients price
     // curvature-driven growth alone.
     if (plan.work) {
       this.noteEl.innerHTML = `${head}<br>`
         + `${sweeps.toLocaleString()} MC sweeps`
-        + (capped
-          ? ` — <span style="color:#ffb454">past the ${this.consts().cap.toLocaleString()}-sweep budget: the run will be `
-          + `truncated at ${((this.consts().cap / sweeps) * 100).toFixed(0)} %</span>`
-          : "")
+        + (capped ? over("") : "")
         + this.workNote(plan)
         + this.pinNote(plan)
         + this.specWithdrawn();
@@ -684,25 +721,22 @@ export class HeatPanel {
     if (!grew) {
       // the stress-relief case: the arithmetic says nothing happens, so the
       // panel says it BEFORE the run rather than selling a dud treatment
-      this.noteEl.innerHTML = `${head}<br>predicts <b style="color:#cfd6df">no measurable grain growth</b> `
-        + `(${fmtUm(d0Um)} → ${fmtUm(dPredUm)}) — at this temperature every Arrhenius integral is negligible. `
-        + `Run it if you want the report card to say so.`
-        // the dispersion's sentence rides this branch too — a pinned near-noop
-        // run latches the fabric and the card will print it, so the note must
-        // not be silent about it (review catch). The spec endpoint stays the
+      this.noteEl.innerHTML = `${head}<br>law d̄ ${fmtUm(d0Um)} → ${fmtUm(dPredUm)}: `
+        + `<b style="color:#cfd6df">${HC.noGrowth.line}</b>${learnSlot(HC.noGrowth.learn)}`
+        // the dispersion's line rides this branch too: a pinned near-noop run
+        // latches the fabric and the card will print it, so the note must not
+        // be silent about it (review catch). The spec endpoint stays the
         // UN-clipped law here: dPred ≈ d0, and clipping to a d_lim below d0
         // would pre-judge a refinement the furnace cannot produce.
         + this.pinNote(plan)
         + this.specNote(d0Um, dPredUm);
       return;
     }
-    this.noteEl.innerHTML = `${head}<br>the sourced law predicts d̄ `
+    this.noteEl.innerHTML = `${head}<br>law d̄ `
       + `<b style="color:#cfd6df">${fmtUm(d0Um)} → ${fmtUm(dPredUm)}</b>`
       + ` · ${sweeps.toLocaleString()} MC sweeps`
-      + (capped
-        ? ` — <span style="color:#ffb454">past the ${this.consts().cap.toLocaleString()}-sweep budget: the run will be `
-        + `truncated at ${((this.consts().cap / sweeps) * 100).toFixed(0)} % and reach ~${fmtUm(dCapUm)}</span>`
-        : "")
+      + (capped ? over(`, ~${fmtUm(dCapUm)}`) : "")
+      + learnSlot(HC.plan.learn)
       + this.pinNote(plan)
       + this.specNote(d0Um, this.endUm(plan));
   }
@@ -731,26 +765,23 @@ export class HeatPanel {
     if (!plan.pin) return "";
     const pct = (plan.pin.f * 100).toFixed(1);
     if (plan.dLimUm === undefined) {
-      return `<br><span style="color:#8891a0">dispersion ${pct} vol % · r ${plan.pin.r} cells: the particle `
-        + `fabric pins boundaries in the volume too, but its limit law is only measured in the plane — `
-        + `no d_lim is claimed here.</span>`;
+      return `<br><span style="color:#8891a0">dispersion ${pct} vol % · r ${plan.pin.r} cells · `
+        + `${HC.pin3d.line}</span>${learnSlot(HC.pin3d.learn)}`;
     }
+    const law = `d_lim = ${ZENER_K}·r^${ZENER_R_EXP}/f^${ZENER_F_EXP} cells`;
     // a fabric already finer than the casting: the boundaries are loaded from
-    // the first sweep and the treatment does nothing — said before the run,
-    // in the one direction this mode cannot be mistaken for (refinement)
+    // the first sweep and the treatment does nothing. Said before the run, in
+    // the one direction this mode cannot be mistaken for (refinement)
     if (plan.dLimUm <= plan.d0Um) {
       return `<br><span style="color:#ffb454">dispersion ${pct} vol % · r ${plan.pin.r} cells `
-        + `pins boundaries near d_lim ≈ ${fmtUm(plan.dLimUm)} (measured on this lattice: `
-        + `d_lim = ${ZENER_K}·r^${ZENER_R_EXP}/f^${ZENER_F_EXP} cells) — at or below this casting's own `
-        + `${fmtUm(plan.d0Um)}, so the furnace stalls where it stands. A dispersion cannot refine a `
-        + `grain that already grew past it.</span>`;
+        + `pins boundaries near d_lim ≈ ${fmtUm(plan.dLimUm)} (measured on this lattice: ${law}) `
+        + `≤ d₀ ${fmtUm(plan.d0Um)} · ${HC.pinStalls.line}</span>${learnSlot(HC.pinStalls.learn)}`;
     }
     const clips = plan.dLimUm < (plan.capped ? plan.dCapUm : plan.dPredUm);
     return `<br><span style="color:${clips ? "#ffb454" : "#8891a0"}">dispersion ${pct} vol % · r ${plan.pin.r} cells `
-      + `pins boundaries near d_lim ≈ ${fmtUm(plan.dLimUm)} (measured on this lattice: `
-      + `d_lim = ${ZENER_K}·r^${ZENER_R_EXP}/f^${ZENER_F_EXP} cells)`
-      + (clips ? ` — the schedule's law endpoint will not be reached; the furnace stalls at the fabric` : "")
-      + `.</span>`;
+      + `pins boundaries near d_lim ≈ ${fmtUm(plan.dLimUm)} (measured on this lattice: ${law})`
+      + (clips ? ` · ${HC.pinClips.line}` : "")
+      + `</span>` + (clips ? learnSlot(HC.pinClips.learn) : "");
   }
 
   /**
@@ -773,20 +804,15 @@ export class HeatPanel {
    */
   private workNote(plan: Plan & { ok: true }): string {
     const w = plan.work!;
+    // HT3-SE-PANEL reads these phrases off the note with learn mode off:
+    // "cold work 4.0 J_b mean", "0–8.0 J_b across grains", "law endpoint is
+    // withdrawn", "a drive, not a strength"; the why is the learn sentence
     return `<br><span style="color:#ffb454">cold work ${w.toFixed(1)} J_b mean `
-      + `(0–${(2 * w).toFixed(1)} J_b across grains, against this lattice's ${H_FLAT_3D} J_b `
-      + `flat-front barrier) — the law endpoint is withdrawn.</span> `
-      + `<span style="color:#8891a0">The sourced coefficients price curvature-driven growth alone, and the `
-      + `stored energy is a second driving force neither they nor the sweep calibration were fitted `
-      + `against. The schedule still buys its sweeps; where they land is measured afterwards, not `
-      + `predicted here. Cold work in this model is a drive, not a strength — σ_y prices grain size `
-      + `only, so the work hardening a real deformation would add is absent.`
+      + `(0–${(2 * w).toFixed(1)} J_b across grains; flat-front barrier ${H_FLAT_3D} J_b) · `
+      + `${HC.coldWork.line}</span>${learnSlot(HC.coldWork.learn)}`
       + (plan.sweeps < 2
-        ? ` And at this temperature the schedule buys almost no sweeps: this furnace prices them from `
-          + `the GRAIN-GROWTH law's Arrhenius integral, so it cannot yet price a recrystallization `
-          + `anneal below the grain-growth window. Nucleation of new strain-free grains is not modelled.`
-        : "")
-      + `</span>`;
+        ? `<br><span style="color:#8891a0">${HC.coldWorkFewSweeps.line}</span>${learnSlot(HC.coldWorkFewSweeps.learn)}`
+        : "");
   }
 
   /**
@@ -800,8 +826,8 @@ export class HeatPanel {
    */
   private specWithdrawn(): string {
     if (!(this.specMPa > 0) || !this.host.si()) return "";
-    return `<br><span style="color:#8891a0">the ≥ ${fmtMPa(this.specMPa)} MPa spec will be judged on the `
-      + `measured census when the run finishes — its pre-run prediction goes with the endpoint.</span>`;
+    return `<br><span style="color:#8891a0">spec ≥ ${fmtMPa(this.specMPa)} MPa: ${HC.specWithdrawn.line}</span>`
+      + learnSlot(HC.specWithdrawn.learn);
   }
 
   /**
@@ -824,14 +850,14 @@ export class HeatPanel {
     const s0 = hallPetch(si, d0Um * 1e-6);
     const s1 = hallPetch(si, dEndUm * 1e-6);
     if (shownMPa(s) > shownMPa(s0)) {
-      return `<br><span style="color:#c96a5b">the ≥ ${fmtMPa(s)} MPa spec is above the casting's current `
-        + `${fmtMPa(s0)} MPa — an anneal only coarsens, and coarser is softer, so no schedule meets it. `
-        + `A finer casting would.</span>`;
+      return `<br><span style="color:#c96a5b">spec ≥ ${fmtMPa(s)} MPa > current ${fmtMPa(s0)} MPa: `
+        + `${HC.specUnreachable.line}</span>${learnSlot(HC.specUnreachable.learn)}`;
     }
+    // "misses the ≥" is read by HT-PANEL; the "~" keeps a digit off the arrow
     return shownMPa(s1) >= shownMPa(s)
-      ? `<br>σ_y (Hall–Petch) ${fmtMPa(s0)} → ~${fmtMPa(s1)} MPa — the predicted endpoint meets the ≥ ${fmtMPa(s)} MPa spec.`
-      : `<br><span style="color:#ffb454">σ_y (Hall–Petch) ${fmtMPa(s0)} → ~${fmtMPa(s1)} MPa — the predicted endpoint `
-      + `misses the ≥ ${fmtMPa(s)} MPa spec.</span>`;
+      ? `<br>σ_y (Hall–Petch) ${fmtMPa(s0)} → ~${fmtMPa(s1)} MPa · meets the ≥ ${fmtMPa(s)} MPa spec`
+      : `<br><span style="color:#ffb454">σ_y (Hall–Petch) ${fmtMPa(s0)} → ~${fmtMPa(s1)} MPa · `
+      + `misses the ≥ ${fmtMPa(s)} MPa spec</span>`;
   }
 
   // ---------------------------------------------------------------- the run
@@ -890,12 +916,11 @@ export class HeatPanel {
     const workHoldsTwins = !!plan.work && twinV?.ok === true;
     const wantTwins = twinV?.ok === true && !!this.host.annealTwins && !plan.work;
     let delivered = 0;
-    let twinLine = twinV && !twinV.ok ? twinV.why : "";
+    // each report line is its terse text plus, where it has one, a learn slot
+    let twinLine = twinV && !twinV.ok ? twinV.why + learnSlot(twinV.learn ?? "") : "";
     if (workHoldsTwins) {
-      twinLine = "held back while cold work is dialled — a Σ3 plate is allocated GPU-side mid-anneal, so it "
-        + "would be born carrying a stored energy the work fabric assigned to an id nobody had used yet, and "
-        + "a plate that draws less than its parent eats the parent instead of twinning it. Twinning inside a "
-        + "deformed grain is C3b's measurement, not this one's.";
+      // HT3-SE-PANEL reads "twins held back while cold work is dialed" off the card
+      twinLine = HC.twinsHeldBack.line + learnSlot(HC.twinsHeldBack.learn);
     }
     // The field goes down BEFORE the sweeps, on the LATCHED plan's value — the
     // dial stays live during a run, and the specimen must carry the deformation
@@ -922,16 +947,17 @@ export class HeatPanel {
     try {
       if (total > 0) {
         const onProg = (done: number) => {
-          setStatus(`sweep ${done.toLocaleString()} / ${total.toLocaleString()} — hold is isothermal by construction`);
+          setStatus(`sweep ${done.toLocaleString()} / ${total.toLocaleString()} · isothermal hold`);
           return !this.abortReq;
         };
         if (wantTwins) {
           const r = await this.host.annealTwins!(total, onProg, pin);
           delivered = r.delivered;
           twinLine = r.spawned > 0
-            ? `${r.spawned.toLocaleString()} Σ3 annealing twins nucleated on migrating boundaries`
-              + (r.saturated ? " — the grain-id range ran out mid-anneal, so this is the delivered count, not the requested rate" : "")
-            : "no annealing twins this run — boundaries migrated too little to deposit any";
+            ? `${r.spawned.toLocaleString()} Σ3 annealing twins on migrating boundaries`
+              + (r.saturated ? ` (${HC.twinsSaturated.line})` : "")
+              + learnSlot(r.saturated ? HC.twinsSaturated.learn : HC.twins.learn)
+            : "none (too little boundary migration)" + learnSlot(HC.twins.learn);
         } else {
           delivered = await this.host.anneal(total, onProg, pin);
         }
@@ -946,19 +972,20 @@ export class HeatPanel {
         const cellM = this.host.umPerCell() * 1e-6;
         const need = Math.round(plan.ints.dt / (cellM * cellM * dH));
         if (need < 2) {
-          homogLine = `Dt ${fmtDt(plan.ints.dt)} — under one cell² of diffusion; nothing measurable at this resolution`;
+          homogLine = `Dt ${fmtDt(plan.ints.dt)} < 1 cell² of diffusion: ${HC.homogBelowRes.line}`
+            + learnSlot(HC.homogBelowRes.learn);
         } else {
           const run = Math.min(need, iterCap);
           const segB = await this.host.segregation();
           const gotI = await this.host.homogenize(run, done => {
-            setStatus(`diffusion ${done.toLocaleString()} / ${run.toLocaleString()} iterations — solute through the solid skeleton`);
+            setStatus(`diffusion ${done.toLocaleString()} / ${run.toLocaleString()} iterations`);
             return !this.abortReq;
           });
           const segA = await this.host.segregation();
           homogLine = `Dt ${fmtDt(plan.ints.dt)} · ${gotI.toLocaleString()} iterations`
             + (need > iterCap
-              ? ` — the schedule asked ${need.toLocaleString()}, the budget allows ${iterCap.toLocaleString()} `
-                + `(${((iterCap / need) * 100).toFixed(0)} % of the requested Dt delivered)`
+              ? ` · budget ${iterCap.toLocaleString()} of ${need.toLocaleString()} `
+                + `(${((iterCap / need) * 100).toFixed(0)} % of the Dt delivered)`
               : "")
             + (segB && segA
               ? ` · segregation RMS ${segB.rms.toPrecision(3)} → ${segA.rms.toPrecision(3)}`
@@ -979,11 +1006,15 @@ export class HeatPanel {
 
   private report(plan: Plan & { ok: true }, before: Census, after: Census | null, delivered: number, total: number, twinLine = "", homogLine = "", spec = 0) {
     if (!this.reportEl) return;
-    const dim = (s: string) => `<span style="color:#6b7280">${s}</span>`;
+    // #8891a0, not #6b7280: with learn mode off these gray lines are the
+    // card's only honesty text, and #6b7280 is under 4.5:1 on the panel
+    const dim = (s: string) => `<span style="color:#8891a0">${s}</span>`;
     const strong = (s: string) => `<b style="color:#cfd6df">${s}</b>`;
     const astmNA = this.host.getMode() === "3d"
-      ? "ASTM — (a plane-section statistic; see STEREOLOGY)"
-      : "ASTM — (fewer than 3 grains)";
+      ? "ASTM n/a (a plane-section statistic; see STEREOLOGY)"
+      : "ASTM n/a (< 3 grains)";
+    // a row's learn sentence, as an empty slot until learn mode fills it
+    const lrn = (c: { learn: string }) => learnSlot(c.learn);
     const line = (label: string, c: Census) =>
       `${dim(label)} d̄ ${strong(fmtUm(this.dBar(c)))} · `
       + `${c.astm != null ? `ASTM ${strong("G " + c.astm.toFixed(1))}` : dim(astmNA)} · `
@@ -999,11 +1030,8 @@ export class HeatPanel {
     // and prints no micron figure. A number beside the word "withdrawn" is a
     // number a visitor reads and the word they skip.
     rows.push(plan.work
-      ? `${dim("law endpoint")} ${strong("withdrawn")} `
-        + dim("— the sourced coefficients price curvature-driven growth alone, and this run carried a "
-          + "stored-energy drive they were never fitted against. The before and after rows above are "
-          + "measured; nothing here predicted them")
-      : `${dim("law endpoint")} ${fmtUm(plan.dPredUm)} ${dim("— the trajectory between endpoints is the Potts model's, not the material's")}`);
+      ? `${dim("law endpoint")} ${strong("withdrawn")} ${dim(`(${HC.lawWithdrawn.line})`)}${lrn(HC.lawWithdrawn)}`
+      : `${dim("law endpoint")} ${fmtUm(plan.dPredUm)} ${dim(`(${HC.lawPath.line})`)}${lrn(HC.lawPath)}`);
     // H6: Hall–Petch on the MEASURED grain sizes — the same σ_y = s0 + k_HP/√d̄
     // the note predicted from the law endpoint, now standing on the census.
     // The row names its own limits, because this number is the one a visitor
@@ -1018,34 +1046,31 @@ export class HeatPanel {
       const sb = hallPetch(si, this.dBar(before) * 1e-6);
       if (after) {
         const sa = hallPetch(si, this.dBar(after) * 1e-6);
+        // the σ_y row is parsed as /σ_y N → N MPa/, and its caveat names the
+        // estimator (HT3-PANEL reads "⟨V⟩-equivalent") and, worked, "not a strength"
+        const hp = plan.work ? HC.hallPetchWork : HC.hallPetch;
         rows.push(`${dim("σ_y")} ${strong(fmtMPa(sb))} → ${strong(fmtMPa(sa) + " MPa")} `
-          + dim(plan.work
-            ? `— Hall–Petch on the measured ${est} d̄, grain-size strengthening alone: no precipitates, and `
-              + `no work-hardening term either — the cold work this run carried is a driving force for `
-              + `boundary migration, not a strength, so the increment a real deformation would add to σ_y `
-              + `is absent. The µm under the √d̄ are the declared resolution`
-            : `— Hall–Petch on the measured ${est} d̄, grain-size strengthening alone: no precipitates, `
-              + `no work hardening, and the µm under the √d̄ are the declared resolution`));
+          + dim(`· Hall–Petch on the measured ${est} d̄, ${hp.line}`) + lrn(hp));
         if (spec > 0) {
+          // HT-PANEL reads "met: the treated casting" / "missed: the treated casting"
+          const why = shownMPa(sb) < shownMPa(spec) ? HC.missedAsCast : HC.missedTrade;
           rows.push(shownMPa(sa) >= shownMPa(spec)
-            ? `${dim("spec")} σ_y ≥ ${fmtMPa(spec)} MPa — ${strong("met")}: the treated casting stands at ${fmtMPa(sa)} MPa`
-            : `${dim("spec")} σ_y ≥ ${fmtMPa(spec)} MPa — <span style="color:#c96a5b">missed</span>: the treated casting stands at ${fmtMPa(sa)} MPa`
-            + dim(shownMPa(sb) < shownMPa(spec)
-              ? " — it was under the spec before the furnace too, and an anneal only softens: meeting it takes a finer pour, not a schedule"
-              : " — the anneal traded this strength for its grain size, which is exactly the trade Hall–Petch prices"));
+            ? `${dim("spec")} σ_y ≥ ${fmtMPa(spec)} MPa · ${strong("met")}: the treated casting stands at ${fmtMPa(sa)} MPa`
+            : `${dim("spec")} σ_y ≥ ${fmtMPa(spec)} MPa · <span style="color:#c96a5b">missed</span>: the treated casting stands at ${fmtMPa(sa)} MPa`
+            + dim(` · ${why.line}`) + lrn(why));
         }
       } else if (spec > 0) {
-        rows.push(`${dim("spec")} σ_y ≥ ${fmtMPa(spec)} MPa — no after-census landed, so there is nothing measured to judge it against`);
+        rows.push(`${dim("spec")} σ_y ≥ ${fmtMPa(spec)} MPa · no after-census: not judged`);
       }
     }
     if (twinLine) rows.push(`${dim("twins")} ${twinLine}`);
     if (homogLine) rows.push(`${dim("homog")} ${homogLine}`);
     // oxidation and decarburization (H5): analytic parabolic laws over the
-    // whole schedule. The scale is NOT painted into the fields — T/c/age are
-    // the as-cast record — so the card is where the number lives.
+    // whole schedule. The scale is NOT painted into the fields (T/c/age are
+    // the as-cast record), so the card is where the number lives.
     const ov = canTreat("oxide", this.ctx(before));
     if (ov.ok) {
-      let ox = `scale ${fmtLen(scaleThickness(plan.ints.ox))} grew on the free surface (parabolic, ∫k_p·dt over the whole schedule)`;
+      let ox = `scale ${fmtLen(scaleThickness(plan.ints.ox))} on the free surface (parabolic, ∫k_p·dt)`;
       if (canTreat("decarb", this.ctx(before)).ok) {
         ox += ` · decarburized to ${fmtLen(decarbDepth(plan.ints.dt))} (x = 2√(D_C·t))`;
       }
@@ -1060,10 +1085,10 @@ export class HeatPanel {
     if (plan.pin) {
       rows.push(plan.dLimUm !== undefined
         ? `${dim("pinned")} dispersion ${(plan.pin.f * 100).toFixed(1)} vol % · r ${plan.pin.r} cells `
-          + dim(`— the fabric pins boundaries near d_lim ≈ ${fmtUm(plan.dLimUm)} `
+          + dim(`· d_lim ≈ ${fmtUm(plan.dLimUm)} `
             + `(measured on this lattice: d_lim = ${ZENER_K}·r^${ZENER_R_EXP}/f^${ZENER_F_EXP} cells)`)
         : `${dim("pinned")} dispersion ${(plan.pin.f * 100).toFixed(1)} vol % · r ${plan.pin.r} cells `
-          + dim("— the fabric pins in the volume too, but its limit law is only measured in the plane; no d_lim is claimed here"));
+          + dim(`· ${HC.pin3d.line}`) + lrn(HC.pin3d));
     }
     // the cold work's row (v7.0 C3a) — LAST of the mode rows, after C2's
     // pinned row, for the same reason that one went after oxide: the panel
@@ -1078,36 +1103,40 @@ export class HeatPanel {
       // grain's value and so is exact under `recovered` itself.
       const hEnd = recoveredMeanUniform(plan.work, rec);
       const worst = recovered(2 * plan.work, rec);
+      // HT3-SE-PANEL reads "cold work 4.0 J_b mean deposited" and the recovery law
       rows.push(`${dim("cold work")} ${plan.work.toFixed(1)} J_b mean deposited `
-        + `${dim(`(0–${(2 * plan.work).toFixed(1)} J_b across grains, against this lattice's ${H_FLAT_3D} J_b `
-          + `flat-front barrier)`)} `
-        + dim(`— recovery ran it to ${hEnd.toFixed(2)} J_b over ${delivered.toLocaleString()} sweeps `
-          + `(H_S = H₀/(1 + rec·H₀), rec = ${rec.toPrecision(3)}), and the most-deformed grains from `
-          + `${(2 * plan.work).toFixed(1)} to ${worst.toFixed(2)}: second-order annihilation takes the `
-          + `highest first, so the SPREAD that drives migration narrows faster than the mean falls`));
+        + `${dim(`(0–${(2 * plan.work).toFixed(1)} J_b across grains; flat-front barrier ${H_FLAT_3D} J_b)`)} `
+        + dim(`· recovered to ${hEnd.toFixed(2)} J_b in ${delivered.toLocaleString()} sweeps `
+          + `(H_S = H₀/(1 + rec·H₀), rec = ${rec.toPrecision(3)}) · most-deformed grains `
+          + `${(2 * plan.work).toFixed(1)} → ${worst.toFixed(2)} J_b`) + lrn(HC.coldWorkRow));
     }
     if (delivered < total) {
-      rows.push(`<span style="color:#ffb454">aborted at sweep ${delivered.toLocaleString()} / ${total.toLocaleString()} — the microstructure is wherever the boundaries were</span>`);
+      rows.push(`<span style="color:#ffb454">aborted at sweep ${delivered.toLocaleString()} / ${total.toLocaleString()}: partial anneal</span>`);
     } else if (plan.capped) {
       // the truncation's own endpoint is the same withdrawn prediction, one row
       // further down: `dCapUm` is the sourced law inverted for the delivered
       // sweeps, so printing it on a worked run contradicts the law-endpoint row
       // above it. The truncation FRACTION is not a prediction and stays.
-      rows.push(`<span style="color:#ffb454">truncated: the schedule asked for ${plan.sweeps.toLocaleString()} sweeps, the budget allows ${this.consts().cap.toLocaleString()} `
+      rows.push(`<span style="color:#ffb454">truncated: ${plan.sweeps.toLocaleString()} sweeps asked, budget ${this.consts().cap.toLocaleString()} `
         + `(${((total / plan.sweeps) * 100).toFixed(0)} %)`
         + (plan.work
           ? `</span>`
-          : ` — the model endpoint for the delivered sweeps is ~${fmtUm(plan.dCapUm)}</span>`));
+          : ` · model endpoint for the delivered sweeps ~${fmtUm(plan.dCapUm)}</span>`));
     } else if (after && this.dBar(after) - this.dBar(before) < 0.05) {
-      // "what the arithmetic predicted" is a claim about a prediction, and a
-      // worked run withdrew it — so the same observation gets the honest
-      // sentence for a run nothing predicted
-      rows.push(dim(plan.work
-        ? "nothing microstructural happened. Nothing here predicted that it would: with the stored drive live "
-          + "the endpoint was withdrawn before the sweeps were spent, and this row reports the census, not a hit."
-        : "nothing microstructural happened — which is what the arithmetic predicted. That is what a stress relief is."));
+      // "as predicted" is a claim about a prediction: a worked run withdrew
+      // it, and a plan whose law predicted growth (the note's `grew` branch,
+      // the same 0.05 µm) predicted the opposite, so only a no-growth plan
+      // gets the stress-relief line; the other two say what was predicted
+      const predictedGrowth = plan.dPredUm - plan.d0Um > 0.05;
+      const c = plan.work ? HC.noChangeWorked
+        : !predictedGrowth ? HC.noChange
+        : plan.pin ? HC.noChangePinned : HC.noChangeGrew;
+      rows.push(dim(c.line) + lrn(c));
     }
-    this.reportEl.innerHTML = rows.join("<br>");
+    // one block per row, so a row's learn slot sits under it without an extra
+    // line break (the text the gates read is the same as the old <br> join)
+    this.reportEl.innerHTML = rows.map(r => `<div>${r}</div>`).join("");
+    fillLearnSlots(this.reportEl);
   }
 }
 

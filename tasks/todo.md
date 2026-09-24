@@ -4002,8 +4002,10 @@ Line numbers in them are against `6ec93a1`; re-check before editing (shared work
   - [x] Rail first (ui.ts, materials.ts notes): 38 descriptors → delete/shorten/move per
         copy-audit §3. (Done in U1a below; the toggle and the "i" exist for the rail only so
         far, so the item above stays open until the panels have theirs.)
-  - [ ] Panels next: lab, heat treat (cold-work note, 88 words), composer (alloy.ts:538 at 94
-        words, elements.ts paragraphs) → `line` + `learn` split.
+  - [x] Panels next: lab, heat treat (cold-work note, 88 words), composer (alloy.ts:538 at 94
+        words, elements.ts paragraphs) → `line` + `learn` split. (U1b below did the lab, heat
+        treat, optimizer, challenge, analysis panels, SECTION PLANE and status lines; U1c the
+        composer.)
   - [ ] Tour: every step ≤ 40 words, control names match the screen exactly. U1a renamed rail
         controls the tour names: the two broken pointers are fixed in place ("FACETED (CUSPED ε)",
         "STAIN select", "EBSD MAP (ORIENT)", still in the tour's all-caps convention). Still owed
@@ -4011,16 +4013,29 @@ Line numbers in them are against `6ec93a1`; re-check before editing (shared work
         MODE" where the rail button and learn text say "optimizer" (one name per mode, so the
         panel title changes with it); "Melt · process" calls REHEAT "a brush", but it heats the
         whole melt (main.ts reheat is a uniform heatIn), as the rail's learn text now says.
-  - [ ] Remove build internals (C3b, docs paths, duplicate SECTION TABLE, cut-off source line).
-  - [ ] SEM bar: compute magnification from zoom and drop kV/WD, or drop the bar.
+        (U1b: the panel is titled "⚙ OPTIMIZER" now and that chapter's one pointer to it reads
+        "the OPTIMIZER panel"; the rest of the chapter, "▶ RUN" and the lab chapter's
+        "mould"/"programme" are still owed here.)
+  - [x] Remove build internals (C3b, docs paths, duplicate SECTION TABLE, cut-off source line).
+        (U1b removed "C3b" and the duplicate SECTION TABLE; U1c the composer's
+        "docs/PHASE-AUDIT.md" (the learn text names "the project's audit notes") and the phase
+        diagram's cut-off source line (a complete per-row `cite`).)
+  - [x] SEM bar: compute magnification from zoom and drop kV/WD, or drop the bar. (U1b: kV,
+        WD and "×240" dropped; the bar prints the view's horizontal field width and a scale
+        bar, both from the live zoom and cell pitch.)
   - [ ] Unify mode names and spelling.
   - [ ] Gate couplings updated IN THE SAME COMMIT as the copy they pin (~40, full list in
         copy-audit §4). Em-dash-pinned ones: ALLOY-OPEN-IDENTITY, GRID-REASON-LINE, LAB4,
         UNITS-ABSTRACT/NIYAMA. LAB4's `/ — met: /` must be rewritten so :475 is not left
         testing nothing (lesson: prove the perturbation landed). Minimum lengths (grid lines
         40–190 chars, not-grown ≥ 60, sources ≥ 40, refusals > 20) bound how short caveats go.
+        (U1b: LAB4 re-pinned and proved; HT-REFUSE "not modeled" and HT3-SE-PANEL "dialed"
+        re-pinned; U1c: the composer's ALLOY-OPEN-IDENTITY and GRID-REASON-LINE and the rest
+        of its couplings, see U1c below.)
   - [ ] New gate UI-NO-EMDASH: scan rendered app text (rail, panels, tour, composer opened)
-        for "—" inside prose; allow only the empty-readout glyph.
+        for "—" inside prose; allow only the empty-readout glyph. (Rail: RAIL-NO-EMDASH, U1a.
+        Composer: COMPOSER-COPY over every string it can compute and COMPOSER-LEARN over the
+        rendered modal, U1c. The tour is left.)
   - [x] **U1a (2026-09-24): learn-mode infrastructure + the rail's copy.** `src/learn/index.ts`
         (types, registry, toggle state in `sol.learn` with every storage access in try/catch,
         `LearnLayer` render helper) and `src/learn/rail.ts` (13 section entries keyed
@@ -4100,6 +4115,196 @@ Line numbers in them are against `6ec93a1`; re-check before editing (shared work
             text node now counts as prose.
           - Proved able to fail: see TESTING.md (four in-memory perturbations on a second
             server).
+  - [x] **U1b (2026-09-24): the panels and status lines outside the rail.** New
+        `src/learn/panels.ts` (12 `panel:` entries, 16 control hints, 39 caveat pairs, the report
+        cards' and status lines' learn sentences). Every mode panel (lab mode and its run
+        report, heat treat, optimizer, challenge), every analysis panel (2D and 3D) and the
+        SECTION PLANE popup has an "i" on its header; control hints show only in learn mode.
+        Panels built as HTML strings carry their learn sentences as EMPTY `data-lrn` slots that
+        `fillLearnSlots` fills only while learn mode is on (`learnSlot`, `src/learn/index.ts`), so
+        with learn off #htNote, #htReport and #foundryResultsBody read exactly the instrument
+        text the gates pin. The analysis columns' layers are exclusive (one explanation open at
+        a time), because the columns grow up from the bottom and would climb under the top bar.
+        Model-computed caveats keep their learn half beside the line: `canTreat` returns
+        `learn`, thermal.ts exports `THERMAL_LEARN`, porosity's refusal has `noteLearn`.
+        - Copy: cold-work note 88 words → one line + learn; lab atmosphere note → an identity
+          line and the "cleanliness proxy, not a nucleation control" caveat line + learn;
+          "C3b" gone; the duplicate "SECTION TABLE — thinnest first" header and its descriptor
+          gone (card "SECTION TABLE · THINNEST FIRST", descriptor in learn); every refusal,
+          verdict and status line de-dashed and shortened; American spelling (mold, program,
+          modeled, dialed, analyze, aluminum); "⚙ OPTIMIZER" (was "ENGINEERING · ML MODE"; the
+          tour's one pointer to it follows); challenge names the player's real controls
+          ("cooling rate", "inoculant n_max"; it said "nucleation /s", a control that no longer
+          exists); ARMED line, hints, TRUE 3D and ×N tooltips, #matcaveat link messages.
+        - SEM bar: "15 kV · ×240 · WD 10.2 mm · SE" was fixed text. It now prints
+          "SEM-style · <field width> wide · <scale bar>", both from the live zoom and cell pitch
+          (main.ts `updateScalebar`; "≈" in 3D, where the view is a perspective). (The review
+          replaced the first cut's "HFW", SEM jargon no learn text explained.)
+        - Found and fixed along the way: the 3D "TEXTURE · IPF" panel plots each grain's crystal
+          [001] axis in the sample frame, a pole figure: retitled "POLE FIGURE [001]" (panel,
+          enlarged view, rail checkbox and its hint); the second panel's title follows the axis
+          family it plots (⟨100⟩, (0001), 5-FOLD). The stereology panel's "≈ π/4 for spheres"
+          was the mean-section-DIAMETER ratio, but the panel compares the mean-section-AREA
+          diameter, whose equal-sphere value is √(2/3) ≈ 0.82; it says 0.82 now.
+        - Gates re-pinned in the same change, each proved able to fail with no worktree edit
+          (TESTING.md): LAB4 (` · met: ` / ` · missed: `), HT-REFUSE ("not modeled"),
+          HT3-SE-PANEL ("dialed"); verify-optimizer finds `exit` by its text (the header's first
+          button is now the "i").
+        - Verified on the final tree: typecheck, build, the 14 browser-free CI scripts;
+          verify-rail 9/9, verify-tools 16/16, verify-experiment-gpu 3/3, verify-3d 30/30,
+          verify-optimizer (logs only; paused entry, run, report, apply). verify-heattreat-gpu:
+          two clean runs, 25/26 each, every copy clause green in both; the one FAIL differed
+          (GG3-KMC's free-fit exponent, then HT3-SE-PANEL's revert arm) and each passed in the
+          other run. Both are Monte Carlo flakes, see the review note below.
+        - Screenshots, learn off and on, 1440x900: `solidify-hero-out/u1b_shots/`.
+        - The HT3-SE-PANEL revert-arm flake found here was fixed in the U1b review (below).
+          GG3-KMC flaked once (free-fit m 3.4 against its 1.6–3.2 band); not copy, still open.
+        - **U1b review (2026-09-24)**, fixed in the same uncommitted change:
+          - Layout: every mode panel, both analysis columns and the SECTION PLANE popup are
+            capped under the top chrome (`--top-band` on body, `app/index.html`) and scroll past
+            it; with learn on the heat treat panel had run off the top of the window (-48 px at
+            1024x768 in 2D, -673 px after a worked 3D anneal) and the lab panel, the columns and
+            the popup climbed over the learn toggle, CONTROLS, the TRUE 3D switch, the lens bar
+            and the readouts. The TRUE 3D switch (all four activation switches) is a
+            `<button role="switch">`: hoverable when unavailable, so its title shows, and
+            keyboard reachable. ARMED has a backing (1.5:1 on the ETCH lens's white before).
+            The SEM bar prints "<width> wide" and a 40 px scale bar on one line down to 1024
+            with the rail. Caveat and status grays are #8891a0 (were #6b7280, under 4.5:1).
+          - Copy/physics: heat treat's learn text no longer says the Monte Carlo run "checks"
+            the law (its sweeps are priced from it) nor calls the coefficients "measured";
+            ΔT max is the mean-liquid ratchet; the atmosphere line says "not a
+            bulk-nucleation control" and names the 2D H readout; Scheil's gap names what the
+            assumptions leave out; the stress-relief row only follows a no-growth plan; the
+            cut style is "EBSD-style orientation map" (the shader colors by the sample-frame
+            [001] axis, not an IPF key), README and the science page follow; the lab status
+            prints the ramp target in °C.
+          - Gates: verify-rail samples every panel, the columns and the popup with learn on,
+            holds them against the top chrome and the window's top, and audits the panels'
+            hints (proved able to fail, TESTING.md); verify-optimizer's `EXIT` verdict runs on
+            both paths; HT3-SE-PANEL arms with headroom (endpoint ≤ 0.65 of the domain limit;
+            0.8 was measured and was not enough).
+        - Checked and not a bug: run-tests.mjs calls `run("node", [script, OUT, ...extra])`,
+          so the suite runs `verify-3d.mjs verify-out 5199`, the right port. The real suite
+          bug was the teardown: `server.kill()` on the `shell: true` spawn ended only the
+          shell on Windows, leaving npx + vite holding 5199 after every `npm test` (the
+          "orphaned vite" seen through U1a-U1c). Fixed: the runner kills the whole tree.
+  - [x] **U1c (2026-09-24): the alloy composer.** Every string the modal prints is one
+        terse line on screen with its learn text beside it, from the same producer (the U1a
+        doctrine: computed caveats keep their pair in the module that computes them).
+        - Producers: `admit()` keeps `line` (screen) and `sentence` (now the learn text, 1 to 2
+          sentences, down from 70–99 words); the vapor and size advisories gained a `line`
+          beside their `text`; `derive()` gained `dT0Line`, `regimeLine` and a `learn` record
+          keyed by each refusal / ungrown-phase / clamp line (those three stay string arrays
+          because they also travel to #matcaveat and share links); `SolutePhases` gained
+          `line` and `notGrownLearn` (`source` is the learn text); figure notes are
+          `{ line, learn }`, one per row instead of one run-on paragraph, and the three
+          layout-apology notes are gone; `BinaryRow.cite` is a complete short citation for
+          the source line (it printed 240 characters of audit prose cut mid-sentence).
+        - `src/learn/composer.ts`: three `panel:` entries (alloy composer, element screen,
+          phase diagram) behind an "i" each, five readout-row hints, the header note's and
+          the empty reason panel's pairs. Slots in the modal's HTML are EMPTY with learn off
+          (`learnSlot`), so the instrument text is exactly what the gates read.
+        - Copy: no prose em dash anywhere the composer prints; "aluminum"; "vapor";
+          "linearized"; "docs/PHASE-AUDIT.md" gone from the screen (the learn text names the
+          project's audit notes); ASCII phase names typeset (γ-austenite, θ-Al2Cu, →), a bare
+          "beta" reads "β phase"; column heads EQUILIBRIUM LEAVES / SOLVER GROWS (science page
+          follows); "wt% · at%" (the % was missing); the tier chip "assessed · pourable"; the
+          empty reason panel counts its pairs from the classifier. Caveat grays #8891a0
+          (5.8:1 on the card; var(--dim) was 3.9:1), the source line from #4d545e (2.4:1).
+        - Found by looking at the screenshots: a figure note built from the band's generic
+          label said "(Fe) + γ-austenite" for 1045, whose own column says γ alone (the
+          reaction consumes the primary); the note now names what equilibrium leaves at THIS
+          pour. The base's own cell no longer prints a Hume-Rothery 0.0 % against itself.
+        - Gates, in the same change (TESTING.md): ALLOY-OPEN-IDENTITY re-baselined on the
+          clamp WORDS only (em dash to colon), numbers untouched; GRID-REASON-LINE's branch
+          markers follow the de-dashed lines, and two must-nots follow the other branch's new
+          words; EL-TIER-TOTAL and EL-VAPOUR-ADVISORY hold the vapor rule on both halves;
+          ALLOY-PHASES-NAMED reads "no fraction" off the line and "No fraction is put on it"
+          off the learn text, and requires every line's learn text; PD-FIGURE-CURSOR reads
+          the note's line; CALIB-MIX-OWN / CALIB-MIX-REFUSE hold `dT0Line` to the same
+          clauses as `dT0Source`. New: COMPOSER-COPY (verify-composer-grid, CI, seven checks
+          now) and COMPOSER-LEARN (verify-composer-gpu).
+        - Proved able to fail, with no worktree edit: every rewritten or added clause FAILed
+          against perturbations of a scratch copy of the tree (each perturbation grepped as
+          landed first; the copy then restored byte for byte from the tree, where the same
+          gates pass): the old em-dash clamp,
+          an em-dash grid line, the hyphen range, "IS this melt", a generic-branch marker in
+          al-C, an uncaused NO-DATA vapor line, dropped ideal-solution and activity
+          coefficient caveats, a peritectic line and learn text without "no fraction", a
+          reworded consumed line, a missing `notGrownLearn`, a figure note without "off this
+          diagram", an unlabeled extrapolated gauge and an unnamed raiser on screen, an
+          unpaired clamp, a three-sentence learn text with "aluminium", a cut cite; and
+          COMPOSER-LEARN against a second dev server serving the copy with the sentence
+          printed in place of its slot and an em dash in the tier chip.
+        - Verified on the final tree: typecheck, build, the 14 browser-free CI scripts;
+          verify-phasediagram-gpu 2/2, verify-composer-gpu 2/2, verify-quant 11/11,
+          verify-rail 9/9. Port 5199 was held all session by another session's long-lived dev
+          server (not stopped), so the four browser gates ran one at a time against a dev
+          server of this tree on 5288, started and stopped here. Screenshots, learn off and
+          on, 1440x900: `solidify-hero-out/u1c_shots/`.
+        - Left open, seen here: #matcaveat grows #head downward over the fixed-position
+          readouts (`t`, `melt` ...) when a pour carries two or more caveat lines (1045 shows
+          it; it was worse with the old long lines): a layout fix for U3. The tour still
+          says "Aluminium" and carries its own em dashes (U1d); its three pointers to the
+          composer now read "ALLOY COMPOSER" (U1c review, below).
+        - **U1c review (2026-09-24)**, 25 findings, each checked against the tree first (the
+          behavioral ones reproduced through `derive()`/`layout()` or the rendered modal);
+          all were real and all are fixed in the same uncommitted change:
+          - Honesty caveats back on screen: a SINGLE-PHASE regime line reads "within the X wt%
+            that dissolves in (Al) at T_inv: single-phase there at equilibrium · no solvus
+            below T_inv" (2024 is (Al) + θ when cold), the band label "(Al), dissolved at
+            T_inv" and the band note "at T_inv (no solvus below)"; the DILUTE ΔT₀ line says
+            "linear solidus" (2024's 579.6 °C is an extrapolation, the real one is near 500).
+          - Physics in the learn texts: Hägg's opening is conditional on the base (off Fe/Ni
+            N, C, B, H are "small next to" the base, and HEAD's "necessary, never sufficient"
+            caveat is back; boron "can sit" in the gaps and its two-site sentence is iron's
+            alone); the on-screen scope tag reads "base outside Hägg's scope" (copper is a
+            d-block metal, so "not a transition-metal base" was false; not in the findings, same
+            caveat). Cu–Pb splits into two liquids ABOVE 955 °C, the Al monotectics "above"
+            too; a liquidus raiser still freezes over a range (Cu–Ni is isomorphous, not
+            peritectic), in the ΔT₀ refusal and the clamp learn text (the clamp LINE stays,
+            pinned); Gulliver–Scheil "assumes" no diffusion and the last liquid freezes as
+            (Al) + θ; m "shifts" the melting point (Ti, Ni, W, Zr raise it); the oxygen text is
+            base-neutral (nickel shares it); refusals carry "their own stated reason".
+          - Phase diagram: the chord note says "straight chords between cited points (real
+            boundaries curve)" on invariant rows (only isomorphous chords are the solver's own
+            m and k); the pour-marker note gives each part its own "down"/"up" (Ni–5Nb–1W read
+            the wrong side) and prints nothing under 0.05 K (al–Fe 0.175 printed a bare colon);
+            field labels and ticks #8891a0 (6.0:1). Found here: the notes' redraw key now
+            includes the learn texts (a slider could leave a stale paragraph under an
+            unchanged line). Ni–Al's `second` is "beta-NiAl (B2, ...)" (it printed the CALPHAD
+            id NIAL); table version 1.1.1, README and science page follow.
+          - The modal: its own learn toggle in the header (the top bar's is under the
+            backdrop: a click there closed the modal); a dialog (role, aria-modal unless the
+            tour is showing, labelled), focus in on open and back on close, `#app` inert except
+            `#tour`, Escape, Tab/Shift+Tab wrap, main.ts's Space and digit keys stand down while
+            it is open; the reason panel is a polite live region that describes the picked
+            cell; one learn paragraph once per modal (the figure's clamp and band paragraphs
+            repeated the readout's); `Composer.learnAudit()` for its hints. Contrast: every
+            composer text gray is #8891a0 (5.5 to 5.8:1), NOT-A-SOLUTE #7a8390 (4.6:1) with
+            REFUSED-PAIR raised to #9aa1ab; sliders and selects show a :focus-visible ring.
+            The rail button is "⚗ alloy composer…" (one name per mode), its hint re-keyed.
+          - Gates, in the same change (TESTING.md): PD-REGIME-EXACT holds each regime's
+            on-screen line (present, clean, names its solute; single-phase keeps "at T_inv",
+            "at equilibrium", "no solvus below"); PD-INVARIANT-BAND holds the peritectic line
+            to the reaction, "no fraction" and "bracket"; EL-TIER-TOTAL holds the past-the-
+            invariant `line` to its wt% and ceiling; CALIB-MIX-OWN holds "linear solidus";
+            PD-FIGURE-GEOMETRY reads the pour-marker note's directions and sums and the chord
+            note's claim; COMPOSER-LEARN switches learn through the modal's toggle by hit test,
+            requires exact hint counts (5 on 1045, 6 on A356) and an empty audit, opens the
+            in-melt Mn cell (chip and call to action) and checks one-paragraph-once; new
+            COMPOSER-DIALOG drives the dialog with real key presses (verify-composer-gpu, three
+            checks now).
+          - Proved able to fail with no worktree edit: 15 perturbations of a scratch copy of
+            the tree (each landed, each FAILed its own gate with its own named reason, the
+            script's other checks OK, restored byte for byte), and two verify-composer-gpu runs
+            against a second dev server serving the copy with 13 browser-side perturbations,
+            each read off its own flag (TESTING.md).
+          - Verified on the final tree: typecheck, build, the 14 browser-free CI scripts;
+            verify-phasediagram-gpu 2/2, verify-composer-gpu 3/3, verify-quant 11/11,
+            verify-rail 9/9. Port 5199 was held by another session's dev server (not
+            touched), so the browser gates ran one at a time against a dev server of this tree
+            on 5288, started and stopped here.
 - [ ] **U2 · Figures: one plot module, paper style**
   - [ ] `src/plot/`: hand-rolled canvas, no new dependency. Nice-number ticks (~30-line port
         of d3-array's tick algorithm), axis titles that always carry a unit or say
@@ -4119,7 +4324,9 @@ Line numbers in them are against `6ec93a1`; re-check before editing (shared work
         it SVG, feed it the shared ticks, titles and modal).
   - [ ] Fix the bugs above: ΔT no-interface, IPF label (rename to "POLE FIGURE [001]" or
         implement a true IPF), lab liquidus line (verify, then draw the alloy's liquidus),
-        unbounded 3D Scheil array.
+        unbounded 3D Scheil array. (U1b did the IPF label: the panel, its enlarged view and the
+        rail checkbox now say "pole figure [001]", and the second panel's title follows the
+        axis family it plots, ⟨100⟩ / (0001) / 5-FOLD.)
   - [ ] Couplings to respect (charts-audit table): `#foundryCurve` must exist; nothing plot-side
         inside `#foundryResultsBody`/`#htNote`/`#htReport`/`#labReport`; plots mount INSIDE
         `#app` as non-canvas wrappers so the screenshot must-differ checks still hide them;

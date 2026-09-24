@@ -1,6 +1,7 @@
 import { BASES, derive, phasesFor, type CompositionRegime, type Mix } from "./alloy";
 import { BINARY, shortPhase, type BinaryRow } from "./phasedata";
 import { MATERIALS } from "./materials";
+import { learnSlot, fillLearnSlots, type Caveat } from "./learn";
 
 // shortPhase moved to phasedata.ts in v7.1 P3 — alloy.ts names phases now too,
 // and this module already imports alloy.ts, so the helper had to sit below both
@@ -91,13 +92,20 @@ export interface Figure {
   band: RegimeBand | null;
   /** what this figure claims to be, in one sentence */
   caption: string;
-  /** every simplification this drawing makes, named */
-  notes: string[];
-  /** the row's own citation, so the figure carries its provenance */
+  /**
+   * every simplification this drawing makes, named: each an on-screen `line`
+   * with the `learn` text behind it (v8 U1c), computed here beside the number
+   * it is about
+   */
+  notes: Caveat[];
+  /** the row's audit record (phasedata.ts `source`), not printed */
   source: string;
+  /** the row's short citation, printed as the figure's source line */
+  cite: string;
 }
 
-export interface FigureRefusal { ok: false; reason: string }
+/** `learn`: what the refusal means, for learn mode (v8 U1c); the reason stays the line */
+export interface FigureRefusal { ok: false; reason: string; learn?: string }
 
 const C_PER_K = 273.15;
 
@@ -114,7 +122,7 @@ export function diagramForMaterial(materialKey: string):
   const entry = Object.entries(BASES).find(([, b]) => b.materialKey === materialKey);
   if (entry) return { ok: true, base: entry[0] };
   if (!m.si) {
-    return { ok: false, reason: `${m.label} is a model material rather than a substance — it has no melting point and no assessed binaries, so there is nothing to draw a diagram from.` };
+    return { ok: false, reason: `${m.label} is a model material rather than a substance: it has no melting point and no assessed binaries, so there is nothing to draw a diagram from.` };
   }
   return { ok: false, reason: `${m.label} has real SI properties but is not an alloy base in this composer, so no binary invariants have been assessed for it and there is no diagram to draw.` };
 }
@@ -142,23 +150,24 @@ function chordAt(T0: number, cEnd: number, T1: number, c: number): number {
 export function layout(mix: Mix, meltC: number | null,
   meltMaterialKey?: string | null): Figure | FigureRefusal {
   const base = Object.hasOwn(BASES, mix.base) ? BASES[mix.base] : undefined;
-  if (!base) return { ok: false, reason: `no base metal named "${mix.base}" — the composer draws ${Object.keys(BASES).join(", ")}.` };
+  if (!base) return { ok: false, reason: `no diagram: no base metal named "${mix.base}" (bases: ${Object.keys(BASES).join(", ")})` };
   const si = MATERIALS[base.materialKey]?.si;
-  if (!si) return { ok: false, reason: `${base.label} carries no melting point, so a temperature axis cannot be drawn.` };
+  if (!si) return { ok: false, reason: `no diagram: ${base.label} has no melting point, so there is no temperature axis` };
 
   const d = derive(mix);
   const dominant = d.dominant;
-  if (!dominant) return { ok: false, reason: `a pure ${base.label} melt has no second component, so there is no binary diagram to draw — add a solute.` };
+  if (!dominant) return { ok: false, reason: `no diagram: a pure ${base.label} melt has no second component. Add a solute.`,
+    learn: "A binary phase diagram maps a base metal against one added element, so it needs a solute to draw. Add one and its diagram appears here." };
 
   const byBase = Object.hasOwn(BINARY, mix.base) ? BINARY[mix.base] : {};
   const row: BinaryRow | undefined = Object.hasOwn(byBase, dominant) ? byBase[dominant] : undefined;
-  if (!row) return { ok: false, reason: `no assessed invariant for ${base.symbol}–${dominant}, so this pair has no diagram in this build.` };
+  if (!row) return { ok: false, reason: `no diagram: no assessed ${base.symbol}–${dominant} invariant in this build` };
 
   const sol = base.solutes[dominant];
   const TmC = si.Tm - C_PER_K;
 
   if (row.invariant === "isomorphous" && !(sol.k > 0) ) {
-    return { ok: false, reason: `${base.symbol}–${dominant} is isomorphous, so its solidus is drawn from the partition coefficient alone — and k = ${sol.k} is not a positive number, so there is no solidus to draw.` };
+    return { ok: false, reason: `no diagram: ${base.symbol}–${dominant} is isomorphous and k = ${sol.k} is not positive, so there is no solidus to draw` };
   }
 
   // THE ROW HAS TO BE DRAWABLE, and one shipped row is not. A liquidus that
@@ -175,7 +184,9 @@ export function layout(mix: Mix, meltC: number | null,
     const rises = row.Tinv > TmC;
     const solidRicher = row.Csm > row.Cinv;
     if (rises !== solidRicher) {
-      return { ok: false, reason: `${base.symbol}–${dominant}'s row cannot be drawn: its invariant at ${row.Tinv} °C is ${rises ? "above" : "below"} pure ${base.symbol}'s ${TmC.toFixed(0)} °C, so the liquidus ${rises ? "rises" : "falls"} — but C_SM ${row.Csm} wt% against C_inv ${row.Cinv} wt% says the ${solidRicher ? "solid" : "liquid"} is the richer phase, which is the opposite. Drawn, the solidus would cross above the liquidus. The row's own source records this; nothing here invents a repair.` };
+      return { ok: false,
+        reason: `no diagram: the ${base.symbol}–${dominant} row cannot be drawn (T_inv ${row.Tinv} °C is ${rises ? "above" : "below"} T_m ${TmC.toFixed(0)} °C, yet C_SM ${row.Csm} vs C_inv ${row.Cinv} wt% makes the ${solidRicher ? "solid" : "liquid"} richer; the solidus would cross the liquidus)`,
+        learn: `A liquidus that ${rises ? "rises" : "falls"} from the pure metal needs a first solid ${rises ? "richer" : "leaner"} than the liquid, and the cited ${base.symbol}–${dominant} numbers say the reverse, so one of the three numbers is wrong. The app has not resolved which, so it draws nothing rather than invent a repair.` };
     }
   }
   const cDom = mix.wt[dominant];
@@ -206,7 +217,8 @@ export function layout(mix: Mix, meltC: number | null,
   const polylines: Polyline[] = [];
   const markers: Marker[] = [];
   const fields: FieldLabel[] = [];
-  const notes: string[] = [];
+  const notes: Caveat[] = [];
+  const note = (line: string, learn: string) => notes.push({ line, learn });
 
   const iso = row.invariant === "isomorphous";
   const Tinv = row.Tinv, Cinv = row.Cinv, Csm = row.Csm;
@@ -260,7 +272,8 @@ export function layout(mix: Mix, meltC: number | null,
       pts: [{ c: 0, T: TmC }, { c: xMax, T: liqAt(xMax) }] });
     polylines.push({ id: "solidus", role: "data", label: "solidus",
       pts: [{ c: 0, T: TmC }, { c: xMax, T: solAt(xMax) }] });
-    notes.push(`${base.symbol}–${dominant} is isomorphous: the two metals are soluble in each other in all proportions, so there is no invariant, no second phase and no eutectic to reach — the chords simply run off this axis.`);
+    note(`${base.symbol}–${dominant} isomorphous: no invariant, no second phase`,
+      "These two metals dissolve in each other at every composition, so there is no eutectic, no second solid and no invariant line, and the two boundaries simply run off the edge of the plot.");
   } else {
     polylines.push({ id: "liquidus", role: "data", label: "liquidus",
       pts: [{ c: 0, T: TmC }, { c: Cinv!, T: Tinv! }] });
@@ -271,12 +284,13 @@ export function layout(mix: Mix, meltC: number | null,
       pts: [{ c: Math.min(Csm!, Cinv!), T: Tinv! }, { c: Math.max(Csm!, Cinv!), T: Tinv! }] });
     polylines.push({ id: "solvus", role: "data", label: "solvus (drawn vertical)",
       pts: [{ c: Csm!, T: Tinv! }, { c: Csm!, T: yMin }] });
-    notes.push(`the solvus is drawn vertical: this table carries the maximum solid solubility ${Csm!} wt% at the invariant and no lower-temperature solubility curve, so its real slope is not known here.`);
+    note("solvus drawn vertical (no solubility data below the invariant)",
+      `The table stores the maximum solid solubility (${Csm!} wt%) only at the invariant temperature, not how it changes on cooling, so the solvus is drawn straight down.`);
   }
 
   // ---- the pour, at the MIX's own liquidus rather than the binary's
   markers.push({ id: "pour", c: cDom, T: TLmix,
-    label: `${d.name} — liquidus ${TLmix.toFixed(1)} °C` });
+    label: `${d.name} · liquidus ${TLmix.toFixed(1)} °C` });
 
   // ---- the residual: the gap between the marker and the line actually DRAWN,
   //      decomposed, because it has TWO causes and they are different facts.
@@ -297,17 +311,28 @@ export function layout(mix: Mix, meltC: number | null,
     polylines.push({ id: "residual", role: "offset",
       label: `${Math.abs(residual).toFixed(1)} K`,
       pts: [{ c: cDom, T: TLdrawn }, { c: cDom, T: TLmix }] });
+    // THE NOTE. Each part states its OWN direction, "down" (it puts the marker
+    // below the drawn line, a positive part) or "up": the two parts can have
+    // opposite signs, and "the same way" / "the other way" left the first part
+    // with no direction at all, so Ni–5Nb–1W's 1.0 K from W (which RAISES the
+    // liquidus) read as "below" and the parts summed to the wrong side. A part
+    // or a total that rounds to 0.0 K prints nothing: the bar's own label
+    // carries the number, and al–Fe at 0.175 wt% used to print "pour marker
+    // 0.0 K below the drawn liquidus: " with nothing after the colon.
+    const shown = (x: number) => Math.abs(x) >= 0.05;
+    const way = (x: number) => (x > 0 ? "down" : "up");
     const parts: string[] = [];
-    if (Math.abs(fromOthers) > 5e-3) {
-      parts.push(`${Math.abs(fromOthers).toFixed(1)} K of it is the other ${others.length === 1 ? `solute (${others[0]})` : `${others.length} solutes (${others.join(", ")})`}, which ${fromOthers > 0 ? "depress" : "raise"}${others.length === 1 ? "es" : ""} this melt and ${others.length === 1 ? "is" : "are"} in the solver but not on this diagram`);
+    if (shown(fromOthers)) {
+      parts.push(`${Math.abs(fromOthers).toFixed(1)} K ${way(fromOthers)} from other solute${others.length === 1 ? "" : "s"} (${others.join(", ")}), in the solver, not drawn`);
     }
-    if (Math.abs(fromChord) > 5e-3) {
-      // the two parts can have OPPOSITE signs, and then "13.3 K of it" plus
-      // "1.1 K of it" summing to 12.2 K reads as an arithmetic error unless the
-      // direction of each is stated
-      parts.push(`${Math.abs(fromChord).toFixed(1)} K goes the ${Math.sign(fromChord) === Math.sign(fromOthers) || Math.abs(fromOthers) < 5e-3 ? "same way" : "other way"}, from ${base.symbol}–${dominant}'s own dilute slope (${sol.m} K/wt%, what the solver integrates) disagreeing with the invariant chord this line is drawn from — docs/PHASE-AUDIT.md records that ratio per pair`);
+    if (shown(fromChord)) {
+      parts.push(`${Math.abs(fromChord).toFixed(1)} K ${way(fromChord)}: dilute slope ${sol.m} K/wt% vs the drawn chord`);
     }
-    notes.push(`the marker sits ${Math.abs(residual).toFixed(1)} K ${residual > 0 ? "below" : "above"} the drawn liquidus: ${parts.join("; and ")}.`);
+    // the audit notes are named, not their repo path (docs/COPY-STYLE.md)
+    if (shown(residual) && parts.length) {
+      note(`pour marker ${Math.abs(residual).toFixed(1)} K ${residual > 0 ? "below" : "above"} the drawn liquidus: ${parts.join("; ")}`,
+        "The marker sits at this melt's own liquidus, which can differ from the drawn line for two reasons: other solutes shift the melting point too, and the solver uses the dilute slope while the line is drawn straight to the invariant. The project's audit notes record that second disagreement for each pair.");
+    }
   }
 
   // ---- the line the solver actually integrates, when a clamp moved it
@@ -317,20 +342,23 @@ export function layout(mix: Mix, meltC: number | null,
       pts: [{ c: 0, T: TmC }, { c: cDom, T: Tsolver }] });
     markers.push({ id: "solver", c: cDom, T: Tsolver,
       label: `solver: ${solverDep.toFixed(1)} K` });
-    notes.push(`DASHED: the model's own clamps have moved the depression it integrates to ${solverDep.toFixed(1)} K, against this melt's ${meltDep.toFixed(1)} K. The dashed line is a chord to that point, not a second liquidus — the solver's slope is per unit of TOTAL solute, and this axis is ${dominant} alone.`);
-    for (const c of d.clamps) notes.push(`clamp: ${c}`);
+    note(`dashed: the solver's depression ${solverDep.toFixed(1)} K vs this melt's ${meltDep.toFixed(1)} K (moved by a clamp)`,
+      `The simulation's safety clamps changed how far it lowers the melting point, and the dashed line points to what the solver really uses. It is not a second liquidus: the solver's slope counts all the solute, while this axis shows ${dominant} alone.`);
+    for (const c of d.clamps) note(`clamp: ${c}`, d.learn[c] ?? "");
   }
 
   // ---- the thermometer, drawn only where it is really on this diagram AND
   //      only when it is this diagram's own metal
   const wrongMetal = meltMaterialKey != null && meltMaterialKey !== base.materialKey;
   if (meltC != null && Number.isFinite(meltC) && wrongMetal) {
-    notes.push(`the melt in the crucible is ${MATERIALS[meltMaterialKey]?.label ?? meltMaterialKey}, not ${base.label} — this diagram is for a mix you have staged but not poured, so its thermometer is not drawn on it.`);
+    note(`cursor hidden: the melt in the crucible is ${MATERIALS[meltMaterialKey]?.label ?? meltMaterialKey}, not ${base.label}`,
+      "This diagram is for a mix you have staged but not poured, so the temperature of the melt that is actually in the crucible is not drawn on it.");
   } else if (meltC != null && Number.isFinite(meltC)) {
     if (meltC <= yMax && meltC >= yMin) {
       markers.push({ id: "cursor", c: 0, T: meltC, label: `melt ${meltC.toFixed(0)} °C` });
     } else {
-      notes.push(`the melt is at ${meltC.toFixed(0)} °C, off this diagram (${yMin.toFixed(0)}–${yMax.toFixed(0)} °C) — the cursor is not drawn rather than pinned to an edge.`);
+      note(`cursor hidden: the melt at ${meltC.toFixed(0)} °C is off this diagram (${yMin.toFixed(0)}–${yMax.toFixed(0)} °C)`,
+        "The melt's temperature is outside this plot's range, so the cursor is left off rather than pinned to an edge.");
     }
   }
 
@@ -345,16 +373,20 @@ export function layout(mix: Mix, meltC: number | null,
   const INNER = 250;                       // FRAME.w - FRAME.ml - FRAME.mr
   const fitsIn = (widthC: number, text: string) =>
     (widthC / xMax) * INNER > text.length * 4.6;
-  const push = (c: number, T: number, text: string, widthC: number, why: string) => {
+  // A label that does not fit is skipped. v8 U1c dropped the three notes that
+  // only apologized for a missing label (the field is still drawn, so they
+  // told a reader nothing about the model); the one that NAMES information the
+  // skipped label carried, the two solids below the invariant, keeps its note.
+  const push = (c: number, T: number, text: string, widthC: number, why?: Caveat) => {
     if (inFrame(T) && fitsIn(widthC, text) && c > 0 && c < xMax) fields.push({ c, T, text });
-    else notes.push(why);
+    else if (why) notes.push(why);
   };
 
   // L — everything above the liquidus. Widest near the invariant end.
   {
     const cRef = (iso ? xMax : Cinv!) * 0.62;
     const T = liqAt(cRef) + span * 0.10;
-    push(cRef, T, "L", xMax - cRef * 0.5, `the liquid field has no room for a label at this scale.`);
+    push(cRef, T, "L", xMax - cRef * 0.5);
   }
   // L + (base) — between the chords, and its width is MEASURED at the label's
   // own height rather than assumed. The isomorphous arm used to take a
@@ -370,8 +402,7 @@ export function layout(mix: Mix, meltC: number | null,
     const cSol = iso ? cLiq * sol.k : Csm! * f;
     const lo = Math.min(cLiq, cSol), hi = Math.max(cLiq, cSol);
     const T = iso ? TmC + sol.m * cLiq : TmC + f * (Tinv! - TmC);
-    push((lo + hi) / 2, T, `L + (${base.symbol})`, hi - lo,
-      `the two-phase field between the liquidus and the solidus is only ${(hi - lo).toFixed(2)} wt% wide at this height, too narrow to write a label into on a ${xMax.toFixed(1)} wt% axis (k = ${sol.k}).`);
+    push((lo + hi) / 2, T, `L + (${base.symbol})`, hi - lo);
   }
   // (base) — the single-phase solid solution. Which SIDE of the solidus that is
   // depends on the sign: for a falling diagram the solid is leaner than the
@@ -384,20 +415,32 @@ export function layout(mix: Mix, meltC: number | null,
     const hi = iso ? xMax : Csm!;
     const T = iso ? solAt(hi * 0.5) - span * 0.12
                   : Math.min(TmC, Tinv!) - span * 0.10;
-    push(hi / 2, T, `(${base.symbol})`, hi,
-      `the primary ${base.symbol} field is too narrow to label at this scale: it reaches only ${hi.toFixed(2)} wt% on a ${xMax.toFixed(1)} wt% axis.`);
+    push(hi / 2, T, `(${base.symbol})`, hi);
   }
   // (base) + second — below the invariant, right of the solvus
   if (!iso && row.second) {
     const lo = Csm!, hi = xMax;
     push((lo + hi) / 2, Tinv! - span * 0.09, `(${base.symbol}) + ${shortPhase(row.second)}`, hi - lo,
-      `there is no room below the ${row.invariant} to name the two solid phases it produces; they are ${base.symbol} and ${shortPhase(row.second)}.`);
+      { line: `below the ${row.invariant}: (${base.symbol}) + ${shortPhase(row.second)} (no room for the label)`,
+        learn: `Below the ${row.invariant} line the casting is two solids, (${base.symbol}) and ${shortPhase(row.second)}; that field is too narrow to label at this scale.` });
   }
 
   // ---- the standing caveats, whatever the row
-  notes.push(`straight chords: the real boundaries are curved, and these are the linearised ones this solver integrates. Where the shipped dilute slope and the invariant chord disagree, docs/PHASE-AUDIT.md records by how much.`);
+  // Only the isomorphous branch draws the solver's own m and k. An invariant
+  // row's chords join the pure metal to the cited invariant point, and the
+  // solver integrates the dilute slope instead (tin bronze: 30.8 K apart at the
+  // pour), so saying "the boundaries the solver uses" there was false; the pour
+  // marker's note gives the gap.
+  if (iso) {
+    note("straight chords: the linearized boundaries the solver uses",
+      "Real phase boundaries are curved; for this pair the straight lines are drawn from the same dilute slope and partition coefficient the solver integrates.");
+  } else {
+    note("straight chords between cited points (real boundaries curve)",
+      "Real phase boundaries are curved; these straight lines join the pure metal to the cited invariant point. The solver integrates the dilute slope instead, and the pour marker note gives the gap when the two differ.");
+  }
   if (d.phases.length > 1) {
-    notes.push(`this is the ${base.symbol}–${dominant} binary, chosen because ${dominant} carries ${(share * 100).toFixed(0)} % of this melt's ${totalShift.toFixed(1)} K of liquidus shift (of which ${totalDep.toFixed(1)} K is depression). It is NOT this alloy's own diagram: a multicomponent melt has its own surfaces, and the phases they add — Laves in a Nb-bearing nickel alloy, π and β in an iron-bearing Al–Si–Mg — appear on neither this drawing nor in the solver.`);
+    note(`${base.symbol}–${dominant} binary (${(share * 100).toFixed(0)} % of the ${totalShift.toFixed(1)} K liquidus shift): not this alloy's own multicomponent diagram`,
+      `A melt with several elements has its own, more complex diagram; this one shows the binary of the element that shifts the melting point most (${totalDep.toFixed(1)} K of the shift is depression). Phases the other elements add, such as Laves in a Nb-bearing nickel alloy or π and β in an iron-bearing Al–Si–Mg, appear neither here nor in the simulation.`);
   }
 
   // ---- the regime band (v7.1 P3): where on this axis the pour sits, and what
@@ -410,8 +453,10 @@ export function layout(mix: Mix, meltC: number | null,
     if (iso) {
       band = { c0: 0, c1: xMax, regime: ph.regime, label: `${P} at every composition` };
     } else if (ph.regime === "SINGLE-PHASE") {
+      // dissolved AT the invariant temperature: the table has no solvus below
+      // it, and a precipitation-hardened alloy is two-phase when cold
       band = { c0: 0, c1: Math.min(Csm!, Cinv!), regime: ph.regime,
-        label: `${P} — everything dissolves` };
+        label: `${P}, dissolved at ${Tinv!} °C` };
     } else if (ph.regime === "TWO-PHASE-TERMINATION") {
       band = { c0: Csm!, c1: Cinv!, regime: ph.regime,
         label: `${P} + ${shortPhase(row.second)}` };
@@ -420,15 +465,21 @@ export function layout(mix: Mix, meltC: number | null,
     // refuses that composition, so it never becomes the dominant solute of a
     // mix this function is handed. Left unhandled rather than given a band that
     // would be a picture of a melt the instrument declines to pour.
-    notes.push(`${ph.source} This solver grows ${P} and nothing else.`);
+    // the readout above the figure already prints the regime line, so the
+    // figure's own note says what equilibrium leaves at THIS pour (not the
+    // band's generic label: 1045 sits in the (Fe) + γ band and ends as γ
+    // alone) and what the solver grows
+    note(band ? `shaded band: equilibrium leaves ${ph.equilibrium.join(" + ")} here${ph.regime === "SINGLE-PHASE" ? ` at ${Tinv!} °C (no solvus below)` : ""}; the solver grows ${P} only`
+      : `${ph.line} · the solver grows ${P} only`,
+      ph.source);
   }
 
   return {
     ok: true, kind: iso ? "ISOMORPHOUS" : "INVARIANT",
     baseSymbol: base.symbol, solute: dominant,
     xMax, yMin, yMax, polylines, markers, fields, band,
-    caption: `${base.symbol}–${dominant}, ${iso ? "isomorphous — no invariant" : `${row.invariant} at ${Tinv} °C`}`,
-    notes, source: row.source,
+    caption: `${base.symbol}–${dominant}, ${iso ? "isomorphous (no invariant)" : `${row.invariant} at ${Tinv} °C`}`,
+    notes, source: row.source, cite: row.cite,
   };
 }
 
@@ -485,6 +536,8 @@ const LINE_ORDER: LineId[] = ["invariant", "solvus", "solidus", "liquidus", "sol
  */
 export class PhaseFigureView {
   readonly root: HTMLElement;
+  /** the caption's row: the composer puts its learn-mode "i" in here (v8 U1c) */
+  readonly head: HTMLElement;
   private svg: SVGElement;
   private bandEl: SVGElement;
   private paths = new Map<LineId, SVGElement>();
@@ -502,8 +555,11 @@ export class PhaseFigureView {
   constructor() {
     this.root = document.createElement("div");
     this.root.className = "pdfig";
-    this.capEl = document.createElement("div");
+    this.head = document.createElement("div");
+    this.head.className = "pdhead";
+    this.capEl = document.createElement("span");
     this.capEl.className = "pdcap";
+    this.head.append(this.capEl);
     this.svg = el("svg", { viewBox: "0 0 " + FRAME.w + " " + FRAME.h, class: "pdsvg" });
     // the regime band goes in FIRST so every line draws over it
     this.bandEl = el("rect", {
@@ -533,19 +589,32 @@ export class PhaseFigureView {
     this.pour = el("circle", { r: "3.4", fill: "#ffb454", stroke: "#0a0b0d", "stroke-width": "1" });
     this.solverDot = el("circle", { r: "2.6", fill: "none", stroke: "#56d4dd", "stroke-width": "1.2" });
     this.svg.append(this.cursor, this.cursorTx, this.solverDot, this.pour);
+    // field labels and axis ticks in #8891a0, 6.0:1 on the plot's #0d0f13
+    // (#6b7280 was 3.97:1 at about 11 px rendered)
     for (let i = 0; i < 5; i++) {
-      const t = el("text", { fill: "#6b7280", "font-size": "7.5", "text-anchor": "middle" });
+      const t = el("text", { fill: "#8891a0", "font-size": "7.5", "text-anchor": "middle" });
       this.fieldTx.push(t); this.svg.append(t);
     }
     for (let i = 0; i < 5; i++) {
-      const t = el("text", { fill: "#6b7280", "font-size": "7" });
+      const t = el("text", { fill: "#8891a0", "font-size": "7" });
       this.axis.push(t); this.svg.append(t);
     }
     this.noteEl = document.createElement("div");
     this.noteEl.className = "pdnotes";
     this.srcEl = document.createElement("div");
     this.srcEl.className = "pdsrc";
-    this.root.append(this.capEl, this.svg, this.noteEl, this.srcEl);
+    this.root.append(this.head, this.svg, this.noteEl, this.srcEl);
+  }
+
+  /**
+   * The notes, one terse line each with its learn text in an empty slot under
+   * it (v8 U1c): with learn mode off `.pdnotes` reads exactly the lines, which
+   * PD-CURSOR-LIVE reads for "off this diagram".
+   */
+  private writeNotes(notes: Caveat[]) {
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    this.noteEl.innerHTML = notes.map(n => `<div class="pdnote">${esc(n.line)}</div>${learnSlot(n.learn)}`).join("");
+    fillLearnSlots(this.noteEl);
   }
 
   /** the whole figure, or a named refusal in its place */
@@ -554,7 +623,7 @@ export class PhaseFigureView {
     if (!fig.ok) {
       this.svg.setAttribute("style", "display:none");
       this.capEl.textContent = "no diagram";
-      this.noteEl.textContent = fig.reason;
+      this.writeNotes([{ line: fig.reason, learn: fig.learn ?? "" }]);
       this.srcEl.textContent = "";
       this.lastKey = "";
       return;
@@ -654,11 +723,16 @@ export class PhaseFigureView {
     });
 
     // the prose only changes when the MIX does, not on every cursor tick
-    const key = fig.baseSymbol + "-" + fig.solute + "|" + fig.notes.join("~");
+    // keyed on the learn texts as well: the shaded-band note's line can stay
+    // the same while its learn text (which quotes the wt%) moves with a slider,
+    // and a line-only key left the old paragraph in the slot
+    const key = fig.baseSymbol + "-" + fig.solute + "|" + fig.notes.map(n => `${n.line}\u0001${n.learn}`).join("~");
     if (key !== this.lastKey) {
       this.lastKey = key;
-      this.noteEl.textContent = fig.notes.join("  ·  ");
-      this.srcEl.textContent = fig.source.length > 240 ? fig.source.slice(0, 240) + "…" : fig.source;
+      this.writeNotes(fig.notes);
+      // the row's short citation, whole: it used to print the first 240
+      // characters of the audit record and stop mid-sentence (v8 U1c)
+      this.srcEl.textContent = `source: ${fig.cite}`;
     }
   }
 }

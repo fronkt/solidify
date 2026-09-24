@@ -8,10 +8,11 @@ import type { Units } from "./units";
 import type { Analyze } from "./analyze";
 import {
   LearnLayer, learnEntry, learnIds, isLearnOn, onLearnChange, bindLearnToggle, storeGet, storeSet,
-  type LearnEntry,
+  type LearnEntry, type Caveat,
 } from "./learn";
 // importing the rail's entries registers them
 import { RAIL_CAVEATS, RAIL_NOTES } from "./learn/rail";
+import { STATUS_LEARN, panelLearnAudit } from "./learn/panels";
 
 /** for strings interpolated into innerHTML */
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -126,9 +127,10 @@ export interface UIHost extends AppControl {
   setSliceSweep(b: boolean): void;
   getCutStyle(): number;
   setCutStyle(v: number): void;
-  /** the Niyama cut style's legend line (threshold + provenance, or the
-   *  honest refusal) — null while any other style is on the saw */
-  niyamaLegend(): string | null;
+  /** the Niyama cut style's legend (threshold + provenance, or the honest
+   *  refusal) as a terse line and its learn sentence; null while any other
+   *  style is on the saw */
+  niyamaLegend(): Caveat | null;
   getSym3(): number;
   setSym3(j: number): void;
   getHabit(): number;
@@ -243,9 +245,12 @@ export class UI {
       update: () => {
         const ok = this.host.canSwitchMode() || this.host.getMode() === "3d";
         row.classList.toggle("disabled", !ok);
+        row.setAttribute("aria-disabled", String(!ok));
+        // canSwitchMode: a capable GPU, and no pour, treatment, optimizer or
+        // challenge in progress
         row.title = ok
-          ? "volumetric phase-field — heavier render, orbit camera"
-          : "3D needs an idle instrument (finish the optimizer / challenge) and a capable GPU";
+          ? "3D phase-field volume · orbit camera · heavier GPU load"
+          : "unavailable: needs a capable GPU, and no pour, treatment, optimizer or challenge running";
       },
     });
   }
@@ -379,7 +384,8 @@ export class UI {
     this.hintsBound.add(`${this.secId}|${key}`);
   }
 
-  /** what learn mode declares for the rail against what the rail bound (verify-rail RAIL-LEARN) */
+  /** what learn mode declares for the rail against what the rail bound, and
+   *  the same for the panels' hints (verify-rail RAIL-LEARN) */
   learnAudit() {
     const titles = Object.keys(this.sections);
     const ids = learnIds("sec:");
@@ -390,6 +396,10 @@ export class UI {
       entriesWithoutSection: ids.filter(id => !this.sections[id.slice(4)]),
       hintsDeclared: declared.length,
       hintsUnbound: declared.filter(k => !this.hintsBound.has(k)),
+      // read through the app's own module instance: a page-side dynamic
+      // import of learn/panels.ts is a separate instance, with an empty record
+      // once vite has timestamped the app's copy
+      panelHints: panelLearnAudit(),
     };
   }
 
@@ -409,13 +419,30 @@ export class UI {
     return inp;
   }
 
-  /** activation switch: a render-mode toggle that reads as "this costs GPU" */
+  /**
+   * activation switch: a render-mode toggle that reads as "this costs GPU".
+   * A real button with role="switch" (v8 U1b review), so it is in the tab
+   * order, Enter and Space flip it (main.ts's Space shortcut already yields to
+   * a tabbed-to button) and a screen reader hears its state. A switch that
+   * cannot flip right now carries `.disabled` and aria-disabled, not the
+   * disabled attribute or pointer-events:none: it stays hoverable, so its
+   * title can say why, and focusable, and a click does nothing
+   */
   private actSwitch(parent: HTMLElement, label: string, tag: string, get: () => boolean, set: (b: boolean) => void): HTMLElement {
-    const row = document.createElement("div");
+    const row = document.createElement("button");
+    row.type = "button";
     row.className = "actswitch";
+    row.setAttribute("role", "switch");
     row.innerHTML = `<span class="track"><span class="knob"></span></span><span>${label}</span><span class="tag">${tag}</span>`;
-    const apply = () => row.classList.toggle("on", get());
-    row.addEventListener("click", () => { set(!get()); apply(); this.sync(); });
+    const apply = () => {
+      const on = get();
+      row.classList.toggle("on", on);
+      row.setAttribute("aria-checked", String(on));
+    };
+    row.addEventListener("click", () => {
+      if (row.classList.contains("disabled")) return;
+      set(!get()); apply(); this.sync();
+    });
     parent.append(row);
     apply();
     this.binds.push({ update: apply });
@@ -597,8 +624,9 @@ export class UI {
     // routed through the host: in 3D "on" means allocating the solute textures
     this.check(alloy, "solute field", () => host.getAlloyOn(), b => host.setAlloyOn(b));
     const arow = this.btnRow(alloy);
-    this.button(arow, "⚗ compose alloy…", () => host.openComposer());
-    this.hintFor(arow, "⚗ compose alloy…");
+    // the mode's one name (docs/COPY-STYLE.md): the modal is ALLOY COMPOSER
+    this.button(arow, "⚗ alloy composer…", () => host.openComposer());
+    this.hintFor(arow, "⚗ alloy composer…");
     this.alloyPanel = document.createElement("div");
     this.alloyPanel.className = "subpanel";
     alloy.append(this.alloyPanel);
@@ -788,7 +816,9 @@ export class UI {
     // ---- 3D characterization lab
     const vol = this.section(rail, "VOLUME · 3D");
     this.check(vol, "stereology (2D section vs 3D)", () => host.getStereoOn(), b => host.setStereoOn(b));
-    this.check(vol, "IPF map", () => host.getIpfOn(), b => host.setIpfOn(b));
+    // the panel projects each grain's crystal [001] axis into the sample
+    // frame: a pole figure, not an inverse pole figure (analyze3d.ts, v8 U1b)
+    this.check(vol, "pole figure [001]", () => host.getIpfOn(), b => host.setIpfOn(b));
     this.check(vol, "pole figure ⟨100⟩ / (0001)", () => host.getPoleOn(), b => host.setPoleOn(b));
     const vrow = this.btnRow(vol);
     const STL = "⬇ STL";
@@ -966,7 +996,7 @@ export class UI {
     this.runBtn.classList.toggle("accent", !host.isRunning());
     const mult = host.getSpeedMult();
     this.multBtn.textContent = `×${mult}`;
-    this.multBtn.title = mult === 1 ? "fast-forward: ×2, then ×4" : `${mult}× the speed slider`;
+    this.multBtn.title = mult === 1 ? "fast-forward: ×2, then ×4" : `speed ×${mult}`;
     this.multBtn.classList.toggle("on", mult > 1);
     this.recBtn.textContent = host.isRecording() ? "⏹ stop" : "⏺ rec";
     this.recBtn.classList.toggle("rec", host.isRecording());
@@ -985,7 +1015,17 @@ export class UI {
     const armed = document.getElementById("armed")!;
     if (!host.isRunning() && !host.isEngineering()) {
       armed.style.display = "block";
-      armed.textContent = host.simTimeNow() < 1e-9 ? "ARMED — stage your melt, then run" : "PAUSED";
+      // ARMED at t = 0 (the melt is staged, nothing has run); what that means
+      // is a learn line under it
+      const atZero = host.simTimeNow() < 1e-9;
+      armed.textContent = atZero ? "ARMED · ▶ run to start" : "PAUSED";
+      if (atZero && learnOn) {
+        const l = document.createElement("div");
+        l.className = "lrnText";
+        l.style.cssText = "letter-spacing:0;max-width:300px;";
+        l.textContent = STATUS_LEARN.armed;
+        armed.append(l);
+      }
     } else {
       armed.style.display = "none";
     }

@@ -1,11 +1,43 @@
 import { BASES, FAMOUS, derive, encodeMix, decodeMix, soluteBound, type Mix, type Derived } from "./alloy";
 import { PhaseFigureView } from "./phasediagram";
 import { ELEMENTS, admit, probeWt, tablePos, type AdmitTier } from "./elements";
+import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange, bindLearnToggle } from "./learn";
+import { COMPOSER_CAVEATS as CC, composerHint, composerHintKeys, composerText } from "./learn/composer";
 
 // The alloy composer: pick a base metal, add solutes in wt% (live at%
 // conversion), read the real dilute-limit chemistry (liquidus shift, growth
 // restriction Q), and pour it — the mix collapses onto the model's
 // pseudo-binary solute field and arms a fresh melt.
+//
+// v8 U1c: the modal reads like an instrument. Every caveat is one short line
+// on screen; its learn-mode text sits in an EMPTY slot beside it (`learnSlot`)
+// that `fillLearnSlots` fills only while learn mode is on, so with learn off
+// the modal's text is exactly the instrument's, which COMPOSER-GRID-PANEL
+// reads. The header, the element screen and the phase diagram each carry an
+// "i" for their explanation.
+
+/**
+ * The readout labels a hint slot has been rendered for. `composerHint` returns
+ * "" for a label with no entry, so a row label that drifts from its hint key
+ * would lose the hint without a sound; `Composer.learnAudit()` lists the
+ * declared keys never bound here (COMPOSER-LEARN), as `panelLearnAudit()` does
+ * for the panels.
+ */
+const hintsBound = new Set<string>();
+
+/** a one-line learn hint under a readout row, as an empty slot (see learnSlot) */
+function hintSlot(label: string): string {
+  const t = composerHint(label);
+  if (t) hintsBound.add(label);
+  return t ? `<div class="lrnHint" data-lrn="${t.replace(/"/g, "&quot;")}" style="display:none"></div>` : "";
+}
+
+/** what Tab can reach inside `root`, in DOM order, displayed and enabled */
+function tabbables(root: Element | null): HTMLElement[] {
+  if (!root) return [];
+  return [...root.querySelectorAll<HTMLElement>("button, input, select, textarea, a[href], [tabindex]")]
+    .filter(e => e.tabIndex >= 0 && !(e as HTMLButtonElement).disabled && e.getClientRects().length > 0);
+}
 
 /**
  * Refusal strings quote the offending key back at the user, and a mix can
@@ -63,7 +95,7 @@ export function defaultWt(baseKey: string, el: string): number {
  * underneath supplies the mechanism, which is its whole job.
  */
 const TIER_LABEL: Record<AdmitTier, string> = {
-  "ASSESSED": "assessed — pourable",
+  "ASSESSED": "assessed · pourable",
   "OUTSIDE-THE-MODEL": "outside this solver",
   "REFUSED-PAIR": "refused",
   "NOT-A-SOLUTE": "not a solute here",
@@ -129,20 +161,37 @@ export class Composer {
   private whyEl!: HTMLElement;
   /** which cell the reason panel is currently answering about; null before the first tap */
   private picked: string | null = null;
+  /** learn mode's "i" buttons and the header note's paragraph; slots in HTML strings refill on a toggle */
+  private learn = new LearnLayer(() => this.applyLearn());
+  /** the learn text for a line this modal raised itself (the ✕ of a removed key) */
+  private extraLearn: Record<string, string> = {};
+  /** pourable pairs over all bases, counted once from the classifier for the empty reason panel */
+  private pourableCount: { n: number; total: number } | null = null;
+  /** the reason panel's last markup, so an unchanged answer is not re-announced (aria-live) */
+  private whyHtml = "";
+  /** where focus was when the modal opened; it goes back there on close */
+  private returnFocus: HTMLElement | null = null;
+  /** the page elements this modal made inert while open, and only those */
+  private inerted: HTMLElement[] = [];
 
   constructor(private host: ComposerHost) {
     this.overlay = document.createElement("div");
     this.overlay.id = "composer";
+    // A DIALOG, with its own learn switch. The top bar's learn toggle sits
+    // under this overlay (z-index 5 against 30), so with the modal open a click
+    // on it landed on the backdrop and closed the modal: there was no way to
+    // turn learn mode on or off from inside, and with it off none of the
+    // explanations here can be found. This button shares the one state (both
+    // repaint on every change, `bindLearnToggle`).
     this.overlay.innerHTML = `
-      <div class="card">
-        <div class="chead"><h3>ALLOY COMPOSER</h3><button class="x">✕</button></div>
-        <div class="cnote">approximate textbook dilute-limit coefficients; the mix collapses
-        onto the model's pseudo-binary solute field (labelled honestly below)</div>
+      <div class="card" role="dialog" aria-modal="true" aria-labelledby="composerTitle">
+        <div class="chead"><h3 id="composerTitle">ALLOY COMPOSER</h3><button class="lrnToggle" type="button" aria-pressed="false" title="learn mode: explanations in this panel">learn</button><button class="x" aria-label="close">✕</button></div>
+        <div class="cnote">${CC.coefficients.line}</div>
         <div class="bases"></div>
         <div class="rows"></div>
-        <div class="addrow"><select></select><button class="add">+ add element</button></div>
+        <div class="addrow"><select aria-label="solute to add"></select><button class="add">+ add element</button></div>
         <div class="gridwrap">
-          <div class="gcap">every element, against this melt</div>
+          <div class="gcap"><span>element screen · this melt</span></div>
           <div class="gscroll"><div class="grid"></div></div>
           <div class="glegend"></div>
           <div class="gwhy"></div>
@@ -150,7 +199,7 @@ export class Composer {
         <div class="famous"></div>
         <div class="derived"></div>
         <div class="figwrap"></div>
-        <div class="cfoot"><button class="pour">⚗ pour this alloy</button><button class="cancel">cancel</button></div>
+        <div class="cfoot"><button class="pour">⚗ pour</button><button class="cancel">cancel</button></div>
       </div>`;
     document.body.append(this.overlay);
 
@@ -198,6 +247,87 @@ export class Composer {
     this.overlay.querySelector(".cancel")!.addEventListener("click", () => this.close());
     this.overlay.querySelector(".pour")!.addEventListener("click", () => this.pour());
     this.overlay.addEventListener("pointerdown", e => { if (e.target === this.overlay) this.close(); });
+    // Escape closes, and Tab wraps inside the modal (the card, plus the tour's
+    // panel when a tour chapter has this open: #tour sits above the backdrop
+    // on purpose, and its buttons are the way out of that chapter). On window
+    // rather than the overlay, because focus may be in the tour, which is not
+    // inside it. main.ts's own keydown (Space, the lens digits) stands down
+    // while this is open.
+    window.addEventListener("keydown", e => {
+      if (!this.open_) return;
+      if (e.key === "Escape") { e.preventDefault(); this.close(); return; }
+      if (e.key !== "Tab") return;
+      const list = this.focusCycle();
+      if (!list.length) return;
+      const i = list.indexOf(document.activeElement as HTMLElement);
+      if (i < 0 || (e.shiftKey ? i === 0 : i === list.length - 1)) {
+        e.preventDefault();
+        (e.shiftKey ? list[list.length - 1] : list[0]).focus();
+      }
+    });
+
+    // learn mode (v8 U1c): an "i" on the header, the element screen and the
+    // phase diagram, each expanding its explanation under its own row; the
+    // header's "i" sits after the title, before the modal's own learn switch
+    const head = this.overlay.querySelector<HTMLElement>(".chead")!;
+    bindLearnToggle(head.querySelector<HTMLButtonElement>(".lrnToggle")!);
+    head.after(this.learn.explain(head, "about the alloy composer", composerText("alloy composer"),
+      head.querySelector(".lrnToggle")).body);
+    this.learn.para(this.overlay.querySelector<HTMLElement>(".cnote")!, CC.coefficients.learn);
+    const gcap = this.overlay.querySelector<HTMLElement>(".gcap")!;
+    gcap.after(this.learn.explain(gcap, "about the element screen", composerText("element screen")).body);
+    const fh = this.figure.head;
+    fh.after(this.learn.explain(fh, "about the phase diagram", composerText("phase diagram")).body);
+    onLearnChange(() => this.applyLearn());
+    this.applyLearn();
+  }
+
+  /** show or hide everything learn mode adds, the "i"s and the filled slots alike */
+  private applyLearn() {
+    this.learn.apply();
+    fillLearnSlots(this.overlay);
+    this.dedupeLearn();
+  }
+
+  /**
+   * One learn paragraph once per modal. The figure's notes carry the same
+   * learn texts the readout above them already shows (each `clamp:` note is
+   * the readout's ⚠ line's text, and the shaded-band note's is `regimeSource`,
+   * both from one producer), so with learn on 1045 printed its peritectic and
+   * clamp paragraphs twice. The producers and their gates stay as they are;
+   * here, after every fill, a filled slot whose text appeared earlier in the
+   * modal (DOM order: the readout before the figure) is emptied and hidden.
+   * Any later fill restores it, and this runs again after each one.
+   */
+  private dedupeLearn() {
+    const seen = new Set<string>();
+    for (const el of this.overlay.querySelectorAll<HTMLElement>("[data-lrn]")) {
+      if (!el.textContent) continue;       // learn off, or nothing to show
+      const t = el.dataset.lrn ?? "";
+      if (!seen.has(t)) { seen.add(t); continue; }
+      el.textContent = "";
+      el.style.display = "none";
+      el.classList.remove("on");
+    }
+  }
+
+  /** the figure, redrawn, and its learn slots deduplicated against the readout's */
+  private drawFigure() {
+    this.figure.update(this.mix, this.host.meltC(), this.host.materialKey());
+    this.dedupeLearn();
+  }
+
+  /** what Tab cycles through while open: the tour's panel (when shown), then the card */
+  private focusCycle(): HTMLElement[] {
+    const tour = document.getElementById("tour");
+    const tourShown = !!tour && tour.classList.contains("show");
+    return [...(tourShown ? tabbables(tour) : []), ...tabbables(this.overlay.querySelector(".card"))];
+  }
+
+  /** declared readout hints that no rendered row has bound yet (COMPOSER-LEARN) */
+  learnAudit(): { hintsDeclared: number; hintsUnbound: string[] } {
+    const declared = composerHintKeys();
+    return { hintsDeclared: declared.length, hintsUnbound: declared.filter(k => !hintsBound.has(k)) };
   }
 
   /**
@@ -260,14 +390,19 @@ export class Composer {
     }
     const self = document.createElement("span");
     self.dataset.self = "1";
-    self.textContent = "this melt's own metal";
+    self.textContent = "base metal";
     legend.append(self);
     const fume = document.createElement("span");
     fume.dataset.vap = "1";
-    fume.textContent = "underlined: it fumes or boils over this melt";
+    fume.textContent = "underline: fumes or boils at T_m";
     legend.append(fume);
 
+    // the reason panel is announced when it changes, and the picked cell is
+    // described by it (paintGrid), so a screen reader hears the answer rather
+    // than only "Hg, button"
     this.whyEl = this.overlay.querySelector(".gwhy")!;
+    this.whyEl.id = "composerWhy";
+    this.whyEl.setAttribute("aria-live", "polite");
     this.renderWhy();
   }
 
@@ -309,6 +444,8 @@ export class Composer {
       // "no data", and it is not a data question at all.
       if (sym === BASES[this.mix.base].symbol) cell.dataset.self = "1"; else delete cell.dataset.self;
       cell.classList.toggle("sel", sym === this.picked);
+      if (sym === this.picked) cell.setAttribute("aria-describedby", "composerWhy");
+      else cell.removeAttribute("aria-describedby");
       cell.title = a.line;
     }
   }
@@ -342,20 +479,31 @@ export class Composer {
    * THE ONE-LINER COMES FROM `Admission.line`, WHICH IS COMPOSED AND NOT CUT.
    * P4 left that note explicitly: every one of these sentences puts its number
    * in the middle, so a `.slice()` to fit a panel would have kept the
-   * throat-clearing and dropped the measurement. The paragraph is printed
-   * underneath it rather than instead of it — this modal already scrolls, and
-   * the paragraph is the milestone's content.
+   * throat-clearing and dropped the measurement. The paragraph (`sentence`)
+   * was printed underneath it until v8 U1c; it is the learn-mode text now,
+   * shown under the line only while learn mode is on, so the instrument reads
+   * the line and a student can still open the whole reason.
    */
   private renderWhy() {
     if (!this.picked) {
+      // counted from the classifier once, not typed: the old sentence carried
+      // "25 of the 708" as literals
+      if (!this.pourableCount) {
+        let n = 0;
+        for (const bk of Object.keys(BASES)) {
+          for (const r of ELEMENTS) if (admit(bk, r.symbol, probeWt(bk, r.symbol))?.tier === "ASSESSED") n++;
+        }
+        this.pourableCount = { n, total: Object.keys(BASES).length * ELEMENTS.length };
+      }
       this.whyEl.dataset.el = "";
-      this.whyEl.innerHTML = `<div class="gp">tap any cell for what this melt does with that element — 25 of the 708 pairs are pourable and the other 683 are computed refusals, each naming its own number.</div>`;
+      this.setWhy(`<div class="gline">tap a cell · ${this.pourableCount.n} of ${this.pourableCount.total} pairs pourable</div>`
+        + learnSlot(CC.pickACell.learn));
       return;
     }
     const sym = this.picked;
     const wt = probeWt(this.mix.base, sym);
     const a = admit(this.mix.base, sym, wt);
-    if (!a) { this.whyEl.dataset.el = ""; this.whyEl.innerHTML = ""; return; }
+    if (!a) { this.whyEl.dataset.el = ""; this.setWhy(""); return; }
     this.whyEl.dataset.el = sym;
     this.whyEl.dataset.tier = a.tier;
     // THE ADVISORY PRINTS FOR EVERY BAND EXCEPT NEGLIGIBLE, and the first draft
@@ -370,32 +518,92 @@ export class Composer {
     // nobody made. NEGLIGIBLE stays hidden because it genuinely says nothing —
     // a paragraph about an activity coefficient no melt would notice, on the
     // majority of the table.
+    // v8 U1c: each advisory is its one-line readout on screen, with its
+    // explanation in an empty learn slot under it
     const hazard = a.vapour?.band === "FUME" || a.vapour?.band === "BOILS";
     const vap = a.vapour && a.vapour.band !== "NEGLIGIBLE"
-      ? `<div class="gp">${hazard ? "⚠ " : ""}${esc(a.vapour.text)}</div>` : "";
-    const size = a.size ? `<div class="gp">${esc(a.size.text)}</div>` : "";
+      ? `<div class="gp">${hazard ? "⚠ " : ""}${esc(a.vapour.line)}</div>${learnSlot(a.vapour.text)}` : "";
+    // no size factor for the base's own cell: "Zn in zinc: Δr 0.0 %" compares
+    // an element with itself and says nothing
+    const size = a.size && a.reason !== "IS-THE-BASE"
+      ? `<div class="gp">${esc(a.size.line)}</div>${learnSlot(a.size.text)}` : "";
     // THE AFFORDANCE IS THE PANEL'S TO STATE, NOT THE CLASSIFIER'S. `admit()`
     // is a function of (base, element, wt) and cannot know what is already in
     // the crucible, so an invitation to click composed in there kept inviting a
     // click for a solute already in the melt, where clicking does nothing.
     const cta = a.tier === "ASSESSED"
       ? sym in this.mix.wt
-        ? `<div class="gp">Already in this melt at ${this.mix.wt[sym]} wt% — the slider above is where you move it.</div>`
+        ? `<div class="gp">in the melt at ${this.mix.wt[sym]} wt% · move it with its slider</div>`
         // reachable, and only one way: pick an assessed cell (which adds it),
         // then remove its row with the ✕. A first click never lands here,
         // because it has already put the solute in the mix by the time this
         // renders — so the word is "click", not "click again".
-        : `<div class="gp">Click this cell to add it to the melt at ${defaultWt(this.mix.base, sym)} wt%.</div>`
+        : `<div class="gp">click to add at ${defaultWt(this.mix.base, sym)} wt%</div>`
       : "";
-    this.whyEl.innerHTML = `
+    // the line on screen; the sentence is the learn text under it
+    this.setWhy(`
       <div class="ghead"><b>${esc(sym)}</b><span>${esc(TIER_LABEL[a.tier])}</span></div>
-      <div class="gline">${esc(a.line)}</div>
-      <div class="gp">${esc(a.sentence)}</div>
-      ${cta}${vap}${size}`;
+      <div class="gline">${esc(a.line)}</div>${learnSlot(a.sentence)}
+      ${cta}${vap}${size}`);
   }
 
-  open() { this.open_ = true; this.overlay.classList.add("show"); this.render(); }
-  close() { this.open_ = false; this.overlay.classList.remove("show"); }
+  /**
+   * The reason panel's markup, written only when it changed: the panel is an
+   * aria-live region, and render() redraws it on every mix edit, so an
+   * unconditional write would re-announce the same answer each time.
+   */
+  private setWhy(html: string) {
+    if (html !== this.whyHtml) { this.whyEl.innerHTML = html; this.whyHtml = html; }
+    fillLearnSlots(this.whyEl);
+    this.dedupeLearn();
+  }
+
+  /**
+   * A modal dialog (the U1c review): focus moves into it and back out on
+   * close, the page behind is inert, Escape closes it and Tab wraps inside it.
+   * Before this, open() only showed the overlay: focus stayed on the rail
+   * button behind the backdrop, 62 hidden tab stops came before the modal's
+   * first, and Space and the lens digits still drove the melt behind it.
+   *
+   * #tour is the one part of the page that stays live: a tour chapter opens
+   * this modal and its panel sits above the backdrop by design (z-index 31),
+   * so its buttons are the way out of that chapter. While it is shown the
+   * card is not announced as modal, since a second part of the page stays in use.
+   */
+  open() {
+    if (!this.open_) {
+      this.open_ = true;
+      const active = document.activeElement;
+      this.returnFocus = active instanceof HTMLElement && active !== document.body ? active : null;
+      for (const c of document.getElementById("app")?.children ?? []) {
+        const h = c as HTMLElement;
+        if (h.id === "tour" || h.inert) continue;
+        h.inert = true;
+        this.inerted.push(h);
+      }
+      const tour = document.getElementById("tour");
+      this.overlay.querySelector(".card")!.setAttribute("aria-modal",
+        tour && tour.classList.contains("show") ? "false" : "true");
+    }
+    this.overlay.classList.add("show");
+    this.render();
+    // the first control on the header that is displayed: the "i" with learn
+    // on, the learn switch with it off
+    tabbables(this.overlay.querySelector(".chead"))[0]?.focus({ preventScroll: true });
+  }
+
+  close() {
+    const wasOpen = this.open_;
+    this.open_ = false;
+    this.overlay.classList.remove("show");
+    if (!wasOpen) return;
+    for (const h of this.inerted) h.inert = false;
+    this.inerted = [];
+    const back = this.returnFocus;
+    this.returnFocus = null;
+    if (back && back.isConnected && back.getClientRects().length > 0) back.focus({ preventScroll: true });
+  }
+
   isOpen() { return this.open_; }
 
   /**
@@ -420,6 +628,7 @@ export class Composer {
     if (key === this.tickKey) return;
     this.tickKey = key;
     this.figure.update(this.mix, t, this.host.materialKey());
+    this.dedupeLearn();
   }
 
   /** apply a #alloy=… deep link (no modal) */
@@ -465,6 +674,7 @@ export class Composer {
     // it, and repeating them against a mix the user is now editing would be
     // stale rather than informative.
     this.extraRefusals = [];
+    this.extraLearn = {};
     this.baseBtns.forEach(b => b.classList.toggle("on", b.dataset.base === this.mix.base));
 
     // solute rows
@@ -477,7 +687,9 @@ export class Composer {
         // changes in v7.1 P1 is that it goes on the record: this is reachable
         // from a hand-built mix through window.__solidify, and before P1 the
         // modal simply redrew one row short with no explanation.
-        this.extraRefusals.push(`${el} is not a solute this model carries in ${base.label} — removed from the melt`);
+        const line = `${el} removed: not a solute this model carries in ${base.label}`;
+        this.extraRefusals.push(line);
+        this.extraLearn[line] = CC.removed.learn;
         delete this.mix.wt[el];
         continue;
       }
@@ -492,21 +704,22 @@ export class Composer {
       row.innerHTML = `
         <b>${el}</b>
         <input type="range" min="0" max="${max}" step="${b ? b.step : (s.cap <= 1 ? 0.01 : 0.05)}" value="${w}">
-        <span class="cv">${w.toFixed(2)} wt · ${at.toFixed(2)} at%</span>
-        <button class="rm">✕</button>`;
+        <span class="cv">${w.toFixed(2)} wt% · ${at.toFixed(2)} at%</span>
+        <button class="rm" aria-label="remove ${el}">✕</button>`;
       const slider = row.querySelector("input")!;
+      slider.setAttribute("aria-label", `${el} wt%`);
       slider.addEventListener("input", () => {
         this.mix.wt[el] = parseFloat(slider.value);
         this.renderOut();
         this.tickKey = "";
-        this.figure.update(this.mix, this.host.meltC(), this.host.materialKey());
+        this.drawFigure();
         row.querySelector(".cv")!.textContent =
-          `${this.mix.wt[el].toFixed(2)} wt · ${(derive(this.mix).atPct[el] ?? 0).toFixed(2)} at%`;
+          `${this.mix.wt[el].toFixed(2)} wt% · ${(derive(this.mix).atPct[el] ?? 0).toFixed(2)} at%`;
       });
       row.querySelector(".rm")!.addEventListener("click", () => { delete this.mix.wt[el]; this.render(); });
       // and why it stops where it does, when the diagram is what stopped it
       const why = [s.note, b && b.boundBy === "invariant" ? b.source : null]
-        .filter(Boolean).join(" — ");
+        .filter(Boolean).join(" · ");
       if (why) row.title = why;
       this.rowsEl.append(row);
     }
@@ -518,7 +731,7 @@ export class Composer {
       const o = document.createElement("option");
       const s = base.solutes[el];
       o.value = el;
-      o.textContent = `${el}  (m ${s.m > 0 ? "+" : ""}${s.m} K/wt%, k ${s.k})${s.note ? " — " + s.note : ""}`;
+      o.textContent = `${el} · m ${s.m > 0 ? "+" : ""}${s.m} K/wt% · k ${s.k}${s.note ? " · " + s.note : ""}`;
       this.addSel.append(o);
     }
 
@@ -526,7 +739,7 @@ export class Composer {
     this.renderWhy();
     this.renderOut();
     this.tickKey = "";
-    this.figure.update(this.mix, this.host.meltC(), this.host.materialKey());
+    this.drawFigure();
   }
 
   private renderOut() {
@@ -534,12 +747,16 @@ export class Composer {
     const p = d.params;
     const base = BASES[this.mix.base];
     const shift = d.dTL === 0 ? "0 K" : `${d.dTL > 0 ? "+" : "−"}${Math.abs(d.dTL).toFixed(1)} K`;
+    // a readout row: label, value, and the label's learn hint (an empty slot)
+    const row = (label: string, value: string, style = "") =>
+      `<div class="drow"><span>${label}</span><b${style}>${value}</b></div>${hintSlot(label)}`;
     // The freezing range is the number calibrated mode actually measures
     // temperature in, so it is printed here beside the mapping it is built
     // from, with the regime that decided it. A refusal prints as a refusal.
+    const RANGE_WORD: Record<string, string> = { "DILUTE": "dilute", "ISOMORPHOUS": "isomorphous", "PAST-REFERENCE": "extrapolated" };
     const rangeRow = d.dT0 != null
-      ? `<div class="drow"><span>freezing range ΔT₀ · ${d.dT0Regime.toLowerCase()}</span><b>${d.dT0.toFixed(1)} K</b></div>`
-      : `<div class="drow"><span>freezing range ΔT₀</span><b style="color:#c96a5b">refused</b></div>`;
+      ? row("freezing range ΔT₀", `${d.dT0.toFixed(1)} K · ${RANGE_WORD[d.dT0Regime] ?? d.dT0Regime.toLowerCase()}`)
+      : row("freezing range ΔT₀", "refused", ' style="color:#c96a5b"');
     // THE TWO COLUMNS (v7.1 P3), and the whole milestone is the gap between
     // them. The left column is read off the cited invariants; the right is what
     // sim.ts grows, which is one solid phase and has always been one solid
@@ -547,22 +764,28 @@ export class Composer {
     // implying that everything on it is in the model.
     const phaseRows = d.totalWt > 0 ? `
       <div class="phases">
-        <div><span>PHASES EQUILIBRIUM PREDICTS</span><b>${esc(d.phasesEquilibrium.join(" · "))}</b></div>
-        <div><span>PHASES THIS SOLVER GROWS</span><b>${esc(d.phasesGrown.join(" · "))}</b></div>
-      </div>
-      <div class="drow"><span>composition regime · ${esc(base.symbol)}–${esc(d.dominant ?? "")}</span><b>${d.regime.toLowerCase().replace(/-/g, " ")}</b></div>
-      ${d.invariantFraction ? `<div class="drow"><span>freezes at the invariant · lever / Scheil</span><b>${pct(d.invariantFraction.lever)} / ${pct(d.invariantFraction.scheil)}</b></div>` : ""}` : "";
+        <div><span>EQUILIBRIUM LEAVES</span><b>${esc(d.phasesEquilibrium.join(" · "))}</b></div>
+        <div><span>SOLVER GROWS</span><b>${esc(d.phasesGrown.join(" · "))}</b></div>
+      </div>${hintSlot("EQUILIBRIUM LEAVES")}
+      ${row(`regime · ${esc(base.symbol)}–${esc(d.dominant ?? "")}`, d.regime.toLowerCase().replace(/-/g, " "))}
+      ${d.invariantFraction ? row("freezes at T_inv · lever / Scheil", `${pct(d.invariantFraction.lever)} / ${pct(d.invariantFraction.scheil)}`) : ""}` : "";
+    // every caveat line keeps its learn text beside it, from derive()'s own record
+    const cav = (mark: string, line: string, learn: string) =>
+      `<div class="clamp">${mark} ${esc(line)}</div>${learnSlot(learn)}`;
     this.outEl.innerHTML = `
       <div class="aname">${d.name}${d.totalWt === 0 ? " (pure)" : ""}</div>
-      <div class="drow"><span>liquidus shift ΔT<sub>L</sub></span><b>${shift}</b></div>
-      <div class="drow"><span>growth restriction Q</span><b>${d.Q.toFixed(1)} K</b></div>
+      ${row("liquidus shift ΔT_L", shift)}
+      ${row("growth restriction Q", `${d.Q.toFixed(1)} K`)}
       ${rangeRow}
       ${phaseRows}
-      <div class="drow"><span>model mapping</span><b>c₀ ${p.c0!.toFixed(2)} · m ${p.mLiq!.toFixed(2)} · k ${p.kPart!.toFixed(2)} · D ${p.dSol!.toFixed(2)}</b></div>
-      <div class="src">${esc(d.dT0Source)}</div>
-      ${d.regimeSource ? `<div class="src">${esc(d.regimeSource)}</div>` : ""}
-      ${d.refusals.concat(this.extraRefusals).map(r => `<div class="clamp">✕ ${esc(r)}</div>`).join("")}
-      ${d.notGrown.map(n => `<div class="clamp">◇ ${esc(n)}</div>`).join("")}
-      ${d.clamps.map(c => `<div class="clamp">⚠ ${esc(c)}</div>`).join("")}`;
+      ${row("solver mapping · dimensionless", `c₀ ${p.c0!.toFixed(2)} · m ${p.mLiq!.toFixed(2)} · k ${p.kPart!.toFixed(2)} · D ${p.dSol!.toFixed(2)}`)}
+      <div class="src">${esc(d.dT0Line)}</div>${learnSlot(d.dT0Source)}
+      ${d.regimeLine ? `<div class="src">${esc(d.regimeLine)}</div>${learnSlot(d.regimeSource)}` : ""}
+      ${d.refusals.map(r => cav("✕", r, d.learn[r] ?? "")).join("")}
+      ${this.extraRefusals.map(r => cav("✕", r, this.extraLearn[r] ?? "")).join("")}
+      ${d.notGrown.map(n => cav("◇", n, d.learn[n] ?? "")).join("")}
+      ${d.clamps.map(c => cav("⚠", c, d.learn[c] ?? "")).join("")}`;
+    fillLearnSlots(this.outEl);
+    this.dedupeLearn();
   }
 }

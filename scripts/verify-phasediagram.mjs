@@ -189,6 +189,81 @@ const r3 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(3));
   const othersDominant = resid.filter(r => Math.abs(r.fromOthers) > Math.abs(r.fromChord) * 2).map(r => r.preset);
   const chordDominant = resid.filter(r => Math.abs(r.fromChord) > Math.abs(r.fromOthers) * 2).map(r => r.preset);
 
+  // ---- THE NOTE THAT EXPLAINS THE BAR reads the right way round (v8 U1c
+  //      review). Each part states its own direction, "down" (it puts the
+  //      marker below the drawn line) or "up", and the signed parts add up to
+  //      the signed total it prints: the U1c cut gave the first part no
+  //      direction, so Ni–5Nb–1W's 1.0 K from W (which RAISES the liquidus)
+  //      read as "below" and the parts summed to the wrong side. A total that
+  //      rounds to 0.0 K prints no note (al–Fe at 0.175 wt% printed "pour
+  //      marker 0.0 K below the drawn liquidus: " and nothing after), and no
+  //      part prints as 0.0 K. Driven over the presets plus the three cases the
+  //      review named, and required to meet opposite-signed parts and a
+  //      silent residual at least once each.
+  const noteBad = [];
+  let oppositeParts = 0, silentResiduals = 0;
+  const noteMixes = [...A.FAMOUS.map(p => [p.label, p.mix]),
+    ["Ni-5Nb-1W", { base: "ni", wt: { Nb: 5, W: 1 } }],
+    ["Al-0.175Fe", { base: "al", wt: { Fe: 0.175 } }],
+    ["Al-1Cu", { base: "al", wt: { Cu: 1 } }]];
+  const shownK = x => Math.abs(x) >= 0.05;
+  for (const [label, mix] of noteMixes) {
+    const fig = F.layout(mix, null);
+    if (!fig.ok) { noteBad.push({ label, why: "figure refused" }); continue; }
+    const d = A.derive(mix);
+    const base = A.BASES[mix.base];
+    const row = PD.BINARY[mix.base][d.dominant];
+    const TmC = M.MATERIALS[base.materialKey].si.Tm - K2C;
+    const cDom = mix.wt[d.dominant];
+    const TLmix = TmC + d.dTL;
+    const TLbin = TmC + base.solutes[d.dominant].m * cDom;
+    const TLdrawn = row.invariant === "isomorphous" ? TLbin : TmC + ((row.Tinv - TmC) / row.Cinv) * cDom;
+    const fromOthers = TLbin - TLmix, fromChord = TLdrawn - TLbin, total = TLdrawn - TLmix;
+    const n = fig.notes.find(x => /^pour marker/.test(x.line));
+    if (!shownK(total)) {
+      if (n) noteBad.push({ label, why: `a ${total.toFixed(3)} K residual still prints a note`, line: n.line });
+      else silentResiduals++;
+      continue;
+    }
+    if (!n) { noteBad.push({ label, why: `no pour-marker note for a ${total.toFixed(2)} K residual` }); continue; }
+    if (/:\s*$/.test(n.line)) noteBad.push({ label, why: "the note ends on a colon", line: n.line });
+    const tm = /pour marker ([\d.]+) K (below|above) the drawn liquidus/.exec(n.line);
+    if (!tm) { noteBad.push({ label, why: "no total with a side", line: n.line }); continue; }
+    const signedTotal = (tm[2] === "below" ? 1 : -1) * +tm[1];
+    if (Math.abs(signedTotal - total) > 0.051) noteBad.push({ label, why: `the note says ${signedTotal} K, the geometry ${total.toFixed(3)} K` });
+    let sum = 0;
+    for (const [what, x, re] of [["others", fromOthers, /([\d.]+) K (down|up) from other solute/],
+      ["chord", fromChord, /([\d.]+) K (down|up): dilute slope/]]) {
+      const pm = re.exec(n.line);
+      if (!shownK(x)) { if (pm) noteBad.push({ label, why: `the ${what} part prints at ${x.toFixed(3)} K` }); continue; }
+      if (!pm) { noteBad.push({ label, why: `the ${what} part is missing or has no direction`, line: n.line }); continue; }
+      if (pm[2] !== (x > 0 ? "down" : "up")) noteBad.push({ label, why: `the ${what} part says ${pm[2]} for ${x.toFixed(2)} K`, line: n.line });
+      sum += (pm[2] === "down" ? 1 : -1) * +pm[1];
+    }
+    if (Math.abs(sum - signedTotal) > 0.11) noteBad.push({ label, why: `the printed parts sum to ${sum.toFixed(1)} K, the printed total is ${signedTotal} K`, line: n.line });
+    if (shownK(fromOthers) && shownK(fromChord) && Math.sign(fromOthers) !== Math.sign(fromChord)) oppositeParts++;
+  }
+
+  // ---- and the chord note says what the chords ARE. Only the isomorphous
+  //      branch draws the solver's own m and k; an invariant row's chords join
+  //      the pure metal to the cited invariant point while the solver
+  //      integrates the dilute slope, so "the boundaries the solver uses" is a
+  //      claim only an isomorphous figure may make. Every pair, at half its
+  //      slider range.
+  const chordBad = [];
+  let chordFigs = 0;
+  for (const [bk, base] of Object.entries(A.BASES)) for (const el of Object.keys(base.solutes)) {
+    const b = A.soluteBound(bk, el);
+    const fig = F.layout({ base: bk, wt: { [el]: (b ? b.max : base.solutes[el].cap) / 2 } }, null);
+    if (!fig.ok) continue;
+    chordFigs++;
+    const cn = fig.notes.find(x => /^straight/.test(x.line));
+    if (!cn) { chordBad.push(`${bk}-${el}: no chord note`); continue; }
+    const claims = /solver/.test(cn.line) || (/solver (actually )?integrates/.test(cn.learn) && !/instead/.test(cn.learn));
+    if (fig.kind !== "ISOMORPHOUS" && claims) chordBad.push(`${bk}-${el}: an invariant chord is called the solver's boundary: ${cn.line}`);
+    if (fig.kind === "ISOMORPHOUS" && !/solver/.test(cn.line)) chordBad.push(`${bk}-${el}: the isomorphous note lost what it can say`);
+  }
+
   // ---- BOTH clamp branches exercised by shipped presets, or the second line
   //      could never be drawn and this gate would not notice
   const withSolver = A.FAMOUS.filter(p => {
@@ -203,10 +278,14 @@ const r3 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(3));
   const ok = bad.length === 0 && markerBad.length === 0 && residBad.length === 0
     && withSolver.length >= 1 && withoutSolver.length >= 1
     && invariantRows >= 15 && isoRows >= 1
-    && othersDominant.length >= 1 && chordDominant.length >= 1;
+    && othersDominant.length >= 1 && chordDominant.length >= 1
+    && noteBad.length === 0 && oppositeParts >= 1 && silentResiduals >= 1
+    && chordBad.length === 0 && chordFigs >= 20;
   check("PD-FIGURE-GEOMETRY", ok, {
     invariantRows, isoRows, refusedRows, bad, markerBad,
     residual: resid, residBad, othersDominant, chordDominant,
+    residualNote: { noteBad, oppositeParts, silentResiduals },
+    chordNote: { figures: chordFigs, chordBad },
     solverLineDrawnFor: withSolver, solverLineAbsentFor: withoutSolver,
   });
 }
@@ -274,7 +353,9 @@ const r3 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(3));
     const none = F.layout(mix, null);
     const nan = F.layout(mix, NaN);
     const cur = f => f.ok ? f.markers.find(m => m.id === "cursor") : null;
-    const named = f => f.ok && f.notes.some(n => /off this diagram/.test(n));
+    // a note is { line, learn } since v8 U1c: the phrase is held to the LINE,
+    // the half that stays on screen with learn mode off
+    const named = f => f.ok && f.notes.some(n => /off this diagram/.test(n.line));
 
     // THE WRONG-METAL CASE. The composer's staged mix and the material actually
     // in the crucible disagree after a single click — press the AZ91 preset
@@ -286,7 +367,7 @@ const r3 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(3));
     const wrongMetal = F.layout(az91, 600, "al");
     const rightMetal = F.layout(az91, 600, "mg");
     const noKey = F.layout(az91, 600);
-    const crucible = f => f.ok && f.notes.some(n => /in the crucible is/.test(n));
+    const crucible = f => f.ok && f.notes.some(n => /in the crucible is/.test(n.line));
     const ok =
       !!cur(on) && Math.abs(cur(on).T - mid) < 1e-9
       && !cur(below) && named(below)

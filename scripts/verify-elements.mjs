@@ -265,12 +265,19 @@ block("EL-TIER-TOTAL", () => {
       // mole. That fifth reason is not a new kind of statement: it is the
       // mercury judgement, that a rule is not extrapolated past the conditions
       // it describes, applied to the other class of cell that violates them.
+      // BOTH HALVES since v8 U1c: `line` is what the composer prints and
+      // `text` is its learn-mode explanation, and each must hold the rule on
+      // its own, because either can be the only one a reader sees
       if (a.vapour && a.vapour.band !== "NO-DATA") {
-        if (!/ atm/.test(a.vapour.text)) why.push(`${bk}-${e.symbol} vapour line has no atm`);
+        for (const [half, t] of [["text", a.vapour.text], ["line", a.vapour.line]]) {
+          if (!/ atm/.test(t ?? "")) why.push(`${bk}-${e.symbol} vapour ${half} has no atm`);
+        }
       } else if (a.vapour) {
-        const says = /has been measured|molecular rather than monatomic|is not a number|is not a composition|that weight is infinite|no melting point|critical temperature|needs a solution, and this one does not exist/.test(a.vapour.text);
-        if (!says) why.push(`${bk}-${e.symbol} NO-DATA vapour line does not say why: ${a.vapour.text.slice(0, 60)}`);
-        if (/ atm/.test(a.vapour.text)) why.push(`${bk}-${e.symbol} prints a pressure it could not compute`);
+        for (const [half, t] of [["text", a.vapour.text], ["line", a.vapour.line]]) {
+          const says = /has been measured|molecular rather than monatomic|is not a number|is not a composition|that weight is infinite|no melting point|critical temperature|needs a solution, and this one does not exist/.test(t ?? "");
+          if (!says) why.push(`${bk}-${e.symbol} NO-DATA vapour ${half} does not say why: ${String(t).slice(0, 60)}`);
+          if (/ atm/.test(t ?? "")) why.push(`${bk}-${e.symbol} prints a pressure it could not compute (${half})`);
+        }
       }
     }
   }
@@ -335,7 +342,9 @@ block("EL-TIER-TOTAL", () => {
 
   // PAST-THE-INVARIANT is unreachable at the probe compositions by design, so
   // it is driven at the boundary as well, and every line must carry its own
-  // wt% and its own ceiling.
+  // wt% and its own ceiling. BOTH HALVES: since v8 U1c the sentence is the
+  // learn-mode text and `line` is what the reason panel shows with learn off,
+  // so a line-only edit that dropped either number would otherwise pass.
   let pastSeen = 0;
   for (const bk of BASES) for (const el of Object.keys(A.BASES[bk].solutes)) {
     const b = A.soluteBound(bk, el);
@@ -344,8 +353,10 @@ block("EL-TIER-TOTAL", () => {
       const a = E.admit(bk, el, w);
       pastSeen++;
       if (a?.reason !== "PAST-THE-INVARIANT") { why.push(`${bk}-${el} at ${w} is ${a?.reason}`); continue; }
-      if (!a.sentence.includes(`${w} wt%`)) why.push(`${bk}-${el} past-the-invariant line omits its own ${w} wt%`);
-      if (!a.sentence.includes(`${b.ceiling} wt%`)) why.push(`${bk}-${el} past-the-invariant line omits the ceiling`);
+      if (!a.sentence.includes(`${w} wt%`)) why.push(`${bk}-${el} past-the-invariant sentence omits its own ${w} wt%`);
+      if (!a.sentence.includes(`${b.ceiling} wt%`)) why.push(`${bk}-${el} past-the-invariant sentence omits the ceiling`);
+      if (!a.line.includes(`${w} wt%`)) why.push(`${bk}-${el} past-the-invariant on-screen line omits its own ${w} wt%`);
+      if (!a.line.includes(`${b.ceiling} wt%`)) why.push(`${bk}-${el} past-the-invariant on-screen line omits the ceiling`);
     }
   }
   if (pastSeen < 40) why.push(`only ${pastSeen} boundary probes`);
@@ -401,6 +412,7 @@ block("EL-TIER-TOTAL", () => {
       const a = E.admit(bk, el, w);
       if (a?.reason !== "NOT-A-COMPOSITION") why.push(`${bk}-${el} at ${w} is ${a?.reason}`);
       if (a && /NaN|undefined|Infinity/.test(a.vapour?.text ?? "")) why.push(`${bk}-${el} at ${w} prints a non-number in its advisory`);
+      if (a && /NaN|undefined|Infinity/.test(a.vapour?.line ?? "")) why.push(`${bk}-${el} at ${w} prints a non-number in its advisory's line`);
       const d = A.derive({ base: bk, wt: { [el]: w } });
       if (Number.isFinite(w) && w !== 0 && d.refusals.length === 0) why.push(`derive accepted ${w} wt% ${el}`);
     }
@@ -563,7 +575,11 @@ block("EL-VAPOUR-ADVISORY", () => {
     if (!(above.p > cut && above.p < E.FUME_ATM)) why.push(`the between-cutoff-and-threshold probe moved out of that window (${above.p})`);
     if (!/${E.GAMMA_HEADROOM}-fold|hundredfold/.test(below.text) && !new RegExp(`${E.GAMMA_HEADROOM}-fold`).test(below.text)) why.push("the caveat-free line does not state the headroom it claims");
     if (!new RegExp(`${E.FUME_ATM} atm`).test(below.text)) why.push("the caveat-free line does not state the threshold it claims");
-    if (!/IDEAL solution/.test(above.text)) why.push("a line between the cutoff and the threshold dropped the ideality caveat");
+    // v8 U1c lowercased the emphasis ("IDEAL solution" became "ideal solution")
+    // in the learn text, and the on-screen line carries the caveat as well
+    if (!/ideal solution/i.test(above.text)) why.push("a line between the cutoff and the threshold dropped the ideality caveat");
+    if (!/ideal-solution estimate/.test(above.line ?? "")) why.push("the on-screen line between the cutoff and the threshold dropped the ideality caveat");
+    if (/ideal-solution/.test(below.line ?? "")) why.push("the caveat-free line's on-screen half still carries the ideality caveat");
   }
   const brass = E.vapourAt("cu", "Zn", 30);
   const adm = E.admit("cu", "Zn", 30);
@@ -571,6 +587,9 @@ block("EL-VAPOUR-ADVISORY", () => {
   if (adm.tier !== "ASSESSED") why.push(`Cu-30Zn is ${adm.tier} — the vapour rule has become a refusal`);
   if (!/activity coefficient/.test(brass.text)) why.push("the Cu-30Zn line does not name the activity coefficient it lacks");
   if (!/1.4 atm/.test(brass.text)) why.push("the Cu-30Zn line does not carry its own computed pressure");
+  // and the on-screen half (v8 U1c) says both too: the pressure and what it lacks
+  if (!/activity coefficient/.test(brass.line ?? "")) why.push("the Cu-30Zn on-screen line does not name the activity coefficient it lacks");
+  if (!/1.4 atm/.test(brass.line ?? "")) why.push("the Cu-30Zn on-screen line does not carry its own computed pressure");
   // and no pair anywhere may be refused BECAUSE of vapour pressure: the tier
   // set contains no such reason, asserted over the whole table.
   const tiers = new Set();
