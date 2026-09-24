@@ -4188,6 +4188,12 @@ Line numbers in them are against `6ec93a1`; re-check before editing (shared work
           bug was the teardown: `server.kill()` on the `shell: true` spawn ended only the
           shell on Windows, leaving npx + vite holding 5199 after every `npm test` (the
           "orphaned vite" seen through U1a-U1c). Fixed: the runner kills the whole tree.
+        - `STEP3-REGION` (verify-3d) flaked again on the U1b+U1c suite (11/11 grain sets
+          matched, a voxel count did not): the timing fragility recorded at P3/P4 and never
+          owned. Fixed at its cause, not loosened: the block now pauses the cast
+          (`setRun(false)`, two rAFs, `onSubmittedWorkDone`) before its four readbacks, so the
+          GPU `readRegion` and the CPU recount read the same frozen state. 3/3 OK (14, 13, 14
+          grains); a probe copy that adds one voxel to a CPU count still FAILs.
   - [x] **U1c (2026-09-24): the alloy composer.** Every string the modal prints is one
         terse line on screen with its learn text beside it, from the same producer (the U1a
         doctrine: computed caveats keep their pair in the module that computes them).

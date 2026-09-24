@@ -597,6 +597,14 @@ console.log("VC-ZONES", kinds.has(1) && kinds.has(3) ? "OK" : FAIL(), JSON.strin
 
   const out = await page.evaluate(async (secsArg, nArg) => {
     const s3 = window.__solidify.sim3d();
+    // Freeze the cast first. It is polled only to fracSolidOpen >= 0.99, so it
+    // was still freezing while the four readbacks below were taken one after
+    // another, and a grain that grew between readRegion and the CPU recount
+    // failed STEP3-REGION with matching grain sets (todo.md: 13/13, 11/11).
+    // Paused, every read sees the same state, which is what the check claims.
+    window.__solidify.app.setRun(false);
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await s3.device.queue.onSubmittedWorkDone();
     let age = null, grn = null, st = null;
     for (let i = 0; i < 40 && !(age && grn && st); i++) {
       age = age ?? await s3.readAgeVolume();
