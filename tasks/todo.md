@@ -4466,3 +4466,48 @@ and its own type.
 Claude Code's auto mode blocks launching `codex exec` itself ("Create Unsafe Agents"), so Frank either
 runs it (`! codex exec -m gpt-6-astra -C C:\Users\frank\solidify --add-dir C:\Users\frank\solidify-hero-out - < tasks\astra-hero-brief.md`)
 or adds a Bash permission rule for `codex exec`.
+
+### D · Design system: Figure 03, dark (Frank, 2026-09-24)
+
+Frank: the site and tool read "vibe coded". References: Figure 03 (figure.ai, Refero style
+2997507c) and desktop.fm (Refero cb266ff9). Decisions: Figure 03 leads, in dark mode (what he
+took from it: the top nav buttons, the landing with the title on the right, clean); keep the
+rendered dendrite, the lenses and the melt types, reformatted with Figure-style metrics to the
+side; fully achromatic UI; Space Grotesk + Inter (+ a tabular mono for values); design system
+first, then U2/U3 build on it. Binding spec: `docs/DESIGN.md`.
+
+- [ ] **D0 · Tokens + fonts.** `src/design/tokens.css` (the only place a color, size or radius
+      is written), self-hosted fonts (@fontsource), component classes (btn, spec rail, tabs,
+      inputs, tags, panels). Linked from all four pages.
+- [ ] **D1 · Landing, science, contact.** Figure header + nav pills; hero render left, one copy
+      column right, the tour's five features as a spec rail with a leader line; lens / melt-type
+      / TRUE 3D acts with live-canvas + spec column (real values: live sim readouts,
+      `materials.ts`); footer matrix; `#grain`, `.heroGlow`, amber and cyan gone; hero copy
+      honesty fixes from the v4 ideation critique ("its shape locked in" is wrong: arms keep
+      coarsening; "one grain" must not ride on a steel label; alt text says satin finish, not
+      steel). Gates re-pointed, never loosened.
+- [ ] **D2 · The tool.** Top chrome (learn, controls, TRUE 3D) and lens bar in the nav style;
+      the rail as spec rows (Inter labels, mono tabular values, pill buttons, achromatic
+      sliders); HUD as a spec rail on `--overlay`; mode panels, composer modal, tour and learn
+      popovers on the panel spec; every hard-coded UI color in `src/*.ts` moved to tokens
+      (data colors inside canvases/plots stay); emoji-like glyphs dropped.
+- [ ] **D3 · Then U2 (plots) and U3 (layout) on the new system**, then U1d (tour) / U1e
+      (spelling sweep + UI-NO-EMDASH).
+
+### H v4 · Hero: smoother, longer, more turning (ideation 2026-09-24)
+
+Workflow wf_ba0a118e-bcc; storyboards + budgets in `C:\Users\frank\solidify-hero-out\ideation\`.
+Measured cause: 89% of the screen motion sits in 18% of the frame scroll (five 5-9-frame tour
+glides, peak 11.2 deg/frame), every smoothstep key stops the camera, the page draws whole
+frames only. Recommendation: B staged, A first.
+- [ ] **Quick wins on today's frames (approved to run alongside D):** a spring playhead with no
+      speed cap + display-rate decoding; blend only in slow steps (crystal-masked flow < ~3 px
+      at 1200, measured: blends ghost above that); set pick by CSS width x min(DPR, 2) plus a
+      720 set (phones download the 1200 set today); fling gate in verify-hero.
+- [ ] **A:** one planned camera path (spline, quaternions, motion caps, soft holds, ~700 deg one
+      way), linear growth time, newborn-arm radius ramp, lathe tour, pull-back ending on a real
+      frame; 560 frames, ~6.2 h render; segment-packed, content-hashed, AVIF. Awaiting Frank:
+      A only, or A then B.
+- [ ] **B (if chosen):** finer branching with faster tips in a colder melt, coarsening +
+      pinch-off, honest remelt, new melts: ice (hexagonal) and the app's icosahedral model,
+      lineup; copy says the [111] view is three-fold.
