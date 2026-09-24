@@ -6,6 +6,15 @@ import { MATERIALS, to3D } from "./materials";
 import type { PhysParams } from "./sim";
 import type { Units } from "./units";
 import type { Analyze } from "./analyze";
+import {
+  LearnLayer, learnEntry, learnIds, isLearnOn, onLearnChange, bindLearnToggle, storeGet, storeSet,
+  type LearnEntry,
+} from "./learn";
+// importing the rail's entries registers them
+import { RAIL_CAVEATS, RAIL_NOTES } from "./learn/rail";
+
+/** for strings interpolated into innerHTML */
+const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 export interface UIHost extends AppControl {
   simParams(): PhysParams;
@@ -161,12 +170,13 @@ export class UI {
   private alloyPanel!: HTMLElement;
   private pixelRow!: HTMLElement;
   private habitRow!: HTMLElement;
-  private habitNote!: HTMLElement;
   private facetRow!: HTMLElement;
-  private facetNote!: HTMLElement;
   private undercoolRow!: HTMLElement;
+  private unrealNote!: HTMLElement;
+  private sitesUnitNote!: HTMLElement;
   private regimeNote!: HTMLElement;
-  private potNote!: HTMLElement;
+  private regimeLearn!: HTMLElement;
+  private scheilNote!: HTMLElement;
   private scaleBody!: HTMLElement;
   private calSwitch!: HTMLElement;
   private calNote!: HTMLElement;
@@ -178,6 +188,12 @@ export class UI {
   private only3d: HTMLElement[] = [];
   private readouts = document.getElementById("readouts")!;
   private lastPixel = 6;
+  /** learn mode's explanations and hints in the rail (src/learn) */
+  private learn = new LearnLayer(() => this.sync());
+  /** the section being built, so a control can find its hint by its label */
+  private secId = "";
+  private secEntry: LearnEntry | null = null;
+  private hintsBound = new Set<string>();
 
   constructor(private host: UIHost, private analyze: Analyze) {
     this.buildViews();
@@ -188,6 +204,8 @@ export class UI {
       document.getElementById("rail")!.classList.toggle("hidden");
       document.body.classList.toggle("railHidden");
     });
+    bindLearnToggle(document.getElementById("learnToggle") as HTMLButtonElement);
+    onLearnChange(() => this.sync());
   }
 
   private buildViews() {
@@ -240,32 +258,53 @@ export class UI {
     this.recBtn = this.button(el, "⏺ rec", () => this.host.toggleRec());
   }
 
-  /** collapsible rail section; open state persists in localStorage */
+  /**
+   * collapsible rail section; open state persists in localStorage (when there
+   * is one). With learn mode on, an "i" in the header expands the section's
+   * explanation under it, independently of opening the section.
+   *
+   * The title is a real button (aria-expanded, aria-controls) so a keyboard
+   * can open a section: most of the rail, hints included, lives in collapsed
+   * bodies. The click handler stays on the whole header, which the button's
+   * own activation bubbles to, so a click anywhere on it still toggles.
+   */
   private section(rail: HTMLElement, title: string, open = false): HTMLElement {
     const s = document.createElement("div");
     s.className = "sec";
     const h = document.createElement("h2");
-    h.textContent = title;
+    const head = document.createElement("button");
+    head.type = "button";
+    head.className = "secHead";
+    head.textContent = title;
     const tog = document.createElement("span");
     tog.className = "tog";
-    h.append(tog);
+    tog.setAttribute("aria-hidden", "true");
+    h.append(head, tog);
     h.style.cursor = "pointer";
     const body = document.createElement("div");
     body.className = "secbody";
+    body.id = `secbody-${Object.keys(this.sections).length + 1}`;
+    head.setAttribute("aria-controls", body.id);
     const key = "sol.sec." + title;
-    const stored = localStorage.getItem(key);
+    const stored = storeGet(key);
     let isOpen = stored != null ? stored === "1" : open;
     const apply = () => {
       body.style.display = isOpen ? "block" : "none";
       tog.textContent = isOpen ? "▾" : "▸";
+      head.setAttribute("aria-expanded", String(isOpen));
     };
     h.addEventListener("click", () => {
       isOpen = !isOpen;
-      localStorage.setItem(key, isOpen ? "1" : "0");
+      storeSet(key, isOpen ? "1" : "0");
       apply();
     });
     apply();
-    s.append(h, body);
+    s.append(h);
+    this.secId = `sec:${title}`;
+    this.secEntry = learnEntry(this.secId) ?? null;
+    if (this.secEntry)
+      s.append(this.learn.explain(h, `about ${title.toLowerCase()}`, this.secEntry.text, tog).body);
+    s.append(body);
     rail.append(s);
     this.sections[title] = {
       root: s,
@@ -324,7 +363,34 @@ export class UI {
     parent.append(row);
     update();
     this.binds.push({ update });
+    this.hintFor(row, label);
     return row;
+  }
+
+  /**
+   * The current section's learn hint for `key` (a control's printed label),
+   * as one muted line right under `el`. Every hint a section declares must
+   * find its control: `learnAudit()` lists the ones that did not.
+   */
+  private hintFor(el: HTMLElement, key: string) {
+    const text = this.secEntry?.hints?.[key];
+    if (!text) return;
+    this.learn.hint(el, text);
+    this.hintsBound.add(`${this.secId}|${key}`);
+  }
+
+  /** what learn mode declares for the rail against what the rail bound (verify-rail RAIL-LEARN) */
+  learnAudit() {
+    const titles = Object.keys(this.sections);
+    const ids = learnIds("sec:");
+    const declared = ids.flatMap(id => Object.keys(learnEntry(id)?.hints ?? {}).map(k => `${id}|${k}`));
+    return {
+      sections: titles.length,
+      sectionsWithoutEntry: titles.filter(t => !learnEntry(`sec:${t}`)),
+      entriesWithoutSection: ids.filter(id => !this.sections[id.slice(4)]),
+      hintsDeclared: declared.length,
+      hintsUnbound: declared.filter(k => !this.hintsBound.has(k)),
+    };
   }
 
   private check(parent: HTMLElement, label: string, get: () => boolean, set: (b: boolean) => void): HTMLInputElement {
@@ -339,6 +405,7 @@ export class UI {
     row.append(inp, span);
     parent.append(row);
     this.binds.push({ update: () => { inp.checked = get(); } });
+    this.hintFor(row, label);
     return inp;
   }
 
@@ -399,10 +466,12 @@ export class UI {
       o.textContent = m.label;
       sel.append(o);
     }
+    // the material's spec line, and its learn-mode sentence under it
     const matNote = document.createElement("div");
     matNote.className = "matnote";
     sel.addEventListener("change", () => { host.setMaterial(sel.value); this.sync(); });
     mat.append(sel, matNote);
+    const matLearn = this.learn.para(matNote, "", { needsAnchorText: true });
     this.binds.push({
       update: () => {
         const m3 = host.getMode() === "3d";
@@ -417,27 +486,22 @@ export class UI {
         sel.value = host.getMaterial();
         const mm = MATERIALS[host.getMaterial()];
         const map = mm ? to3D(mm) : null;
-        matNote.textContent = m3 && map && !map.supported
-          ? (map.note3d ?? "")
-          : mm?.note ?? "";
+        const off3d = m3 && map && !map.supported;
+        matNote.textContent = off3d ? (map.note3d ?? "") : mm?.note ?? "";
+        matLearn.textContent = off3d ? (map.learn3d ?? "") : mm?.learn ?? "";
       },
     });
 
-    // ---- modes
+    // ---- modes (what each one does is the section's learn text)
     const modes = this.section(rail, "MODES");
     const mrow0 = this.btnRow(modes);
     // the lab and (since H2b) the heat-treat panel run in both dimensions;
     // the ML modes are 2D-only
     this.button(mrow0, "⚗ lab mode", () => { host.startLab(); this.sync(); });
     const heatBtn = this.button(mrow0, "♨ heat treat", () => { host.startHeat(); this.sync(); });
-    heatBtn.title = "solid-state heat treatment on the casting on screen — real hours on the second clock. "
-      + "Grain growth runs on the material's own sourced Arrhenius law.";
-    this.only2d.push(this.button(mrow0, "engineer it (optimizer)", () => { host.startOptimizer(); this.sync(); }));
+    heatBtn.title = "solid-state heat treatment · real-hours clock · Arrhenius grain growth";
+    this.only2d.push(this.button(mrow0, "optimizer", () => { host.startOptimizer(); this.sync(); }));
     this.only2d.push(this.button(mrow0, "⚔ challenge", () => host.startChallenge()));
-    const modeNote = document.createElement("div");
-    modeNote.className = "matnote";
-    modeNote.textContent = "LAB sets the experiment up first — charge, mould, superheat, cooling programme — then pours it and reports the cooling curve and the microstructure it produced. HEAT TREAT takes whatever has already frozen and soaks it on a real-seconds clock.";
-    modes.append(modeNote);
 
     // ---- melt / process
     const melt = this.section(rail, "MELT · PROCESS", true);
@@ -449,12 +513,19 @@ export class UI {
     const uRate = (v: number) => { const u = host.units(); return u.known ? u.fmtRate(v) : v.toFixed(3); };
     this.undercoolRow = this.slider(melt, "undercooling", 0.3, 1.0, 0.01,
       () => host.getUndercool(), v => host.setUndercool(v), uK);
+    // the value turns red past anything a real melt reaches, and this line
+    // says why (empty and hidden otherwise), with its learn half under it
+    this.unrealNote = document.createElement("div");
+    this.unrealNote.className = "matnote";
+    melt.append(this.unrealNote);
+    this.learn.para(this.unrealNote, RAIL_CAVEATS.unreal.learn, { needsAnchorText: true });
     this.slider(melt, "cooling rate", 0, 0.6, 0.005, () => p().coolRate, v => { p().coolRate = v; }, uRate);
     // what that cooling rate is actually called in a shop
     this.regimeNote = document.createElement("div");
     this.regimeNote.className = "matnote";
     melt.append(this.regimeNote);
-    // The inoculant charge — NOT a nucleation rate. How many potential nuclei
+    this.regimeLearn = this.learn.para(this.regimeNote, "", { needsAnchorText: true });
+    // The inoculant charge, NOT a nucleation rate. How many potential nuclei
     // the melt carries; how many actually fire is decided by how deeply the
     // melt undercools before recalescence, i.e. by the two sliders above.
     this.slider(melt, "inoculant n_max", 0, 3000, 10,
@@ -462,11 +533,12 @@ export class UI {
     const nucNote = document.createElement("div");
     nucNote.className = "matnote";
     melt.append(nucNote);
+    const nucLearn = this.learn.para(nucNote, "", { needsAnchorText: true });
     this.binds.push({
       update: () => {
-        nucNote.textContent = host.getInoculant() === 0
-          ? "no grain refiner — the melt nucleates only on a chill wall or your taps"
-          : "sites fire as the melt undercools past each one; the rate is not a setting";
+        const c = host.getInoculant() === 0 ? RAIL_CAVEATS.noRefiner : RAIL_CAVEATS.sitesFire;
+        nucNote.textContent = c.line;
+        nucLearn.textContent = c.learn;
       },
     });
     const mrow = this.btnRow(melt);
@@ -484,8 +556,8 @@ export class UI {
     // no set-point, no solid-state physics. Real heat treatment is its own panel
     // on its own clock; this is a reheat brush, and it now says so.
     const reheatBtn = this.button(mrow, "reheat", () => {});
-    reheatBtn.title = "hold to pour heat back in — melts solid back into liquid. "
-      + "For a real heat treatment (grain growth, homogenization) use HEAT TREAT.";
+    reheatBtn.title = RAIL_CAVEATS.reheat.line;
+    this.learn.para(mrow, RAIL_CAVEATS.reheat.learn);
     reheatBtn.addEventListener("pointerdown", () => host.reheat(true));
     for (const ev of ["pointerup", "pointerleave", "pointercancel"])
       reheatBtn.addEventListener(ev, () => host.reheat(false));
@@ -517,15 +589,16 @@ export class UI {
     scen.append(this.weldPanel);
     this.slider(this.weldPanel, "laser power", 150, 1600, 10, () => p().weldPow, v => { p().weldPow = v; }, v => v.toFixed(0));
     this.slider(this.weldPanel, "spot size", 2, 9, 0.5, () => p().weldSig, v => { p().weldSig = v; }, v => v.toFixed(1));
-    this.check(this.weldPanel, "auto raster (click melt to steer)", () => host.getWeldAuto(), b => host.setWeldAuto(b));
+    this.check(this.weldPanel, "auto raster", () => host.getWeldAuto(), b => host.setWeldAuto(b));
     this.slider(this.weldPanel, "sweep speed", 10, 140, 2, () => host.getWeldSweep(), v => host.setWeldSweep(v), v => v.toFixed(0));
 
     // ---- alloy
     const alloy = this.section(rail, "ALLOY");
     // routed through the host: in 3D "on" means allocating the solute textures
-    this.check(alloy, "dilute alloy (solute field)", () => host.getAlloyOn(), b => host.setAlloyOn(b));
+    this.check(alloy, "solute field", () => host.getAlloyOn(), b => host.setAlloyOn(b));
     const arow = this.btnRow(alloy);
     this.button(arow, "⚗ compose alloy…", () => host.openComposer());
+    this.hintFor(arow, "⚗ compose alloy…");
     this.alloyPanel = document.createElement("div");
     this.alloyPanel.className = "subpanel";
     alloy.append(this.alloyPanel);
@@ -572,33 +645,23 @@ export class UI {
     sym(5, "×5 quasi");
     sym(10, "×10 quasi");
     sym(5, "icosa QC", "3d");   // the genuine 3D quasicrystal — six 5-fold axes
-    const symNote = document.createElement("div");
-    symNote.className = "matnote";
-    symNote.textContent = "2·3·4·6 are the only symmetries a periodic lattice allows — 5 and 10 are quasicrystal territory";
-    cr.append(symNote);
+    // (why only 2, 3, 4 and 6 are lattice symmetries is the section's learn text)
     // the volume only implements the cusped energy for the cubic ⟨100⟩ family
     // (shaders3d.ts aniso3, aniMode3 == 1) — the hex and icosahedral branches
     // ignore `facet` entirely, so the control hides there rather than sitting
     // on screen doing nothing
-    const facChk = this.check(cr, "faceted growth (cusped ε)", () => p().facet > 0.5, b => { p().facet = b ? 1 : 0; });
+    const facChk = this.check(cr, "faceted (cusped ε)", () => p().facet > 0.5, b => { p().facet = b ? 1 : 0; });
     this.facetRow = facChk.parentElement as HTMLElement;
-    this.facetNote = document.createElement("div");
-    this.facetNote.className = "matnote";
-    this.facetNote.textContent = "cusped interface energy pins flat facets — silicon and intermetallics grow this way";
-    cr.append(this.facetNote);
     this.slider(cr, "tip noise", 0, 0.04, 0.001, () => p().noiseAmp, v => { p().noiseAmp = v; }, v => v.toFixed(3));
     this.slider(cr, "latent heat K", 0.8, 2.2, 0.01, () => p().latent, v => { p().latent = v; });
     this.slider(cr, "twin rate", 0, 0.004, 0.0001, () => p().twinProb, v => { p().twinProb = v; },
       v => v > 0 ? `${(v * 1000).toFixed(1)}‰` : "off");
     // hex 3D only: δz sign picks the growth habit (managed manually in sync —
     // visible iff 3D ∧ hex, so neither only2d nor only3d fits)
-    this.habitRow = this.slider(cr, "habit  needles ⇠ ⇢ plates", -0.06, 0.06, 0.002,
+    // (the value cell names the habit; the sign convention is the learn hint)
+    this.habitRow = this.slider(cr, "habit δz", -0.06, 0.06, 0.002,
       () => host.getHabit(), v => host.setHabit(v),
       v => v <= -0.005 ? "needles" : v >= 0.005 ? "plates" : "equant");
-    this.habitNote = document.createElement("div");
-    this.habitNote.className = "matnote";
-    this.habitNote.textContent = "c-axis bias δz — negative rewards the c-axis (columnar ice needles), positive flattens growth into basal plates (snowflakes)";
-    cr.append(this.habitNote);
 
     // ---- look
     const look = this.section(rail, "LOOK");
@@ -610,24 +673,27 @@ export class UI {
       () => (host.getPixel() > 0 ? host.getPixel() : this.lastPixel),
       v => { this.lastPixel = v; if (host.getPixel() > 0) host.setPixel(v); },
       v => `${v.toFixed(0)}px`);
-    this.check(look, "8-bit palette + dither", () => host.getPalette(), b => host.setPalette(b));
+    this.check(look, "8-bit palette", () => host.getPalette(), b => host.setPalette(b));
     const voxRow = this.actSwitch(look, "VOXEL MODE", "RENDER MODE", () => host.getVoxel3(), b => host.setVoxel3(b));
     this.only3d.push(voxRow);
+    this.hintFor(voxRow, "VOXEL MODE");
     const tiltRow = this.actSwitch(look, "2.5D RELIEF", "RENDER MODE", () => host.getTilt(), b => host.setTilt(b));
     this.only2d.push(tiltRow);
+    // an honesty line: the relief is a picture of the 2D field, not a volume
     const tiltNote = document.createElement("div");
     tiltNote.className = "matnote";
-    tiltNote.textContent = "raking-light oblique view — same 2D physics, extruded by solidification age · true 3D: flip the TRUE 3D switch";
+    tiltNote.textContent = RAIL_CAVEATS.relief.line;
     look.append(tiltNote);
     this.only2d.push(tiltNote);
-    // metallographic staining: tint etchants colour grains by orientation (ETCH lens)
+    this.learn.para(tiltNote, RAIL_CAVEATS.relief.learn);
+    // metallographic staining: tint etchants color grains by orientation (ETCH lens)
     const stainNote = document.createElement("div");
     stainNote.className = "matnote";
-    stainNote.textContent = "grain stain · shows in the ETCH lens";
+    stainNote.textContent = "stain (ETCH lens)";
     look.append(stainNote);
     this.only2d.push(stainNote);
     const stainSel = document.createElement("select");
-    ["no stain (plain Nital)", "Klemm's tint etch", "Beraha's tint etch", "anodize + crossed polars"].forEach((label, i) => {
+    ["none (Nital)", "Klemm's tint etch", "Beraha's tint etch", "anodize + crossed polars"].forEach((label, i) => {
       const o = document.createElement("option");
       o.value = String(i);
       o.textContent = label;
@@ -636,8 +702,9 @@ export class UI {
     stainSel.addEventListener("change", () => { host.setStain(parseInt(stainSel.value, 10)); this.sync(); });
     look.append(stainSel);
     this.only2d.push(stainSel);
+    this.hintFor(stainSel, "stain");
     this.binds.push({ update: () => { stainSel.value = String(host.getStain()); } });
-    const ebsdChk = this.check(look, "EBSD flat map (ORIENT lens)", () => host.getEbsd(), b => host.setEbsd(b));
+    const ebsdChk = this.check(look, "EBSD map (ORIENT)", () => host.getEbsd(), b => host.setEbsd(b));
     this.only2d.push(ebsdChk.parentElement as HTMLElement);
     // (the SLICE section-plane controls live in the floating SECTION PLANE
     // popup — src/slicepanel.ts — shown with the SLICE lens)
@@ -657,6 +724,7 @@ export class UI {
       this.gridBtns.push(b);
     }
     this.only2d.push(grow);
+    this.hintFor(grow, "grid");
     const grow3 = this.btnRow(sm);
     for (const n of host.caps3dSizes()) {
       const b = this.button(grow3, `${n}³`, () => { host.setGrid3(n); this.sync(); });
@@ -665,9 +733,10 @@ export class UI {
     }
     const gridNote3 = document.createElement("div");
     gridNote3.className = "matnote";
-    gridNote3.textContent = "192³ = 7.1M voxels — expect ~30 fps; drop to 128³ for full speed";
+    gridNote3.textContent = RAIL_CAVEATS.grid3d.line;
     sm.append(gridNote3);
     this.only3d.push(grow3, gridNote3);
+    this.learn.para(gridNote3, RAIL_CAVEATS.grid3d.learn);
 
     // ---- the run's seed. Every stochastic choice in the cast descends from it:
     // grain orientations, where the nucleation sites sit, what undercooling each
@@ -679,29 +748,34 @@ export class UI {
     const seedNote = document.createElement("div");
     seedNote.className = "matnote";
     sm.append(seedNote);
+    this.learn.para(seedNote, RAIL_NOTES.seed);
     this.binds.push({
-      update: () => {
-        seedNote.textContent = `seed ${this.host.seedHex()} — shared links carry it, so the same cast pours again`;
-      },
+      update: () => { seedNote.textContent = `seed ${this.host.seedHex()}`; },
     });
 
     // ---- analyze: foundry instruments (one home — dispatched per mode)
     const an = this.section(rail, "ANALYZE");
     const m3now = () => host.getMode() === "3d";
-    this.check(an, "cooling probe (ctrl-tap moves it)",
+    this.check(an, "cooling probe",
       () => m3now() ? host.getProbe3On() : this.analyze.probeOn,
       b => { if (m3now()) host.setProbe3On(b); else this.analyze.setProbeOn(b); });
-    this.check(an, "Scheil overlay (needs alloy)",
+    this.check(an, "Scheil overlay",
       () => m3now() ? host.getScheil3On() : this.analyze.scheilOn,
       b => { if (m3now()) host.setScheil3On(b); else this.analyze.setScheilOn(b); });
-    const roseChk = this.check(an, "texture rose (grain orientations)", () => this.analyze.textureOn, b => this.analyze.setTextureOn(b));
+    // what the overlay cannot do without a solute field, said next to it
+    this.scheilNote = document.createElement("div");
+    this.scheilNote.className = "matnote";
+    an.append(this.scheilNote);
+    this.learn.para(this.scheilNote, RAIL_CAVEATS.scheilNeedsAlloy.learn, { needsAnchorText: true });
+    const roseChk = this.check(an, "texture rose", () => this.analyze.textureOn, b => this.analyze.setTextureOn(b));
     this.only2d.push(roseChk.parentElement as HTMLElement);
     const anrow = this.btnRow(an);
-    const rulerBtn = this.button(anrow, "SDAS ruler — drag a line", () => {
+    const rulerBtn = this.button(anrow, "SDAS ruler", () => {
       if (m3now()) host.setRuler3On(!host.getRuler3On());
       else this.analyze.setRulerOn(!this.analyze.rulerOn);
       this.sync();
     });
+    this.hintFor(anrow, "SDAS ruler");
     this.binds.push({
       update: () => rulerBtn.classList.toggle("on", m3now() ? host.getRuler3On() : this.analyze.rulerOn),
     });
@@ -713,24 +787,18 @@ export class UI {
 
     // ---- 3D characterization lab
     const vol = this.section(rail, "VOLUME · 3D");
-    this.check(vol, "stereology — section vs true 3D", () => host.getStereoOn(), b => host.setStereoOn(b));
-    this.check(vol, "IPF texture map (grain axes)", () => host.getIpfOn(), b => host.setIpfOn(b));
+    this.check(vol, "stereology (2D section vs 3D)", () => host.getStereoOn(), b => host.setStereoOn(b));
+    this.check(vol, "IPF map", () => host.getIpfOn(), b => host.setIpfOn(b));
     this.check(vol, "pole figure ⟨100⟩ / (0001)", () => host.getPoleOn(), b => host.setPoleOn(b));
-    const volNote = document.createElement("div");
-    volNote.className = "matnote";
-    volNote.textContent = "stereology measures the SLICE plane — what a 2D micrograph would tell you vs the 3D truth";
-    vol.append(volNote);
     const vrow = this.btnRow(vol);
-    const stlBtn = this.button(vrow, "⬇ STL — print your dendrite", () => {
+    const STL = "⬇ STL";
+    const stlBtn = this.button(vrow, STL, () => {
       stlBtn.textContent = "meshing…";
       host.exportSTL();
-      setTimeout(() => { stlBtn.textContent = "⬇ STL — print your dendrite"; }, 3000);
+      setTimeout(() => { stlBtn.textContent = STL; }, 3000);
     });
     this.button(vrow, "⏺ 360° turntable", () => host.startTurntable());
-    const expNote = document.createElement("div");
-    expNote.className = "matnote";
-    expNote.textContent = "STL: the crystal you grew as a watertight printable mesh (~40 mm) · 360°: a 6 s orbit recorded to webm";
-    vol.append(expNote);
+    this.learn.para(vrow, RAIL_NOTES.export);
     this.only3d.push(this.sections["VOLUME · 3D"].root);
 
     // ---- advanced
@@ -755,11 +823,24 @@ export class UI {
     // how tightly it clusters. Potent refiners fire just below the liquidus.
     this.slider(adv, "site ΔT_N", 0.03, 0.6, 0.005,
       () => host.getNucPotency(), v => host.setNucPotency(v), uK);
-    this.slider(adv, "site spread σ", 0.01, 0.15, 0.005,
+    const spreadRow = this.slider(adv, "site spread σ", 0.01, 0.15, 0.005,
       () => host.getNucSpread(), v => host.setNucSpread(v), uK);
-    this.potNote = document.createElement("div");
-    this.potNote.className = "matnote";
-    adv.append(this.potNote);
+    const sitesLearn = this.learn.para(spreadRow, RAIL_NOTES.sites);
+    // Without SI data the two values above fall back to bare solver numbers
+    // (uK), which the hints and the note above would otherwise let a reader
+    // take for kelvin: this line says they are not, and is empty otherwise.
+    // It sits right under the row, before the learn paragraph about real melts.
+    this.sitesUnitNote = document.createElement("div");
+    this.sitesUnitNote.className = "matnote";
+    sitesLearn.before(this.sitesUnitNote);
+    this.learn.para(this.sitesUnitNote, RAIL_CAVEATS.sitesModelUnits.learn, { needsAnchorText: true });
+    const shareB = this.button(this.btnRow(adv), "⎘ copy setup link", () => {
+      void navigator.clipboard.writeText(host.shareLink()).then(() => {
+        shareB.textContent = "copied ✓";
+        setTimeout(() => { shareB.textContent = "⎘ copy setup link"; }, 1400);
+      });
+    });
+    this.hintFor(shareB.parentElement as HTMLElement, "⎘ copy setup link");
 
     // ---- scale
     // The whole dimensionless<->SI map, with its provenance and its mismatches,
@@ -793,27 +874,20 @@ export class UI {
       () => host.getUmPerCell(), v => host.setUmPerCell(v),
       v => v < 1 ? `${v.toFixed(2)} µm` : `${v.toFixed(1)} µm`);
     this.derived.push(this.umRow);
-    const shareB = this.button(this.btnRow(adv), "⎘ copy setup link", () => {
-      void navigator.clipboard.writeText(host.shareLink()).then(() => {
-        shareB.textContent = "copied ✓";
-        setTimeout(() => { shareB.textContent = "⎘ copy setup link"; }, 1400);
-      });
-    });
-    const shareNote = document.createElement("div");
-    shareNote.className = "matnote";
-    shareNote.textContent = "the link restores this exact setup — material, physics dials, lens, even an applied ML recipe";
-    adv.append(shareNote);
+    // no control built after this point belongs to a section
+    this.secId = "";
+    this.secEntry = null;
 
     // ---- science + contact links
     const sci = document.createElement("a");
     sci.className = "scilink";
     sci.href = "../science/";
-    sci.textContent = "the science behind it ↗";
+    sci.textContent = "science ↗";
     rail.append(sci);
     const con = document.createElement("a");
     con.className = "scilink";
     con.href = "../contact/";
-    con.textContent = "questions · feedback ↗";
+    con.textContent = "feedback ↗";
     rail.append(con);
   }
 
@@ -832,9 +906,14 @@ export class UI {
     for (const el of this.derived) {
       el.style.opacity = on ? "0.42" : "";
       el.style.pointerEvents = on ? "none" : "";
-      el.title = on ? "derived by the calibration — not a choice in this mode" : "";
+      el.title = on ? RAIL_CAVEATS.derived.line : "";
     }
     const nm = (m: number) => (m < 1e-6 ? `${(m * 1e9).toFixed(1)} nm` : `${(m * 1e6).toFixed(2)} µm`);
+    const learnOn = isLearnOn();
+    const lrn = (t: string) => (learnOn ? `<div class="lrnText">${esc(t)}</div>` : "");
+    const calCav = on ? RAIL_CAVEATS.calLocked
+      : host.canCalibrate() ? RAIL_CAVEATS.calOff
+        : m3 ? RAIL_CAVEATS.cal3d : RAIL_CAVEATS.calNoSI;
     this.calNote.innerHTML = on
       // the numbers a reader needs to judge the calibration, not just trust it:
       // d₀ is Γ over the reference interval — and since v7.1 P1 that interval is
@@ -843,29 +922,25 @@ export class UI {
       // independent of
       ? `d₀ ${nm(cal.d0)} · W₀ ${nm(cal.W0)} · τ₀ ${cal.tau0 < 1e-3
           ? cal.tau0.toExponential(1) + " s" : cal.tau0.toPrecision(2) + " s"}`
-        + `<br>one degree = ${cal.dT0.toFixed(1)} K · cell ${cal.umPerCell.toFixed(3)} µm`
+        + `<br>1 degree = ${cal.dT0.toFixed(1)} K · cell ${cal.umPerCell.toFixed(3)} µm`
         // WHICH alloy that degree was measured for. It was the unstated half of
         // this readout until v7.1 P1, and it was wrong for every poured mix.
-        + `<br><span style="color:#8891a0">${cal.coefficientSource
-            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</span>`
-        + `<br><span style="color:#7fd18b">W₀ and τ₀ are derived from Γ and D — ε̄, τ, α, γ, δ, the solute D and the cell pitch are no longer choices.</span>`
-      : host.canCalibrate()
-        ? "derive W₀ and τ₀ from Γ and D — this material's Gibbs–Thomson coefficient and diffusivity — over the reference interval the readout names once it is on; tip radius and arm spacing stop being shapes and start being predictions"
-        : m3
-          ? "calibrated mode is 2D for now — the volume still runs the Kobayashi solver"
-          : "this material has no SI identity to calibrate against — pick a real one";
+        + `<br><span style="color:#8891a0">${esc(cal.coefficientSource)}</span>`
+        + `<br><span style="color:#7fd18b">${esc(calCav.line)}</span>${lrn(calCav.learn)}`
+      : `${esc(calCav.line)}${lrn(calCav.learn)}`;
 
     // mode gating: 2D-only vs 3D-only rows, sections and buttons
     for (const el of this.only2d) el.style.display = m3 ? "none" : "";
     for (const el of this.only3d) el.style.display = m3 ? "" : "none";
     const hex3 = m3 && host.getSym3() === 6;
     this.habitRow.style.display = hex3 ? "" : "none";
-    this.habitNote.style.display = hex3 ? "" : "none";
     // faceting is implemented for every 2D symmetry, but in the volume only for
     // cubic — see the note where the control is built
     const facetOn = !m3 || host.getSym3() === 4;
     this.facetRow.style.display = facetOn ? "" : "none";
-    this.facetNote.style.display = facetOn ? "" : "none";
+    // the Scheil overlay has nothing to plot without a solute field
+    this.scheilNote.textContent = host.getAlloyOn() ? "" : RAIL_CAVEATS.scheilNeedsAlloy.line;
+    this.scheilNote.style.display = host.getAlloyOn() ? "none" : "";
 
     this.viewBtns.forEach((b, i) => {
       b.style.display = m3 ? "none" : "";
@@ -921,35 +996,22 @@ export class UI {
     // keyed off the lens index of the mode that is actually on screen. Keying
     // all three off the 2D index left the volume's THERM and SEM lenses
     // rendering with no scale beside them.
-    // real-unit annotations: what the cooling rate is called in a shop, what the
-    // inoculant's activation window is in kelvin, and whether the undercooling
-    // dial has been pushed past anything a real melt reaches
+    // real-unit annotations: what the cooling rate is called in a shop (the
+    // rate itself is the slider's value), or that there is no clock to call it
+    // by, and whether the undercooling dial has been pushed past anything a
+    // real melt reaches
     const u = host.units();
-    if (u.known) {
-      this.regimeNote.textContent =
-        `${u.fmtRate(p.coolRate)} — ${u.regime(p.coolRate)}`;
-      const dn = u.kelvin(host.getNucPotency()), sg = u.kelvin(host.getNucSpread());
-      this.potNote.textContent =
-        `the inoculant fires around ${dn.toFixed(1)} K ± ${sg.toFixed(1)} K below the liquidus. `
-        + "A well-inoculated foundry melt activates within a few kelvin; tens of kelvin is a "
-        + "clean, uninoculated charge.";
-    } else {
-      this.regimeNote.textContent =
-        "dimensionless — pick a real material to put a clock and a thermometer on this";
-      this.potNote.textContent =
-        "activation undercooling of the inoculant population, in model units";
-    }
+    this.regimeNote.textContent = u.known ? u.regime(p.coolRate) : RAIL_CAVEATS.rateDimensionless.line;
+    this.regimeLearn.textContent = u.known ? RAIL_NOTES.regime : RAIL_CAVEATS.rateDimensionless.learn;
     this.drawScale(u);
 
-    const uc = this.undercoolRow.querySelector(".val") as HTMLElement | null;
-    if (uc) {
-      const past = u.beyondReal(host.getUndercool());
-      uc.classList.toggle("unreal", past);
-      uc.title = past
-        ? "deeper than any real melt of this material reaches — past roughly 0.2·T_m the liquid "
-          + "nucleates homogeneously however clean it is. Still a valid model run, just not an experiment."
-        : "";
-    }
+    const past = u.beyondReal(host.getUndercool());
+    this.undercoolRow.querySelector(".val")?.classList.toggle("unreal", past);
+    this.unrealNote.textContent = past ? RAIL_CAVEATS.unreal.line : "";
+    this.unrealNote.style.display = past ? "" : "none";
+    // the site dials read in solver units without SI data (see where they are built)
+    this.sitesUnitNote.textContent = u.known ? "" : RAIL_CAVEATS.sitesModelUnits.line;
+    this.sitesUnitNote.style.display = u.known ? "none" : "";
 
     const v = m3 ? host.getView3d() : host.getView();
     const thermLens = m3 ? 6 : 5;
@@ -958,6 +1020,9 @@ export class UI {
     document.getElementById("scalebar")!.style.display = v === 2 ? "flex" : "none";
     document.getElementById("thermbar")!.style.display = v === thermLens ? "block" : "none";
     document.getElementById("sembar")!.style.display = v === semLens ? "block" : "none";
+
+    // last: every hint follows its control's display, set above
+    this.learn.apply(learnOn);
   }
 
   /**
@@ -974,12 +1039,14 @@ export class UI {
     const row = (k: string, v: string, prov: string) =>
       `<div style="display:flex;gap:6px"><span style="flex:0 0 74px">${k}</span>`
       + `<b style="color:#cfd6df;flex:0 0 82px">${v}</b>${dim(prov)}</div>`;
+    // each caveat's learn half, under its line, while learn mode is on
+    const lrn = (t: string) => (isLearnOn() ? `<div class="lrnText">${esc(t)}</div>` : "");
 
     if (!u.known) {
       this.scaleBody.innerHTML =
         row("µm / cell", `${s.umPerCell.toFixed(2)}`, s.prov.umPerCell)
         + row("domain", `${s.domainUm.toFixed(0)} µm`, "derived: n × µm/cell")
-        + `<div style="margin-top:5px">${s.note}</div>`;
+        + `<div style="margin-top:5px">${esc(s.note)}</div>${lrn(s.learn)}`;
       return;
     }
     const groups = s.groups.map(g => {
@@ -989,7 +1056,7 @@ export class UI {
           + (g.real != null && !g.ok ? ` vs ${g.real > 1e3 ? g.real.toExponential(1) : g.real.toFixed(2)}` : "");
       const mark = g.ok ? "<span style=\"color:#7fd18b\">✓</span>" : "<span style=\"color:#e06c60\">✗</span>";
       return `<div style="margin-top:4px">${mark} <b style="color:#cfd6df">${g.name}</b> ${dim(val)}`
-        + `<div style="margin-left:14px">${g.note}</div></div>`;
+        + `<div style="margin-left:14px">${esc(g.note)}${lrn(g.learn)}</div></div>`;
     }).join("");
 
     this.scaleBody.innerHTML =
@@ -1002,7 +1069,7 @@ export class UI {
         "derived: n × µm/cell")
       + row("melting pt", `${u.meltC.toFixed(0)} °C`, "T = 1")
       + `<div style="margin-top:6px">${groups}</div>`
-      + `<div style="margin-top:6px;color:#6b7280">${s.note}</div>`;
+      + `<div style="margin-top:6px;color:#6b7280">${esc(s.note)}</div>${lrn(s.learn)}`;
   }
 
   setReadouts(rows: [string, string][]) {

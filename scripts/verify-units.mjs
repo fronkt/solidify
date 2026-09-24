@@ -136,10 +136,11 @@ const mk = (key, over = {}) => {
   });
 }
 
-// 8. The regime bands, at the settings the app actually ships with.
+// 8. The regime bands, at the settings the app actually ships with. American
+//    spelling since v8 U1a (docs/COPY-STYLE.md); still an exact match.
 {
   const u = mk("al");
-  const ok = u.regime(0.3) === "permanent mould · die casting" && U.regimeOf(0) === "isothermal";
+  const ok = u.regime(0.3) === "permanent mold · die casting" && U.regimeOf(0) === "isothermal";
   check("UNITS-REGIME", ok, { rate: u.fmtRate(0.3), regime: u.regime(0.3) });
 }
 

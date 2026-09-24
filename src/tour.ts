@@ -369,7 +369,7 @@ export const CHAPTERS: Chapter[] = [
   {
     part: "THE INSTRUMENT",
     title: "Crystal",
-    body: "The crystallography: ANISOTROPY δ sharpens arms (near zero grows seaweed), the symmetry row sets the rotational order — ×2, ×3, cubic ×4 for metals, hex ×6 for ice, and the forbidden ×5 and ×10 of quasicrystal territory, with a genuine icosahedral one in TRUE 3D — FACETED GROWTH cusps the interface energy until flat facets pin, TIP NOISE seeds side-branches, LATENT HEAT K feeds recalescence, and TWIN RATE lets growth twins nucleate at the front.",
+    body: "The crystallography: ANISOTROPY δ sharpens arms (near zero grows seaweed), the symmetry row sets the rotational order — ×2, ×3, cubic ×4 for metals, hex ×6 for ice, and the forbidden ×5 and ×10 of quasicrystal territory, with a genuine icosahedral one in TRUE 3D — FACETED (CUSPED ε) cusps the interface energy until flat facets pin, TIP NOISE seeds side-branches, LATENT HEAT K feeds recalescence, and TWIN RATE lets growth twins nucleate at the front.",
     watch: "Twins must out-grow their parent to survive — the winners widen into feathery grains.",
     hl: ["sec:CRYSTAL"],
   },
@@ -383,7 +383,7 @@ export const CHAPTERS: Chapter[] = [
   {
     part: "THE INSTRUMENT",
     title: "Look",
-    body: "PIXEL MODE and the 8-BIT palette are the retro looks. The GRAIN STAIN select tints the ETCH micrograph like real reagents — Klemm's browns and blues, Beraha's violets, or anodize under crossed polars. EBSD FLAT MAP turns ORIENT into a microscope-style IPF orientation map.",
+    body: "PIXEL MODE and the 8-BIT palette are the retro looks. The STAIN select tints the ETCH micrograph like real reagents — Klemm's browns and blues, Beraha's violets, or anodize under crossed polars. EBSD MAP (ORIENT) turns that lens into a microscope-style IPF orientation map.",
     watch: "RESET VIEW undoes any zoom and pan.",
     hl: ["sec:LOOK"],
   },

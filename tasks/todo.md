@@ -3999,11 +3999,18 @@ Line numbers in them are against `6ec93a1`; re-check before editing (shared work
   - [ ] Learn-mode toggle (top bar, off by default, remembered per viewer). When on: an ⓘ per
         rail section and per panel expands its 1–2 sentence explanation. Tour stays and links
         into the same text.
-  - [ ] Rail first (ui.ts, materials.ts notes): 38 descriptors → delete/shorten/move per
-        copy-audit §3.
+  - [x] Rail first (ui.ts, materials.ts notes): 38 descriptors → delete/shorten/move per
+        copy-audit §3. (Done in U1a below; the toggle and the "i" exist for the rail only so
+        far, so the item above stays open until the panels have theirs.)
   - [ ] Panels next: lab, heat treat (cold-work note, 88 words), composer (alloy.ts:538 at 94
         words, elements.ts paragraphs) → `line` + `learn` split.
-  - [ ] Tour: every step ≤ 40 words, control names match the screen exactly.
+  - [ ] Tour: every step ≤ 40 words, control names match the screen exactly. U1a renamed rail
+        controls the tour names: the two broken pointers are fixed in place ("FACETED (CUSPED ε)",
+        "STAIN select", "EBSD MAP (ORIENT)", still in the tour's all-caps convention). Still owed
+        here: the "Engineer it" chapter and the optimizer panel's own title say "ENGINEERING · ML
+        MODE" where the rail button and learn text say "optimizer" (one name per mode, so the
+        panel title changes with it); "Melt · process" calls REHEAT "a brush", but it heats the
+        whole melt (main.ts reheat is a uniform heatIn), as the rail's learn text now says.
   - [ ] Remove build internals (C3b, docs paths, duplicate SECTION TABLE, cut-off source line).
   - [ ] SEM bar: compute magnification from zoom and drop kV/WD, or drop the bar.
   - [ ] Unify mode names and spelling.
@@ -4014,6 +4021,85 @@ Line numbers in them are against `6ec93a1`; re-check before editing (shared work
         40–190 chars, not-grown ≥ 60, sources ≥ 40, refusals > 20) bound how short caveats go.
   - [ ] New gate UI-NO-EMDASH: scan rendered app text (rail, panels, tour, composer opened)
         for "—" inside prose; allow only the empty-readout glyph.
+  - [x] **U1a (2026-09-24): learn-mode infrastructure + the rail's copy.** `src/learn/index.ts`
+        (types, registry, toggle state in `sol.learn` with every storage access in try/catch,
+        `LearnLayer` render helper) and `src/learn/rail.ts` (13 section entries keyed
+        `sec:<title>` like the tour's highlights, 47 control hints, the rail's caveats as
+        `{line, learn}`). A "learn" toggle left of CONTROLS (under it on a phone with the rail
+        open), `aria-pressed`, off by default; an "i" per section header (`aria-expanded`,
+        `aria-controls`) expands its explanation; hints are one muted line under their control.
+        Model-computed caveats keep their pair in the module that computes them: `Material.note`
+        + `learn`, `MaterialSI.source` (system name first, quant prints that segment) +
+        `sourceLearn`, `Group`/`Scale` `note` + `learn`. Every rail string per copy-audit §3/§7:
+        descriptors deleted or moved to learn, caveats cut to a terse line, mode button
+        "optimizer", American spelling ("permanent mold", UNITS-REGIME re-pinned). Found and
+        fixed: the Space run/pause shortcut swallowed Space on every focused button, so no rail
+        button could be pressed from the keyboard (now a keyboard-focused button or select
+        gets Space; a mouse-focused one keeps the shortcut). verify-rail is nine checks
+        (RAIL-LEARN, RAIL-NO-EMDASH added; every rail sample taken learn off and on). The
+        UI-NO-EMDASH item above stays open for the panels, tour and composer.
+        - Resumed after a network outage cut the first attempt off. Its tree had this box
+          ticked before anything was verified, and it still carried two uncleaned probes: an
+          em dash plus "PERTURBATION" in the seed readout (ui.ts) and in the tip-noise hint
+          (learn/rail.ts). Both removed. Also tightened: the SCALE Lewis line (3 lines to 2),
+          the MODES learn text (now says optimizer and challenge are 2D only), and the MODES
+          and SCENARIO texts no longer open a sentence with a button name in the wrong case.
+        - Verified 2026-09-24 on the final tree: typecheck and build clean; the 14 browser-free
+          CI scripts all pass; verify-rail 9/9 (13 sections, 47 hints bound, ≥ 29 hints and
+          ≥ 64 learn elements per learn sample, Enter and Space open an "i" from the keyboard,
+          storage that throws still boots); verify-tools 16/16 (LAB4 untouched). Twelve
+          screenshots in `solidify-hero-out/u1a_shots/`.
+        - Proved able to fail, with no worktree edit: UNITS-REGIME FAILs when a vite
+          transform puts "permanent mould" back (perturbation logged as landed); RAIL-NO-EMDASH
+          FAILs on both halves and RAIL-LEARN on an unbound hint, against a second dev server
+          serving three logged in-memory perturbations, the other seven checks OK (TESTING.md).
+        - Not run: `npm test`, and verify-quant (a GPU gate) whose CALIB-BAND /
+          CALIB-POUR-WIRED pin phrases in the calibration line. The phrases are still in
+          main.ts ("composition dials have moved", "declined", "own SI coefficients"), and a
+          GPU-free `calibrate()` pass over all nine real materials found "own SI
+          coefficients", a system name as the last segment and no em dash in every line.
+        - Left for later phases, seen near the rail: in ui.ts outside `#rail`, the `#dimSwitch`
+          tooltip, `#armed` ("ARMED — stage your melt, then run") and the ×N button's title; the
+          SEM bar; the 3D `#hint` over the HUD cards at 1440x900; model-metal readouts still
+          print bare numbers with no "dimensionless" unit (U3; the site ΔT_N/σ pair now has its
+          own line, below). The composer panel still prints `dT0Source` with its em dashes
+          (pinned by CALIB-MIX-*, composer phase).
+        - Review fixes (2026-09-24, 24 findings, all verified real before fixing; one fix
+          adjusted where the suggested text or bound was wrong):
+          - Space after a MOUSE click pressed the clicked button again (Chrome sets
+            `:focus-visible` on the Space keydown itself; reproduced on the learn toggle and
+            the ETCH lens before the fix). main.ts now tracks input modality (Tab sets it,
+            pointerdown clears it). RAIL-LEARN: Space runs/pauses with nothing focused (the
+            positive control) and after clicks on the learn toggle, an "i" and a lens, without
+            pressing them again.
+          - The SCALE calibration line printed alloy.ts's `dT0Source` after a pour (em dashes
+            for A356, 1045, 4340 and tin bronze; reproduced). `quant.ts pouredMixSource` makes
+            it terse (name, ΔT₀, regime; "extrapolated gauge, past the invariant" stays on
+            screen), the composer keeps the full text. RAIL-NO-EMDASH now reads a poured,
+            calibrated rail (the line must be found in it) and all nine presets' lines.
+          - Section headers: the title is a `<button>` with `aria-expanded`/`aria-controls`
+            (RAIL-LEARN checks it and opens/closes one by Enter and Space). The learn and
+            CONTROLS toggles moved before `#rail` in the DOM (tab order; z-index 5 over the
+            rail's auto, so no paint change). Hints set `aria-describedby` while shown.
+            `.lrnHint` #7d8794 -> #8a93a0 (4.26:1 -> 5.0:1 with a white canvas behind the
+            rail). The "i" keeps a 16 px face in a 24 px target, and the header height.
+          - Honesty lines: the site ΔT_N/σ values get "model units (no SI identity)" without SI
+            data (the old caveat had been deleted); "beyond any real melt" is a visible line
+            under undercooling, not only a tooltip (reheat and `derived` stay tooltips, and the
+            Caveat doc now says why); the SFE sources say "pure Al/Ni/Cu" (Ni: "alloys lower").
+          - Copy: learn texts that called every no-SI material "the model metal" or "not real"
+            (the Al–Co–Ni QC is real) now say "no SI data"; aluminum's arms (4 in a 2D section,
+            6 in 3D); succinonitrile no longer "model metal"; λ "shrink it to check a result";
+            LOCKED names ε₄ as δ's source; reheat heats the whole melt, not "a brush";
+            stereology "usually"; ALLOY says dilute and qualitative unless calibrated (the hint
+            is conditional because the calibrated alloy model is quantitative, anti-trapping on);
+            MODES opens "In lab mode".
+          - RAIL-HIDE derives beside/under from the CSS's own rule and bounds "under" (the gap is
+            9 px, so the suggested 8 px bound would have failed a correct layout; 12 used).
+            RAIL-NO-EMDASH runs its fixture through the page's detector too, and a lone " — "
+            text node now counts as prose.
+          - Proved able to fail: see TESTING.md (four in-memory perturbations on a second
+            server).
 - [ ] **U2 · Figures: one plot module, paper style**
   - [ ] `src/plot/`: hand-rolled canvas, no new dependency. Nice-number ticks (~30-line port
         of d3-array's tick algorithm), axis titles that always carry a unit or say

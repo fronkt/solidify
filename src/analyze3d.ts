@@ -163,7 +163,7 @@ export class Analyze3D {
     const lenUm = Math.hypot(p[0] - a[0], p[1] - a[1], p[2] - a[2]) * umPerVox(s3);
     return arms >= 2
       ? `λ₂ ≈ ${(lenUm / arms).toFixed(1)} µm · ${arms} arms / ${lenUm.toFixed(0)} µm`
-      : `${arms} intercept${arms === 1 ? "" : "s"} — drag across more arms`;
+      : `${arms} intercept${arms === 1 ? "" : "s"} · need ≥ 2 arms`;
   }
 
   /** stats arrived (~4 Hz) — collect the instrument series */

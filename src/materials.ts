@@ -15,7 +15,10 @@ import type { MaterialSI } from "./units";
 
 export interface Material {
   label: string;
-  note: string;                 // one-line fact shown under the picker
+  /** terse spec line under the picker, always on screen (structure · symmetry · T_m) */
+  note: string;
+  /** the learn-mode half of `note`: 1 to 2 plain sentences (docs/COPY-STYLE.md) */
+  learn: string;
   params: Partial<PhysParams>;
   /** real SI properties; absent for materials that are not substances */
   si?: MaterialSI;
@@ -27,7 +30,9 @@ export interface Map3D {
   delta: number;
   deltaZ: number;
   supported: boolean;
+  /** the on-screen caveat when `supported` is false, and its learn-mode half */
   note3d?: string;
+  learn3d?: string;
 }
 
 export function to3D(m: Material): Map3D {
@@ -41,19 +46,23 @@ export function to3D(m: Material): Map3D {
   // 2/3-fold have no dedicated 3D class here — fall back to cubic
   return {
     aniMode3: 1, delta: 0.03, deltaZ: 0, supported: false,
-    note3d: "this symmetry is 2D-only — growing as a model cubic metal in 3D",
+    note3d: "2D-only symmetry · 3D runs as cubic",
+    learn3d: "This symmetry has no 3D model here, so the volume grows it as a model cubic metal.",
   };
 }
 
 export const MATERIALS: Record<string, Material> = {
   generic: {
     label: "model metal (pure)",
-    note: "Kobayashi's dimensionless pure metal — the reference crystal every phase-field paper grows first.",
+    note: "Kobayashi (1993) · dimensionless",
+    learn: "Kobayashi's model metal, in dimensionless units. Most phase-field papers grow this crystal first.",
     params: { aniMode: 4, delta: 0.04, latent: 1.6, alloyOn: 0, meltGlow: 1.0 },
   },
   al: {
     label: "aluminum · Al–Cu",
-    note: "FCC, ⟨100⟩ arms. Freezes at 660 °C, so the melt only glows dull red. Al castings grow feathery twinned grains — try the twin rate slider.",
+    note: "FCC · ⟨100⟩ · T_m 660 °C",
+    // shown in TRUE 3D too, where a cubic ⟨100⟩ dendrite has six primary arms
+    learn: "Aluminum is FCC, so its dendrites grow along the ⟨100⟩ directions: 4-fold in a 2D section, six arms in 3D. It freezes at 660 °C, so the melt glows only dull red, and castings often show feathery twinned grains (try twin rate).",
     params: { aniMode: 4, delta: 0.045, latent: 1.35, alloyOn: 1, c0: 0.3, mLiq: 0.5, kPart: 0.14, dSol: 0.9, meltGlow: 0.55 },
     si: {
       Tm: 933.5, L: 397e3, cp: 1180, rho: 2385,
@@ -64,12 +73,16 @@ export const MATERIALS: Record<string, Material> = {
       s0: 20, kHP: 0.07,
       sfe: 166,
       hL: 0.69, hS: 0.036,
-      source: "Al–4Cu. Solid-state diffusion and the liquidus slope are Cu in Al; Γ and ε₄ are the standard Al–Cu values. Alumina is protective, so the oxidation constant is deliberately tiny — aluminium does not scale. SFE 166 mJ/m² (Murr 1975 compilation) — the textbook example of a metal too high-SFE for annealing twins. Hydrogen solubility hL/hS are the Ransley–Neufeld values at the melting point (liquid ≈0.69, solid ≈0.036 cm³/100 g at 1 atm) — the ~19× drop on freezing is why aluminium is the classic gas-porosity casting.",
+      // the SFEs quoted beside an alloy name are the PURE metal's, and say so
+      // (the first " · " segment is the system name quant.ts prints)
+      source: "Al–4Cu · SFE 166 mJ/m² (pure Al, Murr 1975) · H solubility: Ransley–Neufeld",
+      sourceLearn: "The numbers are Al–4Cu, with oxidation set tiny because alumina protects the metal. Its stacking-fault energy is too high for annealing twins, and hydrogen solubility drops about 19× on freezing, which is why aluminum castings get gas porosity.",
     },
   },
   steel: {
     label: "steel · Fe–C",
-    note: "BCC δ-ferrite, 4-fold ⟨100⟩ dendrites. Pours at ~1540 °C — white-hot, the brightest melt here.",
+    note: "BCC δ-ferrite · 4-fold ⟨100⟩ · pour ~1540 °C",
+    learn: "This steel freezes as BCC δ-ferrite with 4-fold dendrites. It pours at about 1540 °C: white-hot, the brightest melt here.",
     params: { aniMode: 4, delta: 0.03, latent: 1.8, alloyOn: 1, c0: 0.35, mLiq: 0.5, kPart: 0.3, dSol: 0.7, meltGlow: 1.0 },
     si: {
       Tm: 1811, L: 247e3, cp: 820, rho: 7030,
@@ -79,12 +92,14 @@ export const MATERIALS: Record<string, Material> = {
       oxA0: 6e-6, oxQ: 170e3,
       s0: 70, kHP: 0.6,
       twinNote: "this steel is modelled as BCC δ-ferrite, and annealing twins are an austenite (FCC) phenomenon — the solver has no γ phase to grow them in.",
-      source: "Fe–C through δ-ferrite. Carbon is interstitial, so its liquid diffusivity sits an order above a substitutional solute's, and the liquidus slope is correspondingly steep. Mill scale is real and fast — tens of µm in an hour at 900 °C.",
+      source: "Fe–C (δ-ferrite)",
+      sourceLearn: "Carbon is interstitial, so it diffuses about ten times faster in the liquid than a substitutional solute, and the liquidus slope is steep. Mill scale grows fast: tens of µm in an hour at 900 °C.",
     },
   },
   ni: {
     label: "nickel superalloy",
-    note: "Turbine-blade metal, grown as one single crystal in a Bridgman furnace — try the BRIDGMAN scenario.",
+    note: "FCC · single-crystal superalloy",
+    learn: "Turbine blades are grown as one single crystal in a Bridgman furnace. Try the bridgman scenario.",
     params: { aniMode: 4, delta: 0.04, latent: 1.7, alloyOn: 1, c0: 0.3, mLiq: 0.4, kPart: 0.35, dSol: 0.6, meltGlow: 0.95 },
     si: {
       Tm: 1728, L: 298e3, cp: 735, rho: 7810,
@@ -94,12 +109,16 @@ export const MATERIALS: Record<string, Material> = {
       oxA0: 3e-8, oxQ: 200e3,
       s0: 200, kHP: 0.75,
       sfe: 128,
-      source: "Ni–Nb as the superalloy proxy — niobium is the element that actually segregates in IN718. Chromia-forming, so oxidation is slow. SFE 128 mJ/m² for pure Ni (Murr 1975) — above the twinning band, though real superalloy chemistries push it lower.",
+      // heat treat refuses annealing twins on this number (heattreat.ts), and
+      // real superalloys do twin: the line keeps that it is pure Ni's
+      source: "Ni–Nb (IN718 proxy) · SFE 128 mJ/m² (pure Ni, Murr 1975; alloys lower)",
+      sourceLearn: "Niobium is the element that actually segregates in IN718, so Ni–Nb stands in for the superalloy, and a chromia scale keeps oxidation slow. Pure nickel's stacking-fault energy is above the twinning band; real superalloy chemistries push it lower.",
     },
   },
   co: {
     label: "cobalt alloy",
-    note: "Surprise: Co freezes FCC, so its dendrites are 4-fold like steel's. It only turns HCP at 417 °C, long after solidifying.",
+    note: "FCC · 4-fold (HCP below 417 °C)",
+    learn: "Cobalt freezes FCC, so its dendrites are 4-fold like steel's. It turns HCP only at 417 °C, long after solidifying.",
     params: { aniMode: 4, delta: 0.035, latent: 1.7, alloyOn: 1, c0: 0.3, mLiq: 0.45, kPart: 0.25, dSol: 0.7, meltGlow: 0.95 },
     si: {
       Tm: 1768, L: 275e3, cp: 590, rho: 7750,
@@ -109,12 +128,14 @@ export const MATERIALS: Record<string, Material> = {
       oxA0: 5e-8, oxQ: 190e3,
       s0: 220, kHP: 0.7,
       sfe: 20,
-      source: "Generic dilute Co-base alloy. The least well characterised entry here — the solute numbers are order-of-magnitude, not a specific system. SFE ≈ 20 mJ/m²: FCC Co alloys sit among the lowest-SFE metals (Co–33Ni ≈ 20, Co–Cr implant alloys 15–50 mJ/m²), which is why they twin profusely.",
+      source: "generic dilute Co alloy · solute data order-of-magnitude · SFE ≈ 20 mJ/m²",
+      sourceLearn: "The least well characterized material here: its solute numbers are order-of-magnitude, not a specific alloy. FCC cobalt alloys have some of the lowest stacking-fault energies of any metal (Co–33Ni about 20, Co–Cr implant alloys 15–50 mJ/m²), which is why they twin so readily.",
     },
   },
   cu: {
     label: "copper · bronze",
-    note: "The oldest cast metal — bronze bells, brass fittings. FCC, freezes at 1085 °C with an honest orange glow.",
+    note: "FCC · T_m 1085 °C",
+    learn: "Copper is the oldest cast metal (bronze bells, brass fittings). It is FCC and freezes at 1085 °C with an orange glow.",
     params: { aniMode: 4, delta: 0.04, latent: 1.6, alloyOn: 1, c0: 0.3, mLiq: 0.45, kPart: 0.2, dSol: 0.8, meltGlow: 0.8 },
     si: {
       Tm: 1358, L: 209e3, cp: 490, rho: 8020,
@@ -124,12 +145,14 @@ export const MATERIALS: Record<string, Material> = {
       oxA0: 2e-6, oxQ: 150e3,
       s0: 25, kHP: 0.11,
       sfe: 78,
-      source: "Cu–Sn (bronze). The Cu–Sn liquidus is strongly curved toward the peritectic, so mL here is the dilute-limit slope, not an average over the range. SFE 78 mJ/m² (Murr 1975) — under the twinning band's edge, which is why annealed copper and brass are full of Σ3 twins.",
+      source: "Cu–Sn (bronze) · mL dilute-limit · SFE 78 mJ/m² (pure Cu, Murr 1975)",
+      sourceLearn: "The Cu–Sn liquidus curves strongly toward the peritectic, so mL is the slope at low tin, not an average over the range. Copper's stacking-fault energy is under the twinning band's edge, which is why annealed copper and brass are full of Σ3 twins.",
     },
   },
   mg: {
     label: "magnesium · AZ91",
-    note: "HCP — a metal that grows genuine 6-fold dendrites, snowflakes in magnesium.",
+    note: "HCP · 6-fold",
+    learn: "Magnesium is HCP, so it grows true 6-fold dendrites: snowflakes in metal.",
     params: { aniMode: 6, delta: 0.04, latent: 1.5, alloyOn: 1, c0: 0.35, mLiq: 0.5, kPart: 0.35, dSol: 0.8, meltGlow: 0.6 },
     si: {
       Tm: 923, L: 349e3, cp: 1360, rho: 1590,
@@ -138,12 +161,14 @@ export const MATERIALS: Record<string, Material> = {
       ggA0: 8.0e-5, ggQ: 135e3, ggN: 2,
       oxA0: 5e-5, oxQ: 140e3,
       s0: 40, kHP: 0.28,
-      source: "AZ91 (Mg–Al). Two numbers are deliberately extreme and both are real: the oxidation constant, because MgO does not protect and magnesium burns in air, and the Hall–Petch slope, which is famously large in HCP metals.",
+      source: "AZ91 (Mg–Al) · oxidation and Hall–Petch k extreme, both real",
+      sourceLearn: "Two numbers are deliberately extreme and both are real: the oxidation constant (MgO does not protect, and magnesium burns in air) and the Hall–Petch slope, which is famously large in HCP metals.",
     },
   },
   zn: {
     label: "zinc · spangle",
-    note: "The spangle on galvanized steel is exactly this: HCP 6-fold crystals. At 420 °C the melt does not glow at all — just liquid silver.",
+    note: "HCP · 6-fold · T_m 420 °C",
+    learn: "The spangle on galvanized steel is exactly this: 6-fold HCP zinc crystals. At 420 °C the melt does not glow at all.",
     params: { aniMode: 6, delta: 0.045, latent: 1.6, alloyOn: 0, meltGlow: 0.3 },
     si: {
       Tm: 692.7, L: 112e3, cp: 480, rho: 6570,
@@ -152,12 +177,14 @@ export const MATERIALS: Record<string, Material> = {
       ggA0: 5.0e-5, ggQ: 92e3, ggN: 2,
       oxA0: 1e-8, oxQ: 120e3,
       s0: 35, kHP: 0.22,
-      source: "Pure Zn — the galvanized spangle. Ships with the solute field off, so mL and k are nominal placeholders rather than a measured system.",
+      source: "pure Zn · solute off · mL, k nominal",
+      sourceLearn: "Pure zinc, as in the galvanizing spangle. The solute field ships off, so mL and k are placeholders, not a measured system.",
     },
   },
   ice: {
     label: "water · ice",
-    note: "Hexagonal ice — the one fact behind every 6-armed snowflake. Twinned seeds grow the rare 12-branched flake.",
+    note: "ice Ih · hexagonal · 6-fold",
+    learn: "Ice is hexagonal, which is why every snowflake has 6 arms. Twinned seeds grow the rare 12-branched flake.",
     params: { aniMode: 6, delta: 0.04, latent: 1.8, noiseAmp: 0.014, alloyOn: 0, meltGlow: 0.12 },
     si: {
       Tm: 273.15, L: 334e3, cp: 4186, rho: 1000,
@@ -166,12 +193,15 @@ export const MATERIALS: Record<string, Material> = {
       ggA0: 1e-9, ggQ: 60e3, ggN: 2,
       oxA0: 0, oxQ: 0,
       s0: 0.5, kHP: 0.005,
-      source: "Water / ice Ih. Its thermal diffusivity is four orders below a metal's, mL is the cryoscopic constant, and k is nearly zero — ice rejects almost everything, which is why sea ice makes brine.",
+      source: "water / ice Ih · mL cryoscopic · k ≈ 0",
+      sourceLearn: "Ice's thermal diffusivity is about four orders of magnitude below a metal's, mL is the cryoscopic constant, and k is nearly zero. Ice rejects almost every solute, which is why sea ice makes brine.",
     },
   },
   scn: {
     label: "succinonitrile (SCN)",
-    note: "NASA's transparent model metal — flown on the Space Shuttle to film dendrites growing. Weak anisotropy, soft rounded tips.",
+    note: "BCC · transparent · weak anisotropy",
+    // not "model metal": in this app that is the Kobayashi material's name
+    learn: "Succinonitrile is a transparent organic crystal that freezes like a metal, flown on the Space Shuttle by NASA to film dendrites growing. Its weak anisotropy gives soft, rounded tips.",
     params: { aniMode: 4, delta: 0.012, latent: 1.4, noiseAmp: 0.016, alloyOn: 0, meltGlow: 0.18 },
     si: {
       Tm: 331.2, L: 46.24e3, cp: 2000, rho: 988,
@@ -181,12 +211,14 @@ export const MATERIALS: Record<string, Material> = {
       oxA0: 0, oxQ: 0,
       s0: 0.1, kHP: 0.001,
       twinNote: "succinonitrile freezes BCC (a plastic crystal), and annealing twins are essentially an FCC phenomenon — BCC metals show them only rarely.",
-      source: "Succinonitrile–acetone: THE quantitative phase-field benchmark. Γ = 6.48e-8 K·m and ε₄ = 0.0055 are the canonically measured values, which is why the calibrated solver is validated against this material first.",
+      source: "SCN–acetone · Γ 6.48e-8 K·m · ε₄ 0.0055",
+      sourceLearn: "Succinonitrile–acetone is the standard benchmark for quantitative phase-field models. Its Γ and ε₄ are carefully measured, so the calibrated solver is validated on it first.",
     },
   },
   qc: {
     label: "Al–Co–Ni · quasicrystal",
-    note: "Decagonal quasicrystal: ordered but never repeating, with the 10-fold symmetry no periodic lattice is allowed (Shechtman, Nobel 2011). Here only the interface-energy symmetry is modelled.",
+    note: "decagonal QC · 10-fold · interface anisotropy only",
+    learn: "A quasicrystal is ordered but never repeats, with a 10-fold symmetry no periodic lattice allows (Shechtman, Nobel 2011). Only the interface-energy symmetry is modeled here.",
     params: { aniMode: 10, delta: 0.022, latent: 1.5, noiseAmp: 0.008, alloyOn: 1, c0: 0.3, mLiq: 0.45, kPart: 0.3, dSol: 0.7, meltGlow: 0.7 },
   },
 };

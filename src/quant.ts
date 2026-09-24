@@ -184,11 +184,13 @@ export function calibrate(inp: QuantInput): QuantSetup {
   if (si.Gamma <= 0) warnings.push("no Gibbs–Thomson coefficient for this material");
   if (dxPerW0 > 1.0) warnings.push(`dx = ${dxPerW0}·W₀ under-resolves the tanh profile`);
 
+  // terse readout lines (the rail's calibration note); the system name is the
+  // first ` · ` segment of the material's source line (units.ts MaterialSI)
   const coefficientSource = inp.coefficientSource ?? (usedOverride
-    ? `ΔT₀ ${dT0.toFixed(2)} K supplied by the poured mix.`
+    ? `ΔT₀ ${dT0.toFixed(2)} K · source: poured mix`
     : alloy
-      ? `ΔT₀ ${dT0.toFixed(2)} K from this material's own SI coefficients: |m| ${Math.abs(si.mL)} K/wt%, k ${si.kPart}, c∞ ${c0wt.toFixed(2)} wt%. ${si.source.split(".")[0]}.`
-      : `ΔT₀ ${dT0.toFixed(2)} K is the pure-melt unit undercooling L/c_p — no solute field, so there is no freezing range.`);
+      ? `ΔT₀ ${dT0.toFixed(2)} K · own SI coefficients: |m| ${Math.abs(si.mL)} K/wt%, k ${si.kPart}, c∞ ${c0wt.toFixed(2)} wt% · ${si.source.split(" · ")[0]}`
+      : `ΔT₀ ${dT0.toFixed(2)} K = L/c_p (pure melt, no freezing range)`);
 
   return {
     lambda, wOverD0: lambda / A1, d0, W0, tau0, dTilde, D, dT0, latent,
@@ -196,6 +198,31 @@ export function calibrate(inp: QuantInput): QuantSetup {
     maxLambdaAt: (v: number) => feasibleLambda(D, v, d0),
     warnings,
   };
+}
+
+/**
+ * The calibration readout's source line for a poured mix (main.ts passes it
+ * as `coefficientSource`). Terse, like the other lines above: the mix's name,
+ * then its interval and regime, or that the interval was declined and whose
+ * coefficients stand in. The full reasoning (`Derived.dT0Source`, prose with
+ * the numbers behind the regime) is the alloy composer's to print, beside
+ * the mix; this line only has to say which alloy the thermometer is for and
+ * keep the extrapolated-gauge warning on screen. verify-rail RAIL-NO-EMDASH
+ * reads it for every famous preset.
+ */
+export function pouredMixSource(
+  d: { name: string; dT0: number | null; dT0Regime: string },
+  si: Pick<MaterialSI, "mL" | "kPart" | "source">,
+): string {
+  if (d.dT0 == null) {
+    // the material's own coefficients stand in, named by their system
+    // (the first ` · ` segment of its source line, as the line above does)
+    return `${d.name}: ΔT₀ declined (reason in alloy composer) · using ${si.source.split(" · ")[0]}'s `
+      + `coefficients: |m| ${Math.abs(si.mL)} K/wt%, k ${si.kPart}`;
+  }
+  const regime = d.dT0Regime === "PAST-REFERENCE" ? "extrapolated gauge, past the invariant"
+    : d.dT0Regime.toLowerCase();
+  return `${d.name}: ΔT₀ ${d.dT0.toFixed(1)} K · ${regime}`;
 }
 
 /**

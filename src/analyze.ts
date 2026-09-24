@@ -173,8 +173,8 @@ export class Analyze {
     const umPerCell = sim.umPerCell;
     const lenUm = lenCells * umPerCell;
     const label = arms >= 2
-      ? `λ₂ ≈ ${(lenUm / arms).toFixed(1)} µm  ·  ${arms} arms over ${lenUm.toFixed(0)} µm`
-      : `${arms} intercept over ${lenUm.toFixed(0)} µm — cross more arms`;
+      ? `λ₂ ≈ ${(lenUm / arms).toFixed(1)} µm · ${arms} arms / ${lenUm.toFixed(0)} µm`
+      : `${arms} intercept / ${lenUm.toFixed(0)} µm · need ≥ 2 arms`;
     if (this.resultEl) this.resultEl.textContent = label;
     this.rulerText.textContent = arms >= 2 ? `λ₂ ≈ ${(lenUm / arms).toFixed(1)} µm` : "";
   }

@@ -36,6 +36,14 @@
       --rail-inset: var(--rail-w);
       /* the width the rail leaves */
       --free-w: calc(100vw - var(--rail-inset));
+      /* CONTROLS' right edge: 14px from the rail, but never further left than
+         its own 77px width plus 14 from the window's edge (a 390px phone) */
+      --ctl-right: min(calc(var(--rail-inset) + 14px), calc(100vw - 91px));
+      /* The learn toggle sits left of CONTROLS (58 wide, 6 apart). 1px when it
+         no longer fits there with 14px to spare (155 = 77 + 6 + 58 + 14; only
+         a phone with the rail open): it then drops under CONTROLS, and the
+         TRUE 3D switch drops under it. A 0/1px step like the two below. */
+      --learn-drop: clamp(0px, (var(--ctl-right) + 155px - 100vw) * 1000, 1px);
       /* the bottom-center items (hint, SEM bar, mode panels) are centered on
          the window and capped at 100% - 2 x this, so they reach neither the
          rail nor the transport bar, whose right edge is at 316px; the floor
@@ -49,10 +57,11 @@
            --lens-squeeze: the lens bar (at its 424px floor, right edge 567)
              and the TRUE 3D switch (168 wide, 14 from the rail) no longer fit
              side by side with a 20px gap, so the switch drops below the bar.
-           --lens-own-row: the bar no longer fits beside CONTROLS (77 wide)
-             either, so it takes a row of its own under the switch. */
+           --lens-own-row: the bar no longer fits beside the learn toggle and
+             CONTROLS (58 + 6 + 77 wide) with a 20px gap either (567 + 20 +
+             141 + 14 = 742), so it takes a row of its own under the switch. */
       --lens-squeeze: clamp(0px, (770px - var(--free-w)) * 1000, 1px);
-      --lens-own-row: clamp(0px, (680px - var(--free-w)) * 1000, 1px);
+      --lens-own-row: clamp(0px, (744px - var(--free-w)) * 1000, 1px);
     }
     body.railHidden { --rail-inset: 0px; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -90,12 +99,17 @@
     /* never further left than its own width from the window's edge (77 + 14):
        below a 390px window the rail stops giving way and would otherwise push
        the one control that moves it off screen */
-    #railToggle { position: absolute; top: 14px; right: min(calc(var(--rail-inset) + 14px), calc(100% - 91px)); z-index: 5; transition: right 0.25s ease; }
+    #railToggle { position: absolute; top: 14px; right: var(--ctl-right); z-index: 5; transition: right 0.25s ease; }
+    /* learn mode's switch (src/learn): left of CONTROLS, or under it on a phone
+       with the rail open (--learn-drop). Cyan, the tour's color: teaching */
+    #learnToggle { position: absolute; top: calc(14px + 36 * var(--learn-drop)); right: calc(var(--ctl-right) + 83 * (1px - var(--learn-drop)));
+      width: 58px; z-index: 5; transition: right 0.25s ease, top 0.25s ease; }
+    #learnToggle.on { border-color: var(--cyan); color: var(--cyan); }
     /* the 2D ↔ 3D activation switch floats directly below CONTROLS and slides
        with the rail; below the lens bar instead while the two cannot share
        the top band (--lens-squeeze), back under CONTROLS once the bar has a
        row of its own (--lens-own-row) */
-    #dimSwitch { position: absolute; top: calc(50px + 22 * (var(--lens-squeeze) - var(--lens-own-row))); right: calc(var(--rail-inset) + 14px); z-index: 5; width: 168px; transition: right 0.25s ease, top 0.25s ease; }
+    #dimSwitch { position: absolute; top: calc(50px + 22 * (var(--lens-squeeze) - var(--lens-own-row)) + 36 * var(--learn-drop)); right: calc(var(--rail-inset) + 14px); z-index: 5; width: 168px; transition: right 0.25s ease, top 0.25s ease; }
     #dimSwitch .actswitch { margin: 0; background: rgba(15,17,21,0.85); backdrop-filter: blur(6px); }
     .actswitch.disabled { opacity: 0.45; pointer-events: none; }
     /* under the switch, and under the lens bar when that has its own row */
@@ -126,6 +140,12 @@
     .sec { margin-bottom: 15px; }
     .sec h2 { font-size: 10px; letter-spacing: 0.25em; color: var(--dim); margin-bottom: 8px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
     .sec h2 .tog { margin-left: auto; cursor: pointer; color: var(--dim); font-size: 11px; }
+    /* the section title is a button (keyboard, aria-expanded) that looks like
+       the header text it replaced: none of the global button chrome */
+    .sec h2 .secHead { background: none; border: 0; border-radius: 2px; padding: 0; margin: 0; font: inherit;
+      letter-spacing: inherit; color: inherit; text-align: left; cursor: pointer; }
+    .sec h2 .secHead:hover { color: inherit; }
+    .sec h2 .secHead:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
     /* label | slider | value, as a grid so the value column can never be pushed
        out of the row. The slider is the only track that gives; the value track
        is at least 11ch, one more than the widest real-unit rate the rail has
@@ -175,6 +195,32 @@
     select { width: 100%; font-family: var(--font); font-size: 11.5px; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; cursor: pointer; outline: none; }
     select:hover { border-color: #3a424e; }
     .matnote { margin-top: 6px; font-size: 10.5px; line-height: 1.5; color: var(--dim); }
+    /* ---- learn mode (src/learn): none of it renders until the top bar's
+       learn toggle is on (the elements are display:none, set from JS). The
+       "i" in a section header expands that section's explanation under it;
+       a hint is one muted line under its control; a .lrnText is an
+       explanation or a caveat's learn half. Text colors hold >= 5:1 on the
+       rail's background even with a white canvas behind it (the ETCH lens
+       paints the liquid near-white, and the rail is 92% opaque): the hint's
+       #8a93a0 is 5.0:1 there, 6.2:1 over black; .lrnText's #9aa1ab 6.0:1. */
+    /* the "i" is 16px drawn but a 24px target (the ::after), and its -2px
+       margins keep the header the height it has with learn mode off */
+    .lrnInfo { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+      position: relative; margin: -2px 0;
+      width: 16px; height: 16px; padding: 0; border-radius: 50%; background: transparent;
+      border: 1px solid #3a424e; color: #9aa1ab; font: italic 600 10px/1 Georgia, "Times New Roman", serif;
+      letter-spacing: 0; cursor: pointer; }
+    /* -5px from the padding box (the 16px face less its 1px border) is 24px */
+    .lrnInfo::after { content: ""; position: absolute; inset: -5px; }
+    .lrnInfo:hover { border-color: var(--cyan); color: var(--cyan); }
+    .lrnInfo[aria-expanded="true"] { border-color: var(--cyan); color: var(--cyan); background: rgba(86,212,221,0.12); }
+    .lrnInfo:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+    .lrnText { margin: 5px 0 8px; padding-left: 8px; border-left: 2px solid rgba(86,212,221,0.45);
+      font-size: 10.5px; line-height: 1.5; color: #9aa1ab; letter-spacing: 0; font-weight: 400; }
+    .lrnText.lrnSec { margin: -2px 0 10px; }
+    .lrnHint { margin: -3px 0 7px; font-size: 10px; line-height: 1.4; color: #8a93a0; }
+    /* a button row and a select carry no bottom margin of their own */
+    .btnrow + .lrnHint, select + .lrnHint { margin-top: 4px; }
 
     /* ---- alloy composer ---- */
     #composer { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(4,5,7,0.6); backdrop-filter: blur(4px); z-index: 30; }
@@ -444,8 +490,12 @@
     <div id="views"></div>
     <div id="transport"></div>
     <div id="armed">ARMED — stage your melt, then run</div>
-    <div id="rail"></div>
+    <!-- the two toggles come BEFORE the rail so the tab order matches the
+         screen (they sit at the top; the rail's controls follow). z-index 5
+         keeps them above the rail (z-index auto) wherever they overlap it -->
+    <button id="learnToggle" type="button" aria-pressed="false" title="learn mode: explanations in the controls">learn</button>
     <button id="railToggle">controls</button>
+    <div id="rail"></div>
     <div id="dimSwitch"></div>
     <canvas id="viewcube" width="184" height="184"></canvas>
     <div id="slicePop"></div>

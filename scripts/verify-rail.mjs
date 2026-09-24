@@ -14,7 +14,11 @@
 // rail's real scrollbar: puppeteer hides scrollbars in headless mode by
 // default, which hands the rail 10 px no visitor gets.
 //
-// Seven checks:
+// Every rail sample is measured twice since v8 U1a: with learn mode off, and
+// with it on and every section's explanation expanded, so the learn text is
+// held to the same no-sideways-scroll and wrap rules as the instrument.
+//
+// Nine checks:
 //   RAIL-NO-HSCROLL     rail.scrollWidth <= rail.clientWidth, every sample
 //   RAIL-ROWS-INSIDE    every slider row is a grid, and its label, slider and
 //                       value sit inside the rail's content box; no value cell
@@ -33,8 +37,9 @@
 //                       the items sized against the transport bar (the mode
 //                       panels, the hint, the SEM bar, the HUD) stay clear of
 //                       it; the lens bar, #head's text lines, the readouts,
-//                       CONTROLS, the TRUE 3D switch, the view cube and the
-//                       scale bar never overlap one another; every open mode
+//                       the learn toggle, CONTROLS, the TRUE 3D switch, the
+//                       view cube and the scale bar never overlap one
+//                       another; every open mode
 //                       panel holds its content (no sideways scroll, nothing
 //                       past its content box) and no slider in it is under
 //                       60px. All of it with the rail shown AND hidden.
@@ -43,12 +48,42 @@
 //                       view cube, the HUD, both analysis columns, and the lens
 //                       bar's center) back to the edge, and showing it again
 //                       restores all of them; at 1280x720 and on a 390px phone,
-//                       where CONTROLS must stay on screen in both states
+//                       where CONTROLS must stay on screen in both states; the
+//                       learn toggle stays on screen beside CONTROLS, or just
+//                       under it exactly where the CSS rule says the row has
+//                       no room (a phone with the rail open); both placements
+//                       must have been expected in some sample
 //   SLICE-ROWS-INSIDE   the SECTION PLANE popup shares the .row grid; its rows
 //                       stay inside its own box
+//   RAIL-LEARN          (v8 U1a) learn mode is off for a new viewer and then
+//                       renders nothing in the rail; the top bar's toggle
+//                       (aria-pressed) turns it on; every section header then
+//                       has an "i" button that is a focusable button with
+//                       aria-expanded/aria-controls, opens its explanation
+//                       from the keyboard without opening or closing the
+//                       section, and every explanation is 1 to 2 sentences;
+//                       the header's title is a button too (aria-expanded,
+//                       aria-controls on the body) that Enter and Space open
+//                       and close; Space still runs and pauses with nothing
+//                       focused and after a mouse click on a button, without
+//                       pressing that button again;
+//                       every hint is one line and shows exactly when its
+//                       control does; every hint the rail's entries declare
+//                       found its control; the setting survives a reload; and
+//                       with localStorage throwing, the page still boots and
+//                       the toggle and the section headers still work
+//   RAIL-NO-EMDASH      (v8 U1a) no em dash in the rail's rendered prose or
+//                       tooltips, learn mode off and on, in every sampled
+//                       state and with a composer mix poured in calibrated
+//                       mode, nor in any rail learn string, material note or
+//                       source, SCALE group line in any material, or the
+//                       calibration line of any famous preset poured; the
+//                       exact "—" empty-value glyph is allowed. Both copies
+//                       of the detector are self-tested on a fixture first
 //
-// It also saves six screenshots (rail scrolled to top, middle and bottom, 2D
-// and 3D, 1440x900) to the output directory, for a person to look at.
+// It also saves twelve screenshots (rail scrolled to top, middle and bottom,
+// 2D and 3D, learn mode off and on, 1440x900) to the output directory, for a
+// person to look at.
 //
 //   node scripts/verify-rail.mjs [outDir] [port]
 import puppeteer from "puppeteer-core";
@@ -91,7 +126,9 @@ catch { await page.reload({ waitUntil: "networkidle0" }); await page.waitForFunc
 await sleep(800);
 
 // ---------------------------------------------------------------- in-page probes
-await page.evaluate(LONG => {
+// a function, not an inline evaluate, because the learn-mode block reloads the
+// page and has to install it again
+const PROBE = LONG => {
   const TOL = 0.5;
   const vis = el => {
     if (!el || !el.getClientRects().length) return false;
@@ -147,7 +184,76 @@ await page.evaluate(LONG => {
     return { rows: rows.length, vals, zeroVals, bad };
   };
 
+  /** an em dash used as punctuation; a lone "—" is the empty-value glyph, and
+   *  the rail always renders that glyph as an exact "—" text node (a slider's
+   *  value, drawScale's dim("—")), so " — " standing alone between two inline
+   *  elements is prose and is caught. Run on RAIL-NO-EMDASH's fixture too. */
+  const proseDash = s => typeof s === "string" && s.includes("—") && s !== "—";
+  const learnIsOn = () => document.getElementById("learnToggle")?.getAttribute("aria-pressed") === "true";
+  const infos = () => [...rail().querySelectorAll(".lrnInfo")];
+
   window.__railProbe = {
+    vis, proseDash,
+    /** learn mode on or off through the top bar's toggle, as a visitor turns
+     *  it; on, every section's explanation is expanded too */
+    learnSet(on) {
+      if (learnIsOn() !== on) document.getElementById("learnToggle").click();
+      if (on) for (const b of infos()) if (vis(b) && b.getAttribute("aria-expanded") !== "true") b.click();
+      window.__solidify.ui.sync();
+      return learnIsOn();
+    },
+    /** what learn mode shows right now, per section header and per hint */
+    learnState() {
+      const secs = [...rail().querySelectorAll(":scope > .sec")].filter(vis);
+      const heads = secs.map(s => {
+        const h = s.querySelector(":scope > h2");
+        const b = h.querySelector(".lrnInfo");
+        const body = b ? document.getElementById(b.getAttribute("aria-controls") ?? "") : null;
+        // the section's own open/close control: a button whose aria-expanded
+        // and aria-controls describe the section body, so a keyboard reaches it
+        const hb = h.querySelector(":scope > button.secHead");
+        const secBody = s.querySelector(":scope > .secbody");
+        return {
+          title: h.firstChild?.textContent ?? "?",
+          info: !!b, infoVisible: !!b && vis(b), tag: b?.tagName, tabIndex: b?.tabIndex ?? -1,
+          expanded: b?.getAttribute("aria-expanded") ?? null,
+          bodyExists: !!body, bodyVisible: !!body && vis(body), bodyUnderHeader: !!body && body.previousElementSibling === h,
+          text: body?.textContent ?? "",
+          headOk: !!hb && hb.tabIndex >= 0 && hb.getAttribute("aria-controls") === secBody.id
+            && hb.getAttribute("aria-expanded") === String(secBody.style.display !== "none"),
+        };
+      });
+      return {
+        aria: document.getElementById("learnToggle").getAttribute("aria-pressed"),
+        stored: (() => { try { return localStorage.getItem("sol.learn"); } catch { return "THROWS"; } })(),
+        sections: secs.length, heads,
+        visibleLearn: [...rail().querySelectorAll(".lrnInfo, .lrnText, .lrnHint")].filter(vis).length,
+      };
+    },
+    /** focus the first control in the body of the section whose "i" is the
+     *  i-th visible one, so a Shift+Tab has to land on that "i" */
+    focusAfterInfo(i) {
+      const b = infos().filter(vis)[i];
+      const first = [...b.closest(".sec").querySelectorAll(":scope > .secbody button, :scope > .secbody input, :scope > .secbody select")]
+        .find(vis);
+      first.focus();
+      return document.activeElement === first;
+    },
+    /** the i-th visible "i" button and its section, and whether it has focus */
+    infoAt(i) {
+      const b = infos().filter(vis)[i];
+      const sec = b.closest(".sec");
+      const hb = sec.querySelector(":scope > h2 > .secHead");
+      return {
+        focused: document.activeElement === b, disabled: b.disabled,
+        open: sec.querySelector(":scope > .secbody").style.display,
+        expanded: b.getAttribute("aria-expanded"),
+        bodyVisible: vis(document.getElementById(b.getAttribute("aria-controls"))),
+        // the section header's button, just before the "i" in the tab order
+        headFocused: !!hb && document.activeElement === hb,
+        headExpanded: hb?.getAttribute("aria-expanded") ?? null,
+      };
+    },
     /** open every collapsed section by clicking its heading, as a visitor does */
     expandAll() {
       let n = 0, open = 0;
@@ -187,11 +293,40 @@ await page.evaluate(LONG => {
           if (outside(b, box)) textBad.push({ textLine: t.textContent.trim().slice(0, 48), left: r1(b.left), right: r1(b.right) });
         }
       }
+      // learn mode (v8 U1a): a hint shows exactly when learn is on and its
+      // control (the element right before it) shows, on one line
+      const learn = learnIsOn();
+      const lrnVisible = [...el.querySelectorAll(".lrnInfo, .lrnText, .lrnHint")].filter(vis).length;
+      const hintBad = [];
+      let hints = 0;
+      for (const h of el.querySelectorAll(".lrnHint")) {
+        const ctrl = h.previousElementSibling;
+        const shown = vis(h), ctrlShown = !!ctrl && vis(ctrl);
+        if (shown !== (learn && ctrlShown)) hintBad.push({ hint: h.textContent, shown, ctrlShown });
+        if (!shown) continue;
+        hints++;
+        rg.selectNodeContents(h);
+        const n = new Set([...rg.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.top))).size;
+        if (n !== 1) hintBad.push({ hint: h.textContent, lines: n });
+      }
+      // prose em dashes in the rendered text and in every tooltip
+      const dashes = [];
+      let chars = 0;
+      const walk2 = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let t = walk2.nextNode(); t; t = walk2.nextNode()) {
+        if (!t.textContent.trim() || !vis(t.parentElement)) continue;
+        chars += t.textContent.length;
+        if (proseDash(t.textContent)) dashes.push({ text: t.textContent.trim().slice(0, 60) });
+      }
+      for (const e of [...el.querySelectorAll("[title]"), document.getElementById("learnToggle")])
+        if (proseDash(e.title)) dashes.push({ title: e.title.slice(0, 60) });
       return {
         width: el.offsetWidth, client: el.clientWidth, scroll: el.scrollWidth,
         scrollbar: el.offsetWidth - el.clientWidth - el.clientLeft - parseFloat(getComputedStyle(el).borderRightWidth),
         tall: el.scrollHeight > el.clientHeight,
         box: [r1(box.x0), r1(box.x1)], ...rows, elems, lines, textBad: textBad.slice(0, 8), nTextBad: textBad.length,
+        learn, lrnVisible, hints, hintBad: hintBad.slice(0, 6), nHintBad: hintBad.length,
+        chars, dashes: dashes.slice(0, 6), nDashes: dashes.length,
       };
     },
     /** every visible child of #app that is not the canvas, the rail, the
@@ -229,7 +364,7 @@ await page.evaluate(LONG => {
         "#matline": textBox(mat),
       };
       mat.textContent = matWas;
-      for (const n of ["views", "readouts", "railToggle", "dimSwitch", "viewcube", "scalebar"]) if (boxes[n]) top[n] = boxes[n];
+      for (const n of ["views", "readouts", "learnToggle", "railToggle", "dimSwitch", "viewcube", "scalebar"]) if (boxes[n]) top[n] = boxes[n];
       const HEAD = new Set(["head h1", "head .sub", "#matline"]);
       const names = Object.keys(top).filter(n => top[n]);
       const clash = [];
@@ -321,14 +456,18 @@ await page.evaluate(LONG => {
         if (b.width >= 1 && b.height >= 1) anchored[id] = r1(b.right);
       }
       const v = document.getElementById("views").getBoundingClientRect();
+      const l = document.getElementById("learnToggle").getBoundingClientRect();
       return {
         vw: innerWidth, railLeft: r1(r.left), railWidth: r1(r.width),
         toggle: [r1(t.left), r1(t.right)], anchored, viewsCenter: r1((v.left + v.right) / 2),
+        toggleBox: [r1(t.left), r1(t.top), r1(t.right), r1(t.bottom)],
+        learnBox: [r1(l.left), r1(l.top), r1(l.right), r1(l.bottom)],
         hidden: document.body.classList.contains("railHidden"),
       };
     },
   };
-}, LONG_NAME);
+};
+await page.evaluate(PROBE, LONG_NAME);
 
 const S = fn => page.evaluate(fn);
 /** wait out the CSS transitions a resize or a rail toggle starts (the chrome
@@ -355,8 +494,13 @@ async function sampleState(mode, state, setup, { real = false, shots: shotsAs = 
   expands.push({ mode, state, ...(await S(() => window.__railProbe.expandAll())) });
   for (const [w, h] of VIEWPORTS) {
     await setVP(w, h);
-    const m = await S(() => window.__railProbe.measure());
-    railSamples.push({ mode, state, vp: `${w}x${h}`, ...m });
+    // learn mode off (the instrument), then on with every explanation open
+    for (const on of [false, true]) {
+      await page.evaluate(b => window.__railProbe.learnSet(b), on);
+      const m = await S(() => window.__railProbe.measure());
+      railSamples.push({ mode, state, vp: `${w}x${h}`, ...m });
+    }
+    await S(() => window.__railProbe.learnSet(false));
   }
   if (shotsAs) await shots(shotsAs);
   sweeps.push({ mode, state, real, ...(await S(() => window.__railProbe.sweep())) });
@@ -405,6 +549,8 @@ async function samplePanel(mode, what, open, close) {
 // rail leaves (the whole window while it is hidden)
 const viewsCenterFor = W => Math.min(Math.max(W / 2, 424), W - 157);
 const hideSamples = [];
+const learnPlacement = [];   // RAIL-HIDE: where the learn toggle was expected, per state
+const r1n = v => Math.round(v * 10) / 10;
 async function sampleHide(mode) {
   for (const [w, h] of HIDE_VIEWPORTS) {
     await setVP(w, h);
@@ -429,6 +575,29 @@ async function sampleHide(mode) {
     // phone included
     for (const [state, g] of [["shown", shown], ["hidden", hidden], ["back", back]])
       if (g.toggle[0] < 0 || g.toggle[1] > g.vw) why.push(`CONTROLS off screen (${state})`);
+    // the learn toggle (v8 U1a) rides with CONTROLS: 6px to its left on the
+    // same row, or directly under it only where that row has no room. Which
+    // one is expected comes from the same rule the CSS uses (--learn-drop:
+    // CONTROLS' right offset + 155 > the window, today only a phone with the
+    // rail open), so a drop at a desktop width fails instead of passing as
+    // "under" (the TRUE 3D switch drops by the same 36px, so RAIL-CLEAR's
+    // overlap check could not see it). "Under" is bounded: the 36px drop less
+    // CONTROLS' own height leaves a 9px gap (measured), so a toggle anywhere
+    // further down than 12px does not count
+    for (const [state, g] of [["shown", shown], ["hidden", hidden], ["back", back]]) {
+      const [l, c] = [g.learnBox, g.toggleBox];
+      const ctlRight = g.vw - g.toggle[1];
+      const expectUnder = ctlRight + 155 > g.vw;
+      const beside = near(l[2], c[0] - 6) && near(l[1], c[1]);
+      const under = near(l[2], c[2]) && l[1] >= c[3] - 0.5 && l[1] - c[3] <= 12;
+      if (expectUnder ? !under : !beside)
+        why.push(`learn toggle not ${expectUnder ? "under" : "beside"} CONTROLS (${state}, gap ${r1n(l[1] - c[3])})`);
+      if (l[0] < 0 || l[2] > g.vw || l[1] < 0) why.push(`learn toggle off screen (${state})`);
+    }
+    learnPlacement.push(...[shown, hidden, back].map((g, i) => ({
+      vp: `${w}x${h}`, state: ["shown", "hidden", "back"][i], under: g.vw - g.toggle[1] + 155 > g.vw,
+      gap: r1n(g.learnBox[1] - g.toggleBox[3]),
+    })));
     hideSamples.push({ mode, vp: `${w}x${h}`, ok: why.length === 0, why, shown, hidden, back });
   }
 }
@@ -436,14 +605,23 @@ async function sampleHide(mode) {
 const slices = [];
 async function shots(mode) {
   await setVP(1440, 900);
-  for (const [tag, f] of [["top", 0], ["mid", 0.5], ["bottom", 1]]) {
-    await page.evaluate(f => { const r = document.getElementById("rail"); r.scrollTop = f * (r.scrollHeight - r.clientHeight); }, f);
-    await sleep(200);
-    await page.screenshot({ path: `${OUT}/rail-${mode}-${tag}.png` });
+  for (const on of [false, true]) {
+    await page.evaluate(b => window.__railProbe.learnSet(b), on);
+    const name = on ? `${mode}-learn` : mode;
+    for (const [tag, f] of [["top", 0], ["mid", 0.5], ["bottom", 1]]) {
+      await page.evaluate(f => { const r = document.getElementById("rail"); r.scrollTop = f * (r.scrollHeight - r.clientHeight); }, f);
+      await sleep(200);
+      await page.screenshot({ path: `${OUT}/rail-${name}-${tag}.png` });
+    }
+    console.log(`shot rail-${name}-{top,mid,bottom}.png`);
   }
+  await S(() => window.__railProbe.learnSet(false));
   await S(() => { document.getElementById("rail").scrollTop = 0; });
-  console.log(`shot rail-${mode}-{top,mid,bottom}.png`);
 }
+
+// a new viewer (puppeteer's fresh profile has no storage): learn mode must be
+// off, stored nowhere, and render nothing, even with every section open
+const learnBoot = await S(() => { window.__railProbe.expandAll(); return window.__railProbe.learnState(); });
 
 // ================================================================= 2D
 await sampleState("2d", "boot: model metal", () => {});
@@ -539,6 +717,242 @@ await samplePanel("3d", "heat treat, rail hidden", () => window.__solidify.app.s
 await toggleRail();
 await sampleHide("3d");
 
+// ================================================================= learn mode
+// (v8 U1a) Behavior, driven the way a visitor drives it: a real click on the
+// top bar's toggle and real key presses. Last, because it reloads the page.
+await setVP(1440, 900);
+const learnRun = { boot: learnBoot };
+learnRun.audit = await S(() => window.__solidify.ui.learnAudit());
+// a freshly loaded page, learn stored off: the samples above expanded every
+// explanation, and an explanation stays expanded while learn is toggled
+const reloadPage = async () => {
+  await page.reload({ waitUntil: "networkidle0" });
+  await page.waitForFunction("!!window.__solidify", { timeout: 20000 });
+  await sleep(800);
+  await page.evaluate(PROBE, LONG_NAME);
+};
+await S(() => window.__railProbe.learnSet(false));
+await reloadPage();
+await S(() => window.__railProbe.expandAll());
+await page.click("#learnToggle");
+await sleep(200);
+learnRun.on = await S(() => window.__railProbe.learnState());
+// From the keyboard: Shift+Tab from a section's first control must land on
+// its "i" (it is in the tab order), and Enter on the first, Space on the
+// fourth, must each open its explanation, neither opening nor closing the
+// section (the "i" sits inside a clickable header). Space is also the app's
+// run/pause shortcut, which used to swallow it on every focused button.
+learnRun.keys = [];
+for (const [i, key] of [[0, "Enter"], [3, "Space"]]) {
+  const startFocused = await page.evaluate(i => window.__railProbe.focusAfterInfo(i), i);
+  await page.keyboard.down("Shift");
+  await page.keyboard.press("Tab");
+  await page.keyboard.up("Shift");
+  const before = await page.evaluate(i => window.__railProbe.infoAt(i), i);
+  const running = await S(() => window.__solidify.app.isRunning());
+  await page.keyboard.press(key);
+  await sleep(150);
+  const after = await page.evaluate(i => window.__railProbe.infoAt(i), i);
+  const runningAfter = await S(() => window.__solidify.app.isRunning());
+  learnRun.keys.push({ i, key, startFocused, before, after, runToggled: running !== runningAfter });
+}
+// The section header itself, one more Shift+Tab back from the "i": Enter
+// closes the (open) section and Space opens it again, aria-expanded following
+// both times. Before the header was a button, a keyboard could reach every
+// explanation but open no collapsed section.
+{
+  const i = 1;
+  const startFocused = await page.evaluate(i => window.__railProbe.focusAfterInfo(i), i);
+  for (let n = 0; n < 2; n++) {
+    await page.keyboard.down("Shift");
+    await page.keyboard.press("Tab");
+    await page.keyboard.up("Shift");
+  }
+  const s0 = await page.evaluate(i => window.__railProbe.infoAt(i), i);
+  const running = await S(() => window.__solidify.app.isRunning());
+  await page.keyboard.press("Enter");
+  await sleep(150);
+  const s1 = await page.evaluate(i => window.__railProbe.infoAt(i), i);
+  await page.keyboard.press("Space");
+  await sleep(150);
+  const s2 = await page.evaluate(i => window.__railProbe.infoAt(i), i);
+  const runToggled = running !== await S(() => window.__solidify.app.isRunning());
+  learnRun.headKeys = { startFocused, s0, s1, s2, runToggled };
+}
+// Space as run/pause must still work where no control has the keyboard: the
+// positive control for `runToggled` above (a handler that swallowed Space
+// everywhere would pass that clause), and the mouse case the first cut got
+// wrong. It read :focus-visible, which Chrome sets on a mouse-clicked button
+// on the Space keydown itself, so after any click on a rail or top-bar button
+// Space pressed that button again instead of running or pausing.
+learnRun.space = [];
+{
+  await S(() => document.activeElement?.blur());
+  const r0 = await S(() => window.__solidify.app.isRunning());
+  await page.keyboard.press("Space");
+  await sleep(150);
+  const r1 = await S(() => window.__solidify.app.isRunning());
+  await page.keyboard.press("Space");
+  await sleep(150);
+  const r2 = await S(() => window.__solidify.app.isRunning());
+  learnRun.space.push({ where: "nothing focused", flipped: r0 !== r1, restored: r2 === r0, pressed: false });
+}
+// each clicked by the mouse, then Space twice: the run flips and flips back,
+// and the button's own state (what a second press would change) holds
+for (const [where, sel, read] of [
+  ["learn toggle", "#learnToggle", () => document.getElementById("learnToggle").getAttribute("aria-pressed")],
+  ["an \"i\"", "#rail > .sec:first-child .lrnInfo", () => document.querySelector("#rail > .sec:first-child .lrnInfo").getAttribute("aria-expanded")],
+  ["ETCH lens", "#views button:nth-child(3)", () => String(window.__solidify.app.getView())],
+]) {
+  await page.click(sel);
+  await sleep(150);
+  const before = await page.evaluate(read);
+  const r0 = await S(() => window.__solidify.app.isRunning());
+  await page.keyboard.press("Space");
+  await sleep(150);
+  const r1 = await S(() => window.__solidify.app.isRunning());
+  const mid = await page.evaluate(read);
+  await page.keyboard.press("Space");
+  await sleep(150);
+  const r2 = await S(() => window.__solidify.app.isRunning());
+  const after = await page.evaluate(read);
+  learnRun.space.push({ where, flipped: r0 !== r1, restored: r2 === r0, pressed: mid !== before || after !== before, before, mid, after });
+  // undo the click itself, so the state below is the one the run left
+  await page.click(sel);
+  await sleep(150);
+}
+await S(() => { window.__solidify.app.setView(0); window.__solidify.ui.sync(); });
+await S(() => window.__railProbe.learnSet(true));
+learnRun.expanded = await S(() => window.__railProbe.learnState());
+await page.click("#learnToggle");
+await sleep(200);
+learnRun.off = await S(() => window.__railProbe.learnState());
+// remembered per viewer: on, reload, still on
+await page.click("#learnToggle");
+await sleep(200);
+await reloadPage();
+learnRun.reloaded = await S(() => { window.__railProbe.expandAll(); return window.__railProbe.learnState(); });
+await S(() => window.__railProbe.learnSet(false));
+
+// Storage that throws on access (a private window, blocked site data): the
+// page must still boot, and the toggle and the section headers still work.
+{
+  const p2 = await browser.newPage();
+  const p2errors = [];
+  p2.on("pageerror", e => p2errors.push(String(e.stack ?? e)));
+  p2.on("console", m => { if (m.type() === "error") p2errors.push(m.text()); });
+  await p2.evaluateOnNewDocument(() => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get() { throw new DOMException("storage blocked by verify-rail", "SecurityError"); },
+    });
+  });
+  await p2.goto(`http://localhost:${PORT}/app/`, { waitUntil: "networkidle0", timeout: 30000 });
+  let booted = true;
+  try { await p2.waitForFunction("!!window.__solidify", { timeout: 20000 }); } catch { booted = false; }
+  await sleep(600);
+  const got = !booted ? {} : await p2.evaluate(async () => {
+    // did the perturbation land? (without this the clause could pass on a
+    // page whose storage works)
+    let throws = false;
+    try { void window.localStorage; } catch { throws = true; }
+    const h = document.querySelector("#rail > .sec:nth-child(2) > h2");
+    const body = h.parentElement.querySelector(":scope > .secbody");
+    const openBefore = body.style.display;
+    h.click();
+    const headerToggles = body.style.display !== openBefore;
+    const btn = document.getElementById("learnToggle");
+    btn.click();
+    await new Promise(r => requestAnimationFrame(() => r()));
+    const infosShown = [...document.querySelectorAll("#rail .lrnInfo")].filter(b => b.getClientRects().length).length;
+    return { throws, headerToggles, aria: btn.getAttribute("aria-pressed"), infosShown };
+  });
+  // the analytics beacon is a third-party script that reads storage itself;
+  // its errors are reported, not held against the instrument
+  const ownErrors = p2errors.filter(e => !/zgo\.at|goatcounter/i.test(e));
+  learnRun.blocked = { booted, ...got, ownErrors, thirdPartyErrors: p2errors.length - ownErrors.length };
+  await p2.close();
+}
+
+// A composer mix poured in calibrated mode, the state verify-quant's
+// CALIB-POUR-WIRED drives: the SCALE calibration readout then carries the
+// mix's own source line (main.ts coefficientSource), which no rail sample
+// above reaches. Its first cut printed alloy.ts's dT0Source there, prose with
+// em dashes for four of the nine famous presets. Measured once, learn off and
+// on, for RAIL-NO-EMDASH, and kept out of railSamples so their counts hold.
+const pourRun = await S(() => {
+  const S = window.__solidify;
+  S.app.setMaterial("al");
+  const poured = S.composer.applyHash("#alloy=al:Si7,Mg0.35");
+  S.app.setCalibrated(true);
+  S.ui.sync();
+  window.__railProbe.expandAll();
+  const src = S.app.calibration()?.coefficientSource ?? null;
+  const out = {
+    poured, src, name: S.app.getAlloyName(),
+    inRail: !!src && document.getElementById("rail").textContent.includes(src), samples: [],
+  };
+  for (const on of [false, true]) {
+    window.__railProbe.learnSet(on);
+    const m = window.__railProbe.measure();
+    out.samples.push({ learn: on, nDashes: m.nDashes, dashes: m.dashes, chars: m.chars });
+  }
+  window.__railProbe.learnSet(false);
+  return out;
+});
+// the in-page detector (PROBE's copy, which reads every rendered sample) on
+// the same fixture as the Node one below
+const fixtureDom = await S(() => {
+  const d = window.__railProbe.proseDash;
+  return ["a — b", "—x", "x—", " — "].every(d) && !["—", "5–10 K", "Al–Cu"].some(d);
+});
+
+// Every string the rail's learn layer can show, from the modules that own
+// them, including every material's (only one material is on screen at a
+// time) and every branch of the SCALE group lines
+const sources = await S(async () => {
+  const R = await import("/src/learn/rail.ts");
+  const M = await import("/src/materials.ts");
+  const U = await import("/src/units.ts");
+  const A = await import("/src/alloy.ts");
+  const Q = await import("/src/quant.ts");
+  const out = [];   // [kind, where, text]; kind: learn | line | hint
+  // the calibration readout's line for every famous preset poured onto its
+  // own base (only one can be on screen at a time; pourRun reads one live)
+  for (const p of A.FAMOUS) {
+    const si = M.MATERIALS[A.BASES[p.mix.base].materialKey].si;
+    out.push(["line", `pour ${p.label}`, Q.pouredMixSource(A.derive(p.mix), si)]);
+  }
+  for (const e of R.RAIL_LEARN) {
+    out.push(["learn", e.id, e.text]);
+    for (const [k, h] of Object.entries(e.hints ?? {})) out.push(["hint", `${e.id} ${k}`, h]);
+  }
+  for (const [k, t] of Object.entries(R.RAIL_NOTES)) out.push(["learn", `note ${k}`, t]);
+  for (const [k, c] of Object.entries(R.RAIL_CAVEATS)) out.push(["line", `caveat ${k}`, c.line], ["learn", `caveat ${k}`, c.learn]);
+  const m3 = M.to3D({ label: "", note: "", learn: "", params: { aniMode: 2 } });
+  out.push(["line", "note3d", m3.note3d], ["learn", "learn3d", m3.learn3d]);
+  for (const r of [0, 0.5, 50, 5e3, 5e5, 5e7]) out.push(["line", `regime ${r}`, U.regimeOf(r)]);
+  for (const [k, m] of Object.entries(M.MATERIALS)) {
+    out.push(["line", `${k} note`, m.note], ["learn", `${k} learn`, m.learn]);
+    const base = { n: 1024, dx: 0.03, latent: m.params.latent ?? 1.6, dSol: 0.9, umPerCell: 1 };
+    if (!m.si) {
+      const s = U.scaleOf({ ...base, si: null, alloy: false });
+      out.push(["line", `${k} scale`, s.note], ["learn", `${k} scale`, s.learn]);
+      continue;
+    }
+    out.push(["line", `${k} source`, m.si.source], ["learn", `${k} sourceLearn`, m.si.sourceLearn]);
+    // the last case matches the model's Lewis ratio to the real one, the
+    // "close to matched" branch
+    for (const [alloy, lambda, dSol] of [[true, null], [false, null], [true, 10], [false, 10], [true, 60], [false, 60],
+      [false, null, m.si.Dl / m.si.alphaTh]]) {
+      const s = U.scaleOf({ ...base, si: m.si, alloy, lambda, ...(dSol ? { dSol } : {}) });
+      out.push(["line", `${k} scale`, s.note], ["learn", `${k} scale`, s.learn]);
+      for (const g of s.groups) out.push(["line", `${k} ${g.name}`, g.note], ["learn", `${k} ${g.name}`, g.learn]);
+    }
+  }
+  return [...new Map(out.map(o => [o.join("|"), o])).values()];
+});
+
 // ================================================================= verdicts
 const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
 
@@ -547,9 +961,12 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   // the test condition must be the visitor's: a real scrollbar on a rail
   // whose opened sections are taller than the window
   const scrollbarSeen = railSamples.some(s => s.tall && s.scrollbar > 0);
-  const ok = bad.length === 0 && scrollbarSeen && railSamples.length === 5 * VIEWPORTS.length;
+  // five states x five viewports, each with learn mode off and on
+  const learnSamples = railSamples.filter(s => s.learn).length;
+  const ok = bad.length === 0 && scrollbarSeen && railSamples.length === 2 * 5 * VIEWPORTS.length
+    && learnSamples === 5 * VIEWPORTS.length;
   check("RAIL-NO-HSCROLL", ok, {
-    samples: railSamples.length, scrollbarSeen,
+    samples: railSamples.length, learnSamples, scrollbarSeen,
     railWidth: railSamples[0]?.width, clientWidth: [...new Set(railSamples.map(s => s.client))],
     bad: bad.slice(0, 8),
   });
@@ -576,10 +993,16 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   const bad = railSamples.filter(s => s.nTextBad).map(s => ({ ...brief(s), n: s.nTextBad, first: s.textBad.slice(0, 3) }));
   const fewest = Math.min(...railSamples.map(s => s.elems));
   const fewestLines = Math.min(...railSamples.map(s => s.lines));
-  // liveness floors below today's minima (218 elements, 148 text lines, both
-  // in the model-metal boot rail): an empty walk would pass everything
-  check("RAIL-TEXT-WRAPS", bad.length === 0 && fewest >= 150 && fewestLines >= 100, {
-    fewestElementsInOneSample: fewest, fewestTextLinesInOneSample: fewestLines, bad: bad.slice(0, 6),
+  // and the learn text was really on screen in every learn-mode sample, so
+  // this clause covers it (explanations, hints and "i" buttons rendered)
+  const fewestLearn = Math.min(...railSamples.filter(s => s.learn).map(s => s.lrnVisible));
+  // liveness floors below today's minima (214 elements and 121 text lines,
+  // both in the model-metal boot rail with learn off, down from 218 and 148
+  // before v8 U1a cut the descriptors; 64 learn elements): an empty walk would
+  // pass everything
+  check("RAIL-TEXT-WRAPS", bad.length === 0 && fewest >= 150 && fewestLines >= 100 && fewestLearn >= 30, {
+    fewestElementsInOneSample: fewest, fewestTextLinesInOneSample: fewestLines,
+    fewestLearnElementsInALearnSample: fewestLearn, bad: bad.slice(0, 6),
   });
 }
 
@@ -616,16 +1039,16 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   // against its inset or the transport bar, must have been on screen in at
   // least one sample; each mode panel must actually have opened, with the
   // rail shown and hidden; the audits must have found the panels and their
-  // sliders; and every chrome sample must have measured the lens bar, CONTROLS,
-  // the switch and #head's lines, with the view cube and the scale bar each
-  // in at least one.
-  const EXPECT = ["views", "railToggle", "dimSwitch", "viewcube", "hud", "apanels", "apanels3", "scalebar",
+  // sliders; and every chrome sample must have measured the lens bar, the
+  // learn toggle, CONTROLS, the switch and #head's lines, with the view cube
+  // and the scale bar each in at least one.
+  const EXPECT = ["views", "railToggle", "learnToggle", "dimSwitch", "viewcube", "hud", "apanels", "apanels3", "scalebar",
     "sembar", "hint", "transport", "slicePop", "foundry", "heattreat", "lab", "readouts"];
   const missing = EXPECT.filter(n => !seenChrome.has(n));
   const notOpened = panelOpened.filter(p => !p.appeared);
   const hiddenOpened = panelOpened.filter(p => p.rail === "hidden").length;
   const hiddenSamples = chromeSamples.filter(s => s.rail === "hidden").length;
-  const ALWAYS = ["views", "railToggle", "dimSwitch", "readouts", "head h1", "head .sub", "#matline"];
+  const ALWAYS = ["views", "railToggle", "learnToggle", "dimSwitch", "readouts", "head h1", "head .sub", "#matline"];
   const topMissing = [...new Set(chromeSamples.flatMap(s => ALWAYS.filter(n => !s.top.includes(n))))];
   const topSomewhere = ["viewcube", "scalebar"].filter(n => !chromeSamples.some(s => s.top.includes(n)));
   const slidersMeasured = audits.reduce((n, p) => n + p.sliders.length, 0);
@@ -648,8 +1071,13 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   // columns are one per mode, the cube is 3D only)
   const anchoredSeen = new Set(hideSamples.flatMap(h => Object.keys(h.hidden.anchored)));
   const unmeasured = ["dimSwitch", "viewcube", "hud", "apanels", "apanels3"].filter(n => !anchoredSeen.has(n));
-  check("RAIL-HIDE", hideSamples.length === 2 * HIDE_VIEWPORTS.length && hideSamples.every(h => h.ok) && unmeasured.length === 0, {
-    unmeasured,
+  // and both learn-toggle placements were expected somewhere, so neither
+  // branch of that clause is vacuous (under: the phone with the rail open)
+  const bothPlacements = learnPlacement.some(p => p.under) && learnPlacement.some(p => !p.under);
+  check("RAIL-HIDE", hideSamples.length === 2 * HIDE_VIEWPORTS.length && hideSamples.every(h => h.ok) && unmeasured.length === 0
+    && bothPlacements, {
+    unmeasured, bothPlacements,
+    learnUnder: learnPlacement.filter(p => p.under).map(p => `${p.vp} ${p.state} gap ${p.gap}`),
     samples: hideSamples.map(h => ({ mode: h.mode, vp: h.vp, ok: h.ok, why: h.why, toggle: [h.shown.toggle, h.hidden.toggle], hiddenAnchored: h.hidden.anchored })),
   });
 }
@@ -657,6 +1085,113 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
 {
   const bad = slices.filter(s => !s.visible || s.bad.length || s.rows < 3);
   check("SLICE-ROWS-INSIDE", slices.length === VIEWPORTS.length && bad.length === 0, { rows: slices[0]?.rows, bad: bad.slice(0, 4) });
+}
+
+// sentence count of a learn text: a sentence ends at . ! or ? before a space
+// or the end ("0.2·T_m" and "6.48e-8" are not endings)
+const sentences = t => (String(t).match(/[.!?](?=\s|$)/g) ?? []).length;
+// the same rule as PROBE's in-page copy; RAIL-NO-EMDASH runs both on one fixture
+const proseDash = s => typeof s === "string" && s.includes("—") && s !== "—";
+
+{
+  const r = learnRun;
+  const why = [];
+  // a new viewer: off, nothing stored, nothing rendered
+  if (r.boot.aria !== "false" || r.boot.stored != null || r.boot.visibleLearn !== 0)
+    why.push({ newViewer: { aria: r.boot.aria, stored: r.boot.stored, visibleLearn: r.boot.visibleLearn } });
+  // the rail's entries and the rail agree: a section per entry, an entry per
+  // section, and every declared hint found its control
+  const a = r.audit;
+  if (a.sections < 13 || a.sectionsWithoutEntry.length || a.entriesWithoutSection.length
+    || a.hintsUnbound.length || a.hintsDeclared < 30) why.push({ audit: a });
+  // on: every visible section has an "i" that is a focusable button, collapsed,
+  // wired by aria-controls to a hidden explanation right under its header
+  const headBad = h => !h.infoVisible || h.tag !== "BUTTON" || h.tabIndex < 0 || !h.bodyExists || !h.bodyUnderHeader
+    || !h.headOk;
+  if (r.on.aria !== "true" || r.on.stored !== "1") why.push({ on: { aria: r.on.aria, stored: r.on.stored } });
+  const onBad = r.on.heads.filter(h => headBad(h) || h.expanded !== "false" || h.bodyVisible);
+  if (r.on.heads.length < 12 || onBad.length) why.push({ onHeads: r.on.heads.length, bad: onBad.slice(0, 3) });
+  // the keyboard reaches the "i", opens its explanation, and leaves the
+  // section (and the run) as they were
+  for (const k of r.keys) {
+    const b = k.before, af = k.after;
+    if (!k.startFocused || !b.focused || b.disabled || b.expanded !== "false" || b.bodyVisible
+      || af.expanded !== "true" || !af.bodyVisible || af.open !== b.open || k.runToggled) why.push({ key: k });
+  }
+  // the section header from the keyboard: reached, Enter closes, Space
+  // reopens, aria-expanded following, the run untouched
+  {
+    const { startFocused, s0, s1, s2, runToggled } = r.headKeys;
+    if (!startFocused || !s0.headFocused || s0.open !== "block" || s0.headExpanded !== "true"
+      || s1.open !== "none" || s1.headExpanded !== "false" || s2.open !== "block" || s2.headExpanded !== "true"
+      || runToggled) why.push({ headKeys: r.headKeys });
+  }
+  // Space is run/pause with nothing focused and after a mouse click on a
+  // button, and never presses that button again
+  if (r.space.length !== 4 || r.space.some(s => !s.flipped || !s.restored || s.pressed)) why.push({ space: r.space });
+  // every explanation, open: shown, 1 to 2 sentences
+  const exBad = r.expanded.heads.filter(h => headBad(h) || h.expanded !== "true" || !h.bodyVisible
+    || sentences(h.text) < 1 || sentences(h.text) > 2);
+  if (exBad.length) why.push({ explanations: exBad.map(h => ({ title: h.title, expanded: h.expanded, visible: h.bodyVisible, sentences: sentences(h.text) })) });
+  // off: nothing renders, in this state and in every learn-off layout sample
+  if (r.off.aria !== "false" || r.off.stored !== "0" || r.off.visibleLearn !== 0)
+    why.push({ off: { aria: r.off.aria, stored: r.off.stored, visibleLearn: r.off.visibleLearn } });
+  const offLeak = railSamples.filter(s => !s.learn && s.lrnVisible > 0).map(s => ({ ...brief(s), lrnVisible: s.lrnVisible }));
+  if (offLeak.length) why.push({ learnOffLeak: offLeak.slice(0, 4) });
+  // hints: one line, shown exactly when their control is, in every sample;
+  // at least 15 on screen in every learn sample (29 is today's fewest)
+  const hintBad = railSamples.filter(s => s.nHintBad).map(s => ({ ...brief(s), learn: s.learn, bad: s.hintBad.slice(0, 3) }));
+  const fewestHints = Math.min(...railSamples.filter(s => s.learn).map(s => s.hints));
+  if (hintBad.length || !(fewestHints >= 15)) why.push({ fewestHints, hintBad: hintBad.slice(0, 4) });
+  // remembered across a reload
+  if (r.reloaded.aria !== "true" || r.reloaded.stored !== "1" || r.reloaded.heads.some(h => !h.infoVisible))
+    why.push({ reloaded: { aria: r.reloaded.aria, stored: r.reloaded.stored } });
+  // storage that throws: the perturbation landed, the page booted clean, and
+  // the toggle and the headers work
+  const b = r.blocked;
+  if (!b.booted || b.throws !== true || b.aria !== "true" || !(b.infosShown >= 12) || !b.headerToggles || b.ownErrors.length)
+    why.push({ storageBlocked: b });
+  // every learn string any material or state can show is 1 to 2 sentences,
+  // and every hint is short enough for one line
+  const shape = sources.filter(([k, , t]) => (k === "learn" && (sentences(t) < 1 || sentences(t) > 2))
+    || (k === "hint" && (t.length > 48 || /\.$/.test(t))));
+  if (shape.length) why.push({ shape: shape.slice(0, 6) });
+  check("RAIL-LEARN", why.length === 0, {
+    sections: a.sections, hintsDeclared: a.hintsDeclared, fewestHints,
+    keys: r.keys.map(k => `Shift+Tab ${k.before.focused ? "reached" : "MISSED"} the "i"; ${k.key}: ${k.before.expanded} -> ${k.after.expanded}, section ${k.after.open === k.before.open ? "unchanged" : "TOGGLED"}${k.runToggled ? ", RUN TOGGLED" : ""}`),
+    header: `Shift+Tab x2 ${r.headKeys.s0.headFocused ? "reached" : "MISSED"} the header; Enter: ${r.headKeys.s0.open} -> ${r.headKeys.s1.open}, Space: -> ${r.headKeys.s2.open}`,
+    space: r.space.map(s => `${s.where}: run ${s.flipped ? "flipped" : "NOT FLIPPED"}${s.restored ? "" : ", NOT RESTORED"}${s.pressed ? ", BUTTON PRESSED AGAIN" : ""}`),
+    storageBlocked: { booted: b.booted, throws: b.throws, aria: b.aria, infosShown: b.infosShown, headerToggles: b.headerToggles, thirdPartyErrors: b.thirdPartyErrors },
+    learnStrings: sources.filter(s => s[0] !== "line").length, why: why.slice(0, 6),
+  });
+}
+
+{
+  // the detectors first, BOTH copies (this Node one reads the module strings,
+  // PROBE's in-page one every rendered sample): a prose dash is caught, a
+  // lone " — " between two elements included, and the exact empty-value
+  // glyph and an en dash are not (a detector that caught nothing would pass
+  // every page)
+  const fixtureNode = ["a — b", "—x", "x—", " — "].every(proseDash) && !["—", "5–10 K", "Al–Cu"].some(proseDash);
+  const fixture = fixtureNode && fixtureDom;
+  const dom = railSamples.filter(s => s.nDashes).map(s => ({ ...brief(s), learn: s.learn, first: s.dashes.slice(0, 3) }))
+    .concat(pourRun.samples.filter(s => s.nDashes).map(s => ({ state: "poured mix, calibrated", learn: s.learn, first: s.dashes.slice(0, 3) })));
+  const src = sources.filter(([, , t]) => proseDash(t)).map(([k, w, t]) => ({ kind: k, where: w, text: t.slice(0, 70) }));
+  // liveness: the rendered text read, learn text included, and the strings
+  // read; the poured state really reached the rail (the pour took, and its
+  // source line is in the rail's text), and every famous preset's line was read
+  const chars = railSamples.reduce((n, s) => n + s.chars, 0);
+  const learnChars = railSamples.filter(s => s.learn).reduce((n, s) => n + s.chars, 0)
+    - railSamples.filter(s => !s.learn).reduce((n, s) => n + s.chars, 0);
+  const pourLive = pourRun.poured === true && pourRun.inRail && pourRun.samples.length === 2;
+  const pourLines = sources.filter(([, w]) => w.startsWith("pour ")).length;
+  const ok = fixture && dom.length === 0 && src.length === 0 && learnChars > 0 && sources.length >= 150
+    && pourLive && pourLines >= 9;
+  check("RAIL-NO-EMDASH", ok, {
+    fixtureCaught: { node: fixtureNode, dom: fixtureDom }, charsRead: chars, extraLearnChars: learnChars,
+    stringsRead: sources.length, pourLines, poured: { live: pourLive, name: pourRun.name, line: pourRun.src },
+    rendered: dom.slice(0, 6), strings: src.slice(0, 8),
+  });
 }
 
 if (errors.length) {

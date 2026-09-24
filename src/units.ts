@@ -116,8 +116,15 @@ export interface MaterialSI {
    * phenomenon this solver has no phase for).
    */
   twinNote?: string;
-  /** provenance, shown in the scale panel */
+  /**
+   * provenance, the terse line at the foot of the SCALE panel: the alloy
+   * system the numbers are for FIRST, then ` · ` and the cited details.
+   * quant.ts prints that first segment as the system name in the calibration
+   * readout, so it must be a name ("Al–4Cu"), not a sentence.
+   */
   source: string;
+  /** the learn-mode half of `source`: 1 to 2 plain sentences */
+  sourceLearn: string;
 }
 
 // ------------------------------------------------------------- the scaling
@@ -137,7 +144,10 @@ export interface Group {
   model: number | null;
   real: number | null;
   ok: boolean;
+  /** the terse on-screen line */
   note: string;
+  /** its learn-mode half (docs/COPY-STYLE.md): the same caveat in plain sentences */
+  learn: string;
 }
 
 export interface Scale {
@@ -155,7 +165,10 @@ export interface Scale {
   groups: Group[];
   /** true when the material has no SI identity (the model metal, the QC) */
   abstract: boolean;
+  /** the panel's footer line: the material's source, or why there is none */
   note: string;
+  /** its learn-mode half */
+  learn: string;
 }
 
 export interface ScaleInput {
@@ -208,10 +221,11 @@ export function scaleOf(inp: ScaleInput): Scale {
       },
       groups: [],
       abstract: true,
-      note: "no SI identity — this is the dimensionless reference crystal every phase-field "
-        + "paper grows first, not a substance. Lengths are real because you set the "
-        + "resolution; temperatures and times are not, and nothing here will pretend "
-        + "otherwise. Pick a real material to put the clock and the thermometer on.",
+      note: "no SI identity · lengths real (you set µm/cell) · T, t dimensionless",
+      // every material without an SI block, the Al–Co–Ni quasicrystal (a real
+      // alloy with a real melting point) as well as the model metal
+      learn: "This material carries no SI data here, so the solver has no melting point or clock for it. "
+        + "Lengths are still real because you set µm per cell.",
     };
   }
 
@@ -237,30 +251,35 @@ export function scaleOf(inp: ScaleInput): Scale {
     {
       name: "Stefan  c_p·ΔT/L",
       model: 1 / latent, real: 1 / latent, ok: true,
-      note: "matched by construction — the kelvin scale is DERIVED from this group, so it "
-        + "cannot disagree. It is the one thing the dimensionless model gets exactly right.",
+      note: "matched by construction (defines the K scale)",
+      learn: "The kelvin scale is derived from this group, so it cannot disagree. It is the one "
+        + "number the dimensionless model gets exactly right.",
     },
     {
       name: "Lewis  α/D",
       model: leModel, real: leReal, ok: leRatio < 3,
       note: leRatio >= 3
-        ? "NOT matched, and it cannot be: a real alloy separates heat and solute by four "
-          + "orders of magnitude, and one explicit grid at one timestep cannot carry both. "
-          + (alloy
-            ? "Time is anchored on solute here, so the temperature field diffuses far too "
-              + "slowly — read it as the imposed macroscopic temperature, not as real heat "
-              + "conduction at this scale. That is the direction a micro-model errs in anyway."
-            : "Time is anchored on heat here, which is exact for a pure melt — there is no "
-              + "solute field to disagree with.")
+        ? "not matchable on one grid · "
+          + (alloy ? "time from solute: T field imposed" : "time from heat: exact (no solute)")
         : "close to matched at these settings",
+      learn: leRatio >= 3
+        ? "A real melt moves heat orders of magnitude faster than solute, and one grid at one "
+          + "timestep cannot carry both. "
+          + (alloy
+            ? "Time follows the solute here, so read the temperature field as the imposed casting "
+              + "temperature, not real heat flow."
+            : "Time follows heat here, which is exact for a pure melt: there is no solute field "
+              + "to disagree with.")
+        : "At these settings the model's ratio of heat to solute diffusion is close to the real one.",
     },
     lambda == null
       ? {
         name: "capillary  d₀/W",
         model: null, real: null, ok: false,
-        note: "not defined — the Kobayashi interface has no calibrated surface energy, so "
-          + "there is no capillary length to compare a width against. This is exactly why "
-          + "tip radius and arm spacing are shapes rather than predictions here.",
+        note: "not defined: no calibrated surface energy · tip radius, arm spacing are shapes",
+        learn: "The Kobayashi interface has no real surface energy, so there is no capillary "
+          + "length to compare its width with. That is why tip radius and arm spacing are "
+          + "shapes here, not predictions.",
       }
       : {
         // W₀ = λd₀/a₁ by construction, so this ratio is exactly what was chosen —
@@ -271,13 +290,15 @@ export function scaleOf(inp: ScaleInput): Scale {
         name: "capillary  d₀/W",
         model: A1 / lambda, real: 0, ok: lambda <= 40,
         note: lambda <= 40
-          ? "defined, because the interface now has a calibrated surface energy: W₀ = λd₀/a₁. "
-            + "This is a convergence parameter rather than a mismatch — the thin-interface "
-            + "asymptotics are exact as it approaches zero, and every quantitative claim has "
-            + "to be shown independent of it."
-          : "defined but LARGE: at this λ the diffuse interface is more than 45 capillary "
-            + "lengths wide, and the thin-interface correction is no longer small. Treat tip "
-            + "radius and velocity as indicative until a convergence run says otherwise.",
+          ? "W₀ = λd₀/a₁ · convergence parameter"
+          : "λ large: interface > 45 d₀ wide · tip radius, velocity indicative",
+        learn: lambda <= 40
+          ? "With a calibrated surface energy the interface width is set by λ. It is a "
+            + "convergence knob, not a mismatch: a result counts only if it holds as λ shrinks, "
+            + "which takes a convergence run to show."
+          : "At this λ the diffuse interface is more than 45 capillary lengths wide, so the "
+            + "thin-interface correction is no longer small. Treat tip radius and velocity as "
+            + "rough until a convergence run confirms them.",
       },
   ];
 
@@ -290,7 +311,8 @@ export function scaleOf(inp: ScaleInput): Scale {
     },
     groups,
     abstract: false,
-    note: si.source,
+    note: `source: ${si.source}`,
+    learn: si.sourceLearn,
   };
 }
 
@@ -303,7 +325,7 @@ export function regimeOf(kPerSec: number): string {
   if (!Number.isFinite(r) || r <= 0) return "isothermal";
   if (r < 1) return "furnace · heavy sand casting";
   if (r < 1e2) return "sand & investment casting";
-  if (r < 1e4) return "permanent mould · die casting";
+  if (r < 1e4) return "permanent mold · die casting";
   if (r < 1e6) return "rapid solidification";
   return "melt spinning · laser AM";
 }

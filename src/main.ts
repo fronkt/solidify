@@ -24,7 +24,7 @@ import { HeatPanel, type HeatHost, type Census, regionCensus } from "./heatpanel
 import { Units, scaleOf, DEFAULT_UM_PER_CELL } from "./units";
 import { stream, getSeed, setSeed, reseed, seedHex } from "./rng";
 import { SOLVER } from "./shaders";
-import { calibrate, defaultLambda, A_T, type QuantSetup } from "./quant";
+import { calibrate, defaultLambda, pouredMixSource, A_T, type QuantSetup } from "./quant";
 import * as experiment from "./experiment";
 import { WT_PER_C0 } from "./alloy";
 
@@ -238,11 +238,10 @@ async function boot() {
       coefficientSource: !alloy ? undefined
         : !d
           ? (stale
-            ? `the composition dials have moved since ${pouredMix!.derived.name} was poured, so its freezing range no longer describes what the solver carries. Calibrating on ${MATERIALS[material].label}'s own SI coefficients instead: |m| ${Math.abs(si.mL)} K/wt%, k ${si.kPart}, c∞ ${(sim.params.c0 * WT_PER_C0).toFixed(2)} wt%.`
+            ? `composition dials have moved since ${pouredMix!.derived.name} was poured · using ${MATERIALS[material].label}'s own SI coefficients: |m| ${Math.abs(si.mL)} K/wt%, k ${si.kPart}, c∞ ${(sim.params.c0 * WT_PER_C0).toFixed(2)} wt%`
             : undefined)
-          : d.dT0 != null
-            ? `${d.name}: ${d.dT0Source}`
-            : `${d.name}: ΔT₀ declined — ${d.dT0Source} Calibrating on ${MATERIALS[material].label}'s own coefficients instead: |m| ${Math.abs(si.mL)} K/wt%, k ${si.kPart}.`,
+          // terse: the composer prints the mix's full dT0Source beside it
+          : pouredMixSource(d, si),
     });
   };
 
@@ -1543,9 +1542,20 @@ async function boot() {
     renderer.zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0016));
   }, { passive: false });
 
+  // Space is run/pause, except on a button or select a keyboard user has
+  // tabbed to: there it must press that control, or no rail button (the
+  // section headers and the learn "i"s included) could be pressed from the
+  // keyboard. A control focused by a pointer keeps the shortcut. The input
+  // modality is tracked here rather than read from :focus-visible, because
+  // Chrome marks a mouse-clicked button :focus-visible on the keydown itself,
+  // so that selector made Space press the clicked button again.
+  let kbNav = false;
+  window.addEventListener("pointerdown", () => { kbNav = false; }, true);
+  window.addEventListener("keydown", e => { if (e.key === "Tab") kbNav = true; }, true);
   window.addEventListener("keydown", e => {
     if (e.target instanceof HTMLInputElement) return;
-    if (e.code === "Space") { e.preventDefault(); app.setRun(!app.isRunning()); ui.sync(); }
+    const kbFocused = kbNav && e.target instanceof Element && e.target.matches("button, select");
+    if (e.code === "Space" && !kbFocused) { e.preventDefault(); app.setRun(!app.isRunning()); ui.sync(); }
     if (mode === "3d") {
       if (/^[1-9]$/.test(e.key)) { app.setView3d(parseInt(e.key) - 1); ui.sync(); }
       return;

@@ -599,14 +599,18 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   when the dial is shoved to 999 mid-run, a no-spec pour must carry no verdict row, and the
   model metal must refuse by name) and the heat-treat share-link gates.
 - **`verify-rail.mjs`** (v8 U0): the control rail never scrolls sideways, every slider's value
-  is on screen, and nothing sits under the rail or on the chrome beside it. Seven checks,
+  is on screen, and nothing sits under the rail or on the chrome beside it; since v8 U1a also
+  that learn mode works and that no prose em dash reaches the rail in the states and strings
+  listed under `RAIL-NO-EMDASH` below. Nine checks,
   measured in the real app at 1280x720, 1440x900, 1920x1080, 1024x768 and 960x1000 (a
   half-screen window on a 1920 display), in 2D and TRUE 3D, with every rail section opened by
-  clicking its heading, and every box read only after the CSS transitions a resize or a rail
-  toggle starts have finished. `RAIL-NO-HSCROLL` (rail `scrollWidth <= clientWidth`),
+  clicking its heading, every rail sample taken twice (learn mode off, and on with every
+  section's explanation expanded), and every box read only after the CSS transitions a resize
+  or a rail toggle starts have finished. `RAIL-NO-HSCROLL` (rail `scrollWidth <= clientWidth`),
   `RAIL-ROWS-INSIDE` (every slider row is a grid, and its label, slider and value sit inside the
   rail's content box; no zero-width value; at least 15 values per sample), `RAIL-TEXT-WRAPS`
-  (every rendered element AND every rendered line of text inside the content box),
+  (every rendered element AND every rendered line of text inside the content box, learn text
+  included: every learn sample must show at least 30 learn elements),
   `RAIL-VAL-FITS` (each slider driven to its min and then its max in a real material, reading
   every value after every step: each stays on one line inside the rail; liveness is per state,
   so the calibrated sweep must have read the coupling λ row, 17 characters with its W₀/d₀, and
@@ -616,16 +620,44 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   and no mode panel overlaps the rail; the items sized against the transport bar, meaning the
   mode panels, the hint, the SEM bar and the HUD, stay clear of it; the lens bar, `#head`'s
   three text lines measured as rendered text with a long alloy name in `#matline`, the
-  readouts, CONTROLS, the TRUE 3D switch, the view cube and the scale bar never overlap one
-  another; and every open mode panel holds its content, with no sideways scroll, nothing
-  painted past its content box, and no slider in it under 60 px), `RAIL-HIDE` (at 1280x720
-  and on a 390x844 phone: the toggle moves the whole rail off screen, and CONTROLS, the
-  switch, the view cube, the HUD and both analysis columns to 14 px from the window's edge and
-  the lens bar's center to where the CSS puts it; showing the rail again puts each back
-  beside it; CONTROLS is on screen in every state) and `SLICE-ROWS-INSIDE` (the SECTION PLANE
-  popup, whose rows share the grid). It also writes six screenshots,
-  `rail-{2d,3d}-{top,mid,bottom}.png` at 1440x900, to the output directory for a person to
-  look at.
+  readouts, the learn toggle, CONTROLS, the TRUE 3D switch, the view cube and the scale bar
+  never overlap one another; and every open mode panel holds its content, with no sideways
+  scroll, nothing painted past its content box, and no slider in it under 60 px), `RAIL-HIDE`
+  (at 1280x720 and on a 390x844 phone: the toggle moves the whole rail off screen, and
+  CONTROLS, the switch, the view cube, the HUD and both analysis columns to 14 px from the
+  window's edge and the lens bar's center to where the CSS puts it; showing the rail again
+  puts each back beside it; CONTROLS is on screen in every state, and the learn toggle is on
+  screen 6 px left of it, or just under it (a gap of at most 12 px) exactly where the CSS
+  rule `--learn-drop` says that row has no room, which is only the phone with the rail open;
+  the expectation is derived from the measured CONTROLS offset, so a drop at a desktop width
+  fails, and both placements must have been expected in some sample),
+  `SLICE-ROWS-INSIDE` (the SECTION PLANE popup, whose rows share the grid), `RAIL-LEARN`
+  (v8 U1a: off for a new viewer, nothing stored and nothing rendered; `ui.learnAudit()` finds
+  an entry per section, a section per entry and every declared hint bound to its control; a
+  real click on the top bar's toggle sets `aria-pressed` and stores it; every visible section
+  header then has an "i" that is a focusable `<button>` with `aria-expanded` and an
+  `aria-controls` body right under the header; Enter and Space open an explanation without
+  opening or closing the section; the header's title is itself a `<button>` whose
+  `aria-expanded` and `aria-controls` describe the section body, reached by one more Shift+Tab,
+  and Enter closes the section and Space reopens it; Space still runs and pauses with nothing
+  focused (the positive control for the clauses that say it did not), and after a MOUSE click
+  on the learn toggle, an "i" or a lens button it still runs and pauses and does not press
+  that button again (the first cut read `:focus-visible`, which Chrome sets on a clicked button
+  on the Space keydown itself); every explanation is 1 to 2 sentences; every hint is one line
+  and shows exactly when its control does, in every learn sample, at least 15 per sample; off
+  again renders nothing, in every learn-off sample too; the setting survives a reload; with
+  `localStorage` made to throw, the page boots with no error of its own and the toggle and
+  headers still work, the perturbation's landing checked; and every learn string any material
+  or state can show, read from the modules, is 1 to 2 sentences, with hints under 49
+  characters) and `RAIL-NO-EMDASH` (v8 U1a: no prose em dash in the rendered rail text or its
+  tooltips, learn off and on, in every sample and once more with a composer mix poured in
+  calibrated mode, whose source line lands in the SCALE calibration readout and must be found
+  there, nor in any of those strings or in the calibration line of each of the nine famous
+  presets poured; only an exact `—` text node, the empty-value glyph, is allowed, so a spaced
+  ` — ` alone between two elements counts as prose; both copies of the detector, the page's
+  and the script's, are run on one fixture first). It also writes
+  twelve screenshots, `rail-{2d,3d}[-learn]-{top,mid,bottom}.png` at 1440x900, to the output
+  directory for a person to look at.
 
   Puppeteer hides scrollbars in headless mode by default, which hands the rail 10 px no visitor
   gets, so this script launches with `ignoreDefaultArgs: ["--hide-scrollbars"]` and requires a
@@ -660,6 +692,26 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   `#matline` under the lens bar at 1024. The mode panels themselves stayed clear of the
   transport bar in that run: their own `left` clamp (`.modepanel`, `app/index.html`) is a
   second guard that does not depend on `--center-inset`.
+
+  The two v8 U1a checks were proved without a source edit too: a second dev server, on a spare
+  port, served the tree through a vite transform that made three in-memory changes and logged
+  each one as it landed, and the whole gate ran against it. A prose em dash in the seed readout,
+  and one in the quasicrystal's learn sentence (no sampled state shows that material), failed
+  `RAIL-NO-EMDASH` on both halves: the rendered text, learn off and on, and the module strings.
+  A hint key that no longer matched its control's label failed `RAIL-LEARN` (`hintsUnbound`).
+  The other seven checks stayed OK in that run.
+
+  The clauses the U1a review added were proved the same way, four logged in-memory changes on
+  a second server in one run: the Space guard put back on `:focus-visible` failed `RAIL-LEARN`
+  (after a mouse click the learn toggle and an "i" were pressed again and the run did not flip,
+  and the ETCH lens did not flip it; the nothing-focused control still flipped);
+  `pouredMixSource` put back to the mix's `dT0Source` failed `RAIL-NO-EMDASH` on both halves
+  (the poured rail, learn off and on, and the A356, 1045, 4340 and tin bronze lines); the
+  section header without `aria-expanded` failed `RAIL-LEARN` (`headOk`); and `--learn-drop`
+  forced on at every width failed `RAIL-HIDE` at 1280x720 in all three states and on the phone
+  with the rail hidden, where the old clause accepted "under" anywhere (`RAIL-CLEAR` saw that
+  drop only at 1024 and 960, as the switch reaching the lens bar). The other five checks stayed
+  OK.
 - **`verify-scale3d.mjs`** — the 3D half of the v5.0 length-anchor change, on its own so it
   does not need the full 30-check volume suite to re-run: both solvers carry one resolution,
   the volume's `eqDiamUm` actually follows it (doubling the pitch doubles the reported diameter
