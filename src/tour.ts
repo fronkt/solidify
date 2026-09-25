@@ -321,7 +321,7 @@ export const CHAPTERS: Chapter[] = [
     part: "THE INSTRUMENT",
     title: "Part II: the instrument",
     body: "The rest of the tour walks every control on the instrument, dropdown by dropdown. Nothing in part II touches your melt — whatever you have growing keeps growing. Close anytime.",
-    watch: "The transport (bottom left): RESET arms a fresh melt so you can stage seeds while paused, RUN/PAUSE is the space bar, ×1 cycles to ×2 and ×4 to fast-forward (crank the speed slider first, then stack the multiplier), and ⏺ REC saves a .webm clip of the canvas.",
+    watch: "The transport (bottom left): reset arms a fresh melt so you can stage seeds while paused, ▶ run / ❚❚ pause is the space bar, ×1 cycles to ×2 and ×4 to fast-forward (crank the speed slider first, then stack the multiplier), and rec saves a .webm clip of the canvas.",
     hl: ["#transport"],
   },
   {
@@ -342,14 +342,14 @@ export const CHAPTERS: Chapter[] = [
     part: "THE INSTRUMENT",
     title: "Material",
     body: "Eleven material identities. Crystal structure picks the dendrite symmetry — FCC and BCC metals grow 4-fold, HCP metals 6-fold, and cobalt surprises everyone by freezing FCC. Each also sets how brightly its melt genuinely glows: steel white-hot, zinc not at all.",
-    watch: "The amber line under the SOLIDIFY logo always states exactly what is in the melt.",
-    hl: ["sec:MATERIAL"],
+    watch: "The name on the head plate, under PHASE-FIELD SOLIDIFICATION · LIVE, always states exactly what is in the melt.",
+    hl: ["sec:MATERIAL", "#head"],
   },
   {
     part: "THE INSTRUMENT",
     title: "Melt · process",
     body: "The foundry dials: UNDERCOOLING is how cold the melt starts, COOLING RATE keeps pulling heat out, and INOCULANT is how many potential nuclei the charge carries — a site population with a spread of activation undercoolings, set in ADVANCED. There is deliberately no nucleation-rate control: the rate is what those three produce between them.",
-    watch: "The buttons: SEED and TWIN SEED drop nuclei, CHILL WALL lines an edge, QUENCH plunges the whole melt colder, and holding REHEAT pours heat back in and melts solid back to liquid — it is a brush, not a heat treatment. The real furnace is ♨ HEAT TREAT, under MODES.",
+    watch: "The buttons: seed and twin seed drop nuclei, chill wall lines an edge, quench plunges the whole melt colder, and holding reheat pours heat back in and melts solid back to liquid: a brush, not a heat treatment. The real furnace is heat treat, under MODES.",
     hl: ["sec:MELT · PROCESS"],
   },
   {
@@ -362,7 +362,7 @@ export const CHAPTERS: Chapter[] = [
   {
     part: "THE INSTRUMENT",
     title: "Alloy",
-    body: "The dilute-solute field: composition, liquidus slope, and diffusivity sliders, plus partition k in ADVANCED. The ⚗ ALLOY COMPOSER builder goes further — pick a base metal, add elements in wt%, and read the real chemistry: liquidus shift and the growth restriction factor Q that foundries use to predict grain refinement.",
+    body: "The dilute-solute field: composition, liquidus slope, and diffusivity sliders, plus partition k in ADVANCED. The alloy composer… button goes further. Pick a base metal, add elements in wt%, and read the real chemistry: the liquidus shift and the growth restriction factor Q that foundries use to predict grain refinement.",
     watch: "Pour A356 + TiB against Al–1Zn on the same charge and cooling and the two castings do come out different — but not because Q refined one of them. An alloy's liquidus is depressed, so at a common bath temperature the two charges are not equally undercooled and have not reached the same solid fraction when you compare them. Control both and they agree to within noise. The science page works through that in full, and through the inverted answer that was also an artefact. Compositions are shareable as #alloy links.",
     hl: ["sec:ALLOY"],
   },
@@ -390,7 +390,7 @@ export const CHAPTERS: Chapter[] = [
   {
     part: "THE INSTRUMENT",
     title: "Engine · advanced · modes",
-    body: "ENGINE sets simulation speed, brush size, and the grid (512² to 2048²). ADVANCED exposes the raw model dials — interface width ε̄, kinetics γ, driving α, relaxation τ, partition k — clamped to the numerically stable envelope. MODES holds the four run modes: ⚗ LAB MODE and ♨ HEAT TREAT, which run in both dimensions, and the CMA-ES optimizer and the challenge match, which are 2D only.",
+    body: "ENGINE sets simulation speed, brush size, and the grid (512² to 2048²). ADVANCED exposes the raw model dials (interface width ε̄, kinetics γ, driving α, relaxation τ, partition k), clamped to the numerically stable envelope. MODES holds the four run modes: lab mode and heat treat, which run in both dimensions, and the CMA-ES optimizer and the challenge, which are 2D only.",
     watch: "Instability is unreachable from the sliders on purpose: every range was mapped before shipping.",
     hl: ["sec:ENGINE", "sec:ADVANCED", "sec:MODES"],
   },

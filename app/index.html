@@ -3,20 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%230a0b0d"/><text x="32" y="45" font-family="ui-monospace,Consolas,monospace" font-size="36" font-weight="700" text-anchor="middle"><tspan fill="%23ffb454">S</tspan><tspan fill="%23eef1f5">I</tspan></text></svg>' />
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%230a0a0a"/><text x="32" y="46" font-family="Arial,Helvetica,sans-serif" font-size="40" text-anchor="middle" fill="%23f2f2f2">S</text></svg>' />
   <title>SOLIDIFY · instrument</title>
   <meta name="description" content="Real-time phase-field solidification instrument: dendrites, castings, welds and alloys, live on your GPU." />
+  <!-- the design system: every color, type size and radius below is a token
+       from this file (docs/DESIGN.md); its "tool" section holds the
+       instrument's components (pills, switches, sliders, learn mode). This
+       page only places things. -->
+  <link rel="stylesheet" href="/src/design/tokens.css" />
   <style>
     :root {
-      --bg: #0a0b0d;
-      --panel: #111318;
-      --panel2: #16191f;
-      --line: #262b33;
-      --text: #c9cdd4;
-      --dim: #6b7280;
-      --amber: #ffb454;
-      --cyan: #56d4dd;
-      --font: ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
       /* the control rail's width. Everything anchored beside the rail offsets
          by --rail-inset (0 while the rail is hidden), and everything centered
          is placed or capped by it so it cannot reach the rail, so this is the
@@ -25,571 +21,836 @@
          the whole window (render.ts clientToCover) and the 3D camera centers
          on it, so the rail hides the domain's right edge rather than shrinking
          the view (26.6% of its width at 1280x720; 20.9% at the old 268px).
-         On a phone it gives way, down to the 280px a slider row's three tracks
-         need (104 + 48 + 11ch, plus padding, scrollbar and border), which keeps
-         CONTROLS in its place beside it down to a 390px window (#railToggle's
-         own clamp keeps it on screen below that). At that width only the
-         calibrated coupling readout, 17 characters, wraps onto a second line */
-      --rail-w: clamp(280px, calc(100vw - 110px), 340px);
+         On a phone it gives way to CONTROLS, leaving it 120px (16 + its 88 +
+         16), down to 270px, where a slider row's three tracks still fit (84 +
+         48 + 11ch and the gaps, once the label track has shrunk from 104, see
+         .row, plus padding, scrollbar and border), which keeps CONTROLS in
+         its place beside it down to a 390px window (#railToggle's own clamp
+         keeps it on screen below that). At that width only the calibrated
+         coupling readout, 17 characters, wraps onto a second line */
+      --rail-w: clamp(270px, calc(100vw - 120px), 340px);
     }
+    /* The chrome sits --tool-edge (16px) from the window's edges and from the
+       rail; the numbers below are that inset plus the fixed sizes of the
+       pieces: the head plate 232 wide, the lens bar 312 x 64 (so it ends
+       on the same line as the TRUE 3D switch beside it, 16 + 64 = 52 + 28),
+       the learn toggle 72 and CONTROLS 88 wide (8 apart, 168 together, the
+       TRUE 3D switch's width under them), the pills 28 tall, 8 between rows. */
     body {
       --rail-inset: var(--rail-w);
       /* the width the rail leaves */
       --free-w: calc(100vw - var(--rail-inset));
-      /* CONTROLS' right edge: 14px from the rail, but never further left than
-         its own 77px width plus 14 from the window's edge (a 390px phone) */
-      --ctl-right: min(calc(var(--rail-inset) + 14px), calc(100vw - 91px));
-      /* The learn toggle sits left of CONTROLS (58 wide, 6 apart). 1px when it
-         no longer fits there with 14px to spare (155 = 77 + 6 + 58 + 14; only
+      /* CONTROLS' right edge: 16px from the rail, but never further left than
+         its own 88px width plus 16 from the window's edge (a 390px phone) */
+      --ctl-right: min(calc(var(--rail-inset) + 16px), calc(100vw - 104px));
+      /* The learn toggle sits left of CONTROLS (72 wide, 8 apart). 1px when it
+         no longer fits there with 16px to spare (184 = 88 + 8 + 72 + 16; only
          a phone with the rail open): it then drops under CONTROLS, and the
-         TRUE 3D switch drops under it. A 0/1px step like the two below. */
-      --learn-drop: clamp(0px, (var(--ctl-right) + 155px - 100vw) * 1000, 1px);
-      /* the bottom-center items (hint, SEM bar, mode panels) are centered on
+         TRUE 3D switch drops under it. A 0/1px step like the one below. */
+      --learn-drop: clamp(0px, (var(--ctl-right) + 184px - 100vw) * 1000, 1px);
+      /* the bottom-center items (the hint, the mode panels) are centered on
          the window and capped at 100% - 2 x this, so they reach neither the
-         rail nor the transport bar, whose right edge is at 316px; the floor
+         rail nor the transport bar, whose right edge is at 282px; the floor
          holds that second promise while the rail is hidden */
-      --center-inset: max(var(--rail-inset), 316px);
-      /* Two layout steps on --free-w, each 0px above its width and 1px below
-         it, used as a unit (22 * var(--x) is 22px or 0). Media queries cannot
-         read a custom property; this way hiding the rail or changing --rail-w
-         moves the breakpoints with it. The x 1000 makes the ramp between 0 and
-         1px a thousandth of a pixel wide.
-           --lens-squeeze: the lens bar (at its 424px floor, right edge 567)
-             and the TRUE 3D switch (168 wide, 14 from the rail) no longer fit
-             side by side with a 20px gap, so the switch drops below the bar.
-           --lens-own-row: the bar no longer fits beside the learn toggle and
-             CONTROLS (58 + 6 + 77 wide) with a 20px gap either (567 + 20 +
-             141 + 14 = 742), so it takes a row of its own under the switch. */
-      --lens-squeeze: clamp(0px, (770px - var(--free-w)) * 1000, 1px);
-      --lens-own-row: clamp(0px, (744px - var(--free-w)) * 1000, 1px);
+      --center-inset: max(var(--rail-inset), 282px);
+      /* A layout step on --free-w, 0px above its width and 1px below it, used
+         as a unit (70 * var(--x) is 70px or 0). Media queries cannot read a
+         custom property; this way hiding the rail or changing --rail-w moves
+         the breakpoint with it. The x 1000 makes the ramp between 0 and 1px a
+         thousandth of a pixel wide.
+           --lens-own-row: the lens bar (at its 424px floor, right edge 580)
+             no longer fits beside the right-hand column (the learn toggle and
+             CONTROLS, and the TRUE 3D switch under them, 168 wide) with a 20px
+             gap (580 + 20 + 168 + 16 = 784), so it takes a row of its own
+             under the switch. The column is one width on both of its rows, so
+             one step covers both (there were two while the switch was
+             narrower than the row above it). */
+      --lens-own-row: clamp(0px, (784px - var(--free-w)) * 1000, 1px);
+      /*   --lens-under-head (v8 D2 review): under 596px (the bar's 424px
+             floor for its center + 172, its half and 16 off the rail) the bar
+             on its own row would reach the head plate, so it goes UNDER the
+             plate instead (#views), and the right-hand column keeps only the
+             toggles and the switch. A phone, a tablet held upright, any
+             narrow window. Implies --lens-own-row */
+      --lens-under-head: clamp(0px, (596px - var(--free-w)) * 1000, 1px);
       /* The top band: the bottom of the top chrome, plus 8px. The mode
          panels, the analysis columns and nothing else bottom-anchored may
          grow past it (they scroll instead), so none of them can paint over
          the lens bar, the learn toggle, CONTROLS or the TRUE 3D switch, which
-         would leave no way to turn learn mode off or leave the mode. 84 is the
-         TRUE 3D switch's bottom (50 + 34), 22 more while it sits under the
-         lens bar (--lens-squeeze); 142 the lens bar's own when it has a row of
-         its own (the switch is back at 84 then, and a phone's --learn-drop
-         puts it at 120) */
-      --top-band: calc(92px + 22 * var(--lens-squeeze) + 36 * var(--lens-own-row));
+         would leave no way to turn learn mode off or leave the mode. 88 is
+         the switch's bottom (52 + 28) plus 8; 160 the lens bar's own when it
+         has a row of its own in the column (88 + 64 + 8), not when it went
+         under the head plate (the columns and the panels are held clear of
+         it there by other means: #apanels, .narrow); a phone's --learn-drop
+         moves the switch, and the bar under it, down 36 more */
+      --top-band: calc(88px + 72 * (var(--lens-own-row) - var(--lens-under-head)) + 36 * var(--learn-drop));
     }
-    /* TRUE 3D adds the view cube under the switch: its bottom is 188 (96 +
-       92), moved down with the switch and the lens bar */
-    body.mode3d { --top-band: calc(196px + 22 * var(--lens-squeeze) + 32 * var(--lens-own-row)); }
+    /* TRUE 3D adds the view cube under the switch (under the lens bar when
+       that has its own row in the column): its bottom is 180 (88 + 92), + 8 */
+    body.mode3d { --top-band: calc(188px + 72 * (var(--lens-own-row) - var(--lens-under-head)) + 36 * var(--learn-drop)); }
     body.railHidden { --rail-inset: 0px; }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; }
-    #canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+    /* The rail open on a window too narrow for the chrome beside it (ui.ts
+       sets .railCramped while the width the rail leaves is under 596px, the
+       --lens-under-head width; ui.ts boots such a window with the rail
+       hidden). The rail is then a drawer over the melt: what it leaves no
+       room for folds away until it closes, and learn and controls stay.
+       .railPhone (under 298px: the transport bar's right edge 282 + 16)
+       adds the bottom-left group, which the rail would otherwise cover */
+    body.railCramped :is(#head, #views, #dimSwitch, #viewcube, #hud, #apanels, #apanels3, #scalebar, #thermbar, #sembar,
+      #slicePop, #hint) { visibility: hidden; }
+    body.railPhone :is(#transport, #tourBtn, #armed) { visibility: hidden; }
+    /* and on such a narrow canvas (ui.ts .narrow, the rail open or not) a
+       mode panel, which takes the whole width there, would paint over the
+       head plate and the lens bar under it: they step out while it is open
+       (the panel reports the run itself) */
+    body.narrow:has(#app > .modepanel) :is(#head, #views, #scalebar, #thermbar, #sembar, #slicePop) { visibility: hidden; }
+    * { margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    #canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
     #app { position: absolute; inset: 0; }
+    /* a plate's text never takes the canvas's crosshair */
+    .plate { cursor: default; }
+    /* a control that floats over the canvas on its own (the top chrome's
+       pills): the overlay behind its outline, so it reads over any lens */
+    .backed { background-color: var(--overlay); -webkit-backdrop-filter: blur(var(--overlay-blur)); backdrop-filter: blur(var(--overlay-blur)); }
+    /* The focus ring of a control over the canvas is drawn INSIDE its
+       backing: the tool's ring sits 2px outside a pill, which over the pill
+       would be straight on the live canvas, white on the near-white ETCH
+       lens. Inset 4px it is a --focus ring on the dark overlay, a 3px band
+       inside the border; on an inverted (pressed) pill it takes --bg */
+    .backed:focus-visible, #dimSwitch .actswitch:focus-visible { outline-offset: -4px; }
+    .backed.on:focus-visible, .backed[aria-pressed="true"]:focus-visible { outline-color: var(--bg); }
+    /* nav style: the TRUE 3D switch and the rail's two links. The learn,
+       controls and tour toggles are buttons like every other pill, Inter 500
+       in their own lowercase (DESIGN.md 3: one face for all buttons) */
+    #dimSwitch .actswitch, .scilink {
+      font: 400 var(--t-nav-tool)/1 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav);
+    }
 
-    ::selection { background: var(--amber); color: #17110a; }
-    ::-webkit-scrollbar { width: 10px; background: #0a0b0d; }
-    ::-webkit-scrollbar-thumb { background: #c98a3a; border-radius: 5px; border: 2px solid #0a0b0d; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--amber); }
-    #head { position: absolute; top: 16px; left: 18px; user-select: none; text-shadow: 0 1px 4px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.5); }
-    #head h1 { font-size: 15px; letter-spacing: 0.35em; font-weight: 600; color: #eef1f5; }
-    #head h1 a { color: inherit; text-decoration: none; }
-    #head h1 span { color: var(--amber); }
-    #head .sub { margin-top: 2px; color: var(--dim); font-size: 11px; letter-spacing: 0.08em; }
-    #readouts { position: absolute; top: 78px; left: 18px; display: flex; flex-direction: column; gap: 3px; pointer-events: none; user-select: none; font-size: 11.5px; text-shadow: 0 1px 3px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.6); }
-    #readouts div { color: #9aa1ab; }
-    #readouts b { color: #e8ebef; font-weight: 500; }
+    /* ---- the head plate (top left): the wordmark, what this is, the melt's
+       name and its caveats, and the live readouts as a spec rail under them.
+       One plate, so the readouts follow the name however many lines a long
+       alloy name or a caveat takes, and all of it holds its contrast over
+       any lens. pointer-events: none, so a tap on it still reaches the melt
+       as it did before the plate (the wordmark's link takes its own) */
+    /* 232 wide, but never into the column of toggles on the right (v8 D2
+       review): on a window under 444px (a phone) it gives way, leaving 12px
+       before that column (212 = 16 + 12 + 168 + 16) */
+    #head { position: absolute; top: var(--tool-edge); left: var(--tool-edge); width: clamp(120px, calc(var(--free-w) - 212px), 232px); padding: var(--s-3);
+      pointer-events: none; user-select: none; anchor-name: --head; }
+    #head h1 { font: 400 var(--t-wordmark)/1 var(--font-display); letter-spacing: var(--track-wordmark); color: var(--fg); }
+    #head h1 a { color: inherit; text-decoration: none; pointer-events: auto; }
+    #head .sub { margin-top: 6px; line-height: 1.2; color: var(--fg-3); }
+    /* the melt's name wraps inside the plate (a share link's can be any
+       length); its clamps and refusals sit right under it, on the same
+       surface, since a deep-linked alloy has no composer open to show them */
+    #matline { margin-top: var(--s-2); color: var(--fg-2); overflow-wrap: anywhere; }
+    #matcaveat { display: none; margin-top: var(--s-1); font-size: var(--t-ui-min); line-height: 1.4; overflow-wrap: anywhere; }
+    #readouts { margin-top: var(--s-3); }
 
+    /* ---- the rail */
     /* overflow-wrap: anywhere lets no word, value or source string set a
        min-content width wider than the rail; long text wraps inside it instead
        (the rail must never scroll sideways, verify-rail.mjs) */
-    #rail { position: absolute; top: 0; right: 0; bottom: 0; width: var(--rail-w); background: rgba(15,17,21,0.92); border-left: 1px solid var(--line); overflow-y: auto; overflow-wrap: anywhere; padding: 14px 14px 90px; backdrop-filter: blur(6px); transition: transform 0.25s ease; scrollbar-width: thin; scrollbar-color: #2b313b transparent; }
+    #rail { position: absolute; top: 0; right: 0; bottom: 0; width: var(--rail-w); padding: var(--s-1) var(--s-3) var(--s-24);
+      background: var(--overlay); -webkit-backdrop-filter: blur(var(--overlay-blur)); backdrop-filter: blur(var(--overlay-blur));
+      border-left: 1px solid var(--rule); overflow-y: auto; overflow-wrap: anywhere;
+      transition: transform 0.25s ease; scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent; }
     #rail.hidden { transform: translateX(100%); }
-    /* the lab's report — same slide mechanism as #rail, mirrored to the opposite
-       edge so the two never compete for space; no dimmed backdrop, the live sim
-       stays visible and interactive behind it. Built once per Lab Mode session
-       and left in the DOM (lab.ts:buildResultsPanel) — only this class toggles. */
-    #foundryResults { position: absolute; top: 0; left: 0; bottom: 0; width: min(400px, 92vw); background: rgba(15,17,21,0.94); border-right: 1px solid var(--line); overflow-y: auto; padding: 14px 16px 20px; backdrop-filter: blur(6px); transition: transform 0.25s ease; z-index: 7; font-size: 11.5px; line-height: 1.7; scrollbar-width: thin; scrollbar-color: #2b313b transparent; }
-    #foundryResults.hidden { transform: translateX(-100%); }
-    #foundryResults .frHead { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; letter-spacing: 0.2em; color: #56d4dd; }
-    #foundryResults .frHead span { flex: 1; }
-    #foundryResults .frHead button:not(.lrnInfo) { font-size: 10px; padding: 3px 8px; }
-    /* never further left than its own width from the window's edge (77 + 14):
-       below a 390px window the rail stops giving way and would otherwise push
-       the one control that moves it off screen */
-    #railToggle { position: absolute; top: 14px; right: var(--ctl-right); z-index: 5; transition: right 0.25s ease; }
-    /* learn mode's switch (src/learn): left of CONTROLS, or under it on a phone
-       with the rail open (--learn-drop). Cyan, the tour's color: teaching */
-    #learnToggle { position: absolute; top: calc(14px + 36 * var(--learn-drop)); right: calc(var(--ctl-right) + 83 * (1px - var(--learn-drop)));
-      width: 58px; z-index: 5; transition: right 0.25s ease, top 0.25s ease; }
-    #learnToggle.on { border-color: var(--cyan); color: var(--cyan); }
-    /* the 2D ↔ 3D activation switch floats directly below CONTROLS and slides
-       with the rail; below the lens bar instead while the two cannot share
-       the top band (--lens-squeeze), back under CONTROLS once the bar has a
-       row of its own (--lens-own-row) */
-    #dimSwitch { position: absolute; top: calc(50px + 22 * (var(--lens-squeeze) - var(--lens-own-row)) + 36 * var(--learn-drop)); right: calc(var(--rail-inset) + 14px); z-index: 5; width: 168px; transition: right 0.25s ease, top 0.25s ease; }
-    #dimSwitch .actswitch { margin: 0; background: rgba(15,17,21,0.85); backdrop-filter: blur(6px); }
-    /* not pointer-events:none: the unavailable switch must still show its
-       title (why it is unavailable) on hover; the click handler ignores it */
-    .actswitch.disabled { opacity: 0.45; cursor: not-allowed; }
-    .actswitch.disabled:hover { border-color: var(--line); color: var(--dim); }
-    /* under the switch, and under the lens bar when that has its own row */
-    #viewcube { position: absolute; top: calc(96px + 22 * var(--lens-squeeze) + 32 * var(--lens-own-row)); right: calc(var(--rail-inset) + 14px); z-index: 5; width: 92px; height: 92px;
-      transition: right 0.25s ease, top 0.25s ease, opacity 0.3s; display: none; touch-action: none; }
-    body.mode3d #viewcube { display: block; }
-    /* 2D-only chrome folds away in TRUE-3D mode (the HUD, tour, overlay and
-       scale bar stay — the 3D probe crosshair and SLICE scale bar live there);
-       only the 2D-owned overlay marks hide. The THERM and SEM legends are NOT
-       2D-owned: both lenses exist in the volume too (LENS3 6 and 4), so their
-       scales are driven by ui.sync() per mode rather than blanked here. */
-    body.mode3d #apanels { display: none !important; }
-    body.mode3d #probeMark, body.mode3d #rulerLine, body.mode3d #rulerText { display: none !important; }
-    /* floating SECTION PLANE panel (SLICE lens) */
-    /* capped under the scale bar the SLICE lens shows (its bottom at 245, + 7),
-       so learn mode's explanation, hint and Niyama sentence make it scroll
-       rather than climb over the readouts (78 to 211) and the scale bar */
-    #slicePop { position: absolute; left: 18px; bottom: 62px; width: 252px; display: none; z-index: 6;
-      max-height: calc(100% - 62px - 252px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #2b313b transparent;
-      background: rgba(15,17,21,0.9); border: 1px solid var(--line); border-radius: 6px;
-      padding: 9px 11px 8px; backdrop-filter: blur(6px);
-      /* its three rows (depth, tilt, turn) print at most "360°" */
-      --row-lab: 44px; --row-val: 5ch; }
-    #slicePop .t { font-size: 9px; letter-spacing: 0.18em; color: var(--dim); margin-bottom: 7px; }
-    #slicePop .btnrow { margin-bottom: 7px; }
-    #slicePop select { margin-top: 4px; }
-    /* 3D analysis panels (stereology / IPF) — same slot as the 2D #apanels */
-    #apanels3 { position: absolute; right: calc(var(--rail-inset) + 14px); bottom: 84px; display: flex; flex-direction: column;
-      gap: 8px; transition: right 0.25s ease; pointer-events: none; z-index: 1; }
-    body:not(.mode3d) #apanels3 { display: none; }
-    #apanels3 .apanel { pointer-events: auto; }
-    .sec { margin-bottom: 15px; }
-    .sec h2 { font-size: 10px; letter-spacing: 0.25em; color: var(--dim); margin-bottom: 8px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
-    .sec h2 .tog { margin-left: auto; cursor: pointer; color: var(--dim); font-size: 11px; }
+    /* sections: a nav-style header over a 1 px rule; an open section's
+       header reads --fg, a closed one --fg-3 */
+    .sec { border-top: 1px solid var(--rule); }
+    .sec:first-child { border-top: 0; }
+    .sec h2 { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-3) 0;
+      font: 400 var(--t-nav-tool)/1 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav); color: var(--fg-3); }
+    .sec h2:hover, .sec h2:has(> .secHead[aria-expanded="true"]) { color: var(--fg); }
+    .sec h2 .tog { margin-left: auto; width: 12px; text-align: center; font: 400 var(--t-ui)/1 var(--font-body); color: var(--fg-3); }
     /* the section title is a button (keyboard, aria-expanded) that looks like
-       the header text it replaced: none of the global button chrome */
-    .sec h2 .secHead { background: none; border: 0; border-radius: 2px; padding: 0; margin: 0; font: inherit;
-      letter-spacing: inherit; color: inherit; text-align: left; cursor: pointer; }
+       the header text it replaced: none of the button chrome */
+    .sec h2 .secHead { display: inline; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: none;
+      font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; text-align: left; }
     .sec h2 .secHead:hover { color: inherit; }
-    .sec h2 .secHead:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+    .secbody { padding-bottom: var(--s-3); }
     /* label | slider | value, as a grid so the value column can never be pushed
-       out of the row. The slider is the only track that gives; the value track
-       is at least 11ch, one more than the widest real-unit rate the rail has
-       been seen to print ("2.9e+9 K/s", verify-rail.mjs), so a two-digit
+       out of the row. The slider is the only track that gives, down to 48px;
+       below that the label track gives, from 104 to 84px (only on a phone's
+       270px rail, where "inoculant n_max" then takes two lines). The value
+       track is at least 11ch, one more than the widest real-unit rate the rail
+       has been seen to print ("2.9e+9 K/s", verify-rail.mjs), so a two-digit
        exponent still fits, and grows to fit a longer composite readout
        (coupling λ with its W₀/d₀) by taking width from the slider rather than
-       from the rail. font-size is set here so `ch` means the value's own 11px
-       digit. */
-    .row { display: grid; grid-template-columns: var(--row-lab, 104px) minmax(48px, 1fr) minmax(var(--row-val, 11ch), auto);
-      align-items: center; column-gap: 8px; margin-bottom: 7px; font-size: 11px; }
-    .row label { color: var(--text); font-size: 11.5px; line-height: 1.3; }
-    .row .val { text-align: right; color: var(--amber); font-size: 11px; font-variant-numeric: tabular-nums; }
-    .row .val.unreal { color: #e06c60; }
-    input[type="range"] { flex: 1; appearance: none; height: 2px; background: #333a45; border-radius: 1px; outline: none; }
-    /* the outline: none above (and on select below) is for the pointer; a
-       keyboard user still needs to see which slider or select has focus, with
-       the ring .lrnInfo and the section headers use */
-    input[type="range"]:focus-visible, select:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
-    input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px var(--cyan); }
+       from the rail. The row's font is the value's (the tabular mono), so
+       `ch` means the value's own digit; the label sets Inter back.
+       --row-lab / --row-val let the SECTION PLANE popup reuse the row. */
+    .row { display: grid;
+      grid-template-columns: minmax(min(84px, var(--row-lab, 104px)), var(--row-lab, 104px)) minmax(48px, 1fr) minmax(var(--row-val, 11ch), auto);
+      align-items: center; column-gap: var(--s-2); min-height: 24px; margin-bottom: var(--s-1);
+      font: 400 var(--t-value-tool)/1.35 var(--font-mono); font-variant-numeric: tabular-nums; }
+    .row label { font: 400 var(--t-ui)/1.3 var(--font-body); color: var(--fg-2); }
+    .row .val { text-align: right; color: var(--fg); }
+    /* past anything a real melt reaches: no color means that, a "!" does
+       (the note under the row says why) */
+    .row .val.unreal::before { content: "! "; }
     /* min-width: 0 drops Chrome's ~129px intrinsic slider width, which is what
        used to push every value off the side of a 268px rail. Only in a grid
        row, whose slider track has its own 48px floor: a slider in a flex row
        elsewhere (the optimizer's target, the composer) keeps the intrinsic
        width as its floor rather than shrinking to nothing */
     .row input[type="range"] { width: 100%; min-width: 0; }
-    input[type="range"]::-webkit-slider-thumb { appearance: none; width: 11px; height: 11px; border-radius: 50%; background: var(--amber); border: 2px solid #0a0b0d; box-shadow: 0 0 0 1px #4a4235; cursor: ew-resize; }
-    button { font-family: var(--font); font-size: 11px; letter-spacing: 0.06em; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 6px 9px; cursor: pointer; }
-    button:hover { border-color: #3a424e; color: #fff; }
-    button.on { border-color: var(--amber); color: var(--amber); }
-    button.accent { border-color: var(--amber); color: var(--amber); font-weight: 600; }
-    button.warn:hover { border-color: #e06c60; color: #e06c60; }
-    .btnrow { display: flex; flex-wrap: wrap; gap: 6px; }
+    /* button rows: pills that fill the row; .grid lines them up in --cols
+       equal columns (the presets, the modes, the symmetries) */
+    .btnrow { display: flex; flex-wrap: wrap; gap: var(--s-1); margin: var(--s-1) 0 var(--s-2); }
     .btnrow button { flex: 1 1 auto; }
-    .checkrow { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; font-size: 11.5px; cursor: pointer; user-select: none; }
-    .checkrow input { accent-color: var(--amber); }
-    /* activation switch: render-mode toggles (Illustrator-style "this costs GPU").
-       A <button role="switch"> (ui.ts actSwitch), so it undoes the global
-       button look: full width, no fill, text left */
-    .actswitch { display: flex; align-items: center; gap: 9px; width: 100%; margin: 9px 0 7px; padding: 7px 9px;
-      border: 1px solid var(--line); border-radius: 6px; cursor: pointer; user-select: none; background: transparent;
-      text-align: left; font-size: 11px; letter-spacing: 0.1em; color: var(--dim); transition: border-color 0.25s, color 0.25s; }
-    .actswitch:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
-    .actswitch .track { flex: 0 0 auto; width: 34px; height: 18px; border-radius: 999px;
-      background: #1b1f26; border: 1px solid #333a45; position: relative; transition: background 0.25s, border-color 0.25s; }
-    .actswitch .knob { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%;
-      background: #5b6675; transition: transform 0.25s, background 0.25s, box-shadow 0.25s; }
-    .actswitch.on { border-color: rgba(255,180,84,0.55); color: var(--amber); }
-    .actswitch.on .track { background: rgba(255,180,84,0.18); border-color: rgba(255,180,84,0.6); }
-    .actswitch.on .knob { transform: translateX(16px); background: var(--amber); box-shadow: 0 0 8px rgba(255,180,84,0.8); }
-    .actswitch .tag { margin-left: auto; font-size: 9px; letter-spacing: 0.14em; color: #5b6675; }
-    .actswitch.on .tag { color: rgba(255,180,84,0.75); }
-    .subpanel { border-left: 2px solid #232833; padding-left: 9px; margin: 4px 0 8px; }
-    .hl { outline: 2px solid var(--amber); outline-offset: 4px; border-radius: 6px; animation: hlpulse 1.3s ease-in-out infinite; }
-    @keyframes hlpulse { 0%, 100% { outline-color: var(--amber); } 50% { outline-color: rgba(255,180,84,0.25); } }
-    select { width: 100%; font-family: var(--font); font-size: 11.5px; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; cursor: pointer; outline: none; }
-    select:hover { border-color: #3a424e; }
-    .matnote { margin-top: 6px; font-size: 10.5px; line-height: 1.5; color: var(--dim); }
-    /* ---- learn mode (src/learn): none of it renders until the top bar's
-       learn toggle is on (the elements are display:none, set from JS). The
-       "i" in a section header expands that section's explanation under it;
-       a hint is one muted line under its control; a .lrnText is an
-       explanation or a caveat's learn half. Text colors hold >= 5:1 on the
-       rail's background even with a white canvas behind it (the ETCH lens
-       paints the liquid near-white, and the rail is 92% opaque): the hint's
-       #8a93a0 is 5.0:1 there, 6.2:1 over black; .lrnText's #9aa1ab 6.0:1. */
-    /* the "i" is 16px drawn but a 24px target (the ::after), and its -2px
-       margins keep the header the height it has with learn mode off */
-    .lrnInfo { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
-      position: relative; margin: -2px 0;
-      width: 16px; height: 16px; padding: 0; border-radius: 50%; background: transparent;
-      border: 1px solid #3a424e; color: #9aa1ab; font: italic 600 10px/1 Georgia, "Times New Roman", serif;
-      letter-spacing: 0; cursor: pointer; }
-    /* -5px from the padding box (the 16px face less its 1px border) is 24px */
-    .lrnInfo::after { content: ""; position: absolute; inset: -5px; }
-    .lrnInfo:hover { border-color: var(--cyan); color: var(--cyan); }
-    .lrnInfo[aria-expanded="true"] { border-color: var(--cyan); color: var(--cyan); background: rgba(86,212,221,0.12); }
-    .lrnInfo:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
-    .lrnText { margin: 5px 0 8px; padding-left: 8px; border-left: 2px solid rgba(86,212,221,0.45);
-      font-size: 10.5px; line-height: 1.5; color: #9aa1ab; letter-spacing: 0; font-weight: 400; }
-    .lrnText.lrnSec { margin: -2px 0 10px; }
-    /* a filled learn slot in a panel's note is already a block: the <br> the
-       next line starts with would only add a blank line (src/learn fillLearnSlots) */
+    .btnrow.grid { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); }
+    /* a grid cell is 76px on a phone's 270px rail: 4px of inline padding
+       leaves 66px of text, room for the longest one-word label ("bridgman");
+       a label may wrap between its words but never inside one (the rail's
+       overflow-wrap: anywhere is for provenance strings, not for pills) */
+    #rail .btnrow.grid button { padding-inline: var(--s-1); overflow-wrap: normal; word-break: keep-all; }
+    .btnrow.grid .span2 { grid-column: span 2; }
+    .checkrow { margin-bottom: var(--s-1); }
+    #rail .actswitch { margin: var(--s-1) 0; }
+    #rail select { margin-bottom: var(--s-1); }
+    /* A sub-panel's sliders (Bridgman, weld, the solute field) print short
+       dimensionless values, at most five characters ("0.250", "1600"), never
+       a rate: their value track needs 6ch, not the 11ch sized for "2.9e+9
+       K/s". The 11ch floor, 84 + 48 + 16 of the other tracks and gaps and
+       the indent came to 244px of a phone rail's 222 (verify-rail's phone
+       sample, v8 D2 review) */
+    .subpanel { margin: var(--s-1) 0 var(--s-2); padding-left: var(--s-3); border-left: 1px solid var(--rule-strong); --row-val: 6ch; }
+    .matnote { margin: 2px 0 var(--s-2); font-size: var(--t-ui-min); line-height: 1.45; color: var(--fg-3); }
+    /* the SCALE report and the calibration readout (ui.ts drawScale): a key,
+       its value in the tabular mono, its provenance in --fg-3 */
+    .scaletab { line-height: 1.7; }
+    .scaletab .srow { display: flex; gap: 6px; }
+    .scaletab .k { flex: 0 0 74px; color: var(--fg-2); }
+    .scaletab .v { flex: 0 0 82px; font: 400 var(--t-value-tool)/1.7 var(--font-mono); color: var(--fg); }
+    .scaletab .dim, .calsrc { color: var(--fg-3); }
+    .scaletab .grp { margin-top: var(--s-1); }
+    .scaletab .grp b { font-weight: 400; color: var(--fg); }
+    .scaletab .grp .gnote { margin-left: 14px; }
+    /* a matched group leads with a quiet check, a mismatched one with the
+       warning mark: no color says which */
+    .scaletab .ok { color: var(--fg-3); }
+    .scaletab .bad { color: var(--fg); font-weight: 500; }
+    .calok { color: var(--fg); }
+    /* the tour's highlight on a rail section: a pulsing 1 px ring */
+    .hl { outline: 1px solid var(--fg); outline-offset: 4px; border-radius: var(--r-panel); animation: hlpulse 1.3s ease-in-out infinite; }
+    @keyframes hlpulse { 0%, 100% { outline-color: var(--fg); } 50% { outline-color: var(--fg-4); } }
+    .hiddenSec { display: none; }
+    .scilink { display: inline-block; margin: var(--s-4) var(--s-5) 0 0; color: var(--fg-3); text-decoration: none; }
+    .scilink:hover { color: var(--fg); }
+    /* learn mode inside the rail's own chrome: a filled learn slot in a
+       panel's note is already a block, so the <br> the next line starts with
+       would only add a blank line (src/learn fillLearnSlots) */
+    .lrnText.lrnSec { margin: -4px 0 var(--s-3); }
     .lrnText.on + br { display: none; }
-    .lrnHint { margin: -3px 0 7px; font-size: 10px; line-height: 1.4; color: #8a93a0; }
-    /* a button row and a select carry no bottom margin of their own */
-    .btnrow + .lrnHint, select + .lrnHint { margin-top: 4px; }
+    /* a button row and a select carry their own bottom margin */
+    .btnrow + .lrnHint { margin-top: -4px; }
+    select + .lrnHint { margin-top: 0; }
+
+    /* ---- the top chrome (right): learn, CONTROLS, the TRUE 3D switch */
+    /* never further left than its own width from the window's edge (88 +
+       16): below a 390px window the rail stops giving way and would otherwise
+       push the one control that moves it off screen. The two toggles come
+       BEFORE the rail in the markup, and z-index 5 keeps them above it */
+    #railToggle { position: absolute; top: var(--tool-edge); right: var(--ctl-right); width: 88px; padding: 0; z-index: 5; transition: right 0.25s ease; }
+    /* learn mode's switch (src/learn): left of CONTROLS (its right edge 88 +
+       8 = 96 left of CONTROLS'), or under it on a phone with the rail open
+       (--learn-drop). Inverted while on, like every toggle */
+    #learnToggle { position: absolute; top: calc(16px + 36 * var(--learn-drop)); right: calc(var(--ctl-right) + 96 * (1px - var(--learn-drop)));
+      width: 72px; padding: 0; z-index: 5; transition: right 0.25s ease, top 0.25s ease; }
+    /* the 2D <-> 3D activation switch floats directly below CONTROLS and the
+       learn toggle, as wide as the two, and slides with the rail */
+    #dimSwitch { position: absolute; top: calc(52px + 36 * var(--learn-drop)); right: calc(var(--rail-inset) + 16px); z-index: 5; width: 168px;
+      transition: right 0.25s ease, top 0.25s ease; }
+    #dimSwitch .actswitch { padding: 0 var(--s-3) 0 var(--s-2); border: 1px solid var(--rule-strong); border-radius: var(--r-button-tool); color: var(--fg);
+      background-color: var(--overlay); -webkit-backdrop-filter: blur(var(--overlay-blur)); backdrop-filter: blur(var(--overlay-blur)); }
+    #dimSwitch .actswitch:hover { border-color: var(--fg); }
+    /* not pointer-events:none: the unavailable switch must still show its
+       title (why it is unavailable) on hover; the click handler ignores it */
+    #dimSwitch .actswitch.disabled, #dimSwitch .actswitch.disabled:hover { border-color: var(--rule); color: var(--fg-4); }
+    /* under the switch, and under the lens bar when that has its own row in
+       the column (88 + 64 + 8), not when it went under the head plate */
+    #viewcube { position: absolute; top: calc(88px + 72 * (var(--lens-own-row) - var(--lens-under-head)) + 36 * var(--learn-drop));
+      right: calc(var(--rail-inset) + 16px); z-index: 5;
+      width: 92px; height: 92px; transition: right 0.25s ease, top 0.25s ease, opacity 0.3s; display: none; touch-action: none; }
+    body.mode3d #viewcube { display: block; }
+
+    /* ---- the lens bar: pill tabs, the active one inverted, in a 5 x 2 grid
+       of 312 x 64 (two rows of 24px tabs 6 apart, the plate's 4px padding and
+       its border). Centered in the space the rail leaves; the 424px floor
+       keeps it 20px off the head plate (16 + 232 + 20 + 156, half this bar).
+       On a narrow window it cannot also clear the column beside the rail:
+       below --lens-own-row it takes a row of its own under the switch (top
+       88 = 52 + 28 + 8), right-aligned under that column the way the view
+       cube stacks (its center 172 = 16 + 156 off the rail: the third max()
+       term, which a huge negative offset switches off while the bar shares
+       the top row), and never nearer the rail than that (the min(); on a
+       phone with the rail hidden that also keeps it on screen) */
+    /* (--learn-drop implies --lens-own-row: it needs a window under 200px
+       wider than the rail.) Under 596px (--lens-under-head) the bar goes
+       under the head plate, 8px below it wherever a long name or a caveat
+       puts its bottom (anchored; 220px lower where anchors are unsupported,
+       under the plate's usual bottom), still right-aligned */
+    #views { position: absolute; top: calc(16px + 72 * var(--lens-own-row) + 36 * var(--learn-drop) + 220 * var(--lens-under-head));
+      left: min(max(424px, calc(var(--free-w) / 2), calc(var(--free-w) - 172px - (1px - var(--lens-own-row)) * 100000)),
+        calc(var(--free-w) - 172px));
+      transform: translateX(-50%);
+      width: 312px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px var(--s-1); padding: var(--s-1);
+      transition: left 0.25s ease, top 0.25s ease; anchor-name: --views; }
+    @supports (top: anchor(--head bottom)) {
+      #views { top: max(calc(16px + 72 * var(--lens-own-row) + 36 * var(--learn-drop)),
+        calc(anchor(--head bottom) + 8px - (1px - var(--lens-under-head)) * 100000)); }
+      /* under the plate the bar follows its bottom at once: a transition on
+         top would slide it after a longer name or a caveat has already
+         grown the plate over it (Chrome transitions the resolved anchor) */
+      body.narrow #views { transition: left 0.25s ease; }
+    }
+
+    /* 2D-only chrome folds away in TRUE-3D mode (the HUD, tour, overlay and
+       scale bar stay: the 3D probe crosshair and SLICE scale bar live there);
+       only the 2D-owned overlay marks hide. The THERM and SEM legends are NOT
+       2D-owned: both lenses exist in the volume too (LENS3 6 and 4), so their
+       scales are driven by ui.sync() per mode rather than blanked here. */
+    body.mode3d #apanels { display: none !important; }
+    body.mode3d #probeMark, body.mode3d #rulerCase, body.mode3d #rulerLine, body.mode3d #rulerText { display: none !important; }
+
+    /* ---- the transport (bottom left): four pills on one pill-shaped plate,
+       run the one filled pill. Fixed widths, so run/pause and rec/stop do not
+       shift the bar: 60 + 80 + 44 + 60, 4 apart, 4 padding and the border,
+       266 wide, so its right edge is 282 */
+    #transport { position: absolute; left: var(--tool-edge); bottom: var(--tool-edge); display: flex; gap: var(--s-1); padding: var(--s-1); }
+    #transport button { width: 60px; padding: 0; font-variant-emoji: text; }
+    #transport .run { width: 80px; }
+    #transport .mult { width: 44px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 400; }
+    /* The fill belongs to run / pause alone: the multiplier and rec, next to
+       it on one plate, show "on" as an emphasized outline (a --fg edge and
+       text) rather than inverting into two more white pills (DESIGN.md 5,
+       buttons) */
+    #transport button[aria-pressed="true"], #transport button.recording { background: transparent; border-color: var(--fg); color: var(--fg); }
+    #transport button[aria-pressed="true"]:hover, #transport button.recording:hover { background: transparent; border-color: var(--fg-2); }
+    /* One filled pill per view: while a mode panel is open its own primary
+       (pour and run, run treatment, apply recipe, start) is the view's, so
+       run / pause steps down to an outline pill. The panels leave the DOM on
+       close, so :has() follows them */
+    body:has(#app > .modepanel) #transport .run { background: transparent; border-color: var(--rule-strong); color: var(--fg); }
+    body:has(#app > .modepanel) #transport .run:hover { background: transparent; border-color: var(--fg); }
+    /* under the tour button (62 + 28 + 8): ARMED or PAUSED, and in learn
+       mode what that means; backed like the other chrome, since it shows at
+       t = 0, when the ETCH lens paints the melt near-white. Not uppercased:
+       ARMED and PAUSED are written in capitals, and the "▶ run" it names
+       keeps the case of the pill it names */
+    #armed { position: absolute; left: var(--tool-edge); bottom: 98px; max-width: 300px; padding: 6px var(--s-3); display: none; pointer-events: none;
+      font: 400 var(--t-nav-tool)/1.35 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg); }
+    #armed .lrnText { margin: 6px 0 2px; }
+    /* z-index 31 puts the tour one layer above #composer's z-index 30 (v7.1
+       P6). The chapter that opens the composer would otherwise bury its own
+       "next ▸" under the modal's backdrop, whose pointerdown closes the
+       composer, so the only way out of that chapter was to dismiss the thing
+       it had just opened. #app is position:absolute with z-index:auto and no
+       transform, so it creates no stacking context and this value is compared
+       against #composer's directly. */
+    #tour { position: absolute; z-index: 31; left: var(--tool-edge); bottom: 62px; width: 330px; padding: var(--s-4); display: none; }
+    #tour.show { display: block; }
+    /* the header row (the panel spec): the chapter counter in the nav style
+       over a 1 px rule */
+    #tour .ch { margin-bottom: var(--s-3); padding-bottom: var(--s-2); border-bottom: 1px solid var(--rule);
+      font: 400 var(--t-nav-tool)/1.2 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg-3); }
+    #tour h3 { margin-bottom: var(--s-2); font: 400 var(--t-body)/1.25 var(--font-body); letter-spacing: var(--track-body); color: var(--fg); }
+    #tour p { line-height: 1.5; color: var(--fg-2); }
+    #tour .watch { margin-top: var(--s-2); line-height: 1.5; color: var(--fg); }
+    #tour .nav { display: flex; gap: var(--s-2); margin-top: var(--s-3); }
+    #tourBtn { position: absolute; left: var(--tool-edge); bottom: 62px; }
+    #tourBtn.hide { display: none; }
+
+    /* ---- the HUD's sparkline cards (bottom right), each a plate. Capped so
+       it never reaches the transport bar (right edge 282 + 16): a narrower
+       window stacks its cards upward (wrap-reverse) instead of spreading them
+       over the run button, and one too narrow for a single 128px card (the
+       width the rail leaves under 298 + 128 + 16 = 442) folds it away (the
+       max-height step) rather than let a card spill over the bar. Its upper
+       rows pass under the analysis columns (#apanels) when those are open */
+    #hud { position: absolute; right: calc(var(--rail-inset) + 16px); bottom: var(--tool-edge); max-width: calc(100% - var(--rail-inset) - 16px - 298px);
+      max-height: clamp(0px, (100vw - var(--rail-inset) - 442px) * 1000, 100vh); overflow: hidden;
+      display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; gap: var(--s-2); transition: right 0.25s ease; pointer-events: none;
+      anchor-name: --hud; }
+    /* a mode panel paints over the cards' band and reports the same numbers:
+       the cards fold away while one is open, rather than leave fragments
+       sticking out past its edges */
+    body:has(#app > .modepanel) #hud { visibility: hidden; }
+    /* 110 + 2 x 8 + the border: 128 wide; 8 + 12 + 6 + 30 + 6 + 2: 64 tall */
+    .spark { padding: var(--s-2) var(--s-2) 6px; }
+    .spark .t { margin-bottom: 6px; font: 400 var(--t-nav-tool)/1 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg-3); white-space: nowrap; }
+    .spark canvas { display: block; }
+
+    /* ---- lens legends: the scale bar (ETCH, SLICE), the THERM colormap and
+       the SEM data bar share one slot under the head plate, wherever its
+       bottom is (a long alloy name or a caveat moves it): anchored to it,
+       with the plate's usual bottom as the fallback where anchor positioning
+       is not supported; on a narrow window, where the lens bar went under
+       the plate, under the lens bar (the lower of the two). A slot no
+       analysis panel reaches */
+    #scalebar { position: absolute; left: var(--tool-edge); top: 288px; top: calc(max(anchor(--head bottom), anchor(--views bottom)) + 8px); display: none; align-items: center; gap: var(--s-2);
+      padding: 5px var(--s-3); font: 400 var(--t-value-tool)/1.35 var(--font-mono); color: var(--fg); anchor-name: --scalebar; }
+    #scalebar .bar { width: 80px; height: 4px; background: var(--fg); }
+    #thermbar { position: absolute; left: var(--tool-edge); top: 288px; top: calc(max(anchor(--head bottom), anchor(--views bottom)) + 8px); display: none; width: 64px; height: 176px; }
+    #thermbar::before { content: ""; position: absolute; left: var(--s-2); top: var(--s-2); bottom: var(--s-2); width: 12px; background: var(--legend-therm); }
+    #thermbar .hi, #thermbar .lo { position: absolute; left: 28px; font-size: var(--t-ui-min); line-height: 1; color: var(--fg-2); }
+    #thermbar .hi { top: var(--s-2); } #thermbar .lo { bottom: var(--s-2); }
+    /* the SEM lens's data bar, in the same slot (the ETCH, SLICE, THERM and
+       SEM lenses are four different lenses, so at most one of the three
+       legends shows). It sat at the bottom center until v8 D2, where the
+       HUD's cards run under it at every width. A short scale bar (main.ts:
+       18 to 52px) keeps it on one line; narrower than that it breaks
+       between the groups, never inside a value */
+    /* no wider than the transport bar (right edge 282): the mode panels'
+       band starts 16px past that, and a panel may be open over the SEM lens */
+    #sembar { position: absolute; left: var(--tool-edge); top: 288px; top: calc(max(anchor(--head bottom), anchor(--views bottom)) + 8px); max-width: min(266px, calc(100% - 32px));
+      display: none; padding: 5px var(--s-3); font-size: var(--t-ui-min); line-height: 1.5; color: var(--fg-2); }
+    #sembar .nw { white-space: nowrap; }
+    #semhfw, #semscale { font: 400 var(--t-value-tool)/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg); }
+    #sembar .bar { display: inline-block; vertical-align: middle; height: 4px; width: 40px; margin-left: 2px; background: var(--fg); }
+    /* the gesture hint: centered on the window and capped at 100% - 2 x
+       --center-inset, so the right edge never reaches the rail and the left
+       edge never reaches the transport bar, rail shown or hidden; and 8px
+       above the HUD's cards (anchored to their top, which moves as a narrow
+       window wraps them into more rows; one row's top where anchors are not
+       supported). It used to share the bottom row with the cards and run
+       under them at every width */
+    #hint { position: absolute; bottom: 88px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 2 * var(--center-inset) - 32px);
+      padding: 5px var(--s-3); text-align: center; font-size: var(--t-ui-min); color: var(--fg-2); pointer-events: none; transition: opacity 1s;
+      text-wrap: balance; }
+    /* each "key: action" pair keeps its line (main.ts writes them as .nw),
+       so a narrow window breaks between pairs, never after "right-drag:" */
+    #hint .nw { white-space: nowrap; }
+    @supports (top: anchor(--head bottom)) {
+      #hint { bottom: calc(anchor(--hud top, 80px) + 8px); }
+    }
+    #hint.gone { opacity: 0; }
+    /* The hint's band is the analysis columns' too (their bottom is 88 and
+       they paint over it): while a column shows a panel (analyze.ts and
+       analyze3d.ts set .cols2d / .cols3d) the hint steps out rather than be
+       cut mid-word under it */
+    body:not(.mode3d).cols2d #hint, body.mode3d.cols3d #hint { display: none; }
+
+    /* ---- the WebGPU notice */
+    #gate { position: absolute; inset: 0; background: var(--bg); display: none; align-items: center; justify-content: center; text-align: center; z-index: 50; }
+    #gate .in { max-width: 460px; padding: var(--s-6); }
+    #gate h1 { margin-bottom: var(--s-4); font: 400 var(--t-wordmark)/1 var(--font-display); letter-spacing: var(--track-wordmark); color: var(--fg); }
+    #gate p { font-size: var(--t-body); line-height: 1.6; color: var(--fg-2); }
+    #gate p b { font-weight: 400; color: var(--fg); }
+
+    /* ---- the floating SECTION PLANE panel (SLICE lens), a plate. Its top
+       stops 8px under the scale bar the SLICE lens shows (anchored; a fixed
+       cap where anchors are not supported), so learn mode's explanation,
+       hint and Niyama sentence make it scroll rather than climb over the
+       head plate and the scale bar */
+    #slicePop { position: absolute; left: var(--tool-edge); bottom: 62px; width: 252px; display: none; z-index: 6;
+      max-height: calc(100% - 62px - 330px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent;
+      padding: var(--s-2) var(--s-3);
+      /* its three rows (depth, tilt, turn) print at most "360°" */
+      --row-lab: 44px; --row-val: 5ch; }
+    /* anchored: both insets set, so the space between is the stretch size;
+       the box is its content's height, capped at that (the content scrolls
+       past it), and the auto top margin takes the rest, so it stays on the
+       bottom inset */
+    @supports (top: anchor(--head bottom)) {
+      #slicePop { top: calc(anchor(--scalebar bottom, 322px) + 8px); height: fit-content; margin-top: auto;
+        max-height: -webkit-fill-available; max-height: stretch; }
+    }
+    /* its header row in the panel spec's nav style, over a 1 px rule */
+    #slicePop .t { display: flex; align-items: center; gap: 6px; margin-bottom: var(--s-2); padding-bottom: var(--s-2); border-bottom: 1px solid var(--rule);
+      font: 400 var(--t-nav-tool)/1.2 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg); }
+    #slicePop select { margin: var(--s-1) 0; }
+
+    /* ---- analysis panels: bottom-right column, left of the rail, above the
+       HUD's cards (16 + 64 + 8). z-index 1 (here and on #apanels3) paints
+       them over the HUD, which a narrow window wraps upward behind them: the
+       HUD is the passive one of the two, and raising the columns instead
+       would push them into the TRUE 3D switch and the view cube on a short
+       window */
+    #apanels, #apanels3 { position: absolute; right: calc(var(--rail-inset) + 16px); bottom: 88px; display: flex; flex-direction: column;
+      gap: var(--s-2); transition: right 0.25s ease; pointer-events: none; z-index: 1; }
+    body:not(.mode3d) #apanels3 { display: none; }
+    /* Both columns grow upward from the bottom, so they stop at the top band
+       and scroll past it (a wheel or a drag on a panel scrolls the column):
+       every panel open plus an explanation in learn mode, or the three 3D
+       panels on a short window, used to climb under the TRUE 3D switch, the
+       view cube and the lens bar, headers and "i" buttons out of reach */
+    #apanels, #apanels3 { max-height: calc(100% - 88px - var(--top-band)); overflow-y: auto; overflow-x: hidden;
+      scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent; }
+    /* On a narrow canvas (ui.ts .narrow) the lens bar is under the head plate,
+       not in the top band, so the columns stop 8px under the lens bar
+       instead: both insets set, the box its content's height capped at the
+       space between (the #slicePop idiom), the auto top margin keeping it on
+       the bottom inset */
+    @supports (top: anchor(--head bottom)) {
+      body.narrow #apanels, body.narrow #apanels3 { top: calc(anchor(--views bottom) + 8px); height: fit-content; margin-top: auto;
+        max-height: -webkit-fill-available; max-height: stretch; }
+    }
+    /* the container passes clicks through to the melt; the panels themselves
+       are interactive (the ⤢ enlarge button must win over tap-to-seed) */
+    .apanel { display: none; pointer-events: auto; padding: var(--s-2) 10px 6px;
+      background: var(--overlay); border: 1px solid var(--rule); border-radius: var(--r-panel);
+      -webkit-backdrop-filter: blur(var(--overlay-blur)); backdrop-filter: blur(var(--overlay-blur)); }
+    #apanels3 .apanel { pointer-events: auto; }
+    /* the header row: the nav-style title in --fg, the "i", the enlarge
+       control at the far end, a 1 px rule under it (the panel spec) */
+    .apanel .t { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--rule);
+      font: 400 var(--t-nav-tool)/1.2 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg); }
+    .apanel .zoomBtn { margin-left: auto; pointer-events: auto; }
+    .apanel canvas { display: block; }
+    /* the STEREOLOGY panel's text: a spec rail as wide as its plots */
+    .apanel .stereo { width: 236px; font-size: var(--t-ui-min); line-height: 1.45; }
+    /* the lab report's sections, under their own name so they aren't
+       display:none by default like .apanel is: a nav-style title over a
+       1 px rule, never a box inside the panel */
+    .rcard { margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px solid var(--rule); }
+    .rcard > .psub { margin-bottom: var(--s-2); }
+    .rcard canvas { display: block; width: 100%; height: 168px; }
+
+    /* the lab's report: the same slide mechanism as #rail, mirrored to the
+       opposite edge so the two never compete for space; no dimmed backdrop,
+       the live sim stays visible and interactive behind it. Built once per
+       Lab Mode session and left in the DOM (lab.ts:buildResultsPanel), only
+       this class toggles. */
+    #foundryResults { position: absolute; top: 0; left: 0; bottom: 0; width: min(400px, 92vw); z-index: 7; padding-bottom: var(--s-6);
+      background: var(--overlay); -webkit-backdrop-filter: blur(var(--overlay-blur)); backdrop-filter: blur(var(--overlay-blur));
+      border-right: 1px solid var(--rule); overflow-y: auto; transition: transform 0.25s ease;
+      scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent; }
+    #foundryResults.hidden { transform: translateX(-100%); }
+    @keyframes resultsPulse { 0%, 100% { border-color: var(--rule-strong); } 30% { border-color: var(--fg); background-color: var(--rule); } }
+    #foundryResultsBtn.pulse { animation: resultsPulse 1.1s ease-out 1; }
+
+    /* ---- inside the panels built in script (tokens.css has the panel
+       spec: .tpanel, .phead, .kv, .v, .q, .warnline): the vertical rhythm */
+    .pnote { margin-bottom: var(--s-3); line-height: 1.5; overflow-wrap: anywhere; }
+    .pstatus { margin-top: var(--s-2); font-size: var(--t-ui-min); line-height: 1.5; }
+    .pline { margin-top: var(--s-2); font-size: var(--t-ui-min); line-height: 1.5; }
+    .psetup { margin-bottom: var(--s-1); font-size: var(--t-ui-min); }
+    .preport { margin-top: var(--s-3); line-height: 1.5; }
+    .preport:empty { display: none; }
+    .pnav { margin-top: var(--s-4); }
+    /* the challenge's verdict: the one line in the heading role */
+    .pverdict { margin-top: var(--s-3); font: 400 var(--t-heading)/1.1 var(--font-body); letter-spacing: var(--track-body); color: var(--fg); }
+    /* a word inside a spec rail's mono value column ("not resolved") */
+    .spec--panel .spec__value .q { font-family: var(--font-body); font-size: var(--t-ui-min); }
+    /* the step block's section table: nav-style heads, values in the mono */
+    .ptable { width: 100%; border-collapse: collapse; }
+    .ptable th { padding: 0 0 4px; text-align: left; font: 400 var(--t-nav-tool)/1.2 var(--font-display); text-transform: uppercase;
+      letter-spacing: var(--track-nav); color: var(--fg-3); }
+    .ptable td { padding: 4px var(--s-2) 4px 0; border-top: 1px solid var(--rule); }
+    /* the optimizer: its target slider (wraps to its own line at 110px), the
+       lab-notebook strip of etched thumbnails (square-edged media), the
+       converged recipe under a rule. The best casting is marked on the dark
+       plate, not on the image: every thumbnail is an ETCH capture, near
+       white, where a 1px white edge disappears, so it is a --fg ring 2px
+       out (the strip's 4px padding holds it) and a bright label */
+    #labTarget { flex: 1 1 110px; min-width: 110px; max-width: 150px; }
+    .ostrip { display: flex; gap: var(--s-3); overflow-x: auto; min-height: 92px; padding: var(--s-1) var(--s-1) 2px; align-items: flex-end; }
+    .otile { flex: none; text-align: center; font: 400 var(--t-ui-min)/1.6 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg-3); }
+    .otile canvas { display: block; width: 64px; height: 64px; border: 1px solid var(--rule); }
+    .otile.best { color: var(--fg); }
+    .otile.best canvas { outline: 1px solid var(--fg); outline-offset: 2px; }
+    .oreport { margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px solid var(--rule); }
+    .oreport > .psub { margin-bottom: var(--s-2); }
+    .oreport > .pactions { margin-top: var(--s-3); }
+
+    /* the four mode panels (lab, heat treat, optimizer, challenge), each
+       setting its own design width as --cap. Centered on the window and
+       capped by --center-inset like the hint, but never narrower than 300px:
+       their form rows need 252 plus the panel's padding (a formbits row was
+       118 + 60 + 58 + 2 x 8 until v8 D2 stacked it; a column is 220 now, and
+       the optimizer's header needs its title, target and 110px slider on a
+       line), and under that the cap made them scroll sideways
+       or paint their values over the rail. A panel held at 300px slides off
+       center as far as it must to stay in the band between the transport bar
+       and the rail (298px to the rail's edge less 16: the clamp on left).
+       Once it no longer fits in that band (--over, a 0/1px step like the
+       ones on body) it lifts clear of the bar instead (--lift: its bottom to
+       62px, the bar's top at 54 plus 8) and may use the width under it, down
+       to 16px from the window's edge. Upward it stops at the top band and
+       scrolls past it: learn mode's hints and explanations, or a long heat
+       treat report, would otherwise carry it over the top chrome (it paints
+       at z-index 6, over the learn toggle and CONTROLS at 5) or off the top
+       of the window, header and exit button included */
+    /* each panel's design width (the challenge takes the default) */
+    /* 560 for lab mode and the challenge: two form columns of 252, where a
+       learn hint ("grain refiner particles added to the charge") keeps one
+       line (RAIL-LEARN; at 520 the columns were 228 and it took two) */
+    .modepanel { --cap: 560px; z-index: 6; }
+    #heattreat { --cap: 700px; }
+    #lab { --cap: 720px; }
+    .modepanel {
+      --pw: max(min(var(--cap), calc(100vw - 2 * var(--center-inset) - 32px)), min(300px, calc(100vw - 32px)));
+      --over: clamp(0px, (var(--pw) + var(--rail-inset) + 314px - 100vw) * 1000, 1px);
+      --lift: calc(46 * var(--over));
+      position: absolute; bottom: calc(16px + var(--lift)); width: var(--pw);
+      left: clamp(calc(16px + 282 * (1px - var(--over)) + var(--pw) / 2), 50%,
+                  calc(100% - var(--rail-inset) - 16px - var(--pw) / 2));
+      transform: translateX(-50%);
+      max-height: calc(100vh - 16px - var(--lift) - var(--top-band));
+      overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent;
+    }
+
+    /* the panels' forms (lab mode, heat treat): as many 220px columns as
+       fit, each row in a cell of its own with its learn hint under it */
+    .fbform { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--s-3) var(--s-6); margin-bottom: var(--s-4); }
+    /* a form row (src/formbits.ts), a spec row with its control: the label
+       left, the value right in the tabular mono, and a slider under the two
+       at the row's full width, so a long value ("520 °C · 0.85 T_m") keeps
+       its line and the slider its length. A select or a switch sits on the
+       label's line instead */
+    .fbrow { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; column-gap: var(--s-3); row-gap: 2px;
+      color: var(--fg-2); }
+    .fbrow .fblab { grid-column: 1; grid-row: 1; }
+    .fbrow .fbval { grid-column: 2; grid-row: 1; min-width: 0; text-align: right; overflow-wrap: anywhere;
+      font: 400 var(--t-value-tool)/1.35 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg); }
+    .fbrow input[type="range"] { grid-column: 1 / -1; grid-row: 2; width: 100%; min-width: 0; }
+    .fbrow select { grid-column: 2; grid-row: 1; width: 100%; min-width: 0; }
+    .fbrow input[type="checkbox"] { grid-column: 2; grid-row: 1; justify-self: end; }
 
     /* ---- alloy composer ---- */
-    #composer { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(4,5,7,0.6); backdrop-filter: blur(4px); z-index: 30; }
+    #composer { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 30;
+      background: var(--scrim); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
     #composer.show { display: flex; }
     /* The tour's chapter that OPENS this modal (v7.1 P6) has to leave the modal
        usable, and paint order alone cannot do it: #composer's z-index 30 is a
        stacking context, so the card can never be lifted above #tour's 31 from
        inside. So the two are kept from intersecting instead. The card is
        centred, so its left edge sits at (W-500)/2 and meets the tour's column
-       (18 + 330) at W = 1196 — every laptop, half-screen window and phone was
+       (16 + 330) at W = 1192: every laptop, half-screen window and phone was
        below that, and the first control the chapter's own "watch" line names,
        the A356 quick-fill, is the one that went under the panel first.
-       366px = 18 left + 330 wide + 18 gap. */
-    body:has(#tour.show) #composer { padding-left: 366px; }
-    body:has(#tour.show) #composer .card { width: min(500px, calc(100vw - 390px)); }
+       362px = 16 left + 330 wide + 16 gap. */
+    body:has(#tour.show) #composer { padding-left: 362px; }
+    body:has(#tour.show) #composer .card { width: min(500px, calc(100vw - 386px)); }
     /* Below this the inset would leave a card too narrow to compose in, so the
        tour gives up its prose instead and keeps only what has to stay reachable:
        the chapter counter, its title and its buttons. */
     @media (max-width: 760px) {
       body:has(#tour.show) #composer { padding-left: 0; }
       body:has(#tour.show) #composer .card { width: min(500px, 94vw); }
-      body:has(#composer.show) #tour { width: auto; right: 18px; }
+      body:has(#composer.show) #tour { width: auto; right: 16px; }
       body:has(#composer.show) #tour p, body:has(#composer.show) #tour .watch { display: none; }
       /* and the card ends above the strip rather than under it, so the pour
          button is reachable once the card is scrolled to its end */
       body:has(#tour.show) #composer .card { padding-bottom: 118px; }
     }
-    #composer .card { width: min(500px, 94vw); max-height: 88vh; overflow-y: auto; overflow-x: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; box-shadow: 0 18px 60px rgba(0,0,0,0.55); }
-    /* the learn "i" sits right after the title and the close button stays at
-       the far end (v8 U1c); the caption rows below are uppercase by CSS, and
-       the "i" must stay a lowercase italic i */
-    #composer .chead { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-    #composer .chead h3 { font-size: 12px; letter-spacing: 0.25em; color: var(--amber); font-weight: 600; }
+    /* the card: the panel spec on --surface (a modal, not over the canvas),
+       the tool's 16px padding, its sections split by 1 px rules */
+    #composer .card { width: min(500px, 94vw); max-height: 88vh; overflow-y: auto; overflow-x: hidden; padding: var(--s-4);
+      background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-panel);
+      font: 400 var(--t-ui)/1.45 var(--font-body); color: var(--fg-2); }
+    /* the header row (.phead's look): the title, the learn "i" right after it
+       (v8 U1c), then the modal's own learn switch and close at the far end;
+       the caption rows below are uppercase by CSS, and the "i" must stay a
+       lowercase i */
+    #composer .chead { display: flex; align-items: center; gap: var(--s-2); margin-bottom: var(--s-3); padding-bottom: var(--s-3); border-bottom: 1px solid var(--rule); }
+    #composer .chead h3 { font: 400 var(--t-nav-tool)/1.2 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg); }
     /* the modal's own learn switch (the top bar's is under the backdrop while
-       this is open): pushed right, beside the close button, cyan when on like
-       the top bar's */
-    #composer .chead .lrnToggle { margin-left: auto; font-size: 10px; padding: 3px 8px; }
-    #composer .chead .lrnToggle.on { border-color: var(--cyan); color: var(--cyan); }
-    #composer .chead .lrnToggle:focus-visible, #composer .chead .x:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
-    #composer .chead .x { border: none; background: none; color: var(--dim); font-size: 14px; }
+       this is open): pushed right, beside close, inverted when on like the
+       top bar's */
+    #composer .chead .lrnToggle { margin-left: auto; }
     #composer .lrnInfo { text-transform: none; }
-    /* caveat grays in the composer are #8891a0 (5.8:1 on the card), as the
-       panels' are since v8 U1b; var(--dim) is 3.9:1 there, so NO text here
-       uses it (the ✕ glyphs of .x and .rm are controls, not text, and pass
-       the 3:1 a control needs) */
-    #composer .cnote { font-size: 10px; line-height: 1.5; color: #8891a0; margin-bottom: 12px; }
-    #composer .bases { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
-    #composer .bases button { flex: 1 1 30%; }
-    #composer .crow { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
-    #composer .crow b { flex: 0 0 22px; color: var(--amber); font-size: 12px; }
-    #composer .crow input { flex: 1; }
-    #composer .crow .cv { flex: 0 0 136px; text-align: right; font-size: 10.5px; color: var(--text); }
-    #composer .crow .rm { border: none; background: none; color: var(--dim); padding: 2px 4px; }
-    #composer .addrow { display: flex; gap: 6px; margin: 8px 0 12px; }
+    /* caveat text in the composer is --fg-3 (5.4:1 on the card's --surface);
+       --fg-4 is decoration only, so NO text here uses it */
+    #composer .cnote { font-size: var(--t-ui-min); line-height: 1.5; color: var(--fg-3); margin-bottom: var(--s-3); }
+    #composer .bases { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-1); margin-bottom: var(--s-3); }
+    /* a solute row: symbol, slider, its wt% and at% in the mono, remove */
+    #composer .crow { display: flex; align-items: center; gap: var(--s-2); margin-bottom: var(--s-1); min-height: 28px; }
+    #composer .crow b { flex: 0 0 24px; font-weight: 500; color: var(--fg); }
+    #composer .crow input { flex: 1; min-width: 60px; }
+    #composer .crow .cv { flex: 0 0 auto; text-align: right; font: 400 var(--t-value-tool)/1.35 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg); }
+    #composer .crow .rm { width: 24px; min-height: 24px; padding: 0; border-color: transparent; color: var(--fg-3); }
+    #composer .crow .rm:hover { border-color: var(--rule-strong); color: var(--fg); }
+    #composer .addrow { display: flex; align-items: center; gap: var(--s-2); margin: var(--s-2) 0 var(--s-4); }
     #composer .addrow select { flex: 1; width: auto; min-width: 0; text-overflow: ellipsis; }
     #composer .addrow .add { white-space: nowrap; }
     /* the periodic grid (v7.1 P5): 18 columns, seven period rows and the two
        f-block series pulled out underneath. The card is min(500px, 94vw) with
        18px of padding a side, so eighteen columns land near 24px each on a
-       desktop and under 18px on a narrow phone — hence the scroller, because
+       desktop and under 18px on a narrow phone; hence the scroller, because
        .card is overflow-x: hidden and would CLIP the right-hand groups rather
        than let them be reached. min-width holds the cells at 19px and lets the
        grid scroll sideways inside a card that does not. */
-    #composer .gridwrap { border-top: 1px solid var(--line); padding-top: 10px; margin-bottom: 12px; }
-    #composer .gcap { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 0.14em; color: var(--amber); margin-bottom: 5px; text-transform: uppercase; }
-    #composer .gscroll { overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; }
+    #composer .gridwrap { border-top: 1px solid var(--rule); padding-top: var(--s-3); margin-bottom: var(--s-4); }
+    #composer .gcap { display: flex; align-items: center; gap: var(--s-2); font: 400 var(--t-nav-tool)/1.2 var(--font-display); letter-spacing: var(--track-nav);
+      color: var(--fg-3); margin-bottom: var(--s-2); text-transform: uppercase; }
+    /* 4px of padding all round (the margin gives the width back): the focus
+       ring, 2px at a 2px offset, is drawn 4px outside a cell, and the
+       scroller would otherwise clip it on the outer rows and columns */
+    #composer .gscroll { overflow-x: auto; overflow-y: hidden; padding: var(--s-1) var(--s-1) 6px; margin: 0 calc(-1 * var(--s-1)); }
     #composer .grid { display: grid; grid-template-columns: repeat(18, 1fr); gap: 1px; min-width: 342px; }
-    #composer .gcell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
-      font-size: 8.5px; letter-spacing: 0; padding: 0; border-radius: 2px;
-      background: var(--panel2); border: 1px solid var(--line); color: #9aa1ab; }
-    #composer .gcell[data-frow="1"] { margin-top: 5px; }
-    #composer .gcell[data-tier="ASSESSED"] { color: var(--amber); border-color: #7a5a2c; background: #1c1710; }
-    #composer .gcell[data-tier="OUTSIDE-THE-MODEL"] { color: #c96a5b; border-color: #55352f; }
-    /* #9aa1ab is 6.8:1 on --panel2, raised so the tier below can reach 4.5:1
-       and still read dimmer than this one */
-    #composer .gcell[data-tier="REFUSED-PAIR"] { color: #9aa1ab; }
-    /* dimmest of the four, and DELIBERATELY still readable. The argument this
-       whole grid makes is that a greyed-out cell teaches nothing and a computed
+    /* The four tiers are told apart by brightness and edge, never by hue: an
+       assessed pair is the brightest cell with a solid edge, a pair outside
+       the model a dashed edge, a refused pair a dotted one, and an element
+       that is no solute here no edge at all. The refused / not-a-solute split
+       is carried by that dotted --fg-3 edge (5.3:1 on --surface), past the
+       3:1 a non-text mark needs; a --rule-strong edge (1.7:1) was not.
+       Every tier stays legible (--fg-3 is 5.4:1 on --surface) and every one
+       answers when tapped: the argument this grid makes is that a computed
        refusal teaches a lot, so a tier rendered until it disappears would be
-       the same failure wearing a colour. Every cell here is legible and every
-       cell answers when tapped: #7a8390 is 4.6:1 on --panel2 (#5b6675 was
-       3.0:1, under the 4.5:1 an 8.5px label on an active button needs). */
-    #composer .gcell[data-tier="NOT-A-SOLUTE"] { color: #7a8390; border-color: #1c2027; }
-    #composer .gcell[data-in="1"] { background: #33270f; color: #fff; }
-    #composer .gcell[data-self="1"] { color: var(--cyan); border-color: #2c545a; background: #101b1d; }
-    /* the vapour band is a SECOND channel, not a tier: zinc over iron is both
-       an unassessed pair and a 59 atm fume, and the tier colour only says the
-       first. Al -> Fe reddens Na, K, Ca and Cd on this stripe alone. */
-    #composer .gcell[data-vap="FUME"] { box-shadow: inset 0 -2px 0 #d9985a; }
-    #composer .gcell[data-vap="BOILS"] { box-shadow: inset 0 -2px 0 #c96a5b; }
-    #composer .gcell.sel { outline: 1px solid var(--cyan); outline-offset: -1px; }
-    #composer .gcell:hover { color: #fff; border-color: #3a424e; }
-    #composer .glegend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 7px; font-size: 8.5px; color: #8891a0; }
-    #composer .glegend span { display: flex; align-items: center; gap: 4px; }
-    #composer .glegend span::before { content: ""; width: 8px; height: 8px; border-radius: 2px; border: 1px solid var(--line); background: var(--panel2); }
-    #composer .glegend span[data-tier="ASSESSED"]::before { border-color: #7a5a2c; background: #1c1710; box-shadow: inset 0 0 0 3px var(--amber); }
-    #composer .glegend span[data-tier="OUTSIDE-THE-MODEL"]::before { border-color: #55352f; box-shadow: inset 0 0 0 3px #c96a5b; }
-    #composer .glegend span[data-tier="REFUSED-PAIR"]::before { box-shadow: inset 0 0 0 3px #9aa1ab; }
-    #composer .glegend span[data-tier="NOT-A-SOLUTE"]::before { border-color: #1c2027; box-shadow: inset 0 0 0 3px #7a8390; }
-    #composer .glegend span[data-self]::before { border-color: #2c545a; background: #101b1d; box-shadow: inset 0 0 0 3px var(--cyan); }
-    #composer .glegend span[data-vap]::before { border-color: var(--line); box-shadow: inset 0 -2px 0 #d9985a; }
-    #composer .gwhy { margin-top: 9px; border-left: 2px solid var(--line); padding-left: 7px; }
-    #composer .gwhy .ghead { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
-    #composer .gwhy .ghead b { font-size: 13px; color: var(--amber); font-weight: 500; }
-    #composer .gwhy .ghead span { font-size: 8.5px; letter-spacing: 0.12em; color: #8891a0; text-transform: uppercase; }
-    #composer .gwhy[data-tier="ASSESSED"] .ghead span { color: var(--amber); }
-    #composer .gwhy .gline { font-size: 11px; line-height: 1.5; color: var(--text); }
-    #composer .gwhy .gp { font-size: 9.5px; line-height: 1.55; color: #8891a0; margin-top: 6px; }
-    #composer .famous { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
-    #composer .famous button { font-size: 10px; padding: 4px 7px; color: #8891a0; }
-    #composer .famous button:hover { color: var(--amber); border-color: var(--amber); }
-    #composer .derived { border-top: 1px solid var(--line); padding-top: 10px; margin-bottom: 12px; }
-    #composer .aname { font-size: 15px; color: #fff; letter-spacing: 0.04em; margin-bottom: 8px; }
-    #composer .drow { display: flex; justify-content: space-between; font-size: 11px; color: #8891a0; margin-bottom: 4px; }
-    #composer .drow b { color: var(--amber); font-weight: 500; }
-    #composer .clamp { font-size: 10px; color: #d9985a; margin-top: 4px; }
-    /* the two columns (v7.1 P3): what equilibrium leaves vs what the solver grows */
-    #composer .phases { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
-    #composer .phases div { border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; }
-    #composer .phases span { display: block; font-size: 8.5px; letter-spacing: 0.1em; color: #8891a0; margin-bottom: 3px; }
-    #composer .phases b { font-size: 11.5px; color: var(--amber); font-weight: 500; }
-    #composer .phases div:last-child b { color: var(--cyan); }
-    #composer .src { font-size: 10px; color: #8891a0; line-height: 1.4; margin-top: 6px; border-left: 2px solid var(--line); padding-left: 7px; }
-    /* the drawn phase diagram (v7.1 P2). Its own container, because .derived's
-       innerHTML is replaced on every slider frame and would rebuild the SVG. */
-    #composer .figwrap { border-top: 1px solid var(--line); padding-top: 10px; margin-bottom: 12px; }
-    #composer .pdhead { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-    #composer .pdcap { font-size: 10px; letter-spacing: 0.14em; color: var(--amber); text-transform: uppercase; }
-    #composer .pdsvg { display: block; width: 100%; height: auto; background: #0d0f13; border-radius: 4px; }
-    /* one note per line (v8 U1c; they were one run-on paragraph joined by dots) */
-    #composer .pdnotes { font-size: 9.5px; line-height: 1.5; color: #8891a0; margin-top: 7px; }
-    #composer .pdnote + .pdnote, #composer .pdnotes .lrnText + .pdnote { margin-top: 3px; }
-    /* the source line: #8891a0 is 5.8:1 on the card's #111318 (#4d545e was 2.4:1) */
-    #composer .pdsrc { font-size: 9px; line-height: 1.45; color: #8891a0; margin-top: 5px; border-left: 2px solid var(--line); padding-left: 7px; }
-    #composer .cfoot { display: flex; gap: 8px; }
-    #composer .cfoot .pour { flex: 1; border-color: var(--amber); color: var(--amber); font-weight: 600; padding: 8px; }
-    .hiddenSec { display: none; }
-
-    /* lens grid */
-    /* centered in the space the rail leaves; the 424px floor keeps it off
-       #head's widest line (18 inset + 242, the sub line and the width #matline
-       is capped at, + 20 gap + ~143, half this bar's 286px). On a narrow window
-       it cannot also clear the chrome beside the rail: below --lens-squeeze
-       the TRUE 3D switch drops under it, and below --lens-own-row it takes a
-       row of its own under the switch, where it keeps the same center until
-       that would bring it within 14px of the rail (the min() below; 157 =
-       14 + 143) */
-    #views { position: absolute; top: calc(14px + 78 * var(--lens-own-row)); left: min(max(calc(var(--free-w) / 2), 424px), calc(var(--free-w) - 157px)); transform: translateX(-50%); transition: left 0.25s ease, top 0.25s ease; display: grid; grid-template-columns: repeat(5, auto); gap: 2px; background: rgba(15,17,21,0.85); border: 1px solid var(--line); border-radius: 6px; padding: 3px; backdrop-filter: blur(6px); }
-    #views button { border: none; background: transparent; padding: 4px 10px; border-radius: 4px; color: var(--dim); font-size: 10.5px; }
-    #views button.on { background: #232833; color: #fff; }
-
-    /* transport: bottom-left, under the tour button */
-    #transport { position: absolute; left: 18px; bottom: 18px; display: flex; gap: 4px; background: rgba(15,17,21,0.85); border: 1px solid var(--line); border-radius: 6px; padding: 4px; backdrop-filter: blur(6px); }
-    #transport button { min-width: 64px; }
-    /* backed like the other chrome: it floats over the live canvas, which the
-       ETCH lens paints near-white at t = 0 (the only time ARMED shows), where
-       the cyan line and its learn sentence were 1.5:1 and 2.2:1 with a shadow
-       alone; on this backing they are >= 6:1 */
-    #armed { position: absolute; left: 18px; bottom: 96px; color: var(--cyan); font-size: 11px; letter-spacing: 0.12em; pointer-events: none; display: none;
-      background: rgba(15,17,21,0.9); padding: 4px 8px; border-radius: 4px; }
-    #armed .lrnText { margin-bottom: 2px; }
-
-    /* z-index 31 puts the tour one layer above #composer's z-index 30 (v7.1
-       P6). The chapter that opens the composer would otherwise bury its own
-       "next ▸" under the modal's backdrop, whose pointerdown closes the
-       composer — so the only way out of that chapter was to dismiss the thing
-       it had just opened. #app is position:absolute with z-index:auto and no
-       transform, so it creates no stacking context and this value is compared
-       against #composer's directly. */
-    #tour { position: absolute; z-index: 31; left: 18px; bottom: 62px; width: 330px; background: rgba(15,17,21,0.92); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; backdrop-filter: blur(6px); display: none; }
-    #tour.show { display: block; }
-    #tour .ch { font-size: 10px; letter-spacing: 0.2em; color: var(--cyan); margin-bottom: 5px; }
-    #tour h3 { font-size: 13px; color: #eef1f5; margin-bottom: 6px; letter-spacing: 0.04em; }
-    #tour p { font-size: 11.5px; line-height: 1.55; color: var(--text); }
-    #tour .watch { margin-top: 7px; font-size: 11px; color: var(--amber); }
-    #tour .nav { display: flex; gap: 6px; margin-top: 11px; }
-    #tourBtn { position: absolute; left: 18px; bottom: 62px; }
-    #tourBtn.hide { display: none; }
-
-    /* capped so it never reaches the transport bar (right edge 316 + 18): a
-       narrower window stacks its cards upward (wrap-reverse) instead of
-       spreading them over the run button, and one too narrow for a single
-       128px card (the width the rail leaves under 334 + 128 + 14 = 476) folds
-       it away (the max-height step) rather than let a card spill over the
-       bar. Its upper rows pass under the analysis columns (#apanels) when
-       those are open */
-    #hud { position: absolute; right: calc(var(--rail-inset) + 14px); bottom: 14px; max-width: calc(100% - var(--rail-inset) - 14px - 334px);
-      max-height: clamp(0px, (100vw - var(--rail-inset) - 476px) * 1000, 100vh); overflow: hidden;
-      display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; gap: 10px; transition: right 0.25s ease; pointer-events: none; }
-    .spark { background: rgba(15,17,21,0.85); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px 4px; }
-    .spark .t { font-size: 9px; letter-spacing: 0.15em; color: var(--dim); margin-bottom: 2px; }
-    .spark canvas { display: block; }
-
-    /* under the readouts (eight rows in both modes, 78 to 211px), a slot no
-       analysis panel reaches (#thermbar sits there too, but only under THERM,
-       never under ETCH or SLICE). Beside the rail it sat under the TRUE 3D
-       switch (top 50, z-index 5) at every width, and lower down that column
-       it would meet the analysis panels on a short window */
-    #scalebar { position: absolute; left: 18px; top: 222px; display: none; align-items: center; gap: 8px; color: #111; background: rgba(238,235,225,0.9); border-radius: 4px; padding: 5px 10px; font-size: 11px; }
-    #scalebar .bar { width: 80px; height: 4px; background: #111; }
-
-    /* lens-specific overlays */
-    #thermbar { position: absolute; left: 18px; top: 220px; display: none; width: 14px; height: 160px; border-radius: 3px; border: 1px solid var(--line); background: linear-gradient(to top, #05010a, #30064e, #a3195b, #e35b1c, #f7b731, #fffbe0); }
-    #thermbar .lo, #thermbar .hi { position: absolute; left: 20px; font-size: 10px; color: var(--dim); }
-    #thermbar .hi { top: -3px; } #thermbar .lo { bottom: -3px; }
-    /* bottom-center items stay centered on the window but are capped at
-       100% - 2 x --center-inset, so the right edge never reaches the rail and
-       the left edge never reaches the transport bar, rail shown or hidden */
-    /* 0.06em tracking and a short scale bar (main.ts: 18 to 52px) keep the
-       strip on one line in the 308px a 1024px window leaves beside the rail;
-       narrower than that it breaks between the groups, never inside a value */
-    #sembar { position: absolute; left: 50%; transform: translateX(-50%); max-width: calc(100% - 2 * var(--center-inset) - 36px); bottom: 14px; display: none; background: rgba(10,10,10,0.85); border: 1px solid #333; color: #cfcfcf; font-size: 10.5px; letter-spacing: 0.06em; padding: 5px 12px; border-radius: 3px; }
-    #sembar .nw { white-space: nowrap; }
-    #sembar .bar { display: inline-block; vertical-align: middle; height: 4px; width: 40px; background: #cfcfcf; margin-left: 2px; }
-
-    #gate { position: absolute; inset: 0; background: var(--bg); display: none; align-items: center; justify-content: center; text-align: center; z-index: 50; }
-    #gate .in { max-width: 460px; padding: 24px; }
-    #gate h1 { letter-spacing: 0.35em; margin-bottom: 14px; color: #eef1f5; }
-    #gate p { color: var(--dim); line-height: 1.6; font-size: 12.5px; }
-    #gate p b { color: var(--amber); }
-
-    #hint { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 2 * var(--center-inset) - 36px); text-align: center; color: var(--dim); font-size: 11px; letter-spacing: 0.08em; pointer-events: none; opacity: 0.85; transition: opacity 1s; }
-    #hint.gone { opacity: 0; }
-
-    /* the four mode panels (lab, heat treat, optimizer, challenge), each
-       setting its own design width as --cap. Centered on the window and
-       capped by --center-inset like the hint, but never narrower than 300px:
-       their form rows need 252 (a formbits row is 118 + 60 + 58 + 2 x 8) plus
-       the panel's padding, and under that the cap made them scroll sideways
-       or paint their values over the rail. A panel held at 300px slides off
-       center as far as it must to stay in the band between the transport bar
-       and the rail (334px to the rail's edge less 18: the clamp on left).
-       Once it no longer fits in that band (--over, a 0/1px step like the
-       ones on body) it lifts clear of the bar instead (--lift: its bottom to
-       66px, the bar's top at 57 plus 9) and may use the width under it, down
-       to 18px from the window's edge. Upward it stops at the top band and
-       scrolls past it: learn mode's hints and explanations, or a long heat
-       treat report, would otherwise carry it over the top chrome (it paints
-       at z-index 6, over the learn toggle and CONTROLS at 5) or off the top
-       of the window, header and exit button included */
-    .modepanel {
-      --pw: max(min(var(--cap), calc(100vw - 2 * var(--center-inset) - 36px)), min(300px, calc(100vw - 36px)));
-      --over: clamp(0px, (var(--pw) + var(--rail-inset) + 352px - 100vw) * 1000, 1px);
-      --lift: calc(52 * var(--over));
-      position: absolute; bottom: calc(14px + var(--lift)); width: var(--pw);
-      left: clamp(calc(18px + 316 * (1px - var(--over)) + var(--pw) / 2), 50%,
-                  calc(100% - var(--rail-inset) - 18px - var(--pw) / 2));
-      transform: translateX(-50%);
-      max-height: calc(100vh - 14px - var(--lift) - var(--top-band));
-      overflow-y: auto; scrollbar-width: thin; scrollbar-color: #2b313b transparent;
+       the same failure in grayscale. The legend draws each key as a small
+       cell in the same terms, "Aa" in the tier's text color on its edge */
+    /* the symbols at --t-ui-min, the tool's 12 px floor: a two-letter symbol
+       is about 15 px, inside the 24 px a desktop cell has and the 19 px
+       floor a phone's scroller holds */
+    #composer .gcell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; min-height: 0;
+      font: 400 var(--t-ui-min)/1 var(--font-body); letter-spacing: 0; padding: 0; border-radius: 0;
+      background: transparent; border: 1px solid var(--rule); color: var(--fg-3); }
+    #composer .gcell[data-frow="1"] { margin-top: var(--s-1); }
+    #composer .gcell[data-tier="ASSESSED"] { color: var(--fg); border-color: var(--fg-3); }
+    #composer .gcell[data-tier="OUTSIDE-THE-MODEL"] { color: var(--fg-2); border-color: var(--fg-3); border-style: dashed; }
+    #composer .gcell[data-tier="REFUSED-PAIR"] { color: var(--fg-3); border-color: var(--fg-3); border-style: dotted; }
+    #composer .gcell[data-tier="NOT-A-SOLUTE"] { color: var(--fg-3); border-color: transparent; }
+    #composer .gcell[data-in="1"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+    #composer .gcell[data-self="1"] { background: var(--rule-strong); border-color: var(--fg); color: var(--fg); }
+    /* the vapor band is a SECOND channel, not a tier: zinc over iron is both
+       an unassessed pair and a 59 atm fume, and the tier's edge only says the
+       first. Al -> Fe marks Na, K, Ca and Cd on this band alone: a heavy
+       bottom edge, --fg-3 for a fume, --fg for a boil. */
+    #composer .gcell[data-vap="FUME"] { border-bottom: 2px solid var(--fg-3); }
+    #composer .gcell[data-vap="BOILS"] { border-bottom: 2px solid var(--fg); }
+    #composer .gcell.sel { outline: 1px solid var(--fg); outline-offset: 1px; }
+    #composer .gcell:hover { color: var(--fg); border-color: var(--fg-2); }
+    /* after .sel, at its weight: the picked cell is where focus lands after
+       Enter, and the focus ring must win over the selection mark */
+    #composer .gcell:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    #composer .glegend { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); margin-top: var(--s-2); font-size: var(--t-ui-min); line-height: 1.35; color: var(--fg-3); }
+    #composer .glegend span { display: flex; align-items: center; gap: 6px; }
+    /* each key a small cell drawn like the grid's: its edge, its fill, and
+       "Aa" in its text color (generated, with an empty alternative, so a
+       screen reader hears only the words) */
+    #composer .glegend span::before {
+      content: "Aa"; content: "Aa" / ""; display: inline-flex; align-items: center; justify-content: center; flex: none;
+      width: 24px; height: 18px; font: 400 var(--t-ui-min)/1 var(--font-body); letter-spacing: 0;
+      border: 1px solid transparent; background: transparent; color: var(--fg-3);
     }
-
-    /* capped at the sub line's width, which is what #views' 424px floor
-       budgets for: a long alloy name (a share link's can be any length) wraps
-       under it instead of running beneath the lens bar */
-    #matline { margin-top: 3px; max-width: 242px; overflow-wrap: anywhere; font-size: 11px; color: var(--amber); letter-spacing: 0.06em; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
-    /* the melt's clamps and refusals, on the same surface as its name — a
-       deep-linked alloy has no composer open to show them in */
-    /* pointer-events:none because #head is the one absolutely-positioned overlay
-       here WITHOUT it (it carries the h1's link), and a caveat line grows #head's
-       shrink-to-fit box several lines tall directly over the melt — every tap in
-       that band would stop reaching the canvas's seed handler */
-    #matcaveat { display: none; pointer-events: none; margin-top: 2px; max-width: min(520px, 46vw);
-                 font-size: 10px; line-height: 1.35;
-                 color: #d9985a; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
-    #canvas { touch-action: none; }
-    #transport .rec { border-color: #e0564a; color: #e0564a; }
-    .scilink { display: block; margin: 4px 0 10px; font-size: 10.5px; color: var(--dim); text-decoration: none; letter-spacing: 0.08em; }
-    .scilink:hover { color: var(--amber); }
-
-    /* analysis panels: bottom-right column, left of the rail, above the HUD.
-       z-index 1 (here and on #apanels3) paints them over the HUD, which a
-       narrow window wraps upward behind them: the HUD is the passive one of
-       the two, and raising the columns instead would push them into the TRUE
-       3D switch and the view cube on a short window */
-    #apanels { position: absolute; right: calc(var(--rail-inset) + 14px); bottom: 84px; display: flex; flex-direction: column; gap: 8px; transition: right 0.25s ease; pointer-events: none; z-index: 1; }
-    /* Both columns grow upward from the bottom, so they stop at the top band
-       and scroll past it (a wheel or a drag on a panel scrolls the column):
-       every panel open plus an explanation in learn mode, or the three 3D
-       panels on a short window, used to climb under the TRUE 3D switch, the
-       view cube and the lens bar, headers and "i" buttons out of reach */
-    #apanels, #apanels3 { max-height: calc(100% - 84px - var(--top-band)); overflow-y: auto; overflow-x: hidden;
-      scrollbar-width: thin; scrollbar-color: #2b313b transparent; }
-    /* container passes clicks through to the melt; the panels themselves are
-       interactive (the ⤢ enlarge button must win over tap-to-seed) */
-    .apanel { display: none; pointer-events: auto; background: rgba(15,17,21,0.88); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px 6px; }
-    .apanel .zoomBtn { pointer-events: auto; }
-    .apanel .t { font-size: 9px; letter-spacing: 0.15em; color: var(--dim); margin-bottom: 3px; }
-    .apanel canvas { display: block; }
-    /* the lab report's card unit — .apanel's look (border/background/radius),
-       under its own name so it isn't display:none by default like .apanel is */
-    .rcard { background: rgba(15,17,21,0.88); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
-    .rcard .t { font-size: 9px; letter-spacing: 0.15em; color: var(--dim); margin-bottom: 5px; }
-
-    #foundryResultsBtn:disabled { opacity: 0.4; cursor: default; }
-    @keyframes resultsPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(86,212,221,0); border-color: var(--line); } 30% { box-shadow: 0 0 0 4px rgba(86,212,221,0.35); border-color: #56d4dd; } }
-    #foundryResultsBtn.pulse { animation: resultsPulse 1.1s ease-out 1; }
+    #composer .glegend span[data-tier="ASSESSED"]::before { border-color: var(--fg-3); color: var(--fg); }
+    #composer .glegend span[data-tier="OUTSIDE-THE-MODEL"]::before { border: 1px dashed var(--fg-3); color: var(--fg-2); }
+    #composer .glegend span[data-tier="REFUSED-PAIR"]::before { border: 1px dotted var(--fg-3); color: var(--fg-3); }
+    #composer .glegend span[data-tier="NOT-A-SOLUTE"]::before { border-color: transparent; color: var(--fg-3); }
+    #composer .glegend span[data-in]::before { border-color: var(--fg); background: var(--fg); color: var(--bg); }
+    #composer .glegend span[data-self]::before { border-color: var(--fg); background: var(--rule-strong); color: var(--fg); }
+    #composer .glegend span[data-vap]::before { border-color: transparent; border-bottom: 2px solid var(--fg-3); color: var(--fg-2); }
+    /* the reason panel: the symbol and its tier (nav style, bright only for
+       a pourable pair), the one-line answer, then the advisories; a fume or
+       a boil is a .warnline (its "!" from tokens.css) */
+    #composer .gwhy { margin-top: var(--s-3); border-left: 1px solid var(--rule-strong); padding-left: var(--s-3); }
+    #composer .gwhy .ghead { display: flex; align-items: baseline; gap: var(--s-2); margin-bottom: var(--s-1); }
+    #composer .gwhy .ghead b { font: 500 var(--t-ui)/1.2 var(--font-body); color: var(--fg); }
+    #composer .gwhy .ghead span { font: 400 var(--t-nav-tool)/1.2 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg-3); text-transform: uppercase; }
+    #composer .gwhy[data-tier="ASSESSED"] .ghead span { color: var(--fg); }
+    #composer .gwhy .gline { font-size: var(--t-ui-min); line-height: 1.5; color: var(--fg-2); }
+    #composer .gwhy .gp { font-size: var(--t-ui-min); line-height: 1.5; color: var(--fg-3); margin-top: var(--s-1); }
+    #composer .gwhy .gp.warnline { color: var(--fg); }
+    #composer .famous { display: flex; flex-wrap: wrap; gap: var(--s-1); margin-bottom: var(--s-4); }
+    /* the readout: the alloy's name, then a spec rail (label --fg-3 left,
+       value right in the tabular mono, 1 px rules) */
+    #composer .derived { border-top: 1px solid var(--rule); padding-top: var(--s-3); margin-bottom: var(--s-4); }
+    #composer .aname { margin-bottom: var(--s-2); font: 400 var(--t-body)/1.3 var(--font-body); letter-spacing: var(--track-body); color: var(--fg); }
+    #composer .drow { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-3); padding: 5px 0; border-top: 1px solid var(--rule);
+      font-size: var(--t-ui-min); line-height: 1.4; color: var(--fg-3); }
+    #composer .drow b { text-align: right; font: 400 var(--t-value-tool)/1.4 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg); }
+    /* a value that is a word (the regime) is Inter; a refused range is a
+       warning, in words and weight */
+    #composer .drow b.w { font: 400 var(--t-ui-min)/1.4 var(--font-body); }
+    #composer .drow b.status--warn { font-family: var(--font-body); font-weight: 500; }
+    /* a refusal or a clamp: a warning line; a phase the solver does not grow:
+       a note in --fg-2 */
+    #composer .clamp, #composer .cinfo { margin-top: var(--s-1); font-size: var(--t-ui-min); line-height: 1.5; }
+    #composer .clamp { color: var(--fg); }
+    #composer .clamp::before { content: "! "; font-weight: 500; }
+    #composer .cinfo { color: var(--fg-2); }
+    /* the two columns (v7.1 P3): what equilibrium leaves vs what the solver
+       grows, as two spec cells under a nav-style label, split by a rule */
+    #composer .phases { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); margin: var(--s-2) 0; padding: var(--s-2) 0; border-top: 1px solid var(--rule); }
+    #composer .phases div + div { padding-left: var(--s-3); border-left: 1px solid var(--rule); }
+    #composer .phases span { display: block; margin-bottom: var(--s-1); font: 400 var(--t-nav-tool)/1.2 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg-3); }
+    #composer .phases b { font: 400 var(--t-ui)/1.3 var(--font-body); color: var(--fg); }
+    #composer .src { margin-top: var(--s-2); padding-left: var(--s-2); border-left: 1px solid var(--rule-strong); font-size: var(--t-ui-min); line-height: 1.45; color: var(--fg-3); }
+    /* the drawn phase diagram (v7.1 P2). Its own container, because .derived's
+       innerHTML is replaced on every slider frame and would rebuild the SVG.
+       Its curves and markers are data (their colors live in phasediagram.ts);
+       the frame, ticks, field labels and the melt cursor are chrome, here */
+    #composer .figwrap { border-top: 1px solid var(--rule); padding-top: var(--s-3); margin-bottom: var(--s-4); }
+    #composer .pdhead { display: flex; align-items: center; gap: var(--s-2); margin-bottom: var(--s-2); }
+    /* a plot's title keeps its case: "Al–Cu", never "AL–CU" (COPY-STYLE:
+       chemical symbols stay Al) */
+    #composer .pdcap { font: 400 var(--t-nav-tool)/1.2 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg-3); }
+    #composer .pdsvg { display: block; width: 100%; height: auto; background: var(--bg-media); border-radius: var(--r-media); }
+    #composer .pdsvg .pdframe { fill: none; stroke: var(--rule-strong); stroke-width: 1px; }
+    /* 7 and 7.5 are the figure's viewBox units, not screen px: the 300-wide
+       figure is drawn about 1.5x in the card, so the ticks land near the
+       plot spec's 11 px (they scale with the figure, as a drawing's do) */
+    #composer .pdsvg .pdtick { fill: var(--fg-3); font: 400 7px var(--font-body); }
+    #composer .pdsvg .pdfield { fill: var(--fg-3); font: 400 7.5px var(--font-body); }
+    #composer .pdsvg #pdCursor { fill: var(--fg); }
+    #composer .pdsvg .pdcursor { stroke: var(--fg); stroke-width: 1px; stroke-dasharray: 1 3; }
+    #composer .pdsvg .pdpour { stroke: var(--bg-media); stroke-width: 1px; }
+    /* one note per line (v8 U1c; they were one run-on paragraph joined by dots) */
+    #composer .pdnotes { margin-top: var(--s-2); font-size: var(--t-ui-min); line-height: 1.5; color: var(--fg-3); }
+    #composer .pdnote + .pdnote, #composer .pdnotes .lrnText + .pdnote { margin-top: var(--s-1); }
+    #composer .pdsrc { margin-top: var(--s-2); padding-left: var(--s-2); border-left: 1px solid var(--rule-strong); font-size: var(--t-ui-min); line-height: 1.45; color: var(--fg-3); }
+    #composer .cfoot { display: flex; gap: var(--s-2); }
+    /* the modal's one primary action */
+    #composer .cfoot .pour { flex: 1; background: var(--fg); border-color: var(--fg); color: var(--bg); }
+    #composer .cfoot .pour:hover { background: var(--fg-2); border-color: var(--fg-2); }
 
     #overlay { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 6; }
+    /* the instrument's marks on the melt (the probe crosshair and the SDAS
+       ruler, 2D and 3D): --fg over a --bg casing, flat, so they read over
+       every lens, the white-hot MELT and the near-white ETCH included */
+    #overlay .mk { fill: none; }
+    #overlay .mk__case > *, #overlay .mk__lcase { stroke: var(--bg); stroke-width: 3.4px; }
+    #overlay .mk__ink > * { stroke: var(--fg); stroke-width: 1.2px; }
+    #overlay .mk__line { stroke: var(--fg); stroke-width: 1.6px; stroke-dasharray: 6 4; }
+    #overlay .mk__text { fill: var(--fg); stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; paint-order: stroke;
+      font: 400 var(--t-value-tool) var(--font-mono); }
   </style>
 </head>
-<body>
+<body class="tool">
   <div id="app">
     <canvas id="canvas"></canvas>
-    <div id="head">
-      <h1><a href="../">SOLID<span>IFY</span></a></h1>
-      <div class="sub">phase-field solidification · live</div>
+    <div id="head" class="plate">
+      <h1><a href="../">SOLIDIFY</a></h1>
+      <div class="sub t-nav-tool">phase-field solidification · live</div>
       <div id="matline"></div>
-      <div id="matcaveat"></div>
+      <div id="matcaveat" class="status--warn"></div>
+      <!-- the live readouts: a spec rail on the same plate (ui.ts setReadouts) -->
+      <div id="readouts" class="spec spec--tool"></div>
     </div>
-    <div id="readouts"></div>
-    <div id="views"></div>
-    <div id="transport"></div>
-    <div id="armed">ARMED · ▶ run to start</div>
+    <div id="views" class="plate tabs tabs--pill tabs--tool" role="group" aria-label="lens"></div>
+    <div id="transport" class="plate plate--pill"></div>
+    <div id="armed" class="plate">ARMED · ▶ run to start</div>
     <!-- the two toggles come BEFORE the rail so the tab order matches the
          screen (they sit at the top; the rail's controls follow). z-index 5
          keeps them above the rail (z-index auto) wherever they overlap it -->
-    <button id="learnToggle" type="button" aria-pressed="false" title="learn mode: explanations in the controls">learn</button>
-    <button id="railToggle">controls</button>
+    <button id="learnToggle" class="backed" type="button" aria-pressed="false" title="learn mode: explanations in the controls">learn</button>
+    <button id="railToggle" class="backed" type="button">controls</button>
     <div id="rail"></div>
     <div id="dimSwitch"></div>
     <canvas id="viewcube" width="184" height="184"></canvas>
-    <div id="slicePop"></div>
     <div id="apanels3"></div>
     <div id="hud"></div>
     <div id="apanels"></div>
     <svg id="overlay"></svg>
-    <div id="scalebar"><div class="bar"></div><span id="scalelabel">100 µm</span></div>
-    <div id="thermbar"><span class="hi">T<sub>m</sub></span><span class="lo">cold</span></div>
+    <div id="scalebar" class="plate"><div class="bar"></div><span id="scalelabel">100 µm</span></div>
+    <div id="thermbar" class="plate"><span class="hi">T<sub>m</sub></span><span class="lo">cold</span></div>
+    <!-- after #scalebar, which it is anchored under: an anchor has to come
+         before the element positioned against it -->
+    <div id="slicePop" class="plate"></div>
     <!-- SEM-style render: the model has no beam voltage, working distance or
          detector, so the bar carries only what it has, filled from the live
          zoom (main.ts updateScalebar): the view's width (an SEM's horizontal
          field width, in plain words) and a scale bar. Each value keeps its
          unit on its line (.nw) -->
-    <div id="sembar">SEM-style · <span class="nw"><span id="semhfw">—</span> wide</span> · <span class="nw"><span class="bar"></span> <span id="semscale">—</span></span></div>
-    <button id="tourBtn">▸ tour</button>
-    <div id="tour"></div>
-    <div id="hint">tap: seed · shift-tap: twin · scroll or pinch: zoom · right-drag: pan</div>
+    <div id="sembar" class="plate">SEM-style · <span class="nw"><span id="semhfw">—</span> wide</span> · <span class="nw"><span class="bar"></span> <span id="semscale">—</span></span></div>
+    <button id="tourBtn" class="backed" type="button">▸ tour</button>
+    <div id="tour" class="plate"></div>
+    <div id="hint" class="plate"><span class="nw">tap: seed</span> · <span class="nw">shift-tap: twin</span> · <span class="nw">scroll or pinch: zoom</span> · <span class="nw">right-drag: pan</span></div>
     <div id="gate"><div class="in">
       <h1>SOLIDIFY</h1>
       <p>This instrument runs a real phase-field simulation on your GPU and needs <b>WebGPU</b>.<br/><br/>

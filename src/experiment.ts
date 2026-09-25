@@ -40,6 +40,8 @@ import { MAX_SEEDS, SOLVER } from "./shaders";
 import type { Simulation, StatsResult } from "./sim";
 import type { Nucleation } from "./nucleation";
 import { seedHex } from "./rng";
+import { token } from "./design/tool";
+import { series, seriesAlpha } from "./design/plot";
 
 // ---------------------------------------------------------------------------
 // The through-origin power-law fit and its r²-window band.
@@ -285,7 +287,7 @@ export function bandLayout(res: SweepResult, w: number, h: number): BandLayout {
   const s = res.spec;
   const out: BandLayout = { w, h, labels: [{ kind: "title", text: s.name }], band: [], means: [], pts: [] };
   if (!res.ok) {
-    out.labels.push({ kind: "refusal", text: `REFUSED — ${res.refusal ?? "unmatched"}` });
+    out.labels.push({ kind: "refusal", text: `REFUSED: ${res.refusal ?? "unmatched"}` });
     return out;
   }
   out.labels.push({ kind: "controlled", text: `controlled ${s.controlled.name} · spread ${fmt(res.ctrlWidth)} ≤ ±${fmt(s.controlled.tol)}` });
@@ -305,20 +307,24 @@ export function bandLayout(res: SweepResult, w: number, h: number): BandLayout {
   return out;
 }
 
-/** paint a BandLayout — amber band, mean polyline, replicate dots, labels */
+/** paint a BandLayout — the band, the mean polyline, replicate dots, labels.
+ *  The backdrop and the labels are chrome, from the design tokens (a refusal
+ *  is bright, never a hue); the band and the mean are data, one series in
+ *  the plot palette's first slot, and the replicates it summarizes are gray
+ *  dots (--fg-2) on it */
 export function drawBand(ctx: CanvasRenderingContext2D, res: SweepResult, w: number, h: number): void {
   const L = bandLayout(res, w, h);
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "rgba(15,17,21,0.88)";
+  ctx.fillStyle = token("--overlay");
   ctx.fillRect(0, 0, w, h);
-  ctx.font = "10px ui-monospace, Consolas, monospace";
+  ctx.font = `400 11px ${token("--font-body")}`;
   ctx.textBaseline = "top";
   let ty = 4;
   for (const lab of L.labels) {
-    ctx.fillStyle = lab.kind === "refusal" ? "#e0a050" : lab.kind === "controlled" ? "#9ab8d0" : "#c8d2dc";
+    ctx.fillStyle = token(lab.kind === "refusal" || lab.kind === "title" ? "--fg" : lab.kind === "controlled" ? "--fg-2" : "--fg-3");
     for (const line of wrap(lab.text, Math.max(8, Math.floor((w - 8) / 6)))) {
       ctx.fillText(line, 4, ty);
-      ty += 12;
+      ty += 13;
     }
   }
   if (!res.ok) return;
@@ -327,17 +333,17 @@ export function drawBand(ctx: CanvasRenderingContext2D, res: SweepResult, w: num
     for (let i = 0; i < L.band.length; i++) (i ? ctx.lineTo : ctx.moveTo).call(ctx, L.band[i].x, L.band[i].yHi);
     for (let i = L.band.length - 1; i >= 0; i--) ctx.lineTo(L.band[i].x, L.band[i].yLo);
     ctx.closePath();
-    ctx.fillStyle = "rgba(224,160,80,0.18)";
+    ctx.fillStyle = seriesAlpha(0, 0.18);
     ctx.fill();
   } else if (L.band.length === 1) {
-    ctx.strokeStyle = "rgba(224,160,80,0.5)";
+    ctx.strokeStyle = seriesAlpha(0, 0.5);
     ctx.beginPath(); ctx.moveTo(L.band[0].x, L.band[0].yLo); ctx.lineTo(L.band[0].x, L.band[0].yHi); ctx.stroke();
   }
-  ctx.strokeStyle = "#e0a050";
+  ctx.strokeStyle = series(0);
   ctx.beginPath();
   L.means.forEach((p, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, p.x, p.y));
   ctx.stroke();
-  ctx.fillStyle = "#c8d2dc";
+  ctx.fillStyle = token("--fg-2");
   for (const p of L.pts) { ctx.beginPath(); ctx.arc(p.x, p.y, 1.6, 0, 2 * Math.PI); ctx.fill(); }
 }
 

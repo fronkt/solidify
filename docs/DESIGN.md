@@ -102,7 +102,11 @@ the active item only. No other weights.
 - `.btn`: outline pill, 1 px `--rule-strong` border, `--fg` text; hover border `--fg`.
 - `.btn--primary`: `--fg` fill, `--bg` text, trailing `›`.
 - `.btn--text`: no box, 1 px underline at 3 px offset.
-- Toggled or active: inverted (`--fg` fill, `--bg` text).
+- Toggled or active: inverted (`--fg` fill, `--bg` text), set as `aria-pressed` so a screen
+  reader hears the state too (`src/design/tool.ts setPressed`).
+- A toggle that sits next to the view's primary (the transport's ×2/×4 and rec, beside
+  `▶ run` / `❚❚ pause`) shows "on" as an emphasized outline instead: `--fg` border and text on a
+  transparent fill, so the fill stays the primary's alone.
 - Disabled: `--fg-4` text on a `--rule` border.
 - Pressed: 0.96 scale, 120 ms.
 - The tool drops emoji-like glyph icons (⚗ ⚙ ●). Monochrome ▶ ❚❚ for run/pause are fine.
@@ -144,10 +148,95 @@ the active item only. No other weights.
 - No shadow.
 - The header row uses the nav style, with a 1 px rule under it.
 
+**The instrument's chrome (v8 D2; `tokens.css` "tool" section, `app/index.html`).**
+- `<body class="tool">`: bare buttons are 28 px outline pills, checkboxes are switches,
+  sliders are the 2 px track (`src/design/tool.ts` sets `--fill`), selects are underlined with a
+  drawn chevron. Everything floating over the canvas sits on a `.plate` (`--overlay`), so it reads
+  over every lens, the bright FIELD, ETCH and NEON ones included.
+- Top left, one plate: the wordmark, `PHASE-FIELD SOLIDIFICATION · LIVE`, the melt's name and its
+  caveats, then the live readouts as a compact spec rail (`.spec--tool`: label `--fg-3`, value in
+  the tabular mono). The lens legends (scale bar, THERM colormap, SEM data bar) share one slot
+  anchored under it.
+- Top right: `learn` and `controls` pills (Inter 500 in their own lowercase, like every
+  button), the `TRUE 3D` switch pill under them at their joint width; the lens bar is
+  `.tabs--pill.tabs--tool`, a 5 x 2 grid of 312 x 64 (so it ends on the switch's line), the active
+  lens inverted. When the canvas is too narrow for the bar beside that column, the bar takes a
+  row of its own under it, right-aligned with it the way the view cube stacks.
+- The focus ring of a control over the canvas is drawn inside its backing (a 2 px `--focus`
+  ring inset 4 px; `--bg` on a pressed pill), never 2 px out on the live canvas.
+- Bottom left: the transport as one pill plate, `▶ run` / `❚❚ pause` the one filled pill. While
+  a mode panel is open, the panel's own primary is the view's and run / pause steps down to an
+  outline pill; the HUD's cards fold away under the panel. The glyph pills' spoken names are
+  their words (`pause`, `stop recording`).
+- A narrow canvas (under 596 px, the lens bar's floor beside the head plate: a phone, a tablet
+  held upright): the head plate gives way to the toggle column, the lens bar goes under the
+  plate, and the legends and analysis columns follow it down. Such a window opens with the
+  rail hidden; opened there, the rail is a drawer: the top chrome folds away until it closes
+  (learn and controls stay), and a mode panel opened from it hides it. While a mode panel is
+  open on a narrow canvas it has the screen: the plate, the lens bar and the legends step out.
+- The view cube: gray faces shaded between `--surface` and `--rule-strong`, each lettered with
+  the axis it faces (`+X` … `−Z`); the letters carry the orientation, so there is no colored axis.
+- Inset 16 px (`--tool-edge`) from the window and the rail; tool rhythm 8 / 12 / 16.
+
+**The panels built in script (v8 D2, second half; `tokens.css` "panels built in script",
+`src/design/panel.ts`).**
+- The mode panels (lab mode, heat treat, optimizer, challenge) are `.modepanel.plate.tpanel`: the
+  panel spec over the canvas, 16 px padding, Inter 13. The header row is `.phead`: the title in
+  the nav style (written in capitals where it is a name, `LAB MODE`; a plot's title keeps its
+  case), quiet metadata after it, the "i", and `exit` / `close` pushed to the far end, over a
+  1 px rule. `design/panel.ts` writes the class names (`panelHead`, `pill`, `kv`, `num`, `quiet`,
+  `warnWord`, `warnLine`, `plotModal`), so no panel spells a color or a size.
+- One filled pill per panel: `▶ pour and run`, `▶ run treatment`, `apply recipe`, `▶ start` /
+  `rematch`, the composer's `pour`. Everything else is an outline pill; a destructive action is
+  never the filled one (`■ abort` is an outline pill while a pour runs).
+- Form rows (`.fbrow`, `src/formbits.ts`) stack: the label left and the value right in the
+  tabular mono, the slider under the two at the row's width, so a long value keeps one line; a
+  select or a switch sits on the label's line. `.fbform` lays them in 220 px columns.
+- Reports are spec rails. `.kv`: the label in `--fg-3` on the left, what it says on the right, one
+  label column for all rows (a subgrid), 1 px rules. The label and the value are separated by
+  one literal space, so the text the gates parse is the sentence the card always printed.
+  Label/value readouts with short values (the lab's cooling-curve analysis) use
+  `.spec.spec--tool.spec--panel`.
+- A number inside running text is `.v` (bright, tabular mono), every number in the line, the
+  words around it Inter; a quiet label or caveat is `.q` (`--fg-3`), a quiet number `.v.q`;
+  emphasis is brightness (`<b>` is `--fg` at 400 in the tool).
+- Warnings carry no color. A verdict or refusal word is `.status--warn` (`--fg` at 500, a CSS
+  `!`); a warning that is a whole sentence is `.warnline` (`--fg` at 400, the `!` at 500). The
+  `!` is generated content, so it is never in the text a gate reads. The ⚠, ✕, ◇, ⚑ marks are
+  gone; the composer's refusals and clamps are warning lines, a phase not grown a `.cinfo` note.
+- The lab's run report is a panel down the left edge: sections are a `.psub` title over a 1 px
+  rule, never a box inside the panel; the cooling curve is square-edged media, drawn at the
+  size it is shown.
+- The enlarged plots are `plotModal`: a `--surface` card on `--scrim`, the title and a `close`
+  pill in its header, a modal for the keyboard too (focus in, Tab wraps, Escape closes, focus
+  back to the ⤢ that opened it). The plot's type stays at its 11 px there; only its marks scale.
+- Plots (U2 builds on this): the chrome reads the tokens through `token()`; tick and label text
+  is Inter 11 px (`--fg-3`), a live number on a plot the mono in `--fg`, reference lines
+  `--fg-4` or `--rule-strong`; the traces and markers take the data palette (below), and a
+  legend is a swatch of each data color beside its word (never a color's name in the words). A
+  mark that carries its own label (the cooling curve's `T_L`, `T_N`, `T_G`, `T_S`) needs no hue:
+  `--fg` dots.
+- The composer's tier key draws each tier as a small cell in the grid's own terms (edge, fill
+  and an "Aa" in the tier's text color), with a key for the solutes in the mix; the refused
+  tier's dotted edge is what separates it from "not a solute", past 3:1.
+- The phase diagram (SVG): the frame, ticks, field labels and melt cursor are chrome, styled
+  through the `.pd*` classes in `app/index.html`; its curves, regime band and markers are data,
+  each with a `data-mark` attribute (how `RAIL-ACHROMATIC` tells the two apart).
+- The probe crosshair and the SDAS ruler on the melt (2D and 3D) are `--fg` over a `--bg`
+  casing (`#overlay .mk`), flat, legible over the white-hot MELT and the near-white ETCH.
+- Type in these panels never goes under 12 px (`--t-ui-min`), 11 px only for plot ticks; the
+  periodic grid's symbols are 12 px, and so are the activation switches' tags (`RENDER MODE`,
+  `KARMA–RAPPEL`, `VOLUME`).
+
 **Plots (U2 builds on this).**
 - Chrome: axes, ticks, grid and titles in `--fg-3` / `--rule`; tick labels in Inter 11px.
-- Data marks may use color, one categorical palette defined in the plot module and nowhere
-  else.
+- Data marks may use color, one categorical palette: its values are tokens (`--data-1` blue,
+  `--data-2` orange, `--data-3` aqua, `--data-4` yellow, validated on `--bg`), and
+  `src/design/plot.ts` is the one place a plot picks them, by slot in that fixed order: slot 1
+  a plot's primary series (a cooling curve, the Scheil prediction, the rose, a sweep's band,
+  the liquidus), slot 2 what is measured against it (the solidification moment, the measured
+  points, the solidus), slots 3 and 4 the phase diagram's solver reading and residual path.
+  Gray data marks (the invariant and solvus lines, a sweep's replicates) use the gray tokens.
 
 **Links.** `--fg` with a 1 px underline at 3 px offset; hover drops the underline.
 

@@ -3,20 +3,28 @@
 // drag the cube itself to orbit. Faces are hit-tested by inverting the
 // orthographic projection (exact 2x2 solve — the projected face is a
 // parallelogram), then u/v thresholds decide face vs edge vs corner.
+//
+// Achromatic (v8 D2): gray faces shaded between two tokens by a fixed light,
+// and each face lettered with the axis it faces, +X to −Z, the axes the
+// SECTION PLANE and the volume's own coordinates use. The letters carry the
+// orientation, so the cube needs no colored axis triad. Every color is read
+// from tokens.css (src/design/tool.ts), none is written here.
 
 import type { CamState } from "./render3d";
+import { token, tokenRGB } from "./design/tool";
 
 type V3 = [number, number, number];
 
 interface Face { n: V3; ta: V3; tb: V3; label: string }
 
+// U+2212 minus, the typographic sign, not a hyphen
 const FACES: Face[] = [
-  { n: [1, 0, 0], ta: [0, 1, 0], tb: [0, 0, 1], label: "RIGHT" },
-  { n: [-1, 0, 0], ta: [0, -1, 0], tb: [0, 0, 1], label: "LEFT" },
-  { n: [0, 1, 0], ta: [-1, 0, 0], tb: [0, 0, 1], label: "BACK" },
-  { n: [0, -1, 0], ta: [1, 0, 0], tb: [0, 0, 1], label: "FRONT" },
-  { n: [0, 0, 1], ta: [1, 0, 0], tb: [0, 1, 0], label: "TOP" },
-  { n: [0, 0, -1], ta: [1, 0, 0], tb: [0, -1, 0], label: "BOT" },
+  { n: [1, 0, 0], ta: [0, 1, 0], tb: [0, 0, 1], label: "+X" },
+  { n: [-1, 0, 0], ta: [0, -1, 0], tb: [0, 0, 1], label: "−X" },
+  { n: [0, 1, 0], ta: [-1, 0, 0], tb: [0, 0, 1], label: "+Y" },
+  { n: [0, -1, 0], ta: [1, 0, 0], tb: [0, 0, 1], label: "−Y" },
+  { n: [0, 0, 1], ta: [1, 0, 0], tb: [0, 1, 0], label: "+Z" },
+  { n: [0, 0, -1], ta: [1, 0, 0], tb: [0, -1, 0], label: "−Z" },
 ];
 
 const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -128,6 +136,11 @@ export class ViewCube {
     const light: V3 = [0.36, -0.5, 0.79];
     const visible = FACES.filter(f => dot(f.n, b.off) > 0.02)
       .sort((f1, f2) => dot(f1.n, b.off) - dot(f2.n, b.off));
+    // a face's gray runs from --surface (turned from the light) to
+    // --rule-strong (facing it); edges in --fg-4, the hover zone and a
+    // hovered face's letter in --fg, the other letters --fg-2
+    const dark = tokenRGB("--surface"), lit0 = tokenRGB("--rule-strong");
+    const shade = (t: number) => `rgb(${dark.map((d, i) => Math.round(d + (lit0[i] - d) * t)).join(", ")})`;
 
     for (const f of visible) {
       const corners: V3[] = [
@@ -137,15 +150,14 @@ export class ViewCube {
         add(add([...f.n] as V3, f.ta, -1), f.tb, 1),
       ];
       const pts = corners.map(c => this.project(c, b, cx, cy, s));
-      const lit = 0.5 + 0.5 * Math.max(0, dot(f.n, light));
-      const base = 22 + lit * 26;
+      const lit = Math.max(0, dot(f.n, light));
       ctx.beginPath();
       ctx.moveTo(pts[0][0], pts[0][1]);
       for (let i = 1; i < 4; i++) ctx.lineTo(pts[i][0], pts[i][1]);
       ctx.closePath();
-      ctx.fillStyle = `rgb(${base + 2}, ${base + 4}, ${base + 9})`;
+      ctx.fillStyle = shade(lit);
       ctx.fill();
-      ctx.strokeStyle = "rgba(120,130,145,0.55)";
+      ctx.strokeStyle = token("--fg-4");
       ctx.lineWidth = 1;
       ctx.stroke();
     }
@@ -171,21 +183,25 @@ export class ViewCube {
         ctx.moveTo(zp[0][0], zp[0][1]);
         for (let i = 1; i < 4; i++) ctx.lineTo(zp[i][0], zp[i][1]);
         ctx.closePath();
-        ctx.fillStyle = "rgba(255,180,84,0.35)";
+        ctx.fillStyle = token("--fg");
+        ctx.globalAlpha = 0.22;
         ctx.fill();
-        ctx.strokeStyle = "rgba(255,180,84,0.9)";
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = token("--fg");
         ctx.lineWidth = 1.2;
         ctx.stroke();
       }
     }
 
-    // labels last so highlights never cover them
+    // labels last so highlights never cover them: the axis letters in the
+    // tool's display face, --fg on the hovered face, --fg-2 elsewhere
+    const fgHover = token("--fg"), fgRest = token("--fg-2"), face = token("--font-display");
     for (const f of visible) {
       const faceHover = D != null && dot(D, f.n) === 1 &&
         dot(D, f.ta) === 0 && dot(D, f.tb) === 0;
       const fc = this.project(f.n, b, cx, cy, s);
-      ctx.fillStyle = faceHover ? "#ffb454" : "rgba(200,206,215,0.85)";
-      ctx.font = `600 ${Math.round(w * 0.10)}px ui-monospace, Consolas, monospace`;
+      ctx.fillStyle = faceHover ? fgHover : fgRest;
+      ctx.font = `400 ${Math.round(w * 0.13)}px ${face}`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       const fade = Math.min(1, Math.max(0, (dot(f.n, b.off) - 0.15) * 3));

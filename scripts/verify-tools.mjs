@@ -212,7 +212,9 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   await grow(page, 14);
   const state = await page.evaluate(() => {
     document.querySelector("#texPanel .zoomBtn").click();
-    return { big: !!document.querySelector("#app > div[style*='fixed']") };
+    // the enlarged plot is the panel spec's modal since v8 D2 (design/panel.ts
+    // plotModal: #app > .tmodal, a class, where it was an inline fixed style)
+    return { big: !!document.querySelector("#app > .tmodal") };
   });
   await grow(page, 4);
   console.log("ENLARGE opened:", JSON.stringify(state));

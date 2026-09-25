@@ -2,6 +2,9 @@ import type { Simulation, StatsResult, PhysParams } from "./sim";
 import type { Renderer } from "./render";
 import { LearnLayer, onLearnChange } from "./learn";
 import { panelText } from "./learn/panels";
+import { token } from "./design/tool";
+import { plotModal } from "./design/panel";
+import { series, seriesAlpha } from "./design/plot";
 
 // Foundry-style analysis instruments:
 //  - cooling-curve probe: T(t) at one cell, straight off the stats reduction —
@@ -43,6 +46,8 @@ export class Analyze {
   private svg: SVGSVGElement;
   private probeMark: SVGGElement;
   private rulerLine: SVGLineElement;
+  /** the ruler's --bg casing, under its --fg dashes, moved with it */
+  private rulerCase: SVGLineElement;
   private rulerText: SVGTextElement;
   private resultEl: HTMLElement | null = null;
 
@@ -59,9 +64,8 @@ export class Analyze {
       const p = document.createElement("div");
       p.className = "apanel";
       p.id = id;
-      p.innerHTML = `<div class="t" style="display:flex;align-items:center;gap:6px">` +
-        `<span>${title}</span>` +
-        `<button class="zoomBtn" title="enlarge" style="margin-left:auto;padding:0 6px;font-size:12px;line-height:1.4">⤢</button></div>`;
+      p.innerHTML = `<div class="t"><span>${title}</span>` +
+        `<button class="zoomBtn iconbtn" type="button" title="enlarge" aria-label="enlarge ${title.toLowerCase()}">⤢</button></div>`;
       // the "i" right after the title; its text under the title bar, no
       // wider than the plot (the column is as wide as its widest child)
       const t = p.querySelector(".t") as HTMLElement;
@@ -90,15 +94,19 @@ export class Analyze {
     this.texPanel = c.p; this.texCtx = c.ctx;
 
     this.svg = document.getElementById("overlay") as unknown as SVGSVGElement;
+    // the probe crosshair and the SDAS ruler are the instrument's marks on the
+    // melt, so achromatic (app/index.html .mk: --fg over a --bg casing that
+    // keeps them legible over the white-hot MELT and ETCH lenses alike)
     this.svg.innerHTML = `
-      <g id="probeMark" style="display:none">
-        <circle r="7" fill="none" stroke="#ffb454" stroke-width="1.4"/>
-        <line x1="-11" y1="0" x2="11" y2="0" stroke="#ffb454" stroke-width="1"/>
-        <line x1="0" y1="-11" x2="0" y2="11" stroke="#ffb454" stroke-width="1"/>
+      <g id="probeMark" class="mk" style="display:none">
+        <g class="mk__case"><circle r="7"/><line x1="-11" y1="0" x2="11" y2="0"/><line x1="0" y1="-11" x2="0" y2="11"/></g>
+        <g class="mk__ink"><circle r="7"/><line x1="-11" y1="0" x2="11" y2="0"/><line x1="0" y1="-11" x2="0" y2="11"/></g>
       </g>
-      <line id="rulerLine" x1="0" y1="0" x2="0" y2="0" stroke="#56d4dd" stroke-width="1.6" stroke-dasharray="6 4" style="display:none"/>
-      <text id="rulerText" fill="#56d4dd" font-size="11" style="display:none"></text>`;
+      <line id="rulerCase" class="mk mk__lcase" x1="0" y1="0" x2="0" y2="0" style="display:none"/>
+      <line id="rulerLine" class="mk mk__line" x1="0" y1="0" x2="0" y2="0" style="display:none"/>
+      <text id="rulerText" class="mk mk__text" style="display:none"></text>`;
     this.probeMark = this.svg.querySelector("#probeMark")!;
+    this.rulerCase = this.svg.querySelector("#rulerCase")!;
     this.rulerLine = this.svg.querySelector("#rulerLine")!;
     this.rulerText = this.svg.querySelector("#rulerText")!;
   }
@@ -207,15 +215,18 @@ export class Analyze {
     if (this.ruler && this.rulerOn) {
       const a = r.gridToClient(this.ruler.ax, this.ruler.ay, sim.n);
       const b = r.gridToClient(this.ruler.bx, this.ruler.by, sim.n);
-      this.rulerLine.style.display = "block";
-      this.rulerLine.setAttribute("x1", String(a.x));
-      this.rulerLine.setAttribute("y1", String(a.y));
-      this.rulerLine.setAttribute("x2", String(b.x));
-      this.rulerLine.setAttribute("y2", String(b.y));
+      for (const l of [this.rulerCase, this.rulerLine]) {
+        l.style.display = "block";
+        l.setAttribute("x1", String(a.x));
+        l.setAttribute("y1", String(a.y));
+        l.setAttribute("x2", String(b.x));
+        l.setAttribute("y2", String(b.y));
+      }
       this.rulerText.style.display = "block";
       this.rulerText.setAttribute("x", String(Math.max(a.x, b.x) + 10));
       this.rulerText.setAttribute("y", String((a.y + b.y) / 2));
     } else {
+      this.rulerCase.style.display = "none";
       this.rulerLine.style.display = "none";
       this.rulerText.style.display = "none";
     }
@@ -225,6 +236,9 @@ export class Analyze {
     this.probePanel.style.display = this.probeOn ? "block" : "none";
     this.scheilPanel.style.display = this.scheilOn ? "block" : "none";
     this.texPanel.style.display = this.textureOn ? "block" : "none";
+    // the gesture hint shares the column's band: it steps out while the
+    // column shows a panel (app/index.html .cols2d)
+    document.body.classList.toggle("cols2d", this.probeOn || this.scheilOn || this.textureOn);
     this.draw();
   }
 
@@ -232,24 +246,17 @@ export class Analyze {
   /** modal enlargement of an analysis panel; live-updates with the sim */
   private openBig(which: "probe" | "scheil" | "tex", title: string) {
     this.closeBig();
-    const wrap = document.createElement("div");
-    wrap.style.cssText = "position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;" +
-      "background:rgba(8,9,12,0.78);backdrop-filter:blur(3px);";
-    const box = document.createElement("div");
-    box.style.cssText = "background:#101318;border:1px solid #2a303b;border-radius:10px;padding:14px 16px 16px;";
+    // the panel spec's modal (design/panel.ts): a --surface card over the
+    // dimmed instrument, the title and a close pill in its header
+    const { wrap, card } = plotModal(title, () => this.closeBig());
     const W = Math.min(920, Math.round(innerWidth * 0.84));
     const H = Math.min(560, Math.round(innerHeight * 0.68));
-    box.innerHTML = `<div style="display:flex;align-items:center;margin-bottom:10px;font-size:11px;letter-spacing:0.14em;color:#56d4dd">` +
-      `<span style="flex:1">${title}</span><button id="bigClose">✕ close</button></div>`;
     const c = document.createElement("canvas");
     c.width = W * devicePixelRatio;
     c.height = H * devicePixelRatio;
-    c.style.cssText = `width:${W}px;height:${H}px;display:block`;
-    box.append(c);
-    wrap.append(box);
-    document.getElementById("app")!.append(wrap);
-    wrap.addEventListener("click", e => { if (e.target === wrap) this.closeBig(); });
-    box.querySelector("#bigClose")!.addEventListener("click", () => this.closeBig());
+    c.style.width = `${W}px`;
+    c.style.height = `${H}px`;
+    card.append(c);
     this.bigWrap = wrap;
     this.bigCtx = c.getContext("2d")!;
     this.bigFor = which;
@@ -284,21 +291,44 @@ export class Analyze {
     }
   }
 
+  /** the plot chrome's text: Inter 11 CSS px (the plot spec's tick size), or
+   *  the tabular mono for a number. The same 11 px in the enlarged view:
+   *  there `fs` scales the margins, line weights and swatches, never the
+   *  type, which stays under the modal's 12 px header */
+  private text(ctx: CanvasRenderingContext2D, _fs: number, mono = false) {
+    ctx.font = `400 ${11 * devicePixelRatio}px ${token(mono ? "--font-mono" : "--font-body")}`;
+  }
+
+  /** a legend on one line: a swatch in each data color, then its word; at
+   *  the words' own 11 px size in either view */
+  private legend(ctx: CanvasRenderingContext2D, x: number, y: number, fs: number, items: [string, string][]) {
+    const dpr = devicePixelRatio;
+    this.text(ctx, fs);
+    for (const [color, word] of items) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y - 4 * dpr, 10 * dpr, 2 * dpr);
+      x += 14 * dpr;
+      ctx.fillStyle = token("--fg-3");
+      ctx.fillText(word, x, y);
+      x += ctx.measureText(word).width + 10 * dpr;
+    }
+  }
+
   /** area-weighted orientation rose, replicated by the crystal's j-fold symmetry */
   private drawRose(p: PhysParams, ctx: CanvasRenderingContext2D) {
     const { w, h, m, fs } = this.frame(ctx);
     const dpr = devicePixelRatio;
     const rose = this.lastRose;
-    ctx.font = `${9 * dpr * fs}px monospace`;
+    this.text(ctx, fs);
     if (!rose || rose.reduce((a, b) => a + b, 0) === 0) {
-      ctx.fillStyle = "#5b6675";
+      ctx.fillStyle = token("--fg-3");
       ctx.fillText("no grains yet", m, h / 2);
       return;
     }
     const j = Math.max(1, Math.round(p.aniMode));
     const cx = w / 2, cy = h / 2;
     const R = Math.min(w, h) / 2 - m;
-    ctx.strokeStyle = "#2a303b";
+    ctx.strokeStyle = token("--rule-strong");
     ctx.lineWidth = dpr;
     for (const f of [0.5, 1]) {
       ctx.beginPath();
@@ -308,7 +338,8 @@ export class Analyze {
     const max = Math.max(...rose);
     const period = (2 * Math.PI) / j;
     const binW = period / rose.length;
-    ctx.fillStyle = "rgba(255,180,84,0.75)";
+    // data: the rose, the palette's first slot
+    ctx.fillStyle = seriesAlpha(0, 0.75);
     for (let k = 0; k < j; k++) {
       for (let b = 0; b < rose.length; b++) {
         const r = R * Math.sqrt(rose[b] / max);
@@ -321,7 +352,7 @@ export class Analyze {
         ctx.fill();
       }
     }
-    ctx.fillStyle = "#5b6675";
+    ctx.fillStyle = token("--fg-3");
     ctx.fillText(`area-weighted · ×${j} symmetry`, m, h - 2 * dpr);
   }
 
@@ -330,9 +361,9 @@ export class Analyze {
     const d = this.curve;
     const dpr = devicePixelRatio;
     const TL = p.alloyOn ? 1 - p.mLiq * p.c0 : 1; // liquidus of the melt
+    this.text(ctx, fs);
     if (d.length < 2) {
-      ctx.fillStyle = "#5b6675";
-      ctx.font = `${10 * dpr * fs}px monospace`;
+      ctx.fillStyle = token("--fg-3");
       ctx.fillText("waiting for the melt to run…", m, h / 2);
       return;
     }
@@ -342,38 +373,43 @@ export class Analyze {
     lo -= pad; hi += pad;
     const X = (t: number) => m + ((t - t0) / Math.max(t1 - t0, 1e-9)) * (w - 2 * m);
     const Y = (T: number) => h - m - ((T - lo) / (hi - lo)) * (h - 2 * m);
-    // liquidus reference
-    ctx.strokeStyle = "#3d4654";
+    // liquidus reference: chrome
+    ctx.strokeStyle = token("--fg-4");
+    ctx.lineWidth = dpr;
     ctx.setLineDash([4 * dpr, 4 * dpr]);
     ctx.beginPath(); ctx.moveTo(m, Y(TL)); ctx.lineTo(w - m, Y(TL)); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = "#5b6675";
-    ctx.font = `${9 * dpr * fs}px monospace`;
-    ctx.fillText("T liquidus", w - m - 62 * dpr, Y(TL) - 3 * dpr);
-    // trace
-    ctx.strokeStyle = "#ffb454";
+    ctx.fillStyle = token("--fg-3");
+    ctx.textAlign = "right";
+    ctx.fillText("T liquidus", w - m, Y(TL) - 3 * dpr * fs);
+    ctx.textAlign = "left";
+    // trace: data (the palette's first slot), and the solidification moment
+    // at the probe (its second)
+    ctx.strokeStyle = series(0);
     ctx.lineWidth = 1.4 * dpr;
     ctx.beginPath();
     d.forEach((q, i) => { const x = X(q.t), y = Y(q.T); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
     ctx.stroke();
-    // solidification moment at the probe
+    ctx.lineWidth = dpr;
     const si = d.findIndex(q => q.phi > 0.5);
     if (si > 0) {
-      ctx.strokeStyle = "#56d4dd";
+      ctx.strokeStyle = series(1);
       ctx.beginPath(); ctx.moveTo(X(d[si].t), m); ctx.lineTo(X(d[si].t), h - m); ctx.stroke();
-      ctx.fillStyle = "#56d4dd";
-      ctx.fillText("solid", X(d[si].t) + 3 * dpr, m + 9 * dpr);
+      ctx.fillStyle = token("--fg-3");
+      ctx.fillText("solid", X(d[si].t) + 3 * dpr, m + 20 * dpr * fs);
     }
-    ctx.fillStyle = "#ffb454";
-    ctx.fillText(`T ${d[d.length - 1].T.toFixed(3)}`, m, m + 9 * dpr);
+    // the probe's live value: a number, so the tabular mono, bright
+    this.text(ctx, fs, true);
+    ctx.fillStyle = token("--fg");
+    ctx.fillText(`T ${d[d.length - 1].T.toFixed(3)}`, m, m + 9 * dpr * fs);
   }
 
   private drawScheil(p: PhysParams, ctx: CanvasRenderingContext2D) {
     const { w, h, m, fs } = this.frame(ctx);
     const dpr = devicePixelRatio;
     if (!p.alloyOn) {
-      ctx.fillStyle = "#5b6675";
-      ctx.font = `${10 * dpr * fs}px monospace`;
+      this.text(ctx, fs);
+      ctx.fillStyle = token("--fg-3");
       ctx.fillText("needs the solute field (ALLOY)", m, h / 2);
       return;
     }
@@ -385,7 +421,9 @@ export class Analyze {
     lo -= pad; hi += pad;
     const X = (fs: number) => m + fs * (w - 2 * m);
     const Y = (t: number) => h - m - ((t - lo) / (hi - lo)) * (h - 2 * m);
-    ctx.strokeStyle = "#ffb454";
+    // the prediction (the palette's first slot) and what the sim measured
+    // against it (its second)
+    ctx.strokeStyle = series(0);
     ctx.lineWidth = 1.4 * dpr;
     ctx.beginPath();
     for (let i = 0; i <= 120; i++) {
@@ -394,10 +432,13 @@ export class Analyze {
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.stroke();
-    ctx.fillStyle = "#56d4dd";
+    ctx.fillStyle = series(1);
     for (const q of this.scheil) ctx.fillRect(X(q.fs) - dpr, Y(q.Ti) - dpr, 2 * dpr, 2 * dpr);
-    ctx.fillStyle = "#5b6675";
-    ctx.font = `${9 * dpr * fs}px monospace`;
-    ctx.fillText("fs 0→1  ·  amber Scheil  ·  cyan measured T_interface", m, h - 2 * dpr);
+    // the key: each data color's swatch and its word, then the axis
+    this.legend(ctx, m, h - 3 * dpr, fs, [[series(0), "Scheil"], [series(1), "measured T_interface"]]);
+    ctx.fillStyle = token("--fg-3");
+    ctx.textAlign = "right";
+    ctx.fillText("f_s 0 → 1", w - m, h - 3 * dpr);
+    ctx.textAlign = "left";
   }
 }

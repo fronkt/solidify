@@ -27,6 +27,7 @@
      (4.58:1; 0.86 gave 4.0:1 over the white-hot melt) */
   --overlay: rgba(10, 10, 10, 0.9);
   --overlay-blur: 12px;
+  --scrim: rgba(10, 10, 10, 0.6);   /* behind a modal: the live canvas stays in view, dimmed */
   --fg: #f2f2f2;             /* primary text, filled button, active state */
   --fg-2: #bdbdbd;           /* long-form body copy */
   --fg-3: #8a8a8a;           /* labels, units, metadata, inactive nav (5.7:1 on --bg) */
@@ -99,6 +100,27 @@
   --btn-h: 40px;
   --btn-h-tool: 28px;
   --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* the instrument (app/index.html, the "tool" section below) */
+  --t-value-tool: 12.5px;    /* numeric readouts: rail values, the HUD, panels */
+  --tool-edge: var(--s-4);   /* chrome inset from the window's edges and the rail */
+  --tab-h-tool: 24px;        /* a lens-bar tab: two rows of them stay compact */
+  --switch-w: 28px;
+  --switch-h: 16px;
+  /* the THERM lens's colormap as its legend shows it: a data key, the one
+     gradient in the chrome, mirroring PALETTE_WGSL's thermal ramp */
+  --legend-therm: linear-gradient(to top, #05010a, #30064e, #a3195b, #e35b1c, #f7b731, #fffbe0);
+
+  /* the plots' one categorical data palette (DESIGN.md 5, plots; the slots'
+     roles are named in src/design/plot.ts): data marks only, never chrome,
+     and none of them the old chrome's amber or cyan. The dataviz reference
+     palette's dark steps in its fixed order, validated on --bg for the
+     lightness band, the chroma floor, adjacent-pair CVD separation (worst
+     8.4, slots 3 and 4) and 3:1 contrast */
+  --data-1: #3987e5;         /* blue */
+  --data-2: #d95926;         /* orange */
+  --data-3: #199e70;         /* aqua */
+  --data-4: #c98500;         /* yellow */
 }
 @media (max-width: 759px) {
   :root { --header-h: 60px; }
@@ -283,40 +305,57 @@ img, canvas, video { border-radius: var(--r-media); }
 .input:focus-visible, .select:focus-visible { outline: none; border-bottom-color: var(--fg); }
 .select option { background: var(--surface); color: var(--fg); }
 
-/* slider: 2 px track, the filled part in --fg (set --fill from script), a
-   12 px --fg thumb that takes the focus ring */
-.range {
+/* slider: 2 px track, the filled part in --fg (set --fill from script,
+   src/design/range.ts), a 12 px --fg thumb that takes the focus ring. The
+   tool's bare range inputs take it too (the "tool" section below) */
+.range, :where(.tool) input[type="range"] {
   --fill: 0%;
   appearance: none; -webkit-appearance: none;
   width: 100%; height: 16px; margin: 0; background: transparent; cursor: pointer;
 }
-.range:focus { outline: none; }
-.range::-webkit-slider-runnable-track {
+.range:focus, :where(.tool) input[type="range"]:focus { outline: none; }
+.range::-webkit-slider-runnable-track, :where(.tool) input[type="range"]::-webkit-slider-runnable-track {
   height: 2px; border-radius: 0;
   background: linear-gradient(to right, var(--fg) var(--fill), var(--rule-strong) var(--fill));
 }
-.range::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 12px; height: 12px; margin-top: -5px;
-  border: 0; border-radius: var(--r-tag); background: var(--fg);
+.range::-webkit-slider-thumb, :where(.tool) input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 12px; height: 12px; margin-top: -5px;
+  border: 0; border-radius: var(--r-tag); background: var(--fg); cursor: ew-resize;
 }
-.range:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--focus); outline-offset: 2px; }
-.range::-moz-range-track { height: 2px; background: var(--rule-strong); border: 0; }
-.range::-moz-range-progress { height: 2px; background: var(--fg); }
-.range::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: var(--r-tag); background: var(--fg); }
-.range:focus-visible::-moz-range-thumb { outline: 2px solid var(--focus); outline-offset: 2px; }
+.range:focus-visible::-webkit-slider-thumb, :where(.tool) input[type="range"]:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--focus); outline-offset: 2px;
+}
+.range::-moz-range-track, :where(.tool) input[type="range"]::-moz-range-track { height: 2px; background: var(--rule-strong); border: 0; }
+.range::-moz-range-progress, :where(.tool) input[type="range"]::-moz-range-progress { height: 2px; background: var(--fg); }
+.range::-moz-range-thumb, :where(.tool) input[type="range"]::-moz-range-thumb {
+  width: 12px; height: 12px; border: 0; border-radius: var(--r-tag); background: var(--fg);
+}
+.range:focus-visible::-moz-range-thumb, :where(.tool) input[type="range"]:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--focus); outline-offset: 2px;
+}
+/* a locked slider (the challenge's fixed target): the whole control drops to
+   the disabled gray */
+.range:disabled, :where(.tool) input[type="range"]:disabled { cursor: not-allowed; }
+.range:disabled::-webkit-slider-runnable-track, :where(.tool) input[type="range"]:disabled::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, var(--fg-4) var(--fill), var(--rule) var(--fill));
+}
+.range:disabled::-webkit-slider-thumb, :where(.tool) input[type="range"]:disabled::-webkit-slider-thumb { background: var(--fg-4); cursor: not-allowed; }
+.range:disabled::-moz-range-thumb, :where(.tool) input[type="range"]:disabled::-moz-range-thumb { background: var(--fg-4); }
 
-/* switch: 28 x 16, 1 px border; checked fills --fg with a --bg knob */
-.switch {
+/* switch: 28 x 16, 1 px border; checked fills --fg with a --bg knob. The
+   tool's checkboxes are switches */
+.switch, :where(.tool) input[type="checkbox"] {
   appearance: none; -webkit-appearance: none; position: relative; flex: none;
-  width: 28px; height: 16px; margin: 0; border: 1px solid var(--rule-strong); border-radius: var(--r-tag);
+  width: var(--switch-w); height: var(--switch-h); margin: 0; border: 1px solid var(--rule-strong); border-radius: var(--r-tag);
   background: transparent; cursor: pointer; transition: background-color 0.15s, border-color 0.15s;
 }
-.switch::before {
+.switch::before, :where(.tool) input[type="checkbox"]::before {
   content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px;
   border-radius: var(--r-tag); background: var(--fg-3); transition: translate 0.15s var(--ease), background-color 0.15s;
 }
-.switch:checked { background: var(--fg); border-color: var(--fg); }
-.switch:checked::before { translate: 12px 0; background: var(--bg); }
+.switch:checked, :where(.tool) input[type="checkbox"]:checked { background: var(--fg); border-color: var(--fg); }
+.switch:checked::before, :where(.tool) input[type="checkbox"]:checked::before { translate: 12px 0; background: var(--bg); }
+.switch:focus-visible, :where(.tool) input[type="checkbox"]:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* ----------------------------------------------------------------- header */
 /* Landing, science, contact. Transparent over the page's first screen; the
@@ -409,8 +448,245 @@ img, canvas, video { border-radius: var(--r-media); }
   .ftr__base { margin-top: var(--s-12); }
 }
 
+/* ------------------------------------------------------------------- tool */
+/* The instrument (app/index.html, <body class="tool">): the same system,
+   denser. Tool rhythm 8 / 12 / 16; controls are 28 px pills in Inter 500 at
+   12.5 px; labels Inter 13 px; numeric values JetBrains Mono tabular and
+   nothing else in mono; section, lens and nav labels Space Grotesk 12 px
+   uppercase. Everything that floats over the live canvas sits on a .plate
+   (--overlay), so its text keeps its contrast over any lens, the bright FIELD
+   and NEON ones included.
+   The element rules are wrapped in :where(.tool) so they weigh exactly what
+   a bare element selector weighs: every component that restyles a button, a
+   select or a slider (a section header, a periodic-table cell, a lens tab)
+   still wins with a single class. */
+.tool {
+  font: 400 var(--t-ui)/1.35 var(--font-body); letter-spacing: 0; color: var(--fg-2);
+}
+/* a panel floating over the live canvas */
+.plate {
+  background: var(--overlay); border: 1px solid var(--rule); border-radius: var(--r-panel);
+  -webkit-backdrop-filter: blur(var(--overlay-blur)); backdrop-filter: blur(var(--overlay-blur));
+}
+.plate--pill { border-radius: var(--r-tag); }
+.t-nav-tool {
+  font: 400 var(--t-nav-tool)/1 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav);
+}
+.t-value-tool { font: 400 var(--t-value-tool)/1.35 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg); }
+
+/* buttons: the tool's outline pill (.btn.btn--sm, for the bare <button>s
+   every panel builds). min-height, not height, and wrapping allowed: a label
+   too long for its cell grows the pill rather than painting past it */
+:where(.tool) button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: var(--btn-h-tool); margin: 0; padding: 4px var(--s-3);
+  border: 1px solid var(--rule-strong); border-radius: var(--r-button-tool);
+  background: transparent; color: var(--fg);
+  font: 500 var(--t-button-tool)/1.2 var(--font-body); letter-spacing: 0; text-align: center;
+  cursor: pointer; transition: border-color 0.15s, background-color 0.15s, color 0.15s, scale 0.12s;
+}
+:where(.tool) button:hover { border-color: var(--fg); }
+:where(.tool) button:active { scale: 0.96; }
+:where(.tool) button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* toggled or active: inverted */
+:where(.tool) button.on, :where(.tool) button.is-on, :where(.tool) button[aria-pressed="true"] {
+  background: var(--fg); border-color: var(--fg); color: var(--bg);
+}
+/* the view's one primary action: the filled pill */
+:where(.tool) button.accent, :where(.tool) button.btn--primary {
+  background: var(--fg); border-color: var(--fg); color: var(--bg);
+}
+:where(.tool) button.on:hover, :where(.tool) button.is-on:hover, :where(.tool) button[aria-pressed="true"]:hover,
+:where(.tool) button.accent:hover, :where(.tool) button.btn--primary:hover {
+  background: var(--fg-2); border-color: var(--fg-2);
+}
+:where(.tool) button:disabled, :where(.tool) button[aria-disabled="true"] {
+  color: var(--fg-4); border-color: var(--rule); background: transparent; cursor: not-allowed; scale: none;
+}
+
+/* select: the underline input with a chevron drawn in --fg-3 (two
+   half-squares, not an image) */
+:where(.tool) select {
+  appearance: none; -webkit-appearance: none; width: 100%; min-height: var(--btn-h-tool); margin: 0;
+  padding: 4px var(--s-5) 4px 0; border: 0; border-bottom: 1px solid var(--rule-strong); border-radius: 0;
+  color: var(--fg); font: 400 var(--t-ui)/1.35 var(--font-body); text-overflow: ellipsis; cursor: pointer;
+  background: transparent no-repeat;
+  background-image: linear-gradient(45deg, transparent 50%, var(--fg-3) 50%), linear-gradient(135deg, var(--fg-3) 50%, transparent 50%);
+  background-position: calc(100% - 9px) 50%, calc(100% - 4px) 50%;
+  background-size: 5px 5px, 5px 5px;
+}
+:where(.tool) select:hover { border-bottom-color: var(--fg); }
+:where(.tool) select:focus { outline: none; border-bottom-color: var(--fg); }
+:where(.tool) select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+:where(.tool) select option { background: var(--surface); color: var(--fg); }
+:where(.tool) select option:disabled { color: var(--fg-4); }
+
+/* a switch with its label, the <label> wrapping a checkbox */
+.checkrow {
+  display: flex; align-items: center; gap: var(--s-2); min-height: 24px;
+  color: var(--fg-2); cursor: pointer; user-select: none;
+}
+.checkrow:hover { color: var(--fg); }
+
+/* activation switch: a <button role="switch"> holding a track, a label and
+   a tag (render modes, the calibrated solver, TRUE 3D) */
+.actswitch {
+  display: flex; align-items: center; justify-content: flex-start; gap: var(--s-2);
+  width: 100%; min-height: var(--btn-h-tool); margin: 0; padding: 0;
+  border: 0; border-radius: 0; background: transparent; color: var(--fg-2);
+  font: 400 var(--t-ui)/1.35 var(--font-body); text-align: left; user-select: none;
+}
+.actswitch:hover { color: var(--fg); }
+.actswitch .track {
+  position: relative; flex: none; width: var(--switch-w); height: var(--switch-h);
+  border: 1px solid var(--rule-strong); border-radius: var(--r-tag); transition: background-color 0.15s, border-color 0.15s;
+}
+.actswitch .knob {
+  position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: var(--r-tag);
+  background: var(--fg-3); transition: translate 0.15s var(--ease), background-color 0.15s;
+}
+/* on, only the track fills: the row itself is not an inverted pill (it
+   outweighs the tool's button.on, hover included) */
+.actswitch.on, .actswitch.on:hover { color: var(--fg); background: transparent; }
+.actswitch.on .track { background: var(--fg); border-color: var(--fg); }
+.actswitch.on .knob { translate: 12px 0; background: var(--bg); }
+/* the tag names the cost (RENDER MODE) or the source (KARMA–RAPPEL): a
+   label, so plain nav type, not the bordered .tag, and at the tool's nav
+   size, since it informs (the tool's 12 px floor; 11 px is for plot ticks) */
+.actswitch .tag {
+  height: auto; margin-left: auto; padding: 0; border: 0; white-space: nowrap;
+  font: 400 var(--t-nav-tool)/1 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav); color: var(--fg-3);
+}
+.actswitch.disabled, .actswitch.disabled:hover { color: var(--fg-4); cursor: not-allowed; }
+.actswitch.disabled .track { border-color: var(--rule); }
+.actswitch.disabled .knob { background: var(--fg-4); }
+.actswitch.disabled .tag { color: var(--fg-4); }
+
+/* a compact spec rail (the HUD): label left in --fg-3, value right in the
+   tabular mono, rows split by 1 px rules */
+.spec--tool { border-bottom: 0; }
+.spec--tool .spec__row { grid-template-columns: auto minmax(0, 1fr); gap: var(--s-3); padding: 2px 0; }
+.spec--tool .spec__label { font: 400 var(--t-ui-min)/16px var(--font-body); color: var(--fg-3); white-space: nowrap; }
+.spec--tool .spec__value {
+  font: 400 var(--t-value-tool)/16px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+/* the lens bar: the pill tabs at the tool's size */
+.tabs--tool { gap: var(--s-1); }
+.tabs--tool .tabs__tab {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 0; height: var(--tab-h-tool); padding: 0 var(--s-2); font-size: var(--t-nav-tool);
+}
+
+/* learn mode (src/learn): the "i" that opens a section's explanation, the
+   explanation, and a hint under a control. All of it inherits nothing from
+   the surface it sits in (a nav-style header, an uppercase caption) */
+.lrnInfo {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; position: relative;
+  width: 16px; height: 16px; min-height: 0; margin: -2px 0; padding: 0;
+  border: 1px solid var(--rule-strong); border-radius: var(--r-tag); background: transparent; color: var(--fg-3);
+  font: 500 var(--t-tag)/1 var(--font-body); letter-spacing: 0; text-transform: none; cursor: pointer;
+}
+/* 16 px drawn, a 24 px target: -5 px from the padding box (the face less its border) */
+.lrnInfo::after { content: ""; position: absolute; inset: -5px; }
+.lrnInfo:hover { border-color: var(--fg); color: var(--fg); }
+.lrnInfo[aria-expanded="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.lrnText {
+  margin: var(--s-1) 0 var(--s-2); padding-left: var(--s-2); border-left: 1px solid var(--rule-strong);
+  font: 400 var(--t-ui-min)/1.5 var(--font-body); letter-spacing: 0; text-transform: none; color: var(--fg-2);
+}
+.lrnHint { margin: -2px 0 var(--s-2); font: 400 var(--t-ui-min)/1.35 var(--font-body); color: var(--fg-3); }
+
+/* emphasis in the tool is brightness, never a heavier weight (D1's rule:
+   Inter 500 is for buttons, the active item and a warning's mark) */
+:where(.tool) b, :where(.tool) strong { font-weight: 400; color: var(--fg); }
+
+/* ---- panels built in script: the mode panels (lab mode, heat treat,
+   optimizer, challenge), the lab's run report, the analysis columns, the
+   enlarged plots and the alloy composer. DESIGN.md's panel spec at the
+   tool's density: the box is a .plate over the canvas or a .tmodal card on
+   --surface, 1 px --rule, radius 12, no shadow; .tpanel adds the padding and
+   the type; the header row is nav style over a 1 px rule */
+.tpanel { padding: var(--s-4); color: var(--fg-2); font: 400 var(--t-ui)/1.45 var(--font-body); }
+.phead {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3);
+  margin: 0 0 var(--s-3); padding-bottom: var(--s-3); border-bottom: 1px solid var(--rule);
+}
+/* the title is written in capitals where it is a name (LAB MODE); a plot's
+   title keeps its own case, since "fs" and "vs" are not "FS" and "VS" */
+.phead__title {
+  font: 400 var(--t-nav-tool)/1.2 var(--font-display); letter-spacing: var(--track-nav);
+  color: var(--fg); white-space: nowrap;
+}
+.phead__meta { font: 400 var(--t-ui-min)/1.35 var(--font-body); color: var(--fg-3); overflow-wrap: anywhere; }
+.phead__end { margin-left: auto; }
+/* a row of action pills: the view's one primary (.accent) first */
+.pactions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+/* a sub-section title inside a panel (a report card's, the composer's
+   captions): nav style in --fg-3 */
+.psub {
+  font: 400 var(--t-nav-tool)/1.2 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav);
+  color: var(--fg-3);
+}
+/* quiet text: a row's label, a unit, a provenance line, a standing caveat */
+.q { color: var(--fg-3); }
+/* a number inside running text: the tabular mono, bright */
+.v {
+  font-family: var(--font-mono); font-size: var(--t-value-tool); font-weight: 400;
+  font-variant-numeric: tabular-nums; color: var(--fg);
+}
+/* a quiet number (the challenge's losing result): the mono, in --fg-3. After
+   .v, and heavier than either, so the brightness split holds */
+.v.q { color: var(--fg-3); }
+/* a warning that is a whole sentence: bright, and the "!" carries the
+   weight (a verdict word uses .status--warn, all of it at 500) */
+.warnline { color: var(--fg); }
+.warnline::before { content: "! "; font-weight: 500; }
+/* a report as spec rows: the label in --fg-3 on the left, what it says on
+   the right, rows split by 1 px rules (Figure's spec rail at the tool's
+   density). A row without a label spans both columns */
+/* the rows share one label column (a subgrid), as wide as the widest label
+   up to 40% of the panel, so every value starts on one line down the list */
+.kv { display: grid; grid-template-columns: fit-content(40%) minmax(0, 1fr); column-gap: var(--s-3); }
+.kv__row {
+  grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; row-gap: var(--s-1);
+  padding: 6px 0; border-top: 1px solid var(--rule);
+}
+.kv__row:first-child { border-top: 0; }
+.kv__k { color: var(--fg-3); }
+.kv__v { min-width: 0; overflow-wrap: anywhere; }
+.kv__row > .lrnText { grid-column: 1 / -1; margin: 0; }
+.kv__row--full > .kv__v { grid-column: 1 / -1; }
+/* the compact spec rail's roomier cousin for panels: rows at 6 px */
+.spec--panel .spec__row { padding: 6px 0; }
+.spec--panel .spec__label { white-space: normal; }
+.spec--panel .spec__value { text-align: right; }
+.spec--panel .spec__row:first-child { border-top: 0; }
+
+/* a modal over the instrument (an enlarged plot): the live canvas stays in
+   view, dimmed by --scrim; the card is a --surface panel */
+.tmodal {
+  position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;
+  background: var(--scrim); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+}
+.tmodal__card {
+  max-width: calc(100vw - 2 * var(--tool-edge)); max-height: calc(100vh - 2 * var(--tool-edge)); overflow: auto;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-panel);
+}
+.tmodal__card canvas { display: block; }
+/* a small icon pill in a panel's header (the enlarge control) */
+.iconbtn {
+  flex: none; width: 24px; height: 24px; min-height: 0; padding: 0;
+  font: 400 var(--t-ui-min)/1 var(--font-body); color: var(--fg-2);
+}
+.iconbtn:hover { color: var(--fg); }
+
 @media (prefers-reduced-motion: reduce) {
   .btn, .hdr, .tabs__tab, .switch, .switch::before, .segs > i { transition: none; }
   .spec__value.is-tick { animation: none; }
   .btn:active { scale: none; }
+  :where(.tool) button, :where(.tool) input[type="checkbox"], :where(.tool) input[type="checkbox"]::before,
+  .actswitch .track, .actswitch .knob { transition: none; }
+  :where(.tool) button:active { scale: none; }
 }

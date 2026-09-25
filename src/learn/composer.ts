@@ -39,8 +39,9 @@ export const COMPOSER_LEARN: readonly LearnEntry[] = [
     id: "panel:element screen",
     // "its own stated reason", not "reason and number": many refusals carry no
     // number (a halogen, an unchecked monotectic)
-    text: "Every element in the periodic table, answered for this melt: amber cells have cited data and can be "
-      + "poured, and every other cell is refused with its own stated reason. An underline marks an element "
+    // brightness and edge, not a hue, since v8 D2: the grid is achromatic
+    text: "Every element in the periodic table, answered for this melt: the bright cells with a solid edge have "
+      + "cited data and can be poured, and every other cell is refused with its own stated reason. An underline marks an element "
       + "that fumes or boils at this melt's melting point.",
   },
   {

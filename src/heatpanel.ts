@@ -39,6 +39,7 @@ import { HOMOG_D3 } from "./shaders3d";
 import { range } from "./formbits";
 import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
 import { HEAT_CAVEATS as HC, panelHintFor, panelText } from "./learn/panels";
+import { kv, kvFull, num, panelHead, pill, quiet, warnLine, warnWord } from "./design/panel";
 
 /**
  * The one definition of d̄ the H6 verdict stands on — ⟨A⟩-equivalent circle in
@@ -509,35 +510,25 @@ export class HeatPanel {
     p.id = "heattreat";
     // placed and sized by .modepanel (app/index.html), so it can reach neither
     // the rail nor the transport bar
-    p.className = "modepanel";
-    p.style.cssText =
-      "--cap:700px;" +
-      "background:rgba(15,17,21,0.93);border:1px solid #262b33;border-radius:8px;padding:10px 14px;" +
-      "backdrop-filter:blur(6px);z-index:6;font-size:11px;";
+    p.className = "modepanel plate tpanel";
 
-    const head = document.createElement("div");
-    head.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:6px;";
     // materialLabel() is `alloyName`, and a share link's `n` field lands in it
     // verbatim — so this is a user-controlled string reaching innerHTML. The
     // name goes in through textContent on its own element instead. (Found by
     // an adversarial review of v7.1 P1: every other user-reachable string in
     // that milestone was routed to textContent, and this sink, five lines above
     // the new #htCaveat in the same function, was the one left raw.)
-    head.innerHTML = `<span style="letter-spacing:.2em;color:#ffb454">♨ HEAT TREAT</span>
-      <span style="color:#8891a0">solid state · <b id="htMat" style="color:#cfd6df"></b></span>`;
-    head.querySelector("#htMat")!.textContent = this.host.materialLabel();
-    const exit = document.createElement("button");
-    exit.textContent = "exit";
-    exit.style.marginLeft = "auto";
-    exit.addEventListener("click", () => this.close());
-    head.append(exit);
+    const meta = document.createElement("span");
+    meta.innerHTML = `solid state · <b id="htMat"></b>`;
+    meta.querySelector("#htMat")!.textContent = this.host.materialLabel();
+    const exit = pill("exit", () => this.close());
+    const head = panelHead("HEAT TREAT", exit, meta);
     this.learn = new LearnLayer(() => this.applyLearn());
-    const ex = this.learn.explain(head, "about heat treat", panelText("heat treat"), head.children[1]);
+    const ex = this.learn.explain(head, "about heat treat", panelText("heat treat"), meta);
 
+    // the form's columns (.fbform): a second opens once both hold a row
     const form = document.createElement("div");
-    // 252px: a formbits row's own minimum (118 label + 60 slider + 58 value +
-    // 2 x 8 gap), so a second column only opens when both columns hold a row
-    form.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(252px,1fr));gap:6px 16px;margin-bottom:8px;";
+    form.className = "fbform";
     // the spec dial's ceiling is material-relative for the same reason the
     // temperature's is: σ_y at a 4 µm grain — finer than any casting this
     // instrument pours — is the strongest number Hall–Petch can honestly ask
@@ -631,30 +622,32 @@ export class HeatPanel {
 
     const note = document.createElement("div");
     note.id = "htNote";
-    note.style.cssText = "color:#8891a0;line-height:1.55;margin-bottom:8px;";
+    note.className = "pnote";
 
     const row = document.createElement("div");
-    row.style.cssText = "display:flex;gap:8px;align-items:center;";
-    const go = document.createElement("button");
+    row.className = "pactions";
+    // the panel's one primary action
+    const go = pill("▶ run treatment", () => (this.busy ? (this.abortReq = true) : void this.run()), "accent");
     go.id = "htRun";
-    go.textContent = "♨ run treatment";
-    go.addEventListener("click", () => (this.busy ? (this.abortReq = true) : void this.run()));
     const status = document.createElement("span");
     status.id = "htStatus";
-    status.style.cssText = "color:#8891a0;";
+    status.className = "q";
     row.append(go, status);
 
+    // the report: a spec rail (.kv), one row per line of the card
     const report = document.createElement("div");
     report.id = "htReport";
-    report.style.cssText = "margin-top:6px;color:#8891a0;line-height:1.55;";
+    report.className = "kv preport";
 
     // The melt's own clamps and refusals. A SIBLING of #htNote rather than part
     // of it, deliberately: four gates read #htNote's textContent and one reads
     // #htReport byte-for-byte, and a caveat line folded into either would move
-    // a pinned string. This element is new, so nothing pins it yet.
+    // a pinned string. This element is new, so nothing pins it yet. A warning:
+    // its "!" is CSS (.warnline), so its text is the caveats alone
     const caveat = document.createElement("div");
     caveat.id = "htCaveat";
-    caveat.style.cssText = "display:none;color:#d9985a;line-height:1.5;margin-bottom:8px;";
+    caveat.className = "pnote warnline";
+    caveat.style.display = "none";
 
     p.append(head, ex.body, form, caveat, note, row, report);
     document.getElementById("app")!.append(p);
@@ -675,10 +668,10 @@ export class HeatPanel {
       const cav = this.host.alloyCaveats?.() ?? [];
       // textContent: these strings quote element keys that reached derive()
       // from a hand-built mix or hash
-      this.caveatEl.textContent = cav.length ? `⚠ ${cav.join(" · ")}` : "";
+      this.caveatEl.textContent = cav.length ? cav.join(" · ") : "";
       this.caveatEl.style.display = cav.length ? "block" : "none";
     }
-    this.runBtn.textContent = this.busy ? "■ abort" : "♨ run treatment";
+    this.runBtn.textContent = this.busy ? "■ abort" : "▶ run treatment";
     if (this.busy) return; // the run loop owns the status line
     // every branch below writes the note, then fills its learn slots
     this.writeNote();
@@ -691,7 +684,7 @@ export class HeatPanel {
     const plan = this.plan(this.census);
     if (!plan.ok) {
       // the gates find "refused" in the note's first 120 characters
-      this.noteEl.innerHTML = `<span style="color:#c96a5b">refused</span>: ${plan.why}${learnSlot(plan.learn ?? "")}`;
+      this.noteEl.innerHTML = `${warnWord("refused")}: ${plan.why}${learnSlot(plan.learn ?? "")}`;
       this.runBtn.disabled = true;
       return;
     }
@@ -700,18 +693,20 @@ export class HeatPanel {
     const grew = dPredUm - d0Um > 0.05;
     // every arrow in the schedule line is followed by a word: the gates read
     // the note's FIRST "→ <number> µm" as the law's prediction
+    // every number in the note is the tabular mono (.v), its words Inter:
+    // the text a gate reads is unchanged, only the numbers are wrapped
     const head =
-      `ramp ${RAMP_UP} °C/min → hold ${fmtDur(this.holdMin * 60)} at ${this.tC.toFixed(0)} °C `
-      + `→ furnace-cool ${RAMP_DOWN} °C/min · ${fmtDur(ints.seconds)} real time`;
-    const over = (tail: string) => ` · <span style="color:#ffb454">over the ${this.consts().cap.toLocaleString()}-sweep `
-      + `budget: truncated at ${((this.consts().cap / sweeps) * 100).toFixed(0)} %${tail}</span>`;
+      `ramp ${num(`${RAMP_UP} °C/min`)} → hold ${num(fmtDur(this.holdMin * 60))} at ${num(`${this.tC.toFixed(0)} °C`)} `
+      + `→ furnace-cool ${num(`${RAMP_DOWN} °C/min`)} · ${num(fmtDur(ints.seconds))} real time`;
+    const over = (tail: string) => ` · ${warnLine(`over the ${num(this.consts().cap.toLocaleString())}-sweep `
+      + `budget: truncated at ${num(`${((this.consts().cap / sweeps) * 100).toFixed(0)} %`)}${tail}`)}`;
     // v7.0 C3a: cold work WITHDRAWS the endpoint, so it takes its own branch
     // before either of the two that print one. Both of those lines are
     // predictions from the sourced coefficients, and the coefficients price
     // curvature-driven growth alone.
     if (plan.work) {
       this.noteEl.innerHTML = `${head}<br>`
-        + `${sweeps.toLocaleString()} MC sweeps`
+        + `${num(sweeps.toLocaleString())} MC sweeps`
         + (capped ? over("") : "")
         + this.workNote(plan)
         + this.pinNote(plan)
@@ -721,8 +716,8 @@ export class HeatPanel {
     if (!grew) {
       // the stress-relief case: the arithmetic says nothing happens, so the
       // panel says it BEFORE the run rather than selling a dud treatment
-      this.noteEl.innerHTML = `${head}<br>law d̄ ${fmtUm(d0Um)} → ${fmtUm(dPredUm)}: `
-        + `<b style="color:#cfd6df">${HC.noGrowth.line}</b>${learnSlot(HC.noGrowth.learn)}`
+      this.noteEl.innerHTML = `${head}<br>law d̄ ${num(`${fmtUm(d0Um)} → ${fmtUm(dPredUm)}`)}: `
+        + `<b>${HC.noGrowth.line}</b>${learnSlot(HC.noGrowth.learn)}`
         // the dispersion's line rides this branch too: a pinned near-noop run
         // latches the fabric and the card will print it, so the note must not
         // be silent about it (review catch). The spec endpoint stays the
@@ -733,9 +728,9 @@ export class HeatPanel {
       return;
     }
     this.noteEl.innerHTML = `${head}<br>law d̄ `
-      + `<b style="color:#cfd6df">${fmtUm(d0Um)} → ${fmtUm(dPredUm)}</b>`
-      + ` · ${sweeps.toLocaleString()} MC sweeps`
-      + (capped ? over(`, ~${fmtUm(dCapUm)}`) : "")
+      + num(`${fmtUm(d0Um)} → ${fmtUm(dPredUm)}`)
+      + ` · ${num(sweeps.toLocaleString())} MC sweeps`
+      + (capped ? over(`, ${num(`~${fmtUm(dCapUm)}`)}`) : "")
       + learnSlot(HC.plan.learn)
       + this.pinNote(plan)
       + this.specNote(d0Um, this.endUm(plan));
@@ -765,23 +760,24 @@ export class HeatPanel {
     if (!plan.pin) return "";
     const pct = (plan.pin.f * 100).toFixed(1);
     if (plan.dLimUm === undefined) {
-      return `<br><span style="color:#8891a0">dispersion ${pct} vol % · r ${plan.pin.r} cells · `
-        + `${HC.pin3d.line}</span>${learnSlot(HC.pin3d.learn)}`;
+      return `<br>${quiet(`dispersion ${pct} vol % · r ${plan.pin.r} cells · ${HC.pin3d.line}`)}`
+        + learnSlot(HC.pin3d.learn);
     }
     const law = `d_lim = ${ZENER_K}·r^${ZENER_R_EXP}/f^${ZENER_F_EXP} cells`;
     // a fabric already finer than the casting: the boundaries are loaded from
     // the first sweep and the treatment does nothing. Said before the run, in
     // the one direction this mode cannot be mistaken for (refinement)
     if (plan.dLimUm <= plan.d0Um) {
-      return `<br><span style="color:#ffb454">dispersion ${pct} vol % · r ${plan.pin.r} cells `
+      return `<br>${warnLine(`dispersion ${pct} vol % · r ${plan.pin.r} cells `
         + `pins boundaries near d_lim ≈ ${fmtUm(plan.dLimUm)} (measured on this lattice: ${law}) `
-        + `≤ d₀ ${fmtUm(plan.d0Um)} · ${HC.pinStalls.line}</span>${learnSlot(HC.pinStalls.learn)}`;
+        + `≤ d₀ ${fmtUm(plan.d0Um)} · ${HC.pinStalls.line}`)}${learnSlot(HC.pinStalls.learn)}`;
     }
     const clips = plan.dLimUm < (plan.capped ? plan.dCapUm : plan.dPredUm);
-    return `<br><span style="color:${clips ? "#ffb454" : "#8891a0"}">dispersion ${pct} vol % · r ${plan.pin.r} cells `
+    // a limit that clips the run is a warning; one it never reaches, a note
+    const text = `dispersion ${pct} vol % · r ${plan.pin.r} cells `
       + `pins boundaries near d_lim ≈ ${fmtUm(plan.dLimUm)} (measured on this lattice: ${law})`
-      + (clips ? ` · ${HC.pinClips.line}` : "")
-      + `</span>` + (clips ? learnSlot(HC.pinClips.learn) : "");
+      + (clips ? ` · ${HC.pinClips.line}` : "");
+    return `<br>${clips ? warnLine(text) : quiet(text)}` + (clips ? learnSlot(HC.pinClips.learn) : "");
   }
 
   /**
@@ -807,11 +803,11 @@ export class HeatPanel {
     // HT3-SE-PANEL reads these phrases off the note with learn mode off:
     // "cold work 4.0 J_b mean", "0–8.0 J_b across grains", "law endpoint is
     // withdrawn", "a drive, not a strength"; the why is the learn sentence
-    return `<br><span style="color:#ffb454">cold work ${w.toFixed(1)} J_b mean `
+    return `<br>${warnLine(`cold work ${w.toFixed(1)} J_b mean `
       + `(0–${(2 * w).toFixed(1)} J_b across grains; flat-front barrier ${H_FLAT_3D} J_b) · `
-      + `${HC.coldWork.line}</span>${learnSlot(HC.coldWork.learn)}`
+      + HC.coldWork.line)}${learnSlot(HC.coldWork.learn)}`
       + (plan.sweeps < 2
-        ? `<br><span style="color:#8891a0">${HC.coldWorkFewSweeps.line}</span>${learnSlot(HC.coldWorkFewSweeps.learn)}`
+        ? `<br>${quiet(HC.coldWorkFewSweeps.line)}${learnSlot(HC.coldWorkFewSweeps.learn)}`
         : "");
   }
 
@@ -826,7 +822,7 @@ export class HeatPanel {
    */
   private specWithdrawn(): string {
     if (!(this.specMPa > 0) || !this.host.si()) return "";
-    return `<br><span style="color:#8891a0">spec ≥ ${fmtMPa(this.specMPa)} MPa: ${HC.specWithdrawn.line}</span>`
+    return `<br>${quiet(`spec ≥ ${fmtMPa(this.specMPa)} MPa: ${HC.specWithdrawn.line}`)}`
       + learnSlot(HC.specWithdrawn.learn);
   }
 
@@ -849,15 +845,16 @@ export class HeatPanel {
     const s = this.specMPa;
     const s0 = hallPetch(si, d0Um * 1e-6);
     const s1 = hallPetch(si, dEndUm * 1e-6);
+    const mpa = (v: number) => num(`${fmtMPa(v)} MPa`);
     if (shownMPa(s) > shownMPa(s0)) {
-      return `<br><span style="color:#c96a5b">spec ≥ ${fmtMPa(s)} MPa > current ${fmtMPa(s0)} MPa: `
-        + `${HC.specUnreachable.line}</span>${learnSlot(HC.specUnreachable.learn)}`;
+      return `<br>${warnLine(`spec ≥ ${mpa(s)} > current ${mpa(s0)}: ${HC.specUnreachable.line}`)}`
+        + learnSlot(HC.specUnreachable.learn);
     }
     // "misses the ≥" is read by HT-PANEL; the "~" keeps a digit off the arrow
+    const path = `σ_y (Hall–Petch) ${num(fmtMPa(s0))} → ${num(`~${fmtMPa(s1)} MPa`)}`;
     return shownMPa(s1) >= shownMPa(s)
-      ? `<br>σ_y (Hall–Petch) ${fmtMPa(s0)} → ~${fmtMPa(s1)} MPa · meets the ≥ ${fmtMPa(s)} MPa spec`
-      : `<br><span style="color:#ffb454">σ_y (Hall–Petch) ${fmtMPa(s0)} → ~${fmtMPa(s1)} MPa · `
-      + `misses the ≥ ${fmtMPa(s)} MPa spec</span>`;
+      ? `<br>${path} · meets the ≥ ${mpa(s)} spec`
+      : `<br>${warnLine(`${path} · misses the ≥ ${mpa(s)} spec`)}`;
   }
 
   // ---------------------------------------------------------------- the run
@@ -954,7 +951,7 @@ export class HeatPanel {
           const r = await this.host.annealTwins!(total, onProg, pin);
           delivered = r.delivered;
           twinLine = r.spawned > 0
-            ? `${r.spawned.toLocaleString()} Σ3 annealing twins on migrating boundaries`
+            ? `${num(r.spawned.toLocaleString())} Σ3 annealing twins on migrating boundaries`
               + (r.saturated ? ` (${HC.twinsSaturated.line})` : "")
               + learnSlot(r.saturated ? HC.twinsSaturated.learn : HC.twins.learn)
             : "none (too little boundary migration)" + learnSlot(HC.twins.learn);
@@ -982,7 +979,7 @@ export class HeatPanel {
             return !this.abortReq;
           });
           const segA = await this.host.segregation();
-          homogLine = `Dt ${fmtDt(plan.ints.dt)} · ${gotI.toLocaleString()} iterations`
+          homogLine = `Dt ${num(fmtDt(plan.ints.dt))} · ${num(gotI.toLocaleString())} iterations`
             + (need > iterCap
               ? ` · budget ${iterCap.toLocaleString()} of ${need.toLocaleString()} `
                 + `(${((iterCap / need) * 100).toFixed(0)} % of the Dt delivered)`
@@ -1006,32 +1003,35 @@ export class HeatPanel {
 
   private report(plan: Plan & { ok: true }, before: Census, after: Census | null, delivered: number, total: number, twinLine = "", homogLine = "", spec = 0) {
     if (!this.reportEl) return;
-    // #8891a0, not #6b7280: with learn mode off these gray lines are the
-    // card's only honesty text, and #6b7280 is under 4.5:1 on the panel
-    const dim = (s: string) => `<span style="color:#8891a0">${s}</span>`;
-    const strong = (s: string) => `<b style="color:#cfd6df">${s}</b>`;
+    // The card is a spec rail (.kv): each row's label in --fg-3, one space,
+    // then what it says, so the text the gates read is the sentence the card
+    // always printed. --fg-3 (5.4:1 on the panel), never --fg-4: with learn
+    // mode off these quiet lines are the card's only honesty text
+    const dim = quiet;
+    const strong = num;
     const astmNA = this.host.getMode() === "3d"
       ? "ASTM n/a (a plane-section statistic; see STEREOLOGY)"
       : "ASTM n/a (< 3 grains)";
     // a row's learn sentence, as an empty slot until learn mode fills it
     const lrn = (c: { learn: string }) => learnSlot(c.learn);
     const line = (label: string, c: Census) =>
-      `${dim(label)} d̄ ${strong(fmtUm(this.dBar(c)))} · `
+      kv(label, `d̄ ${strong(fmtUm(this.dBar(c)))} · `
       + `${c.astm != null ? `ASTM ${strong("G " + c.astm.toFixed(1))}` : dim(astmNA)} · `
-      + `${strong(String(c.grainCount))} grains`;
+      + `${strong(String(c.grainCount))} grains`);
 
     const rows: string[] = [];
-    rows.push(`${dim("schedule")} ${plan.sch.stages.length} stages · ${fmtDur(plan.ints.seconds)} · peak ${plan.ints.peakC.toFixed(0)} °C (${plan.ints.peakFracTm.toFixed(2)} T_m)`);
+    rows.push(kv("schedule", `${strong(plan.sch.stages.length)} stages · ${strong(fmtDur(plan.ints.seconds))} · `
+      + `peak ${strong(`${plan.ints.peakC.toFixed(0)} °C`)} (${strong(plan.ints.peakFracTm.toFixed(2))} T_m)`));
     rows.push(line("before", before));
-    rows.push(after ? line("after ", after) : `${dim("after")} census readback failed`);
+    rows.push(after ? line("after", after) : kv("after", "census readback failed"));
     // v7.0 C3a: a driven run has no law endpoint to print. The sourced
     // coefficients price curvature-driven growth, and this run carried a second
     // driving force they were never fitted against — so the row says withdrawn
     // and prints no micron figure. A number beside the word "withdrawn" is a
     // number a visitor reads and the word they skip.
     rows.push(plan.work
-      ? `${dim("law endpoint")} ${strong("withdrawn")} ${dim(`(${HC.lawWithdrawn.line})`)}${lrn(HC.lawWithdrawn)}`
-      : `${dim("law endpoint")} ${fmtUm(plan.dPredUm)} ${dim(`(${HC.lawPath.line})`)}${lrn(HC.lawPath)}`);
+      ? kv("law endpoint", `<b>withdrawn</b> ${dim(`(${HC.lawWithdrawn.line})`)}`, lrn(HC.lawWithdrawn))
+      : kv("law endpoint", `${strong(fmtUm(plan.dPredUm))} ${dim(`(${HC.lawPath.line})`)}`, lrn(HC.lawPath)));
     // H6: Hall–Petch on the MEASURED grain sizes — the same σ_y = s0 + k_HP/√d̄
     // the note predicted from the law endpoint, now standing on the census.
     // The row names its own limits, because this number is the one a visitor
@@ -1049,46 +1049,49 @@ export class HeatPanel {
         // the σ_y row is parsed as /σ_y N → N MPa/, and its caveat names the
         // estimator (HT3-PANEL reads "⟨V⟩-equivalent") and, worked, "not a strength"
         const hp = plan.work ? HC.hallPetchWork : HC.hallPetch;
-        rows.push(`${dim("σ_y")} ${strong(fmtMPa(sb))} → ${strong(fmtMPa(sa) + " MPa")} `
-          + dim(`· Hall–Petch on the measured ${est} d̄, ${hp.line}`) + lrn(hp));
+        rows.push(kv("σ_y", `${strong(fmtMPa(sb))} → ${strong(fmtMPa(sa) + " MPa")} `
+          + dim(`· Hall–Petch on the measured ${est} d̄, ${hp.line}`), lrn(hp)));
         if (spec > 0) {
-          // HT-PANEL reads "met: the treated casting" / "missed: the treated casting"
+          // HT-PANEL reads "met: the treated casting" / "missed: the treated
+          // casting"; "met" is bright, "missed" a warning (its "!" is CSS)
           const why = shownMPa(sb) < shownMPa(spec) ? HC.missedAsCast : HC.missedTrade;
+          const specV = strong(`${fmtMPa(spec)} MPa`), saV = strong(`${fmtMPa(sa)} MPa`);
           rows.push(shownMPa(sa) >= shownMPa(spec)
-            ? `${dim("spec")} σ_y ≥ ${fmtMPa(spec)} MPa · ${strong("met")}: the treated casting stands at ${fmtMPa(sa)} MPa`
-            : `${dim("spec")} σ_y ≥ ${fmtMPa(spec)} MPa · <span style="color:#c96a5b">missed</span>: the treated casting stands at ${fmtMPa(sa)} MPa`
-            + dim(` · ${why.line}`) + lrn(why));
+            ? kv("spec", `σ_y ≥ ${specV} · <b>met</b>: the treated casting stands at ${saV}`)
+            : kv("spec", `σ_y ≥ ${specV} · ${warnWord("missed")}: the treated casting stands at ${saV}`
+              + dim(` · ${why.line}`), lrn(why)));
         }
       } else if (spec > 0) {
-        rows.push(`${dim("spec")} σ_y ≥ ${fmtMPa(spec)} MPa · no after-census: not judged`);
+        rows.push(kv("spec", `σ_y ≥ ${strong(`${fmtMPa(spec)} MPa`)} · no after-census: not judged`));
       }
     }
-    if (twinLine) rows.push(`${dim("twins")} ${twinLine}`);
-    if (homogLine) rows.push(`${dim("homog")} ${homogLine}`);
+    // the twin and homogenization lines carry their learn slots inline
+    if (twinLine) rows.push(kv("twins", twinLine));
+    if (homogLine) rows.push(kv("homog", homogLine));
     // oxidation and decarburization (H5): analytic parabolic laws over the
     // whole schedule. The scale is NOT painted into the fields (T/c/age are
     // the as-cast record), so the card is where the number lives.
     const ov = canTreat("oxide", this.ctx(before));
     if (ov.ok) {
-      let ox = `scale ${fmtLen(scaleThickness(plan.ints.ox))} on the free surface (parabolic, ∫k_p·dt)`;
+      let ox = `scale ${strong(fmtLen(scaleThickness(plan.ints.ox)))} on the free surface (parabolic, ∫k_p·dt)`;
       if (canTreat("decarb", this.ctx(before)).ok) {
-        ox += ` · decarburized to ${fmtLen(decarbDepth(plan.ints.dt))} (x = 2√(D_C·t))`;
+        ox += ` · decarburized to ${strong(fmtLen(decarbDepth(plan.ints.dt)))} (x = 2√(D_C·t))`;
       }
-      rows.push(`${dim("oxide")} ${ox}`);
+      rows.push(kv("oxide", ox));
     } else {
-      rows.push(`${dim("oxide")} ${ov.why}`);
+      rows.push(kv("oxide", ov.why));
     }
     // the dispersion's row (v7.0 C2) — printed only when the run was pinned,
     // AFTER the oxide row on purpose: the panel gates slice the card and
     // require late rows to survive, and an unpinned card must be byte-what it
     // was before this mode existed
     if (plan.pin) {
+      const disp = `dispersion ${strong(`${(plan.pin.f * 100).toFixed(1)} vol %`)} · r ${strong(`${plan.pin.r} cells`)} `;
       rows.push(plan.dLimUm !== undefined
-        ? `${dim("pinned")} dispersion ${(plan.pin.f * 100).toFixed(1)} vol % · r ${plan.pin.r} cells `
-          + dim(`· d_lim ≈ ${fmtUm(plan.dLimUm)} `
-            + `(measured on this lattice: d_lim = ${ZENER_K}·r^${ZENER_R_EXP}/f^${ZENER_F_EXP} cells)`)
-        : `${dim("pinned")} dispersion ${(plan.pin.f * 100).toFixed(1)} vol % · r ${plan.pin.r} cells `
-          + dim(`· ${HC.pin3d.line}`) + lrn(HC.pin3d));
+        ? kv("pinned", disp
+          + dim(`· d_lim ≈ ${strong(fmtUm(plan.dLimUm))} `
+            + `(measured on this lattice: d_lim = ${ZENER_K}·r^${ZENER_R_EXP}/f^${ZENER_F_EXP} cells)`))
+        : kv("pinned", disp + dim(`· ${HC.pin3d.line}`), lrn(HC.pin3d)));
     }
     // the cold work's row (v7.0 C3a) — LAST of the mode rows, after C2's
     // pinned row, for the same reason that one went after oxide: the panel
@@ -1104,24 +1107,24 @@ export class HeatPanel {
       const hEnd = recoveredMeanUniform(plan.work, rec);
       const worst = recovered(2 * plan.work, rec);
       // HT3-SE-PANEL reads "cold work 4.0 J_b mean deposited" and the recovery law
-      rows.push(`${dim("cold work")} ${plan.work.toFixed(1)} J_b mean deposited `
+      rows.push(kv("cold work", `${strong(`${plan.work.toFixed(1)} J_b`)} mean deposited `
         + `${dim(`(0–${(2 * plan.work).toFixed(1)} J_b across grains; flat-front barrier ${H_FLAT_3D} J_b)`)} `
         + dim(`· recovered to ${hEnd.toFixed(2)} J_b in ${delivered.toLocaleString()} sweeps `
           + `(H_S = H₀/(1 + rec·H₀), rec = ${rec.toPrecision(3)}) · most-deformed grains `
-          + `${(2 * plan.work).toFixed(1)} → ${worst.toFixed(2)} J_b`) + lrn(HC.coldWorkRow));
+          + `${(2 * plan.work).toFixed(1)} → ${worst.toFixed(2)} J_b`), lrn(HC.coldWorkRow)));
     }
+    // the closing line, across both columns: a warning when the run did not
+    // deliver what it asked for, a quiet line when nothing changed
     if (delivered < total) {
-      rows.push(`<span style="color:#ffb454">aborted at sweep ${delivered.toLocaleString()} / ${total.toLocaleString()}: partial anneal</span>`);
+      rows.push(kvFull(warnLine(`aborted at sweep ${delivered.toLocaleString()} / ${total.toLocaleString()}: partial anneal`)));
     } else if (plan.capped) {
       // the truncation's own endpoint is the same withdrawn prediction, one row
       // further down: `dCapUm` is the sourced law inverted for the delivered
       // sweeps, so printing it on a worked run contradicts the law-endpoint row
       // above it. The truncation FRACTION is not a prediction and stays.
-      rows.push(`<span style="color:#ffb454">truncated: ${plan.sweeps.toLocaleString()} sweeps asked, budget ${this.consts().cap.toLocaleString()} `
+      rows.push(kvFull(warnLine(`truncated: ${plan.sweeps.toLocaleString()} sweeps asked, budget ${this.consts().cap.toLocaleString()} `
         + `(${((total / plan.sweeps) * 100).toFixed(0)} %)`
-        + (plan.work
-          ? `</span>`
-          : ` · model endpoint for the delivered sweeps ~${fmtUm(plan.dCapUm)}</span>`));
+        + (plan.work ? "" : ` · model endpoint for the delivered sweeps ~${fmtUm(plan.dCapUm)}`))));
     } else if (after && this.dBar(after) - this.dBar(before) < 0.05) {
       // "as predicted" is a claim about a prediction: a worked run withdrew
       // it, and a plan whose law predicted growth (the note's `grew` branch,
@@ -1131,11 +1134,11 @@ export class HeatPanel {
       const c = plan.work ? HC.noChangeWorked
         : !predictedGrowth ? HC.noChange
         : plan.pin ? HC.noChangePinned : HC.noChangeGrew;
-      rows.push(dim(c.line) + lrn(c));
+      rows.push(kvFull(dim(c.line), lrn(c)));
     }
-    // one block per row, so a row's learn slot sits under it without an extra
-    // line break (the text the gates read is the same as the old <br> join)
-    this.reportEl.innerHTML = rows.map(r => `<div>${r}</div>`).join("");
+    // one spec row per line, so a row's learn slot sits under it without an
+    // extra line break (the text the gates read is the same as the old <br> join)
+    this.reportEl.innerHTML = rows.join("");
     fillLearnSlots(this.reportEl);
   }
 }

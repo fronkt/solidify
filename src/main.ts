@@ -164,11 +164,13 @@ async function boot() {
   }
   let mode3dPending = false;
 
-  const HINT_2D = "tap: seed · shift-tap: twin · scroll or pinch: zoom · right-drag: pan";
-  const HINT_3D = "tap: seed · drag: orbit · wheel: dolly · right-drag: pan";
+  // each "key: action" pair on a line of its own (app/index.html #hint .nw),
+  // so a narrow window breaks between pairs, never inside one
+  const HINT_2D = ["tap: seed", "shift-tap: twin", "scroll or pinch: zoom", "right-drag: pan"];
+  const HINT_3D = ["tap: seed", "drag: orbit", "wheel: dolly", "right-drag: pan"];
   const setHintMode = (m3: boolean) => {
     const h = document.getElementById("hint")!;
-    h.textContent = m3 ? HINT_3D : HINT_2D;
+    h.innerHTML = (m3 ? HINT_3D : HINT_2D).map(p => `<span class="nw">${p}</span>`).join(" · ");
     if (m3) h.classList.remove("gone");
   };
 
@@ -394,7 +396,7 @@ async function boot() {
   const exit3D = () => {
     mode = "2d";
     probeMark3.style.display = "none";   // the frame loop's 3D branch stops updating it
-    rulerLine3.style.display = "none";
+    ruler3(null);
     rulerText3.style.display = "none";
     document.body.classList.remove("mode3d");
     hud.reset();
@@ -869,7 +871,7 @@ async function boot() {
     getRuler3On: () => an3.ruler3On,
     setRuler3On(b) {
       an3.setRuler3On(b);
-      if (!b) { rulerLine3.style.display = "none"; rulerText3.style.display = "none"; }
+      if (!b) { ruler3(null); rulerText3.style.display = "none"; }
     },
     exportSTL() { void exportSTL(true); },
     startTurntable() {
@@ -951,27 +953,36 @@ async function boot() {
   });
   // 3D probe crosshair on the shared overlay SVG (appended AFTER Analyze's
   // constructor set the overlay innerHTML — never rewrite it, append only)
+  // The marks are the 2D ones' twins (analyze.ts), achromatic since v8 D2:
+  // --fg over a --bg casing (app/index.html .mk), legible over any lens
   const probeMark3 = document.createElementNS("http://www.w3.org/2000/svg", "g");
   probeMark3.id = "probeMark3";
+  probeMark3.setAttribute("class", "mk");
   probeMark3.style.display = "none";
-  probeMark3.innerHTML =
-    '<circle r="7" fill="none" stroke="#56d4dd" stroke-width="1.2"/>' +
-    '<line x1="-11" x2="11" y1="0" y2="0" stroke="#56d4dd" stroke-width="1"/>' +
-    '<line y1="-11" y2="11" x1="0" x2="0" stroke="#56d4dd" stroke-width="1"/>';
+  const cross = '<circle r="7"/><line x1="-11" x2="11" y1="0" y2="0"/><line y1="-11" y2="11" x1="0" x2="0"/>';
+  probeMark3.innerHTML = `<g class="mk__case">${cross}</g><g class="mk__ink">${cross}</g>`;
   document.getElementById("overlay")!.append(probeMark3);
   // 3D SDAS ruler line + readout (client-space — the drag itself is on screen)
+  // the line is a pair: a --bg casing under the --fg dashes, moved together
+  // through ruler3() so the two can never part
+  const rulerCase3 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  rulerCase3.setAttribute("class", "mk mk__lcase");
   const rulerLine3 = document.createElementNS("http://www.w3.org/2000/svg", "line");
   rulerLine3.id = "rulerLine3";
-  rulerLine3.setAttribute("stroke", "#ffb454");
-  rulerLine3.setAttribute("stroke-width", "1.4");
-  rulerLine3.setAttribute("stroke-dasharray", "5 3");
-  rulerLine3.style.display = "none";
+  rulerLine3.setAttribute("class", "mk mk__line");
+  const ruler3 = (attrs: Record<string, number> | null) => {
+    for (const l of [rulerCase3, rulerLine3]) {
+      if (!attrs) { l.style.display = "none"; continue; }
+      for (const [k, v] of Object.entries(attrs)) l.setAttribute(k, String(v));
+      l.style.display = "";
+    }
+  };
+  ruler3(null);
   const rulerText3 = document.createElementNS("http://www.w3.org/2000/svg", "text");
   rulerText3.id = "rulerText3";
-  rulerText3.setAttribute("fill", "#ffb454");
-  rulerText3.setAttribute("font-size", "11");
+  rulerText3.setAttribute("class", "mk mk__text");
   rulerText3.style.display = "none";
-  document.getElementById("overlay")!.append(rulerLine3, rulerText3);
+  document.getElementById("overlay")!.append(rulerCase3, rulerLine3, rulerText3);
   let ruler3Start: [number, number, number] | null = null;
   let lastTap3: { x: number; y: number; z: number; t: number } | null = null;
   const ui = new UI(app, analyze);
@@ -1340,11 +1351,7 @@ async function boot() {
         if (g) {
           ruler3Start = g;
           an3.beginRuler3(g);
-          rulerLine3.setAttribute("x1", String(e.clientX));
-          rulerLine3.setAttribute("y1", String(e.clientY));
-          rulerLine3.setAttribute("x2", String(e.clientX));
-          rulerLine3.setAttribute("y2", String(e.clientY));
-          rulerLine3.style.display = "";
+          ruler3({ x1: e.clientX, y1: e.clientY, x2: e.clientX, y2: e.clientY });
           rulerText3.style.display = "none";
           canvas.setPointerCapture(e.pointerId);
           return;
@@ -1365,8 +1372,7 @@ async function boot() {
     },
     move(e: PointerEvent) {
       if (ruler3Start) {
-        rulerLine3.setAttribute("x2", String(e.clientX));
-        rulerLine3.setAttribute("y2", String(e.clientY));
+        ruler3({ x2: e.clientX, y2: e.clientY });
         return;
       }
       if (this.pts.has(e.pointerId)) this.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1561,10 +1567,10 @@ async function boot() {
   window.addEventListener("keydown", e => { if (e.key === "Tab") kbNav = true; }, true);
   window.addEventListener("keydown", e => {
     if (e.target instanceof HTMLInputElement) return;
-    // the alloy composer is a modal: its own keys (Escape, Tab) are handled
-    // there, and Space or a digit must not run, pause or re-lens the melt
-    // behind it
-    if (composer.isOpen()) return;
+    // the alloy composer and an enlarged plot are modals: their own keys
+    // (Escape, Tab) are handled there, and Space or a digit must not run,
+    // pause or re-lens the melt behind them
+    if (composer.isOpen() || document.querySelector("#app > .tmodal")) return;
     const kbFocused = kbNav && e.target instanceof Element && e.target.matches("button, select");
     if (e.code === "Space" && !kbFocused) { e.preventDefault(); app.setRun(!app.isRunning()); ui.sync(); }
     if (mode === "3d") {
@@ -1620,8 +1626,8 @@ async function boot() {
     // horizontal field width of this view and a scale bar. In 3D the view is a
     // perspective, measured at the camera target, hence the "≈".
     // a shorter bar than the ETCH lens's (about 40 px, never over 52), so the
-    // strip fits beside the rail on a 1024px window; the 1-2-5 lengths step by
-    // at most 2.5x, so (18, 52) always holds one of them
+    // strip stays one line in its slot under the head plate; the 1-2-5
+    // lengths step by at most 2.5x, so (18, 52) always holds one of them
     const bestUm = niceBar(umPerCssPx, [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000], 100, 40, 18, 52);
     const hfw = canvas.clientWidth * umPerCssPx;
     (document.querySelector("#sembar .bar") as HTMLElement).style.width = `${bestUm / umPerCssPx}px`;
@@ -1698,7 +1704,7 @@ async function boot() {
             if (u2 >= 1) { turntable = null; app.toggleRec(); }
           }
         }
-        // CT sweep: the section plane serially sweeps the volume (pairs with ⏺ rec)
+        // CT sweep: the section plane serially sweeps the volume (pairs with rec)
         if (slice.sweep && view3d === 2) {
           slice.off += slice.sweepDir * 0.08 * dt;
           if (slice.off > 0.98) { slice.off = 0.98; slice.sweepDir = -1; }
@@ -1751,7 +1757,7 @@ async function boot() {
           const s = lastStats3;
           const u = unitsNow();
           ui.setReadouts([
-            ["t", u.fmtTime(sim3d.simTime)],
+            ["time", u.fmtTime(sim3d.simTime)],
             ["melt", s?.meanLiqT != null ? u.fmtC(s.meanLiqT) : "—"],
             ["solid", s ? `${(s.fracSolid * 100).toFixed(1)} %` : "—"],
             ["grains", s ? String(s.grainCount) : "—"],
@@ -1838,7 +1844,7 @@ async function boot() {
       const s = lastStats;
       const u = unitsNow();
       ui.setReadouts([
-        ["t", u.fmtTime(sim.simTime)],
+        ["time", u.fmtTime(sim.simTime)],
         ["melt", s?.meanLiqT != null ? u.fmtC(s.meanLiqT) : "—"],
         ["solid", s ? `${(s.fracSolid * 100).toFixed(1)} %` : "—"],
         ["grains", s ? String(s.grainCount) : "—"],

@@ -13,9 +13,21 @@ import {
 // importing the rail's entries registers them
 import { RAIL_CAVEATS, RAIL_NOTES } from "./learn/rail";
 import { STATUS_LEARN, panelLearnAudit } from "./learn/panels";
+import { bindRangeFills, paintRange, paintRanges, setPressed } from "./design/tool";
 
 /** for strings interpolated into innerHTML */
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** The width the canvas needs for the lens bar beside the head plate: its
+ *  424px floor for its center plus 172 (half its 312 and 16 off the rail),
+ *  app/index.html #views and --lens-under-head. Under it the bar goes under
+ *  the plate (.narrow); a window that narrow with the rail open boots with the
+ *  rail hidden, and while the rail is open there the top chrome folds away
+ *  (.railCramped) */
+const RAIL_ROOM = 596;
+/** the transport bar's right edge (282) + 16: under this the open rail
+ *  would cover the bottom-left group too (.railPhone) */
+const RAIL_ROOM_PHONE = 298;
 
 export interface UIHost extends AppControl {
   simParams(): PhysParams;
@@ -198,22 +210,61 @@ export class UI {
   private hintsBound = new Set<string>();
 
   constructor(private host: UIHost, private analyze: Analyze) {
+    // every slider on the page, rail or panel, fills to its thumb as it is
+    // dragged (tokens.css draws the fill from --fill)
+    bindRangeFills();
     this.buildViews();
     this.buildTransport();
     this.buildRail();
     this.buildDimSwitch();
     document.getElementById("railToggle")!.addEventListener("click", () => {
-      document.getElementById("rail")!.classList.toggle("hidden");
-      document.body.classList.toggle("railHidden");
+      this.setRailHidden(!document.body.classList.contains("railHidden"));
     });
+    // A window that cannot hold the rail beside the chrome (a phone, a
+    // tablet held upright) opens on the melt: the rail starts hidden, and
+    // CONTROLS brings it in as a drawer (app/index.html .railCramped)
+    const rail = document.getElementById("rail")!;
+    this.setRailHidden(innerWidth - rail.offsetWidth < RAIL_ROOM);
+    addEventListener("resize", () => this.railRoom());
+    // and a mode panel opened on such a window takes the screen from the
+    // drawer: the panel needs 300px the rail does not leave. The panels are
+    // built in script, each appended to #app as a .modepanel
+    new MutationObserver(recs => {
+      if (!document.body.classList.contains("railCramped")) return;
+      const opened = recs.some(r => [...r.addedNodes].some(n => n instanceof HTMLElement && n.classList.contains("modepanel")));
+      if (opened) this.setRailHidden(true);
+    }).observe(document.getElementById("app")!, { childList: true });
     bindLearnToggle(document.getElementById("learnToggle") as HTMLButtonElement);
     onLearnChange(() => this.sync());
   }
 
+  /** show or hide the rail (CONTROLS, the tour's reveal, a narrow boot) */
+  private setRailHidden(hide: boolean) {
+    document.getElementById("rail")!.classList.toggle("hidden", hide);
+    document.body.classList.toggle("railHidden", hide);
+    this.railRoom();
+  }
+
+  /** whether the canvas is narrow (the lens bar under the head plate,
+   *  app/index.html .narrow, the CSS's --lens-under-head), and whether the
+   *  open rail leaves the chrome beside it too little room (.railCramped,
+   *  .railPhone) */
+  private railRoom() {
+    const open = !document.body.classList.contains("railHidden");
+    const free = innerWidth - (open ? document.getElementById("rail")!.offsetWidth : 0);
+    document.body.classList.toggle("narrow", free < RAIL_ROOM);
+    document.body.classList.toggle("railCramped", open && free < RAIL_ROOM);
+    document.body.classList.toggle("railPhone", open && free < RAIL_ROOM_PHONE);
+  }
+
   private buildViews() {
+    // the lens bar: the pill tabs of tokens.css, the active one inverted
+    // (aria-pressed, set in sync)
     const el = document.getElementById("views")!;
     LENS_NAMES.forEach((name, i) => {
       const b = document.createElement("button");
+      b.type = "button";
+      b.className = "tabs__tab";
       b.textContent = name;
       b.title = `lens ${(i + 1) % 10}`;
       b.addEventListener("click", () => { this.host.setView(i); this.sync(); });
@@ -222,6 +273,8 @@ export class UI {
     });
     LENS3_NAMES.forEach((name, i) => {
       const b = document.createElement("button");
+      b.type = "button";
+      b.className = "tabs__tab";
       b.textContent = name;
       b.title = `3D lens ${i + 1}`;
       b.style.display = "none";
@@ -255,12 +308,16 @@ export class UI {
     });
   }
 
+  /** reset, run, the speed multiplier and rec as pills; run/pause is the
+   *  instrument's one filled primary, the other three outline, and the
+   *  multiplier and rec take an emphasized outline while they are on, so the
+   *  fill stays run/pause's alone (DESIGN.md 5, buttons; app/index.html) */
   private buildTransport() {
     const el = document.getElementById("transport")!;
-    this.button(el, "⟲ reset", () => { this.host.resetArmed(); this.sync(); }, "warn");
-    this.runBtn = this.button(el, "▶ run", () => { this.host.setRun(!this.host.isRunning()); this.sync(); });
-    this.multBtn = this.button(el, "×1", () => { this.host.cycleSpeedMult(); this.sync(); });
-    this.recBtn = this.button(el, "⏺ rec", () => this.host.toggleRec());
+    this.button(el, "reset", () => { this.host.resetArmed(); this.sync(); }, "reset");
+    this.runBtn = this.button(el, "▶ run", () => { this.host.setRun(!this.host.isRunning()); this.sync(); }, "run accent");
+    this.multBtn = this.button(el, "×1", () => { this.host.cycleSpeedMult(); this.sync(); }, "mult");
+    this.recBtn = this.button(el, "rec", () => this.host.toggleRec(), "recbtn");
   }
 
   /**
@@ -295,7 +352,8 @@ export class UI {
     let isOpen = stored != null ? stored === "1" : open;
     const apply = () => {
       body.style.display = isOpen ? "block" : "none";
-      tog.textContent = isOpen ? "▾" : "▸";
+      // Figure's expander marks: − open, + closed (U+2212, not a hyphen)
+      tog.textContent = isOpen ? "−" : "+";
       head.setAttribute("aria-expanded", String(isOpen));
     };
     h.addEventListener("click", () => {
@@ -322,8 +380,7 @@ export class UI {
   reveal(title: string) {
     const sec = this.sections[title];
     if (!sec) return;
-    document.getElementById("rail")!.classList.remove("hidden");
-    document.body.classList.remove("railHidden");
+    this.setRailHidden(false);
     sec.setOpen(true);
     sec.root.scrollIntoView({ block: "nearest", behavior: "smooth" });
     sec.root.classList.add("hl");
@@ -361,6 +418,7 @@ export class UI {
       // hold — a dial parked outside a narrowed range is clamped downstream
       const vc = Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo;
       inp.value = String(vc);
+      paintRange(inp);
       val.textContent = Number.isFinite(v) ? fmt(vc) : "—";
     };
     inp.addEventListener("input", () => { set(parseFloat(inp.value)); update(); });
@@ -451,6 +509,7 @@ export class UI {
 
   private button(parent: Element, label: string, fn: () => void, cls = ""): HTMLButtonElement {
     const b = document.createElement("button");
+    b.type = "button";
     b.textContent = label;
     if (cls) b.className = cls;
     b.addEventListener("click", fn);
@@ -458,9 +517,12 @@ export class UI {
     return b;
   }
 
-  private btnRow(parent: HTMLElement): HTMLElement {
+  /** a row of pills that fill it; with `cols`, lined up in that many equal
+   *  columns (a set of peers: the presets, the modes, the symmetries) */
+  private btnRow(parent: HTMLElement, cols = 0): HTMLElement {
     const r = document.createElement("div");
-    r.className = "btnrow";
+    r.className = cols ? "btnrow grid" : "btnrow";
+    if (cols) r.style.setProperty("--cols", String(cols));
     parent.append(r);
     return r;
   }
@@ -472,7 +534,7 @@ export class UI {
 
     // ---- presets
     const pre = this.section(rail, "PRESETS", true);
-    const prow = this.btnRow(pre);
+    const prow = this.btnRow(pre, 3);
     for (const name of ["dendrite", "snow", "seaweed", "quasi", "rain", "casting", "bridgman", "weld", "alloy"]) {
       this.button(prow, name, () => {
         if (host.getMode() === "3d") SCENES3[name](host as unknown as TourHost);
@@ -521,14 +583,14 @@ export class UI {
 
     // ---- modes (what each one does is the section's learn text)
     const modes = this.section(rail, "MODES");
-    const mrow0 = this.btnRow(modes);
+    const mrow0 = this.btnRow(modes, 2);
     // the lab and (since H2b) the heat-treat panel run in both dimensions;
-    // the ML modes are 2D-only
-    this.button(mrow0, "⚗ lab mode", () => { host.startLab(); this.sync(); });
-    const heatBtn = this.button(mrow0, "♨ heat treat", () => { host.startHeat(); this.sync(); });
+    // the ML modes are 2D-only. Plain names, no glyph icons (DESIGN.md)
+    this.button(mrow0, "lab mode", () => { host.startLab(); this.sync(); });
+    const heatBtn = this.button(mrow0, "heat treat", () => { host.startHeat(); this.sync(); });
     heatBtn.title = "solid-state heat treatment · real-hours clock · Arrhenius grain growth";
     this.only2d.push(this.button(mrow0, "optimizer", () => { host.startOptimizer(); this.sync(); }));
-    this.only2d.push(this.button(mrow0, "⚔ challenge", () => host.startChallenge()));
+    this.only2d.push(this.button(mrow0, "challenge", () => host.startChallenge()));
 
     // ---- melt / process
     const melt = this.section(rail, "MELT · PROCESS", true);
@@ -540,8 +602,8 @@ export class UI {
     const uRate = (v: number) => { const u = host.units(); return u.known ? u.fmtRate(v) : v.toFixed(3); };
     this.undercoolRow = this.slider(melt, "undercooling", 0.3, 1.0, 0.01,
       () => host.getUndercool(), v => host.setUndercool(v), uK);
-    // the value turns red past anything a real melt reaches, and this line
-    // says why (empty and hidden otherwise), with its learn half under it
+    // the value leads with "!" past anything a real melt reaches, and this
+    // line says why (empty and hidden otherwise), with its learn half under it
     this.unrealNote = document.createElement("div");
     this.unrealNote.className = "matnote";
     melt.append(this.unrealNote);
@@ -568,7 +630,8 @@ export class UI {
         nucLearn.textContent = c.learn;
       },
     });
-    const mrow = this.btnRow(melt);
+    // three columns: seed, twin seed, chill wall; quench, then reheat over two
+    const mrow = this.btnRow(melt, 3);
     this.button(mrow, "seed", () => host.seedCenter());
     this.button(mrow, "twin seed", () => host.twinSeedCenter());
     const chillBtn = this.button(mrow, "chill wall", () => host.chillWall("auto"));
@@ -582,7 +645,7 @@ export class UI {
     // melt and REMELTS what has frozen. Nothing about it anneals — no time base,
     // no set-point, no solid-state physics. Real heat treatment is its own panel
     // on its own clock; this is a reheat brush, and it now says so.
-    const reheatBtn = this.button(mrow, "reheat", () => {});
+    const reheatBtn = this.button(mrow, "reheat", () => {}, "span2");
     reheatBtn.title = RAIL_CAVEATS.reheat.line;
     this.learn.para(mrow, RAIL_CAVEATS.reheat.learn);
     reheatBtn.addEventListener("pointerdown", () => host.reheat(true));
@@ -624,9 +687,10 @@ export class UI {
     // routed through the host: in 3D "on" means allocating the solute textures
     this.check(alloy, "solute field", () => host.getAlloyOn(), b => host.setAlloyOn(b));
     const arow = this.btnRow(alloy);
-    // the mode's one name (docs/COPY-STYLE.md): the modal is ALLOY COMPOSER
-    this.button(arow, "⚗ alloy composer…", () => host.openComposer());
-    this.hintFor(arow, "⚗ alloy composer…");
+    // the mode's one name (docs/COPY-STYLE.md): the modal is ALLOY COMPOSER;
+    // the ellipsis says it opens a dialog
+    this.button(arow, "alloy composer…", () => host.openComposer());
+    this.hintFor(arow, "alloy composer…");
     this.alloyPanel = document.createElement("div");
     this.alloyPanel.className = "subpanel";
     alloy.append(this.alloyPanel);
@@ -654,7 +718,7 @@ export class UI {
     // in 2D, a periodic lattice permits exactly 2-, 3-, 4- and 6-fold rotational
     // symmetry (the crystallographic restriction theorem); 5- and 10-fold are the
     // "forbidden" symmetries only quasicrystals achieve
-    const srow = this.btnRow(cr);
+    const srow = this.btnRow(cr, 3);
     const sym = (j: number, label: string, where: "2d" | "3d" | "both" = "2d") => {
       const b = this.button(srow, label, () => {
         if (host.getMode() === "3d") host.setSym3(j);
@@ -746,7 +810,7 @@ export class UI {
     this.only3d.push(
       this.slider(sm, "speed (3D)", 1, 22, 1, () => host.getSubsteps3(), v => host.setSpeed3(v), v => `${v.toFixed(0)}×`));
     this.slider(sm, "brush size", 2, 18, 0.5, () => host.getBrush(), v => host.setBrush(v), v => v.toFixed(1));
-    const grow = this.btnRow(sm);
+    const grow = this.btnRow(sm, 3);
     for (const n of [512, 1024, 2048]) {
       const b = this.button(grow, `${n}²`, () => { host.setGrid(n); this.sync(); });
       this.gridBtns.push(b);
@@ -805,7 +869,7 @@ export class UI {
     });
     this.hintFor(anrow, "SDAS ruler");
     this.binds.push({
-      update: () => rulerBtn.classList.toggle("on", m3now() ? host.getRuler3On() : this.analyze.rulerOn),
+      update: () => setPressed(rulerBtn, m3now() ? host.getRuler3On() : this.analyze.rulerOn),
     });
     const rres = document.createElement("div");
     rres.className = "matnote";
@@ -820,14 +884,14 @@ export class UI {
     // frame: a pole figure, not an inverse pole figure (analyze3d.ts, v8 U1b)
     this.check(vol, "pole figure [001]", () => host.getIpfOn(), b => host.setIpfOn(b));
     this.check(vol, "pole figure ⟨100⟩ / (0001)", () => host.getPoleOn(), b => host.setPoleOn(b));
-    const vrow = this.btnRow(vol);
-    const STL = "⬇ STL";
+    const vrow = this.btnRow(vol, 2);
+    const STL = "export STL";
     const stlBtn = this.button(vrow, STL, () => {
       stlBtn.textContent = "meshing…";
       host.exportSTL();
       setTimeout(() => { stlBtn.textContent = STL; }, 3000);
     });
-    this.button(vrow, "⏺ 360° turntable", () => host.startTurntable());
+    this.button(vrow, "360° turntable", () => host.startTurntable());
     this.learn.para(vrow, RAIL_NOTES.export);
     this.only3d.push(this.sections["VOLUME · 3D"].root);
 
@@ -864,13 +928,14 @@ export class UI {
     this.sitesUnitNote.className = "matnote";
     sitesLearn.before(this.sitesUnitNote);
     this.learn.para(this.sitesUnitNote, RAIL_CAVEATS.sitesModelUnits.learn, { needsAnchorText: true });
-    const shareB = this.button(this.btnRow(adv), "⎘ copy setup link", () => {
+    const SHARE = "copy setup link";
+    const shareB = this.button(this.btnRow(adv), SHARE, () => {
       void navigator.clipboard.writeText(host.shareLink()).then(() => {
-        shareB.textContent = "copied ✓";
-        setTimeout(() => { shareB.textContent = "⎘ copy setup link"; }, 1400);
+        shareB.textContent = "copied";
+        setTimeout(() => { shareB.textContent = SHARE; }, 1400);
       });
     });
-    this.hintFor(shareB.parentElement as HTMLElement, "⎘ copy setup link");
+    this.hintFor(shareB.parentElement as HTMLElement, SHARE);
 
     // ---- scale
     // The whole dimensionless<->SI map, with its provenance and its mismatches,
@@ -895,8 +960,7 @@ export class UI {
       () => host.getLambda(), v => host.setLambda(v),
       v => `${v.toFixed(1)} · W₀/d₀ ${(v / 0.8839).toFixed(1)}`);
     this.scaleBody = document.createElement("div");
-    this.scaleBody.className = "matnote";
-    this.scaleBody.style.lineHeight = "1.7";
+    this.scaleBody.className = "matnote scaletab";
     sc.append(this.scaleBody);
     // model resolution is the ONE free choice among the three factors — until
     // the calibrated solver takes it over, at which point it is derived from W₀
@@ -955,8 +1019,9 @@ export class UI {
         + `<br>1 degree = ${cal.dT0.toFixed(1)} K · cell ${cal.umPerCell.toFixed(3)} µm`
         // WHICH alloy that degree was measured for. It was the unstated half of
         // this readout until v7.1 P1, and it was wrong for every poured mix.
-        + `<br><span style="color:#8891a0">${esc(cal.coefficientSource)}</span>`
-        + `<br><span style="color:#7fd18b">${esc(calCav.line)}</span>${lrn(calCav.learn)}`
+        + `<br><span class="calsrc">${esc(cal.coefficientSource)}</span>`
+        // the locked-dials line in --fg: it is the state, brightness says so
+        + `<br><span class="calok">${esc(calCav.line)}</span>${lrn(calCav.learn)}`
       : `${esc(calCav.line)}${lrn(calCav.learn)}`;
 
     // mode gating: 2D-only vs 3D-only rows, sections and buttons
@@ -972,34 +1037,48 @@ export class UI {
     this.scheilNote.textContent = host.getAlloyOn() ? "" : RAIL_CAVEATS.scheilNeedsAlloy.line;
     this.scheilNote.style.display = host.getAlloyOn() ? "none" : "";
 
+    const lensOn = (b: HTMLButtonElement, on: boolean) => {
+      b.classList.toggle("is-on", on);
+      b.setAttribute("aria-pressed", String(on));
+    };
     this.viewBtns.forEach((b, i) => {
       b.style.display = m3 ? "none" : "";
-      b.classList.toggle("on", !m3 && i === host.getView());
+      lensOn(b, !m3 && i === host.getView());
     });
     this.viewBtns3.forEach((b, i) => {
       b.style.display = m3 ? "" : "none";
-      b.classList.toggle("on", m3 && i === host.getView3d());
+      lensOn(b, m3 && i === host.getView3d());
     });
+    // every set of toggles says which one is on to a screen reader too
+    // (aria-pressed, which tokens.css draws as the inverted pill)
     for (const b of this.symBtns) {
       const j = Number(b.dataset.j);
-      b.classList.toggle("on", m3 ? host.getSym3() === j : p.aniMode === j);
+      setPressed(b, m3 ? host.getSym3() === j : p.aniMode === j);
     }
-    this.grid3Btns.forEach(b => b.classList.toggle("on", Number(b.dataset.n) === host.getGrid3()));
-    this.scenBtns.forEach((b, i) => b.classList.toggle("on", i === p.scen));
+    this.grid3Btns.forEach(b => setPressed(b, Number(b.dataset.n) === host.getGrid3()));
+    this.scenBtns.forEach((b, i) => setPressed(b, i === p.scen));
     this.bridgePanel.style.display = p.scen === 1 ? "block" : "none";
     this.weldPanel.style.display = p.scen === 2 ? "block" : "none";
     this.alloyPanel.style.display = host.getAlloyOn() ? "block" : "none";
     // "" rather than "flex": a slider row is a grid (app/index.html .row)
     this.pixelRow.style.display = !m3 && host.getPixel() > 0 ? "" : "none";
 
-    this.runBtn.textContent = host.isRunning() ? "⏸ pause" : "▶ run";
-    this.runBtn.classList.toggle("accent", !host.isRunning());
+    // run/pause stays the filled primary in both states; ▶ and ❚❚ are the
+    // two glyphs DESIGN.md keeps. The glyphs are for the eye: each pill's
+    // spoken name is its word ("heavy vertical bar" is not a control)
+    const running = host.isRunning();
+    this.runBtn.textContent = running ? "❚❚ pause" : "▶ run";
+    this.runBtn.setAttribute("aria-label", running ? "pause" : "run");
     const mult = host.getSpeedMult();
     this.multBtn.textContent = `×${mult}`;
     this.multBtn.title = mult === 1 ? "fast-forward: ×2, then ×4" : `speed ×${mult}`;
-    this.multBtn.classList.toggle("on", mult > 1);
-    this.recBtn.textContent = host.isRecording() ? "⏹ stop" : "⏺ rec";
-    this.recBtn.classList.toggle("rec", host.isRecording());
+    setPressed(this.multBtn, mult > 1);
+    // rec says its state in its name (record / stop recording), so it is not
+    // also a pressed toggle; .recording draws the same emphasized outline
+    const rec = host.isRecording();
+    this.recBtn.textContent = rec ? "■ stop" : "rec";
+    this.recBtn.setAttribute("aria-label", rec ? "stop recording" : "record");
+    this.recBtn.classList.toggle("recording", rec);
     document.getElementById("matline")!.textContent =
       host.getAlloyName() + (m3 ? ` · 3D ${host.getGrid3()}³` : "");
     // the melt's own caveats, on the same surface as its name — textContent,
@@ -1009,7 +1088,7 @@ export class UI {
     cav.textContent = caveats.join(" · ");
     cav.style.display = caveats.length ? "block" : "none";
     const grids = [512, 1024, 2048];
-    this.gridBtns.forEach((b, i) => b.classList.toggle("on", grids[i] === host.getGrid()));
+    this.gridBtns.forEach((b, i) => setPressed(b, grids[i] === host.getGrid()));
 
     // armed / paused indicator (the ML mode shows its own status instead)
     const armed = document.getElementById("armed")!;
@@ -1022,7 +1101,6 @@ export class UI {
       if (atZero && learnOn) {
         const l = document.createElement("div");
         l.className = "lrnText";
-        l.style.cssText = "letter-spacing:0;max-width:300px;";
         l.textContent = STATUS_LEARN.armed;
         armed.append(l);
       }
@@ -1063,6 +1141,9 @@ export class UI {
 
     // last: every hint follows its control's display, set above
     this.learn.apply(learnOn);
+    // and every slider on the page, the panels' included, fills to the value
+    // script may have just set
+    paintRanges();
   }
 
   /**
@@ -1075,10 +1156,11 @@ export class UI {
   private drawScale(u: Units) {
     if (!this.scaleBody) return;
     const s = u.scale;
-    const dim = (t: string) => `<span style="color:#6b7280">${t}</span>`;
+    // app/index.html .scaletab: the key, its value in the tabular mono, the
+    // provenance in --fg-3
+    const dim = (t: string) => `<span class="dim">${t}</span>`;
     const row = (k: string, v: string, prov: string) =>
-      `<div style="display:flex;gap:6px"><span style="flex:0 0 74px">${k}</span>`
-      + `<b style="color:#cfd6df;flex:0 0 82px">${v}</b>${dim(prov)}</div>`;
+      `<div class="srow"><span class="k">${k}</span><span class="v">${v}</span>${dim(prov)}</div>`;
     // each caveat's learn half, under its line, while learn mode is on
     const lrn = (t: string) => (isLearnOn() ? `<div class="lrnText">${esc(t)}</div>` : "");
 
@@ -1086,7 +1168,7 @@ export class UI {
       this.scaleBody.innerHTML =
         row("µm / cell", `${s.umPerCell.toFixed(2)}`, s.prov.umPerCell)
         + row("domain", `${s.domainUm.toFixed(0)} µm`, "derived: n × µm/cell")
-        + `<div style="margin-top:5px">${esc(s.note)}</div>${lrn(s.learn)}`;
+        + `<div class="grp">${esc(s.note)}</div>${lrn(s.learn)}`;
       return;
     }
     const groups = s.groups.map(g => {
@@ -1094,9 +1176,12 @@ export class UI {
         ? "—"
         : `${g.model < 0.01 || g.model > 1e3 ? g.model.toExponential(1) : g.model.toFixed(2)}`
           + (g.real != null && !g.ok ? ` vs ${g.real > 1e3 ? g.real.toExponential(1) : g.real.toFixed(2)}` : "");
-      const mark = g.ok ? "<span style=\"color:#7fd18b\">✓</span>" : "<span style=\"color:#e06c60\">✗</span>";
-      return `<div style="margin-top:4px">${mark} <b style="color:#cfd6df">${g.name}</b> ${dim(val)}`
-        + `<div style="margin-left:14px">${esc(g.note)}${lrn(g.learn)}</div></div>`;
+      // matched: a quiet check; mismatched: the warning mark, no color. The
+      // model-against-real figure is the number a reader scans for, so it
+      // is the tabular mono (.scaletab .v), bright; the prose stays quiet
+      const mark = g.ok ? "<span class=\"ok\">✓</span>" : "<span class=\"bad\">!</span>";
+      return `<div class="grp">${mark} <b>${g.name}</b> ${dim(`<span class="v">${val}</span>`)}`
+        + `<div class="gnote">${esc(g.note)}${lrn(g.learn)}</div></div>`;
     }).join("");
 
     this.scaleBody.innerHTML =
@@ -1108,13 +1193,15 @@ export class UI {
       + row("domain", `${s.domainUm < 1000 ? s.domainUm.toFixed(0) + " µm" : (s.domainUm / 1000).toFixed(2) + " mm"}`,
         "derived: n × µm/cell")
       + row("melting pt", `${u.meltC.toFixed(0)} °C`, "T = 1")
-      + `<div style="margin-top:6px">${groups}</div>`
-      + `<div style="margin-top:6px;color:#6b7280">${esc(s.note)}</div>${lrn(s.learn)}`;
+      + `<div class="grp">${groups}</div>`
+      + `<div class="grp dim">${esc(s.note)}</div>${lrn(s.learn)}`;
   }
 
+  /** the HUD: a compact spec rail on the head plate, label left in --fg-3,
+   *  value right in the tabular mono (tokens.css .spec--tool) */
   setReadouts(rows: [string, string][]) {
     this.readouts.innerHTML = rows
-      .map(([k, v]) => `<div>${k} <b>${v}</b></div>`)
+      .map(([k, v]) => `<div class="spec__row"><span class="spec__label">${k}</span><span class="spec__value">${v}</span></div>`)
       .join("");
   }
 }

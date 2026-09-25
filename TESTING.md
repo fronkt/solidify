@@ -596,6 +596,12 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   has no thermometer at all (absent, silent), and a casting driven to fracSolid 1.0 reports
   `meanLiqT: null` (absent, silent). That last arm needs `pPore: 0`, because a shrinkage pore
   pins its cell's φ below 0.5 and never freezes, so the stats kernel counts it as liquid forever.
+  v8 D2 (second half) took the composer's type to the tool's 12 px floor, and `TOUR-PD-STEP`'s
+  narrow pass caught what that did: at 1024x768 with the tour open the taller card put the A356
+  quick-fill (the button the chapter's watch line names) below the card's scroll edge, so
+  `elementFromPoint` at its centre returned the backdrop (`a356: "composer"`). The quick-fill
+  row now sits right under the base metals, above the solute rows and the grid; the next run
+  was OK, the gate unchanged.
 - **`verify-scroll-order.mjs`** — asserts the pinned scroll acts never overlap (hero → lens →
   materials, strictly in order). It exits 1 if any of the three pins is missing, if they start
   out of order, or if one starts inside another, so an empty pin list cannot pass as "no
@@ -830,7 +836,8 @@ this suite. If you want to run the physics/UI verification yourself, do it local
 - **`verify-rail.mjs`** (v8 U0): the control rail never scrolls sideways, every slider's value
   is on screen, and nothing sits under the rail or on the chrome beside it; since v8 U1a also
   that learn mode works and that no prose em dash reaches the rail in the states and strings
-  listed under `RAIL-NO-EMDASH` below. Nine checks,
+  listed under `RAIL-NO-EMDASH` below, and since v8 D2 that the chrome carries no color
+  (`RAIL-ACHROMATIC`). Ten checks,
   measured in the real app at 1280x720, 1440x900, 1920x1080, 1024x768 and 960x1000 (a
   half-screen window on a 1920 display), in 2D and TRUE 3D, with every rail section opened by
   clicking its heading, every rail sample taken twice (learn mode off, and on with every
@@ -850,16 +857,23 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   mode panels, the hint, the SEM bar and the HUD, stay clear of it; the lens bar, `#head`'s
   three text lines measured as rendered text with a long alloy name in `#matline`, the
   readouts, the learn toggle, CONTROLS, the TRUE 3D switch, the view cube and the scale bar
-  never overlap one another; and every open mode panel holds its content, with no sideways
-  scroll, nothing painted past its content box, and no slider in it under 60 px), `RAIL-HIDE`
-  (at 1280x720 and on a 390x844 phone: the toggle moves the whole rail off screen, and
-  CONTROLS, the switch, the view cube, the HUD and both analysis columns to 14 px from the
-  window's edge and the lens bar's center to where the CSS puts it; showing the rail again
-  puts each back beside it; CONTROLS is on screen in every state, and the learn toggle is on
-  screen 6 px left of it, or just under it (a gap of at most 12 px) exactly where the CSS
-  rule `--learn-drop` says that row has no room, which is only the phone with the rail open;
-  the expectation is derived from the measured CONTROLS offset, so a drop at a desktop width
-  fails, and both placements must have been expected in some sample),
+  never overlap one another (since v8 D2 also the head plate that holds the text lines and
+  the readouts, and the SEM and THERM legends that share the scale bar's slot under it; the
+  readouts are found by id, inside `#head`, and everything is measured with the long name in,
+  because the name now moves the readouts and the anchored legends); and every open mode
+  panel holds its content, with no sideways scroll, nothing painted past its content box, and
+  no slider in it under 60 px), `RAIL-HIDE`
+  (at 1280x720, at 1024x768 since the D2 review, and on a 390x844 phone: the toggle moves
+  the whole rail off screen, and
+  CONTROLS, the switch, the view cube, the HUD and both analysis columns to 16 px from the
+  window's edge (14 before v8 D2) and the lens bar's center to where the CSS puts it; showing
+  the rail again puts each back beside it; CONTROLS is on screen in every state, and the learn
+  toggle is on screen 8 px left of it, or just under it (a gap of at most 12 px) exactly where
+  the CSS rule `--learn-drop` says that row has no room, which is only the phone with the rail
+  open; the expectation is derived from the measured CONTROLS offset and, since v8 D2, from the
+  two pills' measured widths rather than a copy of the CSS's constant, so a drop at a desktop
+  width fails, and so does a constant that drifts from the pills; both placements must have
+  been expected in some sample),
   `SLICE-ROWS-INSIDE` (the SECTION PLANE popup, whose rows share the grid), `RAIL-LEARN`
   (v8 U1a: off for a new viewer, nothing stored and nothing rendered; `ui.learnAudit()` finds
   an entry per section, a section per entry and every declared hint bound to its control; a
@@ -884,7 +898,16 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   there, nor in any of those strings or in the calibration line of each of the nine famous
   presets poured; only an exact `—` text node, the empty-value glyph, is allowed, so a spaced
   ` — ` alone between two elements counts as prose; both copies of the detector, the page's
-  and the script's, are run on one fixture first). It also writes
+  and the script's, are run on one fixture first) and `RAIL-ACHROMATIC` (v8 D2: every color
+  the chrome D2 restyled paints, the head plate and readouts, the lens bar, the top toggles,
+  the rail, the HUD's cards, the transport, ARMED, the hint, the lens legends and the tour
+  card, computed on every rendered element and its `::before` / `::after`, is a gray, r, g and
+  b within 2 of each other, and nothing carries a `text-shadow` or `box-shadow`, in every rail
+  state learn off and on, every chrome sample and once with the tour open; the view cube's
+  pixels, a face hovered so its highlight is drawn, carry no hue; the detector is run first on
+  a planted amber line and glow, and must catch both by their own property; since D2's second
+  half also every panel built in script, each required to have been read, and SVG chrome,
+  below). It also writes
   twelve screenshots, `rail-{2d,3d}[-learn]-{top,mid,bottom}.png` at 1440x900, to the output
   directory for a person to look at.
 
@@ -972,6 +995,115 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   column over the learn toggle, CONTROLS, the TRUE 3D switch and the lens bar, and the liveness
   (nothing capped). `RAIL-LEARN` FAILed on `panelHintsUnbound: ["panel:lab mode|mould shape"]`
   and `SLICE-ROWS-INSIDE` on the hint's two lines. The other six checks stayed OK.
+
+  v8 D2 moved the chrome onto the design system (16 px insets, 28 px pills, the readouts on a
+  head plate, the lens legends anchored under it) and re-pointed the clauses that pin its
+  geometry: `RAIL-HIDE`'s 14 px edge to 16 and its 6 px learn gap to 8, with the drop threshold
+  summed from the two pills' measured widths instead of a literal 155; the lens bar's cap from
+  `W - 157` to `W - 172` (floor 424 unchanged); `RAIL-CLEAR`'s top items found by id (the
+  readouts moved inside `#head`), all of them and the bottom-anchored items measured with the
+  long name in, and the head plate, the SEM data bar and the THERM legend added to the set (the
+  plate not compared with what it holds; no sample switched to the THERM lens until the D2
+  review, below, so that legend was in the set but never on screen). Its first green-path run found two real defects: the
+  SECTION PLANE popup's anchor was never valid (an anchor must precede the element placed
+  against it, and the popup came first in the markup, so it sat on its fallback, which clashed
+  with the scale bar once a long name moved the bar down), and the wider CONTROLS pill no longer
+  fit beside a 280 px phone rail (`RAIL-HIDE` at 390 px; the rail now leaves CONTROLS its 120
+  px, down to a 270 px floor). Proved able to fail the same way as before, with no worktree
+  edit: a second server on port 5299 whose plugin made six logged in-memory changes, and the
+  whole gate ran against it. The learn toggle 2 px from CONTROLS failed `RAIL-HIDE` ("learn
+  toggle not beside CONTROLS" at 1280 in all three states); the view cube 14 px from the rail
+  failed it ("viewcube not at the edge", "not back beside the rail"); the lens bar capped at `W
+  - 160` failed it at 390 ("lens bar not centered on the window"); the head plate 30 px wider
+  failed `RAIL-CLEAR` on `head/views` at 1024 and 960 (the readouts inside it stayed clear, so
+  only the new plate clause saw it); and the rail's values back in amber and the view cube's
+  hover zone back in amber failed `RAIL-ACHROMATIC` (`rail div.val color rgb(255, 180, 84)` in
+  every rail sample; 1202 hued cube pixels). The other seven checks stayed OK.
+
+  D2's second half (the panels built in script on the panel spec) grew `RAIL-ACHROMATIC` to
+  them, on the same detector. Its item list now also holds every open mode panel (one
+  selector, `#app > .modepanel`, since the challenge's panel has no id), the lab's run report,
+  the SECTION PLANE popup, both analysis columns, the alloy composer, an enlarged plot
+  (`.tmodal`) and `#overlay` (the probe crosshair and SDAS ruler); an item that is not on
+  screen reads nothing. The mode panels are read in every panel sample `RAIL-CLEAR` already
+  takes (13 opened, learn off and on), and three new samples, each learn off and then on with
+  their explanations open, reach what no sample opened: the run report (built on the casting in
+  the mold and flagged as intervened, so its warning line renders), the composer on 1045 steel
+  with zinc picked (a clamp, a phase not grown, a fume warning, the drawn phase diagram) and the
+  texture rose enlarged. SVG is read now, `fill` and `stroke` with the rest: the phase
+  diagram's frame, ticks, field labels and melt cursor and the overlay marks are chrome, and
+  only an element under `[data-mark]` (a plot's curves, band and markers, set in
+  `phasediagram.ts`) is skipped. Liveness: each item's most-read sample must reach a floor (81
+  mode-panel elements, 88 report, 28 popup, 17 and 33 columns, 261 composer, 5 modal, 10
+  overlay in the green run), the report must have its rows and warning line, the composer its
+  clamp, not-grown line, fume warning and SVG chrome (19 elements read), and a second fixture
+  runs on the open composer: its frame stroked amber must be caught on `stroke` and nothing else
+  flagged, while the amber liquidus beside it (a data mark) is not. The check now also reports
+  `byItem`, the first offender under each item across all samples, since the per-sample list
+  showed only the first eight elements of the first item that failed. `verify-tools`' ENLARGE
+  line (informational) finds the modal as `#app > .tmodal`, where it matched an inline
+  `style*='fixed'`. Proved able to fail with no worktree edit: a second server on port 5299
+  whose plugin made six logged in-memory changes, and the whole gate ran against it. Mode panel
+  values in amber, the report's section rules in amber, the diagram's ticks filled amber, the
+  crosshair stroked amber and the analysis titles in cyan each failed `RAIL-ACHROMATIC` on its
+  own item (`#app > .modepanel span.fbval color` in 20 samples, `foundryResults div.rcard
+  borderTopColor` in 2, `composer text.pdtick fill` in 2, `overlay circle stroke` in 27,
+  `apanels div.t` in 27 and `apanels3 div.t` in 12), and the enlarged plot's class renamed
+  failed its liveness (`.tmodal` read 0 of 4, `enlarged: false`). The other nine checks stayed
+  OK.
+
+  The D2 review (29 findings on the uncommitted D2 change) found four surfaces the gate could
+  not see, and re-pointed one clause whose geometry moved. A 390x844 phone: nothing booted the
+  rail hidden there, so the rail left 120 px and the head plate, the lens bar and the TRUE 3D
+  switch stayed placed in it (the switch and the bar ran off the left edge, LEARN sat on the
+  plate's subtitle), and the rail-hidden state had the plate under the toggles and the bar over
+  the readouts; the 270 px phone rail was never measured, where the grid pills split words
+  ("bridgma/n"); the THERM legend was never on screen in any sample; and the rail's slider
+  thumbs and tracks are `::-webkit-slider-*` pseudo-elements that `getComputedStyle` cannot read,
+  so an amber thumb passed the color read (a planted one: 0 bad over 83 rail elements, 966 hued
+  pixels). The clauses added: `RAIL-CLEAR` samples the phone three ways, its first screen (the
+  rail hidden, as `ui.ts` now boots a window whose canvas the rail would leave under 596 px:
+  every top item clear of every other, plate, lines, readouts and lens bar included), the rail
+  open (what shows clears the rail and each other; learn and controls must be there), and lab
+  mode opened from it (the rail hidden, the panel clear of the learn toggle, CONTROLS, the lens
+  bar and the switch), each in 2D and TRUE 3D with the analysis columns closed as a new page has
+  them; it adds a THERM sample in both modes (columns closed, so the gesture hint is measured
+  too, `thermbar` required somewhere) and fails any sample where the gesture hint overlaps an
+  open analysis column. `RAIL-TEXT-WRAPS` and `RAIL-NO-HSCROLL` measure the phone's 270 px rail
+  in every state, learn off and on, and `RAIL-TEXT-WRAPS` fails any word on a control (a pill, a
+  label, a section header) whose range spans two line tops, on every desktop and phone sample.
+  `RAIL-ACHROMATIC` reads the THERM legend (a floor of 3 elements) with a fixture that proves the
+  strip's `::before` exemption is the strip alone (clean with the strip on screen; an amber label
+  caught on `span.lo`, an amber plate edge caught on the plate, never on the pseudo-element);
+  reads the rail's pixels from a screenshot in every rail state (a pixel is hued past 40, since
+  the canvas shows through `--overlay`'s 10 % by at most 25.5), with a planted amber thumb and
+  track that must be caught and the rail clean on both sides of it; adds `accentColor` to the
+  properties read; and reads the tour with a chapter's highlight ring on screen (Material, which
+  rings a rail section and the head plate; chapter 0 had none). `RAIL-LEARN` shoots the learn
+  toggle (off and pressed) and the TRUE 3D switch unfocused and then focused from the keyboard
+  over the ETCH lens at t = 0, on a page of its own, and requires `:focus-visible` and at least
+  120 changed pixels each. Re-pointed: the lens bar's own-row center is right-aligned under the
+  column beside the rail (`viewsCenterFor` now `min(max(424, W/2, W - 172 below 784), W - 172)`),
+  and `RAIL-HIDE` gained 1024x768, the width where the new and old centers differ with the rail
+  open. The first green-path runs found two real defects on the phone, both fixed: sub-panel
+  slider rows (Bridgman, weld, the solute field) 22 px wider than the 270 px rail's content box
+  (their value track now 6ch), and the lens bar under the head plate lagging a longer name by
+  its 0.25 s `top` transition (none under the plate now). Proved able to fail with no worktree
+  edit: two plant servers on port 5299, each a vite config whose plugin made logged in-memory
+  changes, and the whole gate against each. Set A (layout): the head plate back at 232 px with
+  the lens bar back in the column, and the plate, bar and switch left visible with the rail
+  open, failed `RAIL-CLEAR`'s phone samples (the plate's lines under the switch and the bar;
+  the plate under the rail); lab mode no longer hiding the rail failed its "lab mode opened"
+  sample (the panel under the rail); 12 px pill padding with `overflow-wrap: anywhere` failed
+  `RAIL-TEXT-WRAPS` (`dendrite`, `seaweed`, `bridgman` split on the phone); the hint forced on
+  under a column and the THERM legend moved onto the plate failed `RAIL-CLEAR` (`hintUnder`,
+  `thermbar` against the plate's lines); the lens bar's own row back at the old center failed
+  `RAIL-HIDE` at 1024x768 in both modes. Set B (color and focus): the THERM label amber
+  failed `RAIL-ACHROMATIC` on `thermbar span.hi`; the slider thumbs amber failed its pixel read
+  (360 hued rail pixels in every rail sample, the computed read still 0); the highlight ring
+  amber failed on `head` and `rail` outlines in the highlight sample; the over-canvas focus
+  ring put back 2 px outside failed `RAIL-LEARN` (0 changed pixels on the learn toggle and the
+  TRUE 3D switch). The other checks stayed OK in both runs.
 - **`verify-scale3d.mjs`** — the 3D half of the v5.0 length-anchor change, on its own so it
   does not need the full 30-check volume suite to re-run: both solvers carry one resolution,
   the volume's `eqDiamUm` actually follows it (doubling the pitch doubles the reported diameter

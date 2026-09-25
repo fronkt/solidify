@@ -7,6 +7,8 @@ import { Nucleation } from "./nucleation";
 import { stream } from "./rng";
 import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
 import { OPT_CAVEATS, panelText } from "./learn/panels";
+import { paintRange } from "./design/tool";
+import { kv, num, panelHead, pill } from "./design/panel";
 
 export interface OptHost {
   swapSim(n: number): Simulation;
@@ -233,11 +235,11 @@ export class Optimizer {
   private refreshStatus() {
     if (!this.status) return;
     if (!this.running && this.episode === 0)
-      this.status.innerHTML = 'paused · <b style="color:#ffb454">▶ run</b> to start';
+      this.status.innerHTML = "paused · <b>▶ run</b> to start";
     else if (!this.running)
-      this.status.textContent = `paused · casting #${this.episode} · ▶ run to resume`;
+      this.status.innerHTML = `paused · casting ${num(`#${this.episode}`)} · <b>▶ run</b> to resume`;
     else if (this.episode === 0)
-      this.status.textContent = "casting #1 …";
+      this.status.innerHTML = `casting ${num("#1")} …`;
   }
 
   stop() {
@@ -255,39 +257,38 @@ export class Optimizer {
     p.id = "lab";
     // placed and sized by .modepanel (app/index.html), so it can reach neither
     // the rail nor the transport bar, whose run button it tells you to press
-    p.className = "modepanel";
-    p.style.cssText =
-      "--cap:720px;" +
-      "background:rgba(15,17,21,0.93);border:1px solid #262b33;border-radius:8px;padding:10px 14px;backdrop-filter:blur(6px);z-index:6;";
-    const head = document.createElement("div");
-    // wraps on a narrow panel: the target slider moves to the next line at its
-    // 110px floor rather than being squeezed to nothing (it used to reach 0 px
-    // at 1024 wide), and exit stays at the right end of whichever line it is on
-    head.style.cssText = "display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-bottom:6px;font-size:11px;";
-    head.innerHTML = `<span style="letter-spacing:.2em;color:#56d4dd">⚙ OPTIMIZER</span>
-      <span>target ASTM <b style="color:#ffb454">G ${this.targetASTM}</b></span>
-      <input id="labTarget" type="range" min="1" max="5.5" step="0.5" value="${this.targetASTM}" style="flex:1 1 110px;min-width:110px;max-width:150px">`;
-    const stop = document.createElement("button");
-    stop.style.marginLeft = "auto";
-    stop.textContent = "exit";
-    stop.addEventListener("click", () => this.stop());
-    head.append(stop);
+    p.className = "modepanel plate tpanel";
+    // the header wraps on a narrow panel: the target slider moves to the next
+    // line at its 110px floor (#labTarget) rather than being squeezed to
+    // nothing (it used to reach 0 px at 1024 wide), and exit stays at the
+    // right end of whichever line it is on
+    const target = document.createElement("span");
+    target.innerHTML = `target ASTM <b class="v">G ${this.targetASTM}</b>`;
+    const stop = pill("exit", () => this.stop());
+    const head = panelHead("OPTIMIZER", stop, target);
+    const slider = document.createElement("input");
+    slider.id = "labTarget";
+    slider.type = "range";
+    slider.min = "1"; slider.max = "5.5"; slider.step = "0.5"; slider.value = String(this.targetASTM);
+    head.insertBefore(slider, stop);
+    paintRange(slider);
     // learn mode: the "i" right after the title; the intro is one terse line
     // with the full explanation in learn mode
     this.learn = new LearnLayer(() => this.applyLearn());
-    const ex = this.learn.explain(head, "about the optimizer", panelText("optimizer"), head.children[1]);
+    const ex = this.learn.explain(head, "about the optimizer", panelText("optimizer"), target);
     const desc = document.createElement("div");
-    desc.style.cssText = "font-size:10.5px;color:#8891a0;line-height:1.55;margin-bottom:8px;";
+    desc.className = "pnote q";
     desc.innerHTML = OPT_CAVEATS.intro.line + learnSlot(OPT_CAVEATS.intro.learn);
+    // the lab-notebook strip: one etched thumbnail per casting
     const strip = document.createElement("div");
-    strip.style.cssText = "display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;min-height:86px;align-items:flex-end;";
+    strip.className = "ostrip";
     const report = document.createElement("div");
     report.id = "labReport";
-    report.style.cssText = "display:none;margin-top:8px;padding:9px 11px;border:1px solid rgba(255,180,84,0.45);" +
-      "border-radius:6px;background:rgba(255,180,84,0.06);font-size:11px;line-height:1.7;";
+    report.className = "oreport";
+    report.style.display = "none";
     const status = document.createElement("div");
     status.id = "labStatus";
-    status.style.cssText = "margin-top:6px;font-size:11px;color:#8891a0;";
+    status.className = "pstatus q";
     p.append(head, ex.body, desc, strip, report, status);
     document.getElementById("app")!.append(p);
     this.panel = p;
@@ -295,11 +296,12 @@ export class Optimizer {
     this.status = status;
     this.report = report;
     this.applyLearn();
-    const slider = p.querySelector("#labTarget") as HTMLInputElement;
     if (this.lockTarget) {
+      // the challenge fixes the target: the slider shows it, locked (the
+      // tool's disabled slider, tokens.css)
       slider.disabled = true;
-      slider.style.opacity = "0.35";
       slider.value = String(this.targetASTM);
+      paintRange(slider);
       (head.querySelector("b") as HTMLElement).textContent = `G ${this.targetASTM}`;
     } else {
       slider.addEventListener("input", () => {
@@ -370,21 +372,27 @@ export class Optimizer {
     // snapshot as etched micrograph
     this.host.renderOnce(2);
     const thumb = this.host.captureThumb();
+    // a tile: the etched thumbnail (square-edged media) over its grain size;
+    // the best casting so far is marked by a ring on the plate and a bright
+    // label, not a hue, and exactly one tile carries it: a new best takes it
+    // from the old one
     const cell = document.createElement("div");
-    cell.style.cssText = "flex:0 0 auto;text-align:center;font-size:9px;color:#6b7280;";
-    thumb.style.cssText = "width:64px;height:64px;border-radius:4px;border:1px solid " +
-      (score === this.best ? "#ffb454" : "#262b33") + ";display:block;";
+    cell.className = "otile";
+    if (score === this.best) {
+      this.strip.querySelector(".otile.best")?.classList.remove("best");
+      cell.classList.add("best");
+    }
     const lab = document.createElement("div");
     lab.textContent = astm !== null ? `G ${astm.toFixed(1)}` : "—";
-    if (score === this.best) lab.style.color = "#ffb454";
     cell.append(thumb, lab);
     this.strip.append(cell);
     this.strip.scrollLeft = this.strip.scrollWidth;
 
-    this.status.textContent =
-      `casting #${this.episode} done · best |ΔG| ${this.best === Infinity ? "—" : this.best.toFixed(2)}` +
-      (this.bestASTM !== null ? ` (G ${this.bestASTM.toFixed(1)})` : "") +
-      ` · σ ${this.cma.sigma.toFixed(2)}`;
+    // the numbers in the mono, the words in Inter (textContent unchanged)
+    this.status.innerHTML =
+      `casting ${num(`#${this.episode}`)} done · best |ΔG| ${num(this.best === Infinity ? "—" : this.best.toFixed(2))}` +
+      (this.bestASTM !== null ? ` (${num(`G ${this.bestASTM.toFixed(1)}`)})` : "") +
+      ` · σ ${num(this.cma.sigma.toFixed(2))}`;
     this.genome = null;
     this.finishing = false;
     if (!this.running) this.refreshStatus();   // a pause landed mid-casting
@@ -411,41 +419,36 @@ export class Optimizer {
     const r = this.bestRecipe!;
     const onTarget = this.best <= CONV_BEST;
     const f = (x: number) => x.toFixed(2);
+    // a sub-section under a rule: its title, then the recipe as spec rows,
+    // then the actions with "apply recipe" the panel's one primary
     this.report.innerHTML =
-      `<div style="letter-spacing:.18em;color:#ffb454;margin-bottom:4px">` +
-      (onTarget ? "⚑ CONVERGED · RECIPE FOUND" : "⚑ STALLED · BEST RECIPE SO FAR") + `</div>` +
+      `<div class="psub">${onTarget ? "converged · recipe found" : "stalled · best recipe so far"}</div>` +
       (onTarget ? "" : learnSlot(OPT_CAVEATS.stalled.learn)) +
-      `<div style="color:#c9cdd4">best <b style="color:#ffb454">G ${r.astm !== null ? r.astm.toFixed(1) : "—"}</b>` +
-      ` · target G ${this.targetASTM} · |ΔG| ${this.best.toFixed(2)} · ${this.episode} castings</div>` +
-      `<div style="color:#8891a0">undercooling <b style="color:#c9cdd4">${f(r.undercool)}</b> · ` +
-      `inoculant <b style="color:#c9cdd4">${r.nmax.toFixed(0)}</b> sites · ` +
-      `cooling early <b style="color:#c9cdd4">${f(r.cool[0])}</b> → mid <b style="color:#c9cdd4">${f(r.cool[1])}</b> → late <b style="color:#c9cdd4">${f(r.cool[2])}</b></div>`;
+      `<div class="kv">` +
+      kv("best", `${num(`G ${r.astm !== null ? r.astm.toFixed(1) : "—"}`)}` +
+        ` · target ${num(`G ${this.targetASTM}`)} · |ΔG| ${num(this.best.toFixed(2))} · ${num(this.episode)} castings`) +
+      kv("recipe", `undercooling ${num(f(r.undercool))} · inoculant ${num(r.nmax.toFixed(0))} sites · ` +
+        `cooling early ${num(f(r.cool[0]))} → mid ${num(f(r.cool[1]))} → late ${num(f(r.cool[2]))}`) +
+      `</div>`;
     const row = document.createElement("div");
-    row.style.cssText = "display:flex;gap:8px;margin-top:7px";
-    const applyB = document.createElement("button");
+    row.className = "pactions";
     // verify-optimizer finds this button by the word "apply"
-    applyB.textContent = "⚗ apply recipe";
-    applyB.style.cssText = "border-color:#ffb454;color:#ffb454";
-    applyB.addEventListener("click", () => {
+    const applyB = pill("apply recipe", () => {
       const rec = this.bestRecipe!;
       this.stop();
       this.host.applyRecipe(rec);
-    });
-    const moreB = document.createElement("button");
-    moreB.textContent = "keep searching";
-    moreB.addEventListener("click", () => {
+    }, "accent");
+    const moreB = pill("keep searching", () => {
       this.converged = false;
       this.sinceImprove = 0;      // re-arm: report again after the next stall
       this.report.style.display = "none";
       this.running = true;
       this.refreshStatus();
     });
-    const linkB = document.createElement("button");
-    linkB.textContent = "⎘ recipe link";
-    linkB.addEventListener("click", () => {
+    const linkB = pill("copy recipe link", () => {
       void navigator.clipboard.writeText(this.host.shareRecipeLink(this.bestRecipe!)).then(() => {
-        linkB.textContent = "copied ✓";
-        setTimeout(() => { linkB.textContent = "⎘ recipe link"; }, 1400);
+        linkB.textContent = "copied";
+        setTimeout(() => { linkB.textContent = "copy recipe link"; }, 1400);
       });
     });
     row.append(applyB, moreB, linkB);

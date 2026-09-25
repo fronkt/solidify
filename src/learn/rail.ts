@@ -67,7 +67,7 @@ export const RAIL_LEARN: readonly LearnEntry[] = [
       // "solute field"; the calibrated solver's alloy model is quantitative
       // (anti-trapping on), so the qualifier is conditional
       "solute field": "a dilute solute, qualitative unless calibrated",
-      "⚗ alloy composer…": "build a real alloy, element by element",
+      "alloy composer…": "build a real alloy, element by element",
       "composition c₀": "how much solute, in model units",
       "liquidus slope": "how far solute lowers the freezing point",
       "solute D": "how fast solute spreads in the liquid",
@@ -150,7 +150,7 @@ export const RAIL_LEARN: readonly LearnEntry[] = [
       "partition k": "share of solute the solid keeps",
       "site ΔT_N": "undercooling at which a typical site fires",
       "site spread σ": "spread of site undercoolings",
-      "⎘ copy setup link": "saves material, settings, lens and recipe",
+      "copy setup link": "saves material, settings, lens and recipe",
     },
   },
   {

@@ -2,6 +2,7 @@ import { BASES, derive, phasesFor, type CompositionRegime, type Mix } from "./al
 import { BINARY, shortPhase, type BinaryRow } from "./phasedata";
 import { MATERIALS } from "./materials";
 import { learnSlot, fillLearnSlots, type Caveat } from "./learn";
+import { seriesVar } from "./design/plot";
 
 // shortPhase moved to phasedata.ts in v7.1 P3 — alloy.ts names phases now too,
 // and this module already imports alloy.ts, so the helper had to sit below both
@@ -519,13 +520,22 @@ function el(n: string, attrs: Record<string, string> = {}): SVGElement {
   return e;
 }
 
+// The diagram's curves are data (DESIGN.md 5, plots), drawn in the plot
+// palette's slots in their fixed order (src/design/plot.ts; the values are
+// tokens) and the two reference-like curves, the invariant isotherm and the
+// solvus, in a gray, told apart by dash; everything else on the figure (the
+// frame, the axis ticks, the field labels, the melt-temperature cursor) is
+// chrome and takes the tokens through app/index.html's .pd* classes. The
+// colors are CSS references set as style, never written here. Every data
+// element carries `data-mark`, which is how the achromatic gate (verify-rail
+// RAIL-ACHROMATIC) tells the two apart.
 const STROKE: Record<LineId, { c: string; w: string; dash: string }> = {
-  liquidus:  { c: "#ffb454", w: "1.6", dash: "" },
-  solidus:   { c: "#7fd18b", w: "1.4", dash: "" },
-  invariant: { c: "#8891a0", w: "1.2", dash: "" },
-  solvus:    { c: "#8891a0", w: "1",   dash: "3 3" },
-  solver:    { c: "#56d4dd", w: "1.3", dash: "5 3" },
-  residual:  { c: "#c96a5b", w: "1.6", dash: "2 2" },
+  liquidus:  { c: seriesVar(0), w: "1.6", dash: "" },
+  solidus:   { c: seriesVar(1), w: "1.4", dash: "" },
+  invariant: { c: "var(--fg-3)", w: "1.2", dash: "" },
+  solvus:    { c: "var(--fg-3)", w: "1",   dash: "3 3" },
+  solver:    { c: seriesVar(2), w: "1.3", dash: "5 3" },
+  residual:  { c: seriesVar(3), w: "1.6", dash: "2 2" },
 };
 const LINE_ORDER: LineId[] = ["invariant", "solvus", "solidus", "liquidus", "solver", "residual"];
 
@@ -564,7 +574,7 @@ export class PhaseFigureView {
     // the regime band goes in FIRST so every line draws over it
     this.bandEl = el("rect", {
       y: String(FRAME.mt), height: String(FRAME.h - FRAME.mt - FRAME.mb),
-      fill: "#ffb454", "fill-opacity": "0.07", stroke: "none",
+      style: `fill: ${seriesVar(0)}`, "fill-opacity": "0.07", stroke: "none", "data-mark": "band",
     });
     this.bandEl.append(el("title"));
     this.svg.append(this.bandEl);
@@ -572,31 +582,33 @@ export class PhaseFigureView {
       x: String(FRAME.ml), y: String(FRAME.mt),
       width: String(FRAME.w - FRAME.ml - FRAME.mr),
       height: String(FRAME.h - FRAME.mt - FRAME.mb),
-      fill: "none", stroke: "#262b33", "stroke-width": "1",
+      class: "pdframe",
     }));
     for (const id of LINE_ORDER) {
       const s = STROKE[id];
       const p = el("path", {
-        fill: "none", stroke: s.c, "stroke-width": s.w,
-        "stroke-dasharray": s.dash, "stroke-linejoin": "round",
+        fill: "none", style: `stroke: ${s.c}`, "stroke-width": s.w,
+        "stroke-dasharray": s.dash, "stroke-linejoin": "round", "data-mark": id,
       });
       this.paths.set(id, p);
       this.svg.append(p);
     }
     // ids so PD-CURSOR-LIVE can read the drawn cursor rather than a mirror of it
-    this.cursor = el("line", { id: "pdCursorLine", stroke: "#eef1f5", "stroke-width": "1", "stroke-dasharray": "1 3" });
-    this.cursorTx = el("text", { id: "pdCursor", fill: "#eef1f5", "font-size": "7", "text-anchor": "end" });
-    this.pour = el("circle", { r: "3.4", fill: "#ffb454", stroke: "#0a0b0d", "stroke-width": "1" });
-    this.solverDot = el("circle", { r: "2.6", fill: "none", stroke: "#56d4dd", "stroke-width": "1.2" });
+    this.cursor = el("line", { id: "pdCursorLine", class: "pdcursor" });
+    this.cursorTx = el("text", { id: "pdCursor", class: "pdtick", "text-anchor": "end" });
+    // the pour's composition and the solver's reading are data marks
+    this.pour = el("circle", { r: "3.4", style: `fill: ${seriesVar(0)}`, class: "pdpour", "data-mark": "pour" });
+    this.solverDot = el("circle", { r: "2.6", fill: "none", style: `stroke: ${seriesVar(2)}`, "stroke-width": "1.2", "data-mark": "solver" });
     this.svg.append(this.cursor, this.cursorTx, this.solverDot, this.pour);
-    // field labels and axis ticks in #8891a0, 6.0:1 on the plot's #0d0f13
-    // (#6b7280 was 3.97:1 at about 11 px rendered)
+    // field labels and axis ticks in --fg-3 on the plot's --bg-media (Inter,
+    // at about 11 px rendered: 7.5 and 7 viewBox units in a figure drawn
+    // near 1.5x)
     for (let i = 0; i < 5; i++) {
-      const t = el("text", { fill: "#8891a0", "font-size": "7.5", "text-anchor": "middle" });
+      const t = el("text", { class: "pdfield", "text-anchor": "middle" });
       this.fieldTx.push(t); this.svg.append(t);
     }
     for (let i = 0; i < 5; i++) {
-      const t = el("text", { fill: "#8891a0", "font-size": "7" });
+      const t = el("text", { class: "pdtick" });
       this.axis.push(t); this.svg.append(t);
     }
     this.noteEl = document.createElement("div");

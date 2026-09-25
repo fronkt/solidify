@@ -25,15 +25,20 @@
 // top of the window and the lab panel, the columns and the popup climb over
 // the learn toggle, CONTROLS, the TRUE 3D switch and the readouts.
 //
-// Nine checks:
-//   RAIL-NO-HSCROLL     rail.scrollWidth <= rail.clientWidth, every sample
+// Ten checks:
+//   RAIL-NO-HSCROLL     rail.scrollWidth <= rail.clientWidth, every sample,
+//                       the phone's 270px rail included (v8 D2 review)
 //   RAIL-ROWS-INSIDE    every slider row is a grid, and its label, slider and
 //                       value sit inside the rail's content box; no value cell
 //                       has zero width; enough value cells were measured
 //   RAIL-TEXT-WRAPS     every rendered element in the rail (notes, buttons,
 //                       selects, the SCALE table) AND every rendered line of
 //                       text stays inside the content box: long text wraps, it
-//                       never widens the rail
+//                       never widens the rail; and (v8 D2 review) no word on a
+//                       control (a pill, a label, a section header) breaks
+//                       inside itself ("bridgma/n"), measured on the desktop
+//                       viewports and on a 390x844 phone, whose 270px rail is
+//                       the narrowest the rail gets
 //   RAIL-VAL-FITS       each slider driven to its min and then its max (in a
 //                       real material, so values print in K, K/s, µm): every
 //                       value stays on one line inside the rail; the widest
@@ -55,12 +60,25 @@
 //                       panel holds its content (no sideways scroll, nothing
 //                       past its content box) and no slider in it is under
 //                       60px. All of it with the rail shown AND hidden, and
-//                       every mode panel with learn mode off AND on.
+//                       every mode panel with learn mode off AND on. Since the
+//                       v8 D2 review: the THERM legend is sampled too (2D and
+//                       3D), the gesture hint never overlaps an open analysis
+//                       column, and on a 390x844 phone: its first screen (the
+//                       rail hidden, as ui.ts boots a phone) has every top
+//                       item clear of every other, the head plate, its lines,
+//                       the readouts and the lens bar included; with the rail
+//                       open nothing that is shown overlaps the rail or
+//                       another top item (the rail leaves 120px: the top
+//                       chrome folds away, learn and controls stay); and lab
+//                       mode opened there hides the rail and clears the learn
+//                       toggle, CONTROLS, the lens bar and the TRUE 3D switch.
 //   RAIL-HIDE           the hide toggle moves the whole rail off screen and
 //                       every rail-anchored element (CONTROLS, the switch, the
 //                       view cube, the HUD, both analysis columns, and the lens
 //                       bar's center) back to the edge, and showing it again
-//                       restores all of them; at 1280x720 and on a 390px phone,
+//                       restores all of them; at 1280x720, at 1024x768 (where
+//                       the lens bar has a row of its own, right-aligned under
+//                       the column beside the rail) and on a 390px phone,
 //                       where CONTROLS must stay on screen in both states; the
 //                       learn toggle stays on screen beside CONTROLS, or just
 //                       under it exactly where the CSS rule says the row has
@@ -80,7 +98,10 @@
 //                       aria-controls on the body) that Enter and Space open
 //                       and close; Space still runs and pauses with nothing
 //                       focused and after a mouse click on a button, without
-//                       pressing that button again;
+//                       pressing that button again; (v8 D2 review) a
+//                       keyboard-focused learn toggle (off and pressed) and
+//                       TRUE 3D switch show their focus ring over the
+//                       near-white ETCH lens, as pixels that change;
 //                       every hint is one line and shows exactly when its
 //                       control does; every hint the rail's entries declare
 //                       found its control; the setting survives a reload; and
@@ -101,6 +122,32 @@
 //                       panel learn string, hint or caveat line; the
 //                       exact "—" empty-value glyph is allowed. Both copies
 //                       of the detector are self-tested on a fixture first
+//   RAIL-ACHROMATIC     (v8 D2) every color the chrome paints (the head
+//                       plate and readouts, the lens bar, the top toggles,
+//                       the rail, the HUD's cards, the transport, ARMED, the
+//                       hint, the lens legends, the tour) is a gray and
+//                       nothing glows, as computed on every element and its
+//                       ::before/::after, in every rail and chrome sample and
+//                       with the tour open; and the view cube's pixels carry
+//                       no hue with a face hovered. The detector is
+//                       self-tested on a planted amber line and glow.
+//                       Since D2's second half also every panel built in
+//                       script (the mode panels, the lab report, the
+//                       SECTION PLANE popup, both analysis columns, the
+//                       alloy composer with its phase diagram's SVG chrome,
+//                       an enlarged plot, the probe / ruler marks), each
+//                       required to have been read, learn off and on; only
+//                       a plot's `data-mark` curves are skipped, and an SVG
+//                       fixture (the diagram's frame stroked amber) must be
+//                       caught beside an amber data curve that is not.
+//                       Since the v8 D2 review: the THERM legend is read (2D
+//                       and 3D), and a fixture shows its strip's exemption
+//                       covers the strip alone (an amber label and an amber
+//                       plate edge are caught); the tour is read with a
+//                       chapter's highlight ring on screen; and the rail's
+//                       own PIXELS are read (a slider's thumb and track are
+//                       pseudo-elements getComputedStyle cannot reach), with
+//                       a planted amber thumb and track that must be caught
 //
 // It also saves twelve screenshots (rail scrolled to top, middle and bottom,
 // 2D and 3D, learn mode off and on, 1440x900) to the output directory, for a
@@ -114,7 +161,12 @@ const OUT = process.argv[2] ?? ".";
 const PORT = process.argv[3] ?? "5199";
 mkdirSync(OUT, { recursive: true });
 const VIEWPORTS = [[1280, 720], [1440, 900], [1920, 1080], [1024, 768], [960, 1000]];
-const HIDE_VIEWPORTS = [[1280, 720], [390, 844]];
+// 1024x768 (v8 D2 review): the lens bar has a row of its own there with the
+// rail open, right-aligned under the column beside the rail
+const HIDE_VIEWPORTS = [[1280, 720], [1024, 768], [390, 844]];
+// the phone (v8 D2 review): its 270px rail and, with the rail open, the
+// cramped layout (app/index.html .railCramped)
+const PHONE = [390, 844];
 // what #matline prints for the composer's 4340 steel in the volume (a share
 // link's name can be longer still): the top-chrome clause measures #matline
 // with this in it, so the lens bar is checked against a long name, not the
@@ -342,6 +394,13 @@ const PROBE = LONG => {
       // was. So every rendered line of text is measured too.
       const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       const rg = document.createRange();
+      // (v8 D2 review) and no word on a control breaks inside itself: a pill,
+      // a label or a section header whose word is split over two lines
+      // ("bridgma/n") stays inside the box and passes the line check above.
+      // A word's range spanning two line tops is the split
+      const splitWords = [];
+      let words = 0;
+      const wr = document.createRange();
       for (let t = walk.nextNode(); t; t = walk.nextNode()) {
         if (!t.textContent.trim() || !vis(t.parentElement)) continue;
         rg.selectNodeContents(t);
@@ -349,6 +408,15 @@ const PROBE = LONG => {
           if (b.width === 0) continue;
           lines++;
           if (outside(b, box)) textBad.push({ textLine: t.textContent.trim().slice(0, 48), left: r1(b.left), right: r1(b.right) });
+        }
+        if (!t.parentElement.closest("button, label, h2")) continue;
+        for (const w of t.textContent.matchAll(/\S+/g)) {
+          wr.setStart(t, w.index);
+          wr.setEnd(t, w.index + w[0].length);
+          const tops = new Set([...wr.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.top)));
+          if (!tops.size) continue;
+          words++;
+          if (tops.size > 1) splitWords.push({ word: w[0], in: t.textContent.trim().slice(0, 32), lines: tops.size });
         }
       }
       // learn mode (v8 U1a): a hint shows exactly when learn is on and its
@@ -383,6 +451,7 @@ const PROBE = LONG => {
         scrollbar: el.offsetWidth - el.clientWidth - el.clientLeft - parseFloat(getComputedStyle(el).borderRightWidth),
         tall: el.scrollHeight > el.clientHeight,
         box: [r1(box.x0), r1(box.x1)], ...rows, elems, lines, textBad: textBad.slice(0, 8), nTextBad: textBad.length,
+        words, splitWords: splitWords.slice(0, 8), nSplit: splitWords.length,
         learn, lrnVisible, hints, hintBad: hintBad.slice(0, 6), nHintBad: hintBad.length,
         chars, dashes: dashes.slice(0, 6), nDashes: dashes.length,
       };
@@ -392,7 +461,9 @@ const PROBE = LONG => {
      *  the rail. Plus the top chrome's pairwise overlaps: the lens bar, the
      *  readouts, CONTROLS, the TRUE 3D switch, the view cube, the scale bar
      *  and #head's three text lines, measured as rendered text with a long
-     *  alloy name in #matline; and since the v8 U1b review the bottom-anchored
+     *  alloy name in #matline (since v8 D2 also the head plate that holds
+     *  them and the readouts, and the SEM and THERM legends that share the
+     *  scale bar's slot under it); and since the v8 U1b review the bottom-anchored
      *  items that grow up into that chrome: the open mode panels, the analysis
      *  columns and the SECTION PLANE popup (the columns were left out before:
      *  with all three 3D panels on a short window they climbed into the view
@@ -413,7 +484,11 @@ const PROBE = LONG => {
           hits.push({ name, left: r1(b.left), right: r1(b.right), railLeft: r1(rb.left) });
       }
       // measured and restored inside this one synchronous call, so no frame
-      // (and no ui.sync) runs in between
+      // (and no ui.sync) runs in between. Since v8 D2 EVERYTHING below is
+      // measured with the long name in: the readouts sit on the head plate
+      // under the name and the lens legends are anchored under the plate, so
+      // the name moves them, and a box read before the name went in would
+      // clash with a line read after it (or miss a real clash)
       const mat = document.getElementById("matline");
       const matWas = mat.textContent;
       mat.textContent = LONG;
@@ -422,8 +497,16 @@ const PROBE = LONG => {
         "head .sub": textBox(document.querySelector("#head .sub")),
         "#matline": textBox(mat),
       };
-      mat.textContent = matWas;
-      for (const n of ["views", "readouts", "learnToggle", "railToggle", "dimSwitch", "viewcube", "scalebar"]) if (boxes[n]) top[n] = boxes[n];
+      // by id, not among #app's children: the readouts are inside #head. The
+      // head plate itself and the two legends that share the scale bar's
+      // slot (v8 D2) are held to the same rule. A found item counts as seen
+      const byId = el => { const b = el.getBoundingClientRect(); return b.width >= 1 && b.height >= 1 ? [r1(b.left), r1(b.top), r1(b.right), r1(b.bottom)] : null; };
+      for (const n of ["head", "views", "readouts", "learnToggle", "railToggle", "dimSwitch", "viewcube", "scalebar", "sembar", "thermbar"]) {
+        const el = document.getElementById(n);
+        if (!vis(el) || !byId(el)) continue;
+        top[n] = byId(el);
+        if (!seen.includes(n)) seen.push(n);
+      }
       // (v8 U1b review) the bottom-anchored items that grow upward: every
       // open mode panel, both analysis columns and the SECTION PLANE popup.
       // Each is held against everything above, never against another of them
@@ -442,14 +525,20 @@ const PROBE = LONG => {
         BOTTOM.add(n);
         scrolls[n] = el.scrollHeight > el.clientHeight + 1;
       }
+      mat.textContent = matWas;
       const offTop = [...BOTTOM].filter(n => top[n][1] < -TOL).map(n => ({ name: n, top: top[n][1] }));
+      // #head's text lines are not compared with each other, and the head
+      // plate (v8 D2) not with what it holds: its lines and the readouts. The
+      // readouts are still compared with the lines, as before the plate
       const HEAD = new Set(["head h1", "head .sub", "#matline"]);
+      const ON_PLATE = new Set([...HEAD, "readouts"]);
       const names = Object.keys(top).filter(n => top[n]);
       const clash = [];
       for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) {
         const [a, b] = [names[i], names[j]];
         if (HEAD.has(a) && HEAD.has(b)) continue;
         if (BOTTOM.has(a) && BOTTOM.has(b)) continue;
+        if ((a === "head" && ON_PLATE.has(b)) || (b === "head" && ON_PLATE.has(a))) continue;
         if (hit(top[a], top[b])) clash.push({ a, b, boxA: top[a], boxB: top[b] });
       }
       return { seen, hits, boxes, top: names, clash, bottom: [...BOTTOM], offTop, scrolls };
@@ -523,6 +612,118 @@ const PROBE = LONG => {
       if (!vis(sp)) return { visible: false };
       return { visible: true, ...rowAudit(sp, contentBox(sp)), ...hintAudit(sp) };
     },
+    /** (v8 D2) every color the chrome under `items` paints, as computed, on
+     *  every rendered element and its ::before / ::after: achromatic (r, g
+     *  and b within 2 of each other, or fully transparent), and no glow (a
+     *  text-shadow or a box-shadow). An item is an element id, or a selector
+     *  when it starts with "#" or "." (the mode panels share one class, and
+     *  the challenge's has no id). Canvases are imagery and are not read
+     *  here; the THERM legend's strip is a data key, the one gradient the
+     *  chrome carries on purpose (tokens.css --legend-therm). Since D2's
+     *  second half an SVG is read too, its fill and stroke with the rest:
+     *  the phase diagram's frame, ticks, field labels and cursor and the
+     *  probe and ruler marks are chrome; a plot's curves and markers are
+     *  data and carry `data-mark`, which is all that skips them. `nSvg`
+     *  counts the SVG chrome elements read */
+    achroma(items) {
+      const PROPS = ["color", "backgroundColor", "borderTopColor", "borderRightColor", "borderBottomColor", "borderLeftColor",
+        "outlineColor", "textDecorationColor", "backgroundImage", "fill", "stroke", "accentColor"];
+      const chroma = v => {
+        for (const m of String(v).matchAll(/rgba?\(([^)]*)\)/g)) {
+          const [r, g, b, a = 1] = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+          if (a === 0) continue;
+          if (Math.max(r, g, b) - Math.min(r, g, b) > 2) return true;
+        }
+        return /(?:hsla?|oklch|oklab|lch|lab|color)\(/.test(String(v));
+      };
+      const bad = [];
+      const per = {};
+      // the first offender under each item, so a report names every surface
+      // that failed, not only the first eight elements of the first one
+      const badPer = {};
+      let n = 0, nSvg = 0;
+      for (const item of items) {
+        const roots = /^[#.]/.test(item) ? [...document.querySelectorAll(item)] : [document.getElementById(item)];
+        for (const root of roots) {
+          if (!vis(root)) continue;
+          for (const el of [root, ...root.querySelectorAll("*")]) {
+            if (!vis(el) || el instanceof HTMLCanvasElement || el.closest("[data-mark]")) continue;
+            n++;
+            per[item] = (per[item] ?? 0) + 1;
+            if (el instanceof SVGElement && !(el instanceof SVGSVGElement)) nSvg++;
+            for (const pseudo of [null, "::before", "::after"]) {
+              const cs = getComputedStyle(el, pseudo);
+              if (pseudo && (cs.content === "none" || cs.content === "normal")) continue;
+              if (pseudo === "::before" && el.id === "thermbar") continue;
+              const cls = typeof el.className === "string" ? el.className : el.getAttribute("class") ?? "";
+              const what = `${item} ${el.tagName.toLowerCase()}${el.id ? "#" + el.id : ""}${cls ? "." + cls.split(" ")[0] : ""}${pseudo ?? ""}`;
+              const hit = (p, v) => {
+                const b = { what, p, v: String(v).slice(0, 60) };
+                bad.push(b);
+                badPer[item] ??= { n: 0, first: b };
+                badPer[item].n++;
+              };
+              for (const p of PROPS) if (chroma(cs[p])) hit(p, cs[p]);
+              for (const p of ["textShadow", "boxShadow"]) if (cs[p] !== "none") hit(p, cs[p]);
+            }
+          }
+        }
+      }
+      return { n, nSvg, per, badPer, bad: bad.slice(0, 8), nBad: bad.length };
+    },
+    /** (v8 D2 review) a screenshot's pixels, decoded here: how many there
+     *  are, and how many carry a hue, max(r,g,b) - min(r,g,b) over `margin`.
+     *  The margin is for what the page paints through the rail's --overlay:
+     *  the live canvas shows through at 10% (0.90 alpha), so a fully
+     *  saturated lens tints the rail by at most 25.5; font antialiasing is
+     *  gray. An amber thumb (255, 180, 84) is 171 */
+    async huedPixels(b64, margin) {
+      const img = new Image();
+      img.src = "data:image/png;base64," + b64;
+      await img.decode();
+      const c = new OffscreenCanvas(img.width, img.height);
+      const x = c.getContext("2d");
+      x.drawImage(img, 0, 0);
+      const d = x.getImageData(0, 0, img.width, img.height).data;
+      let hued = 0;
+      for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > margin) hued++;
+      return { px: d.length / 4, hued };
+    },
+    /** (v8 D2 review) two screenshots of one clip: how many pixels changed
+     *  by more than 64 in some channel (a focus ring drawn, or not) */
+    async pixelDiff(a64, b64) {
+      const load = async s => {
+        const img = new Image();
+        img.src = "data:image/png;base64," + s;
+        await img.decode();
+        const c = new OffscreenCanvas(img.width, img.height);
+        const x = c.getContext("2d");
+        x.drawImage(img, 0, 0);
+        return x.getImageData(0, 0, img.width, img.height).data;
+      };
+      const [a, b] = [await load(a64), await load(b64)];
+      let changed = 0;
+      for (let i = 0; i < Math.min(a.length, b.length); i += 4)
+        if (Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2])) > 64) changed++;
+      return changed;
+    },
+    /** (v8 D2) the view cube's pixels, a face hovered so its highlight is
+     *  drawn too: how many are painted and how many carry any hue */
+    cubePixels() {
+      const c = document.getElementById("viewcube");
+      if (!vis(c)) return null;
+      const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+      // bright: the hover zone's --fg edge (the resting letters are --fg-2,
+      // 189), so the highlight is known to have been drawn
+      let painted = 0, hued = 0, bright = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] === 0) continue;
+        painted++;
+        if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > 2) hued++;
+        if (d[i + 3] > 200 && Math.min(d[i], d[i + 1], d[i + 2]) > 220) bright++;
+      }
+      return { painted, hued, bright };
+    },
     /** the rail, CONTROLS, and every other visible element anchored beside
      *  the rail (its right edge), plus the lens bar's center */
     railGeom() {
@@ -564,6 +765,43 @@ const toggleRail = async () => { await S(() => document.getElementById("railTogg
 const railSamples = [];   // RAIL-NO-HSCROLL, RAIL-ROWS-INSIDE, RAIL-TEXT-WRAPS
 const sweeps = [];        // RAIL-VAL-FITS
 const expands = [];
+// RAIL-ACHROMATIC (v8 D2): the chrome D2 restyled, read for color in every
+// rail state (learn off and on) and every chrome sample. D2's second half
+// adds the panels built in script: every open mode panel (lab mode, heat
+// treat, optimizer, challenge: one class), the lab's run report, the
+// SECTION PLANE popup, both analysis columns, the alloy composer (its phase
+// diagram's chrome included), an enlarged plot and the probe / ruler marks
+// on the melt (#overlay); an item that is not on screen reads nothing
+const CHROME_IDS = ["head", "views", "transport", "armed", "learnToggle", "railToggle", "dimSwitch", "rail", "hud",
+  "hint", "sembar", "scalebar", "thermbar", "tourBtn", "tour",
+  "#app > .modepanel", "foundryResults", "slicePop", "apanels", "apanels3", "composer", ".tmodal", "overlay"];
+const achromaSamples = [];
+// the surfaces and fixtures no rail or chrome sample reaches, read on their own
+const extraAchroma = {};
+const achroma = async (mode, state) =>
+  achromaSamples.push({ mode, state, ...(await page.evaluate(ids => window.__railProbe.achroma(ids), CHROME_IDS)) });
+// (v8 D2 review) the rail's pixels, read from a screenshot of it: a slider's
+// thumb and track are ::-webkit-slider-* pseudo-elements, which computed
+// style cannot reach, so an amber thumb (the old rail's most common amber)
+// passed the computed-color read above. Hued means over HUE_MARGIN (see
+// PROBE huedPixels: the live canvas tints the rail by at most 25.5)
+const HUE_MARGIN = 40;
+const railPixelSamples = [];
+const railHued = async () => {
+  const clip = await S(() => {
+    const b = document.getElementById("rail").getBoundingClientRect();
+    return { x: b.x, y: 0, width: Math.min(b.width, innerWidth - b.x), height: innerHeight };
+  });
+  const b64 = await page.screenshot({ clip, encoding: "base64" });
+  return page.evaluate((s, m) => window.__railProbe.huedPixels(s, m), b64, HUE_MARGIN);
+};
+const railPixels = async (mode, state) => railPixelSamples.push({ mode, state, ...(await railHued()) });
+
+// the phone's rail (v8 D2 review): 270px, the narrowest the rail gets, where
+// the pills' words used to break inside themselves. Kept apart from
+// railSamples (whose counts the clauses below pin) and held to the
+// no-sideways-scroll, text-inside and whole-word rules
+const phoneRail = [];
 
 /** `real`: the material has SI units, so values print in K, K/s and µm.
  *  `shots`: save the screenshots in this state, BEFORE the sweep, whose
@@ -572,6 +810,15 @@ async function sampleState(mode, state, setup, { real = false, shots: shotsAs = 
   await page.evaluate(setup);
   await sleep(500);
   expands.push({ mode, state, ...(await S(() => window.__railProbe.expandAll())) });
+  // the phone first, with the rail open (the gate never hides it here), so
+  // the loop below leaves the sweep at the last desktop viewport
+  await setVP(...PHONE);
+  for (const on of [false, true]) {
+    await page.evaluate(b => window.__railProbe.learnSet(b), on);
+    const m = await S(() => window.__railProbe.measure());
+    phoneRail.push({ mode, state, vp: PHONE.join("x"), learn: on, railShown: await railState() === "shown", ...m });
+  }
+  await S(() => window.__railProbe.learnSet(false));
   for (const [w, h] of VIEWPORTS) {
     await setVP(w, h);
     // learn mode off (the instrument), then on with every explanation open
@@ -579,6 +826,11 @@ async function sampleState(mode, state, setup, { real = false, shots: shotsAs = 
       await page.evaluate(b => window.__railProbe.learnSet(b), on);
       const m = await S(() => window.__railProbe.measure());
       railSamples.push({ mode, state, vp: `${w}x${h}`, ...m });
+      // color does not depend on the viewport: once per state and learn mode
+      if (w === VIEWPORTS[0][0]) {
+        await achroma(mode, `${state}${on ? " · learn" : ""}`);
+        await railPixels(mode, `${state}${on ? " · learn" : ""}`);
+      }
     }
     await S(() => window.__railProbe.learnSet(false));
   }
@@ -602,17 +854,25 @@ const railState = () => S(() => document.body.classList.contains("railHidden") ?
  *  rail open (`opened` of them, from openPanelInfos) */
 async function sampleChrome(mode, what, { learn = false, opened = 0 } = {}) {
   const rail = await railState();
+  await achroma(mode, `${what} · rail ${rail}`);
   for (const [w, h] of VIEWPORTS) {
     await setVP(w, h);
     const c = await S(() => window.__railProbe.chrome());
     const panels = await S(() => window.__railProbe.panels());
     c.seen.forEach(n => seenChrome.add(n));
     const t = c.boxes.transport;
+    const meets = (a, b) => a[2] > b[0] && a[0] < b[2] && a[3] > b[1] && a[1] < b[3];
     const overTransport = !t ? [] : Object.entries(c.boxes)
-      .filter(([n, b]) => clearOfTransport.has(n) && b[2] > t[0] && b[0] < t[2] && b[3] > t[1] && b[1] < t[3])
+      .filter(([n, b]) => clearOfTransport.has(n) && meets(b, t))
       .map(([n, b]) => ({ name: n, box: b, transport: t }));
+    // (v8 D2 review) the gesture hint and the analysis columns share a band
+    // (both 88px up, the columns painted over it): the hint shown under an
+    // open column was cut mid-word, so it must never overlap one
+    const hb = c.boxes.hint;
+    const hintUnder = !hb ? [] : ["apanels", "apanels3"].filter(n => c.boxes[n] && meets(hb, c.boxes[n]))
+      .map(n => ({ column: n, hint: hb, box: c.boxes[n] }));
     chromeSamples.push({ mode, what, rail, vp: `${w}x${h}`, learn, opened, hits: c.hits, overTransport, transportSeen: !!t,
-      top: c.top, clash: c.clash, bottom: c.bottom, offTop: c.offTop, scrolls: c.scrolls, panels });
+      top: c.top, clash: c.clash, bottom: c.bottom, offTop: c.offTop, scrolls: c.scrolls, panels, hintUnder });
   }
 }
 /** learn mode on and every explanation outside the rail open, sample, learn off */
@@ -640,8 +900,16 @@ async function samplePanel(mode, what, open, close) {
 }
 
 // the lens bar's center as app/index.html places it, W being the width the
-// rail leaves (the whole window while it is hidden)
-const viewsCenterFor = W => Math.min(Math.max(W / 2, 424), W - 157);
+// rail leaves (the whole window while it is hidden): a 424px floor (the head
+// plate's right edge 248 + 20 + half the 312px bar) and 16px off the rail
+// (172 = 16 + 156), both since v8 D2 (were 424 and 14 + 143); and since the
+// D2 review, on a row of its own (W under 784: the bar at its floor, the
+// column beside the rail and their gaps, 580 + 20 + 168 + 16) right-aligned
+// under that column, W - 172, the way the view cube stacks
+const viewsCenterFor = W => Math.min(Math.max(424, W / 2, W < 784 ? W - 172 : -Infinity), W - 172);
+// the chrome's inset from the window and the rail (tokens.css --tool-edge),
+// and the gap between the learn toggle and CONTROLS (v8 D2; were 14 and 6)
+const EDGE = 16, PILL_GAP = 8;
 const hideSamples = [];
 const learnPlacement = [];   // RAIL-HIDE: where the learn toggle was expected, per state
 const r1n = v => Math.round(v * 10) / 10;
@@ -656,44 +924,89 @@ async function sampleHide(mode) {
     const near = (a, b) => Math.abs(a - b) < 1;
     const why = [];
     if (!hidden.hidden || hidden.railLeft < hidden.vw - 0.5) why.push("rail not off screen");
-    if (!near(hidden.toggle[1], hidden.vw - 14)) why.push("CONTROLS not at the edge");
+    if (!near(hidden.toggle[1], hidden.vw - EDGE)) why.push("CONTROLS not at the edge");
     for (const [id, right] of Object.entries(hidden.anchored))
-      if (!near(right, hidden.vw - 14)) why.push(`${id} not at the edge`);
+      if (!near(right, hidden.vw - EDGE)) why.push(`${id} not at the edge`);
     if (!near(hidden.viewsCenter, viewsCenterFor(hidden.vw))) why.push("lens bar not centered on the window");
     if (back.hidden || !near(back.railLeft, back.vw - back.railWidth) || back.railLeft !== shown.railLeft) why.push("rail not back");
-    if (!near(back.toggle[1], back.railLeft - 14)) why.push("CONTROLS not back beside the rail");
+    if (!near(back.toggle[1], back.railLeft - EDGE)) why.push("CONTROLS not back beside the rail");
     for (const [id, right] of Object.entries(back.anchored))
-      if (!near(right, back.railLeft - 14)) why.push(`${id} not back beside the rail`);
+      if (!near(right, back.railLeft - EDGE)) why.push(`${id} not back beside the rail`);
     if (!near(back.viewsCenter, viewsCenterFor(back.railLeft))) why.push("lens bar not back in the space the rail leaves");
     // the one control that moves the rail must be reachable in both states,
     // phone included
     for (const [state, g] of [["shown", shown], ["hidden", hidden], ["back", back]])
       if (g.toggle[0] < 0 || g.toggle[1] > g.vw) why.push(`CONTROLS off screen (${state})`);
-    // the learn toggle (v8 U1a) rides with CONTROLS: 6px to its left on the
-    // same row, or directly under it only where that row has no room. Which
-    // one is expected comes from the same rule the CSS uses (--learn-drop:
-    // CONTROLS' right offset + 155 > the window, today only a phone with the
-    // rail open), so a drop at a desktop width fails instead of passing as
-    // "under" (the TRUE 3D switch drops by the same 36px, so RAIL-CLEAR's
-    // overlap check could not see it). "Under" is bounded: the 36px drop less
-    // CONTROLS' own height leaves a 9px gap (measured), so a toggle anywhere
-    // further down than 12px does not count
+    // the learn toggle (v8 U1a) rides with CONTROLS: PILL_GAP to its left on
+    // the same row, or directly under it only where that row has no room.
+    // Which one is expected comes from the same rule the CSS uses
+    // (--learn-drop: CONTROLS' right offset + the row's width + EDGE > the
+    // window, today only a phone with the rail open), the row's width summed
+    // from the two pills as measured (since v8 D2; it was a literal 155, now
+    // 184 in the CSS), so a CSS constant that drifts from the pills' real
+    // widths fails here too, and a drop at a desktop width fails instead of
+    // passing as "under" (the TRUE 3D switch drops by the same 36px, so
+    // RAIL-CLEAR's overlap check could not see it). "Under" is bounded: the
+    // 36px drop less CONTROLS' own 28px height leaves an 8px gap, so a toggle
+    // anywhere further down than 12px does not count
     for (const [state, g] of [["shown", shown], ["hidden", hidden], ["back", back]]) {
       const [l, c] = [g.learnBox, g.toggleBox];
       const ctlRight = g.vw - g.toggle[1];
-      const expectUnder = ctlRight + 155 > g.vw;
-      const beside = near(l[2], c[0] - 6) && near(l[1], c[1]);
+      const rowW = (l[2] - l[0]) + PILL_GAP + (c[2] - c[0]) + EDGE;
+      const expectUnder = ctlRight + rowW > g.vw;
+      const beside = near(l[2], c[0] - PILL_GAP) && near(l[1], c[1]);
       const under = near(l[2], c[2]) && l[1] >= c[3] - 0.5 && l[1] - c[3] <= 12;
       if (expectUnder ? !under : !beside)
         why.push(`learn toggle not ${expectUnder ? "under" : "beside"} CONTROLS (${state}, gap ${r1n(l[1] - c[3])})`);
       if (l[0] < 0 || l[2] > g.vw || l[1] < 0) why.push(`learn toggle off screen (${state})`);
     }
     learnPlacement.push(...[shown, hidden, back].map((g, i) => ({
-      vp: `${w}x${h}`, state: ["shown", "hidden", "back"][i], under: g.vw - g.toggle[1] + 155 > g.vw,
+      vp: `${w}x${h}`, state: ["shown", "hidden", "back"][i],
+      under: g.vw - g.toggle[1] + (g.learnBox[2] - g.learnBox[0]) + PILL_GAP + (g.toggleBox[2] - g.toggleBox[0]) + EDGE > g.vw,
       gap: r1n(g.learnBox[1] - g.toggleBox[3]),
     })));
     hideSamples.push({ mode, vp: `${w}x${h}`, ok: why.length === 0, why, shown, hidden, back });
   }
+}
+
+// (v8 D2 review) a 390x844 phone, the layouts no desktop viewport reaches.
+// Its first screen: ui.ts boots a phone with the rail hidden, where the head
+// plate used to run under the learn toggle, CONTROLS and the TRUE 3D switch
+// and the lens bar over the readouts; now the plate gives way to the column
+// and the bar goes under the plate, and every top item (the plate, its text
+// lines, the readouts, the lens bar, the toggles, the switch, the view cube)
+// must clear every other. Then the rail open: it leaves 120px, and the
+// plate, the lens bar, the switch and the readouts used to stay placed
+// there, the switch and the bar running off the left edge and LEARN printed
+// over the plate's subtitle; now what shows must clear the rail and each
+// other. Then lab mode opened from that state: the rail gives way (hidden),
+// and the panel clears the controls that must stay reachable. The analysis
+// columns are closed for these, as a new page has them (with a column open a
+// phone's legend slot and the column can meet: U3, tasks/todo.md)
+const phoneSamples = [];
+const MUST_REACH = new Set(["learnToggle", "railToggle", "views", "dimSwitch"]);
+async function samplePhone(mode, columns) {
+  await setVP(...PHONE);
+  await page.evaluate(columns, false);
+  await sleep(200);
+  if (await railState() === "shown") await toggleRail();
+  const c0 = await S(() => window.__railProbe.chrome());
+  phoneSamples.push({ mode, what: "rail hidden", rail: await railState(), hits: c0.hits, clash: c0.clash, top: c0.top });
+  await toggleRail();
+  const c = await S(() => window.__railProbe.chrome());
+  phoneSamples.push({ mode, what: "rail open", rail: await railState(), hits: c.hits, clash: c.clash, top: c.top });
+  await S(() => window.__solidify.app.startLab());
+  await sleep(600);
+  await settle();
+  const c2 = await S(() => window.__railProbe.chrome());
+  const reach = c2.clash.filter(x => (x.a.startsWith("panel ") && MUST_REACH.has(x.b)) || (x.b.startsWith("panel ") && MUST_REACH.has(x.a)));
+  phoneSamples.push({ mode, what: "lab mode opened", rail: await railState(), hits: c2.hits, clash: reach, top: c2.top,
+    panel: c2.bottom.some(n => n.startsWith("panel ")) });
+  await S(() => window.__solidify.lab.close());
+  await sleep(300);
+  if (await railState() === "hidden") await toggleRail();
+  await page.evaluate(columns, true);
+  await sleep(200);
 }
 
 const slices = [];
@@ -719,6 +1032,44 @@ const learnBoot = await S(() => { window.__railProbe.expandAll(); return window.
 
 // ================================================================= 2D
 await sampleState("2d", "boot: model metal", () => {});
+// RAIL-ACHROMATIC's detector on a planted fixture first: an amber line and a
+// glow in the rail must both be caught, the line by its color and the glow by
+// its text-shadow (a detector that caught nothing would pass every page)
+const achromaFixture = await S(() => {
+  const r = document.getElementById("rail");
+  const a = document.createElement("span");
+  a.textContent = "amber";
+  a.style.color = "rgb(255, 180, 84)";
+  const b = document.createElement("span");
+  b.textContent = "glow";
+  b.style.textShadow = "0 0 8px rgb(0, 0, 0)";
+  r.prepend(a, b);
+  const got = window.__railProbe.achroma(["rail"]);
+  a.remove(); b.remove();
+  return { nBad: got.nBad, props: got.bad.map(x => x.p).sort() };
+});
+// (v8 D2 review) and the pixel read on its own fixture: the old rail's amber
+// slider thumb and track, planted as a stylesheet, must be caught by the
+// pixels (and, a witness that the computed read cannot see it, it is missed
+// by that); then removed, the rail reads clean again
+await setVP(...VIEWPORTS[0]);
+await S(() => { document.getElementById("rail").scrollTop = 0; });
+const pixelFixture = {};
+pixelFixture.before = await railHued();
+pixelFixture.computedBefore = await S(() => window.__railProbe.achroma(["rail"]).nBad);
+await S(() => {
+  const s = document.createElement("style");
+  s.id = "railPlant";
+  s.textContent = `:where(.tool) input[type="range"]::-webkit-slider-thumb { background: rgb(255, 180, 84) !important; }
+    :where(.tool) input[type="range"]::-webkit-slider-runnable-track { background: rgb(255, 180, 84) !important; }`;
+  document.head.append(s);
+});
+await sleep(200);
+pixelFixture.planted = await railHued();
+pixelFixture.computedPlanted = await S(() => window.__railProbe.achroma(["rail"]).nBad);
+await S(() => document.getElementById("railPlant").remove());
+await sleep(200);
+pixelFixture.after = await railHued();
 // the widest rail there is: real units, both sub-panels that can open, the
 // pixel row, and the calibrated solver's coupling readout
 await sampleState("2d", "Al, Bridgman, alloy, pixel mode, calibrated", () => {
@@ -755,6 +1106,42 @@ await sampleChrome("2d", "ETCH lens + analysis panels");
 await sampleLearnChrome("2d", "ETCH lens + analysis panels");
 await page.evaluate(() => { window.__solidify.app.setView(6); window.__solidify.ui.sync(); });   // SEM bar
 await sampleChrome("2d", "SEM lens + analysis panels");
+// (v8 D2 review) THERM: its legend shares the slot under the head plate and
+// is 176px tall, and no sample switched to it before, so nothing had read
+// it. With the analysis columns closed, so the gesture hint (which steps out
+// while a column is open) is measured against the chrome too
+await page.evaluate(() => {
+  const S = window.__solidify;
+  S.analyze.setProbeOn(false); S.analyze.setScheilOn(false); S.analyze.setTextureOn(false);
+  S.app.setView(5); S.ui.sync();
+});
+await sampleChrome("2d", "THERM lens, columns closed");
+// the legend's strip is the one gradient the chrome may carry, exempted by
+// its ::before: that exemption must cover the strip and nothing else. Clean,
+// the legend reads gray with its strip on screen; an amber label, and an
+// amber edge on the legend's own plate, are each caught, on that element
+extraAchroma.thermFixture = await S(() => {
+  const P = window.__railProbe;
+  const bar = document.getElementById("thermbar");
+  const read = () => {
+    const r = P.achroma(["thermbar"]);
+    return { n: r.n, nBad: r.nBad, props: [...new Set(r.bad.map(b => b.p))], what: [...new Set(r.bad.map(b => b.what))] };
+  };
+  const clean = read();
+  const lo = bar.querySelector(".lo");
+  lo.style.color = "rgb(255, 180, 84)";
+  const label = read();
+  lo.style.color = "";
+  bar.style.borderColor = "rgb(255, 180, 84)";
+  const plate = read();
+  bar.style.borderColor = "";
+  return { shown: P.vis(bar), strip: getComputedStyle(bar, "::before").backgroundImage.startsWith("linear-gradient"), clean, label, plate };
+});
+await page.evaluate(() => {
+  const S = window.__solidify;
+  S.analyze.setProbeOn(true); S.analyze.setScheilOn(true); S.analyze.setTextureOn(true);
+  S.app.setView(6); S.ui.sync();
+});
 await samplePanel("2d", "lab", () => window.__solidify.app.startLab(), () => window.__solidify.lab.close());
 await samplePanel("2d", "heat treat", () => window.__solidify.app.startHeat(), () => window.__solidify.heat.close());
 await samplePanel("2d", "optimizer", () => window.__solidify.app.startOptimizer(), () => window.__solidify.opt.stop());
@@ -795,8 +1182,72 @@ await samplePanel("2d", "heat treat after a 4 h anneal", async () => {
   btn.click();
   for (let i = 0; i < 100 && !S.heat.busy; i++) await new Promise(r => setTimeout(r, 50));
   for (let i = 0; i < 1200 && S.heat.busy; i++) await new Promise(r => setTimeout(r, 100));
-  return { fs: +fs.toFixed(3), armed, card: document.getElementById("htReport").textContent.length };
+  // run() clears `busy` BEFORE its after-census and the card (heatpanel.ts;
+  // verify-heattreat-gpu waits for the card the same way): a read the moment
+  // busy drops can land before the card exists (card 0 in one D2 review run)
+  const card = () => document.getElementById("htReport").textContent.length;
+  for (let i = 0; i < 100 && card() === 0; i++) await new Promise(r => setTimeout(r, 100));
+  return { fs: +fs.toFixed(3), armed, card: card() };
 }, () => window.__solidify.heat.close());
+
+// (v8 D2) RAIL-ACHROMATIC's surfaces that no sample above opens, each read
+// learn off and then on with its explanations open: the lab's run report
+// (built on the casting in the mold, flagged as intervened so its warning
+// line renders; `ret` proves the report was on screen with its rows), the
+// alloy composer on 1045 steel with zinc picked (a clamp, a phase not grown,
+// a fume warning and the drawn phase diagram, whose SVG chrome must be
+// read), and an enlarged plot. Then the SVG half of the detector on a
+// planted defect: the diagram's frame stroked amber must be caught, by its
+// stroke, while the amber liquidus (a data mark) is not
+const achromaBoth = async (what, sel) => {
+  await achroma("2d", what);
+  await S(() => window.__railProbe.learnSet(true));
+  await S(`(() => { for (const b of document.querySelectorAll("${sel} .lrnInfo")) if (window.__railProbe.vis(b) && b.getAttribute("aria-expanded") !== "true") b.click(); })()`);
+  await sleep(200);
+  await achroma("2d", `${what} · learn`);
+  await S(() => window.__railProbe.learnSet(false));
+};
+extraAchroma.labReport = await S(async () => {
+  const S = window.__solidify, L = S.lab;
+  S.app.startLab();
+  L.intervened = true;
+  await L.buildReport();
+  L.toggleResults(true);
+  const r = document.getElementById("foundryResults");
+  return { shown: !!r && !r.classList.contains("hidden"), rows: r.querySelectorAll(".spec__row, .kv__row").length,
+    warn: r.querySelectorAll(".warnline").length };
+});
+await sleep(400);
+await achromaBoth("lab report", "#foundryResults");
+await S(() => window.__solidify.lab.close());
+extraAchroma.composer = await S(async () => {
+  const c = window.__solidify.composer;
+  c.open();
+  await new Promise(r => setTimeout(r, 200));
+  [...document.querySelectorAll("#composer .famous button")].find(b => b.textContent.trim() === "1045 steel").click();
+  // zinc over iron: an unassessed pair that is also a 59 atm fume
+  document.querySelector('#composer .gcell[data-el="Zn"]').click();
+  await new Promise(r => setTimeout(r, 200));
+  const q = s => document.querySelectorAll(`#composer ${s}`).length;
+  return { open: c.isOpen(), clamps: q(".clamp"), notGrown: q(".cinfo"), fume: q(".gwhy .warnline"), svgChrome: q(".pdsvg :not([data-mark])") };
+});
+await achromaBoth("composer", "#composer");
+extraAchroma.svgFixture = await S(() => {
+  const frame = document.querySelector("#composer .pdframe");
+  frame.style.stroke = "rgb(255, 180, 84)";
+  const got = window.__railProbe.achroma(["composer"]);
+  frame.style.stroke = "";
+  const liquidusAmber = getComputedStyle(document.querySelector('#composer [data-mark="liquidus"]')).stroke;
+  return { nBad: got.nBad, props: got.bad.map(x => x.p), what: got.bad.map(x => x.what), liquidusAmber, nSvg: got.nSvg };
+});
+await S(() => window.__solidify.composer.close());
+extraAchroma.enlarged = await S(async () => {
+  document.querySelector("#texPanel .zoomBtn").click();
+  await new Promise(r => setTimeout(r, 300));
+  return !!document.querySelector("#app > .tmodal");
+});
+await achroma("2d", "enlarged plot");
+await S(() => document.getElementById("bigClose")?.click());
 // and again with the rail hidden: --rail-inset drops to 0 there, and the
 // transport-bar clause has to hold without the rail's width doing the work
 await toggleRail();
@@ -808,6 +1259,11 @@ await samplePanel("2d", "challenge, rail hidden", () => window.__solidify.app.st
 await toggleRail();
 // with the analysis column still open, so RAIL-HIDE measures it too
 await sampleHide("2d");
+await samplePhone("2d", on => {
+  const S = window.__solidify;
+  S.analyze.setProbeOn(on); S.analyze.setScheilOn(on); S.analyze.setTextureOn(on);
+  S.ui.sync();
+});
 await page.evaluate(() => {
   const S = window.__solidify;
   S.analyze.setProbeOn(false); S.analyze.setScheilOn(false); S.analyze.setTextureOn(false);
@@ -820,6 +1276,12 @@ await page.evaluate(() => window.__solidify.app.setMode("3d"));
 await page.waitForFunction("window.__solidify.mode() === '3d'", { timeout: 60000 });
 await sleep(1000);
 await sampleState("3d", "entered (Al)", () => {}, { real: true });
+// (v8 D2) the view cube is lettered on gray faces, its hover zone --fg: a
+// hovered face, so the highlight is drawn, and then every painted pixel read
+await page.evaluate(() => { window.__solidify.vc().hoverDir = [0, 0, 1]; });
+await sleep(300);
+const cubeRead = await S(() => window.__railProbe.cubePixels());
+await page.evaluate(() => { window.__solidify.vc().hoverDir = null; });
 await sampleState("3d", "Al, hex habit, Bridgman, alloy", () => {
   const a = window.__solidify.app;
   a.setSym3(6);
@@ -863,7 +1325,23 @@ for (const [w, h] of VIEWPORTS) {
 await S(() => window.__railProbe.learnSet(false));
 await sampleLearnChrome("3d", "SLICE lens (Niyama style) + analysis panels");
 await setCutStyle(false);
-await page.evaluate(() => { window.__solidify.app.setView3d(4); window.__solidify.ui.sync(); });   // SEM bar
+// (v8 D2 review) the volume's THERM lens (LENS3 6) and its legend, with the
+// columns closed so the gesture hint is measured too, as in 2D
+await page.evaluate(() => {
+  const a = window.__solidify.app;
+  a.setStereoOn(false); a.setIpfOn(false); a.setPoleOn(false);
+  a.setView3d(6);
+  window.__solidify.ui.sync();
+});
+await sleep(300);
+await sampleChrome("3d", "THERM lens, columns closed");
+await page.evaluate(() => {
+  const a = window.__solidify.app;
+  a.setStereoOn(true); a.setIpfOn(true); a.setPoleOn(true);
+  a.setView3d(4);   // SEM bar
+  window.__solidify.ui.sync();
+});
+await sleep(300);
 await sampleChrome("3d", "SEM lens + analysis panels");
 await samplePanel("3d", "lab", () => window.__solidify.app.startLab(), () => window.__solidify.lab.close());
 await samplePanel("3d", "heat treat", () => window.__solidify.app.startHeat(), () => window.__solidify.heat.close());
@@ -873,6 +1351,11 @@ await samplePanel("3d", "lab, rail hidden", () => window.__solidify.app.startLab
 await samplePanel("3d", "heat treat, rail hidden", () => window.__solidify.app.startHeat(), () => window.__solidify.heat.close());
 await toggleRail();
 await sampleHide("3d");
+await samplePhone("3d", on => {
+  const a = window.__solidify.app;
+  a.setStereoOn(on); a.setIpfOn(on); a.setPoleOn(on);
+  window.__solidify.ui.sync();
+});
 
 // ================================================================= learn mode
 // (v8 U1a) Behavior, driven the way a visitor drives it: a real click on the
@@ -1038,6 +1521,66 @@ await S(() => window.__railProbe.learnSet(false));
   await p2.close();
 }
 
+// (v8 D2 review) The focus ring of the controls that float over the canvas,
+// read as pixels over the near-white ETCH lens at t = 0: the tool's ring
+// sits 2px outside a pill, which there is white on white. Each control is
+// shot unfocused and then focused from the keyboard (:focus-visible
+// asserted), and the ring must change enough pixels: the learn toggle off,
+// the learn toggle pressed (its white fill takes a --bg ring), and the TRUE 3D
+// switch. On a page of its own, and learn put back off, so the main page's
+// state and the stored setting are as they were
+{
+  const p3 = await browser.newPage();
+  await p3.goto(`http://localhost:${PORT}/app/`, { waitUntil: "networkidle0", timeout: 30000 });
+  await p3.waitForFunction("!!window.__solidify", { timeout: 20000 });
+  await sleep(800);
+  await p3.evaluate(PROBE, LONG_NAME);
+  await p3.evaluate(() => {
+    const a = window.__solidify.app;
+    a.setRun(false);
+    a.resetArmed();
+    a.setView(2);   // ETCH
+    window.__solidify.ui.sync();
+  });
+  await sleep(600);
+  const clipOf = sel => p3.evaluate(sel => {
+    const b = document.querySelector(sel).getBoundingClientRect();
+    return { x: Math.round(b.x) - 6, y: Math.round(b.y) - 6, width: Math.round(b.width) + 12, height: Math.round(b.height) + 12 };
+  }, sel);
+  const ring = async (what, sel, press) => {
+    await p3.evaluate(() => document.activeElement?.blur());
+    const clip = await clipOf(sel);
+    // keyboard modality, then focus: Tab onto the control from the one before it
+    await p3.evaluate(sel => {
+      const el = document.querySelector(sel);
+      const all = [...document.querySelectorAll("button, input, select, textarea, a[href], [tabindex]")]
+        .filter(e => e.tabIndex >= 0 && !e.disabled && e.getClientRects().length && getComputedStyle(e).visibility !== "hidden");
+      all[all.indexOf(el) - 1]?.focus();
+    }, sel);
+    await p3.keyboard.press("Tab");
+    if (press) await p3.keyboard.press("Enter");
+    await sleep(250);
+    const st = await p3.evaluate(sel => {
+      const el = document.querySelector(sel);
+      return { focused: document.activeElement === el, visible: el.matches(":focus-visible"), pressed: el.getAttribute("aria-pressed") };
+    }, sel);
+    const on = await p3.screenshot({ clip, encoding: "base64" });
+    await p3.evaluate(() => document.activeElement?.blur());
+    await sleep(250);
+    const off = await p3.screenshot({ clip, encoding: "base64" });
+    const changed = await p3.evaluate((a, b) => window.__railProbe.pixelDiff(a, b), on, off);
+    return { what, ...st, changed, px: clip.width * clip.height };
+  };
+  const rings = [];
+  rings.push(await ring("learn toggle", "#learnToggle", false));
+  rings.push(await ring("learn toggle pressed", "#learnToggle", true));
+  rings.push(await ring("TRUE 3D switch", "#dimSwitch .actswitch", false));
+  // learn back off, from the keyboard like it went on
+  await p3.evaluate(() => { const b = document.getElementById("learnToggle"); if (b.getAttribute("aria-pressed") === "true") b.click(); });
+  learnRun.rings = { rings, learnAfter: await p3.evaluate(() => document.getElementById("learnToggle").getAttribute("aria-pressed")) };
+  await p3.close();
+}
+
 // A composer mix poured in calibrated mode, the state verify-quant's
 // CALIB-POUR-WIRED drives: the SCALE calibration readout then carries the
 // mix's own source line (main.ts coefficientSource), which no rail sample
@@ -1064,6 +1607,29 @@ const pourRun = await S(() => {
   window.__railProbe.learnSet(false);
   return out;
 });
+// (v8 D2) the tour card, which no sample above opens, for RAIL-ACHROMATIC:
+// its first chapter, learn off; `shown` proves the card was on screen
+const tourOpen = await S(async () => {
+  await window.__solidify.tour.goto(0);
+  return document.getElementById("tour").classList.contains("show");
+});
+await sleep(300);
+await achroma("2d", "tour open");
+// (v8 D2 review) and a chapter with a highlight ring on screen: chapter 0
+// has none, so the ring (amber before D2) was never read. The Material
+// chapter rings a rail section and the head plate; `hl` proves they carry it
+const tourHl = await S(async () => {
+  const T = await import("/src/tour.ts");
+  const i = T.CHAPTERS.findIndex(c => c.title === "Material");
+  if (i < 0) return { i, hl: 0 };
+  await window.__solidify.tour.goto(i);
+  return { i, shown: document.getElementById("tour").classList.contains("show"),
+    hl: [...document.querySelectorAll(".hl")].filter(e => window.__railProbe.vis(e)).length };
+});
+await sleep(300);
+await achroma("2d", "tour open · highlight");
+await S(() => window.__solidify.tour.close());
+
 // the in-page detector (PROBE's copy, which reads every rendered sample) on
 // the same fixture as the Node one below
 const fixtureDom = await S(() => {
@@ -1144,12 +1710,16 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   const scrollbarSeen = railSamples.some(s => s.tall && s.scrollbar > 0);
   // five states x five viewports, each with learn mode off and on
   const learnSamples = railSamples.filter(s => s.learn).length;
+  // (v8 D2 review) and the phone's 270px rail, open, in every state, learn
+  // off and on
+  const phoneBad = phoneRail.filter(s => s.scroll > s.client).map(s => ({ ...brief(s), scrollWidth: s.scroll, clientWidth: s.client }));
+  const phoneLive = phoneRail.length === 2 * 5 && phoneRail.every(s => s.railShown && s.width <= 271);
   const ok = bad.length === 0 && scrollbarSeen && railSamples.length === 2 * 5 * VIEWPORTS.length
-    && learnSamples === 5 * VIEWPORTS.length;
+    && learnSamples === 5 * VIEWPORTS.length && phoneBad.length === 0 && phoneLive;
   check("RAIL-NO-HSCROLL", ok, {
     samples: railSamples.length, learnSamples, scrollbarSeen,
     railWidth: railSamples[0]?.width, clientWidth: [...new Set(railSamples.map(s => s.client))],
-    bad: bad.slice(0, 8),
+    phone: { samples: phoneRail.length, live: phoneLive, railWidth: phoneRail[0]?.width }, bad: bad.slice(0, 8), phoneBad: phoneBad.slice(0, 4),
   });
 }
 
@@ -1181,9 +1751,19 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   // both in the model-metal boot rail with learn off, down from 218 and 148
   // before v8 U1a cut the descriptors; 64 learn elements): an empty walk would
   // pass everything
-  check("RAIL-TEXT-WRAPS", bad.length === 0 && fewest >= 150 && fewestLines >= 100 && fewestLearn >= 30, {
+  // (v8 D2 review) the phone's rail: its text inside too, and in every
+  // sample, desktop and phone, no word on a control split over two lines.
+  // Liveness: the controls' words were read in every sample (the boot rail
+  // has over 100 on its pills, labels and headers)
+  const phoneTextBad = phoneRail.filter(s => s.nTextBad).map(s => ({ ...brief(s), n: s.nTextBad, first: s.textBad.slice(0, 3) }));
+  const split = [...railSamples, ...phoneRail].filter(s => s.nSplit)
+    .map(s => ({ ...brief(s), learn: s.learn, n: s.nSplit, first: s.splitWords.slice(0, 4) }));
+  const fewestWords = Math.min(...[...railSamples, ...phoneRail].map(s => s.words));
+  check("RAIL-TEXT-WRAPS", bad.length === 0 && fewest >= 150 && fewestLines >= 100 && fewestLearn >= 30
+    && phoneTextBad.length === 0 && split.length === 0 && fewestWords >= 60 && phoneRail.length === 10, {
     fewestElementsInOneSample: fewest, fewestTextLinesInOneSample: fewestLines,
-    fewestLearnElementsInALearnSample: fewestLearn, bad: bad.slice(0, 6),
+    fewestLearnElementsInALearnSample: fewestLearn, fewestControlWordsInOneSample: fewestWords,
+    bad: bad.slice(0, 6), phoneBad: phoneTextBad.slice(0, 4), splitWords: split.slice(0, 6),
   });
 }
 
@@ -1231,9 +1811,29 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   const notOpened = panelOpened.filter(p => !p.appeared);
   const hiddenOpened = panelOpened.filter(p => p.rail === "hidden").length;
   const hiddenSamples = chromeSamples.filter(s => s.rail === "hidden").length;
-  const ALWAYS = ["views", "railToggle", "learnToggle", "dimSwitch", "readouts", "head h1", "head .sub", "#matline"];
+  // (v8 D2) the head plate in every sample, and the SEM data bar, which moved
+  // up under the plate, in at least one
+  const ALWAYS = ["views", "railToggle", "learnToggle", "dimSwitch", "readouts", "head", "head h1", "head .sub", "#matline"];
   const topMissing = [...new Set(chromeSamples.flatMap(s => ALWAYS.filter(n => !s.top.includes(n))))];
-  const topSomewhere = ["viewcube", "scalebar"].filter(n => !chromeSamples.some(s => s.top.includes(n)));
+  // (v8 D2 review) the THERM legend too: it shares the slot, and no sample
+  // had switched to its lens
+  const topSomewhere = ["viewcube", "scalebar", "sembar", "thermbar"].filter(n => !chromeSamples.some(s => s.top.includes(n)));
+  // (v8 D2 review) the gesture hint never under an open analysis column;
+  // and the phone with the rail open: what shows clears the rail and every
+  // other top item, learn and controls among them, and lab mode opened there
+  // hides the rail and clears the controls that must stay reachable
+  const hintUnder = chromeSamples.filter(s => s.hintUnder.length).map(s => ({ ...where(s), under: s.hintUnder }));
+  // each phone state's liveness: the first screen measured the whole top
+  // chrome with the rail hidden (the cube in the volume); the open rail
+  // measured learn and controls with the rail shown; lab mode's panel was
+  // on screen with the rail gone
+  const FIRST = ["head", "head h1", "head .sub", "#matline", "readouts", "views", "learnToggle", "railToggle", "dimSwitch"];
+  const phoneLive = s => s.what === "rail hidden"
+    ? s.rail === "hidden" && FIRST.every(n => s.top.includes(n)) && (s.mode !== "3d" || s.top.includes("viewcube"))
+    : s.what === "rail open" ? s.rail === "shown" && s.top.includes("learnToggle") && s.top.includes("railToggle")
+      : s.rail === "hidden" && s.panel;
+  const phoneBad = phoneSamples.filter(s => s.hits.length || s.clash.length || !phoneLive(s))
+    .map(s => ({ mode: s.mode, what: s.what, rail: s.rail, panel: s.panel, hits: s.hits.slice(0, 3), clash: s.clash.slice(0, 3), top: s.top }));
   const slidersMeasured = audits.reduce((n, p) => n + p.sliders.length, 0);
   // Liveness for the learn-on half (v8 U1b review): every mode panel opened
   // (13, the treated heat treat included) was sampled with learn off and on
@@ -1256,9 +1856,11 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
     && audits.length === 26 * VIEWPORTS.length && slidersMeasured >= 100
     && audits.filter(p => p.learn).length === 13 * VIEWPORTS.length && learnUnopened.length === 0
     && uncapped.length === 0 && panelCapped && treatedOk
-    && topMissing.length === 0 && topSomewhere.length === 0 && chromeSamples.every(s => s.transportSeen);
+    && topMissing.length === 0 && topSomewhere.length === 0 && chromeSamples.every(s => s.transportSeen)
+    && hintUnder.length === 0 && phoneSamples.length === 6 && phoneBad.length === 0;
   check("RAIL-CLEAR", ok, {
     samples: chromeSamples.length, learnSamples: learnSamples.length, hiddenSamples, panelAudits: audits.length, slidersMeasured,
+    phone: phoneSamples.map(s => `${s.mode} ${s.what}: rail ${s.rail}, top ${s.top.join(" ")}`), phoneBad, hintUnder: hintUnder.slice(0, 4),
     panels: panelOpened.map(p => `${p.mode} ${p.what}: ${p.names.join(", ")}`),
     treated: treated?.ret ?? null, cappedInLearn: { uncapped, panelCapped }, learnUnopened: learnUnopened.slice(0, 4),
     missing, notOpened, topMissing, topSomewhere, underRail: bad.slice(0, 8), overTransport: overTransport.slice(0, 8),
@@ -1377,7 +1979,16 @@ const proseDash = s => typeof s === "string" && s.includes("—") && s !== "—"
   const shape = sources.filter(([k, , t]) => (k === "learn" && (sentences(t) < 1 || sentences(t) > 2))
     || (k === "hint" && (t.length > 48 || /\.$/.test(t))));
   if (shape.length) why.push({ shape: shape.slice(0, 6) });
+  // (v8 D2 review) the focus ring over the ETCH lens: each control focused
+  // from the keyboard (:focus-visible), the pressed state really pressed,
+  // and the ring changed at least 120 pixels (the inset ring's perimeter is
+  // over 300); learn left off afterwards
+  const rings = r.rings?.rings ?? [];
+  const ringBad = rings.filter(g => !g.focused || !g.visible || g.changed < 120
+    || (g.what === "learn toggle pressed" ? g.pressed !== "true" : false));
+  if (rings.length !== 3 || ringBad.length || r.rings?.learnAfter !== "false") why.push({ focusRings: r.rings });
   check("RAIL-LEARN", why.length === 0, {
+    focusRings: rings.map(g => `${g.what}: ${g.visible ? "focus-visible" : "NOT focus-visible"}, ${g.changed} px changed`),
     sections: a.sections, hintsDeclared: a.hintsDeclared, fewestHints,
     panelHintsDeclared: pa?.hintsDeclared, panelHintsUnbound: pa?.hintsUnbound, panelHintsShown: pHints,
     keys: r.keys.map(k => `Shift+Tab ${k.before.focused ? "reached" : "MISSED"} the "i"; ${k.key}: ${k.before.expanded} -> ${k.after.expanded}, section ${k.after.open === k.before.open ? "unchanged" : "TOGGLED"}${k.runToggled ? ", RUN TOGGLED" : ""}`),
@@ -1413,6 +2024,79 @@ const proseDash = s => typeof s === "string" && s.includes("—") && s !== "—"
     fixtureCaught: { node: fixtureNode, dom: fixtureDom }, charsRead: chars, extraLearnChars: learnChars,
     stringsRead: sources.length, pourLines, poured: { live: pourLive, name: pourRun.name, line: pourRun.src },
     rendered: dom.slice(0, 6), strings: src.slice(0, 8),
+  });
+}
+
+{
+  // (v8 D2) the chrome is achromatic: every color it paints is a gray and
+  // nothing glows, in every rail state (learn off and on, 2D and TRUE 3D),
+  // every chrome sample (the ETCH, SEM and SLICE legends up, the analysis
+  // panels open, the rail hidden, each mode panel open) and with the tour
+  // open; and the view cube's own pixels, a face hovered, carry no hue.
+  // Liveness: the detector caught its fixture by both properties, every
+  // sample read enough elements, the tour sample really had the card on
+  // screen, and the cube painted and drew its hover highlight
+  const bad = achromaSamples.filter(s => s.nBad).map(s => ({ mode: s.mode, state: s.state, n: s.nBad, first: s.bad.slice(0, 3) }));
+  const fewest = Math.min(...achromaSamples.map(s => s.n));
+  const tourSample = achromaSamples.find(s => s.state === "tour open");
+  // the amber line is caught on its color (and on every currentColor edge
+  // it tints, which is right: those paint amber too), the glow on its shadow
+  const fixtureOk = achromaFixture.nBad >= 2 && achromaFixture.props.includes("color") && achromaFixture.props.includes("textShadow");
+  const cubeOk = !!cubeRead && cubeRead.painted > 2000 && cubeRead.bright > 0 && cubeRead.hued === 0;
+  // (v8 D2, second half) every surface built in script was really read, in
+  // some sample, with enough elements that it cannot have been an empty
+  // shell: the mode panels, the lab report, the popup, both columns, the
+  // composer (and its diagram's SVG chrome), an enlarged plot and the probe
+  // mark on the melt. The SVG fixture: the frame stroked amber is caught on
+  // its stroke and nothing else is, while the liquidus beside it is amber
+  // (a data mark, skipped)
+  const most = item => Math.max(0, ...achromaSamples.map(s => s.per?.[item] ?? 0));
+  // (v8 D2 review) thermbar: the legend, its two labels and T_m's <sub>
+  const FLOORS = { "#app > .modepanel": 40, foundryResults: 60, slicePop: 20, apanels: 12, apanels3: 12, composer: 200,
+    ".tmodal": 4, overlay: 4, thermbar: 3 };
+  const thin = Object.entries(FLOORS).filter(([item, f]) => most(item) < f).map(([item, f]) => ({ item, read: most(item), floor: f }));
+  const E = extraAchroma;
+  const composerSample = achromaSamples.find(s => s.state === "composer");
+  const amber = v => { const m = /rgba?\(([^)]*)\)/.exec(v ?? ""); if (!m) return false; const [r, g, b] = m[1].split(/[\s,]+/).map(Number); return Math.max(r, g, b) - Math.min(r, g, b) > 2; };
+  const extraOk = E.labReport?.shown && E.labReport.rows >= 10 && E.labReport.warn >= 1
+    && E.composer?.open && E.composer.clamps >= 1 && E.composer.notGrown >= 1 && E.composer.fume >= 1 && E.composer.svgChrome >= 5
+    && (composerSample?.nSvg ?? 0) >= 5 && E.enlarged === true
+    && E.svgFixture.nBad >= 1 && E.svgFixture.props.every(p => p === "stroke") && E.svgFixture.what.every(w => /pdframe/.test(w))
+    && amber(E.svgFixture.liquidusAmber);
+  // (v8 D2 review) the THERM legend's fixture: read clean with its strip on
+  // screen, an amber label caught on that label (its color among the
+  // props), an amber edge on the legend's own plate caught on the plate,
+  // never on its ::before; so the strip's exemption is the strip alone
+  const T = E.thermFixture;
+  const thermOk = !!T && T.shown && T.strip && T.clean.nBad === 0 && T.clean.n >= 3
+    && T.label.nBad >= 1 && T.label.props.includes("color") && T.label.what.every(w => w === "thermbar span.lo")
+    && T.plate.nBad >= 1 && T.plate.props.every(p => /^border/.test(p)) && T.plate.what.every(w => w === "thermbar div#thermbar.plate");
+  // the rail's pixels: none hued in any sample, and the pixel read caught the
+  // planted amber thumb and track and read clean on both sides of the plant
+  // (the computed read's count with the plant in, `computedPlanted`, is
+  // reported: it is why this read exists)
+  const P = pixelFixture;
+  const pixBad = railPixelSamples.filter(s => s.hued > 0).map(s => ({ mode: s.mode, state: s.state, hued: s.hued }));
+  const pixelOk = pixBad.length === 0 && railPixelSamples.length === 10 && railPixelSamples.every(s => s.px > 50000)
+    && P.before.hued === 0 && P.planted.hued > 200 && P.after.hued === 0;
+  // the tour's highlight ring was on screen when the tour was read
+  const hlSample = achromaSamples.find(s => s.state === "tour open · highlight");
+  const hlOk = !!hlSample && tourHl.shown && tourHl.hl >= 1;
+  const ok = fixtureOk && bad.length === 0 && achromaSamples.length >= 30 && fewest >= 150 && tourOpen && !!tourSample && cubeOk
+    && thin.length === 0 && extraOk && thermOk && pixelOk && hlOk;
+  // every surface that painted a color, over all samples: in how many
+  // samples, and its first offender
+  const byItem = {};
+  for (const s of achromaSamples) for (const [item, b] of Object.entries(s.badPer ?? {})) {
+    byItem[item] ??= { samples: 0, first: b.first, firstState: `${s.mode} ${s.state}` };
+    byItem[item].samples++;
+  }
+  check("RAIL-ACHROMATIC", ok, {
+    therm: { ok: thermOk, fixture: T }, pixels: { ok: pixelOk, samples: railPixelSamples.length, fixture: P, bad: pixBad.slice(0, 4) },
+    tourHighlight: { ok: hlOk, ...tourHl },
+    samples: achromaSamples.length, fewestElements: fewest, fixture: achromaFixture, tourOpen,
+    tourElements: tourSample?.n ?? null, cube: cubeRead, read: Object.fromEntries(Object.keys(FLOORS).map(k => [k, most(k)])),
+    thin, extra: E, composerSvg: composerSample?.nSvg ?? null, badSamples: bad.length, byItem, bad: bad.slice(0, 3),
   });
 }
 

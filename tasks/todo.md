@@ -4476,7 +4476,7 @@ rendered dendrite, the lenses and the melt types, reformatted with Figure-style 
 side; fully achromatic UI; Space Grotesk + Inter (+ a tabular mono for values); design system
 first, then U2/U3 build on it. Binding spec: `docs/DESIGN.md`.
 
-- [ ] **D0 · Tokens + fonts.** `src/design/tokens.css` (the only place a color, size or radius
+- [x] **D0 · Tokens + fonts.** `src/design/tokens.css` (the only place a color, size or radius
       is written), self-hosted fonts (@fontsource), component classes (btn, spec rail, tabs,
       inputs, tags, panels). Linked from all four pages.
       - 2026-09-24: built. `tokens.css` holds every color, type size, spacing step, radius and
@@ -4493,6 +4493,8 @@ first, then U2/U3 build on it. Binding spec: `docs/DESIGN.md`.
         360 px the pill reads "Open", its name still "Open the instrument"). NOT ticked: the
         fourth page, `app/index.html`, does not link it yet; that lands with D2, which restyles
         the tool.
+      - Ticked in the D2 review (2026-09-24): all four pages link `tokens.css`, the app included
+        (`app/index.html` line 13), and the tool's components live in its "tool" section.
 - [x] **D1 · Landing, science, contact.** Figure header + nav pills; hero render left, one copy
       column right, the tour's five features as a spec rail with a leader line; lens / melt-type
       / TRUE 3D acts with live-canvas + spec column (real values: live sim readouts,
@@ -4538,11 +4540,137 @@ first, then U2/U3 build on it. Binding spec: `docs/DESIGN.md`.
         the frames' own background, rgb(9,11,12) against `--bg` rgb(10,10,10), shows as a
         faint soft-edged box around the render at 1920 (H v4 A6). The science page's long-form
         prose still carries em dashes and "artefact" / "aluminium": U1e's sweep.
-- [ ] **D2 · The tool.** Top chrome (learn, controls, TRUE 3D) and lens bar in the nav style;
+- [x] **D2 · The tool.** Top chrome (learn, controls, TRUE 3D) and lens bar in the nav style;
       the rail as spec rows (Inter labels, mono tabular values, pill buttons, achromatic
       sliders); HUD as a spec rail on `--overlay`; mode panels, composer modal, tour and learn
       popovers on the panel spec; every hard-coded UI color in `src/*.ts` moved to tokens
       (data colors inside canvases/plots stay); emoji-like glyphs dropped.
+      - 2026-09-24, first half (the always-visible chrome): `app/index.html` links `tokens.css`
+        (its own palette, amber, cyan, glows, gradients and text-shadows gone; no hex left in
+        it), `<body class="tool">`, and `tokens.css` gained a "tool" section: 28 px outline
+        pills for bare buttons (inverted when on, `.accent` the filled primary), switches for
+        checkboxes, the achromatic slider (`src/design/tool.ts` paints `--fill`), underlined
+        selects with a drawn chevron, `.plate` (`--overlay`), `.actswitch`, `.checkrow`,
+        `.spec--tool`, `.tabs--tool`, learn mode's "i" / text / hint. Layout on a 16 px inset.
+        Top left: ONE head plate (wordmark, `PHASE-FIELD SOLIDIFICATION · LIVE`, melt name and
+        caveats, then the readouts as a compact spec rail: the HUD backing plate U3 asked for,
+        legible over FIELD/NEON/ETCH); the scale bar, THERM legend and SEM data bar share a slot
+        anchored under it (the SEM bar had run under the HUD cards at every width); the hint sits
+        above the HUD cards (anchored). Top right: `LEARN` + `CONTROLS` pills with the
+        `TRUE 3D` switch pill under them at their width; the lens bar is pill tabs, 5 x 2,
+        active inverted. Transport: one pill plate, run/pause the filled primary, rec/x2 invert
+        when on. Rail: nav-style section headers over 1 px rules (`+`/`−`), Inter 13 labels,
+        mono tabular values, preset/mode/symmetry grids of outline pills, switches, the SCALE
+        table and calibration readout on classes (✓ quiet, `!` for a mismatch, no green/red),
+        the unreal undercooling value leads with `!`. Glyph icons dropped from the rail and the
+        transport (⚗ ♨ ⚔ ⎘ ⬇ ⏺ ⏹ ⟲), hint keys and the tour's prose re-pointed. HUD sparklines
+        `--fg`, histogram `--fg-2`. View cube: gray faces shaded between two tokens, lettered
+        `+X … −Z`; the letters carry orientation, so no colored axis. `formbits.ts` on classes.
+        Gates: `verify-rail.mjs` re-pointed (edge 16, gap 8, learn-drop threshold summed from
+        the pills' measured widths, lens cap `W − 172`, top items by id and measured with the
+        long name in, head plate + SEM/THERM legends added) and a tenth check,
+        `RAIL-ACHROMATIC` (computed colors of the whole chrome + the cube's pixels); its first
+        green-path runs found two real defects, fixed (popup anchor never valid; CONTROLS vs a
+        280 px phone rail). Six planted defects on a 5299 server each failed their own clause.
+        Green: typecheck, build, the 14 CI scripts, verify-rail (10/10), verify-tools,
+        verify-3d, verify-phasediagram-gpu, verify-composer-gpu, verify-optimizer (tools'
+        ATMOSPHERE and 3d's TWINS3 failed once while Blender held the GPU, green on re-run).
+        Shots: `solidify-hero-out/d2_shots/a/` (48).
+      - 2026-09-24, second half (the panels built in script): the panel spec as components in
+        `tokens.css` (`.tpanel`, `.phead` header row, `.pactions`, `.psub`, `.kv` spec rows on a
+        shared label column, `.spec--panel`, `.v` / `.q`, `.warnline`, `.tmodal`, `.iconbtn`, a
+        locked slider, `<b>` as brightness at 400) and `src/design/panel.ts`, which writes
+        their class names (`panelHead`, `pill`, `kv`, `num`, `quiet`, `warnWord`, `warnLine`,
+        `plotModal`). Lab mode, heat treat, optimizer and challenge on `.plate.tpanel` with a
+        nav-style header, `exit` at the end, one filled primary each (`▶ pour and run`,
+        `▶ run treatment`, `apply recipe`, `▶ start` / `rematch`); form rows stacked (label and
+        mono value over a full-width slider) in 220 px columns; the lab's run report as rule-
+        split sections with spec rows and a curve drawn at its shown size; the heat treat card,
+        the optimizer's recipe, the challenge's briefing and verdict and the stereology panel as
+        `.kv` rails. Warnings without color: verdict words `.status--warn`, sentences
+        `.warnline`, the `!` CSS-generated so no gate text moved; ⚗ ♨ ⚙ ⚑ ⚔ ⎘ ▤ ⚠ ✕ ◇ gone
+        from titles, buttons and lines (the composer's refusals and clamps are warning lines, a
+        phase not grown a quiet note; LAB_CAVEATS.intervened lost its ⚠). Analysis columns and
+        the SECTION PLANE popup with header rules; both enlarged plots on `plotModal`; plot
+        chrome from `token()`, ticks Inter 11 px, legends as data-color swatches beside words;
+        the probe crosshair and SDAS ruler (2D and 3D) `--fg` over a `--bg` casing. Composer:
+        card on the tool rhythm, all type at 12 px or more (grid symbols included), readout as
+        a spec rail (word values in Inter), phase columns rule-split, the diagram's chrome on
+        `.pd*` classes (its curves, band and markers are data, `data-mark`), `close` pill, the
+        quick-fill row moved under the base metals. Copy re-pointed where it named a color
+        (the element screen's learn text, the tour's "amber line"). Gates: `RAIL-ACHROMATIC`
+        grown to every panel built in script plus SVG chrome, with per-item liveness floors,
+        three new samples (run report, composer, enlarged plot), an SVG fixture and a `byItem`
+        report; six planted defects on a 5299 server each failed on their own item, the other
+        nine checks OK. `verify-tools` ENLARGE finds `#app > .tmodal`. Two real defects the gates
+        caught on the way: lab hints on two lines at a 520 px cap (`RAIL-LEARN`; the cap is 560
+        again) and the A356 quick-fill under the card's scroll edge at 1024x768 with the tour
+        open (`TOUR-PD-STEP`; the row moved). Green: typecheck, build, the 14 CI scripts,
+        verify-rail 10/10, verify-tools, verify-optimizer, verify-heattreat-gpu (26),
+        verify-experiment-gpu, verify-composer-gpu, verify-phasediagram-gpu (after the fix),
+        verify-quant, verify-3d (29). Shots: `solidify-hero-out/d2_shots/b/` (35; the before set
+        in `b-before/`).
+      - Left as data color, on purpose (the only hex/rgb in `src/*.ts` outside the landing):
+        the plot traces and markers in `lab.ts`, `analyze.ts`, `analyze3d.ts`, `experiment.ts`
+        (amber/cyan traces, landmark dots, the band), the phase diagram's curve palette, regime
+        band and pour/solver markers (`phasediagram.ts`), the pole figures' orientation colors
+        (`analyze3d.ts polarCol`), the shaders' hue functions, and the view cube's computed gray
+        (`viewcube.ts`, from two tokens). U2 (plots) will gather the plot palette in one module.
+      - Not done here: the probe panel's "T liquidus" label can sit on the trace (U2); the
+        tour's prose still carries em dashes (U1d/U1e); the lab and heat treat panels still
+        cover the HUD's cards when open (U3 layout). D0 can be ticked: every page, the app
+        included, links `tokens.css`.
+      - 2026-09-24, the D2 review (29 findings; every one verified in the real app before its
+        fix, none rejected). Phone: a window whose canvas the rail would leave under 596 px (the
+        lens bar's floor) boots with the rail hidden (`ui.ts`, `.narrow`); there the head plate
+        gives way to the toggle column and the lens bar goes under the plate (anchored), and the
+        legends and analysis columns follow it; the rail opened on such a window is a drawer
+        (`.railCramped`: the top chrome folds away, learn and controls stay; `.railPhone` adds
+        the bottom-left group), and a mode panel opened from it hides it. One filled pill per
+        view: run / pause steps down to an outline pill while a mode panel is open (`:has`),
+        `■ abort` is an outline pill, ×2/×4 and rec show "on" as an emphasized outline; the HUD
+        folds away under a mode panel. The gesture hint steps out while an analysis column shows
+        a panel (`.cols2d` / `.cols3d`) and breaks only between its "key: action" pairs. Rail
+        grid pills 4 px inline padding, words never split. Plots: one categorical data palette,
+        `--data-1..4` in `tokens.css` (the dataviz reference palette's dark steps, validated on
+        `--bg`; no old amber or cyan), picked by slot in the new `src/design/plot.ts` by
+        `analyze.ts`, `analyze3d.ts`, `experiment.ts`, `lab.ts` and `phasediagram.ts` (the SVG
+        by CSS reference); the lab curve's labeled landmarks are `--fg` dots; enlarged plots keep
+        11 px type. Numbers in running text in the mono (heat treat note and card, optimizer
+        status and best, lab t_v / t_r and sites, challenge `ASTM` out of `.v`), `.v.q` for the
+        challenge's losing row, the diagram caption keeps its case (`Al–Cu`). Lens bar 64 px tall
+        (ends on the TRUE 3D switch's line; `--top-band`, cube offset re-pointed), right-aligned
+        under the column on its own row. learn / controls / tour are Inter pills; `#armed` not
+        uppercased. Accessibility: over-canvas focus rings inset on the backing (`--bg` on a
+        pressed pill), `plotModal` a keyboard modal (aria-modal, focus in and back, Tab wraps,
+        Escape, main.ts shortcuts stand down), the periodic grid's ring unclipped and above the
+        selection, `aria-pressed` on every toggle set (`setPressed`), spoken names on the glyph
+        pills, `.actswitch .tag` 12 px, the SCALE group figures in the mono. Composer key: each
+        tier drawn as a small cell with "Aa" in its text color, an "in this mix" key, REFUSED a
+        dotted `--fg-3` edge (5.4:1) apart from NOT-A-SOLUTE. Optimizer: the best tile's ring
+        on the plate, one tile at a time. Tour: the touched lines lose their em dashes and name
+        the pills in their on-screen case; the Material chapter names the head plate's line and
+        rings `#head`. Gates (`verify-rail.mjs`): RAIL-CLEAR samples the phone (first screen,
+        rail open, lab mode from it) and THERM in both modes and fails a hint under a column;
+        RAIL-TEXT-WRAPS / RAIL-NO-HSCROLL measure the 270 px phone rail and split words;
+        RAIL-HIDE adds 1024x768 with the re-pointed lens-bar center; RAIL-ACHROMATIC reads the
+        THERM legend (with a fixture bounding its strip exemption), the rail's pixels (a planted
+        amber thumb must be caught), `accentColor` and the tour's highlight ring; RAIL-LEARN
+        shoots three focus rings over ETCH. Its first green-path runs found two real phone
+        defects (sub-panel rows 22 px past the 270 px rail; the lens bar lagging a longer name
+        by its `top` transition), both fixed. Proved able to fail with no worktree edit: two
+        plant servers on 5299 (11 logged in-memory changes) and the whole gate against each;
+        every change failed its own clause, the other checks stayed OK. Green, each gate run
+        once, one at a time, none flaked: typecheck, build, the 14 CI scripts, verify-rail
+        10/10, verify-tools (16), verify-3d (30), verify-phasediagram-gpu (2),
+        verify-composer-gpu (3), verify-optimizer, verify-heattreat-gpu (26),
+        verify-experiment-gpu (3), verify-quant (11).
+        Shots: `solidify-hero-out/d2_shots/final/` (78, 1440x900, 1024x768, 1920x1080 and a
+        390x844 phone; every one looked at).
+      - Still open after the review (U3, outside D2's scope): on a 390 px phone a mode panel
+        lifted clear of the transport bar sits over the `▸ tour` pill; with an analysis column
+        open on a phone the column and the legend slot can meet (the gate samples the phone
+        with the columns closed, as a new page has them).
 - [ ] **D3 · Then U2 (plots) and U3 (layout) on the new system**, then U1d (tour) / U1e
       (spelling sweep + UI-NO-EMDASH).
 
@@ -4588,17 +4716,45 @@ frames only. Recommendation: B staged, A first.
               flat cap speed: hand-over 56, glides 43/45/27/38, pull-back 108), so N went to 726
               (`path_plan.py --propose` sizes the legs), px_per_frame 12.5 -> 11 to keep the pin in the
               7.5-8.7k band, closest shot W 0.50 (v3 0.22), orbit 480 deg (540 hits the twist cap).
-      - [ ] A3 generator: linear growth time, newborn arms ramp their protrusion in, neck
+      - [x] A3 generator: linear growth time, newborn arms ramp their protrusion in, neck
             re-picked nearer the root, fine mesh for every frozen frame (no mid-glide swap),
             per-t mesh cache on disk; small-amplitude coarsening through cool so the copy is
             true on screen.
+            - 2026-09-24 (A3 proper): **emergence ramp** in `dendrite_gen.emerge_shift` (drawn geometry
+              only; skeleton, clearance, caps and necks see the undrawn arms, so t = 1 caps / drops / necks
+              are v3's and the five features drifted 0). Newborns start 0.25 rho inside the parent and join
+              their true protrusion 1 rho later along a C1 cubic; the same curve, fed min(h, 2 x the parent
+              tip's lead - 1 rho), retracts tertiaries whose host remelts. **Finding:** v3's birth "pop" was
+              mild (0.22 rho median above the surface on the first frame, about one frame of growth), but 61
+              tertiaries up to 14 rho long VANISHED in one frame in frames 196-229 when their stunted host's
+              retreating tip reached them. Measured on the union of spheres (60 births, 30 deaths): first
+              frame 0.22 -> 0 rho, a dying arm's last frame 5.5 (max 12.1) -> 0, worst per-frame change
+              12.1 -> 1.6 rho; cost: a newborn surfaces ~2x its natural rise for ~3 frames. Fixed-camera A/B
+              of frames 205-212: `v4/preview_slice/pop_ab_crops.png`. Gate: 27 cached growth meshes (t 0.03
+              -0.996, 5-196 arms mid-ramp each), 5 topo_check stages (0.19/0.21/0.26/0.93/0.98, strict) and
+              the close-up mesh (2.27 M verts) are all one closed genus-0 surface.
+            - **Mesh cache** `hero/mesh_cache.py` (`v4/cache/mesh/<fingerprint>/`): gen mesh per growth t,
+              close-up mesh at t = 1, gated at build; key = code of dendrite_gen.py + mesh_cache.py (AST
+              without docstrings) + live UPPER_CASE constants + shaping args + Blender + numpy, and a per-file
+              key checked on load (plus array sizes, edge count). Caught and fixed while testing: a dict of
+              functions in the constants made the key differ per process. Cold build 0.3-35 s (mean 10.7 s,
+              ~40-45 min for 229 frames), warm load 0.1 s (close-up 1.0 s), 36 B/vertex, ~1.5 GB for the set.
+              features.json carries a key (close-up mesh key + the pick functions' source): reused without a
+              skeleton; `--anchors-only` 3.5 min -> ~5 s. Path re-planned on the new generator: CHECK PASS,
+              p90 max 11.65 px, max/median 1.91, <= 0.55 deg from the A2 path; anchors all visible.
+            - **Cool-chapter coarsening: LEFT OUT.** At the growth rate of time the cool chapter adds 0.29 of
+              t: +14 % secondary radius, remelting stubs at 31 % length, tertiaries on remelting hosts gone, a
+              crystal the clearance pass never certified (it tests t <= 1), 68 more close-up meshes (~3.7 h of
+              builds) and a re-plan of the tour on the new state. A small amplitude (0.05 of t) is +2.6 % of a
+              secondary's radius, ~0.3 px at the cool framing: invisible. So the copy must not claim visible
+              coarsening in the cool chapter (Frank / D: e.g. "Then it cools." without "shape locked in").
             - 2026-09-24 (with A1/A2): linear growth time (timeline.growth), fine mesh for every
               frozen frame (229 on), neck re-pick DONE in render_sequence. Finding: no +x root
               between 0.25 and 0.60 L shows a waist on the close-up mesh (coalesced roots keep no
               neck); the pick is arm 63, +z row, 0.67 L, waist 0.87 (v3: 0.71 L). The tertiary is
               re-picked beside lambda2 and the neck (a -y tertiary on the +z host at 0.54 L). Still
-              open: protrusion ramp, per-t mesh cache, coarsening through cool, key light trailing
-              the camera (path.json carries `orbit_deg` per frame for it).
+              open after A3: the key light trailing the camera (look.py; path.json carries `orbit_deg`
+              per frame for it) -- not done, decide before the Cycles night.
       - [ ] A4 fast preview (Workbench/EEVEE, low res) of the whole path from the cache; after D1,
             load it in the page behind a dev flag so Frank can feel the scroll before the
             Cycles night.
@@ -4606,6 +4762,16 @@ frames only. Recommendation: B staged, A first.
               --coarse-frozen [--frames ...]` + `encode_frames.py --contact-only --from-masters`;
               24 frames in ~5 min (`v4/preview_sheet.png`). A whole-path preview is ~1 h until the
               mesh cache lands (the growth rebuilds dominate).
+            - 2026-09-24 (A4): `render_sequence.py --preview` = EEVEE at 600 px with the real look (the
+              camera-space rig, warmth, Filmic; EEVEE Next renders headless here), 16 samples, from the
+              mesh cache, into `v4/preview_eevee` (`--workbench` still available); `hero/preview_sheet.py`
+              = labelled contact sheet (frame, chapter, t, cumulative turn) + animated-WebP flip-book.
+              Measured: 0.1 s mesh load + 1.1 s (growth) / 1.4 s (frozen) render a frame; first frame
+              pays a one-time shader compile (48 s cold, 6 s after). Slice of 37 frames:
+              `v4/preview_slice/` + `v4/preview_slice_sheet.png` (0.8 min warm). Whole 726-frame preview:
+              ~17 min warm, ~1 h cold. Full Cycles: ~6.5-7.5 h warm (v3's measured 29 s growth / 33 s
+              frozen per frame on this Arc, the v4 probe's 33-50 s close-ups), ~45 min more cold.
+              Still open: run the whole preview (main session), then the page dev flag after D1.
       - [ ] A5 page engine (after D1 lands in hero.ts): spring playhead, display-rate decode,
             blend on slow steps only, set pick by CSS width x min(DPR, 2) + 720 set, segments +
             content-hashed dir + immutable cache headers; verify-hero rewritten, not loosened.

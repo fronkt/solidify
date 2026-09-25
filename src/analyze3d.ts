@@ -13,6 +13,13 @@ import type { SlicePlane } from "./render3d";
 import { DEFAULT_UM_PER_CELL } from "./units";
 import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
 import { STATUS_LEARN, panelText } from "./learn/panels";
+import { token } from "./design/tool";
+import { kv, kvFull, num, plotModal, quiet } from "./design/panel";
+import { series } from "./design/plot";
+
+/** the plots' chrome text: Inter at the plot spec's 11 px tick size, in
+ *  every view (these canvases are drawn at 1 px per CSS px) */
+const chromeFont = () => `400 11px ${token("--font-body")}`;
 
 /** the [001] pole-figure panel's title, also its enlarged view's */
 const POLE001_TITLE = "TEXTURE · POLE FIGURE [001]";
@@ -101,17 +108,17 @@ export class Analyze3D {
       p.className = "apanel";
       const t = document.createElement("div");
       t.className = "t";
-      t.style.cssText = "display:flex;align-items:center;gap:6px";
       const name = document.createElement("span");
       name.textContent = title;
       t.append(name);
       let z: HTMLButtonElement | null = null;
       if (onBig) {
         z = document.createElement("button");
-        z.className = "zoomBtn";
+        z.type = "button";
+        z.className = "zoomBtn iconbtn";
         z.textContent = "⤢";
         z.title = "enlarge";
-        z.style.cssText = "margin-left:auto;border:none;background:none;color:#6b7280;cursor:pointer;padding:0 2px;font-size:11px";
+        z.setAttribute("aria-label", `enlarge ${title.toLowerCase()}`);
         z.addEventListener("click", onBig);
         t.append(z);
       }
@@ -132,7 +139,7 @@ export class Analyze3D {
     this.scheilPanel.append(this.scheilCv);
     this.stereoPanel = mk("STEREOLOGY · SECTION vs TRUE 3D", "STEREOLOGY", null);
     this.stereoBody = document.createElement("div");
-    this.stereoBody.style.cssText = "font-size:10.5px;line-height:1.55;color:#9aa1ab;width:236px";
+    this.stereoBody.className = "stereo";
     this.stereoPanel.append(this.stereoBody);
     this.ipfPanel = mk(POLE001_TITLE, "POLE FIGURE [001]", () => this.openBig());
     this.ipfCv = document.createElement("canvas");
@@ -147,11 +154,17 @@ export class Analyze3D {
     this.learn.apply();
   }
 
-  setStereoOn(b: boolean) { this.stereoOn = b; this.stereoPanel.style.display = b ? "block" : "none"; }
-  setIpfOn(b: boolean) { this.ipfOn = b; this.ipfPanel.style.display = b ? "block" : "none"; }
+  /** the gesture hint shares the column's band: it steps out while the
+   *  column shows a panel (app/index.html .cols3d) */
+  private cols() {
+    document.body.classList.toggle("cols3d", this.stereoOn || this.ipfOn || this.probeOn || this.scheilOn || this.poleOn);
+  }
+  setStereoOn(b: boolean) { this.stereoOn = b; this.stereoPanel.style.display = b ? "block" : "none"; this.cols(); }
+  setIpfOn(b: boolean) { this.ipfOn = b; this.ipfPanel.style.display = b ? "block" : "none"; this.cols(); }
   setProbeOn(b: boolean) {
     this.probeOn = b;
     this.probePanel.style.display = b ? "block" : "none";
+    this.cols();
     if (b) {
       // give the probe a home if it never had one
       const s3 = this.host.sim3d();
@@ -159,8 +172,8 @@ export class Analyze3D {
     }
     this.curve = [];
   }
-  setScheilOn(b: boolean) { this.scheilOn = b; this.scheilPanel.style.display = b ? "block" : "none"; if (b) this.scheil = []; }
-  setPoleOn(b: boolean) { this.poleOn = b; this.polePanel.style.display = b ? "block" : "none"; }
+  setScheilOn(b: boolean) { this.scheilOn = b; this.scheilPanel.style.display = b ? "block" : "none"; if (b) this.scheil = []; this.cols(); }
+  setPoleOn(b: boolean) { this.poleOn = b; this.polePanel.style.display = b ? "block" : "none"; this.cols(); }
   /** melt reset / probe move: start fresh series */
   reset() { this.curve = []; this.scheil = []; this.lastStereo = null; }
 
@@ -202,24 +215,11 @@ export class Analyze3D {
 
   private openBig() {
     if (this.big) return;
-    const wrap = document.createElement("div");
-    wrap.style.cssText = "position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(4,5,7,0.62);backdrop-filter:blur(4px)";
-    const card = document.createElement("div");
-    card.style.cssText = "background:#111318;border:1px solid #262b33;border-radius:8px;padding:12px 14px";
-    const head = document.createElement("div");
-    head.style.cssText = "display:flex;align-items:center;margin-bottom:6px;color:#ffb454;font-size:11px;letter-spacing:0.2em";
-    head.textContent = POLE001_TITLE;
-    const x = document.createElement("button");
-    x.textContent = "✕";
-    x.style.cssText = "margin-left:auto;border:none;background:none;color:#6b7280;cursor:pointer";
-    x.addEventListener("click", () => this.closeBig());
-    head.append(x);
+    // the panel spec's modal (design/panel.ts), the 2D enlargement's twin
+    const { wrap, card } = plotModal(POLE001_TITLE, () => this.closeBig());
     this.bigCv = document.createElement("canvas");
     this.bigCv.width = 640; this.bigCv.height = 560;
-    card.append(head, this.bigCv);
-    wrap.append(card);
-    wrap.addEventListener("click", e => { if (e.target === wrap) this.closeBig(); });
-    document.getElementById("app")!.append(wrap);
+    card.append(this.bigCv);
     this.big = wrap;
     this.drawIPF();
   }
@@ -249,7 +249,7 @@ export class Analyze3D {
   private drawStereo() {
     const st = this.host.lastStats();
     const sec = this.lastStereo;
-    if (!sec) { this.stereoBody.innerHTML = "<i>measuring the section…</i>"; return; }
+    if (!sec) { this.stereoBody.innerHTML = `<span class="q">measuring the section…</span>`; return; }
     const n2 = sec.sections.length;
     const meanA = n2 ? sec.sections.reduce((a, s) => a + s.areaVox, 0) / n2 : 0;
     const uv = umPerVox(this.host.sim3d());
@@ -262,14 +262,16 @@ export class Analyze3D {
     // is √(2/3) ≈ 0.82 (mean area of a random section = 2/3 of the great
     // circle's). π/4, printed here before v8 U1b, is the mean section DIAMETER
     // ratio, a different statistic this panel does not compute.
-    this.stereoBody.innerHTML =
-      `section: <b style="color:#e8ebef">${n2}</b> grains · d̄₂ <b style="color:#ffb454">${d2.toFixed(0)} µm</b>` +
-      (g2 != null ? ` · ASTM G ${g2.toFixed(1)}` : "") + "<br>" +
-      `3D: <b style="color:#e8ebef">${st?.grainCount ?? "—"}</b> grains · d̄₃ <b style="color:#56d4dd">${d3 ? d3.toFixed(0) + " µm" : "—"}</b><br>` +
+    // a spec rail: the section's statistic, the volume's, and their ratio
+    this.stereoBody.innerHTML = `<div class="kv">` +
+      kv("section", `${num(n2)} grains · d̄₂ ${num(`${d2.toFixed(0)} µm`)}`
+        + (g2 != null ? ` · ASTM ${num(`G ${g2.toFixed(1)}`)}` : "")) +
+      kv("3D", `${num(st?.grainCount ?? "—")} grains · d̄₃ ${num(d3 ? d3.toFixed(0) + " µm" : "—")}`) +
       (ratio != null
-        ? `d̄₂/d̄₃ <b style="color:#e8ebef">${ratio.toFixed(2)}</b> (equal spheres ≈ 0.82)` + learnSlot(STATUS_LEARN.stereology)
-        : "no grains yet") +
-      (sec.poreVox > 0 ? `<br>pores on section: <b style="color:#e06c60">${sec.poreVox}</b> vox` : "");
+        ? kv("d̄₂/d̄₃", `${num(ratio.toFixed(2))} ${quiet("(equal spheres ≈ 0.82)")}`, learnSlot(STATUS_LEARN.stereology))
+        : kvFull(quiet("no grains yet"))) +
+      (sec.poreVox > 0 ? kv("pores on section", `${num(sec.poreVox)} vox`) : "") +
+      `</div>`;
     fillLearnSlots(this.stereoBody);
   }
 
@@ -280,9 +282,9 @@ export class Analyze3D {
     ctx.clearRect(0, 0, w, h);
     const d = this.curve;
     const p = this.host.sim3d()?.params;
-    ctx.font = "9px ui-monospace, Consolas, monospace";
+    ctx.font = chromeFont();
     if (!d.length || !p) {
-      ctx.fillStyle = "#6b7280";
+      ctx.fillStyle = token("--fg-3");
       ctx.fillText("probe: no data yet", 8, h / 2);
       return;
     }
@@ -293,20 +295,23 @@ export class Analyze3D {
     lo -= pad; hi += pad;
     const X = (t: number) => 6 + ((t - t0) / (t1 - t0)) * (w - 12);
     const Y = (T: number) => h - 6 - ((T - lo) / (hi - lo)) * (h - 12);
-    ctx.strokeStyle = "rgba(107,114,128,0.55)";
+    // the liquidus reference and the labels are chrome; the trace (the
+    // palette's first slot) and the solidification moment (its second) are
+    // data, the 2D probe's colors
+    ctx.strokeStyle = token("--fg-4");
     ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.moveTo(6, Y(TL)); ctx.lineTo(w - 6, Y(TL)); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = "#6b7280";
+    ctx.fillStyle = token("--fg-3");
     ctx.fillText("T liquidus", 8, Y(TL) - 3);
     const si = d.findIndex(q => q.phi > 0.5);
     if (si >= 0) {
-      ctx.strokeStyle = "rgba(86,212,221,0.8)";
+      ctx.strokeStyle = series(1);
       ctx.beginPath(); ctx.moveTo(X(d[si].t), 6); ctx.lineTo(X(d[si].t), h - 6); ctx.stroke();
-      ctx.fillStyle = "#56d4dd";
-      ctx.fillText("solid", Math.min(X(d[si].t) + 3, w - 30), 14);
+      ctx.fillStyle = token("--fg-3");
+      ctx.fillText("solid", Math.min(X(d[si].t) + 3, w - 30), 16);
     }
-    ctx.strokeStyle = "#ffb454";
+    ctx.strokeStyle = series(0);
     ctx.lineWidth = 1.4;
     ctx.beginPath();
     d.forEach((q, i) => { if (i === 0) ctx.moveTo(X(q.t), Y(q.T)); else ctx.lineTo(X(q.t), Y(q.T)); });
@@ -320,9 +325,9 @@ export class Analyze3D {
     const w = this.scheilCv.width, h = this.scheilCv.height;
     ctx.clearRect(0, 0, w, h);
     const p = this.host.sim3d()?.params;
-    ctx.font = "9px ui-monospace, Consolas, monospace";
+    ctx.font = chromeFont();
     if (!p || p.alloyOn !== 1) {
-      ctx.fillStyle = "#6b7280";
+      ctx.fillStyle = token("--fg-3");
       ctx.fillText("needs the solute field (ALLOY)", 8, h / 2);
       return;
     }
@@ -333,17 +338,26 @@ export class Analyze3D {
     lo -= pad; hi += pad;
     const X = (fs: number) => 6 + fs * (w - 12);
     const Y = (t: number) => h - 6 - ((t - lo) / (hi - lo)) * (h - 12);
-    ctx.strokeStyle = "#ffb454";
+    // the prediction and what was measured: the 2D panel's two slots
+    ctx.strokeStyle = series(0);
     ctx.beginPath();
     for (let i = 0; i <= 120; i++) {
       const fs = (i / 120) * 0.98;
       if (i === 0) ctx.moveTo(X(fs), Y(T(fs))); else ctx.lineTo(X(fs), Y(T(fs)));
     }
     ctx.stroke();
-    ctx.fillStyle = "#56d4dd";
+    ctx.fillStyle = series(1);
     for (const q of this.scheil) ctx.fillRect(X(q.fs) - 1, Y(q.Ti) - 1, 2, 2);
-    ctx.fillStyle = "#6b7280";
-    ctx.fillText("fs 0→1 · amber Scheil · cyan measured T_interface", 8, h - 10);
+    // the key: each data color's swatch and its word, then the axis
+    let x = 8;
+    for (const [color, word] of [[series(0), "Scheil"], [series(1), "measured T_interface"]]) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x, h - 12, 10, 2);
+      x += 14;
+      ctx.fillStyle = token("--fg-3");
+      ctx.fillText(word, x, h - 8);
+      x += ctx.measureText(word).width + 10;
+    }
   }
 
   /** stereographic ⟨100⟩ pole figure (c-axis for hex, 5-fold axes for icosa) */
@@ -353,14 +367,15 @@ export class Analyze3D {
     const w = cv.width, h = cv.height;
     ctx.clearRect(0, 0, w, h);
     const cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.44;
-    ctx.strokeStyle = "rgba(107,114,128,0.5)";
+    // the projection's circle and axes are chrome; the poles are data
+    ctx.strokeStyle = token("--rule-strong");
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy);
     ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R); ctx.stroke();
     const s3 = this.host.sim3d();
     const st = this.host.lastStats();
-    ctx.fillStyle = "#6b7280";
-    ctx.font = "9px ui-monospace, Consolas, monospace";
+    ctx.fillStyle = token("--fg-3");
+    ctx.font = chromeFont();
     if (!s3 || !st) return;
     const mode = s3.params.aniMode3;
     // the title names the axis family actually plotted (cubic ⟨100⟩, hexagonal
@@ -378,7 +393,7 @@ export class Analyze3D {
       mode === 2 ? [[0, 0, 1]] :
       mode === 3 ? [[0, sg, phi], [0, -sg, phi], [sg, phi, 0], [-sg, phi, 0], [phi, 0, sg], [phi, 0, -sg]] :
       [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
-    ctx.fillText(mode === 2 ? "(0001) poles" : mode === 3 ? "5-fold poles" : "⟨100⟩ poles", 8, 12);
+    ctx.fillText(mode === 2 ? "(0001) poles" : mode === 3 ? "5-fold poles" : "⟨100⟩ poles", 8, 14);
     const q = s3.quats;
     for (const g of st.grains) {
       const b = g.id * 4;
@@ -413,12 +428,14 @@ export class Analyze3D {
       const w = cv.width, h = cv.height;
       ctx.clearRect(0, 0, w, h);
       const cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.44;
-      ctx.strokeStyle = "rgba(107,114,128,0.5)";
+      ctx.strokeStyle = token("--rule-strong");
       ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy);
       ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R); ctx.stroke();
-      ctx.fillStyle = "#6b7280";
-      ctx.font = `${9 * scale}px ui-monospace, Consolas, monospace`;
+      // the plot spec's 11 px in the enlarged view too: `scale` sizes the
+      // poles, never the type
+      ctx.fillStyle = token("--fg-3");
+      ctx.font = chromeFont();
       ctx.fillText("z ⊙", cx + 3, cy - 4);
       if (!s3 || !st) continue;
       const q = s3.quats;

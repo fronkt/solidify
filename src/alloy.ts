@@ -319,7 +319,7 @@ export interface SolutePhases {
   fraction: InvariantFraction | null;
   /**
    * one on-screen line for a phase this solver will not grow, or null when
-   * there is none. It stays on screen (the composer's ◇ lines, #matcaveat), so
+   * there is none. It stays on screen (the composer's "not grown" lines, #matcaveat), so
    * it keeps the element, the phase, the invariant and the word "grow".
    */
   notGrown: string | null;

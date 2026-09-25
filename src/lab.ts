@@ -27,6 +27,9 @@ import type { MoldKind } from "./sim3d";
 import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
 import { LAB_CAVEATS, LAB_CARDS, panelHintFor, panelText } from "./learn/panels";
 import { THERMAL_LEARN } from "./thermal";
+import { token } from "./design/tool";
+import { series } from "./design/plot";
+import { kv, num, panelHead, pill, quiet, warnWord } from "./design/panel";
 
 export interface LabHost {
   getMode(): "2d" | "3d";
@@ -196,31 +199,26 @@ export class Lab {
   private buildResultsPanel() {
     const r = document.createElement("div");
     r.id = "foundryResults";
-    r.classList.add("hidden");
-    const head = document.createElement("div");
-    head.className = "frHead";
-    const title = document.createElement("span");
-    title.textContent = "⚗ RUN REPORT";
-    const copy = document.createElement("button");
-    copy.textContent = "⎘ copy";
-    copy.title = "copy share link";
-    copy.addEventListener("click", () => {
+    r.className = "tpanel hidden";
+    // the header: RUN REPORT, its "i", then copy link and close at the end
+    const copy = pill("copy link", () => {
       void navigator.clipboard.writeText(this.host.labShareLink()).then(() => {
-        copy.textContent = "copied ✓";
-        setTimeout(() => { copy.textContent = "⎘ copy"; }, 1400);
+        copy.textContent = "copied";
+        setTimeout(() => { copy.textContent = "copy link"; }, 1400);
       });
     });
-    const close = document.createElement("button");
-    close.textContent = "✕";
-    close.addEventListener("click", () => this.toggleResults(false));
-    head.append(title, copy, close);
+    copy.title = "copy a share link to this setup";
+    const close = pill("close", () => this.toggleResults(false));
+    const end = document.createElement("span");
+    end.className = "pactions";
+    end.append(copy, close);
+    const head = panelHead("RUN REPORT", end);
     const body = document.createElement("div");
     body.id = "foundryResultsBody";
-    // the "i" sits right after the title text, and its text between the
-    // header and the report body, never inside #foundryResultsBody
+    // the "i" sits right after the title, and its text between the header and
+    // the report body, never inside #foundryResultsBody
     this.reportLearn = new LearnLayer(() => this.applyLearn());
-    const ex = this.reportLearn.explain(title, "about the run report", panelText("run report"));
-    ex.button.style.cssText = "margin-left:8px;vertical-align:middle;";
+    const ex = this.reportLearn.explain(head, "about the run report", panelText("run report"), end);
     r.append(head, ex.body, body);
     document.getElementById("app")!.append(r);
     this.resultsPanel = r;
@@ -385,19 +383,9 @@ export class Lab {
     // placed and sized by .modepanel (app/index.html), so it can reach neither
     // the rail nor the transport bar, and capped in height under the top
     // chrome (it scrolls past that)
-    p.className = "modepanel";
-    p.style.cssText =
-      "--cap:320px;" +
-      "background:rgba(15,17,21,0.93);border:1px solid #262b33;border-radius:8px;padding:14px 16px 12px;" +
-      "backdrop-filter:blur(6px);z-index:6;font-size:11px;";
-    const head = document.createElement("div");
-    head.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:10px;";
-    head.innerHTML = `<span style="letter-spacing:.25em;font-size:10px;font-weight:600;color:#8891a0">⚗ LAB MODE</span>`;
-    const exit = document.createElement("button");
-    exit.textContent = "exit";
-    exit.style.marginLeft = "auto";
-    exit.addEventListener("click", () => this.close());
-    head.append(exit);
+    p.className = "modepanel plate tpanel";
+    const exit = pill("exit", () => this.close());
+    const head = panelHead("LAB MODE", exit);
     this.learn = new LearnLayer(() => this.applyLearn());
     const ex = this.learn.explain(head, "about lab mode", panelText("lab mode"), exit);
 
@@ -412,7 +400,7 @@ export class Lab {
     const specStep = specMax <= 5 ? 0.1 : specMax <= 100 ? 1 : 5;
     this.setup.specMPa = Math.min(this.setup.specMPa, specMax);
     const form = document.createElement("div");
-    form.style.cssText = "display:flex;flex-direction:column;gap:9px;margin-bottom:12px;";
+    form.className = "fbform";
     const rows: HTMLElement[] = [
       select("atmosphere", ["argon", "vacuum", "air"], this.setup.atmosphere, v => { this.setup.atmosphere = v as LabSetup["atmosphere"]; this.refresh(); }),
       range("inoculant sites", 0, 3000, 10, this.setup.inoculant, v => { this.setup.inoculant = v; }),
@@ -436,33 +424,37 @@ export class Lab {
       this.moldKindRow = select("mold shape", ["shell", "plate", "step", "wedge"], this.setup.mold,
         v => { this.setup.mold = v as MoldKind; }),
     ];
-    form.append(...rows);
-    // learn mode: one hint under each control, shown only while it is (the
-    // mold rows are 3D only), matched by the label the row prints
-    for (const el of rows) panelHintFor(this.learn, "lab mode", el);
+    // each row in a grid cell of its own with its learn hint under it (a hint
+    // loose in the grid would take a cell of its own), the heat treat form's
+    // idiom; the mold rows (3D only) hide with their cell
+    for (const el of rows) {
+      const cell = document.createElement("div");
+      cell.append(el);
+      form.append(cell);
+      // learn mode: one hint under each control, shown only while it is,
+      // matched by the label the row prints
+      panelHintFor(this.learn, "lab mode", el);
+    }
 
     const note = document.createElement("div");
     note.id = "foundryNote";
-    note.style.cssText = "color:#8891a0;line-height:1.55;margin-bottom:8px;";
+    note.className = "pnote q";
 
     const row = document.createElement("div");
-    row.style.cssText = "display:flex;gap:8px;align-items:center;";
-    const go = document.createElement("button");
+    row.className = "pactions";
+    // the panel's one primary action
+    const go = pill("▶ pour and run", () => (this.running ? this.abort() : this.start()), "accent");
     go.id = "foundryRun";
-    go.textContent = "▶ pour and run";
-    go.addEventListener("click", () => (this.running ? this.abort() : this.start()));
-    const results = document.createElement("button");
+    const results = pill("results", () => this.toggleResults());
     results.id = "foundryResultsBtn";
-    results.textContent = "▤ results";
     results.disabled = !this.hasResults;
-    results.addEventListener("click", () => this.toggleResults());
     results.addEventListener("animationend", () => results.classList.remove("pulse"));
     this.resultsBtn = results;
     row.append(go, results);
 
     const status = document.createElement("div");
     status.id = "foundryStatus";
-    status.style.cssText = "margin-top:6px;color:#8891a0;";
+    status.className = "pstatus q";
 
     p.append(head, ex.body, form, note, row, status);
     document.getElementById("app")!.append(p);
@@ -490,33 +482,41 @@ export class Lab {
     // a checkbox that does nothing and a note promising porosity that cannot
     // change, the panel says which half of the atmosphere model is live.
     const three = this.host.getMode() === "3d";
-    if (this.moldRow) this.moldRow.style.display = three ? "" : "none";
-    if (this.moldKindRow) this.moldKindRow.style.display = three ? "" : "none";
+    // a row and its grid cell hide together: an empty cell would still take
+    // a place in the form's grid
+    for (const r of [this.moldRow, this.moldKindRow]) {
+      if (!r) continue;
+      r.style.display = three ? "" : "none";
+      if (r.parentElement) r.parentElement.style.display = three ? "" : "none";
+    }
     // the atmosphere is a melt-cleanliness proxy, not a nucleation control; the
     // caveat line says so on screen, with its scope in this dimension
     const cav = three ? LAB_CAVEATS.atmosphere3d : LAB_CAVEATS.atmosphere2d;
     note.innerHTML =
-      `<b style="color:#cfd6df">${this.setup.atmosphere}</b>: ${atmoNote(this.setup.atmosphere, three)}` +
+      `<b>${this.setup.atmosphere}</b>: ${atmoNote(this.setup.atmosphere, three)}` +
       `<br>${cav.line}${learnSlot(cav.learn)}` + this.specNote();
     fillLearnSlots(note);
     this.learn.apply();
     go.textContent = this.running ? "■ abort" : "▶ pour and run";
+    // the filled pill is the panel's primary, never a destructive action:
+    // while a pour runs, abort is an outline pill
+    go.classList.toggle("accent", !this.running);
     if (!this.statusEl) return;
     if (!this.running) {
-      this.statusEl.textContent = this.hasResults ? "done · ▤ results" : "ready · nothing poured";
+      this.statusEl.textContent = this.hasResults ? "done · results ready" : "ready · nothing poured";
       return;
     }
     const last = this.series[this.series.length - 1];
     const uu = this.host.units();
     const T = (v: number) => (uu.known ? uu.fmtC(v) : v.toFixed(2));
     this.statusEl.innerHTML =
-      `<b style="color:#cfd6df">${this.run.name}</b> · stage ${this.run.stageIndex + 1}/${this.run.stageCount} ` +
+      `<b>${this.run.name}</b> · stage ${num(`${this.run.stageIndex + 1}/${this.run.stageCount}`)} ` +
       // the stage's target in the same units as the set-point beside it
-      `(${this.run.stageLabel(T)}) · set-point <b style="color:#cfd6df">${T(this.run.setpoint)}</b>` +
-      (last ? ` · melt <b style="color:#cfd6df">${T(last.T)}</b> · solid ${(last.fs * 100).toFixed(1)} %` : "") +
-      ` · sites <b style="color:#cfd6df">${this.host.nucFired()}</b>/${this.host.nucMax().toFixed(0)}` +
-      ` · ΔT max ${uu.known ? uu.fmtK(this.host.maxUndercool()) : this.host.maxUndercool().toFixed(3)}` +
-      (this.intervened ? " · <span style=\"color:#ffb454\">operator intervened</span>" : "");
+      `(${this.run.stageLabel(T)}) · set-point ${num(T(this.run.setpoint))}` +
+      (last ? ` · melt ${num(T(last.T))} · solid ${num(`${(last.fs * 100).toFixed(1)} %`)}` : "") +
+      ` · sites ${num(`${this.host.nucFired()}/${this.host.nucMax().toFixed(0)}`)}` +
+      ` · ΔT max ${num(uu.known ? uu.fmtK(this.host.maxUndercool()) : this.host.maxUndercool().toFixed(3))}` +
+      (this.intervened ? ` · ${warnWord("operator intervened")}` : "");
   }
 
   /** the report-card line for hydrogen gas porosity: the real chemistry always,
@@ -524,15 +524,15 @@ export class Lab {
   private porosityLine(three: boolean): string {
     const por = this.porosity;
     if (!por) return "";
-    if (por.note) return `<div style="color:#8891a0">gas porosity: ${por.note}</div>${learnSlot(por.noteLearn ?? "")}`;
+    if (por.note) return kv("gas porosity", quiet(por.note), learnSlot(por.noteLearn ?? ""));
     const cav = three
       ? ""
-      : ` <span style="color:#8891a0">· ${LAB_CAVEATS.pores2d.line}</span>`;
-    return `<div>dissolved H <b style="color:#cfd6df">${por.cLiquid.toFixed(2)}</b> `
+      : ` ${quiet(`· ${LAB_CAVEATS.pores2d.line}`)}`;
+    return kv("dissolved H", `${num(por.cLiquid.toFixed(2))} `
       + `cm³/100 g (Sievert √p, ${this.setup.atmosphere}) → `
-      + `<b style="color:#ffb454">${por.cRejected.toFixed(2)}</b> rejected on freezing`
-      + (por.pPore > 0.005 ? ` · pore bias <b style="color:#cfd6df">${por.pPore.toFixed(3)}</b>` : " · below pore threshold")
-      + cav + `</div>` + (three ? "" : learnSlot(LAB_CAVEATS.pores2d.learn));
+      + `${num(por.cRejected.toFixed(2))} rejected on freezing`
+      + (por.pPore > 0.005 ? ` · pore bias ${num(por.pPore.toFixed(3))}` : " · below pore threshold")
+      + cav, three ? "" : learnSlot(LAB_CAVEATS.pores2d.learn));
   }
 
   /**
@@ -548,11 +548,12 @@ export class Lab {
     const uu = this.host.units();
     const ms = (t: number) => uu.known ? uu.fmtTime(t) : `Δt ${t.toFixed(2)}`;
     if (r.csc == null) {
-      return `<div style="color:#8891a0">hot-tear CSC (Clyne–Davies): ${r.notes[0] ?? "not resolvable"}</div>`;
+      return kv("hot-tear CSC (Clyne–Davies)", quiet(r.notes[0] ?? "not resolvable"));
     }
-    return `<div>hot-tear CSC (Clyne–Davies) <b style="color:#cfd6df">${r.csc.toFixed(2)}</b> `
-      + `<span style="color:#8891a0">· t_v ${ms(r.tV!)} / t_r ${ms(r.tR!)} · ${LAB_CAVEATS.hotTear.line}</span></div>`
-      + learnSlot(LAB_CAVEATS.hotTear.learn);
+    // the two times are numbers, so the mono, inside the quiet caveat line
+    return kv("hot-tear CSC (Clyne–Davies)", `${num(r.csc.toFixed(2))} `
+      + `${quiet("· t_v")} ${num(ms(r.tV!))} ${quiet("/ t_r")} ${num(ms(r.tR!))} ${quiet(`· ${LAB_CAVEATS.hotTear.line}`)}`,
+    learnSlot(LAB_CAVEATS.hotTear.learn));
   }
 
   /**
@@ -595,37 +596,37 @@ export class Lab {
   private strengthBlock(census: Census | null, three: boolean): string {
     const si = this.siAtPour;
     const spec = this.specAtPour;
-    const dim = (s: string) => `<span style="color:#8891a0">${s}</span>`;
     if (!si) {
       // canTreat doctrine: refuse by name rather than judge from invented numbers
       return spec > 0
-        ? `<div style="color:#8891a0">spec σ_y ≥ ${fmtMPa(spec)} MPa · no strength constants (σ₀, k_HP): `
-          + `no Hall–Petch verdict</div>` + learnSlot(LAB_CAVEATS.specNoConstants.learn)
+        ? kv("spec", quiet(`σ_y ≥ ${fmtMPa(spec)} MPa · no strength constants (σ₀, k_HP): no Hall–Petch verdict`),
+          learnSlot(LAB_CAVEATS.specNoConstants.learn))
         : "";
     }
     const dUm = census ? censusDbarUm(census, three ? "3d" : "2d", this.umAtPour) : 0;
     if (!(dUm > 0)) {
-      return spec > 0
-        ? `<div style="color:#8891a0">spec σ_y ≥ ${fmtMPa(spec)} MPa · no census: not judged</div>`
-        : "";
+      return spec > 0 ? kv("spec", quiet(`σ_y ≥ ${fmtMPa(spec)} MPa · no census: not judged`)) : "";
     }
     const sig = hallPetch(si, dUm * 1e-6);
     const est = three ? "⟨V⟩-equivalent" : "⟨A⟩-equivalent";
     const u = this.host.units();
     const rows: string[] = [];
-    rows.push(`<div>census: <b style="color:#cfd6df">${census!.grainCount}</b> grains · `
-      + `d̄ <b style="color:#cfd6df">${u.fmtLen(u.fromMicron(dUm))}</b> ${dim(`(${est})`)}`
-      + (census!.astm != null ? ` · ASTM <b style="color:#cfd6df">G ${census!.astm.toFixed(1)}</b>` : "")
-      + `</div>`);
-    rows.push(`<div>σ_y (Hall–Petch) <b style="color:#cfd6df">${fmtMPa(sig)} MPa</b> `
-      + dim(`· ${LAB_CAVEATS.hallPetch.line}`) + `</div>` + learnSlot(LAB_CAVEATS.hallPetch.learn));
-    // the verdict word follows " · ", which verify-tools LAB4 keys on
+    rows.push(kv("census", `${num(census!.grainCount)} grains · `
+      + `d̄ ${num(u.fmtLen(u.fromMicron(dUm)))} ${quiet(`(${est})`)}`
+      + (census!.astm != null ? ` · ASTM ${num(`G ${census!.astm.toFixed(1)}`)}` : "")));
+    // verify-tools LAB4 parses "σ_y (Hall–Petch) N MPa": the row's label, its
+    // one space, then the value
+    rows.push(kv("σ_y (Hall–Petch)", `${num(`${fmtMPa(sig)} MPa`)} `
+      + quiet(`· ${LAB_CAVEATS.hallPetch.line}`), learnSlot(LAB_CAVEATS.hallPetch.learn)));
+    // the verdict word follows " · ", which verify-tools LAB4 keys on; "met"
+    // is bright, "missed" a warning (its "!" is CSS, not text)
     if (spec > 0) {
+      const specV = num(`${fmtMPa(spec)} MPa`), sigV = num(`${fmtMPa(sig)} MPa`);
       rows.push(shownMPa(sig) >= shownMPa(spec)
-        ? `<div>spec σ_y ≥ ${fmtMPa(spec)} MPa · <b style="color:#8fe38f">met</b>: casting at ${fmtMPa(sig)} MPa</div>`
-        : `<div>spec σ_y ≥ ${fmtMPa(spec)} MPa · <span style="color:#c96a5b">missed</span>: casting at `
-          + `${fmtMPa(sig)} MPa ` + dim(`· ${LAB_CAVEATS.missedAsCast.line}`) + `</div>`
-          + learnSlot(LAB_CAVEATS.missedAsCast.learn));
+        ? kv("spec", `σ_y ≥ ${specV} · <b>met</b>: casting at ${sigV}`)
+        : kv("spec", `σ_y ≥ ${specV} · ${warnWord("missed")}: casting at `
+          + `${sigV} ` + quiet(`· ${LAB_CAVEATS.missedAsCast.line}`),
+        learnSlot(LAB_CAVEATS.missedAsCast.learn)));
     }
     return rows.join("");
   }
@@ -644,24 +645,22 @@ export class Lab {
     const rows = sections.map(s => {
       const label = u.fmtLen(u.fromMicron(s.heightVox * this.umAtPour));
       if (s.census.grainCount < 3) {
-        return `<tr><td>${label}</td><td colspan="2" style="color:#8891a0">too few grains `
+        return `<tr><td class="v">${label}</td><td colspan="2" class="q">too few grains `
           + `(${s.census.grainCount})</td></tr>`;
       }
       if (!si) {
-        return `<tr><td>${label}</td><td colspan="2" style="color:#8891a0">no strength constants</td></tr>`;
+        return `<tr><td class="v">${label}</td><td colspan="2" class="q">no strength constants</td></tr>`;
       }
       const dUm = censusDbarUm(s.census, "3d", this.umAtPour);
       if (!(dUm > 0)) {
-        return `<tr><td>${label}</td><td colspan="2" style="color:#8891a0">no census</td></tr>`;
+        return `<tr><td class="v">${label}</td><td colspan="2" class="q">no census</td></tr>`;
       }
       const sig = hallPetch(si, dUm * 1e-6);
-      return `<tr><td>${label}</td><td>${u.fmtLen(u.fromMicron(dUm))}</td><td>${fmtMPa(sig)} MPa</td></tr>`;
+      return `<tr><td class="v">${label}</td><td class="v">${u.fmtLen(u.fromMicron(dUm))}</td><td class="v">${fmtMPa(sig)} MPa</td></tr>`;
     }).join("");
     // the card's own title names it (buildReport); what the table means and
     // why a grain can count twice is the card's learn text
-    return `<table style="width:100%;border-collapse:collapse"><tr style="color:#8891a0">`
-      + `<th style="text-align:left">thickness</th><th style="text-align:left">local d̄</th>`
-      + `<th style="text-align:left">σ_y</th></tr>${rows}</table>`;
+    return `<table class="ptable"><tr><th>thickness</th><th>local d̄</th><th>σ_y</th></tr>${rows}</table>`;
   }
 
   // ------------------------------------------------------------ report
@@ -673,7 +672,7 @@ export class Lab {
     const el = document.createElement("div");
     el.className = "rcard";
     const head = document.createElement("div");
-    head.className = "t";
+    head.className = "psub";
     head.textContent = title;
     el.append(head);
     // what the card is, for learn mode: an empty slot until it is on
@@ -707,28 +706,29 @@ export class Lab {
     const body = this.resultsPanel.querySelector("#foundryResultsBody") as HTMLElement;
     body.innerHTML = "";
     body.insertAdjacentHTML("beforeend",
-      `<div style="color:#8891a0;margin-bottom:8px">${this.setup.program} · ${this.setup.atmosphere} · superheat `
+      `<div class="psetup q">${this.setup.program} · ${this.setup.atmosphere} · superheat `
       + `${uu.known ? uu.kelvin(this.setup.superheat).toFixed(0) + " K" : this.setup.superheat.toFixed(2)}`
       + ` · mold ${uu.known ? uu.fmtC(this.setup.moldT) : this.setup.moldT.toFixed(2)}</div>`);
 
+    // the plot is media: square-edged, no box around it (DESIGN.md 1.3)
     const canvas = document.createElement("canvas");
     canvas.id = "foundryCurve";
     canvas.width = 520; canvas.height = 168;
-    canvas.style.cssText = "width:100%;height:168px;display:block;background:#0b0d11;border:1px solid #1d222a;border-radius:5px;";
     body.append(Lab.rcard("COOLING CURVE", canvas));
 
     // ---- thermal analysis, the way a foundry reads the cast-cup curve. Absolute
     // temperatures in °C, intervals in K; everything the routine could not resolve
-    // honestly is shown as a dash, never a filled-in guess.
+    // honestly is shown as a dash, never a filled-in guess. A spec rail: the
+    // label left in --fg-3, the value right in the tabular mono
     const Tc = (v: number) => uu.known ? uu.fmtC(v) : "T " + v.toFixed(3);
     const dK = (v: number) => uu.known ? uu.fmtK(v) : "ΔT " + v.toFixed(3);
-    const em = "<span style=\"color:#5b636e\">not resolved</span>";
+    const em = `<span class="q">not resolved</span>`;
     const cell = (label: string, val: string) =>
-      `<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:#8891a0">${label}</span><b style="color:#cfd6df">${val}</b></div>`;
+      `<div class="spec__row"><span class="spec__label">${label}</span> <span class="spec__value">${val}</span></div>`;
     const ta2 = [
       cell("liquidus arrest T<sub>L</sub>", ta.liquidus ? Tc(ta.liquidus.T) : em),
       cell("nucleation nadir T<sub>N</sub>", ta.nadir ? Tc(ta.nadir.T) : em),
-      cell("nucleation undercooling ΔT<sub>N</sub>", ta.undercoolN != null ? `<span style="color:#ffb454">${dK(ta.undercoolN)}</span>` : em),
+      cell("nucleation undercooling ΔT<sub>N</sub>", ta.undercoolN != null ? dK(ta.undercoolN) : em),
       cell("recalescence ΔT<sub>r</sub>", ta.recalR != null ? dK(ta.recalR) : em),
       cell("solidus T<sub>S</sub>", ta.solidus ? Tc(ta.solidus.T) : em),
       cell("freezing range T<sub>L</sub>−T<sub>S</sub>", ta.freezeRange != null ? dK(ta.freezeRange) : em),
@@ -738,38 +738,39 @@ export class Lab {
     ].join("");
     const probe = LAB_CAVEATS.probeIsLiquidMean;
     body.append(Lab.rcard("COOLING-CURVE ANALYSIS",
-      `<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px 18px">${ta2}</div>`
-      + ta.notes.map(n => `<div style="color:#8891a0;margin-top:5px">· ${n}</div>${learnSlot(THERMAL_LEARN[n] ?? "")}`).join("")
-      + `<div style="color:#8891a0;margin-top:6px;line-height:1.5">${probe.line}</div>${learnSlot(probe.learn)}`));
+      `<div class="spec spec--tool spec--panel">${ta2}</div>`
+      + ta.notes.map(n => `<div class="pline q">· ${n}</div>${learnSlot(THERMAL_LEARN[n] ?? "")}`).join("")
+      + `<div class="pline q">${probe.line}</div>${learnSlot(probe.learn)}`));
 
     // L4: census, strength and, if a spec was dialed at the pour, the verdict
     const strengthHtml = this.strengthBlock(census, p.scen === 4);
-    if (strengthHtml) body.append(Lab.rcard("AS-CAST STRENGTH", strengthHtml));
+    if (strengthHtml) body.append(Lab.rcard("AS-CAST STRENGTH", `<div class="kv">${strengthHtml}</div>`));
 
     if (sections) body.append(Lab.rcard("SECTION TABLE · THINNEST FIRST", this.sectionTable(sections)));
 
+    // a spec rail: each row's label, one space, then what it says (the gates
+    // read the text, which is the sentence the rows always printed)
+    const fired = this.host.nucFired(), nMax = this.host.nucMax();
     const summaryHtml =
-      `<div>ΔT max (site model) <b style="color:#ffb454">`
-      + `${uu.known ? uu.fmtK(this.host.maxUndercool()) : "ΔT " + this.host.maxUndercool().toFixed(3)}</b></div>`
-      + learnSlot(LAB_CAVEATS.siteModel.learn) +
+      kv("ΔT max (site model)",
+        num(uu.known ? uu.fmtK(this.host.maxUndercool()) : "ΔT " + this.host.maxUndercool().toFixed(3)),
+        learnSlot(LAB_CAVEATS.siteModel.learn)) +
       (this.setup.holdMin > 0
-        ? `<div>refiner <b style="color:#cfd6df">${this.setup.inoculant}</b> sites · hold `
-          + `<b style="color:#cfd6df">${this.setup.holdMin} min</b> → `
-          + `<b style="color:#ffb454">${(this.fadeF * 100).toFixed(0)} %</b> survive `
-          + `(<b style="color:#cfd6df">${this.effInoc}</b> active at pour)</div>`
-          + learnSlot(LAB_CAVEATS.refinerFade.learn)
+        ? kv("refiner", `${num(this.setup.inoculant)} sites · hold ${num(`${this.setup.holdMin} min`)} → `
+          + `${num(`${(this.fadeF * 100).toFixed(0)} %`)} survive (${num(this.effInoc)} active at pour)`,
+        learnSlot(LAB_CAVEATS.refinerFade.learn))
         : "") +
-      `<div>inoculant used <b style="color:#cfd6df">${this.host.nucFired()}</b> of ${this.host.nucMax().toFixed(0)} sites ` +
-      `(${this.host.nucMax() > 0 ? ((this.host.nucFired() / this.host.nucMax()) * 100).toFixed(0) : "0"} %)</div>` +
-      `<div>final solid fraction <b style="color:#cfd6df">${last ? `${(last.fs * 100).toFixed(1)} %` : "—"}</b>` +
-      (p.scen === 4 ? " · 3D census: VOLUME · 3D panels" : "") + `</div>` +
+      kv("inoculant used", `${num(fired)} of ${num(nMax.toFixed(0))} sites `
+        + `(${num(`${nMax > 0 ? ((fired / nMax) * 100).toFixed(0) : "0"} %`)})`) +
+      kv("final solid fraction", num(last ? `${(last.fs * 100).toFixed(1)} %` : "—")
+        + (p.scen === 4 ? " · 3D census: VOLUME · 3D panels" : "")) +
       this.cscLine() +
       this.porosityLine(p.scen === 4);
-    body.append(Lab.rcard("RUN SUMMARY", summaryHtml));
+    body.append(Lab.rcard("RUN SUMMARY", `<div class="kv">${summaryHtml}</div>`));
 
     body.insertAdjacentHTML("beforeend", this.intervened
-      ? `<div style="color:#ffb454">${LAB_CAVEATS.intervened.line}</div>${learnSlot(LAB_CAVEATS.intervened.learn)}`
-      : `<div style="color:#8891a0">conditions held for the whole run</div>`);
+      ? `<div class="pline warnline">${LAB_CAVEATS.intervened.line}</div>${learnSlot(LAB_CAVEATS.intervened.learn)}`
+      : `<div class="pline q">conditions held for the whole run</div>`);
     fillLearnSlots(body);
 
     this.drawCurve(canvas, ta);
@@ -788,7 +789,13 @@ export class Lab {
   private drawCurve(canvas: HTMLCanvasElement, ta: ThermalAnalysis) {
     const ctx = canvas.getContext("2d");
     if (!ctx || this.series.length < 2) return;
-    const W = canvas.width, H = canvas.height, pad = 22;
+    // drawn at the size it is shown, in CSS px (the backing store at the
+    // device's pixel ratio), so the labels are the 11 px the plot spec asks
+    // for rather than a 520 px drawing squeezed into the panel
+    const dpr = devicePixelRatio || 1;
+    const W = canvas.clientWidth || 368, H = canvas.clientHeight || 168, pad = 22;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const ts = this.series.map(s => s.t);
     const tMin = Math.min(...ts), tMax = Math.max(...ts) || 1;
     const temps = this.series.filter(s => s.T > 0).map(s => s.T);
@@ -796,13 +803,15 @@ export class Lab {
     const X = (t: number) => pad + ((t - tMin) / (tMax - tMin || 1)) * (W - pad * 2);
     const Y = (v: number) => H - pad - ((v - yMin) / (yMax - yMin || 1)) * (H - pad * 2);
     ctx.clearRect(0, 0, W, H);
-    ctx.font = "9px ui-monospace,monospace";
-    // liquidus
-    ctx.strokeStyle = "rgba(255,180,84,0.5)";
+    // chrome from the tokens (tick labels Inter 11 px in --fg-3, reference
+    // lines --rule-strong); the curve is data, from the plot palette
+    ctx.font = `400 11px ${token("--font-body")}`;
+    // liquidus: a reference line, chrome
+    ctx.strokeStyle = token("--fg-4");
     ctx.setLineDash([4, 4]);
     ctx.beginPath(); ctx.moveTo(pad, Y(1)); ctx.lineTo(W - pad, Y(1)); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = "#8891a0";
+    ctx.fillStyle = token("--fg-3");
     ctx.fillText("liquidus", pad + 3, Y(1) - 4);
 
     // the smoothed derivative trace on its own zeroed axis (right half of the
@@ -811,17 +820,18 @@ export class Lab {
       const ds = ta.deriv.map(d => d.dTdt);
       const dMax = Math.max(1e-6, ...ds.map(Math.abs));
       const Yd = (v: number) => H - pad - ((v / (2 * dMax)) + 0.5) * (H - pad * 2);
-      ctx.strokeStyle = "rgba(120,130,145,0.45)";
+      ctx.strokeStyle = token("--rule-strong");
       ctx.lineWidth = 1;
       ctx.beginPath();
       ta.deriv.forEach((d, i) => { const x = X(d.t), y = Yd(d.dTdt); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
       ctx.stroke();
-      ctx.fillStyle = "#6b7280";
+      ctx.fillStyle = token("--fg-3");
       ctx.fillText("dT/dt", W - pad - 30, Yd(0) - 3);
     }
 
-    // the cooling curve itself
-    ctx.strokeStyle = "#56d4dd";
+    // the cooling curve itself (data: the palette's first slot, the same
+    // color as the probe's curve in the analysis column)
+    ctx.strokeStyle = series(0);
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     let started = false;
@@ -832,19 +842,22 @@ export class Lab {
     }
     ctx.stroke();
 
-    // the extracted landmarks
-    const mark = (lm: { t: number; T: number } | null, colour: string, label: string, dy: number) => {
+    // the extracted landmarks: each dot is labeled (T_L, T_N, T_G, T_S), so
+    // it needs no hue of its own: --fg dots on the trace, --fg-2 labels (a
+    // red nadir would read as an error)
+    const mark = (lm: { t: number; T: number } | null, label: string, dy: number) => {
       if (!lm) return;
-      ctx.fillStyle = colour;
+      ctx.fillStyle = token("--fg");
       ctx.beginPath(); ctx.arc(X(lm.t), Y(lm.T), 3.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = token("--fg-2");
       ctx.fillText(label, Math.min(W - pad - 42, X(lm.t) + 5), Y(lm.T) + dy);
     };
-    mark(ta.liquidus, "#ffd089", "T_L", -5);
-    mark(ta.nadir, "#ff6b6b", "T_N", 12);
-    mark(ta.growth, "#8fe38f", "T_G", -5);
-    mark(ta.solidus, "#9aa4b2", "T_S", 12);
+    mark(ta.liquidus, "T_L", -5);
+    mark(ta.nadir, "T_N", 12);
+    mark(ta.growth, "T_G", -5);
+    mark(ta.solidus, "T_S", 12);
 
-    ctx.fillStyle = "#6b7280";
+    ctx.fillStyle = token("--fg-3");
     ctx.fillText("melt temperature vs time", pad, 12);
   }
 

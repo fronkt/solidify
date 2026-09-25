@@ -1,10 +1,11 @@
 // Floating SECTION PLANE panel — the metallographer's saw. Appears with the
 // SLICE lens: orientation presets, depth, free tilt/turn rotation, a CT-sweep
-// toggle (serial sectioning; pair with ⏺ rec for the classic lab video), and
+// toggle (serial sectioning; pair with rec for the classic lab video), and
 // the cut-face style select (the etch cabinet).
 
 import { LearnLayer, onLearnChange, type Caveat } from "./learn";
 import { panelHintFor, panelText } from "./learn/panels";
+import { setPressed } from "./design/tool";
 
 export interface SliceHost {
   getSliceAxis(): number; setSliceAxis(a: number): void;
@@ -45,9 +46,9 @@ export class SlicePanel {
 
   constructor(private host: SliceHost) {
     this.root = document.getElementById("slicePop")!;
+    // the header row in the panel spec's nav style (app/index.html #slicePop .t)
     const h = document.createElement("div");
     h.className = "t";
-    h.style.cssText = "display:flex;align-items:center;gap:6px";
     h.textContent = "SECTION PLANE";
     this.root.append(h);
     this.root.append(this.learn.explain(h, "about the section plane", panelText("SECTION PLANE")).body);
@@ -140,7 +141,7 @@ export class SlicePanel {
   }
 
   private syncNow() {
-    this.axisBtns.forEach((b, i) => b.classList.toggle("on", i === this.host.getSliceAxis()));
+    this.axisBtns.forEach((b, i) => setPressed(b, i === this.host.getSliceAxis()));
     this.offInp.value = String(this.host.getSliceOff());
     this.offVal.textContent = `${(this.host.getSliceOff() * 100).toFixed(0)}%`;
     this.sweepChk.checked = this.host.getSliceSweep();

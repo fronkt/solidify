@@ -1,7 +1,13 @@
 import type { StatsResult } from "./sim";
 import type { StatsResult3D } from "./sim3d";
+import { token } from "./design/tool";
 
-/** ring-buffer sparklines + grain-size histogram (2D and TRUE-3D modes) */
+/**
+ * Ring-buffer sparklines + grain-size histogram (2D and TRUE-3D modes), each
+ * on its own plate (app/index.html .spark). One series per card and a title
+ * that names it, so no hue is needed to tell them apart: the lines are --fg
+ * and the histogram's bars --fg-2, read from tokens.css.
+ */
 export class Hud {
   private root: HTMLElement;
   private series: Record<string, number[]> = { fs: [], grains: [], dt: [] };
@@ -20,7 +26,7 @@ export class Hud {
 
   private mkPanel(title: string): HTMLCanvasElement {
     const box = document.createElement("div");
-    box.className = "spark";
+    box.className = "spark plate";
     const t = document.createElement("div");
     t.className = "t";
     t.textContent = title;
@@ -73,17 +79,21 @@ export class Hud {
       if (this.series[k].length > this.cap) this.series[k].shift();
     // resolution is passed in from the solver — units.ts owns the anchor
     const diams = s.grains.map(g => Math.cbrt((6 * g.vox) / Math.PI) * umPerVox);
-    this.spark("fs", "#ffb454", 1);
-    this.spark("dt", "#e06c60");
-    this.spark("grains", "#b394e0");
+    this.sparks();
     this.hist(diams);
   }
 
   private drawAll(s: StatsResult | null) {
-    this.spark("fs", "#ffb454", 1);
-    this.spark("dt", "#56d4dd");
-    this.spark("grains", "#b394e0");
+    this.sparks();
     this.hist(s?.diamsUm ?? []);
+  }
+
+  /** the three lines; fraction solid on its fixed 0..1 scale */
+  private sparks() {
+    const line = token("--fg");
+    this.spark("fs", line, 1);
+    this.spark("dt", line);
+    this.spark("grains", line);
   }
 
   private spark(key: string, color: string, fixedMax?: number) {
@@ -117,7 +127,7 @@ export class Hud {
       counts[b]++;
     }
     const max = Math.max(...counts);
-    ctx.fillStyle = "#8aa1c0";
+    ctx.fillStyle = token("--fg-2");
     const bw = w / bins;
     counts.forEach((c, i) => {
       const bh = (c / max) * (h - 4);

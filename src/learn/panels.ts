@@ -73,7 +73,7 @@ export const PANEL_LEARN: readonly LearnEntry[] = [
       + "Depth, tilt and turn move the cut, and the style sets how its face is drawn.",
     hints: {
       // one line in the 252px popup (verify-rail counts its lines)
-      "CT sweep": "sweeps the cut; pair with ⏺ rec",
+      "CT sweep": "sweeps the cut; pair with rec",
     },
   },
   {
@@ -218,7 +218,8 @@ export const LAB_CAVEATS = {
     learn: "A refiner held above the liquidus settles and clumps, so fewer sites are left when it is poured.",
   },
   intervened: {
-    line: "⚠ conditions changed mid-run: a demonstration, not a measurement",
+    // no glyph: the report prints it as a warning line, whose "!" is CSS
+    line: "conditions changed mid-run: a demonstration, not a measurement",
     learn: "A physics setting changed while the metal was freezing, so the run no longer matches the setup "
       + "it reports. Pour again without touching the dials to measure.",
   },

@@ -3,6 +3,8 @@ import { PhaseFigureView } from "./phasediagram";
 import { ELEMENTS, admit, probeWt, tablePos, type AdmitTier } from "./elements";
 import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange, bindLearnToggle } from "./learn";
 import { COMPOSER_CAVEATS as CC, composerHint, composerHintKeys, composerText } from "./learn/composer";
+import { tabbables } from "./design/panel";
+import { setPressed } from "./design/tool";
 
 // The alloy composer: pick a base metal, add solutes in wt% (live at%
 // conversion), read the real dilute-limit chemistry (liquidus shift, growth
@@ -30,13 +32,6 @@ function hintSlot(label: string): string {
   const t = composerHint(label);
   if (t) hintsBound.add(label);
   return t ? `<div class="lrnHint" data-lrn="${t.replace(/"/g, "&quot;")}" style="display:none"></div>` : "";
-}
-
-/** what Tab can reach inside `root`, in DOM order, displayed and enabled */
-function tabbables(root: Element | null): HTMLElement[] {
-  if (!root) return [];
-  return [...root.querySelectorAll<HTMLElement>("button, input, select, textarea, a[href], [tabindex]")]
-    .filter(e => e.tabIndex >= 0 && !(e as HTMLButtonElement).disabled && e.getClientRects().length > 0);
 }
 
 /**
@@ -163,7 +158,7 @@ export class Composer {
   private picked: string | null = null;
   /** learn mode's "i" buttons and the header note's paragraph; slots in HTML strings refill on a toggle */
   private learn = new LearnLayer(() => this.applyLearn());
-  /** the learn text for a line this modal raised itself (the ✕ of a removed key) */
+  /** the learn text for a line this modal raised itself (a removed key's refusal) */
   private extraLearn: Record<string, string> = {};
   /** pourable pairs over all bases, counted once from the classifier for the empty reason panel */
   private pourableCount: { n: number; total: number } | null = null;
@@ -185,9 +180,10 @@ export class Composer {
     // repaint on every change, `bindLearnToggle`).
     this.overlay.innerHTML = `
       <div class="card" role="dialog" aria-modal="true" aria-labelledby="composerTitle">
-        <div class="chead"><h3 id="composerTitle">ALLOY COMPOSER</h3><button class="lrnToggle" type="button" aria-pressed="false" title="learn mode: explanations in this panel">learn</button><button class="x" aria-label="close">✕</button></div>
+        <div class="chead"><h3 id="composerTitle">ALLOY COMPOSER</h3><button class="lrnToggle" type="button" aria-pressed="false" title="learn mode: explanations in this panel">learn</button><button class="x" type="button" aria-label="close the alloy composer">close</button></div>
         <div class="cnote">${CC.coefficients.line}</div>
         <div class="bases"></div>
+        <div class="famous"></div>
         <div class="rows"></div>
         <div class="addrow"><select aria-label="solute to add"></select><button class="add">+ add element</button></div>
         <div class="gridwrap">
@@ -196,10 +192,9 @@ export class Composer {
           <div class="glegend"></div>
           <div class="gwhy"></div>
         </div>
-        <div class="famous"></div>
         <div class="derived"></div>
         <div class="figwrap"></div>
-        <div class="cfoot"><button class="pour">⚗ pour</button><button class="cancel">cancel</button></div>
+        <div class="cfoot"><button class="pour" type="button">pour</button><button class="cancel" type="button">cancel</button></div>
       </div>`;
     document.body.append(this.overlay);
 
@@ -292,7 +287,7 @@ export class Composer {
   /**
    * One learn paragraph once per modal. The figure's notes carry the same
    * learn texts the readout above them already shows (each `clamp:` note is
-   * the readout's ⚠ line's text, and the shaded-band note's is `regimeSource`,
+   * the readout's clamp line's text, and the shaded-band note's is `regimeSource`,
    * both from one producer), so with learn on 1045 printed its peritectic and
    * clamp paragraphs twice. The producers and their gates stay as they are;
    * here, after every fill, a filled slot whose text appeared earlier in the
@@ -388,6 +383,11 @@ export class Composer {
       s.textContent = label;
       legend.append(s);
     }
+    // the filled cells: the solutes already in the mix, then the base itself
+    const inMix = document.createElement("span");
+    inMix.dataset.in = "1";
+    inMix.textContent = "in this mix";
+    legend.append(inMix);
     const self = document.createElement("span");
     self.dataset.self = "1";
     self.textContent = "base metal";
@@ -521,8 +521,9 @@ export class Composer {
     // v8 U1c: each advisory is its one-line readout on screen, with its
     // explanation in an empty learn slot under it
     const hazard = a.vapour?.band === "FUME" || a.vapour?.band === "BOILS";
+    // a fume or a boil is a hazard: a warning line, its "!" CSS, never a hue
     const vap = a.vapour && a.vapour.band !== "NEGLIGIBLE"
-      ? `<div class="gp">${hazard ? "⚠ " : ""}${esc(a.vapour.line)}</div>${learnSlot(a.vapour.text)}` : "";
+      ? `<div class="gp${hazard ? " warnline" : ""}">${esc(a.vapour.line)}</div>${learnSlot(a.vapour.text)}` : "";
     // no size factor for the base's own cell: "Zn in zinc: Δr 0.0 %" compares
     // an element with itself and says nothing
     const size = a.size && a.reason !== "IS-THE-BASE"
@@ -675,7 +676,7 @@ export class Composer {
     // stale rather than informative.
     this.extraRefusals = [];
     this.extraLearn = {};
-    this.baseBtns.forEach(b => b.classList.toggle("on", b.dataset.base === this.mix.base));
+    this.baseBtns.forEach(b => setPressed(b, b.dataset.base === this.mix.base));
 
     // solute rows
     this.rowsEl.innerHTML = "";
@@ -748,15 +749,15 @@ export class Composer {
     const base = BASES[this.mix.base];
     const shift = d.dTL === 0 ? "0 K" : `${d.dTL > 0 ? "+" : "−"}${Math.abs(d.dTL).toFixed(1)} K`;
     // a readout row: label, value, and the label's learn hint (an empty slot)
-    const row = (label: string, value: string, style = "") =>
-      `<div class="drow"><span>${label}</span><b${style}>${value}</b></div>${hintSlot(label)}`;
+    const row = (label: string, value: string, cls = "") =>
+      `<div class="drow"><span>${label}</span><b${cls ? ` class="${cls}"` : ""}>${value}</b></div>${hintSlot(label)}`;
     // The freezing range is the number calibrated mode actually measures
     // temperature in, so it is printed here beside the mapping it is built
     // from, with the regime that decided it. A refusal prints as a refusal.
     const RANGE_WORD: Record<string, string> = { "DILUTE": "dilute", "ISOMORPHOUS": "isomorphous", "PAST-REFERENCE": "extrapolated" };
     const rangeRow = d.dT0 != null
       ? row("freezing range ΔT₀", `${d.dT0.toFixed(1)} K · ${RANGE_WORD[d.dT0Regime] ?? d.dT0Regime.toLowerCase()}`)
-      : row("freezing range ΔT₀", "refused", ' style="color:#c96a5b"');
+      : row("freezing range ΔT₀", "refused", "status--warn");
     // THE TWO COLUMNS (v7.1 P3), and the whole milestone is the gap between
     // them. The left column is read off the cited invariants; the right is what
     // sim.ts grows, which is one solid phase and has always been one solid
@@ -767,11 +768,15 @@ export class Composer {
         <div><span>EQUILIBRIUM LEAVES</span><b>${esc(d.phasesEquilibrium.join(" · "))}</b></div>
         <div><span>SOLVER GROWS</span><b>${esc(d.phasesGrown.join(" · "))}</b></div>
       </div>${hintSlot("EQUILIBRIUM LEAVES")}
-      ${row(`regime · ${esc(base.symbol)}–${esc(d.dominant ?? "")}`, d.regime.toLowerCase().replace(/-/g, " "))}
+      ${row(`regime · ${esc(base.symbol)}–${esc(d.dominant ?? "")}`, d.regime.toLowerCase().replace(/-/g, " "), "w")}
       ${d.invariantFraction ? row("freezes at T_inv · lever / Scheil", `${pct(d.invariantFraction.lever)} / ${pct(d.invariantFraction.scheil)}`) : ""}` : "";
-    // every caveat line keeps its learn text beside it, from derive()'s own record
-    const cav = (mark: string, line: string, learn: string) =>
-      `<div class="clamp">${mark} ${esc(line)}</div>${learnSlot(learn)}`;
+    // every caveat line keeps its learn text beside it, from derive()'s own
+    // record. A refusal and a clamp are warnings (.clamp leads with a CSS
+    // "!"); a phase the solver does not grow is a note (.cinfo), which its
+    // own words already name ("… not grown: …"). No glyphs: the ✕ / ◇ / ⚠
+    // marks were three symbols for two kinds of line
+    const cav = (kind: "clamp" | "cinfo", line: string, learn: string) =>
+      `<div class="${kind}">${esc(line)}</div>${learnSlot(learn)}`;
     this.outEl.innerHTML = `
       <div class="aname">${d.name}${d.totalWt === 0 ? " (pure)" : ""}</div>
       ${row("liquidus shift ΔT_L", shift)}
@@ -781,10 +786,10 @@ export class Composer {
       ${row("solver mapping · dimensionless", `c₀ ${p.c0!.toFixed(2)} · m ${p.mLiq!.toFixed(2)} · k ${p.kPart!.toFixed(2)} · D ${p.dSol!.toFixed(2)}`)}
       <div class="src">${esc(d.dT0Line)}</div>${learnSlot(d.dT0Source)}
       ${d.regimeLine ? `<div class="src">${esc(d.regimeLine)}</div>${learnSlot(d.regimeSource)}` : ""}
-      ${d.refusals.map(r => cav("✕", r, d.learn[r] ?? "")).join("")}
-      ${this.extraRefusals.map(r => cav("✕", r, this.extraLearn[r] ?? "")).join("")}
-      ${d.notGrown.map(n => cav("◇", n, d.learn[n] ?? "")).join("")}
-      ${d.clamps.map(c => cav("⚠", c, d.learn[c] ?? "")).join("")}`;
+      ${d.refusals.map(r => cav("clamp", r, d.learn[r] ?? "")).join("")}
+      ${this.extraRefusals.map(r => cav("clamp", r, this.extraLearn[r] ?? "")).join("")}
+      ${d.notGrown.map(n => cav("cinfo", n, d.learn[n] ?? "")).join("")}
+      ${d.clamps.map(c => cav("clamp", c, d.learn[c] ?? "")).join("")}`;
     fillLearnSlots(this.outEl);
     this.dedupeLearn();
   }

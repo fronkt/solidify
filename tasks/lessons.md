@@ -665,3 +665,19 @@ clauses, none of them the reason.
 anything about its output, and report that clause separately. A precondition that
 fails silently turns one cause into N symptoms, and the N symptoms are what you
 will spend the afternoon on.
+
+## A name in a gate's item list is not a surface the gate saw
+
+v8 D2's `RAIL-ACHROMATIC` listed `thermbar` among the chrome it reads, and TESTING.md
+said the THERM legend had been "added to the set". No sample ever switched to the THERM
+lens, so the legend was `display: none` in every sample and read nothing; the gate went
+10/10 green. The same gate read colors through `getComputedStyle`, which cannot reach a
+slider's `::-webkit-slider-thumb`: a planted amber thumb, the old rail's most common
+amber, gave 0 bad elements while a screenshot of the rail held 966 hued pixels. And the
+phone's 270 px rail and first screen were never measured at all, where the grid pills
+split "bridgma/n" and the head plate sat under the toggles.
+
+**Rule.** For every surface a gate claims, name the state that puts it on screen and
+require it was read (a per-item floor, not a list entry). When the property lives
+somewhere the probe's API cannot see (pseudo-elements, canvas, compositing), read the
+pixels, and prove the read on a planted defect.

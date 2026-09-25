@@ -5,15 +5,19 @@
  * second panel needed them the choice was copy or share, and 55 lines of
  * duplicated form plumbing is how two panels start disagreeing about what a
  * slider looks like. They are deliberately dumb: build a row, wire the input,
- * return the element — no state, no styling opinions beyond the house palette.
+ * return the element, no state. Their look is the design system's: the row,
+ * label and value classes live in app/index.html (.fbrow), the slider,
+ * select and switch in tokens.css's tool section, so no color is written
+ * here.
  */
+import { paintRange } from "./design/tool";
 
 export function field(label: string): HTMLElement {
   const row = document.createElement("label");
-  row.style.cssText = "display:flex;align-items:center;gap:8px;color:#8891a0;";
+  row.className = "fbrow";
   const l = document.createElement("span");
+  l.className = "fblab";
   l.textContent = label;
-  l.style.cssText = "flex:0 0 118px;";
   row.append(l);
   return row;
 }
@@ -24,11 +28,11 @@ export function range(label: string, min: number, max: number, step: number, val
   const inp = document.createElement("input");
   inp.type = "range";
   inp.min = String(min); inp.max = String(max); inp.step = String(step); inp.value = String(val);
-  inp.style.cssText = "flex:1;min-width:60px;";
+  paintRange(inp);
   const out = document.createElement("span");
+  out.className = "fbval";
   const show = (v: number) => (fmt ? fmt(v) : v.toFixed(digits));
   out.textContent = show(val);
-  out.style.cssText = "flex:0 0 58px;text-align:right;color:#cfd6df;";
   inp.addEventListener("input", () => {
     const v = parseFloat(inp.value);
     out.textContent = show(v);
@@ -41,7 +45,6 @@ export function range(label: string, min: number, max: number, step: number, val
 export function select(label: string, opts: string[], val: string, set: (v: string) => void): HTMLElement {
   const row = field(label);
   const sel = document.createElement("select");
-  sel.style.cssText = "flex:1;background:#12151a;color:#cfd6df;border:1px solid #262b33;border-radius:4px;padding:2px 4px;";
   for (const o of opts) {
     const op = document.createElement("option");
     op.value = o; op.textContent = o;

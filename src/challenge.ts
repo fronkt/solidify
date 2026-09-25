@@ -6,6 +6,7 @@ import type { StatsResult } from "./sim";
 import { stream } from "./rng";
 import { LearnLayer, onLearnChange } from "./learn";
 import { panelText } from "./learn/panels";
+import { kv, num, panelHead, pill } from "./design/panel";
 
 export interface ChallengeHost {
   swapGrid(n: number): void;
@@ -58,58 +59,44 @@ export class Challenge {
     this.host.syncUI();
   }
 
-  private mkPanel(html: string): HTMLElement {
+  /** a challenge panel: the header row (CHALLENGE, the stage in quiet
+   *  text, the "i"), then `html`; placed and sized by .modepanel
+   *  (app/index.html), so it can reach neither the rail nor the transport bar */
+  private mkPanel(stage: string, html: string): HTMLElement {
     this.panel?.remove();
     const p = document.createElement("div");
-    // placed and sized by .modepanel (app/index.html), so it can reach neither
-    // the rail nor the transport bar
-    p.className = "modepanel";
-    p.style.cssText =
-      "--cap:560px;" +
-      "background:rgba(15,17,21,0.94);border:1px solid #262b33;border-radius:8px;padding:14px 18px;" +
-      "backdrop-filter:blur(6px);z-index:7;font-size:12px;line-height:1.6;";
-    p.innerHTML = html;
+    p.className = "modepanel plate tpanel";
+    const meta = document.createElement("span");
+    meta.textContent = stage;
+    const head = panelHead("CHALLENGE", null, meta);
+    this.learn = new LearnLayer(() => this.learn.apply());
+    const ex = this.learn.explain(head, "about the challenge", panelText("challenge"), meta);
+    p.append(head, ex.body);
+    p.insertAdjacentHTML("beforeend", html);
     document.getElementById("app")!.append(p);
     this.panel = p;
-    // every challenge panel opens with its title line: the "i" goes on it
-    const head = p.firstElementChild as HTMLElement;
-    head.style.display = "flex";
-    head.style.alignItems = "center";
-    head.style.gap = "8px";
-    this.learn = new LearnLayer(() => this.learn.apply());
-    head.after(this.learn.explain(head, "about the challenge", panelText("challenge")).body);
     this.learn.apply();
     return p;
   }
 
-  private btn(parent: Element, label: string, fn: () => void, accent = false) {
-    const b = document.createElement("button");
-    b.textContent = label;
-    if (accent) b.className = "accent";
-    b.addEventListener("click", fn);
-    parent.append(b);
-    return b;
-  }
-
   private showBrief() {
     // the player's controls are the rail's own, named as the rail prints them
-    const p = this.mkPanel(`
-      <div style="letter-spacing:.2em;color:#56d4dd;font-size:10px;margin-bottom:6px">CHALLENGE · YOU vs OPTIMIZER</div>
-      <div>target <b style="color:#ffb454">ASTM G ${this.target}</b> · time limit t ${TIME_LIMIT} (model time)</div>
-      <div style="color:#8891a0">your controls: <b>cooling rate</b>, <b>inoculant n_max</b> · then the optimizer: ${AI_CASTINGS} castings</div>
-      <div class="nav" style="display:flex;gap:8px;margin-top:10px"></div>`);
-    const nav = p.querySelector(".nav")!;
-    this.btn(nav, "▶ start", () => this.beginPlayer(), true);
-    this.btn(nav, "cancel", () => this.stop());
+    const p = this.mkPanel("you vs optimizer", `<div class="kv">`
+      + kv("target", `ASTM ${num(`G ${this.target}`)} · time limit ${num(`t ${TIME_LIMIT}`)} (model time)`)
+      + kv("your controls", "<b>cooling rate</b>, <b>inoculant n_max</b>")
+      + kv("then", `the optimizer: ${num(AI_CASTINGS)} castings`)
+      + `</div><div class="pactions pnav"></div>`);
+    const nav = p.querySelector(".pnav")!;
+    nav.append(pill("▶ start", () => this.beginPlayer(), "accent"), pill("cancel", () => this.stop()));
   }
 
   private beginPlayer() {
     this.phase = "player";
     this.host.armPlayerRound(0.7);
-    this.mkPanel(`
-      <div style="letter-spacing:.2em;color:#56d4dd;font-size:10px;margin-bottom:6px">CHALLENGE · YOUR CASTING</div>
-      <div>target <b style="color:#ffb454">G ${this.target}</b> · steer <b>cooling rate</b>, <b>inoculant n_max</b>
-      <span id="chTime" style="color:#6b7280"></span></div>`);
+    this.mkPanel("your casting", `<div class="kv">`
+      + kv("target", `${num(`G ${this.target}`)} · steer <b>cooling rate</b>, <b>inoculant n_max</b>`)
+      + kv("casting", `<span id="chTime" class="v">t 0.00 / ${TIME_LIMIT}</span>`)
+      + `</div>`);
   }
 
   /** fed from the main stats poll */
@@ -117,7 +104,7 @@ export class Challenge {
     if (!this.active || this.phase !== "player") return;
     const t = this.host.simTime();
     const el = this.panel?.querySelector("#chTime");
-    if (el) el.textContent = ` · t ${t.toFixed(2)} / ${TIME_LIMIT} · solid ${(s.fracSolid * 100).toFixed(0)} %`;
+    if (el) el.textContent = `t ${t.toFixed(2)} / ${TIME_LIMIT} · solid ${(s.fracSolid * 100).toFixed(0)} %`;
     if (s.fracSolid > 0.92 || t >= TIME_LIMIT) void this.finishPlayer();
   }
 
@@ -138,17 +125,17 @@ export class Challenge {
     const youWin = this.playerScore <= aiScore;
     const fmt = (g: number | null, sc: number) =>
       g !== null ? `G ${g.toFixed(1)} (|ΔG| ${sc.toFixed(2)})` : "no grains measured";
-    const p = this.mkPanel(`
-      <div style="letter-spacing:.2em;color:#56d4dd;font-size:10px;margin-bottom:6px">CHALLENGE · VERDICT</div>
-      <div style="display:flex;gap:26px;margin:6px 0 4px">
-        <div>YOU<br/><b style="color:${youWin ? "#ffb454" : "#c9cdd4"}">${fmt(this.playerG, this.playerScore)}</b></div>
-        <div>OPTIMIZER<br/><b style="color:${youWin ? "#c9cdd4" : "#ffb454"}">${fmt(aiG, aiScore)}</b></div>
-      </div>
-      <div style="color:${youWin ? "#ffb454" : "#e06c60"};font-weight:600">
-        ${youWin ? "you win" : "optimizer wins"}</div>
-      <div class="nav" style="display:flex;gap:8px;margin-top:10px"></div>`);
-    const nav = p.querySelector(".nav")!;
-    this.btn(nav, "⚔ rematch", () => { this.active = false; this.panel?.remove(); this.panel = null; this.start(); }, true);
-    this.btn(nav, "close", () => this.stop());
+    // the two results as spec rows, the winner's bright and the other's
+    // quiet: the verdict is said in words and brightness, never a hue
+    const res = (win: boolean, s: string) => win ? `<b class="v">${s}</b>` : `<span class="v q">${s}</span>`;
+    const p = this.mkPanel("verdict", `<div class="kv">`
+      + kv("you", res(youWin, fmt(this.playerG, this.playerScore)))
+      + kv("optimizer", res(!youWin, fmt(aiG, aiScore)))
+      + `</div><div class="pverdict">${youWin ? "you win" : "optimizer wins"}</div>`
+      + `<div class="pactions pnav"></div>`);
+    const nav = p.querySelector(".pnav")!;
+    nav.append(
+      pill("rematch", () => { this.active = false; this.panel?.remove(); this.panel = null; this.start(); }, "accent"),
+      pill("close", () => this.stop()));
   }
 }
