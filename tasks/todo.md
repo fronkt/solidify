@@ -5037,6 +5037,10 @@ frames only. Recommendation: B staged, A first.
                 of the square (A6 item 1). Note: budget_bytes moved in timeline.json, so path.json's
                 timeline_sha1 is stale: the next render run stops until path_plan.py is re-run.
               - Full suite alone 17:39: 29/29 scripts green, exit 0 (verify-out/suite-a5-2026-09-25.log).
+              - SHIPPED 2026-09-25: Frank declined the re-render ("I think it's fine. Deploy to production");
+                main fast-forwarded 45b4526 -> e3ee7c0 after a preview smoke test (four pages + assets 200,
+                cache headers as specified); production dpl_6ddPtHHorn6PJZwqhqWeuyrCWpEj READY; rollback
+                = dpl_5hgESefpAUQVDAGRa4o1qzJRp3PN (45b4526).
               - Tooling: headless Chrome 153's close can hang for minutes here (the process exits,
                 crashpad lingers); run-tests.mjs has no per-script timeout.
       - [ ] A6 the Cycles render (main session, resumable, ~6 h), encode, gates, commit.
