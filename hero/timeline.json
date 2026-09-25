@@ -22,5 +22,5 @@
  "poster": 777,
  "growth": {"from": 0, "to": 275, "t": [0.03, 1.0], "law": "linear"},
  "warmth": {"from": 276, "to": 338, "law": "cosine"},
- "budget_bytes": {"1200": 54386090, "600": 15862642, "poster": 409600}
+ "budget_bytes": {"1200": 35848192, "900": 25821184, "720": 20381696, "poster": 86016}
 }

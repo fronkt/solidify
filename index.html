@@ -51,20 +51,21 @@
 
     /* ---------- ACT 0 · hero ----------
        One RENDERED dendrite (a Blender model, not a solver frame; the caption
-       says so and links the recipe), scrubbed by scroll from pre-rendered
+       says so and links the recipe), played by scroll from pre-rendered
        frames in public/hero/. src/hero.ts owns it and never touches WebGPU.
        Figure 03's layout, dark: the render on the left, ONE copy column on
-       the right. The opening, the three chapters and the tour's spec rail all
+       the right. The opening, the five chapters and the tour's spec rail all
        live in that column and replace each other as the page scrolls.
        Two layouts:
-       - STILL, the default (no JS, reduced motion, Save-Data, frames that fail
-         to load): the poster left, the opening and the numbered feature rail
-         right, the chapters in a row of three below;
+       - STILL, the default (no JS, reduced motion, Save-Data, no AVIF, frames
+         that fail to load): the poster left, the opening and the numbered
+         feature rail right, the chapters in rows of three below;
        - LIVE (html.hero-live, set by the gate above): the section is pinned,
          the frame is a square of side --S at the left gutter, and the copy
          column is laid over the space to its right.
        The section's background is --bg, the value hero.ts paints behind each
-       frame, so the frame's masked edge fades into the page. */
+       frame and the frames' own background, so the frame's masked edge fades
+       into the page. */
     #heroAct {
       --gut: var(--page-x);
       --colgap: clamp(32px, 5vw, 96px);
@@ -79,18 +80,24 @@
     .heroOpen { grid-column: 8 / 13; grid-row: 1; }
     .heroTour { grid-column: 8 / 13; grid-row: 2; }
     .heroTour:not(:has(.callout)) { display: none; }
+    /* the five chapters in two rows of thirds: grow, branch, cool; pull back, end */
     .chap { grid-row: 3; padding-top: var(--s-8); border-top: 1px solid var(--rule); }
     .chap[data-chap="grow"] { grid-column: 1 / 5; }
-    .chap[data-chap="cool"] { grid-column: 5 / 9; }
-    .chap[data-chap="end"] { grid-column: 9 / 13; }
+    .chap[data-chap="branch"] { grid-column: 5 / 9; }
+    .chap[data-chap="cool"] { grid-column: 9 / 13; }
+    .chap[data-chap="pullback"] { grid-column: 1 / 5; grid-row: 4; }
+    .chap[data-chap="end"] { grid-column: 5 / 9; grid-row: 4; }
     .heroFrame { position: relative; aspect-ratio: 1;
-      /* A thin 6% fade at the square's four sides, so an arm the close-ups
-         cut at the edge does not end in a hard line. Nothing else: no
+      /* A thin 6% fade at the square's four sides (18% on the right, live;
+         below), so an arm the close-ups cut at the edge does not end in a
+         hard line. Nothing else: no
          vignette, no ellipse (DESIGN.md: flat, no gradients on media). A mask
          only; the canvas pixels the gates compare are untouched. */
       -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent),
         linear-gradient(to bottom, transparent, black 6%, black 94%, transparent);
       -webkit-mask-composite: source-in; mask-composite: intersect; }
+    /* the poster is a <picture> (AVIF, else WebP); the wrapper takes no box */
+    .heroFrame picture { display: contents; }
     #heroStill { display: block; width: 100%; height: 100%; }
     #heroCanvas { display: none; }
     /* the page's honesty line: nav style (13 px), not a tag, and an underline
@@ -141,6 +148,8 @@
        line here, in a slot of fixed height so the rows never move */
     .railNote { display: none; }
     #scrollCue { display: none; }
+    /* the way past a long pin: live only (the still scrolls like a page) */
+    .heroSkip { display: none; }
 
     /* STILL, stacked: one column, the poster first. The same query as the
        live layout's stacked one below and as STACKED in hero.ts. */
@@ -184,7 +193,16 @@
     }
     .hero-live #heroStage { position: absolute; inset: 0; margin: 0; max-width: none; display: block; }
     .hero-live .heroMedia { position: absolute; left: var(--fx); top: var(--fy); width: var(--S); }
-    .hero-live .heroFrame { width: var(--S); height: var(--S); }
+    /* Live, the fade on the RIGHT side is 18%: from the end of the cool
+       chapter into the pull-back (frames 305-750) the render's framing runs
+       the crystal off that side, the one facing the copy, and a 6% fade
+       leaves a straight wall of cut metal there. The anchors stay left of it
+       (verify-hero-manifest.mjs holds them out of every side's fade). A
+       page-side softening only: the fix is a reframed render (tasks/todo.md,
+       H v4 A6). */
+    .hero-live .heroFrame { width: var(--S); height: var(--S);
+      -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 82%, transparent),
+        linear-gradient(to bottom, transparent, black 6%, black 94%, transparent); }
     .hero-live #heroStill { display: none; }
     .hero-live #heroCanvas { display: block; width: 100%; height: 100%; }
     .hero-live .heroCaption { position: absolute; left: 0; top: calc(100% + var(--s-3)); margin: 0; z-index: 6; white-space: nowrap; }
@@ -204,6 +222,18 @@
        column's right edge is that inset) */
     .hero-live #scrollCue { display: block; position: absolute; z-index: 6; left: calc(100cqw - var(--gut)); top: calc(var(--fy) + var(--S) + var(--s-3));
       translate: -100% 0; font: 400 var(--t-nav)/1.4 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg-3); }
+    /* "Skip to the instrument": where the scroll cue was (gone by then), in the
+       caption's style, a link to the act after the hero. Shown by hero.ts once
+       the pin is 1,000 px along (.is-shown), until the end chapter arrives with
+       its own link on; outside that it is still in the tab
+       order and shows when focused, so a keyboard reaches it at once. The 3 px
+       padding makes a 24 px target (WCAG 2.5.8). */
+    .hero-live .heroSkip { display: block; position: absolute; z-index: 6; left: calc(100cqw - var(--gut)); top: calc(var(--fy) + var(--S) + var(--s-3) - 3px);
+      translate: -100% 0; padding: 3px 0; font: 400 var(--t-nav)/1.4 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav);
+      color: var(--fg-3); text-decoration-color: currentColor; white-space: nowrap;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s, color 0.15s; }
+    .hero-live .heroSkip.is-shown, .hero-live .heroSkip:focus-visible { opacity: 1; pointer-events: auto; }
+    .hero-live .heroSkip:hover { color: var(--fg); }
     @media (max-width: 759px), (orientation: portrait) {
       .hero-live #heroAct { --S: min(100cqw - 2 * var(--gut), 48cqh, 640px);
         --fx: calc((100cqw - var(--S)) / 2); --fy: calc(var(--header-h) + var(--s-2));
@@ -212,9 +242,19 @@
         .hero-live #heroAct { --S: round(down, min(100cqw - 2 * var(--gut), 48cqh, 640px), 1px);
           --fx: round(down, (100cqw - var(--S)) / 2, 1px); }
       }
-      .hero-live .heroCopy { top: calc(var(--fy) + var(--S) + var(--s-12)); height: auto; bottom: var(--s-4); align-items: start;
+      /* the column starts --s-5 under the skip link's box (its second line
+         of 1.4 x --t-nav, plus its 3 px padding), so the three small gray
+         lines do not read as one block */
+      .hero-live .heroCopy { top: calc(var(--fy) + var(--S) + var(--s-3) + var(--t-nav) * 2.8 + var(--s-1) + 3px + var(--s-5)); height: auto; bottom: var(--s-4); align-items: start;
         --hero-t: min(var(--t-display), 11.5cqw, 6.2cqh); }
-      .hero-live #scrollCue { left: calc(var(--fx) + var(--S)); top: calc(var(--fy) + var(--S) + var(--s-3)); }
+      /* the caption, the scroll cue and the skip link sit on the copy
+         column's edges, so the stack under the (centered) frame has one left
+         edge; on a phone the frame spans the column, so they are its edges too */
+      .hero-live .heroCaption { left: calc(var(--cx) - var(--fx)); }
+      .hero-live #scrollCue { left: calc(var(--cx) + var(--cw)); top: calc(var(--fy) + var(--S) + var(--s-3)); }
+      /* the caption fills the line under a phone's frame: the skip link takes
+         the next one, left, under it (the copy column starts below both) */
+      .hero-live .heroSkip { left: var(--cx); translate: none; top: calc(var(--fy) + var(--S) + var(--s-3) + var(--t-nav) * 1.4 + var(--s-1) - 3px); }
     }
 
     /* ---------- the acts below the hero: media on one side, a spec column
@@ -407,20 +447,26 @@
   </header>
 
   <main>
-    <!-- ACT 0 · hero: one rendered dendrite, scrubbed by scroll (src/hero.ts).
-         The chapter blocks are keyed to public/hero/manifest.json's chapters;
-         the five feature rows of the rail are built by hero.ts from its
+    <!-- ACT 0 · hero: one rendered dendrite, played by scroll (src/hero.ts).
+         The chapter blocks are cued by hero/timeline.json's chapters; the five
+         feature rows of the rail are built by hero.ts from the manifest's
          features. -->
     <section class="act" id="heroAct">
       <div id="heroStage">
         <figure class="heroMedia">
           <div class="heroFrame">
-            <!-- lazy: in the live layout this is display: none and is not fetched
-                 (the canvas loads its own poster); the still layouts show it in the
-                 first screen, so it loads at once there, and without JS lazy
-                 loading is off and it loads as a plain image -->
-            <img id="heroStill" src="hero/poster-1200.webp" loading="lazy" width="1200" height="1200"
-                 alt="A rendered dendrite, a cubic metal crystal with a satin finish, on a dark background: six main arms along the axes of a cube, each lined with rows of side branches, the longest carrying smaller branches of their own." />
+            <!-- the poster is the sequence's last frame, at stable names (the
+                 manifest revalidates, so this never changes per encode): AVIF where
+                 the browser decodes it, else WebP. lazy: in the live layout the img
+                 is display: none and is not fetched (the canvas draws the frames);
+                 the still layouts show it in the first screen, so it loads at once
+                 there, and without JS lazy loading is off and it loads as a plain
+                 image -->
+            <picture>
+              <source type="image/avif" srcset="hero/poster-1200.avif" />
+              <img id="heroStill" src="hero/poster-1200.webp" loading="lazy" width="1200" height="1200"
+                   alt="A rendered dendrite, a cubic metal crystal with a satin finish, on a dark background: six main arms along the axes of a cube, each lined with rows of side branches, the longest carrying smaller branches of their own." />
+            </picture>
             <canvas id="heroCanvas" role="img" aria-label="A rendered metal dendrite that grows from a small seed into six branching arms and turns as you scroll."></canvas>
           </div>
           <a class="heroCaption" href="https://github.com/fronkt/solidify/blob/main/hero/README.md">Rendered model, not a simulation frame.</a>
@@ -440,10 +486,20 @@
             <h2 class="chapHead">It grows in branches.</h2>
             <div class="chapSide"><p class="chapBody">A metal crystal freezing out of its melt does not stay a ball. It sends arms out along the directions its lattice prefers.</p></div>
           </div>
+          <div class="chap heroBlock" data-chap="branch">
+            <p class="kicker">Branching</p>
+            <h2 class="chapHead">Arms grow on arms.</h2>
+            <div class="chapSide"><p class="chapBody">Side arms sprout along each main arm, and smaller arms branch off the side arms, all along the same cube axes.</p></div>
+          </div>
           <div class="chap heroBlock" data-chap="cool">
             <p class="kicker">Cooling</p>
-            <h2 class="chapHead">It coarsens as it cools.</h2>
-            <div class="chapSide"><p class="chapBody">While melt remains between the arms, thin ones melt back and thick ones grow. The slower it cools, the coarser the spacing it keeps.</p></div>
+            <h2 class="chapHead">Then it cools.</h2>
+            <div class="chapSide"><p class="chapBody">The render stops growing here. In a real casting the arms keep thickening and coarsening while melt remains.</p></div>
+          </div>
+          <div class="chap heroBlock" data-chap="pullback">
+            <p class="kicker">The whole crystal</p>
+            <h2 class="chapHead">One seed, one crystal.</h2>
+            <div class="chapSide"><p class="chapBody">Every arm grew from the first speck, and all of them share one lattice.</p></div>
           </div>
           <div class="chap heroBlock" data-chap="end">
             <p class="kicker">The instrument</p>
@@ -462,6 +518,7 @@
         <svg id="heroMarks" aria-hidden="true"></svg>
       </div>
       <div id="scrollCue" aria-hidden="true">SCROLL</div>
+      <a id="heroSkip" class="heroSkip" href="#lensAct">Skip to the instrument</a>
     </section>
 
     <!-- ACT 1 · one casting, ten lenses: the live melt right, its spec column

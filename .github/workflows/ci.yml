@@ -33,8 +33,11 @@ jobs:
       - run: node scripts/verify-regimes.mjs
       - run: node scripts/verify-elements.mjs
       - run: node scripts/verify-composer-grid.mjs
-      # the landing hero's pre-rendered frame set against its contract: manifest
-      # schema, anchors, files on disk, WebP headers, byte budget
+      # the landing hero's pre-rendered frame sets against their contract
+      # (docs/HERO-DELIVERY.md), ten checks: the manifest's schema against
+      # hero/timeline.json, anchors, per-step blend flags, segments, files on
+      # disk, AVIF/WebP headers, the content hash, the byte budget, vercel.json's
+      # cache headers, and the page's keys to the manifest
       - run: node scripts/verify-hero-manifest.mjs
       # the plot core (src/plot): ticks, layout, unit titles, the CSV's
       # provenance, the liquidus per solver, the HUD's gap and recording, and

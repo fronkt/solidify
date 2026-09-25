@@ -303,13 +303,21 @@ the active item only. No other weights.
     one copy column on the right.
   - The copy column holds: kicker (nav style, `--fg-3`), display title, body-l in `--fg-2`
     (at most 36ch), CTAs.
-  - The chapters (grow, cool, end) replace each other in that same column as you scroll.
-  - During the tour, the right column becomes a spec rail of the five features: `01 TIP`,
-    `02 PRIMARY ARM ⟨100⟩`, `03 λ₂`, `04 TERTIARY ARM`, `05 NECKED ROOT`, each with its one
-    line of copy. The active row is `--fg` and the rest `--fg-3`. A 1 px `--fg-3` leader runs
-    from the active row to its anchor on the render.
-  - The caption sits under the render in nav style `--fg-3`.
-  - Stacked (narrow screens): render on top, copy below.
+  - The chapters (grow, branch, cool, pull back, end) replace each other in that same column as
+    you scroll, one at a time.
+  - During the tour, the right column becomes a spec rail of the five features, numbered in the
+    manifest's order: `01 PRIMARY ARM ⟨100⟩`, `02 TIP`, `03 SECONDARY ARM SPACING λ₂`,
+    `04 TERTIARY ARM`, `05 NECKED ROOT`, each with its one line of copy. The active row is `--fg`
+    and the rest `--fg-3`. A 1 px `--fg-3` leader runs from the active row to its anchor on the
+    render.
+  - The caption sits under the render in nav style `--fg-3`; the skip link, in the same style, sits
+    level with it at the page's right inset, from 1,000 px into the pin until the end chapter.
+  - The render's square fades 6% at its edges (18% at the right, live, where the tour's framing
+    runs the crystal off the side facing the copy).
+  - Stacked (narrow screens): render on top, copy below; the caption and the skip link sit on the
+    copy column's left edge, with `--s-5` between the skip link and the column.
+  - The still (no JS, reduced motion, a short screen): all five marks on the poster, each number
+    at the first spot clear of the others.
 - **Lens act, melt-types act, TRUE 3D act.**
   - Live canvas on one side (square-edged, no card), a spec column on the other.
   - The spec column holds: kicker, display-2 name, one line of body-l, then a spec rail.

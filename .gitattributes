@@ -1,0 +1,7 @@
+# The hero's frame contract is digested byte for byte: hero/timeline.json's
+# sha1 (over the LF file) is recorded by path_plan.py, render_sequence.py, the
+# encoder and the manifest, and the manifest's own text is part of the frame
+# directory's content hash. A core.autocrlf checkout would turn them CRLF and
+# the digests with them, so they are LF on every checkout.
+hero/*.json text eol=lf
+public/hero/manifest.json text eol=lf

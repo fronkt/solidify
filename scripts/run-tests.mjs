@@ -63,9 +63,15 @@ const SUITE = [
   ["scripts/verify-3d.mjs", String(PORT)],
 ];
 
+// The suite runs every check: a subset switch left in the shell (verify-hero's
+// HERO_ONLY and its opt-in) never reaches the gates.
+const SUITE_ENV = { ...process.env };
+delete SUITE_ENV.HERO_ONLY;
+delete SUITE_ENV.HERO_ONLY_OK;
+
 function run(cmd, args, opts = {}) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(cmd, args, { stdio: "inherit", shell: true, ...opts });
+    const child = spawn(cmd, args, { stdio: "inherit", shell: true, env: SUITE_ENV, ...opts });
     child.on("exit", (code) => (code === 0 ? resolvePromise() : reject(new Error(`${cmd} ${args.join(" ")} exited ${code}`))));
     child.on("error", reject);
   });

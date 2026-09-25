@@ -4983,9 +4983,62 @@ frames only. Recommendation: B staged, A first.
               `--cache-only` (~50 min), a re-plan on the meshes (~6 min) + `--anchors-only`, the whole preview
               (~25 min), then the page dev flag after D1. Cycles probe: 30-35 s growth, 31-45 s frozen a frame ->
               ~7-8 h for 778 frames.
-      - [ ] A5 page engine (after D1 lands in hero.ts): spring playhead, display-rate decode,
+      - [x] A5 page engine (after D1 lands in hero.ts): spring playhead, display-rate decode,
             blend on slow steps only, set pick by CSS width x min(DPR, 2) + 720 set, segments +
             content-hashed dir + immutable cache headers; verify-hero rewritten, not loosened.
+            - 2026-09-25 plan (Frank: "go ahead" = encode, then the page, then the suite, one at a
+              time). The first encode (1200 + 600 WebP staging set) holds every composite in RAM
+              (5.5 GB at 778 frames): the cause of the 09-24 low-memory kill. 09-25 08:07 rerun
+              alone: exit 0 in 4.6 min, 1200 set 36.23 MiB (q76), 600 set 15.04 MiB (q72, stepped
+              down to fit 15.13), posters 74 / 24 KiB; contact sheet checked by eye (poster 777
+              shows all five). Workflow wf_d441a2f4-f35:
+              - [x] Measure: AVIF vs WebP at matched quality on the v4 masters (bytes AND Chrome
+                    decode rate per set), the hero square's CSS size at common viewports -> the
+                    sets; per-step crystal-masked flow at 1200 for all 777 steps (the blend gate).
+              - [x] Contract: manifest v3 (sets, format, segments with byte offsets, a sparse
+                    first-pass segment, per-step flow, timeline digest), `public/hero/manifest.json`
+                    short-cached -> `public/hero/<hash>/` immutable (vercel.json).
+              - [x] Encoder: streams frame by frame (RAM bounded), writes the contract, byte-budget
+                    report; verify-hero-manifest.mjs rewritten for v4 (#0a0a0a, 778, feature order,
+                    segment index, hash = content, header rule) + planted defects.
+              - [x] Page: hero.ts imports hero/timeline.json; spring playhead (no cap), display-rate
+                    decode ahead in the scroll direction, blend only where flow < ~3 px, set pick by
+                    CSS width x min(DPR, 2), segments, no poster cross-fade (last frame = poster),
+                    spec rail in manifest order, branch + cool copy true to the render;
+                    verify-hero.mjs rewritten (fling gate, set pick, blend-only-on-slow-steps).
+              - [x] Review (engine, gates, page + copy) -> fix -> targeted gates; then the full
+                    suite alone in the main session; commit code and frames separately.
+              - 2026-09-25 result (wf_d441a2f4-f35; the fix agent died once on a network error mid-run,
+                resumed from its tree state). Delivery: AVIF only (Pillow 12.2 / libavif 1.4.1 aom,
+                speed 4), sets 720 q62 / 900 q60 / 1200 q60 = 17.6 / 22.4 / 31.1 MiB, each >= WebP
+                q76 on all 48 sampled frames by crystal-masked SSIM; pick = smallest set >= 0.9 x
+                CSS width x min(DPR, 2) (every measured viewport got 1200 before); no AVIF -> still.
+                Chrome decode, 4 in flight: 266 / 522 / 623 fps. Blend: no single px threshold holds
+                on v4 (ghosting varies ~3x with the picture); blend[i] judged per step on its own
+                frames (<= 5 % of crystal pixels off > 24/255 and p99 <= 48 at f = 0.5): 108 of 777
+                steps, mostly tour (flow-only fallback 1.59 px, not the ideation's ~3). Manifest v3
+                (docs/HERO-DELIVERY.md): 26 segment files per set (sparse first pass + 25), streamed,
+                dir `public/hero/v4-718f48b9ef/` = content hash, vercel.json immutable there and
+                must-revalidate on manifest + posters; .gitattributes pins hero/*.json and the
+                manifest to LF (autocrlf broke the sha1). Encoder streams (RAM bounded), pool,
+                resumable. Page: timeline.json imported, spring playhead, decode ahead, blend, set
+                re-pick after layout settles, retry with backoff, streaming first frame (frame 0 at
+                ~0.7 s on 9 Mbit), no fetch or cache off screen, still on short landscape, last
+                frame = poster, rail in manifest order, six chapters (cool copy: "The render stops
+                growing here. In a real casting the arms keep thickening and coarsening while melt
+                remains."), skip link from 1,000 px to the end chapter. 24 review findings: 21
+                fixed, 0 rejected, 2 deferred (below). Gates: typecheck, build, 15/15 CI scripts,
+                verify-hero 18/18, verify-hero-manifest 10/10, verify-landing-acts 9/9.
+                Shots `solidify-hero-out/a5_shots/final/`.
+              - Deferred, need a re-render (Frank's call): (1) RIGHT-EDGE-CUT: frames ~305-750 run
+                off the square's right edge, the side facing the copy; the page fades 18 % there as
+                a stopgap, still a visible wall at 1440 in the tour. Fix = re-frame those frames in
+                path_plan.py + Cycles re-render (~3.5 h). (2) FIRST-SCREEN-SEED: frame 0 fills 0.14
+                of the square (A6 item 1). Note: budget_bytes moved in timeline.json, so path.json's
+                timeline_sha1 is stale: the next render run stops until path_plan.py is re-run.
+              - Full suite alone 17:39: 29/29 scripts green, exit 0 (verify-out/suite-a5-2026-09-25.log).
+              - Tooling: headless Chrome 153's close can hang for minutes here (the process exits,
+                crashpad lingers); run-tests.mjs has no per-script timeout.
       - [ ] A6 the Cycles render (main session, resumable, ~6 h), encode, gates, commit.
             (2026-09-24: 726 frames now; a 4-frame probe at 1200 / 96 spp measured growth 22 s build
             + 33 s render at t 0.79, frozen 30-33 s wide and 50 s at the f/4 close-up, 4.3 min setup:

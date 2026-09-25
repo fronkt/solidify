@@ -509,41 +509,61 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   "…") and 30–130 characters, and the figure must print exactly that one. Both detectors are run
   on a fixture first, and liveness requires computed and refused vapor lines, six refusal
   kinds, all four clamps, all four ΔT₀ regimes and the cursor, chord and dashed-line notes.
-- **`verify-hero-manifest.mjs`** (browser-free, v8, in CI) — the landing hero's pre-rendered
-  frame set against the contract that the Blender renderer and the page were both written to:
-  180 square, opaque WebP frames on `#0a0b0d` at 1200 and 600 px, a poster at each size, and
-  `public/hero/manifest.json`. Six checks, each in its own try/catch. `HERO-MANIFEST-SCHEMA`
-  holds the top-level keys, the four chapters (seed 0–11, grow 12–95, cool 96–119, tour
-  120–179) and the five feature windows to the contract exactly, because the page's chapter text
-  and callouts are keyed to them; contiguity, windows inside the tour and windows that do not
-  overlap are asserted on their own as well, so the message names the property that broke. It
-  also requires the poster frame to be a tour frame (the contract's "a tour frame in which all
-  five features are visible"; the placeholder named frame 119, in the cool chapter, until this
-  clause, and now names 120, which has the same camera and the same anchors).
-  `HERO-MANIFEST-ANCHORS` requires 180 rows per feature in the right shape (a point is
-  `[x, y, visible]`, a pair `[x1, y1, x2, y2, visible]`), every coordinate in [0, 1] and every
-  flag 0 or 1, each feature visible for at least half of its own window, no visible in-window
-  anchor within 0.06 of the frame's edge (the page's edge fade ramps over the outer 6 %, and the
-  dot is not faded with it), and all five of the poster's anchors visible, since reduced motion
-  shows every callout at once, and equal to its frame's own rows. `HERO-FILES`
-  requires both sizes' 180 frames and both posters on disk and nothing else in the frame
-  directories, so a stale 181st frame fails. `HERO-WEBP-HEADERS` parses every file's RIFF header
-  by hand (VP8, VP8L and VP8X): the RIFF length equal to the file length, the size's own square
-  dimensions, no alpha, no animation. `HERO-BUDGET` holds each set's total under its budget,
-  12 MiB and 3.5 MiB. `HERO-PAGE-KEYS` ties the page to the manifest by id: every feature has
-  words in `src/hero.ts`, the page has a block for each chapter it keys to, and the no-JS
-  poster is the 1200 file. Each was made to fail once on a scratch copy of the tree, and each
-  failed on its own clause: the grow/cool boundary moved by one frame, a coordinate set to 1.2,
-  a poster anchor flagged invisible, a stray `f180.webp`, a truncated frame, a frame with real
-  alpha (a fully opaque alpha channel is dropped by the encoder and correctly passes), two
-  4 MB frames, a renamed copy key; and, added after review, the poster moved to frame 119, a
-  poster anchor that disagrees with its frame's row, and a visible anchor 0.04 from the edge
-  (0.07 correctly passes). Writing it caught the placeholder generator emitting off-frame
-  coordinates as the tour panned. A manifest whose `source` says PLACEHOLDER
-  (`hero/make_placeholder_frames.py`, the stand-in until the render lands) honors the contract
-  and passes locally with a notice on every run, but FAILS `HERO-MANIFEST-SCHEMA` when
-  `process.env.CI` is set, so a push to main or a PR cannot carry the stand-ins toward a deploy
-  (`HERO_ALLOW_PLACEHOLDER=1` lets one run through on purpose).
+- **`verify-hero-manifest.mjs`** (browser-free, v8, rewritten for manifest v3 in hero v4 A5, in CI) — the landing
+  hero's frame sets against `docs/HERO-DELIVERY.md`: `public/hero/manifest.json` and the two stable posters, which are
+  revalidated, and one content-hashed directory of AVIF segments, which is immutable. `hero/timeline.json` is the
+  frame contract, so N, the chapters and the windows are read from it rather than repeated here. Ten checks, each in
+  its own try/catch. `HERO-MANIFEST-SCHEMA`: the keys, version 3, and N, px per frame, hold, chapters and features
+  equal to the timeline, whose sha1 must equal the manifest's digest (defined over the LF file; a CRLF checkout is
+  named); background `#0a0a0a`; the chapter ids and the feature order primary, tip, lambda2, tertiary, neck; windows
+  inside the tour, holds inside their windows, no overlap; the poster is the last frame; the sets are 1200 / 900 /
+  720 AVIF; and the PLACEHOLDER rule below. `HERO-MANIFEST-ANCHORS` (was 180 rows): N rows per feature in the right
+  shape (a point is `[x, y, visible]`, a pair `[x1, y1, x2, y2, visible]`), coordinates in [0, 1], flags 0 or 1, each
+  feature visible for at least half its window and now for every frame of its hold, no visible in-window anchor
+  inside the page's edge fade (0.06 at the left, top and bottom, 0.18 at the right since the A5 review), and the
+  poster's five anchors visible and equal to the last frame's rows. `HERO-STEPS` (new): the per-step flow and blend gate, N-1 of each, flow finite and >= 0, blend 0 or 1, at
+  least one step blending and one not, measured for this timeline. `HERO-SEGMENTS` (new): per set, the first-pass
+  segment holds exactly every 16th frame plus 0 and N-1; the contiguous segments cover 0..N-1 exactly once, in order,
+  K frames each (the last may be short), one K for every set; every index runs from 0 without gaps to its file's
+  length; each first-pass slice is byte-identical to its frame's contiguous slice; the mean segment is 0.5-1.5 MB.
+  `HERO-FILES` (was both sizes' 180 frames): `public/hero` holds the manifest, the two posters and the one hashed
+  directory and nothing else, the directory holds exactly the files the manifest names, and the posters' sha256 are
+  the manifest's. `HERO-IMAGE-HEADERS` (was `HERO-WEBP-HEADERS`): every slice parsed from its ISOBMFF boxes by hand:
+  brand `avif` (not the `avis` sequence brand), boxes that tile the slice exactly (truncation), `ispe` the set's own
+  square size, three channels, no alpha plane; the AVIF poster the same at 1200; the WebP poster from its RIFF header
+  as before (length, 1200 square, no alpha, no animation). `HERO-HASH` (new): the directory name is `v<timeline
+  version>-` plus the first 10 hex of sha256 over the set files in manifest order, then the manifest with `"dir":""`.
+  `HERO-BUDGET` (was the 12 MiB / 3.5 MiB constants): each set's bytes on disk equal the manifest's and fit
+  `timeline.budget_bytes` (one key per shipped set plus `poster`, no stale keys), and each poster fits the poster
+  budget. `HERO-CACHE-HEADERS` (new): `vercel.json`'s header rules, read with a small path-to-regexp reader that
+  refuses syntax it does not know, give every file of the hashed directory `public, max-age=31536000, immutable` and
+  the manifest and the posters `public, max-age=0, must-revalidate`, with one Cache-Control rule each and never
+  `immutable` on a stable name. `HERO-PAGE-KEYS`: every feature has words in `src/hero.ts`; `index.html` has one block
+  for each chapter `src/hero.ts` keys to (its `chap("<id>", ...)` calls: grow, branch, cool, pullback, end) and no
+  block it never shows (A5 review: the gate required only grow, cool and end); the `<picture>` holding `#heroStill`
+  has `hero/poster-1200.webp` in its `<img>` and exactly one `<source>`, `hero/poster-1200.avif` with no `media`, its
+  attributes read in any order (A5 review: a regex tied to attribute order let a `<source>` with `srcset` before
+  `type`, or a second one ahead of the right one, through). Planted in the review round, run on a copy
+  (`solidify-hero-out/v4/a5/fix/plant_manifest.py`): the pullback or the branch block renamed, an extra block, a
+  wrong AVIF source written srcset-first, a second source with a media query ahead of the right one, the right one
+  with a media query, and a wrong `<img>` src written src-first each fail; the right source and `<img>` with their
+  attributes reordered pass. `HERO_VERIFY_ROOT=<dir>` runs the gate on a copy of the files. That is how 52
+  planted defects were run (hero v4 A5, 2026-09-25), each failing its own check: version 2; v3's background; 777
+  frames; another timeline's digest (also `HERO-STEPS`); the timeline edited after the encode; the timeline in CRLF;
+  tip before primary; the poster at 776; a hold outside its window; the 720 set relabelled 600 (also the headers and
+  the budget); PLACEHOLDER under CI (and passing locally with the notice); a poster anchor hidden, or off its frame's
+  row; a coordinate of 1.2; an anchor 0.04 from the edge; a feature hidden for one frame of its hold; 776 anchor
+  rows; 776 blend steps; a negative flow; every step blending; a first pass without frame 777; frame 40 dropped;
+  frame 32 listed twice; K = 16 on one set; a first-pass slice holding the next frame; an index offset off by one
+  (also the headers); a truncated segment (also the headers, the hash and the budget); an overwritten `ftyp`; an
+  `ispe` of 1199; an `avis` brand; a slice with an alpha plane; a WebP poster with alpha; the directory renamed; a
+  segment edited without renaming; a 900 budget under the set; a stale 600 budget; a poster budget under the poster;
+  set bytes that disagree with the disk; v3's `1200/` left in place; a dead staging folder; a stray file in the
+  directory; a deleted segment (five gates fail); a stale poster; the manifest made immutable; the directory rule
+  naming `v3-`; a `/hero/:path*` catch-all; no `vercel.json`; a renamed copy key; a moved no-JS poster; and an AVIF
+  `<source>` naming another poster. A manifest whose `source` says PLACEHOLDER honors the contract and passes locally
+  with a notice on every run, but FAILS `HERO-MANIFEST-SCHEMA` when `process.env.CI` is set, so a push to main or a
+  PR cannot carry stand-ins toward a deploy (`HERO_ALLOW_PLACEHOLDER=1` lets one run through on purpose).
 - **`verify-plot.mjs`** (browser-free, v8 U2, in CI) — the plot core in `src/plot/`, which every
   figure in the instrument is laid out, titled and exported by: a pure `layoutFigure` (data to
   pixels, no browser), one units resolver for every axis title (`quantity.ts`, over
@@ -832,125 +852,96 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   focus override, the 320 px pill rule and the chips' `role` removed (A11Y: focus left at 20 px
   under the header on all three pages, the four links at opacity 0, the pill ending at 333 px,
   no group role). LENS-SPEC, FOOTER and COPY passed in that run.
-- **`verify-hero.mjs`** (v8) — the landing hero driven by scrolling, against the 5199 server
-  like the rest of the suite. It removes `navigator.gpu` on every page it opens: the hero must
-  not need WebGPU (`landing.ts` boots it above the GPU gate), and without it the lens and
-  materials sims stay off. Thirteen checks, each in its own try/catch. `HERO-BOOT` (live mode with
-  no WebGPU, the `heroAct` pin and its length; before the first scroll only the skeleton, frame
-  0 and every 8th frame and the last, 24 files, and after it every frame; the set chosen by the
-  rule, the smallest set at least as wide as the canvas in device px, which at the gate's
-  1440 × 900 is the 1200 set for the 701 px canvas of v8 D1's two-column layout).
-  `HERO-NONBLANK` (canvas pixels that differ from `#0a0b0d`, the frames' own background, at pin
-  progress 0, 0.5 and 0.95). `HERO-FRAME-FOLLOWS` scrolls forward through
-  all four chapters (seed, grow, cool, tour) and then back, requires the drawn frame to be
-  round(p × 179), and then compares PIXELS: the gate fetches and decodes the expected file
-  itself, draws it the way the page does, and requires the canvas to match it (mean difference
-  under 0.1; measured 0.001 to 0.033 on the old 835 px canvas and 0.000 to 0.068 on the 701 px
-  one) while a frame six away, the control, does not (over 0.5 and over three times the match).
-  This check found a real layout defect in D1: a frame side and offset in fractional px gave a
-  701 × 702 backing store, so every frame was letterboxed by half a pixel and the gate measured
-  0.145 at the last frame, where the close-up runs crystal to the edge; the page now rounds both
-  to whole px. The difference is taken over the region where either picture
-  has crystal, not the whole canvas, which would divide it by the background's share: at the
-  seed stop that made the control 0.599 against the 0.5 floor, and the region makes it 1.867.
-  An index that moved without the picture moving cannot pass. `HERO-CALLOUTS` (re-pointed in
-  v8 D1, when the five labels flanking the frame became one spec rail in the copy column)
-  requires, at the visible frame nearest each window's middle, that feature's rail row lit and
-  every other row unlit, the lit row's title in `--fg` and the other four in `--fg-3` (computed
-  colors), its mark shown with its dot within 1.5 px of the manifest anchor mapped through the
-  canvas's drawn rect by the gate's own mapping, a leader whose last point sits just short of the
-  row's left edge and level with it, the row right of the frame and on screen, with its copy as
-  written, and no other mark shown; then, three frames outside its window on either side, the
-  row unlit and the mark hidden; at every frame the manifest marks occluded, the mark and leader
-  hidden while the row stays lit; and in the hold nothing lit or shown. The occluded clause does
-  not depend on the render occluding anything: the gate also flips one interior frame's visible
-  flag to 0 in the page's own manifest object and requires the mark hidden there and fully shown
-  on the frames either side, and requires at least one occluded frame tested overall.
-  `HERO-CHAPTERS` requires each chapter's kicker, heading, body and CTA fully shown in its
-  chapter and fully hidden elsewhere, the rail shown in the tour and only there, the copy as
-  written (exact case), and none of the wording the physics review retracted anywhere in the
-  hero's text ("locked in": the arms keep coarsening as it cools; "one grain of the metal":
-  false for steel, whose solidification grains transform on cooling), nor "steel" in the
-  poster's alt, which says satin. The reveal is held to the restrained one D1 put in place of
-  the line splitter's blur-in: no chapter is split into lines, and a walk through the grow
-  chapter's arrival in 12 px steps finds no filter on any part at any step and the heading at
-  partial opacity at least once, so a fade and not a cut. On a second page with the manifest
-  held back 2.5 s, no chapter heading is visible and the end chapter's link EXISTS and is not
-  hit-testable before the text timeline exists, since all the blocks share one place (it is
-  found by the selector `HERO-CTA` uses; D1 had left this clause asking for `a.primary`, a class
-  the link no longer carries, so it found nothing and could not fail). `HERO-CTA` hit-tests
-  rather than checking visibility: the opening's two links (`Take the tour`,
-  `Read the science`) reachable at the top and unreachable mid-growth, the end's one link
-  reachable in the hold, the header's `Open the instrument` pill reachable at all three stops,
-  and exactly one filled pill on screen at each of them (every link or button whose own
-  background is the `--fg` fill, effectively visible): DESIGN.md's one primary action per view.
-  `HERO-CAPTION` (present, linked to `hero/README.md`, directly under the render, its top within
-  48 px of the frame's bottom edge and starting in the frame's left half, on screen and
-  hit-testable at progress 0, 0.5 and 0.95). `HERO-REDUCED` (under `prefers-reduced-motion`: no
-  pin, the section scrolls with the page, the poster, all five rows and marks on the poster's
-  anchors, each mark numbered like its row, the chapter text stacked and not split).
-  `HERO-NOJS` (JavaScript off: the 1200 poster as a plain `<img>` with alt text).
-  `HERO-MOBILE` (390 × 844 at DPR 3: the 1200 set, by the rule; at every stop of the pin and in
-  the still layout, no horizontal overflow of the document AND no rendered hero text, link, rail
-  row, nav item or menu control past either edge of the screen, measured on the elements and on
-  their text's own extent, because `#heroAct` clips its overflow and `#topnav` is fixed, so
-  neither ever reaches the document's `scrollWidth`; the frame centered with the heading under
-  it and the body under the heading; at the visible frame nearest each window's middle, that
-  feature's row lit AND shown (the rail block faded in: the rows carry no opacity of their own
-  since D1, the `.heroTour` block does), titles only in the rows, its line in the slot under
-  the rail with the slot's effective opacity, the product up its ancestors, above 0.99, and its
-  mark numbered like the row with no leader across the crystal). `HERO-FIT` (the screens the
-  other checks do not visit: at 1024 × 768, where the live copy column is about 400 px wide, and
-  1366 × 657, a 1366 × 768 laptop under its browser chrome, the opening, the rail at every tour
-  stop and the end chapter each shown and wholly inside the copy column, which is the frame's
-  height beside it, and on screen, with no hero text or link past an edge; at 844 × 390, a phone
-  held sideways, the unpinned still with both opening links reachable once scrolled to; at
-  320 × 640, the width WCAG 1.4.10 reflows to, the fixed header's wordmark, MENU and pill on
-  screen with the pill's name still "Open the instrument"). `HERO-FALLBACK` (the still the code
-  promises, served broken three ways by request interception: no manifest gives the poster alone
-  with no pin left behind; frames 100 onward missing from both sets fails each set by count,
-  tries the 600 set after the 1200, and lands on the still with its five numbered marks on the
-  poster's anchors and nothing of live mode left, no extra rows, no split text, no inline styles
-  on the opening; the whole 1200 set missing runs live on the 600 set, its pixels checked like
-  `HERO-FRAME-FOLLOWS`). `HERO-NO-ERRORS` (no
-  page error, console error or failed same-origin request on any page it opened, except the
-  404s and aborted fetches `HERO-FALLBACK` causes on purpose).
-  Each was made to fail once by breaking the thing it guards, and each failed on its own clause:
-  the pin switched off; the frame never drawn; the target one frame ahead; the anchor mapping
-  shifted 6 px; the cool text never leaving; the end CTA's `pointer-events` removed; the caption
-  relinked; reduced motion booted live; the no-JS poster pointed at the 600 file; the stacked
-  heading rule deleted, and separately a 480 px block after the hero; a thrown error. The
-  clauses added after review were broken the same way, each on a copy restored by hash, and
-  each failed only its own check: the whole set fetched at once (`HERO-BOOT`); frame failures
-  recorded but never acted on (`HERO-FALLBACK`); the pre-timeline hiding rule deleted
-  (`HERO-CHAPTERS`); the phone's chapter body pushed 120 px past the right edge, which left the
-  document's overflow at 0 (`HERO-MOBILE`, on the leaves alone); the visible flag ignored
-  (`HERO-CALLOUTS`); the fallback leaving the live callouts in place (`HERO-FALLBACK`); and the
-  old `dev < 900 ? 600 : 1200` size rule (`HERO-BOOT`, and `HERO-FALLBACK`, because that rule
-  never runs out of sets and so never reaches the still). The clauses v8 D1 re-pointed were
-  broken the same way, on copies restored by hash, in two runs, and only the checks aimed at
-  failed, each on its own clause: the lit row set to `--fg-3` (`HERO-CALLOUTS`, tone), the
-  leader ending 60 px short of its row (leader), the row unlit wherever its anchor is hidden
-  (the synthetic flip); "locked in" put back into the rail's kicker (`HERO-CHAPTERS`,
-  retracted), the blur-in restored on the chapter text (reveal), "steel" back in the poster's alt
-  (alt); the end CTA made a second filled pill (`HERO-CTA`, two filled in the hold); the caption
-  60 px under the frame (`HERO-CAPTION`); the phone's line slot never filled (`HERO-MOBILE`);
-  the still's marks drawn without numbers (`HERO-REDUCED`, and `HERO-FALLBACK`, whose frames
-  case lands on the same still). `HERO-PAGE-KEYS` in `verify-hero-manifest.mjs`, re-pointed to
-  read `chap` as one class among several, failed on the cool block renamed `chapter`. The D1
-  review's clauses were broken in one run, restored by hash, and only their checks failed, each
-  on its own clause: the pre-timeline hiding rule deleted (`HERO-CHAPTERS`: headings visible,
-  the end link reachable); `.heroTour` held at opacity 0 on phones (`HERO-MOBILE`: every row
-  unshown, the line slot at opacity 0); and in `HERO-FIT`, the old 14.5em title track with the
-  narrow-column rule switched off (1024 × 768: the rail runs to 759 px in a column ending at
-  641, the review's measurement), the head gate's height query removed (844 × 390 boots live),
-  and the 320 px pill rule removed (the pill ends at 333 px). Two
-  things its first runs taught. The scroll helper returned before ScrollTrigger had SEEN the
-  new scroll, when a stale progress equals a stale scrub and every clause after it is trivially
-  true, so it now waits for the trigger's progress to match the requested position first. And
-  `HERO-CHAPTERS` found a real defect rather than a test one: the cool chapter is 24 frames
-  (~430 px) and its text was fully legible for only ~105 px of that; the reveals were tightened
-  until it holds from about frame 104 to frame 114.
+- **`verify-hero.mjs`** (v8, rewritten for hero v4 A5) — the landing hero driven by scrolling, against the 5199
+  server like the rest of the suite (`node scripts/verify-hero.mjs [outDir] [port]`; `HERO_ONLY=<checks>` runs
+  `HERO-BOOT`, `HERO-NO-ERRORS` and the named checks only, for planted-defect runs; a name that is not a check fails
+  the run, and a partial run exits 1 unless `HERO_ONLY_OK=1` is also set; `run-tests.mjs` drops both from the gates'
+  environment). Eighteen checks, each in its own try/catch. It
+  removes `navigator.gpu` on every page it opens (the hero must not need WebGPU, and without it the lens and
+  materials sims stay off), and launches Chrome with `--disable-renderer-backgrounding`,
+  `--disable-background-timer-throttling` and `--disable-backgrounding-occluded-windows`, so the headless renderer
+  keeps a foreground tab's priority (backgrounded, AVIF decodes took about twice as long here). Its expectations are
+  its own: `hero/timeline.json` and `public/hero/manifest.json` are read from disk, and the contract numbers (the
+  spring's w = 15/s and 1/30 s clamp, the set rule, the 48-bitmap / 300 MB cache cap, the 1,000 px skip point) are
+  written in the script. The thirteen v8 checks were ported, none loosened; what changed, check by check:
+  `HERO-BOOT` (live with no WebGPU, the `heroAct` pin, its length now (N - 1) x px per frame + the hold from the
+  timeline file, 8,330 px, not 3,760; the page's manifest the one on disk and made for this timeline, by sha1;
+  before the first scroll only the set's first-pass segment, 50 frames, where v8 counted the 24-file skeleton, then
+  every segment of that set exactly once and nothing of another set; the set by the new rule, need = canvas CSS
+  width x min(DPR, 2) and the smallest set at least 0.9 of it, which is 720 at 1440 x 900; the backing store
+  CSS x min(DPR, 2), where v8 compared device px). `HERO-NONBLANK` (the same three stops, against `#0a0a0a`, the v4
+  frames' background, not `#0a0b0d`). `HERO-FRAME-FOLLOWS` (a stop in the middle of each of the six chapters, the
+  last frame and one back, where v8 had four chapters; at rest the drawn frame is round(playhead) with no blend
+  over it, and the gate slices the expected frame out of its segment itself, decodes it and compares pixels, a
+  frame six away as the control; measured 0.006 to 0.013 against controls of 3.7 (the pull-back's slow last frames) to 31). `HERO-CALLOUTS`
+  (unchanged clauses, on the v4 windows and the manifest's order PRIMARY, TIP, λ₂, TERTIARY, NECK, and the rail
+  numbered in that order). `HERO-CHAPTERS` (the middles of all six chapters and the hold, each showing its one
+  block: the opening through the seed, then grow, branch, cool, the rail in the tour, pull back, the end; the new
+  copy as written; the retracted wording now also bans the cool chapter's old physics, "thin ones melt back and
+  thick ones grow" and "coarsens as it cools", which the v4 render does not show, and a shape said to freeze; no
+  prose em dash and no British spelling in the hero's text; the before-timeline clause is now two: with the landing
+  module held back 2.5 s the head gate's live layout shows no heading and the end link exists and cannot be hit,
+  and with the manifest held back the column, built from the imported timeline, already shows the opening alone).
+  `HERO-CTA` (the faded stop moved to the middle of the grow chapter, since the opening now stays through the
+  seed). `HERO-CAPTION` (unchanged). `HERO-REDUCED` and `HERO-NOJS` (the poster is now a `<picture>`: the `<img>`
+  keeps the stable `hero/poster-1200.webp`, its one `<source>` is `hero/poster-1200.avif`, Chrome shows the AVIF at
+  1200; five chapter blocks). `HERO-MOBILE` (390 x 844 at DPR 3 gets the 720 set by the new rule, where v8
+  wanted 1200; the branch and pull-back stops added; the skip link among the leaves). `HERO-FIT` (unchanged).
+  `HERO-FALLBACK` (six cases, was three: no manifest; every segment from frame 128 on missing in all three sets,
+  each set's first pass tried before the still; the set the rule picks missing, live on the next one up with its
+  pixels checked, where v8 removed the 1200 set; and new, a manifest for another timeline and one with another N,
+  and a browser with no AVIF decoder, emulated by refusing every AVIF decode, each the labelled still with no
+  segment fetched). `HERO-NO-ERRORS` (unchanged). New in A5: `HERO-FLING` (a scripted 3,000 px/s fling for one
+  second and one 100 px wheel notch, recorded every animation frame: every step of the playhead replayed from the
+  page's own previous state and target through the critically damped spring's closed form, position within
+  0.5 px and velocity within 2 px/s, which a speed cap cannot pass; every step's dt its rAF timestamps' difference
+  clamped to 1/30 s; p95 |playhead - target| within 0.5 frame of the ideal spring's free run on the same targets;
+  p95 |drawn frame - target| within that plus the travel during one median decode (timed by the gate on the same
+  page) and one 60 Hz display frame; the canvas never blank; measured p95 lag 37.5 frames against the 2V/w ceiling
+  of 40 at 3,000 px/s). `HERO-SETPICK` (fourteen viewports from the delivery study, 360 x 800 at DPR 3 to
+  2560 x 1440, each getting the set the rule and the delivery table give and fetching only that set's first pass,
+  with a backing store of CSS x min(DPR, 2); a DPR change from 1 to 2 and a resize from 1024 x 768 to 1920 x 1080
+  trade up (720 to 1200, 720 to 900) with no blank frame on the way, the new set's own pixels at rest, and no trade
+  back down; headless Chrome fires nothing on an emulated DPR change, so that step carries a 1 px width nudge).
+  `HERO-BLEND` (a 60 px/s scroll across the tour's longest run of blend steps with cut steps on either side: alpha
+  above 0 only where the manifest's flag is 1, drawn as frame i + 1 over frame i, and never on a cut step's
+  fractions; at rest a third and two thirds of the way through a blend step, and on a cut step, alpha exactly 0 on
+  the nearer frame after an ease of 100 to 300 ms (measured 167), and the canvas that real frame's pixels).
+  `HERO-CACHE` (1440 x 900 at DPR 2, the 1200 set: the gate wraps `createImageBitmap` and `ImageBitmap.close` and
+  counts live bitmaps itself; through a full scroll down and back at 2,500 px/s the count sampled every animation
+  frame stays at most 48 and 300 MB (it reaches 48, 276 MB), and the page's own count and bytes equal the gate's at
+  rest, so nothing is dropped unclosed). `HERO-SKIP` ("Skip to the instrument": hidden and not hit-testable at the
+  top and at 990 px, shown and reachable at 1,010 px, in the caption's nav style (Space Grotesk 13 px, uppercase,
+  `--fg-3`, underlined, no fill), level with the caption at the column's right edge; from the top of a fresh page
+  Tab reaches it in ten presses, shown on focus, and Enter lands the lens act at the header's edge with the hero
+  past; on a phone under the caption and above the copy; not rendered in the still). Each new check was made to
+  fail by a temporary edit of `src/hero.ts`, restored by copy and checked by hash, run alone with `HERO_ONLY`, and
+  failed its own clause: a 120 frames/s speed cap on the playhead (`HERO-FLING`: velocity replay off by 2,567 px/s,
+  p95 lag 97 frames against the spring's 37.5); the set rule without its 0.9 slack (`HERO-SETPICK`: 430 x 932 at
+  DPR 3 and 412 x 915 got 900, and 768 x 1024, 1920 x 1080 and 2560 x 1440 got 1200); every step blending
+  (`HERO-BLEND`: 117 of 117 cut-step fractions blended); the cache cap doubled (`HERO-CACHE`: 96 bitmaps, 553 MB, on
+  the gate's count too); the skip link never shown (`HERO-SKIP`: opacity 0 and unreachable at 1,010 px). The v8
+  history of this gate's planted defects is in git. A5 review round (2026-09-25), clauses added, none loosened:
+  `HERO-BOOT` times the first draw on a throttled phone link (9 Mbit/s, 40 ms): frame 0 after the 720 first pass's
+  first bytes and at least 250 ms before its last (the page now reads segments as streams). `HERO-CHAPTERS` walks the
+  whole pin at 700 px/s, read every animation frame: at most one of the opening, the five chapters and the rail
+  shows at once, and the cool chapter never while the playhead is on a frame up to the timeline's `growth.to`; the
+  cool copy now says the render stops growing (cooling does not stop a casting's growth) and `growth stops` is
+  banned. `HERO-REDUCED`, `HERO-FALLBACK`'s stills and `HERO-MOBILE`'s still: the five number boxes intersect
+  nowhere and each sits within 40 px of its own mark. `HERO-MOBILE`: a cool stop, nothing shown in the pinned column
+  below the screen, and a phone turned sideways after loading live inside the pin takes the still at the hero's top
+  (and keeps it turned back). `HERO-FALLBACK`: a seventh case, transient: the first pass and one segment answered 503
+  once are tried again (two retries, four requests), the page stays live on the picked set with every frame and no
+  failure, and inside that segment the canvas holds the frame's own pixels. `HERO-SETPICK`: a browser zoom to 125 %
+  and 150 % keeps the 720 set (no request of another set), and two trade-ups in a row with the middle set's files held
+  back 3 s never show a blank frame and end on the rule's set with its own pixels. `HERO-BLEND`: while moving, every
+  blended tick is frame floor(x) with alpha within 1/64 of the playhead's fraction, and two or three canvas copies
+  taken mid-blend match the gate's own composite (lower frame, upper at the reported alpha) against the lower frame
+  alone as the control. `HERO-CACHE`: where the skip link lands at 1440 x 900 @2 (the section's bottom strip still in
+  view under the header, the canvas not) the page and the gate hold at most one bitmap, and with the segments
+  answered 800 ms late none is requested after the picture has left. `HERO-SKIP`: shown at the last frame, hidden in
+  the end hold; stacked at 390 and 768 the caption and the link sit on the copy column's left edge, the column 20 px
+  or more below the link.
 - **`verify-optimizer.mjs`** — confirms "Engineer it" enters ML mode paused, that the run/pause
   transport gates the CMA-ES loop (it doesn't auto-start), and that exiting the mode restores
   normal transport. It mostly logs; its one verdict, `EXIT`, sets the exit code: the mode is
