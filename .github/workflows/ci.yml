@@ -36,6 +36,11 @@ jobs:
       # the landing hero's pre-rendered frame set against its contract: manifest
       # schema, anchors, files on disk, WebP headers, byte budget
       - run: node scripts/verify-hero-manifest.mjs
+      # the plot core (src/plot): ticks, layout, unit titles, the CSV's
+      # provenance, the liquidus per solver, the HUD's gap and recording, and
+      # (PLOT-WIRING) the call sites in the lab, the HUD and main.ts by source;
+      # the running app's half is verify-tools LAB-CURVE / HUD-LIVE (local)
+      - run: node scripts/verify-plot.mjs
 
 # The rest of the headless verify-*.mjs suite (npm test) needs a WebGPU-capable
 # Chrome at a hardcoded local path and is not portable to this runner — see

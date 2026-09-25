@@ -1,27 +1,46 @@
 import type { Simulation, StatsResult, PhysParams } from "./sim";
 import type { Renderer } from "./render";
+import type { Units } from "./units";
 import { LearnLayer, onLearnChange } from "./learn";
 import { panelText } from "./learn/panels";
-import { token } from "./design/tool";
-import { plotModal } from "./design/panel";
-import { series, seriesAlpha } from "./design/plot";
+import { bridgeOf, type Bridge } from "./plot/quantity";
+import type { Chem, Figure } from "./plot/figures";
+import { ProbeRecord, ScheilRecord, probeSample, scheilSample, probeFigure, scheilFigure, roseFigure } from "./plot/analysis";
+import { PlotView } from "./plot/view";
+import { openFigure, type FigureHandle } from "./plot/modal";
+import type { Prov } from "./plot/csv";
+import type { PlotMeta } from "./hud";
 
 // Foundry-style analysis instruments:
 //  - cooling-curve probe: T(t) at one cell, straight off the stats reduction —
 //    a thermal-analysis cup test (recalescence arrest shows as the dip-rise)
 //  - Scheil overlay: analytic Scheil path T(fs) = 1 − m·c0·(1−fs)^(k−1) for the
 //    current pseudo-binary, against the measured (fraction solid, interface T)
+//  - growth-direction rose: each grain's growth direction, area-weighted
 //  - SDAS ruler: drag a line across secondary arms; linear-intercept count of
 //    solid segments gives λ2 — exactly how metallographers measure it
+//
+// The three plots are figures of the plot core (src/plot, U2): axes with
+// round ticks, titles in the melt's own units (°C and seconds for a real
+// material, dimensionless for the model metal), a hover readout, and a click
+// or the ⤢ opens the figure large with its data table and exports.
 
 export interface AnalyzeHost {
   getSim(): Simulation;
   renderer: Renderer;
   simParams(): PhysParams;
+  /** the live unit bridge (main.ts unitsNow) */
+  units(): Units;
+  /** the melt, the seed and the grid, for a figure's provenance */
+  meta(): PlotMeta;
+  /** the chemistry the 2D solver runs now (main.ts chemNow), latched with
+   *  each series: its liquidus and its Scheil path */
+  chem(): Chem;
 }
 
-interface CurvePt { t: number; T: number; phi: number }
-interface ScheilPt { fs: number; Ti: number }
+type Which = "probe" | "scheil" | "tex";
+/** each plot's size in the column, CSS px */
+const SIZE: Record<Which, [number, number]> = { probe: [252, 168], scheil: [252, 168], tex: [252, 212] };
 
 export class Analyze {
   probeOn = false;
@@ -31,17 +50,17 @@ export class Analyze {
 
   private fx = 0.5;             // probe position, fraction of domain
   private fy = 0.5;
-  private curve: CurvePt[] = [];
-  private scheil: ScheilPt[] = [];
+  /** the series, each with the unit bridge it started under (plot/figures.ts
+   *  TimedRecord: kept only while sim time advances, 900 samples at most) */
+  private curve = new ProbeRecord();
+  private scheil = new ScheilRecord();
   private ruler: { ax: number; ay: number; bx: number; by: number } | null = null;
   private measuring = false;
 
   private probePanel: HTMLElement;
   private scheilPanel: HTMLElement;
   private texPanel: HTMLElement;
-  private probeCtx: CanvasRenderingContext2D;
-  private scheilCtx: CanvasRenderingContext2D;
-  private texCtx: CanvasRenderingContext2D;
+  private views: Record<Which, PlotView>;
   private lastRose: number[] | null = null;
   private svg: SVGSVGElement;
   private probeMark: SVGGElement;
@@ -51,16 +70,15 @@ export class Analyze {
   private rulerText: SVGTextElement;
   private resultEl: HTMLElement | null = null;
 
-  private bigFor: "probe" | "scheil" | "tex" | null = null;
-  private bigCtx: CanvasRenderingContext2D | null = null;
-  private bigWrap: HTMLElement | null = null;
+  /** the enlarged figure, when one is open */
+  private modal: { which: Which; h: FigureHandle } | null = null;
 
   /** learn mode's "i" on each panel's title bar; one explanation open at a
    *  time, so the column cannot climb under the top bar */
   private learn = new LearnLayer(() => this.learn.apply(), true);
 
   constructor(private host: AnalyzeHost) {
-    const mkPanel = (id: string, title: string, learnKey: string) => {
+    const mkPanel = (id: string, title: string, learnKey: string, which: Which) => {
       const p = document.createElement("div");
       p.className = "apanel";
       p.id = id;
@@ -70,28 +88,29 @@ export class Analyze {
       // wider than the plot (the column is as wide as its widest child)
       const t = p.querySelector(".t") as HTMLElement;
       const ex = this.learn.explain(t, `about ${title.toLowerCase()}`, panelText(learnKey), t.querySelector(".zoomBtn"));
-      ex.body.style.maxWidth = "252px";
+      ex.body.style.maxWidth = `${SIZE[which][0]}px`;
       t.after(ex.body);
-      const c = document.createElement("canvas");
-      const W = 252, H = 128;
-      c.width = W * devicePixelRatio;
-      c.height = H * devicePixelRatio;
-      c.style.width = W + "px";
-      c.style.height = H + "px";
-      p.append(c);
+      // the figure: a wrapper at the plot's size holding the canvas and its
+      // hover overlay (plot/view.ts), a button that opens the full figure
+      const holder = document.createElement("div");
+      holder.className = "aplot";
+      holder.style.width = `${SIZE[which][0]}px`;
+      holder.style.height = `${SIZE[which][1]}px`;
+      p.append(holder);
       document.getElementById("apanels")!.append(p);
-      const which = id === "probePanel" ? "probe" as const : id === "scheilPanel" ? "scheil" as const : "tex" as const;
-      p.querySelector(".zoomBtn")!.addEventListener("click", () => this.openBig(which, title));
-      return { p, ctx: c.getContext("2d")! };
+      const view = new PlotView(holder, { label: `${title.toLowerCase()}: open the full figure`, onOpen: () => this.openBig(which) });
+      p.querySelector(".zoomBtn")!.addEventListener("click", () => this.openBig(which));
+      return { p, view };
     };
-    const a = mkPanel("probePanel", "COOLING CURVE · PROBE", "COOLING CURVE · PROBE");
-    const b = mkPanel("scheilPanel", "SCHEIL fs–T · PREDICTED vs MEASURED", "SCHEIL");
-    const c = mkPanel("texPanel", "TEXTURE · GRAIN ORIENTATION ROSE", "TEXTURE · GRAIN ORIENTATION ROSE");
+    const a = mkPanel("probePanel", "COOLING CURVE · PROBE", "COOLING CURVE · PROBE", "probe");
+    const b = mkPanel("scheilPanel", "SCHEIL fs–T · PREDICTED vs MEASURED", "SCHEIL", "scheil");
+    const c = mkPanel("texPanel", "TEXTURE · GRAIN ORIENTATION ROSE", "TEXTURE · GRAIN ORIENTATION ROSE", "tex");
     onLearnChange(() => this.learn.apply());
     this.learn.apply();
-    this.probePanel = a.p; this.probeCtx = a.ctx;
-    this.scheilPanel = b.p; this.scheilCtx = b.ctx;
-    this.texPanel = c.p; this.texCtx = c.ctx;
+    this.probePanel = a.p;
+    this.scheilPanel = b.p;
+    this.texPanel = c.p;
+    this.views = { probe: a.view, scheil: b.view, tex: c.view };
 
     this.svg = document.getElementById("overlay") as unknown as SVGSVGElement;
     // the probe crosshair and the SDAS ruler are the instrument's marks on the
@@ -115,14 +134,14 @@ export class Analyze {
 
   setProbeOn(on: boolean) {
     this.probeOn = on;
-    this.curve = [];
+    this.curve.clear();
     this.applyProbe();
     this.layout();
   }
 
   setScheilOn(on: boolean) {
     this.scheilOn = on;
-    if (on) this.scheil = [];
+    if (on) this.scheil.clear();
     this.layout();
   }
 
@@ -140,7 +159,7 @@ export class Analyze {
     const n = this.host.getSim().n;
     this.fx = gx / n;
     this.fy = gy / n;
-    this.curve = [];
+    this.curve.clear();
     this.applyProbe();
   }
 
@@ -151,20 +170,22 @@ export class Analyze {
   }
 
   reset() {
-    this.curve = [];
-    this.scheil = [];
+    this.curve.clear();
+    this.scheil.clear();
     this.lastRose = null;
     this.draw();
   }
 
+  /** the units in force now, latched by a series when it starts */
+  private bridgeNow(): Bridge { return bridgeOf(this.host.units(), this.host.meta().material); }
+
   onStats(s: StatsResult, simTime: number) {
-    if (this.probeOn && s.probeT != null) {
-      this.curve.push({ t: simTime, T: s.probeT, phi: s.probePhi ?? 0 });
-      if (this.curve.length > 900) this.curve = this.curve.filter((_, i) => i % 2 === 0);
-    }
-    if (this.scheilOn && s.fracSolid > 0.005 && s.fracSolid < 0.995 && s.interfaceT > 0) {
-      this.scheil.push({ fs: s.fracSolid, Ti: s.interfaceT });
-      if (this.scheil.length > 900) this.scheil = this.scheil.filter((_, i) => i % 2 === 0);
+    const b = this.bridgeNow(), chem = this.host.chem();
+    const pr = this.probeOn ? probeSample(simTime, s.probeT, s.probePhi) : null;
+    if (pr) this.curve.push(pr, b, chem);
+    if (this.scheilOn) {
+      const q = scheilSample(simTime, s.fracSolid, s.interfaceT, s.interfaceCells > 0);
+      if (q) this.scheil.push(q, b, chem);
     }
     if (this.textureOn) this.lastRose = s.oriRose;
     this.draw();
@@ -242,203 +263,46 @@ export class Analyze {
     this.draw();
   }
 
-  // ------------------------------------------------------------ big viewer
-  /** modal enlargement of an analysis panel; live-updates with the sim */
-  private openBig(which: "probe" | "scheil" | "tex", title: string) {
-    this.closeBig();
-    // the panel spec's modal (design/panel.ts): a --surface card over the
-    // dimmed instrument, the title and a close pill in its header
-    const { wrap, card } = plotModal(title, () => this.closeBig());
-    const W = Math.min(920, Math.round(innerWidth * 0.84));
-    const H = Math.min(560, Math.round(innerHeight * 0.68));
-    const c = document.createElement("canvas");
-    c.width = W * devicePixelRatio;
-    c.height = H * devicePixelRatio;
-    c.style.width = `${W}px`;
-    c.style.height = `${H}px`;
-    card.append(c);
-    this.bigWrap = wrap;
-    this.bigCtx = c.getContext("2d")!;
-    this.bigFor = which;
-    this.draw();
+  // ------------------------------------------------------------ the figures
+  /** what a figure's provenance names, plus what this panel adds */
+  private prov(recorded: number | undefined, extra: string[] = []): Prov {
+    return { ...this.host.meta(), recorded, extra };
   }
 
-  private closeBig() {
-    this.bigWrap?.remove();
-    this.bigWrap = null;
-    this.bigCtx = null;
-    this.bigFor = null;
+  /** a panel's figure (plot/analysis.ts), from its series and the bridge
+   *  and the chemistry the series started under (a dial moved since started
+   *  a new series; before any sample, the live ones) */
+  figure(which: Which): Figure {
+    const p = this.host.simParams();
+    const sim = this.host.getSim();
+    if (which === "probe") {
+      return probeFigure({
+        samples: this.curve.samples, bridge: this.curve.bridge ?? this.bridgeNow(),
+        chem: this.curve.chem ?? this.host.chem(), three: false,
+        prov: this.prov(this.curve.recorded, [`probe at cell (${Math.round(this.fx * sim.n)}, ${Math.round(this.fy * sim.n)})`]),
+      });
+    }
+    if (which === "scheil") {
+      return scheilFigure({
+        samples: this.scheil.samples, bridge: this.scheil.bridge ?? this.bridgeNow(),
+        chem: this.scheil.chem ?? this.host.chem(), three: false, prov: this.prov(this.scheil.recorded),
+      });
+    }
+    return roseFigure({ rose: this.lastRose, j: p.aniMode, umPerCell: sim.umPerCell, bridge: this.bridgeNow(), prov: this.prov(undefined) });
   }
 
-  // ---------------------------------------------------------------- charts
-  private frame(ctx: CanvasRenderingContext2D) {
-    const w = ctx.canvas.width, h = ctx.canvas.height;
-    ctx.clearRect(0, 0, w, h);
-    // fs scales fonts/line weights up in the big viewer
-    const fs = Math.max(1, w / (devicePixelRatio * 460));
-    return { w, h, m: 8 * devicePixelRatio * fs, fs };
+  /** the enlarged figure (plot/modal.ts): large, with its data table and
+   *  exports; live, it follows the melt */
+  private openBig(which: Which) {
+    this.modal?.h.close();
+    const h = openFigure(() => this.figure(which), () => { if (this.modal?.h === h) this.modal = null; });
+    this.modal = { which, h };
   }
 
   private draw() {
-    const p = this.host.simParams();
-    if (this.probeOn) this.drawCurve(p, this.probeCtx);
-    if (this.scheilOn) this.drawScheil(p, this.scheilCtx);
-    if (this.textureOn) this.drawRose(p, this.texCtx);
-    if (this.bigCtx && this.bigFor) {
-      if (this.bigFor === "probe") this.drawCurve(p, this.bigCtx);
-      else if (this.bigFor === "scheil") this.drawScheil(p, this.bigCtx);
-      else this.drawRose(p, this.bigCtx);
-    }
-  }
-
-  /** the plot chrome's text: Inter 11 CSS px (the plot spec's tick size), or
-   *  the tabular mono for a number. The same 11 px in the enlarged view:
-   *  there `fs` scales the margins, line weights and swatches, never the
-   *  type, which stays under the modal's 12 px header */
-  private text(ctx: CanvasRenderingContext2D, _fs: number, mono = false) {
-    ctx.font = `400 ${11 * devicePixelRatio}px ${token(mono ? "--font-mono" : "--font-body")}`;
-  }
-
-  /** a legend on one line: a swatch in each data color, then its word; at
-   *  the words' own 11 px size in either view */
-  private legend(ctx: CanvasRenderingContext2D, x: number, y: number, fs: number, items: [string, string][]) {
-    const dpr = devicePixelRatio;
-    this.text(ctx, fs);
-    for (const [color, word] of items) {
-      ctx.fillStyle = color;
-      ctx.fillRect(x, y - 4 * dpr, 10 * dpr, 2 * dpr);
-      x += 14 * dpr;
-      ctx.fillStyle = token("--fg-3");
-      ctx.fillText(word, x, y);
-      x += ctx.measureText(word).width + 10 * dpr;
-    }
-  }
-
-  /** area-weighted orientation rose, replicated by the crystal's j-fold symmetry */
-  private drawRose(p: PhysParams, ctx: CanvasRenderingContext2D) {
-    const { w, h, m, fs } = this.frame(ctx);
-    const dpr = devicePixelRatio;
-    const rose = this.lastRose;
-    this.text(ctx, fs);
-    if (!rose || rose.reduce((a, b) => a + b, 0) === 0) {
-      ctx.fillStyle = token("--fg-3");
-      ctx.fillText("no grains yet", m, h / 2);
-      return;
-    }
-    const j = Math.max(1, Math.round(p.aniMode));
-    const cx = w / 2, cy = h / 2;
-    const R = Math.min(w, h) / 2 - m;
-    ctx.strokeStyle = token("--rule-strong");
-    ctx.lineWidth = dpr;
-    for (const f of [0.5, 1]) {
-      ctx.beginPath();
-      ctx.arc(cx, cy, R * f, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    const max = Math.max(...rose);
-    const period = (2 * Math.PI) / j;
-    const binW = period / rose.length;
-    // data: the rose, the palette's first slot
-    ctx.fillStyle = seriesAlpha(0, 0.75);
-    for (let k = 0; k < j; k++) {
-      for (let b = 0; b < rose.length; b++) {
-        const r = R * Math.sqrt(rose[b] / max);
-        if (r < 1) continue;
-        const a0 = k * period + b * binW;
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.arc(cx, cy, r, a0, a0 + binW * 0.9);
-        ctx.closePath();
-        ctx.fill();
-      }
-    }
-    ctx.fillStyle = token("--fg-3");
-    ctx.fillText(`area-weighted · ×${j} symmetry`, m, h - 2 * dpr);
-  }
-
-  private drawCurve(p: PhysParams, ctx: CanvasRenderingContext2D) {
-    const { w, h, m, fs } = this.frame(ctx);
-    const d = this.curve;
-    const dpr = devicePixelRatio;
-    const TL = p.alloyOn ? 1 - p.mLiq * p.c0 : 1; // liquidus of the melt
-    this.text(ctx, fs);
-    if (d.length < 2) {
-      ctx.fillStyle = token("--fg-3");
-      ctx.fillText("waiting for the melt to run…", m, h / 2);
-      return;
-    }
-    const t0 = d[0].t, t1 = d[d.length - 1].t;
-    let lo = Math.min(...d.map(q => q.T), TL), hi = Math.max(...d.map(q => q.T), TL);
-    const pad = Math.max(0.05, (hi - lo) * 0.12);
-    lo -= pad; hi += pad;
-    const X = (t: number) => m + ((t - t0) / Math.max(t1 - t0, 1e-9)) * (w - 2 * m);
-    const Y = (T: number) => h - m - ((T - lo) / (hi - lo)) * (h - 2 * m);
-    // liquidus reference: chrome
-    ctx.strokeStyle = token("--fg-4");
-    ctx.lineWidth = dpr;
-    ctx.setLineDash([4 * dpr, 4 * dpr]);
-    ctx.beginPath(); ctx.moveTo(m, Y(TL)); ctx.lineTo(w - m, Y(TL)); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = token("--fg-3");
-    ctx.textAlign = "right";
-    ctx.fillText("T liquidus", w - m, Y(TL) - 3 * dpr * fs);
-    ctx.textAlign = "left";
-    // trace: data (the palette's first slot), and the solidification moment
-    // at the probe (its second)
-    ctx.strokeStyle = series(0);
-    ctx.lineWidth = 1.4 * dpr;
-    ctx.beginPath();
-    d.forEach((q, i) => { const x = X(q.t), y = Y(q.T); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
-    ctx.stroke();
-    ctx.lineWidth = dpr;
-    const si = d.findIndex(q => q.phi > 0.5);
-    if (si > 0) {
-      ctx.strokeStyle = series(1);
-      ctx.beginPath(); ctx.moveTo(X(d[si].t), m); ctx.lineTo(X(d[si].t), h - m); ctx.stroke();
-      ctx.fillStyle = token("--fg-3");
-      ctx.fillText("solid", X(d[si].t) + 3 * dpr, m + 20 * dpr * fs);
-    }
-    // the probe's live value: a number, so the tabular mono, bright
-    this.text(ctx, fs, true);
-    ctx.fillStyle = token("--fg");
-    ctx.fillText(`T ${d[d.length - 1].T.toFixed(3)}`, m, m + 9 * dpr * fs);
-  }
-
-  private drawScheil(p: PhysParams, ctx: CanvasRenderingContext2D) {
-    const { w, h, m, fs } = this.frame(ctx);
-    const dpr = devicePixelRatio;
-    if (!p.alloyOn) {
-      this.text(ctx, fs);
-      ctx.fillStyle = token("--fg-3");
-      ctx.fillText("needs the solute field (ALLOY)", m, h / 2);
-      return;
-    }
-    // analytic Scheil path of the pseudo-binary
-    const T = (fs: number) => 1 - p.mLiq * p.c0 * Math.pow(Math.max(1 - fs, 1e-3), p.kPart - 1);
-    let lo = T(0.98), hi = 1 - p.mLiq * p.c0;
-    for (const q of this.scheil) { lo = Math.min(lo, q.Ti); hi = Math.max(hi, q.Ti); }
-    const pad = Math.max(0.03, (hi - lo) * 0.1);
-    lo -= pad; hi += pad;
-    const X = (fs: number) => m + fs * (w - 2 * m);
-    const Y = (t: number) => h - m - ((t - lo) / (hi - lo)) * (h - 2 * m);
-    // the prediction (the palette's first slot) and what the sim measured
-    // against it (its second)
-    ctx.strokeStyle = series(0);
-    ctx.lineWidth = 1.4 * dpr;
-    ctx.beginPath();
-    for (let i = 0; i <= 120; i++) {
-      const fs = (i / 120) * 0.98;
-      const x = X(fs), y = Y(T(fs));
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-    ctx.fillStyle = series(1);
-    for (const q of this.scheil) ctx.fillRect(X(q.fs) - dpr, Y(q.Ti) - dpr, 2 * dpr, 2 * dpr);
-    // the key: each data color's swatch and its word, then the axis
-    this.legend(ctx, m, h - 3 * dpr, fs, [[series(0), "Scheil"], [series(1), "measured T_interface"]]);
-    ctx.fillStyle = token("--fg-3");
-    ctx.textAlign = "right";
-    ctx.fillText("f_s 0 → 1", w - m, h - 3 * dpr);
-    ctx.textAlign = "left";
+    if (this.probeOn) this.views.probe.set(this.figure("probe").fig);
+    if (this.scheilOn) this.views.scheil.set(this.figure("scheil").fig);
+    if (this.textureOn) this.views.tex.set(this.figure("tex").fig);
+    this.modal?.h.update();
   }
 }

@@ -237,6 +237,58 @@ the active item only. No other weights.
   the liquidus), slot 2 what is measured against it (the solidification moment, the measured
   points, the solidus), slots 3 and 4 the phase diagram's solver reading and residual path.
   Gray data marks (the invariant and solvus lines, a sweep's replicates) use the gray tokens.
+- The plot core (U2, `src/plot/`): every canvas figure is laid out by one pure function
+  (`layout.ts`) and painted by one painter in one of two themes (`theme.ts`). On screen: left
+  and bottom axes with outward ticks and no gridlines, all chrome (axes, ticks, tick labels,
+  titles, reference lines, the hover readout's frame) in `--fg-3` or brighter, so at least
+  4.5:1 on `--bg`, `--surface` and `--overlay`; tick labels Inter 11 px, axis titles 12 px;
+  stacked panels share their x axis, are lettered (a), (b), (c), and never share a y axis
+  between two scales. An axis title always ends in its unit or says "dimensionless"
+  (`quantity.ts`, over `src/units.ts`). A figure opens (click, Enter) into the enlarged view:
+  the figure large with a hover readout, its data as a table, and CSV, PNG and "figure png"
+  exports. The print figure is light: `--print-bg`, `--print-fg`, `--print-fg-2` and the
+  palette's light steps `--print-data-1..4`, in the same slot order (both themes read the slots
+  from `src/design/plot.ts`), with heavier lines; slots 3 and 4 are a step darker than the
+  reference palette's light steps so every data mark is at least 3:1 on the paper, as on screen.
+  A data mark is drawn opaque (the rose's wedges, the poles), so its 3:1 holds as validated. A
+  label on a plot (a reference line's, a landmark's) takes the first spot clear of the data and
+  of the other labels, and one with no clear spot sits on a `--bg` backing, never under a trace.
+- The HUD's glance plots: a sparkline against sim time on its plate, the latest value in the
+  mono on the title row, the plotted range and its unit under it at 11 px (the card's axis);
+  the card is a button that opens its full plot.
+- The analysis columns (U2, second half; `plot/analysis.ts`): every plot is a figure of the
+  core at the column's width, 252 px (probe and Scheil 168 tall, the rose 212, the pole
+  figures 236), a button (click, Enter) as well as the ⤢, and the 3D column's plots are the 2D
+  one's twins. A live panel may print its latest value at the right end of its header band in
+  the mono in `--fg` (the probe's `T 597.0 °C`). An event on the data (the moment the probe's
+  cell froze) is a solid line in the slot of what is measured against the curve (slot 2),
+  labelled beside it; a reference (a liquidus, a zero) stays a dashed chrome line.
+- Polar figures (`plot/polar.ts`): the rim and its outward ticks are the axis, labelled
+  outside the rim at 11 px; the radial scale is two or three dashed rings, each labelled just
+  inside its own ring on a `--bg` backing (a label sits on the data there); what the radius
+  means, the reference direction and the projection are named in a caption under the figure,
+  never left to the reader. The rose is area-true (radius ∝ √(area fraction)), its angles in
+  whole degrees clockwise from the micrograph's +x (its y axis points down), every symmetry
+  period boundary a tick. A pole figure is stereographic, upper hemisphere, X right, Y up, Z
+  at the center, rings at 30° and 60° of tilt; its poles are one data slot (the per-grain
+  ORIENT hue they carried was a second encoding of position, from outside the palette), dot
+  diameter proportional to the grain's, each dot opaque on a thin `--bg` ring so overlapping
+  poles stay apart. The rose's radial rings share the step that set its rim, so the rim is
+  always a labelled ring.
+- The phase diagram (SVG, `phasediagram.ts`): round ticks from the core's generator inside the
+  frame's own domain (never widened), plus the invariant's exact temperature as a tick of its
+  own in `--fg-2`; the left and bottom edges are the axes in `--fg-3`, the box's other two sides
+  stay `--rule-strong`; titles `Temperature T (°C)` and `Composition c_Si (wt%)`; a key under it
+  (each drawn mark's swatch, a `data-mark` element, beside its word); a crosshair readout of
+  the composition, the temperature, and where the liquidus and solidus cross that composition;
+  the ⤢ opens the shared enlarged view inside the composer, with every drawn vertex as the data
+  table and the same three exports (the PNGs are painted from the SVG's computed styles, so
+  they use the page's own fonts; the print figure maps each token to its `--print-*` twin).
+  Its type is in the figure's units, re-sized to the width the SVG is drawn at (`pdFontFor`),
+  so the ticks are 11 px and the titles 12 px at every width: the composer on a desktop, a
+  phone or beside the tour, and the enlarged view.
+- A data table's word columns (the diagram's element and label) are set left in the body face
+  in `--fg-2`; numbers stay right, in the mono.
 
 **Links.** `--fg` with a 1 px underline at 3 px offset; hover drops the underline.
 

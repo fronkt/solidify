@@ -364,25 +364,39 @@
     #tourBtn { position: absolute; left: var(--tool-edge); bottom: 62px; }
     #tourBtn.hide { display: none; }
 
-    /* ---- the HUD's sparkline cards (bottom right), each a plate. Capped so
-       it never reaches the transport bar (right edge 282 + 16): a narrower
-       window stacks its cards upward (wrap-reverse) instead of spreading them
-       over the run button, and one too narrow for a single 128px card (the
-       width the rail leaves under 298 + 128 + 16 = 442) folds it away (the
-       max-height step) rather than let a card spill over the bar. Its upper
-       rows pass under the analysis columns (#apanels) when those are open */
+    /* ---- the HUD's glance plots (bottom right, src/hud.ts), each a plate.
+       Capped so it never reaches the transport bar (right edge 282 + 16): a
+       narrower window stacks its cards upward (wrap-reverse) instead of
+       spreading them over the run button, and one too narrow for a single
+       168px card (the width the rail leaves under 298 + 168 + 16 = 482) folds
+       it away (the max-height step) rather than let a card spill over the
+       bar. Its upper rows pass under the analysis columns (#apanels) when
+       those are open. The cards take the pointer (each opens its full plot);
+       the gaps between them do not */
     #hud { position: absolute; right: calc(var(--rail-inset) + 16px); bottom: var(--tool-edge); max-width: calc(100% - var(--rail-inset) - 16px - 298px);
-      max-height: clamp(0px, (100vw - var(--rail-inset) - 442px) * 1000, 100vh); overflow: hidden;
+      max-height: clamp(0px, (100vw - var(--rail-inset) - 482px) * 1000, 100vh); overflow: hidden;
       display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; gap: var(--s-2); transition: right 0.25s ease; pointer-events: none;
       anchor-name: --hud; }
     /* a mode panel paints over the cards' band and reports the same numbers:
        the cards fold away while one is open, rather than leave fragments
        sticking out past its edges */
     body:has(#app > .modepanel) #hud { visibility: hidden; }
-    /* 110 + 2 x 8 + the border: 128 wide; 8 + 12 + 6 + 30 + 6 + 2: 64 tall */
-    .spark { padding: var(--s-2) var(--s-2) 6px; }
-    .spark .t { margin-bottom: 6px; font: 400 var(--t-nav-tool)/1 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg-3); white-space: nowrap; }
+    /* 150 + 2 x 8 + the border: 168 wide; 8 + 12 + 4 + 24 + 4 + 12 + 6 + 2:
+       72 tall. The title and the latest value on the first row, the line
+       against sim time, then the plotted range and its unit (the card's
+       min and max, set like a plot's ticks at 11px) */
+    .spark { width: 168px; padding: var(--s-2) var(--s-2) 6px; pointer-events: auto; cursor: pointer; }
+    .spark:hover { border-color: var(--rule-strong); }
+    /* a card the keyboard reached comes up over an analysis column that
+       covers it (#apanels is z-index 1), so its focus ring is never hidden;
+       a folded HUD's cards are inert and never reached (src/hud.ts) */
+    .spark:focus-visible { outline-offset: -4px; position: relative; z-index: 2; }
+    .spark .t { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2); height: 12px; margin-bottom: 4px; white-space: nowrap; }
+    .spark .t__name { font: 400 var(--t-nav-tool)/12px var(--font-display); letter-spacing: var(--track-nav); color: var(--fg-3); }
+    .spark .t__val { font: 400 var(--t-value-tool)/12px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg); }
     .spark canvas { display: block; }
+    .spark .r { display: flex; justify-content: space-between; gap: var(--s-2); height: 12px; margin-top: 4px; white-space: nowrap;
+      font: 400 var(--t-tick)/12px var(--font-body); font-variant-numeric: tabular-nums; color: var(--fg-3); }
 
     /* ---- lens legends: the scale bar (ETCH, SLICE), the THERM colormap and
        the SEM data bar share one slot under the head plate, wherever its
@@ -418,17 +432,17 @@
        window wraps them into more rows; one row's top where anchors are not
        supported). It used to share the bottom row with the cards and run
        under them at every width */
-    #hint { position: absolute; bottom: 88px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 2 * var(--center-inset) - 32px);
+    #hint { position: absolute; bottom: 96px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 2 * var(--center-inset) - 32px);
       padding: 5px var(--s-3); text-align: center; font-size: var(--t-ui-min); color: var(--fg-2); pointer-events: none; transition: opacity 1s;
       text-wrap: balance; }
     /* each "key: action" pair keeps its line (main.ts writes them as .nw),
        so a narrow window breaks between pairs, never after "right-drag:" */
     #hint .nw { white-space: nowrap; }
     @supports (top: anchor(--head bottom)) {
-      #hint { bottom: calc(anchor(--hud top, 80px) + 8px); }
+      #hint { bottom: calc(anchor(--hud top, 88px) + 8px); }
     }
     #hint.gone { opacity: 0; }
-    /* The hint's band is the analysis columns' too (their bottom is 88 and
+    /* The hint's band is the analysis columns' too (their bottom is 96 and
        they paint over it): while a column shows a panel (analyze.ts and
        analyze3d.ts set .cols2d / .cols3d) the hint steps out rather than be
        cut mid-word under it */
@@ -465,12 +479,12 @@
     #slicePop select { margin: var(--s-1) 0; }
 
     /* ---- analysis panels: bottom-right column, left of the rail, above the
-       HUD's cards (16 + 64 + 8). z-index 1 (here and on #apanels3) paints
+       HUD's cards (16 + 72 + 8). z-index 1 (here and on #apanels3) paints
        them over the HUD, which a narrow window wraps upward behind them: the
        HUD is the passive one of the two, and raising the columns instead
        would push them into the TRUE 3D switch and the view cube on a short
        window */
-    #apanels, #apanels3 { position: absolute; right: calc(var(--rail-inset) + 16px); bottom: 88px; display: flex; flex-direction: column;
+    #apanels, #apanels3 { position: absolute; right: calc(var(--rail-inset) + 16px); bottom: 96px; display: flex; flex-direction: column;
       gap: var(--s-2); transition: right 0.25s ease; pointer-events: none; z-index: 1; }
     body:not(.mode3d) #apanels3 { display: none; }
     /* Both columns grow upward from the bottom, so they stop at the top band
@@ -478,7 +492,7 @@
        every panel open plus an explanation in learn mode, or the three 3D
        panels on a short window, used to climb under the TRUE 3D switch, the
        view cube and the lens bar, headers and "i" buttons out of reach */
-    #apanels, #apanels3 { max-height: calc(100% - 88px - var(--top-band)); overflow-y: auto; overflow-x: hidden;
+    #apanels, #apanels3 { max-height: calc(100% - 96px - var(--top-band)); overflow-y: auto; overflow-x: hidden;
       scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent; }
     /* On a narrow canvas (ui.ts .narrow) the lens bar is under the head plate,
        not in the top band, so the columns stop 8px under the lens bar
@@ -501,14 +515,19 @@
       font: 400 var(--t-nav-tool)/1.2 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg); }
     .apanel .zoomBtn { margin-left: auto; pointer-events: auto; }
     .apanel canvas { display: block; }
+    /* a panel's figure (src/plot, U2): the wrapper sets the size (analyze.ts,
+       analyze3d.ts), the figure's canvas and its hover overlay fill it */
+    .apanel .aplot { position: relative; }
     /* the STEREOLOGY panel's text: a spec rail as wide as its plots */
-    .apanel .stereo { width: 236px; font-size: var(--t-ui-min); line-height: 1.45; }
+    .apanel .stereo { width: 252px; font-size: var(--t-ui-min); line-height: 1.45; }
     /* the lab report's sections, under their own name so they aren't
        display:none by default like .apanel is: a nav-style title over a
        1 px rule, never a box inside the panel */
     .rcard { margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px solid var(--rule); }
     .rcard > .psub { margin-bottom: var(--s-2); }
-    .rcard canvas { display: block; width: 100%; height: 168px; }
+    /* the cooling curve's figure (src/plot): two stacked panels at the
+       panel's width, drawn at the size shown */
+    .rcard .rplot { width: 100%; height: 320px; }
 
     /* the lab's report: the same slide mechanism as #rail, mirrored to the
        opposite edge so the two never compete for space; no dimmed backdrop,
@@ -626,11 +645,16 @@
        362px = 16 left + 330 wide + 16 gap. */
     body:has(#tour.show) #composer { padding-left: 362px; }
     body:has(#tour.show) #composer .card { width: min(500px, calc(100vw - 386px)); }
+    /* the phase diagram's enlarged view opens INSIDE #composer (its stacking
+       context), so it is under the tour too: the same inset, and its card
+       sized on the room left (phasediagram.ts pdBigSize) */
+    body:has(#tour.show) #composer > .tmodal { padding-left: 362px; }
     /* Below this the inset would leave a card too narrow to compose in, so the
        tour gives up its prose instead and keeps only what has to stay reachable:
        the chapter counter, its title and its buttons. */
     @media (max-width: 760px) {
       body:has(#tour.show) #composer { padding-left: 0; }
+      body:has(#tour.show) #composer > .tmodal { padding-left: 0; }
       body:has(#tour.show) #composer .card { width: min(500px, 94vw); }
       body:has(#composer.show) #tour { width: auto; right: 16px; }
       body:has(#composer.show) #tour p, body:has(#composer.show) #tour .watch { display: none; }
@@ -781,15 +805,34 @@
        chemical symbols stay Al) */
     #composer .pdcap { font: 400 var(--t-nav-tool)/1.2 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg-3); }
     #composer .pdsvg { display: block; width: 100%; height: auto; background: var(--bg-media); border-radius: var(--r-media); }
-    #composer .pdsvg .pdframe { fill: none; stroke: var(--rule-strong); stroke-width: 1px; }
-    /* 7 and 7.5 are the figure's viewBox units, not screen px: the 300-wide
-       figure is drawn about 1.5x in the card, so the ticks land near the
-       plot spec's 11 px (they scale with the figure, as a drawing's do) */
-    #composer .pdsvg .pdtick { fill: var(--fg-3); font: 400 7px var(--font-body); }
-    #composer .pdsvg .pdfield { fill: var(--fg-3); font: 400 7.5px var(--font-body); }
-    #composer .pdsvg #pdCursor { fill: var(--fg); }
+    #composer .pdsvg .pdframe { fill: none; stroke: var(--rule-strong); stroke-width: 1px; vector-effect: non-scaling-stroke; }
+    /* the type sizes are the figure's own units, set per view by
+       phasediagram.ts (--pd-tick 7.1, --pd-title 7.8 in the composer, whose
+       300-unit figure is drawn about 1.55x: the plot spec's 11 and 12 px;
+       11 and 12 in the enlarged view, drawn 1:1). The axes (U2): ticks
+       outward in --fg-3, round labels, the invariant's own tick, the titles
+       with their units */
+    #composer .pdsvg .pdtick { fill: var(--fg-3); font: 400 var(--pd-tick, 7px) var(--font-body); }
+    #composer .pdsvg .pdinv { fill: var(--fg-2); }
+    #composer .pdsvg .pdtitle { fill: var(--fg-3); font: 400 var(--pd-title, 7.8px) var(--font-body); }
+    #composer .pdsvg .pdaxis { stroke: var(--fg-3); stroke-width: 1px; vector-effect: non-scaling-stroke; }
+    #composer .pdsvg .pdfield { fill: var(--fg-3); font: 400 var(--pd-field, 7.5px) var(--font-body); }
+    #composer .pdsvg #pdCursor, #composer .pdsvg .pdcurtx { fill: var(--fg); }
     #composer .pdsvg .pdcursor { stroke: var(--fg); stroke-width: 1px; stroke-dasharray: 1 3; }
     #composer .pdsvg .pdpour { stroke: var(--bg-media); stroke-width: 1px; }
+    /* the hover readout: a crosshair and the values at it, chrome */
+    #composer .pdsvg .pdhair { stroke: var(--fg-3); stroke-width: 1px; stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; pointer-events: none; }
+    #composer .pdsvg .pdreadout { fill: var(--bg); stroke: var(--rule-strong); stroke-width: 1px; vector-effect: non-scaling-stroke; pointer-events: none; }
+    #composer .pdsvg .pdrtext { fill: var(--fg); font: 400 var(--pd-tick, 7px) var(--font-mono); pointer-events: none; }
+    #composer .pdsvg { cursor: crosshair; }
+    /* the key: a swatch of each drawn mark (data, data-mark) beside its word */
+    #composer .pdkey { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: var(--s-2); font: 400 var(--t-tick)/1.3 var(--font-body); color: var(--fg-3); }
+    #composer .pdkey__i { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    #composer .pdkey__sw { display: inline-block; width: 16px; height: 0; border-top-width: 2px; }
+    #composer .pdkey__dot { width: 7px; height: 7px; border: 0; border-radius: 50%; }
+    #composer .pdkey__band { width: 12px; height: 10px; border: 0; opacity: 0.3; }
+    #composer .pdhead .zoomBtn { margin-left: auto; }
+    #composer .pdhead .zoomBtn[hidden] { display: none; }
     /* one note per line (v8 U1c; they were one run-on paragraph joined by dots) */
     #composer .pdnotes { margin-top: var(--s-2); font-size: var(--t-ui-min); line-height: 1.5; color: var(--fg-3); }
     #composer .pdnote + .pdnote, #composer .pdnotes .lrnText + .pdnote { margin-top: var(--s-1); }

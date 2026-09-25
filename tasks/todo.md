@@ -4312,14 +4312,14 @@ Line numbers in them are against `6ec93a1`; re-check before editing (shared work
             touched), so the browser gates ran one at a time against a dev server of this tree
             on 5288, started and stopped here.
 - [ ] **U2 · Figures: one plot module, paper style**
-  - [ ] `src/plot/`: hand-rolled canvas, no new dependency. Nice-number ticks (~30-line port
+  - [x] `src/plot/`: hand-rolled canvas, no new dependency. Nice-number ticks (~30-line port
         of d3-array's tick algorithm), axis titles that always carry a unit or say
         "dimensionless", pure `layout()` testable without a browser, DPR-correct canvases,
         ≥ 11 px text, ≥ 4.5:1 contrast, one colour legend (measured vs model).
-  - [ ] Hover crosshair with the value readout; click any plot to expand: large plot + data
+  - [x] Hover crosshair with the value readout; click any plot to expand: large plot + data
         table + CSV (dimensionless AND SI columns, provenance header with material, seed,
         grid, unit bridge) + PNG. "Figure" export option: light background, print weights.
-  - [ ] Every series stores the unit bridge in force when it starts (as the lab already does
+  - [x] Every series stores the unit bridge in force when it starts (as the lab already does
         at the pour).
   - [ ] Migration order (charts-audit): core + browser-free gate (trips CI-SCRIPT-COUNT and
         TESTING-CHECK-COUNT: update ci.yml, run-tests.mjs, TESTING.md with it) → lab report
@@ -4328,15 +4328,176 @@ Line numbers in them are against `6ec93a1`; re-check before editing (shared work
         new plots (live pour curve, heat-treat schedule + d(t), optimizer convergence) →
         rose / pole figure / stereology → sweep band → phase diagram last (most tested; keep
         it SVG, feed it the shared ticks, titles and modal).
-  - [ ] Fix the bugs above: ΔT no-interface, IPF label (rename to "POLE FIGURE [001]" or
+  - [x] Fix the bugs above: ΔT no-interface, IPF label (rename to "POLE FIGURE [001]" or
         implement a true IPF), lab liquidus line (verify, then draw the alloy's liquidus),
         unbounded 3D Scheil array. (U1b did the IPF label: the panel, its enlarged view and the
         rail checkbox now say "pole figure [001]", and the second panel's title follows the
         axis family it plots, ⟨100⟩ / (0001) / 5-FOLD.)
-  - [ ] Couplings to respect (charts-audit table): `#foundryCurve` must exist; nothing plot-side
+  - [x] Couplings to respect (charts-audit table): `#foundryCurve` must exist; nothing plot-side
         inside `#foundryResultsBody`/`#htNote`/`#htReport`/`#labReport`; plots mount INSIDE
         `#app` as non-canvas wrappers so the screenshot must-differ checks still hide them;
         `#pdFig` on the landing stays literal markup (PD-LANDING-FIGURE parses it).
+  - 2026-09-24, first half (core + gate, lab report curve, HUD; NOT ticked: the probe, Scheil,
+    polar, new-plot, sweep and phase-diagram migrations are the second half):
+    - `src/plot/`: `ticks.ts` (d3-array's ticks ported, ISC credit; exact decimals; true minus;
+      a factored power of ten goes into the title, "dT/dt (10³ K·s⁻¹)"), `quantity.ts` (every axis
+      title from `src/units.ts`: "Temperature T (°C)" or "Temperature T̃ (dimensionless,
+      T_m = 1)"; time names its anchor, "Time t (ms, solute-diffusion anchor)"; a `Bridge` is the
+      Units latched when a series starts), `layout.ts` (pure: margins from the labels, stacked
+      panels lettered (a)(b)(c) sharing x, labelled marks placed clear of each other, level y
+      titles when a rotated one cannot fit), `csv.ts` (provenance header: material, seed, grid,
+      the bridge's T_m, ΔT_ref and τ with their provenance and the Lewis caveat, "decimated from
+      N" only when true; SI columns beside the dimensionless ones), `figures.ts` (the builders,
+      pure, gated), `theme.ts` (screen and print roles, tokens only; `--print-*` added to
+      tokens.css), `paint.ts`, `view.ts` (DPR canvases + a hover overlay canvas, crosshair and
+      readout, click/Enter opens), `modal.ts` (large figure, table, csv / png / figure png).
+    - Lab report: `#foundryCurve` is the figure's canvas, inside a `.rplot` wrapper; its text is
+      drawn, so `#foundryResultsBody`'s text is unchanged (checked: no plot words in it). Panels
+      (a) T(t) with the landmarks, (b) dT/dt on its own axis; the enlarged view adds (c) f_s
+      solver vs Newtonian zero curve (`ta.fsDerived`, never plotted before). Liquidus verified
+      wrong and fixed: the kernel freezes below T_eq = 1 − m·c (shaders.ts), so Al–Cu's liquidus
+      is 0.85 T̃ = 623 °C, and the old line sat at T̃ = 1 (660 °C) for every melt; the line is now
+      `chargeLiquidus()` latched at the pour, labelled T_liq(c₀) (pure melts T_m). Time axis starts
+      at the pour.
+    - HUD: four 168 x 72 cards (were 128 x 64; `#apanels` and `#hint` fallbacks moved 88 -> 96,
+      the fold threshold 442 -> 482): title + latest value, a sparkline against SIM TIME, the
+      plotted range + unit (the min/max). Recording only while sim time advances (`HudRecord`;
+      a paused melt held at n and t for 3 s in the browser), a new bridge starts a new series.
+      ΔT is now T_liq(c₀) − T_interface (was 1 − T_i, not an undercooling for an alloy) and a gap
+      with no interface cells (`StatsResult.interfaceCells` added; was 1 − 0 = its maximum).
+      Cards are buttons (pointer-events on the cards only), each opens its full plot; the
+      histogram has round bin edges and a count axis. `window.__solidify.hud` added for gates.
+    - Gate: `scripts/verify-plot.mjs`, eight checks (PLOT-TICKS, -LAYOUT, -UNIT-TITLES, -CSV,
+      -LIQUIDUS, -HUD-GAP, -HUD-RECORD, -CONTRAST), in ci.yml and run-tests.mjs; TESTING.md's four
+      count sites say fifteen (CI-SCRIPT-COUNT failed on all four until they did). Eleven planted
+      defects on a scratch copy each failed their own clause, the other seven OK, restored by
+      sha1. It caught two real layout defects first (rotated titles longer than short stacked
+      panels; a legend on the panel tag at a phone's width).
+    - Green: typecheck, build, the 15 CI scripts, verify-tools (all OK), verify-rail 10/10,
+      verify-quant 11/11, each run once, none flaked. DPR 2: every plot canvas backed at 2x.
+      Shots: `solidify-hero-out/u2_shots/a/` (25, plus the four exports: two CSVs, a screen PNG
+      and the print figure).
+    - Harness note: `__solidify.tick()` moves the frame loop's clock ahead of real time, so the
+      live 4 Hz poll stalls after a tick-driven pour until real time catches up; drive live
+      checks on a fresh page.
+    - Left for the second half: 2D/3D probe + Scheil (analyze.ts, analyze3d.ts; hosts need
+      `units()`), the 3D Scheil cap, rose / pole figure / stereology, the new plots, sweep band,
+      phase diagram; verify-tools ENLARGE is still log-only.
+  - 2026-09-25, second half (the migration in the audit's order, less the new plots; the
+    migration box stays open for them: live pour curve, heat-treat schedule + d(t), optimizer
+    convergence):
+    - `src/plot/analysis.ts` (pure, gated): the probe and Scheil figures (2D and TRUE 3D share
+      them), the growth-direction rose, the pole figures; `ProbeRecord` / `ScheilRecord` (the
+      HUD's record rule generalized as `TimedRecord`: advancing sim time only, 900 samples, a
+      new bridge starts and latches a new series). `src/plot/polar.ts` (pure layout + painter
+      for the polar family). `modal.ts` split into a core (`openModal`: plot, table, three
+      exports) that `openFigure` and the phase diagram both use.
+    - 2D column (analyze.ts): the three panels are figures, 252 x 168 / 212, axes and titles in
+      the melt's units (the audit's "dimensionless even for a real material" is gone: the hosts
+      carry `units()` and `meta()`), a live `T 571.4 °C` in the probe's header band, the cell's
+      freezing as an event line, the Scheil legend on the plot. `#texPanel .zoomBtn` kept; the
+      plot itself also opens.
+    - 3D column (analyze3d.ts): the same figures, DPR-correct (they were 1 backing px per CSS
+      px), every plot enlargeable (only the [001] pole figure was), the Scheil series capped
+      (it grew for the whole session). Found and fixed on the way: the first 3D probe sample
+      read T̃ = −1 (the reduction's counter at 0 before the probe was placed) and stretched the
+      axis to 160 °C (`probeSample` drops it); the 3D Scheil and liquidus now follow
+      `alloyActive` (the solver running the solute field), not the bare `alloyOn` request.
+      Stereology: the pores on the section are an area in µm² (were a voxel count).
+    - Polar: the rose area-true (radius ∝ √(area fraction)), whole-degree angle ticks at every
+      period boundary, dashed labelled rings, a caption naming the radius and the reference
+      direction (θ from +x, clockwise); the pole figures stereographic with X / Y / Z, 30° and
+      60° tilt rings, dot diameter ∝ grain diameter, one data slot (the ORIENT hue per grain
+      was a second encoding of position from outside the palette). U1b's [001] naming kept.
+    - Sweep band (experiment.ts): round y ticks and an x tick per arm, the plot under the label
+      stack; `drawBand(ctx, res, 252, 128)` / `bandLayout` signatures and the (251,127)
+      backdrop pixel kept. `SweepSpec` gains optional `unit` / `sweptUnit`.
+    - Phase diagram (still SVG): round ticks plus the invariant's own tick, left/bottom axes in
+      `--fg-3`, titles with units, a key under it, a crosshair readout (c, T, liquidus and
+      solidus at c), ⤢ opening the shared modal inside the composer (Escape closes it, not the
+      composer) with every drawn vertex as the table and CSV / PNG / print PNG (painted from the
+      SVG's computed styles, the key included). `FRAME` 300 x 196 (mb 24 -> 30, the 250 x 156
+      plot unchanged); `INNER` now derived from it. `#pdCursor` semantics, `.pdframe`, the
+      landing's `#pdFig` untouched.
+    - Gates: verify-plot 8 -> 12 checks (PLOT-SCHEIL, -SERIES-CAP, -POLAR, -PD-AXES; the probe
+      and Scheil figures joined PLOT-LAYOUT and -UNIT-TITLES), verify-experiment's EXP-RENDERED
+      and EXP-REFUSE-UNMATCHED gained axis clauses, verify-tools ENLARGE is an assertion (at
+      DPR 2, waiting for the figure's first paint). 25 planted defects failed their own clause
+      (22 browser-free on a scratch copy; one miss on the first pass, the ring labels pushed off
+      their rings, closed by a new clause and re-proved; 3 for ENLARGE, its verbatim block run
+      against a second dev server serving the planted copy); TESTING.md says so.
+    - Green on the final tree: typecheck, build, the 15 CI scripts (verify-plot 12/12,
+      verify-experiment 8/8); verify-tools all OK (ENLARGE at DPR 2), verify-experiment-gpu 3/3,
+      verify-3d 30/30, verify-phasediagram-gpu 2/2, verify-composer-gpu 3/3, verify-quant 11/11,
+      verify-rail 10/10 (RAIL-ACHROMATIC read the new panels, the diagram's axes and key),
+      none flaked. Shots: `solidify-hero-out/u2_shots/b/` (1440x900 and 1024x768; every
+      migrated plot small, hovered and enlarged with its table, model metal and Al–Cu, 2D and
+      TRUE 3D, the diagram in the composer for A356 and tin bronze; plus the exports: 4 CSVs, 4
+      screen PNGs, 4 print figures).
+    - Harness notes: (1) Chrome 153 on this machine never resolves `browser.close()`, even
+      after about:blank with no GPU flags, so every browser gate hangs after its `done` line;
+      the runs above went through a preload that kills Chrome 15 s into a stuck close and exits
+      on the gate's own `done` with its own exit code (`node --import file:///.../close-patch.mjs
+      scripts/verify-x.mjs verify-out 5199`; kept in this session's scratchpad, not the repo). The
+      gates themselves are unchanged by it. (2) A scratch copy served by a second vite needs its
+      own `cacheDir` and an app-only config: through the `node_modules` junction it otherwise
+      re-optimizes into the repo's `.vite` cache and its dep scan dies on the missing landing
+      inputs. (3) The 2D probe's liquidus still follows the live params (2D has no
+      requested-vs-active split); the phase diagram's text is ~7.8 px on a 390 px phone (the
+      enlarged view is 11 px there).
+  - 2026-09-25, the review (36 findings on the uncommitted change, 3 duplicates; each
+    re-derived before its fix, none rejected; the migration box stays open for the new plots):
+    - Science, calibrated mode: under Karma–Rappel the drive is U + T with U = −1 in liquid at
+      c∞, so T̃ = 1 IS the nominal alloy's liquidus and 0 its solidus. `chargeLiquidus` is
+      solver-aware (1 there; 0.85 was 11 K low for Al–Cu) and is `tEq2` too (the nucleation
+      model's undercooling reference and the HUD's; verify-quant 11/11 after it); `scheilT`
+      has the calibrated form (1.000/0.942/0.805 T̃ at f_s 0/0.3/0.6, was 0.850/0.796/0.670);
+      `Units` maps T̃ = 1 to T_m + m_L·c∞ under the calibrated alloy (`quant.ts`
+      `liquidusShiftK`, the poured mix's ΔT_L when its interval is used; every °C was 15.3 K
+      high), the CSV's bridge line and the SCALE panel say so. Under Kobayashi the preset's
+      line is labelled "T_liq(c₀), model" (623 °C) and the provenance prints the material's
+      own 645 °C beside it with the gap named.
+    - The chemistry (solver, ALLOY, m̃, c̃₀, k, the material's liquidus) is latched per series
+      with the bridge (`Chem`, `LatchedRecord`, the HUD's record too): a dial moved mid-run
+      starts a new series; the lab latches it at the pour. The alloy ΔT card is titled "T_liq(c₀)
+      − T_i", not an undercooling, with the Scheil shift named. The 2D interface reduction reads
+      under T̃ = 0 (offset like the 3D one), TRUE 3D tests presence by the interface count.
+      Provenance: solver (with λ), share link, build (`vite.config.ts` define), chemistry.
+      Panel (c) plots the solver's f_s rescaled over [t_L, t_S], as the RMS compares it.
+    - Layout: labels take the first spot clear of every series path (a backing where none is);
+      at least two ticks an axis; the short time title keeps its anchor ("t (s, solute anchor)");
+      enlarged cards budget their 360 px of chrome (no card scrolls at 1024x768: rose, cooling,
+      diagram); the table's time column in the axis's unit; file names keep ⟨100⟩ / [001] /
+      (0001) apart with the melt and the minute; the rose's rim always a labelled ring; wedges
+      and poles opaque (poles on a --bg ring); print slots 3 and 4 darkened to 4.35 / 4.44:1;
+      the slots from `design/plot.ts` everywhere; the HUD's fs key; the histogram never
+      "decimated"; spark canvases and a static figure re-back on a DPR change; a folded HUD's
+      cards inert, a focused card over a column on top; the diagram's enlarged view beside the
+      tour (not under it), its PNG key wrapped, its print figure a fixed 640 wide, its key room
+      sized to the rows it wraps into, the composer's type 11 / 12 px at any width (phone
+      exception dropped from DESIGN.md); the 3D pole plot's aria name follows its title; the
+      [001] learn text and rail hint say "sized by diameter".
+    - Gates: verify-plot 12 -> 13 checks (PLOT-WIRING new; power read-back, labels-off-trace,
+      card fit, per-figure anchors, anchored unit regex, CSV keys and identity lines, the
+      calibrated liquidus and Scheil, chemistry latch, print contrast, real diagram frames);
+      verify-units UNITS-QUANT-ANCHOR (ten checks); verify-tools LAB-CURVE and HUD-LIVE (the
+      running app's half). 29 plants on a scratch copy each failed exactly their own clause(s),
+      the rest OK, restored by sha1; 5 plants on a second dev server failed LAB-CURVE or HUD-LIVE
+      on their own (TESTING.md). The first verify-tools run failed LAB-CURVE on the gate's own
+      bugs (it compared against a rounded want, and read the figure before its first paint; a
+      ticked calibrated quench left no curve), fixed to real-time pours and a paint wait;
+      re-run green.
+    - Green on the final tree: typecheck, build, the 15 CI scripts; verify-tools (all 19 OK),
+      verify-rail 10/10, verify-quant 11/11, verify-phasediagram-gpu 2/2, verify-composer-gpu
+      3/3, verify-experiment-gpu 3/3, verify-passsplit 2/2, verify-3d 30/30; the diagram and
+      rail gates re-run after the last phase-diagram edit, green. Shots:
+      `solidify-hero-out/u2_shots/final/` (1440x900 and 1024x768, the diagram also 390x844:
+      every plot small and expanded with a hover, the exports and CSVs as text; looked at).
+    - Left open: the lab's record uses T ≤ 0 as "no liquid" (thermal.ts too), and under the
+      calibrated solver T̃ < 0 is a real liquid temperature (below the nominal solidus): fine in
+      every real-time pour measured, but a latent trap; the steel preset's c̃₀·15 = 5.25 wt% C
+      puts its calibrated solidus at −871 °C (the app's own convention, not a plot defect); a
+      count axis can tick at 0.5.
 - [ ] **U3 · Layout and first run**
   - [ ] Dock lab / heat-treat panels so they never cover the HUD or the plots.
   - [ ] HUD backing plate (legible over every lens, incl. FIELD).
@@ -4699,6 +4860,15 @@ frames only. Recommendation: B staged, A first.
               encode_frames (manifest **version 2** = v1 fields + `px_per_frame`, `hold_px`, feature
               `hold` / `label`) and make_placeholder_frames read it; no 180 / chapter literal left in
               hero/*.py. Open: verify-hero-manifest.mjs and hero.ts still hard-code 180 / v1 (A5).
+            - 2026-09-24 (review round, 25 findings fixed): timeline now **778 frames**, 10 px/frame (pin
+              7,780 + 560 = 8,340 px): seed 0-35, grow 36-155, branch 156-275 (the storyboard's 36/120/120),
+              cool 276-338, tour 339-638, pullback 639-777, poster 777; windows = hold ± 10 (what `--propose`
+              now writes). `budget_bytes` lives in the timeline (v3's per-frame rate: 1200 set 51.9 MiB, 600 set
+              15.1 MiB, ~7x v3's shipped 7.2 MB: **Frank to decide**; AVIF / a 900 set is page work).
+              `hero/timeline_v3.json` re-encodes the v3 masters to a manifest identical to the shipped v1 (every
+              key); the hold-length rule moved to the planner's check; encode_frames loads the timeline lazily,
+              defaults to the staging folder `v4/public_hero` (public/hero waits for A5), refuses gate failures
+              and frame-count mismatches, swaps a staged set in (manifest last) and drops orphan frames.
       - [x] A2 path planner: keys → centripetal Catmull-Rom + quaternion spline, re-timed by
             projected screen motion, caps (<= 12 px/frame at 1200, <= 0.03 ln-width/frame),
             soft holds (>= 3 px/frame, never 0), one-way ~700 deg with a +-15 deg elevation
@@ -4716,6 +4886,27 @@ frames only. Recommendation: B staged, A first.
               flat cap speed: hand-over 56, glides 43/45/27/38, pull-back 108), so N went to 726
               (`path_plan.py --propose` sizes the legs), px_per_frame 12.5 -> 11 to keep the pin in the
               7.5-8.7k band, closest shot W 0.50 (v3 0.22), orbit 480 deg (540 hits the twist cap).
+            - 2026-09-24 (review round): re-planned, CHECK PASS: **705.5 deg** of view turn (storyboard 700: seed
+              107/120, grow 251/240, branch 127/120, cool 35.5/40, tour 110/110, pullback 75/70); p90 max 11.77 px
+              (11.70 on every mesh vertex over 51 frames), median 5.68, max/median 2.07; ln-width 0.022; roll
+              0.963 deg/frame; turn rate changes <= 18 %/frame (new check 25 %); flow jump <= 1.47 px (new bounce
+              check 2.5 px); holds 3.19-3.37 px x 17 frames; Blender ray casts: every anchor visible in every
+              window / hold frame, poster 777 shows all five. Changes: u = arc length of the view direction (turn
+              rate continuous at every hand-over; the old blend sagged to 0.1 then kicked 5x); cool hand-over
+              driven by a turn-rate profile with a screen-speed ramp; slew limit on the turn; the lens its own
+              PCHIP (55 -> 70 once, in cool); growth dolly = seed log-law then linear span (crystal size on screen
+              1.15 px/frame, 0.98-1.38; growth alone still slows as dt / t, inherent while the camera recedes);
+              tour keys re-chosen with `--scan-keys`, look-at low (crystal's lower edge in the holds 0.75-1.00, was
+              0.58-0.71); **pull-back = a heading track** from the lathe's exit, turning smoothly onto a searched
+              poster (az -98.7, el 15.9, all 8 neighbours pass; a slerp and then a Hermite curve both bounced: the
+              flow swung ~120 deg in 2 frames), keeping the lathe's ~162 deg dutch (unrolling it costs ~140 frames);
+              frozen frames measured on the close-up mesh's own vertices, growth frames on their meshes once all
+              are cached (`--growth-points`); a failed plan goes to path_failed.json; the renderer refuses failed or
+              stale paths (timeline sha1, features key, and a generator digest now equal under Blender's Python 3.11
+              and the system's 3.12).
+            - Key light trails the camera at 0.4 of its rotation (look.py light frames, path.json `key_basis`),
+              anchored at the lambda2 hold: <= 26 deg off the rig in every hold and on the poster, up to 148 deg in
+              growth; the EEVEE slice shows no dark frames; `--key-on-camera` renders the old rig for an A/B.
       - [x] A3 generator: linear growth time, newborn arms ramp their protrusion in, neck
             re-picked nearer the root, fine mesh for every frozen frame (no mid-glide swap),
             per-t mesh cache on disk; small-amplitude coarsening through cool so the copy is
@@ -4755,6 +4946,20 @@ frames only. Recommendation: B staged, A first.
               re-picked beside lambda2 and the neck (a -y tertiary on the +z host at 0.54 L). Still
               open after A3: the key light trailing the camera (look.py; path.json carries `orbit_deg`
               per frame for it) -- not done, decide before the Cycles night.
+            - 2026-09-24 (review round): **emergence v4.1** (EMERGE_RHO 2.0, BURY 0.35, TIP_K 1.0, and sample_arm keeps
+              a short arm's one station): every birth and death checked (`hero/emerge_check.py`): 8 of 1,891 births
+              out by <= 0.06 rho (0.16 px at full view), all 67 deaths buried, rise <= 0.73, sink <= 1.32 rho a frame
+              (v4's ramp: 492 out by up to 0.77 rho, sink 1.78). Features re-picked so the look-at slides tip -> root:
+              lambda2 = arms 42 / 43 (0.67 / 0.71 L, -y row, open channel), tertiary 830 (0.048, on the +z arm 62 at
+              0.63 L), neck = arm 62's root (mesh waist 0.915); nearer the root the waists measure 0.92-1.02 (the old
+              "coalesced, no neck / stubs" reason was wrong; README corrected). The recipe moved to
+              `hero/mesh_recipe.py` (cache key = recipe only); FAIL meshes never cached, gate failures stop the render
+              and exit `--cache-only` with 2 (`--gate-soft`), `--prune-cache`, per-process temp names, the KeyError on
+              a cache miss fixed (cold-cache `--features-only` verified). Gate: close-up mesh + 13 growth t
+              (0.034-1.0) PASS. The mesh change at 274 -> 275, Cycles 1200 px: adds ~10 % to that step (26 % of the
+              crystal's pixels > 24/255, the step 51 %; tertiary tips turn round): spreading it (~1 h of builds) is
+              **Frank's call**. Cool coarsening still out: README says growth ends at frame 275; the page's cool copy
+              (index.html:445-446, "thin ones melt back and thick ones grow") belongs with the landing workflow.
       - [ ] A4 fast preview (Workbench/EEVEE, low res) of the whole path from the cache; after D1,
             load it in the page behind a dev flag so Frank can feel the scroll before the
             Cycles night.
@@ -4772,6 +4977,12 @@ frames only. Recommendation: B staged, A first.
               ~17 min warm, ~1 h cold. Full Cycles: ~6.5-7.5 h warm (v3's measured 29 s growth / 33 s
               frozen per frame on this Arc, the v4 probe's 33-50 s close-ups), ~45 min more cold.
               Still open: run the whole preview (main session), then the page dev flag after D1.
+            - 2026-09-24 (review round): `v4/preview_final/` = a 29-frame EEVEE slice of the final path (1 min, 1.8 s a
+              frame) + `contact_sheet.png` (labelled) + `contact_sheet_anchors.png`; resume keys verified (same
+              inputs skip, other inputs stop the run, a truncated PNG re-renders). Still open: the full
+              `--cache-only` (~50 min), a re-plan on the meshes (~6 min) + `--anchors-only`, the whole preview
+              (~25 min), then the page dev flag after D1. Cycles probe: 30-35 s growth, 31-45 s frozen a frame ->
+              ~7-8 h for 778 frames.
       - [ ] A5 page engine (after D1 lands in hero.ts): spring playhead, display-rate decode,
             blend on slow steps only, set pick by CSS width x min(DPR, 2) + 720 set, segments +
             content-hashed dir + immutable cache headers; verify-hero rewritten, not loosened.

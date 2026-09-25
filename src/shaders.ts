@@ -647,7 +647,7 @@ ${COMMON}
 struct Stats {
   solid: atomic<u32>,
   interf: atomic<u32>,
-  interfT: atomic<u32>,   // fixed point x1000
+  interfT: atomic<u32>,   // summed (T + 1) x500, like the melt's mean below
   liqCount: atomic<u32>,  // liquid cells sampled (stride 2 per axis)
   probeT: u32,            // (T+1) x1000 at the probe cell (single writer)
   probePhi: u32,          // phi x1000 at the probe cell
@@ -685,7 +685,11 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   }
   if (s.r > 0.2 && s.r < 0.8) {
     atomicAdd(&stats.interf, 1u);
-    atomicAdd(&stats.interfT, u32(clamp(s.g, 0.0, 2.0) * 1000.0));
+    // offset by +1 like the probe and the 3D reduction: an interface under
+    // T = 0 (the undercooling dial at 1, a mould at -0.2) is a real reading,
+    // and clamping at 0 floored the HUD's ΔT and the Scheil points there.
+    // x500 keeps the u32 sum good to 2.86 M interface cells (68 % of 2048^2)
+    atomicAdd(&stats.interfT, u32(clamp(s.g + 1.0, 0.0, 3.0) * 500.0));
   }
   if (P.alloyOn == 1u) {
     atomicAdd(&stats.soluteSum, u32(clamp(s.b, 0.0, 4.0) * 200.0 + 0.5));

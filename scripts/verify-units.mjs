@@ -165,6 +165,46 @@ const mk = (key, over = {}) => {
   });
 }
 
+// 10. UNITS-QUANT-ANCHOR (v8 U2 review) — what T̃ = 1 IS under the calibrated
+//     (Karma–Rappel) solver with the solute field on. Its reference state puts
+//     T̃ = 1 on the nominal alloy's LIQUIDUS and T̃ = 0 on its solidus
+//     (shaders.ts uSup: U = −1 in liquid at c∞, so the drive U + T vanishes at
+//     T = 1), one degree being the freezing range ΔT₀. The converter mapped
+//     T̃ = 1 to the pure metal's T_m regardless, so every calibrated alloy's
+//     °C axis, readout and CSV value sat |m_L|·c∞ too high (15.3 K for the
+//     Al–Cu preset at 4.5 wt%). Both ends derived here from materials.ts:
+//     celsius(1) = T_m + m_L·c∞, celsius(0) = that − |m_L|·c∞·(1 − k)/k; and
+//     the Kobayashi path keeps T̃ = 1 on T_m (UNITS-ROUNDTRIP).
+{
+  const Q = await server.ssrLoadModule("/src/quant.ts");
+  const WT = (await server.ssrLoadModule("/src/alloy.ts")).WT_PER_C0;
+  const rows = [];
+  let ok = true;
+  for (const key of ["al", "steel"]) {
+    const mat = M.MATERIALS[key], si = mat.si;
+    const c0wt = mat.params.c0 * WT;
+    const q = Q.calibrate({ si, alloy: true, c0wt, lambda: 30 });
+    const u = new U.Units(U.scaleOf({
+      si, n: 1024, dx: q.dx, latent: q.latent, dSol: q.dTilde, alloy: true, umPerCell: q.umPerCell,
+      dTherm: q.dTilde, lambda: q.lambda, oneShiftK: q.liquidusShiftK, oneSource: q.liquidusSource,
+    }), si);
+    const k = Math.min(0.999, Math.max(1e-3, si.kPart));
+    const TL = si.Tm - U.K0 + si.mL * c0wt;
+    const TS = TL - (Math.abs(si.mL) * c0wt * (1 - k)) / k;
+    const kob = mk(key);
+    ok = ok && close(u.celsius(1), TL, 1e-12) && close(u.celsius(0), TS, 1e-9)
+      && close(u.fromCelsius(TL), 1, 1e-12) && close(u.meltC, si.Tm - U.K0, 1e-12)
+      && u.scale.oneSource != null && close(kob.celsius(1), si.Tm - U.K0, 1e-12) && kob.scale.oneShiftK === 0;
+    rows.push({ key, celsius1: +u.celsius(1).toFixed(2), liquidus: +TL.toFixed(2), celsius0: +u.celsius(0).toFixed(2), solidus: +TS.toFixed(2), kobayashi1: +kob.celsius(1).toFixed(2) });
+  }
+  // a pure melt under the calibrated solver: T̃ = 1 stays T_m
+  const ice = M.MATERIALS.ice.si;
+  const qi = Q.calibrate({ si: ice, alloy: false, c0wt: 0, lambda: 3 });
+  const ui = new U.Units(U.scaleOf({ si: ice, n: 1024, dx: qi.dx, latent: qi.latent, dSol: qi.dTilde, alloy: false, umPerCell: qi.umPerCell, dTherm: qi.dTilde, lambda: 3, oneShiftK: qi.liquidusShiftK }), ice);
+  ok = ok && qi.liquidusShiftK === 0 && close(ui.celsius(1), ice.Tm - U.K0, 1e-12);
+  check("UNITS-QUANT-ANCHOR", ok, rows);
+}
+
 await server.close();
 console.log(failures ? `done — ${failures} FAILED` : "done");
 if (failures) process.exitCode = 1;

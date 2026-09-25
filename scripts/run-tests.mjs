@@ -30,6 +30,8 @@ const SUITE = [
   ["scripts/verify-elements.mjs"],
   ["scripts/verify-composer-grid.mjs"],
   ["scripts/verify-hero-manifest.mjs"],
+  // v8 U2: the plot core (src/plot), browser-free and in CI
+  ["scripts/verify-plot.mjs"],
   ["scripts/verify-scroll-order.mjs"],
   // v8 D1: the live acts below the hero, their spec rails read from the sims
   // and materials.ts, their layout, footer and copy

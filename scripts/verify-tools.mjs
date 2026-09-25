@@ -199,9 +199,12 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   await p3.close();
 }
 
-// 3. panel enlarge: texture rose big viewer
+// 3. panel enlarge: texture rose big viewer. At devicePixelRatio 2, so the
+// backing-store clause below is not vacuous (at 1 a canvas that ignores the
+// ratio is still "right")
 {
   const page = await browser.newPage();
+  await page.setViewport({ width: 1400, height: 950, deviceScaleFactor: 2 });
   await boot(page);
   await page.evaluate(() => {
     const S = window.__solidify;
@@ -210,14 +213,52 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     S.analyze.setTextureOn(true);
   });
   await grow(page, 14);
+  // the rose reads the 4 Hz stats poll, which runs on real time: wait for a
+  // census with grains in it (the ticks above run ahead of the poll)
+  const hadRose = await page.waitForFunction(() => (window.__solidify.analyze.lastRose ?? []).reduce((a, v) => a + v, 0) > 0, { timeout: 15000 })
+    .then(() => true, () => false);
+  await page.evaluate(() => document.querySelector("#texPanel .zoomBtn").click());
+  // the enlarged figure paints on the next animation frame (plot/view.ts):
+  // wait for its canvas to be sized (it starts at the default 300 x 150),
+  // at most 10 s, then read it; a figure that never paints fails below
+  await page.waitForFunction(() => {
+    const c = document.querySelector("#app > .tmodal .figmodal__plot canvas");
+    return !!c && (c.width !== 300 || c.height !== 150);
+  }, { timeout: 10000 }).catch(() => {});
+  await new Promise(r => setTimeout(r, 300));
+  // ENLARGE (U2: an assertion; it was a log line that TESTING.md counted as
+  // covered). The ⤢ opens the panel spec's modal (design/panel.ts plotModal:
+  // #app > .tmodal) holding the plot core's enlarged figure (plot/modal.ts):
+  // the rose drawn on a canvas backed at the device's pixel ratio, its data
+  // as a table (one row per orientation bin, the angle columns in degrees,
+  // the area fractions summing to 100 %), and the three exports
   const state = await page.evaluate(() => {
-    document.querySelector("#texPanel .zoomBtn").click();
-    // the enlarged plot is the panel spec's modal since v8 D2 (design/panel.ts
-    // plotModal: #app > .tmodal, a class, where it was an inline fixed style)
-    return { big: !!document.querySelector("#app > .tmodal") };
+    const m = document.querySelector("#app > .tmodal");
+    const c = m?.querySelector(".figmodal__plot canvas");
+    const dpr = devicePixelRatio || 1;
+    let painted = 0;
+    if (c) {
+      const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+      for (let i = 3; i < d.length; i += 4) if (d[i] > 0) painted++;
+    }
+    const heads = [...(m?.querySelectorAll("thead th") ?? [])].map(th => th.textContent);
+    const rows = [...(m?.querySelectorAll("tbody tr") ?? [])].map(tr => [...tr.children].map(td => td.textContent));
+    const sum = rows.reduce((a, r) => a + Number((r[2] ?? "").replace("−", "-")), 0);
+    return {
+      big: !!m, title: m?.querySelector(".phead")?.textContent ?? "", canvas: c ? [c.width, c.height, c.clientWidth, c.clientHeight] : null,
+      dpr, dprOk: !!c && dpr === 2 && c.width === Math.round(c.clientWidth * dpr) && c.height === Math.round(c.clientHeight * dpr),
+      // the wedges fill a real share of the canvas (the rim, ticks and
+      // labels alone cover under 2 %)
+      painted, paintedFrac: c ? +(painted / (c.width * c.height)).toFixed(4) : 0, heads, rows: rows.length, sum: +sum.toFixed(3),
+      exports: [...(m?.querySelectorAll(".figmodal__bar button") ?? [])].map(b => b.textContent),
+    };
   });
   await grow(page, 4);
-  console.log("ENLARGE opened:", JSON.stringify(state));
+  const okEnl = hadRose && state.big && /Growth-direction rose/.test(state.title) && state.dprOk && state.paintedFrac > 0.05
+    && state.rows === 18 && state.heads.join("|") === "θlo (°)|θhi (°)|A (%)" && Math.abs(state.sum - 100) < 0.05
+    && state.exports.join("|") === "csv|png|figure png";
+  console.log("ENLARGE", okEnl ? "OK" : "FAIL", JSON.stringify({ hadRose, ...state }));
+  if (!okEnl) process.exitCode = 1;
   await page.screenshot({ path: `${OUT}/tool-bigrose.png` });
   await page.close();
 }
@@ -400,6 +441,104 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     && done.text.includes("inoculant used") && gate.blocked && gate.freeAfter && flagged;
   console.log("LAB", ok ? "OK" : "FAIL",
     JSON.stringify({ opened, poured, card, curve: done.curve, gate, flagged }));
+  if (!ok) process.exitCode = 1;
+  await page.close();
+}
+
+// 8a. LAB-CURVE (v8 U2 review) — the run report's liquidus where the app
+//     draws it, not only in the pure builder (verify-plot PLOT-LIQUIDUS): pour
+//     Al–Cu under the Kobayashi kernel and again under the calibrated solver,
+//     and read the figure the report's #foundryCurve paints. Its liquidus must
+//     be the charge's by the kernel's own rule, derived HERE from the params
+//     the pour ran with: 1 − m·c0 under Kobayashi (named "model": the preset's
+//     depression is not the alloy's own), T̃ = 1 under the calibrated solver
+//     (its reference state is the nominal liquidus), converted by the units in
+//     force (under the calibrated alloy T̃ = 1 maps to T_m + m_L·c∞, not T_m).
+//     Both pours run in REAL time: a tick-driven clock outruns the 4 Hz poll the
+//     lab's record reads, and under the calibrated solver's short time unit a
+//     ticked quench left a record with no liquid sample to draw.
+{
+  const page = await browser.newPage();
+  await boot(page);
+  const pour = async quant => {
+    const at = await page.evaluate(q => {
+      const S = window.__solidify, a = S.app;
+      a.setCalibrated(false);
+      a.setMaterial("al");
+      if (q) a.setCalibrated(true);
+      if (!S.lab.active) a.startLab();
+      const L = S.lab;
+      // the air program: the calibrated solver's time unit is short enough
+      // that a quench freezes between two polls, leaving no curve to draw
+      L.setup = { atmosphere: "argon", inoculant: 700, holdMin: 0, superheat: 0.12, moldT: 0.05, moldWalls: false, mold: "shell", program: "air", specMPa: 0 };
+      a.setSpeed(40);
+      L.start();
+      // what the pour ran with, read at the pour
+      const p = a.simParams(), u = S.units();
+      return { solver: p.solver, alloyOn: p.alloyOn, mLiq: p.mLiq, c0: p.c0, oneC: u.oneC, meltC: u.meltC, K: u.scale.kelvinPerUnit, known: u.known };
+    }, quant);
+    let card = false;
+    for (let i = 0; i < 150 && !card; i++) { await new Promise(r => setTimeout(r, 1000)); card = await page.evaluate(() => !!window.__solidify.lab.hasResults); }
+    // the report's figure paints on the next animation frame after the report
+    // is built: wait for its layout before reading what it drew
+    for (let i = 0; i < 30 && !(await page.evaluate(() => !!window.__solidify.lab.curveView?.layout)); i++) await new Promise(r => setTimeout(r, 100));
+    const fig = await page.evaluate(() => {
+      const L = window.__solidify.lab;
+      const ref = L.curveFigure(false).fig.panels[0].refs[0];
+      const lay = L.curveView?.layout;
+      const drawn = lay && !lay.empty ? lay.panels[0].refs[0] : null;
+      return { y: ref.y, label: ref.label, painted: !!drawn, canvas: document.getElementById("foundryCurve")?.closest(".rplot") != null };
+    });
+    const want = at.solver === 1 ? 1 : at.alloyOn === 1 ? 1 - at.mLiq * at.c0 : 1;
+    const wantC = at.oneC - (1 - want) * at.K;
+    return { card, at, fig, want, wantC };
+  };
+  const kob = await pour(false);
+  const cal = await pour(true);
+  const okKob = kob.card && kob.fig.painted && kob.fig.canvas && kob.at.solver === 0 && Math.abs(kob.fig.y - kob.wantC) < 1e-6
+    && kob.want < 0.99 && kob.fig.y < kob.at.meltC - 10 && kob.fig.label === "T_{liq}(c_{0}), model";
+  const okCal = cal.card && cal.fig.painted && cal.at.solver === 1 && cal.want === 1 && Math.abs(cal.fig.y - cal.at.oneC) < 1e-6
+    && cal.at.oneC < cal.at.meltC - 10 && cal.fig.label === "T_{liq}(c_{0})";
+  const ok = okKob && okCal;
+  console.log("LAB-CURVE", ok ? "OK" : "FAIL", JSON.stringify({ kob, cal }));
+  if (!ok) process.exitCode = 1;
+  await page.evaluate(() => { window.__solidify.app.setCalibrated(false); });
+  await page.close();
+}
+
+// 8a'. HUD-LIVE (v8 U2 review) — the HUD's record where the app feeds it (the
+//      pure rule is verify-plot PLOT-HUD-GAP / -RECORD): on a fresh page, the
+//      real-time loop running (a tick-driven clock outruns the 4 Hz poll), a
+//      clean Al–Cu melt above its liquidus with no seed and no inoculant has
+//      no interface, and its ΔT samples are gaps (NaN), never T_liq − 0; the
+//      samples are stamped with sim time, strictly increasing; and a paused
+//      melt records nothing through several polls.
+{
+  const page = await browser.newPage();
+  await boot(page);
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  await page.evaluate(() => {
+    const a = window.__solidify.app;
+    a.setMaterial("al");
+    a.setParams({ scen: 0, heatIn: 0, coolRate: 0.02 });
+    a.setInoculant(0); a.clearMelt(0.3); a.setRun(true);
+  });
+  await sleep(2600);
+  const read = () => page.evaluate(() => {
+    const S = window.__solidify, H = S.hud;
+    const v = H.figure("dt").columns[1].values;
+    const ts = H.rec.samples.map(p => p.t);
+    return { n: ts.length, lastT: ts[ts.length - 1], rising: ts.every((t, i) => !i || t > ts[i - 1]),
+      allGaps: v.length > 0 && v.every(x => Number.isNaN(x)) };
+  });
+  const live = await read();
+  await page.evaluate(() => window.__solidify.app.setRun(false));
+  await sleep(400);
+  const p0 = await read();
+  await sleep(1300);
+  const p1 = await read();
+  const ok = live.n >= 3 && live.rising && live.allGaps && p1.n === p0.n && p1.lastT === p0.lastT;
+  console.log("HUD-LIVE", ok ? "OK" : "FAIL", JSON.stringify({ live, paused: { before: p0, after: p1 } }));
   if (!ok) process.exitCode = 1;
   await page.close();
 }

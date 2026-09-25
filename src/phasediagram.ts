@@ -2,7 +2,11 @@ import { BASES, derive, phasesFor, type CompositionRegime, type Mix } from "./al
 import { BINARY, shortPhase, type BinaryRow } from "./phasedata";
 import { MATERIALS } from "./materials";
 import { learnSlot, fillLearnSlots, type Caveat } from "./learn";
-import { seriesVar } from "./design/plot";
+import { seriesVar, SLOTS, PRINT_SLOTS } from "./design/plot";
+import { token } from "./design/tool";
+import { ticks, fmtTick, decimalsFor, columnFormat } from "./plot/ticks";
+import { runs, modalPlotRoom } from "./plot/layout";
+import { openModal, type FigureHandle } from "./plot/modal";
 
 // shortPhase moved to phasedata.ts in v7.1 P3 — alloy.ts names phases now too,
 // and this module already imports alloy.ts, so the helper had to sit below both
@@ -149,7 +153,7 @@ function chordAt(T0: number, cEnd: number, T1: number, c: number): number {
  * is what the browser-free gates that only care about geometry do.
  */
 export function layout(mix: Mix, meltC: number | null,
-  meltMaterialKey?: string | null): Figure | FigureRefusal {
+  meltMaterialKey?: string | null, fieldScale = 1): Figure | FigureRefusal {
   const base = Object.hasOwn(BASES, mix.base) ? BASES[mix.base] : undefined;
   if (!base) return { ok: false, reason: `no diagram: no base metal named "${mix.base}" (bases: ${Object.keys(BASES).join(", ")})` };
   const si = MATERIALS[base.materialKey]?.si;
@@ -370,10 +374,14 @@ export function layout(mix: Mix, meltC: number | null,
   //      Al–Si is 1.65 wt% out of a 13.6 wt% axis — both labels rendered
   //      centred on a field two characters wide and lay across the solidus.
   const inFrame = (T: number) => T > yMin + span * 0.03 && T < yMax - span * 0.03;
-  //  a label needs roughly 0.55 px per character in a 300-unit viewBox at 7.5px
-  const INNER = 250;                       // FRAME.w - FRAME.ml - FRAME.mr
+  //  a label needs roughly 0.55 px per character in a 300-unit viewBox at 7.5px.
+  //  The frame's inner width is DERIVED (U2): it was the literal 250, which a
+  //  change to FRAME's margins would have silently desynced from the drawing
+  //  `fieldScale`: the view's field type over PD_FONT's (a narrow card sets
+  //  it larger in the frame's units to keep 11.5 px on screen, pdFontFor)
+  const INNER = FRAME.w - FRAME.ml - FRAME.mr;
   const fitsIn = (widthC: number, text: string) =>
-    (widthC / xMax) * INNER > text.length * 4.6;
+    (widthC / xMax) * INNER > text.length * 4.6 * Math.max(1, fieldScale);
   // A label that does not fit is skipped. v8 U1c dropped the three notes that
   // only apologized for a missing label (the field is still drawn, so they
   // told a reader nothing about the model); the one that NAMES information the
@@ -487,10 +495,25 @@ export function layout(mix: Mix, meltC: number | null,
 // ---------------------------------------------------------------------------
 // THE RENDERER. Only a coordinate transform — every number it draws came out of
 // `layout()` above, which is why the gate can check the drawing without a DOM.
+//
+// Since v8 U2 the figure carries a paper's axes: round ticks from the plot
+// core (plot/ticks.ts) inside the frame's own domain (never widened, so
+// PD-FIGURE-GEOMETRY's frame-tightness check still holds), the invariant's
+// temperature as a tick of its own, both axis titles with their units, a key
+// of the drawn lines, a hover readout (the composition and temperature under
+// the pointer, and both boundaries there, through `fromPx`), and an enlarged
+// view with the figure's vertices as a data table and the plot core's exports
+// (plot/modal.ts). `axesOf` and `figureRows` are pure: verify-plot.mjs checks
+// the axes and the table without a browser. It stays SVG (the audit's call:
+// it redraws on every slider frame by mutating attributes), and the landing
+// page's #pdFig is hand-typed markup that none of this touches.
 
 /** px frame of the drawing area inside the SVG */
 export interface Frame { w: number; h: number; ml: number; mr: number; mt: number; mb: number }
-export const FRAME: Frame = { w: 300, h: 190, ml: 40, mr: 10, mt: 10, mb: 24 };
+/** the composer's figure, in viewBox units: the same 250 x 156 plot as before
+ *  U2, inside margins that now hold the tick labels and both axis titles (it
+ *  was 190 tall with a 24 bottom margin, when the ticks were the frame's ends) */
+export const FRAME: Frame = { w: 300, h: 196, ml: 40, mr: 10, mt: 10, mb: 30 };
 
 /**
  * Data space to px. Exported because `PD-FIGURE-GEOMETRY` round-trips the pour
@@ -513,31 +536,181 @@ export function fromPx(fig: Figure, x: number, y: number, fr: Frame = FRAME): Pt
   };
 }
 
+/** type sizes, in the frame's units: tick labels, field labels, axis titles */
+export interface PdFont { tick: number; field: number; title: number }
+/** the composer draws its 300-unit figure about 1.55x (466 px on a desktop
+ *  or a laptop), so these land on the plot spec's 11 px ticks and 12 px
+ *  titles there. The view re-sizes them to its rendered width
+ *  (pdFontFor), so a narrower card (a phone, the tour's inset) keeps 11 and
+ *  12 px too */
+export const PD_FONT: PdFont = { tick: 7.1, field: 7.5, title: 7.8 };
+/** the enlarged view's type: its frame is its px size, so these are px */
+export const PD_BIG_FONT: PdFont = { tick: 11, field: 11.5, title: 12 };
+/** the composer figure's type for the width, CSS px, its SVG renders at:
+ *  the plot spec's 11 px ticks, 11.5 px field labels and 12 px titles on
+ *  screen, in the frame's own units (fr.w / renderedWidth per px) */
+export function pdFontFor(renderedW: number, fr: Frame = FRAME): PdFont {
+  const k = fr.w / Math.max(1, renderedW);
+  return { tick: 11 * k, field: 11.5 * k, title: 12 * k };
+}
+
+/**
+ * The enlarged view's plot size, CSS px, for a window of vw x vh: up to 860
+ * wide in the room the window leaves, and no taller than the card holds beside
+ * its exports and table (plot/layout.ts modalPlotRoom). `tour`: the tour's
+ * column is showing, which the composer (and so this view, inside it) gives
+ * up 362 px of the width to (app/index.html) — sized on the whole window, the
+ * card ran under the tour panel, its y axis and csv / png pills with it.
+ */
+export function pdBigSize(vw: number, vh: number, tour = false): [number, number] {
+  const room = tour && vw > 760 ? vw - 386 : vw;
+  const w = Math.max(300, Math.min(860, Math.round(room * 0.86) - 40));
+  const h = Math.max(260, Math.min(560, Math.round(vh * 0.56), modalPlotRoom(vh)));
+  return [w, h];
+}
+/** the room under the enlarged plot its key takes: a row of 18 px per
+ *  ~800 px of entries (all eight swatches and words) the width has to wrap
+ *  into, and 12 px of margin: one row at 860, two beside the tour at 1024,
+ *  three on a phone (a fixed 30 px let the third row run into the exports) */
+export const pdKeyRoom = (w: number): number => 12 + 18 * Math.max(1, Math.ceil(800 / Math.max(1, w)));
+/** the enlarged view's frame for its plot size, the key's room under it */
+export const pdBigFrame = (w: number, h: number): Frame => ({ w, h: h - pdKeyRoom(w), ml: 66, mr: 18, mt: 14, mb: 42 });
+/** a print figure's plot, fixed like the canvas figures' (layout.ts
+ *  printSize: a journal column, 640 wide), whatever the window */
+export const PD_PRINT_SIZE: [number, number] = [640, 450];
+
+export interface PdTick { v: number; px: number; label: string; inv?: boolean }
+export interface PdAxes { x: PdTick[]; y: PdTick[]; xTitle: string; yTitle: string }
+
+/**
+ * The axes of a drawn figure in a frame: round ticks (plot/ticks.ts) inside
+ * the data domain, the invariant's own temperature as a tick of its own (the
+ * round ticks too close to it give way), and both titles with their units.
+ */
+export function axesOf(fig: Figure, fr: Frame = FRAME, font: PdFont = PD_FONT): PdAxes {
+  const iw = fr.w - fr.ml - fr.mr, ih = fr.h - fr.mt - fr.mb;
+  const nx = Math.max(2, Math.min(8, Math.round(iw / (font.tick * 7))));
+  const ny = Math.max(2, Math.min(7, Math.round(ih / (font.tick * 4.5))));
+  const xv = ticks(0, fig.xMax, nx);
+  const xstep = xv.length > 1 ? xv[1] - xv[0] : fig.xMax || 1;
+  const x = xv.map(v => ({ v, px: toPx(fig, { c: v, T: fig.yMin }, fr).x, label: fmtTick(v, xstep) }));
+  const yv = ticks(fig.yMin, fig.yMax, ny);
+  const ystep = yv.length > 1 ? yv[1] - yv[0] : 1;
+  let y: PdTick[] = yv.map(v => ({ v, px: toPx(fig, { c: 0, T: v }, fr).y, label: fmtTick(v, ystep) }));
+  const inv = fig.polylines.find(l => l.id === "invariant");
+  if (inv) {
+    const T = inv.pts[0].T;
+    const py = toPx(fig, { c: 0, T }, fr).y;
+    y = y.filter(t => Math.abs(t.px - py) >= font.tick * 1.3);
+    const d = decimalsFor(T);
+    y.push({ v: T, px: py, label: fmtTick(T, Math.pow(10, -d)), inv: true });
+    y.sort((a, b) => b.px - a.px);
+  }
+  return { x, y, xTitle: `Composition c_{${fig.solute}} (wt%)`, yTitle: "Temperature T (°C)" };
+}
+
+/** a table row: what it is (a line's id, or a marker's), its label on the
+ *  figure, which point, composition (wt%), temperature (°C; NaN for a band
+ *  edge, which spans every temperature) */
+export type PdRow = [string, string, string, number, number];
+
+/** the figure's data: every vertex drawn, every marker, the band's edges */
+export function figureRows(fig: Figure): PdRow[] {
+  const rows: PdRow[] = [];
+  for (const id of ["liquidus", "solidus", "invariant", "solvus", "solver", "residual"] as LineId[]) {
+    const l = fig.polylines.find(q => q.id === id);
+    if (!l) continue;
+    l.pts.forEach((p, i) => rows.push([id, l.label, i === 0 ? "start" : i === l.pts.length - 1 ? "end" : String(i), p.c, p.T]));
+  }
+  for (const m of fig.markers) rows.push([m.id === "pour" ? "pour marker" : m.id === "solver" ? "solver dot" : "melt cursor", m.label, "", m.c, m.T]);
+  if (fig.band) {
+    rows.push(["regime band", fig.band.label, "left edge", fig.band.c0, NaN]);
+    rows.push(["regime band", fig.band.label, "right edge", fig.band.c1, NaN]);
+  }
+  return rows;
+}
+
+const csvCell = (s: string): string => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
+const mixText = (mix: Mix): string => {
+  const base = Object.hasOwn(BASES, mix.base) ? BASES[mix.base].symbol : mix.base;
+  const parts = Object.entries(mix.wt).filter(([, w]) => w > 0).map(([el, w]) => `${Number(w.toPrecision(4))} wt% ${el}`);
+  return [base, ...parts].join(" + ");
+};
+
+/** the provenance lines of a figure's export (the modal shows the last) */
+export function figureProv(fig: Figure, mix: Mix, rows: number): string[] {
+  return [
+    `SOLIDIFY figure data: Phase diagram · ${fig.baseSymbol}–${fig.solute}`,
+    `mix: ${mixText(mix)}`,
+    `diagram: ${fig.caption}; the ${fig.solute} axis only (the dominant solute's binary)`,
+    `source: ${fig.cite}`,
+    ...fig.notes.map(n => `note: ${n.line}`),
+    `rows: ${rows}`,
+  ];
+}
+
+/** the figure's data as CSV: the provenance as "#" lines, then its rows */
+export function figureCsv(fig: Figure, mix: Mix): string {
+  const rows = figureRows(fig);
+  const n = (v: number) => (Number.isFinite(v) ? String(Number(v.toPrecision(8))) : "");
+  return [
+    ...figureProv(fig, mix, rows.length).map(l => `# ${l}`),
+    `element,label,point,c_wt_pct_${fig.solute},T_C`,
+    ...rows.map(r => [csvCell(r[0]), csvCell(r[1]), csvCell(r[2]), n(r[3]), n(r[4])].join(",")),
+  ].join("\n") + "\n";
+}
+
 const SVGNS = "http://www.w3.org/2000/svg";
 function el(n: string, attrs: Record<string, string> = {}): SVGElement {
   const e = document.createElementNS(SVGNS, n);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
   return e;
 }
+/** figure markup into an SVG text element: `_{...}` as a lowered, smaller tspan */
+function setRich(t: SVGElement, s: string): void {
+  t.textContent = "";
+  for (const r of runs(s)) {
+    const sp = el("tspan");
+    if (r.sub) { sp.setAttribute("baseline-shift", "sub"); sp.setAttribute("font-size", "78%"); }
+    sp.textContent = r.text;
+    t.append(sp);
+  }
+}
 
 // The diagram's curves are data (DESIGN.md 5, plots), drawn in the plot
 // palette's slots in their fixed order (src/design/plot.ts; the values are
 // tokens) and the two reference-like curves, the invariant isotherm and the
 // solvus, in a gray, told apart by dash; everything else on the figure (the
-// frame, the axis ticks, the field labels, the melt-temperature cursor) is
-// chrome and takes the tokens through app/index.html's .pd* classes. The
-// colors are CSS references set as style, never written here. Every data
-// element carries `data-mark`, which is how the achromatic gate (verify-rail
-// RAIL-ACHROMATIC) tells the two apart.
-const STROKE: Record<LineId, { c: string; w: string; dash: string }> = {
-  liquidus:  { c: seriesVar(0), w: "1.6", dash: "" },
-  solidus:   { c: seriesVar(1), w: "1.4", dash: "" },
-  invariant: { c: "var(--fg-3)", w: "1.2", dash: "" },
-  solvus:    { c: "var(--fg-3)", w: "1",   dash: "3 3" },
-  solver:    { c: seriesVar(2), w: "1.3", dash: "5 3" },
-  residual:  { c: seriesVar(3), w: "1.6", dash: "2 2" },
+// frame, the axes, the field labels, the melt-temperature cursor, the hover
+// readout) is chrome and takes the tokens through app/index.html's .pd*
+// classes. The colors are CSS references set as style, never written here.
+// Every data element carries `data-mark`, which is how the achromatic gate
+// (verify-rail RAIL-ACHROMATIC) tells the two apart.
+const STROKE: Record<LineId, { c: string; w: number; dash: string }> = {
+  liquidus:  { c: seriesVar(0), w: 1.6, dash: "" },
+  solidus:   { c: seriesVar(1), w: 1.4, dash: "" },
+  invariant: { c: "var(--fg-3)", w: 1.2, dash: "" },
+  solvus:    { c: "var(--fg-3)", w: 1,   dash: "3 3" },
+  solver:    { c: seriesVar(2), w: 1.3, dash: "5 3" },
+  residual:  { c: seriesVar(3), w: 1.6, dash: "2 2" },
 };
 const LINE_ORDER: LineId[] = ["invariant", "solvus", "solidus", "liquidus", "solver", "residual"];
+/** the key's word for each line (a legend names what a mark is, never its color) */
+const KEY_WORD: Record<LineId, string> = {
+  liquidus: "liquidus", solidus: "solidus", invariant: "invariant", solvus: "solvus",
+  solver: "solver's depression", residual: "pour offset",
+};
+
+export interface PdViewOpts {
+  /** the frame, in the SVG's own units (the enlarged view's is its px size) */
+  frame?: Frame;
+  font?: PdFont;
+  /** markers and line widths, relative to the composer's figure */
+  scale?: number;
+  /** the composer's own figure: the ids the gates read (#pdCursor), the
+   *  caption row with the ⤢, the notes and the source line */
+  primary?: boolean;
+}
 
 /**
  * The figure as a mounted, mutable SVG, built ONCE and updated in place.
@@ -548,6 +721,9 @@ export class PhaseFigureView {
   readonly root: HTMLElement;
   /** the caption's row: the composer puts its learn-mode "i" in here (v8 U1c) */
   readonly head: HTMLElement;
+  /** the enlarge control, in the caption's row (the composer puts its "i"
+   *  before it, the analysis panels' order) */
+  readonly zoom: HTMLButtonElement | null = null;
   private svg: SVGElement;
   private bandEl: SVGElement;
   private paths = new Map<LineId, SVGElement>();
@@ -556,66 +732,134 @@ export class PhaseFigureView {
   private cursor: SVGElement;
   private cursorTx: SVGElement;
   private fieldTx: SVGElement[] = [];
-  private axis: SVGElement[] = [];
+  private axesG: SVGElement;
+  private hoverG: SVGElement;
+  private keyEl: HTMLElement;
   private capEl: HTMLElement;
-  private noteEl: HTMLElement;
-  private srcEl: HTMLElement;
+  private noteEl: HTMLElement | null = null;
+  private srcEl: HTMLElement | null = null;
   private lastKey = "";
+  private axesKey = "";
+  private keyKey = "";
+  private readonly fr: Frame;
+  /** the type in the frame's units; the composer's own view re-sizes it to
+   *  its rendered width (fitType), the enlarged view's is 1:1 already */
+  private font: PdFont;
+  private readonly primary: boolean;
+  private readonly k: number;
+  /** the figure last drawn, and what it was drawn from (for the hover
+   *  readout and the enlarged view) */
+  private fig: Figure | null = null;
+  private args: [Mix, number | null, string | null | undefined] | null = null;
+  private big: FigureHandle | null = null;
 
-  constructor() {
+  constructor(opts: PdViewOpts = {}) {
+    const primary = opts.primary ?? true;
+    this.primary = primary;
+    this.fr = opts.frame ?? FRAME;
+    this.font = opts.font ?? PD_FONT;
+    this.k = opts.scale ?? 1;
+    const fr = this.fr;
     this.root = document.createElement("div");
     this.root.className = "pdfig";
+    this.root.style.setProperty("--pd-tick", `${this.font.tick}px`);
+    this.root.style.setProperty("--pd-field", `${this.font.field}px`);
+    this.root.style.setProperty("--pd-title", `${this.font.title}px`);
     this.head = document.createElement("div");
     this.head.className = "pdhead";
     this.capEl = document.createElement("span");
     this.capEl.className = "pdcap";
     this.head.append(this.capEl);
-    this.svg = el("svg", { viewBox: "0 0 " + FRAME.w + " " + FRAME.h, class: "pdsvg" });
+    if (primary) {
+      const z = document.createElement("button");
+      z.type = "button";
+      z.className = "zoomBtn iconbtn";
+      z.textContent = "⤢";
+      z.title = "enlarge";
+      z.setAttribute("aria-label", "enlarge the phase diagram");
+      z.addEventListener("click", () => this.openBig());
+      this.head.append(z);
+      this.zoom = z;
+    }
+    this.svg = el("svg", { viewBox: `0 0 ${fr.w} ${fr.h}`, class: "pdsvg" });
     // the regime band goes in FIRST so every line draws over it
     this.bandEl = el("rect", {
-      y: String(FRAME.mt), height: String(FRAME.h - FRAME.mt - FRAME.mb),
+      y: String(fr.mt), height: String(fr.h - fr.mt - fr.mb),
       style: `fill: ${seriesVar(0)}`, "fill-opacity": "0.07", stroke: "none", "data-mark": "band",
     });
     this.bandEl.append(el("title"));
     this.svg.append(this.bandEl);
     this.svg.append(el("rect", {
-      x: String(FRAME.ml), y: String(FRAME.mt),
-      width: String(FRAME.w - FRAME.ml - FRAME.mr),
-      height: String(FRAME.h - FRAME.mt - FRAME.mb),
+      x: String(fr.ml), y: String(fr.mt),
+      width: String(fr.w - fr.ml - fr.mr),
+      height: String(fr.h - fr.mt - fr.mb),
       class: "pdframe",
     }));
+    // the axes: ticks, their labels and both titles, rebuilt only when the
+    // frame's domain moves
+    this.axesG = el("g", { class: "pdaxes" });
+    this.svg.append(this.axesG);
     for (const id of LINE_ORDER) {
       const s = STROKE[id];
       const p = el("path", {
-        fill: "none", style: `stroke: ${s.c}`, "stroke-width": s.w,
+        fill: "none", style: `stroke: ${s.c}`, "stroke-width": String(s.w * this.k),
         "stroke-dasharray": s.dash, "stroke-linejoin": "round", "data-mark": id,
       });
       this.paths.set(id, p);
       this.svg.append(p);
     }
-    // ids so PD-CURSOR-LIVE can read the drawn cursor rather than a mirror of it
-    this.cursor = el("line", { id: "pdCursorLine", class: "pdcursor" });
-    this.cursorTx = el("text", { id: "pdCursor", class: "pdtick", "text-anchor": "end" });
+    // ids so PD-CURSOR-LIVE can read the drawn cursor rather than a mirror of
+    // it; the enlarged view's copy carries none (an id is the composer's)
+    this.cursor = el("line", { ...(primary ? { id: "pdCursorLine" } : {}), class: "pdcursor" });
+    this.cursorTx = el("text", { ...(primary ? { id: "pdCursor" } : {}), class: "pdtick pdcurtx", "text-anchor": "end" });
     // the pour's composition and the solver's reading are data marks
-    this.pour = el("circle", { r: "3.4", style: `fill: ${seriesVar(0)}`, class: "pdpour", "data-mark": "pour" });
-    this.solverDot = el("circle", { r: "2.6", fill: "none", style: `stroke: ${seriesVar(2)}`, "stroke-width": "1.2", "data-mark": "solver" });
+    this.pour = el("circle", { r: String(3.4 * this.k), style: `fill: ${seriesVar(0)}`, class: "pdpour", "data-mark": "pour" });
+    this.solverDot = el("circle", { r: String(2.6 * this.k), fill: "none", style: `stroke: ${seriesVar(2)}`, "stroke-width": String(1.2 * this.k), "data-mark": "solver" });
     this.svg.append(this.cursor, this.cursorTx, this.solverDot, this.pour);
-    // field labels and axis ticks in --fg-3 on the plot's --bg-media (Inter,
-    // at about 11 px rendered: 7.5 and 7 viewBox units in a figure drawn
-    // near 1.5x)
+    // field labels in --fg-3 (Inter, at about 11.6 px rendered in the composer)
     for (let i = 0; i < 5; i++) {
       const t = el("text", { class: "pdfield", "text-anchor": "middle" });
       this.fieldTx.push(t); this.svg.append(t);
     }
-    for (let i = 0; i < 5; i++) {
-      const t = el("text", { class: "pdtick" });
-      this.axis.push(t); this.svg.append(t);
+    // the hover readout: a crosshair and a small box of values, chrome
+    this.hoverG = el("g", { class: "pdhover", display: "none" });
+    this.hoverG.append(el("line", { class: "pdhair" }), el("line", { class: "pdhair" }),
+      el("rect", { class: "pdreadout" }), el("text", { class: "pdrtext" }));
+    this.svg.append(this.hoverG);
+    this.svg.addEventListener("pointermove", e => this.hover(e as PointerEvent));
+    this.svg.addEventListener("pointerleave", () => this.hoverG.setAttribute("display", "none"));
+    this.keyEl = document.createElement("div");
+    this.keyEl.className = "pdkey";
+    if (primary) {
+      this.noteEl = document.createElement("div");
+      this.noteEl.className = "pdnotes";
+      this.srcEl = document.createElement("div");
+      this.srcEl.className = "pdsrc";
+      this.root.append(this.head, this.svg, this.keyEl, this.noteEl, this.srcEl);
+    } else {
+      this.root.append(this.svg, this.keyEl);
     }
-    this.noteEl = document.createElement("div");
-    this.noteEl.className = "pdnotes";
-    this.srcEl = document.createElement("div");
-    this.srcEl.className = "pdsrc";
-    this.root.append(this.head, this.svg, this.noteEl, this.srcEl);
+    // The composer's figure sets its type in the viewBox's units, which only
+    // come out at 11 / 12 px where the SVG renders ~466 px wide: with the
+    // tour's inset at an 800 px window its ticks were ~9 px, on a phone ~7.8.
+    // Re-size them to the width it renders at, so every width reads at the
+    // plot spec's 11 px ticks and 12 px titles (DESIGN.md, plots)
+    if (primary) new ResizeObserver(() => this.fitType()).observe(this.svg);
+  }
+
+  /** the composer view's type for its rendered width (pdFontFor); the axes
+   *  and the field labels are redrawn with it when it changes */
+  private fitType() {
+    const w = this.svg.getBoundingClientRect().width;
+    if (w < 2) return;
+    const f = pdFontFor(w, this.fr);
+    if (Math.abs(f.tick - this.font.tick) < 0.02) return;
+    this.font = f;
+    this.root.style.setProperty("--pd-tick", `${f.tick}px`);
+    this.root.style.setProperty("--pd-field", `${f.field}px`);
+    this.root.style.setProperty("--pd-title", `${f.title}px`);
+    this.axesKey = "";
+    if (this.args) this.update(...this.args);
   }
 
   /**
@@ -624,6 +868,7 @@ export class PhaseFigureView {
    * PD-CURSOR-LIVE reads for "off this diagram".
    */
   private writeNotes(notes: Caveat[]) {
+    if (!this.noteEl) return;
     const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     this.noteEl.innerHTML = notes.map(n => `<div class="pdnote">${esc(n.line)}</div>${learnSlot(n.learn)}`).join("");
     fillLearnSlots(this.noteEl);
@@ -631,21 +876,32 @@ export class PhaseFigureView {
 
   /** the whole figure, or a named refusal in its place */
   update(mix: Mix, meltC: number | null, meltMaterialKey?: string | null) {
-    const fig = layout(mix, meltC, meltMaterialKey);
+    this.args = [mix, meltC, meltMaterialKey];
+    const fr = this.fr;
+    // the composer's field labels fit their fields at the type it draws them
+    // in (fitType); the enlarged view's frame is ~3x wider than the fit test's
+    const fig = layout(mix, meltC, meltMaterialKey, this.primary ? this.font.field / PD_FONT.field : 1);
     if (!fig.ok) {
+      this.fig = null;
       this.svg.setAttribute("style", "display:none");
+      this.keyEl.style.display = "none";
+      if (this.zoom) this.zoom.hidden = true;
+      this.big?.close();
       this.capEl.textContent = "no diagram";
       this.writeNotes([{ line: fig.reason, learn: fig.learn ?? "" }]);
-      this.srcEl.textContent = "";
+      if (this.srcEl) this.srcEl.textContent = "";
       this.lastKey = "";
       return;
     }
+    this.fig = fig;
     this.svg.removeAttribute("style");
+    this.keyEl.style.display = "";
+    if (this.zoom) this.zoom.hidden = false;
     this.capEl.textContent = fig.caption;
 
     if (fig.band) {
-      const a = toPx(fig, { c: fig.band.c0, T: fig.yMax });
-      const b = toPx(fig, { c: fig.band.c1, T: fig.yMax });
+      const a = toPx(fig, { c: fig.band.c0, T: fig.yMax }, fr);
+      const b = toPx(fig, { c: fig.band.c1, T: fig.yMax }, fr);
       this.bandEl.removeAttribute("display");
       this.bandEl.setAttribute("x", Math.min(a.x, b.x).toFixed(2));
       this.bandEl.setAttribute("width", Math.abs(b.x - a.x).toFixed(2));
@@ -661,7 +917,7 @@ export class PhaseFigureView {
       const line = fig.polylines.find(l => l.id === id);
       if (!line) { path.setAttribute("d", ""); continue; }
       path.setAttribute("d", line.pts.map((pt, i) => {
-        const q = toPx(fig, pt);
+        const q = toPx(fig, pt, fr);
         return (i ? "L" : "M") + q.x.toFixed(2) + " " + q.y.toFixed(2);
       }).join(" "));
     }
@@ -669,7 +925,7 @@ export class PhaseFigureView {
     const place = (c: SVGElement, m: Marker | undefined) => {
       if (!m) { c.setAttribute("display", "none"); return; }
       c.removeAttribute("display");
-      const q = toPx(fig, { c: m.c, T: m.T });
+      const q = toPx(fig, { c: m.c, T: m.T }, fr);
       c.setAttribute("cx", q.x.toFixed(2));
       c.setAttribute("cy", q.y.toFixed(2));
       // querySelector("title") is typed as HTMLTitleElement — inside an SVG it
@@ -683,15 +939,15 @@ export class PhaseFigureView {
 
     const cur = fig.markers.find(m => m.id === "cursor");
     if (cur) {
-      const q = toPx(fig, { c: 0, T: cur.T });
+      const q = toPx(fig, { c: 0, T: cur.T }, fr);
       this.cursor.removeAttribute("display");
       this.cursorTx.removeAttribute("display");
-      this.cursor.setAttribute("x1", String(FRAME.ml));
-      this.cursor.setAttribute("x2", String(FRAME.w - FRAME.mr));
+      this.cursor.setAttribute("x1", String(fr.ml));
+      this.cursor.setAttribute("x2", String(fr.w - fr.mr));
       this.cursor.setAttribute("y1", q.y.toFixed(2));
       this.cursor.setAttribute("y2", q.y.toFixed(2));
-      this.cursorTx.setAttribute("x", String(FRAME.w - FRAME.mr - 2));
-      this.cursorTx.setAttribute("y", (q.y - 2).toFixed(2));
+      this.cursorTx.setAttribute("x", String(fr.w - fr.mr - 2));
+      this.cursorTx.setAttribute("y", (q.y - 2 * this.k).toFixed(2));
       this.cursorTx.textContent = cur.label;
     } else {
       this.cursor.setAttribute("display", "none");
@@ -706,33 +962,18 @@ export class PhaseFigureView {
       const fl = fig.fields[i];
       if (!fl) { t.setAttribute("display", "none"); return; }
       t.removeAttribute("display");
-      const q = toPx(fig, { c: fl.c, T: fl.T });
+      const q = toPx(fig, { c: fl.c, T: fl.T }, fr);
       t.setAttribute("x", q.x.toFixed(2));
       t.setAttribute("y", q.y.toFixed(2));
       t.textContent = fl.text;
     });
 
-    // axis ticks: the two composition ends, the two temperature ends, and the
-    // invariant's own temperature where the horizontal sits
-    const inv = fig.polylines.find(l => l.id === "invariant");
-    const ticks: { x: number; y: number; s: string; anchor: string }[] = [
-      { x: FRAME.ml, y: FRAME.h - FRAME.mb + 9, s: "0 wt% " + fig.solute, anchor: "start" },
-      { x: FRAME.w - FRAME.mr, y: FRAME.h - FRAME.mb + 9, s: fig.xMax.toFixed(fig.xMax < 2 ? 2 : 0), anchor: "end" },
-      { x: FRAME.ml - 3, y: FRAME.mt + 3, s: fig.yMax.toFixed(0) + " °C", anchor: "end" },
-      { x: FRAME.ml - 3, y: FRAME.h - FRAME.mb, s: fig.yMin.toFixed(0) + " °C", anchor: "end" },
-    ];
-    if (inv) {
-      const q = toPx(fig, inv.pts[0]);
-      ticks.push({ x: FRAME.ml - 3, y: q.y + 2.5, s: inv.pts[0].T + " °C", anchor: "end" });
-    }
-    this.axis.forEach((t, i) => {
-      const k = ticks[i];
-      if (!k) { t.setAttribute("display", "none"); return; }
-      t.removeAttribute("display");
-      t.setAttribute("x", String(k.x)); t.setAttribute("y", String(k.y));
-      t.setAttribute("text-anchor", k.anchor);
-      t.textContent = k.s;
-    });
+    // the axes, only when the frame's domain moved (a slider frame usually
+    // leaves it; the cursor never moves it)
+    const ak = `${fig.xMax}|${fig.yMin}|${fig.yMax}|${fig.solute}|${fig.polylines.find(l => l.id === "invariant")?.pts[0].T ?? ""}`;
+    if (ak !== this.axesKey) { this.axesKey = ak; this.drawAxes(fig); }
+    const kk = fig.polylines.map(l => l.id).join() + (fig.band ? "|band" : "") + (fig.markers.some(m => m.id === "pour") ? "|pour" : "");
+    if (kk !== this.keyKey) { this.keyKey = kk; this.drawKey(fig); }
 
     // the prose only changes when the MIX does, not on every cursor tick
     // keyed on the learn texts as well: the shaded-band note's line can stay
@@ -744,7 +985,341 @@ export class PhaseFigureView {
       this.writeNotes(fig.notes);
       // the row's short citation, whole: it used to print the first 240
       // characters of the audit record and stop mid-sentence (v8 U1c)
-      this.srcEl.textContent = `source: ${fig.cite}`;
+      if (this.srcEl) this.srcEl.textContent = `source: ${fig.cite}`;
+    }
+    this.big?.update();
+  }
+
+  /** ticks outward from the frame's left and bottom edges, their labels, and
+   *  the two titles (plot/ticks.ts values; axesOf is the pure half) */
+  private drawAxes(fig: Figure) {
+    const fr = this.fr, f = this.font, T = 3 * this.k;
+    const A = axesOf(fig, fr, f);
+    const g = this.axesG;
+    g.textContent = "";
+    const bottom = fr.h - fr.mb;
+    // the left and bottom edges are the axes (--fg-3); the frame's other two
+    // sides stay the quiet box
+    g.append(el("line", { class: "pdaxis", x1: String(fr.ml), x2: String(fr.ml), y1: String(fr.mt), y2: String(bottom) }),
+      el("line", { class: "pdaxis", x1: String(fr.ml), x2: String(fr.w - fr.mr), y1: String(bottom), y2: String(bottom) }));
+    for (const t of A.x) {
+      g.append(el("line", { class: "pdaxis", x1: t.px.toFixed(2), x2: t.px.toFixed(2), y1: String(bottom), y2: String(bottom + T) }));
+      const tx = el("text", { class: "pdtick", x: t.px.toFixed(2), y: (bottom + T + 2 + f.tick * 0.78).toFixed(2), "text-anchor": "middle" });
+      tx.textContent = t.label;
+      g.append(tx);
+    }
+    for (const t of A.y) {
+      g.append(el("line", { class: "pdaxis", x1: String(fr.ml - T), x2: String(fr.ml), y1: t.px.toFixed(2), y2: t.px.toFixed(2) }));
+      const tx = el("text", { class: t.inv ? "pdtick pdinv" : "pdtick", x: String(fr.ml - T - 2), y: (t.px + f.tick * 0.36).toFixed(2), "text-anchor": "end" });
+      tx.textContent = t.label;
+      g.append(tx);
+    }
+    // the baseline a quarter of the title's size above the old one, so the
+    // subscript (c_Si) stays inside the viewBox at a phone's larger type
+    const xt = el("text", { class: "pdtitle", x: ((fr.ml + fr.w - fr.mr) / 2).toFixed(2), y: (fr.h - 3 * this.k - f.title * 0.28).toFixed(2), "text-anchor": "middle" });
+    setRich(xt, A.xTitle);
+    const cy = (fr.mt + fr.h - fr.mb) / 2;
+    const yt = el("text", { class: "pdtitle", x: "0", y: "0", "text-anchor": "middle", transform: `translate(${(f.title * 0.95).toFixed(2)} ${cy.toFixed(2)}) rotate(-90)` });
+    setRich(yt, A.yTitle);
+    g.append(xt, yt);
+  }
+
+  /** the key: a swatch of each drawn mark beside its word (the swatches are
+   *  data and carry data-mark; the words are chrome) */
+  private drawKey(fig: Figure) {
+    const items: string[] = [];
+    const sw = (id: string, style: string, cls = "") => `<span class="pdkey__sw ${cls}" data-mark="${id}" style="${style}"></span>`;
+    for (const id of ["liquidus", "solidus", "invariant", "solvus", "solver", "residual"] as LineId[]) {
+      if (!fig.polylines.some(l => l.id === id)) continue;
+      const s = STROKE[id];
+      const word = id === "invariant" ? (fig.polylines.find(l => l.id === id)!.label.split(" ")[0]) : KEY_WORD[id];
+      items.push(`<span class="pdkey__i">${sw(id, `border-top-color: ${s.c}; border-top-style: ${s.dash ? "dashed" : "solid"}`)}${word}</span>`);
+    }
+    if (fig.markers.some(m => m.id === "pour")) items.push(`<span class="pdkey__i">${sw("pour", `background: ${seriesVar(0)}`, "pdkey__dot")}pour</span>`);
+    if (fig.band) items.push(`<span class="pdkey__i">${sw("band", `background: ${seriesVar(0)}`, "pdkey__band")}this pour's regime</span>`);
+    this.keyEl.innerHTML = items.join("");
+  }
+
+  /** the hover readout: the composition and temperature under the pointer,
+   *  and where the liquidus and the solidus cross that composition */
+  private hover(e: PointerEvent) {
+    const fig = this.fig, fr = this.fr;
+    if (!fig) return;
+    const r = this.svg.getBoundingClientRect();
+    if (r.width < 1) return;
+    const x = ((e.clientX - r.left) / r.width) * fr.w, y = ((e.clientY - r.top) / r.height) * fr.h;
+    if (x < fr.ml || x > fr.w - fr.mr || y < fr.mt || y > fr.h - fr.mb) { this.hoverG.setAttribute("display", "none"); return; }
+    const p = fromPx(fig, x, y, fr);
+    const at = (id: LineId): number | null => {
+      const l = fig.polylines.find(q => q.id === id);
+      if (!l) return null;
+      for (let i = 1; i < l.pts.length; i++) {
+        const a = l.pts[i - 1], b = l.pts[i];
+        if (b.c === a.c) continue;
+        if (p.c >= Math.min(a.c, b.c) && p.c <= Math.max(a.c, b.c)) return a.T + ((p.c - a.c) / (b.c - a.c)) * (b.T - a.T);
+      }
+      return null;
+    };
+    const cdec = fig.xMax < 2 ? 3 : fig.xMax < 20 ? 2 : 1;
+    const lines = [`c ${p.c.toFixed(cdec)} wt% ${fig.solute}`, `T ${p.T.toFixed(0)} °C`];
+    const L = at("liquidus"), S = at("solidus");
+    if (L != null) lines.push(`liquidus ${L.toFixed(0)} °C`);
+    if (S != null) lines.push(`solidus ${S.toFixed(0)} °C`);
+    const [v, h, box, tx] = [...this.hoverG.children] as SVGElement[];
+    v.setAttribute("x1", x.toFixed(2)); v.setAttribute("x2", x.toFixed(2)); v.setAttribute("y1", String(fr.mt)); v.setAttribute("y2", String(fr.h - fr.mb));
+    h.setAttribute("x1", String(fr.ml)); h.setAttribute("x2", String(fr.w - fr.mr)); h.setAttribute("y1", y.toFixed(2)); h.setAttribute("y2", y.toFixed(2));
+    const fs = this.font.tick, lh = fs * 1.35, pad = fs * 0.5;
+    // the mono's advance is 0.6 em (JetBrains Mono), a little over for safety
+    const bw = Math.max(...lines.map(l => l.length)) * fs * 0.62 + 2 * pad, bh = lines.length * lh + 2 * pad - (lh - fs);
+    let bx = x + fs, by = y - bh - fs * 0.6;
+    if (bx + bw > fr.w - fr.mr) bx = x - fs - bw;
+    if (by < fr.mt) by = y + fs;
+    box.setAttribute("x", bx.toFixed(2)); box.setAttribute("y", by.toFixed(2));
+    box.setAttribute("width", bw.toFixed(2)); box.setAttribute("height", bh.toFixed(2));
+    tx.textContent = "";
+    lines.forEach((l, i) => {
+      const s = el("tspan", { x: (bx + pad).toFixed(2), y: (by + pad + fs * 0.8 + i * lh).toFixed(2) });
+      s.textContent = l;
+      tx.append(s);
+    });
+    this.hoverG.removeAttribute("display");
+  }
+
+  /** close the enlarged view, if it is open (the composer closing) */
+  closeBig() { this.big?.close(); }
+
+  /** the enlarged figure (plot/modal.ts): the diagram large in its own SVG,
+   *  its vertices as the data table, and the three exports; it follows every
+   *  update of this one. Opened over the composer, inside it */
+  openBig() {
+    if (!this.fig || !this.args) return;
+    this.big?.close();
+    const host = (this.root.closest(".tmodal, #composer") as HTMLElement | null) ?? undefined;
+    // the tour's column takes the left of the window while it shows, and the
+    // composer (this view's host) is inset by it (app/index.html)
+    const [w, h] = pdBigSize(innerWidth, innerHeight, !!document.querySelector("#tour.show"));
+    const self = this;
+    let view: PhaseFigureView | null = null;
+    /** a print figure drawn off screen at the fixed print size, inside the
+     *  composer so its .pd* styles apply, then removed */
+    const printPng = async (): Promise<Blob | null> => {
+      if (!self.args) return null;
+      const [pw, ph] = PD_PRINT_SIZE;
+      const off = document.createElement("div");
+      off.style.cssText = `position:absolute; left:-10000px; top:0; width:${pw}px; pointer-events:none;`;
+      off.setAttribute("aria-hidden", "true");
+      (host ?? document.body).append(off);
+      const pv = new PhaseFigureView({ frame: pdBigFrame(pw, ph), font: PD_BIG_FONT, scale: 1.4, primary: false });
+      pv.root.classList.add("pdfig--big");
+      off.append(pv.root);
+      pv.update(...self.args);
+      try { return await svgToPng(pv.svg, 3, true, pv.keyEl); } finally { off.remove(); }
+    };
+    const handle = openModal({
+      title: `Phase diagram · ${this.fig.baseSymbol}–${this.fig.solute}`,
+      size: [w, h],
+      host,
+      material: mixText(this.args[0]),
+      mount(holder) {
+        view = new PhaseFigureView({ frame: pdBigFrame(w, h), font: PD_BIG_FONT, scale: 1.4, primary: false });
+        view.root.classList.add("pdfig--big");
+        holder.append(view.root);
+        if (self.args) view.update(...self.args);
+        return {
+          update() { if (self.args && view) view.update(...self.args); },
+          destroy() { view?.root.remove(); view = null; },
+        };
+      },
+      table() {
+        const fig = self.fig;
+        if (!fig || !self.args) return { head: [], rows: [], prov: [] };
+        const rows = figureRows(fig);
+        // six significant figures: a cited invariant (797.85 °C) prints as
+        // cited, where five printed it 797.9
+        const fc = columnFormat(rows.map(r => r[3]), 6), ft = columnFormat(rows.map(r => r[4]).filter(Number.isFinite), 6);
+        return {
+          head: ["element", "label", "point", `c_{${fig.solute}} (wt%)`, "T (°C)"],
+          rows: rows.map(r => [r[0], r[1], r[2], fc(r[3]), Number.isFinite(r[4]) ? ft(r[4]) : "—"]),
+          prov: figureProv(fig, self.args[0], rows.length),
+          text: 3,
+        };
+      },
+      csv: () => (self.fig && self.args ? figureCsv(self.fig, self.args[0]) : ""),
+      png: () => (view ? svgToPng(view.svg, 2, false, view.keyEl) : Promise.resolve(null)),
+      // the print figure at its own fixed size, not the window's (it came out
+      // 300 wide on a phone, 648 at 800, with its key cut off)
+      figurePng: printPng,
+    }, () => { if (this.big === handle) this.big = null; });
+    this.big = handle;
+  }
+}
+
+/**
+ * Paint a mounted figure's SVG onto a canvas, as a PNG: every element drawn
+ * with its computed style (so the fonts are the page's own, which an SVG
+ * rendered as an image cannot load), on the modal's --surface. `print` maps
+ * each token the figure uses to its light print twin (tokens.css --print-*)
+ * on --print-bg, with heavier lines: the same export the canvas figures have.
+ */
+export function svgToPng(svg: SVGElement, scale: number, print: boolean, key?: HTMLElement | null): Promise<Blob | null> {
+  const vb = svg.getAttribute("viewBox")!.split(/\s+/).map(Number);
+  const [W, H] = [vb[2], vb[3]];
+  // the key (HTML under the figure) goes under the plot in the file too,
+  // wrapped into rows that fit the width (one row lost its last entries off
+  // the canvas: on a phone the solver's depression, the pour offset, the pour
+  // and the regime), measured BEFORE the canvas is sized
+  const items = key ? [...key.querySelectorAll<HTMLElement>(".pdkey__i")] : [];
+  const keyFamily = key ? getComputedStyle(key).fontFamily : "";
+  const probe = document.createElement("canvas").getContext("2d")!;
+  probe.font = `400 11px ${keyFamily}`;
+  const swW = (it: HTMLElement) => {
+    const sw = it.querySelector<HTMLElement>(".pdkey__sw");
+    return !sw ? 0 : sw.classList.contains("pdkey__dot") ? 12 : sw.classList.contains("pdkey__band") ? 18 : 22;
+  };
+  const placedKey: { it: HTMLElement; x: number; row: number }[] = [];
+  {
+    let x = 12, row = 0;
+    for (const it of items) {
+      const iw = swW(it) + probe.measureText((it.textContent ?? "").trim()).width;
+      if (x > 12 && x + iw > W - 12) { row++; x = 12; }
+      placedKey.push({ it, x, row });
+      x += iw + 16;
     }
   }
+  const keyRows = placedKey.length ? placedKey[placedKey.length - 1].row + 1 : 0;
+  const keyH = keyRows ? keyRows * 16 + 10 : 0;
+  const c = document.createElement("canvas");
+  c.width = Math.round(W * scale); c.height = Math.round((H + keyH) * scale);
+  const ctx = c.getContext("2d")!;
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  const rgb = (v: string): string => {
+    const m = /^#([0-9a-f]{6})$/i.exec(v.trim());
+    if (m) { const n = parseInt(m[1], 16); return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`; }
+    const r = /rgba?\(([^)]*)\)/.exec(v);
+    return r ? r[1].split(/[\s,/]+/).slice(0, 3).map(Number).join(",") : v;
+  };
+  const MAP: [string, string][] = [
+    // the data slots, in the order design/plot.ts gives them (one array)
+    ...SLOTS.map((s, i): [string, string] => [s, PRINT_SLOTS[i]]),
+    ["--fg", "--print-fg"], ["--fg-2", "--print-fg"], ["--fg-3", "--print-fg-2"], ["--fg-4", "--print-fg-2"],
+    ["--rule-strong", "--print-fg-2"], ["--rule", "--print-fg-2"], ["--bg", "--print-bg"], ["--bg-media", "--print-bg"], ["--surface", "--print-bg"],
+  ];
+  const map = new Map(MAP.map(([a, b]) => [rgb(token(a)), token(b)]));
+  const col = (v: string): string | null => {
+    if (!v || v === "none" || /rgba\([^)]*,\s*0\)$/.test(v)) return null;
+    return print ? (map.get(rgb(v)) ?? v) : v;
+  };
+  ctx.fillStyle = print ? token("--print-bg") : token("--surface");
+  ctx.fillRect(0, 0, W, H + keyH);
+  const wk = print ? 1.5 : 1;
+  const stroke = (e: Element, cs: CSSStyleDeclaration, path: () => void) => {
+    const s = col(cs.stroke);
+    if (!s) return;
+    ctx.save();
+    ctx.globalAlpha = Number(cs.strokeOpacity || 1) * Number(cs.opacity || 1);
+    ctx.strokeStyle = s;
+    ctx.lineWidth = (parseFloat(cs.strokeWidth) || 1) * wk;
+    const dash = cs.strokeDasharray && cs.strokeDasharray !== "none" ? cs.strokeDasharray.split(/[\s,]+/).map(parseFloat).filter(Number.isFinite) : [];
+    ctx.setLineDash(dash);
+    ctx.lineJoin = "round";
+    ctx.beginPath(); path(); ctx.stroke();
+    ctx.restore();
+  };
+  const fill = (cs: CSSStyleDeclaration, path: () => void) => {
+    const f = col(cs.fill);
+    if (!f) return;
+    ctx.save();
+    ctx.globalAlpha = Number(cs.fillOpacity || 1) * Number(cs.opacity || 1);
+    ctx.fillStyle = f;
+    ctx.beginPath(); path(); ctx.fill();
+    ctx.restore();
+  };
+  const visible = (e: Element) => {
+    for (let p: Element | null = e; p && p !== svg; p = p.parentElement) {
+      if (p.getAttribute("display") === "none" || getComputedStyle(p).display === "none") return false;
+    }
+    return true;
+  };
+  for (const e of svg.querySelectorAll("rect, path, line, circle, text")) {
+    if (!visible(e) || e.closest(".pdhover")) continue;
+    const cs = getComputedStyle(e);
+    const n = (a: string) => parseFloat(e.getAttribute(a) ?? "0") || 0;
+    const tag = e.tagName.toLowerCase();
+    if (tag === "rect") {
+      const [x, y, w, h] = [n("x"), n("y"), n("width"), n("height")];
+      fill(cs, () => ctx.rect(x, y, w, h));
+      stroke(e, cs, () => ctx.rect(x, y, w, h));
+    } else if (tag === "line") {
+      stroke(e, cs, () => { ctx.moveTo(n("x1"), n("y1")); ctx.lineTo(n("x2"), n("y2")); });
+    } else if (tag === "circle") {
+      const arc = () => ctx.arc(n("cx"), n("cy"), n("r"), 0, Math.PI * 2);
+      fill(cs, arc);
+      stroke(e, cs, arc);
+    } else if (tag === "path") {
+      const d = e.getAttribute("d") ?? "";
+      if (!d) continue;
+      const seg = [...d.matchAll(/([ML])\s*([-\d.]+)[\s,]+([-\d.]+)/g)];
+      stroke(e, cs, () => { for (const [, op, x, y] of seg) (op === "M" ? ctx.moveTo(+x, +y) : ctx.lineTo(+x, +y)); });
+    } else if (tag === "text") {
+      const f = col(cs.fill);
+      if (!f) continue;
+      ctx.save();
+      const tr = e.getAttribute("transform");
+      const m = tr ? /translate\(([-\d.]+)[\s,]+([-\d.]+)\)\s*rotate\(([-\d.]+)\)/.exec(tr) : null;
+      if (m) { ctx.translate(+m[1], +m[2]); ctx.rotate((+m[3] * Math.PI) / 180); }
+      const size = parseFloat(cs.fontSize) || 7;
+      const anchor = e.getAttribute("text-anchor") ?? cs.textAnchor ?? "start";
+      // a tspan with its own x and y (a readout's line) is placed there; the
+      // text's own x and y are its anchor, placed by text-anchor below
+      const spans = e.children.length ? [...e.children] : [e];
+      const parts = spans.map(s => {
+        const sub = s.getAttribute("baseline-shift") === "sub";
+        const own = s !== e;
+        return { text: s.textContent ?? "", size: sub ? size * 0.78 : size, dy: sub ? size * 0.26 : 0,
+          x: own ? s.getAttribute("x") : null, y: own ? s.getAttribute("y") : null };
+      });
+      ctx.fillStyle = f;
+      ctx.textBaseline = "alphabetic";
+      const family = cs.fontFamily;
+      const width = parts.reduce((a, p) => { ctx.font = `400 ${p.size}px ${family}`; return a + ctx.measureText(p.text).width; }, 0);
+      let x = n("x") - (anchor === "middle" ? width / 2 : anchor === "end" ? width : 0);
+      const y0 = n("y");
+      for (const p of parts) {
+        ctx.font = `400 ${p.size}px ${family}`;
+        if (p.x != null && p.y != null) ctx.fillText(p.text, +p.x, +p.y);
+        else { ctx.fillText(p.text, x, y0 + p.dy); x += ctx.measureText(p.text).width; }
+      }
+      ctx.restore();
+    }
+  }
+  // the key: each swatch as it is styled (a line, dashed or solid; the pour's
+  // dot; the band's tint), then its word
+  for (const { it, x: kx, row } of placedKey) {
+    const y = H + 14 + row * 16;
+    let x = kx;
+    const sw = it.querySelector<HTMLElement>(".pdkey__sw");
+    if (!sw) continue;
+    const cs = getComputedStyle(sw);
+    if (sw.classList.contains("pdkey__dot")) {
+      ctx.fillStyle = col(cs.backgroundColor) ?? "gray";
+      ctx.beginPath(); ctx.arc(x + 4, y, 3.5, 0, Math.PI * 2); ctx.fill();
+      x += 12;
+    } else if (sw.classList.contains("pdkey__band")) {
+      ctx.save(); ctx.globalAlpha = 0.3; ctx.fillStyle = col(cs.backgroundColor) ?? "gray"; ctx.fillRect(x, y - 5, 12, 10); ctx.restore();
+      x += 18;
+    } else {
+      ctx.save();
+      ctx.strokeStyle = col(cs.borderTopColor) ?? "gray";
+      ctx.lineWidth = 2 * wk;
+      ctx.setLineDash(cs.borderTopStyle === "dashed" ? [4, 3] : []);
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 16, y); ctx.stroke();
+      ctx.restore();
+      x += 22;
+    }
+    ctx.font = `400 11px ${keyFamily}`;
+    ctx.fillStyle = col(getComputedStyle(it).color) ?? "gray";
+    ctx.textBaseline = "middle";
+    ctx.fillText((it.textContent ?? "").trim(), x, y);
+  }
+  return new Promise(res => c.toBlob(res, "image/png"));
 }

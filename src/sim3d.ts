@@ -174,7 +174,10 @@ export interface StatsResult3D {
   meanVolVox: number;
   eqDiamUm: number | null;   // volume-equivalent sphere diameter
   poreFrac: number;          // shrinkage-porosity volume fraction
-  interfaceT: number;        // mean T over the diffuse interface band
+  interfaceT: number;        // mean T over the diffuse interface band (0 when there is none)
+  /** how many cells the interface band has: whether interfaceT is a reading
+   *  (a real interface can sit at or under T̃ = 0, so its mean is no test) */
+  interfaceCells: number;
   probeT: number | null;     // cooling-curve probe readings (null when off)
   probePhi: number | null;
   /** mean temperature of the remaining melt, or null once fully solid */
@@ -2023,7 +2026,7 @@ export class Sim3D {
       fracSolidOpen: solid / Math.max(1, this.openVox),
       nyMeasuredFrac: solid > 0 ? nyMeasured / solid : 0,
       nyRiskFrac: nyMeasured > 0 ? nyRisk / nyMeasured : null,
-      poreFrac: data[8 + PORE_ID] / total, interfaceT,
+      poreFrac: data[8 + PORE_ID] / total, interfaceT, interfaceCells: interf,
       probeT: this.probe ? data[4] / 1000 - 1 : null,
       probePhi: this.probe ? data[5] / 1000 : null,
       meanLiqT: data[3] > 0 ? data[6] / 500 / data[3] - 1 : null,

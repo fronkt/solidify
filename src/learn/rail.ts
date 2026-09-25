@@ -134,7 +134,7 @@ export const RAIL_LEARN: readonly LearnEntry[] = [
       "stereology (2D section vs 3D)": "a flat section usually reads grains small",
       // v8 U1b: this panel was "IPF map"; it plots each grain's [001] axis in
       // the sample frame, which is a pole figure (analyze3d.ts)
-      "pole figure [001]": "each grain's [001] axis, sized by volume",
+      "pole figure [001]": "each grain's [001] axis, sized by diameter",
       "pole figure ⟨100⟩ / (0001)": "every symmetry axis of each grain",
     },
   },

@@ -729,7 +729,10 @@ function live(section: HTMLElement, canvas: HTMLCanvasElement, ctx: CanvasRender
     const t = Math.round(targetF);
     if (t !== target) dir = t > target ? 1 : -1;
     target = t;
-    hold = smooth((px - FRAME_PX) / TO_POSTER_PX);
+    // the hold starts half a scroll pixel past the last frame: the scrub's
+    // float progress lands a few millionths of a pixel past it, which drew
+    // the poster at alpha ~1e-11 over the last frame (HERO-FRAME-FOLLOWS)
+    hold = px - FRAME_PX < 0.5 ? 0 : smooth((px - FRAME_PX) / TO_POSTER_PX);
     h.target = target;
     h.p = proxy.p;
     text?.time(px);

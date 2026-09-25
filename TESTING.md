@@ -29,7 +29,8 @@ fade and Sievert gas porosity — bringing the CI-runnable set to five at the ti
 `verify-phasedata.mjs` eight, v7.1 P1's `verify-alloy.mjs` nine, v7.1 P2's
 `verify-phasediagram.mjs` ten, v7.1 P3's `verify-regimes.mjs` eleven, v7.1 P4's
 `verify-elements.mjs` twelve and v7.1 P5's `verify-composer-grid.mjs` thirteen, where v7.1 P6
-left it, and v8's `verify-hero-manifest.mjs` fourteen: **fourteen browser-free scripts**, and
+left it, v8's `verify-hero-manifest.mjs` fourteen and v8 U2's `verify-plot.mjs` fifteen:
+**fifteen browser-free scripts**, and
 `CI-SCRIPT-COUNT` derives that number from `ci.yml`'s own run lines and fails if any place this
 document states it disagrees). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
@@ -50,11 +51,11 @@ except `verify-hero.mjs`, which runs with WebGPU removed and needs no GPU; it st
 hardcoded Chrome path and the 5199 server, so it is not in CI either.
 **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
-only the OS-agnostic steps — typecheck, build, and the fourteen browser-free scripts
+only the OS-agnostic steps — typecheck, build, and the fifteen browser-free scripts
 (`verify-units.mjs`, `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
 `verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
 `verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
-`verify-composer-grid.mjs`, `verify-hero-manifest.mjs`; see
+`verify-composer-grid.mjs`, `verify-hero-manifest.mjs`, `verify-plot.mjs`; see
 `.github/workflows/ci.yml`) — rather than
 this suite. If you want to run the physics/UI verification yourself, do it locally.
 
@@ -122,6 +123,13 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   render — no means, no band geometry, the refusal naming the variable, the spread and the
   offending run). `EXP-RENDERED` (a rendered comparison carries the controlled variable by
   name, every seed, and means the check recomputes independently of the formatter under test).
+  Since v8 U2 the band painter has axes, and two of these check them: `EXP-RENDERED` requires
+  the plot to start under the label stack (wrapped as the painter wraps it), round y ticks (a
+  1-2-5 step) inside the replicates' range printed as their values, each at the height the
+  replicates' own scale puts it (re-derived from the two extreme points), and one x tick per
+  arm at the arm; `EXP-REFUSE-UNMATCHED` requires a refusal to draw no axes. Each was planted
+  on a scratch copy and failed its own check with the other seven OK: the plot back under the
+  label stack, y ticks at the data's ends and middle, a refusal drawn with axes.
 - **`verify-phasedata.mjs`** (browser-free, v7.1 P0) — the binary invariant table, and since
   v7.1 P6 the documents that quote it. Eleven
   checks. The first seven are all about totality and both polarities rather than about whether any one number is
@@ -536,6 +544,154 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   and passes locally with a notice on every run, but FAILS `HERO-MANIFEST-SCHEMA` when
   `process.env.CI` is set, so a push to main or a PR cannot carry the stand-ins toward a deploy
   (`HERO_ALLOW_PLACEHOLDER=1` lets one run through on purpose).
+- **`verify-plot.mjs`** (browser-free, v8 U2, in CI) — the plot core in `src/plot/`, which every
+  figure in the instrument is laid out, titled and exported by: a pure `layoutFigure` (data to
+  pixels, no browser), one units resolver for every axis title (`quantity.ts`, over
+  `src/units.ts`), one CSV writer. It drives the same figure builders the app calls
+  (`plot/figures.ts`: the run report's cooling curve, the HUD's glance plots and their full
+  versions, the grain-size histogram; `plot/analysis.ts`, since U2's second half: the 2D and
+  TRUE 3D probe and Scheil figures, the growth-direction rose and the pole figures; and the phase
+  diagram's pure axes and data table in `phasediagram.ts`) on synthetic records, for the model
+  metal, Al–Cu, ice and the quasicrystal. Thirteen checks. `PLOT-TICKS`: the ticks port of d3-array against seven of
+  its documented outputs (exact decimals: 0.3, never 0.30000000000000004) and a 400-domain sweep
+  (inside the domain, evenly spaced, a 1-2-5 step, labels without float noise), plus the label
+  and table-column formatters (true minus, a factored power of ten in the title, counts as
+  integers). `PLOT-LAYOUT`: every figure at the sizes it is really shown at (the report's
+  inline figure at 368 and 343 px wide by 320; the probe and Scheil figures at the analysis
+  column's 252 x 168; each enlarged figure at the modal's size for
+  1440x900, 1024x768 and a 390x844 phone; the print figure): no text off the canvas, no two
+  texts overlapping, stacked panels sharing x, y labels left of the plot, and in every panel a
+  plotted point (and in every histogram a bar) re-derived from the panel's own axis ticks and
+  found on the path the painter strokes. `PLOT-UNIT-TITLES`: every axis title ends in a unit or
+  says "dimensionless"; a material with no SI identity prints no °C, K, K·s⁻¹ or seconds
+  anywhere a reader or the CSV sees, and names T_m = 1; a real one titles temperature in °C and
+  names its clock's anchor (solute diffusion for Al–Cu, heat diffusion for pure ice), and its
+  plotted value is `Units.celsius` of the stored one. `PLOT-CSV`: the export's header carries the
+  material, seed, grid, the unit bridge's own T_m, ΔT_ref and τ with their provenance, and says
+  "decimated from N samples" only when it was; SI columns sit beside the dimensionless ones and
+  each is the bridge's conversion of its row, and an abstract material exports dimensionless
+  columns only. `PLOT-LIQUIDUS`: the cooling curve's liquidus is the charge's as the solver runs
+  it, drawn at that height: under the Kobayashi kernel 1 − m·c₀, the solver's liquidus (0.85 T̃,
+  623 °C for the Al–Cu preset, labelled "model" because the alloy's own, T_m + m_L·c₀, is 645 °C),
+  and under the calibrated solver T̃ = 1 (645 °C there); before U2 the lab drew T̃ = 1 for every
+  melt (charts-audit 8.2). `PLOT-HUD-GAP`:
+  no interface cells is a gap in the ΔT strip, never its maximum (charts-audit 8.1), in the
+  sparkline, the full plot, the CSV (empty cells) and the hover readout (nothing reported in a
+  gap or off a series' end). `PLOT-HUD-RECORD`: the HUD records only while sim time advances (a
+  pause records nothing), a reset solver or a new unit bridge starts a new series, and past its
+  cap it halves, keeping the first and the latest samples. `PLOT-CONTRAST`: every chrome role
+  (ticks, titles, axes, reference lines, marks, the readout) at least 4.5:1 on each surface a
+  figure sits on (`--bg`, `--surface`, and `--overlay` over white and over black, read from
+  `tokens.css`), the print theme's on its paper, data marks 3:1, type at least 11 px (12 for
+  titles). Each was made to fail once on a scratch copy of the tree, on its own clause with the
+  other seven OK: ticks computed by multiplication, a series drawn 1.5 px off its axis, a left
+  margin not sized to its labels, the time axis dropping its anchor, an abstract ΔT titled in K,
+  the SI temperature column converted as a difference, the seed dropped from the header, the
+  liquidus back at T̃ = 1, the ΔT gap back at its maximum, recording through a pause, and tick
+  labels in `--fg-4`. Writing it caught two layout defects before any browser did: rotated y
+  titles longer than a short stacked panel (such a figure now sets every panel's title level in
+  its header band), and a legend running into the panel tag at a phone's width.
+
+  U2's second half (the analysis columns, the polar plots and the phase diagram moved onto the
+  core) added four. `PLOT-SCHEIL`: the Scheil figure's prediction is 1 − m·c₀·(1 − f_s)^(k − 1),
+  derived in the gate and put through the bridge (°C for Al–Cu, dimensionless for the model
+  metal), the measured points are the record through the same bridge, the table carries the
+  prediction and the gap T_i − T_Scheil at each measured f_s, the y axis is the data's (every
+  point and the liquidus in it, the prediction's run toward the eutectic off its bottom), and a
+  melt without a solute field refuses by name. `PLOT-SERIES-CAP`: the probe and Scheil records
+  (one class for 2D and TRUE 3D) hold at most 900 samples, first and latest kept, count what they
+  took, record nothing through a pause, start over on a new unit bridge and latch it, and the
+  export says "decimated from 5000 samples"; a poll with no probe reading (the reduction's
+  counter still 0, which decodes to exactly T̃ = −1: the first 3D sample was one, and stretched
+  the probe's axis to 160 °C) is not a sample; and both analysis modules record through them,
+  no `curve` or `scheil` array literal left (the 3D Scheil series was a bare array pushed at
+  4 Hz for the whole session). `PLOT-POLAR`: the rose (4- and 6-fold) and the pole figures at
+  the column's size, three enlarged sizes and the print size: every label on the canvas and clear
+  of the others, each ring label on its ring (inside it, its outer corner within 4 px), all 900
+  wedges re-derived from their table rows (radius √(A / A_max) of the rim, A_max read off the
+  outer ring's own label, the start angle clockwise from +x), every period boundary a labelled
+  tick in whole degrees, the table summing to 100 %; two grains of known orientation put their
+  [001] poles at the center and on the ring labelled 60° at +X (stereographic, tan(χ/2)), the
+  second grain's twice-the-diameter dot twice the size, the identity's [100] and [010] on the rim
+  at X and Y. `PLOT-PD-AXES`: for all 24 drawable binaries, at the composer's frame and at the
+  enlarged view's: round ticks (a 1-2-5 step, every tick a multiple of it) inside the frame's own
+  domain, which the axes never widen (`PD-FIGURE-GEOMETRY`'s tightness); the invariant's exact
+  temperature as a tick of its own, the only round ticks missing being the ones that gave way to
+  it; no two y labels closer than a line of type; each tick at `toPx` of its value; the titles
+  "Temperature T (°C)" and "Composition c_X (wt%)"; `INNER` derived from `FRAME` (it was the
+  literal 250 a margin change would have silently desynced); the data table holding every drawn
+  vertex exactly (`Object.is`) and the pour marker, and the CSV the same rows (labels with commas
+  quoted), its header naming the source and the mix. Seventeen planted defects on a scratch copy
+  of the tree, each against its own clause: Scheil's exponent written −k, the Scheil axis
+  stretched to the prediction, a pure melt's Scheil drawn, the record uncapped, the 3D Scheil
+  back to a bare array, a rose radius proportional to the value, angle labels printed "45.0°",
+  ring labels pushed outside their rings, poles projected orthographically, `INNER` a literal
+  again, the invariant's tick dropped, a y tick below the frame, the solvus left out of the table,
+  CSV labels unquoted, and in `verify-experiment.mjs` three below. Sixteen failed their own clause
+  with the other eleven OK, restored by sha1; the ring labels pushed outside their rings did not
+  (between two angle labels they overlap nothing), which is why the ring-label clause exists. A
+  second pass on a fresh copy, five plants, each failing its own clause with the other eleven
+  OK: that plant again (now caught, the labels 18 px off their rings), all but the outer ring's
+  label dropped, the pole dots' size affine in d, a poll with no probe reading recorded as
+  T̃ = −1, and the 3D probe taking raw readings again.
+
+  The U2 review (2026-09-25; 36 findings on the uncommitted change, every one re-derived before
+  its fix) found the science wrong in the calibrated mode and the gate blind where the app calls
+  it, and re-pointed the clauses with the fixes. Under the calibrated (Karma–Rappel) solver the
+  drive is U + T with U = −1 in liquid at c∞, so T̃ = 1 IS the nominal alloy's liquidus and 0 its
+  solidus: `PLOT-LIQUIDUS` now derives the liquidus per kernel (1 − m·c₀ Kobayashi, 1
+  calibrated), requires the "model" label wherever the solver's line sits over a kelvin off the
+  material's own T_m + m_L·c₀ and both values in the provenance; `PLOT-SCHEIL` derives the
+  calibrated path T̃ = 1 − (k/(1 − k))·((1 − f_s)^(k − 1) − 1) as well (it drew the Kobayashi
+  formula, 0.850/0.796/0.670 T̃ at f_s = 0/0.3/0.6 against the kernel's 1.000/0.942/0.805); the
+  calibrated alloy's °C are checked against T_m + m_L·c∞ (`verify-units.mjs`
+  `UNITS-QUANT-ANCHOR`, and the CSV's bridge line). `PLOT-LAYOUT` gained two fixtures whose axes
+  factor a power of ten out (a TRUE 3D porosity strip of 0 to 0.002 % and a record with dT/dt
+  past 10⁴: no fixture did, 12 panels and 4 x axes do now) and reads every tick label back
+  through its axis's power (labels written without dividing by it passed all twelve checks);
+  requires no reference or landmark label to meet a series path (the probe's liquidus label sat
+  under its latest samples at n = 80, the report's T_L on its trace at 368 x 320; labels now take
+  the first spot clear of the data, a backing where there is none, and a zig-zag fixture proves
+  the backing); every axis at least two labelled ticks; and each enlarged figure's card inside
+  the window beside its 360 px of header, exports and table (the rose's scrolled 68 px at
+  1024x768). `PLOT-UNIT-TITLES` anchors the whole unit (it accepted "K, dimensionless") and its
+  leak test catches "(K," "µs" and "(h)"; checks every time axis of a real material per figure,
+  at 880 x 460 (full anchor) and at the column's 252 x 168 (the short form, "t (s, solute
+  anchor)": it used to drop the anchor there), not once across all figures. `PLOT-CSV` requires
+  the solver, share-link and build lines and the chemistry, one clean key per output column on
+  every figure (`fs_percent_percent` was the HUD's), no "decimated" on a histogram (its rows are
+  bins; it printed "decimated from 530 samples"), the table's time column in the axis's unit
+  (ms, not s), and file names that keep ⟨100⟩, [001] and (0001) apart with the melt and the
+  minute. `PLOT-HUD-GAP`: an alloy's ΔT card measures from the NOMINAL liquidus and is not titled
+  an undercooling. `PLOT-HUD-RECORD` and `PLOT-SERIES-CAP`: the chemistry (solver, ALLOY, m, c₀,
+  k) is latched with the bridge, so a dial moved mid-run starts a new series. `PLOT-CONTRAST`:
+  every data slot at 3:1 on each screen surface and on print paper (print slots 3 and 4 were
+  2.82 and 2.17:1), translucent fills composited at their alpha (the rose's wedges are opaque
+  now: 2.98:1 at 0.78), the poles opaque, the slots read from `design/plot.ts` in its order.
+  `PLOT-POLAR`: the rose's rim is always a labelled ring (a 12 % peak got one ring at 10 under a
+  rim of 15). `PLOT-PD-AXES` lays the diagram out at the enlarged view's REAL frames
+  (`pdBigSize` / `pdBigFrame` / `PD_BIG_FONT` at 1440x900, 1024x768 with and without the tour's
+  362 px inset, and a phone; it was a hand-copied 760 x 440 stand-in) and at the composer's type
+  on a phone (`pdFontFor`), with an x-label spacing check to match the y one. New,
+  `PLOT-WIRING`: seventeen call sites pinned by source (the lab's pour latching the chemistry
+  and the figure drawing it, the HUD's ΔT from the interface count and `chargeLiquidus`, the
+  hosts' chemistry, `hud.push` with sim time, `tEq2` solver-aware, the calibrated units' T̃ = 1,
+  the 2D interface reduction offset like the 3D one); the running app's half is `verify-tools`
+  `LAB-CURVE` and `HUD-LIVE`. Twenty-nine planted defects on a scratch copy of the tree, one at a
+  time, each failed exactly the clause(s) named for it with every other check OK, restored by
+  sha1: tick labels not divided by the power; labels placed without the data test; the enlarged
+  plot sized without the chrome; an axis left with one tick; the short time title without its
+  anchor; the HUD's enlarged x title in its short form; an abstract ΔT titled "(K,
+  dimensionless)"; the HUD's fs key doubled; a histogram keeping a sample count; the share line
+  dropped; the table's time left in seconds; the file stem dropping ⟨100⟩'s family; T̃ = 1 mapped
+  to T_m under the calibrated alloy (`PLOT-CSV`, `-LIQUIDUS` and `-SCHEIL` together, and
+  `UNITS-QUANT-ANCHOR`); the calibrated liquidus back at 1 − m·c₀ (`-LIQUIDUS`, `-WIRING`); the
+  model's liquidus labelled as the alloy's; Scheil in the Kobayashi formula under the calibrated
+  solver; the chemistry out of a series' identity (`-HUD-RECORD`, `-SERIES-CAP`); an alloy's ΔT
+  titled an undercooling; print slot 4 back at 2.17:1; the screen slots spelled out of order;
+  the poles translucent; the rose's rim unlabelled; the enlarged diagram sized under the tour;
+  taller than its card; its x labels crowded; the lab latching a pure melt's liquidus; the HUD's
+  ΔT measured from 1; the HUD stamped with wall time.
 - **`verify-composer-gpu.mjs`** (v7.1 P5) — `COMPOSER-GRID-PANEL`, the grid driven through the
   DOM the way a visitor drives it, and the first gate in this suite that clicks the composer.
   Its own file on the `verify-phasediagram-gpu.mjs` precedent: a panel gate sharing a page with
@@ -813,7 +969,29 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   since has ended on the report branch, converged or stalled, so the paused branch's copy of
   the step is the one that rarely runs.)
 - **`verify-tools.mjs`** — the v1.8 tool batch (faceted growth, `#set=` share-link round-trip,
-  the analysis-panel enlarge modal, the specimen-tilt view) plus the v4.0 physics checks below,
+  the analysis-panel enlarge modal (`ENLARGE`, an assertion since v8 U2: it was a log line
+  this document counted as covered; the ⤢ must open `#app > .tmodal` holding the plot core's
+  enlarged rose, its canvas backed at the device's pixel ratio and painted, its data table one
+  row per orientation bin with the degree columns and the area fractions summing to 100 %, and
+  the csv / png / figure png exports; its page runs at devicePixelRatio 2, since at 1 a canvas
+  that ignores the ratio is still "right", and it waits up to 10 s for the figure's first paint
+  before reading it. Proved able to fail by running the gate's own block, extracted verbatim,
+  against a second dev server serving a scratch copy with one plant at a time: the table left
+  empty (rows 0), the rose drawn without its wedges (1.4 % of the canvas painted, under the
+  5 % floor), the canvas backed at 1x (dprOk false); the unplanted copy passed), the
+  specimen-tilt view) plus the v4.0 physics checks below,
+  the plot core's call sites in the running app (since the v8 U2 review: `LAB-CURVE` pours
+  Al–Cu under the Kobayashi kernel and again under the calibrated solver, both in real time, and
+  requires the report figure `#foundryCurve` paints to draw its liquidus at the kernel's own
+  rule derived in the gate from the params the pour ran with, 1 − m·c₀ (623 °C, labelled
+  "model") and T̃ = 1 (645 °C, T_m + m_L·c∞ under the calibrated units, not T_m); `HUD-LIVE`,
+  on a fresh page in real time, a clean Al–Cu melt with no seed has ΔT samples that are all
+  gaps, sample times strictly rising, and a paused melt records nothing through five polls.
+  Proved able to fail by the two blocks extracted verbatim against a second dev server serving a
+  scratch copy, one plant at a time, restored by sha1: the lab latching T̃ = 1, the lab latching
+  the Kobayashi rule under the calibrated solver, the calibrated units mapping T̃ = 1 to T_m
+  (each `LAB-CURVE` FAIL, `HUD-LIVE` OK); the HUD's ΔT without its gap, the HUD stamped with
+  wall time (each `HUD-LIVE` FAIL, `LAB-CURVE` OK); the unplanted copy passed both),
   the lab gates (`LAB`, and v6.1's `LAB4` — the σ_y row must BE Hall–Petch on the gate's own
   census to the printed decimal, the verdict must judge the spec as dialled at the pour even
   when the dial is shoved to 999 mid-run, a no-spec pour must carry no verdict row, and the
@@ -1186,11 +1364,17 @@ rebuilt to make that relationship emergent:
 **Physics-behaviour tests (v5.0).**
 
 - **`UNITS-*`** (`verify-units.mjs`) — the scaling layer, checked without a browser, so it is
-  the first of the fourteen browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0, the v7.1 arc added six more and v8 added `verify-hero-manifest.mjs`). Nine checks: that kelvin-per-unit really is the heat
+  the first of the fifteen browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0, the v7.1 arc added six more and v8 added `verify-hero-manifest.mjs` and `verify-plot.mjs`). Ten checks: that kelvin-per-unit really is the heat
   equation's own `(L/c_p)/K` for four materials computed independently in the test; that the
   time factor is forced by whichever diffusivity is anchoring; that every converter round-trips;
   that an abstract material reads as *unknown* rather than as zero; that the undercooling dial's
-  own maximum is past the Turnbull limit for aluminium and inside it for water. Two carry more
+  own maximum is past the Turnbull limit for aluminium and inside it for water; and (since the
+  v8 U2 review, `UNITS-QUANT-ANCHOR`) what T̃ = 1 is under the calibrated solver with the solute
+  field on: the nominal alloy's liquidus T_m + m_L·c∞, with T̃ = 0 its solidus, one freezing
+  range below (the kernel's reference state, `shaders.ts` `uSup`), derived in the gate for
+  Al–Cu and steel, while the Kobayashi path and a calibrated pure melt keep T̃ = 1 on T_m. The
+  converter used to map T̃ = 1 to T_m in every mode, which put a calibrated Al–Cu's every °C
+  15.3 K high; the clause fails on that converter (660.35 against 645.05 °C). Two carry more
   weight than the rest:
   - **`UNITS-GRID-INVARIANT`** — the same dendrite must measure the same in µm at 512², 1024²
     and 2048², with the *domain* growing instead. This is the inverted-anchor regression: the
@@ -1669,9 +1853,9 @@ spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 
 that evidence recorded in the constant's own docblock. The drift prints on every run, and
 `HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
-`npm run build` (Vite + `tsc`) plus the fourteen browser-free scripts — `verify-units.mjs`,
+`npm run build` (Vite + `tsc`) plus the fifteen browser-free scripts — `verify-units.mjs`,
 `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
 `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
 `verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
-`verify-composer-grid.mjs` and `verify-hero-manifest.mjs` — are the checks anyone on any OS can run
+`verify-composer-grid.mjs`, `verify-hero-manifest.mjs` and `verify-plot.mjs` — are the checks anyone on any OS can run
 without a GPU, and are what CI actually gates on (`.github/workflows/ci.yml`).

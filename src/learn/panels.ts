@@ -86,7 +86,7 @@ export const PANEL_LEARN: readonly LearnEntry[] = [
     // the dots are the GLOBAL f_s against the mean interface temperature
     // (analyze.ts, analyze3d.ts), so the gap is not only back-diffusion
     text: "Scheil's equation predicts the interface temperature as the solid fraction grows, assuming solute "
-      + "never diffuses in the solid and mixes completely in the liquid. The cyan dots are what the solver "
+      + "never diffuses in the solid and mixes completely in the liquid. The dots are what the solver "
       + "measured; the gap shows what those assumptions leave out (back-diffusion, solute pile-up in the "
       + "liquid, undercooling, uneven temperature).",
   },
@@ -103,7 +103,8 @@ export const PANEL_LEARN: readonly LearnEntry[] = [
   {
     id: "panel:POLE FIGURE [001]",
     text: "Each dot is one grain's crystal [001] axis, projected onto the sample plane (the center is the "
-      + "sample's z axis) and sized by volume. Dots that cluster mean the grains share a growth direction.",
+      + "sample's z axis) and sized by grain diameter (equivalent sphere). Dots that cluster mean the grains "
+      + "share a growth direction.",
   },
   {
     id: "panel:POLE FIGURE",
@@ -228,7 +229,7 @@ export const LAB_CAVEATS = {
 /** explanations of the report's cards, keyed by card title */
 export const LAB_CARDS: Readonly<Record<string, string>> = {
   "COOLING CURVE": "The melt's temperature against time. Freezing releases latent heat, so the curve flattens "
-    + "or even rises (recalescence) where grains start; the gray trace is its slope, dT/dt.",
+    + "or even rises (recalescence) where grains start; the lower panel is its slope, dT/dt.",
   "COOLING-CURVE ANALYSIS": "Landmarks read off the curve the way a foundry reads a test casting: where freezing "
     + "starts (T_L), how far the melt undercooled before grains took off (ΔT_N) and where the last liquid froze (T_S).",
   "AS-CAST STRENGTH": "Yield strength from grain size (Hall–Petch): smaller grains block dislocations, so the "

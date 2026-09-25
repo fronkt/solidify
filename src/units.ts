@@ -165,6 +165,14 @@ export interface Scale {
   groups: Group[];
   /** true when the material has no SI identity (the model metal, the QC) */
   abstract: boolean;
+  /**
+   * T̃ = 1 in K from T_m: 0 (T̃ = 1 is the melting point) unless the calibrated
+   * solver runs an alloy, where T̃ = 1 is the nominal alloy's liquidus
+   * (ScaleInput.oneShiftK)
+   */
+  oneShiftK: number;
+  /** where a non-zero shift came from; null when T̃ = 1 is T_m */
+  oneSource: string | null;
   /** the panel's footer line: the material's source, or why there is none */
   note: string;
   /** its learn-mode half */
@@ -198,6 +206,20 @@ export interface ScaleInput {
    * into a real number: W₀/d₀ = λ/a₁.
    */
   lambda?: number | null;
+  /**
+   * Where the dimensionless T̃ = 1 sits, in K from the melting point (≤ 0 for
+   * a depressant). Under the Kobayashi solver, and for any pure melt, T̃ = 1 IS
+   * T_m, and this is 0 (the default). Under the calibrated (Karma–Rappel)
+   * solver with the solute field on it is not: the model's reference state
+   * puts T̃ = 1 on the liquidus of the nominal alloy and T̃ = 0 on its solidus
+   * (shaders.ts `uSup`: the drive is U + T, and U = −1 in liquid at c∞), so
+   * one degree is the freezing range and T̃ = 1 is T_m + m_L·c∞, the
+   * material's own slope or the poured mix's superposed shift. quant.ts
+   * `calibrate` returns it as `liquidusShiftK`.
+   */
+  oneShiftK?: number;
+  /** where that shift came from, one line (the SCALE panel, a figure's CSV) */
+  oneSource?: string;
 }
 
 /**
@@ -221,6 +243,8 @@ export function scaleOf(inp: ScaleInput): Scale {
       },
       groups: [],
       abstract: true,
+      oneShiftK: 0,
+      oneSource: null,
       note: "no SI identity · lengths real (you set µm/cell) · T, t dimensionless",
       // every material without an SI block, the Al–Co–Ni quasicrystal (a real
       // alloy with a real melting point) as well as the model metal
@@ -311,6 +335,9 @@ export function scaleOf(inp: ScaleInput): Scale {
     },
     groups,
     abstract: false,
+    // a shift means "T̃ = 1 is not T_m"; a zero or non-finite one does not
+    oneShiftK: Number.isFinite(inp.oneShiftK) && inp.oneShiftK !== 0 ? inp.oneShiftK! : 0,
+    oneSource: Number.isFinite(inp.oneShiftK) && inp.oneShiftK !== 0 ? inp.oneSource ?? "liquidus of the nominal alloy" : null,
     note: `source: ${si.source}`,
     learn: si.sourceLearn,
   };
@@ -349,24 +376,33 @@ export function maxRealUndercoolK(si: MaterialSI | null): number {
 export class Units {
   readonly scale: Scale;
   readonly props: MaterialSI | null;
-  /** °C the anchor T = 1 maps to */
+  /** the melting point, °C */
   private tmC: number;
+  /** °C the anchor T̃ = 1 maps to: T_m, or under the calibrated alloy solver
+   *  the nominal alloy's liquidus (Scale.oneShiftK) */
+  private oneAtC: number;
 
   constructor(scale: Scale, si: MaterialSI | null) {
     this.scale = scale;
     this.props = si;
     this.tmC = si ? si.Tm - K0 : NaN;
+    this.oneAtC = this.tmC + (scale.oneShiftK ?? 0);
   }
 
   /** false when the material has no SI identity */
   get known(): boolean { return !this.scale.abstract; }
   /** melting point in °C, or NaN */
   get meltC(): number { return this.tmC; }
+  /** the temperature T̃ = 1 stands for, °C: the melting point, except under
+   *  the calibrated alloy solver, where it is the nominal alloy's liquidus */
+  get oneC(): number { return this.oneAtC; }
 
-  // ---- temperature. T = 1 is the melting point; T = 0 sits one reference
-  // interval below it, which is what makes the interval itself meaningful.
-  celsius(t: number): number { return this.tmC - (1 - t) * this.scale.kelvinPerUnit; }
-  fromCelsius(c: number): number { return 1 - (this.tmC - c) / this.scale.kelvinPerUnit; }
+  // ---- temperature. T̃ = 1 is the anchor (the melting point, or the
+  // calibrated alloy's liquidus); T̃ = 0 sits one reference interval below it,
+  // which is what makes the interval itself meaningful (under the calibrated
+  // alloy solver T̃ = 0 is the solidus: the interval is the freezing range).
+  celsius(t: number): number { return this.oneAtC - (1 - t) * this.scale.kelvinPerUnit; }
+  fromCelsius(c: number): number { return 1 - (this.oneAtC - c) / this.scale.kelvinPerUnit; }
   /** a dimensionless temperature DIFFERENCE (undercooling, superheat) → K */
   kelvin(dt: number): number { return dt * this.scale.kelvinPerUnit; }
   fromKelvin(k: number): number { return k / this.scale.kelvinPerUnit; }

@@ -27,9 +27,13 @@ import type { MoldKind } from "./sim3d";
 import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
 import { LAB_CAVEATS, LAB_CARDS, panelHintFor, panelText } from "./learn/panels";
 import { THERMAL_LEARN } from "./thermal";
-import { token } from "./design/tool";
-import { series } from "./design/plot";
 import { kv, num, panelHead, pill, quiet, warnWord } from "./design/panel";
+import { bridgeOf, type Bridge } from "./plot/quantity";
+import { coolingFigure, type Chem, type Figure } from "./plot/figures";
+import { SOLVER } from "./shaders";
+import { PlotView } from "./plot/view";
+import { openFigure, type FigureHandle } from "./plot/modal";
+import type { PlotMeta } from "./hud";
 
 export interface LabHost {
   getMode(): "2d" | "3d";
@@ -58,6 +62,11 @@ export interface LabHost {
   /** atmosphere proxy: the fraction of sites that are wall oxide films */
   setFilmSites(frac: number): void;
   labShareLink(): string;
+  /** the melt, the seed and the grid, for a figure's provenance (U2) */
+  plotMeta(): PlotMeta;
+  /** the chemistry the active solver runs (main.ts chemNow), latched at the
+   *  pour: the report figure draws that charge's liquidus */
+  chem(): Chem;
   /** a guaranteed-fresh grain census (retries until the readback wins) — the
    *  same measurement the heat-treat panel's verdict stands on */
   measureCensus(): Promise<Census | null>;
@@ -150,6 +159,19 @@ export class Lab {
   private specAtPour = 0;
   private siAtPour: MaterialSI | null = null;
   private umAtPour = 0;
+  /** U2: the cooling curve's unit bridge, the charge's liquidus (T̃) and the
+   *  run's identity, latched at the pour like the spec: the figure converts
+   *  the whole record one way, and draws the liquidus of what was poured */
+  private bridgeAtPour: Bridge | null = null;
+  /** the charge's chemistry: the figure draws chargeLiquidus of it */
+  private chemAtPour: Chem | null = null;
+  private metaAtPour: PlotMeta | null = null;
+  /** samples recorded this pour (the series keeps at most 1200: decimated) */
+  private recorded = 0;
+  /** the finished run's record and analysis, which the figure is drawn from */
+  private report: { series: Sample[]; ta: ThermalAnalysis } | null = null;
+  private curveView: PlotView | null = null;
+  private curveModal: FigureHandle | null = null;
   /** the material identity the panel's dial ranges were derived from — a swap
    *  while the panel is open rebuilds it, so the spec ceiling is never another
    *  material's (the H7 buildPanel doctrine) */
@@ -239,6 +261,10 @@ export class Lab {
     this.run.stop();
     this.panel?.remove();
     this.panel = null;
+    this.curveModal?.close();
+    this.curveView?.destroy();
+    this.curveView = null;
+    this.report = null;
     this.resultsPanel?.remove();
     this.resultsPanel = null;
     this.hasResults = false;
@@ -260,6 +286,8 @@ export class Lab {
     // guards against, so close it and make the Results button earn itself again
     this.resultsPanel?.classList.add("hidden");
     this.hasResults = false;
+    // and its enlarged figure with it (the new pour's report builds its own)
+    this.curveModal?.close();
     // the lab owns the thermal boundary: set-point cooling, no constant sink
     p.scen = three ? 4 : 3;
     p.coolRate = 0;
@@ -291,6 +319,14 @@ export class Lab {
     this.specAtPour = this.setup.specMPa > 0 ? this.setup.specMPa : 0;
     this.siAtPour = u0.props;
     this.umAtPour = u0.micron(1);
+    // U2: the figure's latch. The liquidus is the charge's own, from the
+    // chemistry the solver is running (figures.ts chargeLiquidus): 1 − m̃·c̃₀
+    // for a Kobayashi alloy, T̃ = 1 under the calibrated solver (its reference
+    // state is the nominal alloy's liquidus), T_m = 1 for a pure melt
+    this.metaAtPour = this.host.plotMeta();
+    this.bridgeAtPour = bridgeOf(u0, this.metaAtPour.material);
+    this.chemAtPour = this.host.chem();
+    this.recorded = 0;
     // pour ABOVE the liquidus: nothing can freeze until the programme cools it
     this.host.clearMelt(-this.setup.superheat);
     const prog: Program = (PROGRAMS[this.setup.program] ?? PROGRAMS.air)(0.55);
@@ -353,6 +389,7 @@ export class Lab {
     if (!this.running) return;
     const t = this.host.simTimeNow() - this.t0;
     this.series.push({ t, T: meanLiqT ?? 0, fs: fracSolid, fired: this.host.nucFired() });
+    this.recorded++;
     // keep the record within a cap by DECIMATING the whole span, never dropping
     // its head — the old splice threw away the oldest samples, which on a long
     // run silently deleted the liquidus arrest (thermal.ts:retain)
@@ -710,11 +747,20 @@ export class Lab {
       + `${uu.known ? uu.kelvin(this.setup.superheat).toFixed(0) + " K" : this.setup.superheat.toFixed(2)}`
       + ` · mold ${uu.known ? uu.fmtC(this.setup.moldT) : this.setup.moldT.toFixed(2)}</div>`);
 
-    // the plot is media: square-edged, no box around it (DESIGN.md 1.3)
-    const canvas = document.createElement("canvas");
-    canvas.id = "foundryCurve";
-    canvas.width = 520; canvas.height = 168;
-    body.append(Lab.rcard("COOLING CURVE", canvas));
+    // the plot is media: square-edged, no box around it (DESIGN.md 1.3). Its
+    // text is drawn on the canvas, so nothing of the plot's reaches the text
+    // the report's gates read; its data table lives in the enlarged view,
+    // outside #foundryResultsBody (charts-audit 7)
+    this.report = { series: this.series.slice(), ta };
+    this.curveView?.destroy();
+    const holder = document.createElement("div");
+    holder.className = "rplot";
+    this.curveView = new PlotView(holder, {
+      id: "foundryCurve",
+      label: "cooling curve: open the full figure, its data table and exports",
+      onOpen: () => this.openCurve(),
+    });
+    body.append(Lab.rcard("COOLING CURVE", holder));
 
     // ---- thermal analysis, the way a foundry reads the cast-cup curve. Absolute
     // temperatures in °C, intervals in K; everything the routine could not resolve
@@ -773,7 +819,7 @@ export class Lab {
       : `<div class="pline q">conditions held for the whole run</div>`);
     fillLearnSlots(body);
 
-    this.drawCurve(canvas, ta);
+    this.curveView.set(this.curveFigure(false).fig);
     this.hasResults = true;
     // finish() already called refresh() before this measurement landed (it's
     // async), so the status line and the button's disabled state are still
@@ -786,79 +832,41 @@ export class Lab {
     }
   }
 
-  private drawCurve(canvas: HTMLCanvasElement, ta: ThermalAnalysis) {
-    const ctx = canvas.getContext("2d");
-    if (!ctx || this.series.length < 2) return;
-    // drawn at the size it is shown, in CSS px (the backing store at the
-    // device's pixel ratio), so the labels are the 11 px the plot spec asks
-    // for rather than a 520 px drawing squeezed into the panel
-    const dpr = devicePixelRatio || 1;
-    const W = canvas.clientWidth || 368, H = canvas.clientHeight || 168, pad = 22;
-    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const ts = this.series.map(s => s.t);
-    const tMin = Math.min(...ts), tMax = Math.max(...ts) || 1;
-    const temps = this.series.filter(s => s.T > 0).map(s => s.T);
-    const yMin = Math.min(0, ...temps), yMax = Math.max(1.15, ...temps);
-    const X = (t: number) => pad + ((t - tMin) / (tMax - tMin || 1)) * (W - pad * 2);
-    const Y = (v: number) => H - pad - ((v - yMin) / (yMax - yMin || 1)) * (H - pad * 2);
-    ctx.clearRect(0, 0, W, H);
-    // chrome from the tokens (tick labels Inter 11 px in --fg-3, reference
-    // lines --rule-strong); the curve is data, from the plot palette
-    ctx.font = `400 11px ${token("--font-body")}`;
-    // liquidus: a reference line, chrome
-    ctx.strokeStyle = token("--fg-4");
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath(); ctx.moveTo(pad, Y(1)); ctx.lineTo(W - pad, Y(1)); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = token("--fg-3");
-    ctx.fillText("liquidus", pad + 3, Y(1) - 4);
+  /**
+   * The run report's figure (plot/figures.ts coolingFigure), from the record
+   * as it stood when the report was built and everything latched at its pour:
+   * the unit bridge, the charge's liquidus, the run's identity. `full` adds the
+   * measured-vs-reconstructed f_s panel for the enlarged view.
+   */
+  private curveFigure(full: boolean): Figure {
+    const rep = this.report ?? { series: [], ta: analyseCurve([]) };
+    const b = this.bridgeAtPour ?? bridgeOf(this.host.units(), this.host.plotMeta().material);
+    const meta = this.metaAtPour ?? this.host.plotMeta();
+    const u = b.units;
+    const chem = this.chemAtPour ?? this.host.chem();
+    const sh = u.known ? `${u.kelvin(this.setup.superheat).toFixed(0)} K` : `${this.setup.superheat.toFixed(2)} (dimensionless)`;
+    // the pour sits at T̃ = 1 + superheat: over T_m, except under the
+    // calibrated alloy solver, whose T̃ = 1 is the nominal alloy's liquidus
+    const over = chem.solver === SOLVER.QUANT && chem.alloy ? "T_liq(c0), the calibrated solver's T̃ = 1" : "T_m (T̃ = 1)";
+    return coolingFigure({
+      series: rep.series, ta: rep.ta, bridge: b, chem, full,
+      prov: {
+        ...meta,
+        recorded: this.recorded,
+        extra: [
+          `pour: ${this.setup.program} program, ${this.setup.atmosphere}, superheat ${sh} over ${over}`,
+          `T: mean temperature of the remaining liquid (not a fixed thermocouple); the record ends at the solidus`,
+        ],
+      },
+    });
+  }
 
-    // the smoothed derivative trace on its own zeroed axis (right half of the
-    // range), so the arrest reads as the moment dT/dt bends toward zero
-    if (ta.deriv.length > 2) {
-      const ds = ta.deriv.map(d => d.dTdt);
-      const dMax = Math.max(1e-6, ...ds.map(Math.abs));
-      const Yd = (v: number) => H - pad - ((v / (2 * dMax)) + 0.5) * (H - pad * 2);
-      ctx.strokeStyle = token("--rule-strong");
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ta.deriv.forEach((d, i) => { const x = X(d.t), y = Yd(d.dTdt); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
-      ctx.stroke();
-      ctx.fillStyle = token("--fg-3");
-      ctx.fillText("dT/dt", W - pad - 30, Yd(0) - 3);
-    }
-
-    // the cooling curve itself (data: the palette's first slot, the same
-    // color as the probe's curve in the analysis column)
-    ctx.strokeStyle = series(0);
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    let started = false;
-    for (const s of this.series) {
-      if (s.T <= 0) continue;
-      const x = X(s.t), y = Y(s.T);
-      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-
-    // the extracted landmarks: each dot is labeled (T_L, T_N, T_G, T_S), so
-    // it needs no hue of its own: --fg dots on the trace, --fg-2 labels (a
-    // red nadir would read as an error)
-    const mark = (lm: { t: number; T: number } | null, label: string, dy: number) => {
-      if (!lm) return;
-      ctx.fillStyle = token("--fg");
-      ctx.beginPath(); ctx.arc(X(lm.t), Y(lm.T), 3.2, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = token("--fg-2");
-      ctx.fillText(label, Math.min(W - pad - 42, X(lm.t) + 5), Y(lm.T) + dy);
-    };
-    mark(ta.liquidus, "T_L", -5);
-    mark(ta.nadir, "T_N", 12);
-    mark(ta.growth, "T_G", -5);
-    mark(ta.solidus, "T_S", 12);
-
-    ctx.fillStyle = token("--fg-3");
-    ctx.fillText("melt temperature vs time", pad, 12);
+  /** the enlarged figure: three panels, the data table and the exports */
+  private openCurve() {
+    if (!this.report) return;
+    this.curveModal?.close();
+    const h = openFigure(() => this.curveFigure(true), () => { if (this.curveModal === h) this.curveModal = null; });
+    this.curveModal = h;
   }
 
 }

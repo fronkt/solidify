@@ -292,8 +292,10 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
   const A356TiB = A.derive({ base: "al", wt: { Si: 7, Mg: 0.35, Ti: 0.12 } });
   const A356 = A.derive({ base: "al", wt: { Si: 7, Mg: 0.35 } });
   const lean = A.derive({ base: "al", wt: { Zn: 1 } });
-  // the app's own normalised liquidus, 1 - m*c0: the same expression analyze.ts
-  // integrates against (analyze.ts:318) and the number the science page prints
+  // the app's own normalised liquidus, 1 - m*c0: the Kobayashi kernel's, the
+  // same expression the figures draw (plot/figures.ts chargeLiquidus, for the
+  // lab, the probe and the HUD; plot/analysis.ts scheilT at f_s = 0, for
+  // scheilFigure) and the number the science page prints
   const tNorm = d => (1 - d.params.mLiq * d.params.c0).toFixed(3);
 
   // The two tables' disagreement about k, which the Scheil floor's justification

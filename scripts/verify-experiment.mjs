@@ -207,6 +207,8 @@ const fakeCast = async (value, seed) =>
     && !text.includes("222")                       // mean of 111/333 must NOT render
     && lay.labels.some(l => l.kind === "refusal")
     && lay.band.length === 0 && lay.means.length === 0 && lay.pts.length === 0
+    // (U2) a refusal draws no axes either: there is nothing to read off them
+    && lay.plot === null && lay.yTicks.length === 0 && lay.xTicks.length === 0
     && Number.isFinite(res.ctrlWidth) && res.ctrlWidth > 0.05;   // liveness: a real measured spread
   check("EXP-REFUSE-UNMATCHED", ok, { refusal: res.refusal, ctrlWidth: res.ctrlWidth });
 }
@@ -242,9 +244,25 @@ const fakeCast = async (value, seed) =>
     && lay.labels.some(l => l.kind === "controlled")
     && lay.band.length === 2 && lay.pts.length === 4
     && lay.pts.every(p => Number.isFinite(p.x) && Number.isFinite(p.y));
-  check("EXP-RENDERED", ok, {
+  // (U2) the axes. The plot starts under the label stack (wrapped the way the
+  // painter wraps it, 40 characters a line at 252 px, 13 px a line), so no
+  // tick label lands on a line of it; the y ticks are round (a 1-2-5 step),
+  // inside the replicates' range 111..446, printed as their values, and each
+  // sits where the replicates' own scale puts it (re-derived from the two
+  // extreme points); one x tick per arm, at the arm, printed as its value
+  const stack = lay.labels.reduce((a, l) => a + Math.ceil(l.text.length / Math.floor((252 - 8) / 6)), 0);
+  const lo = lay.pts.find((_, i) => i === 0), hiPt = lay.pts[3];   // 111 (slow, seed 0), 446 (fast, seed 1)
+  const yOf = v => lo.y + ((v - 111) / (446 - 111)) * (hiPt.y - lo.y);
+  const yt = lay.yTicks, st = yt.length > 1 ? yt[1].v - yt[0].v : NaN;
+  const m = st / Math.pow(10, Math.floor(Math.log10(st) + 1e-9));
+  const axes = !!lay.plot && lay.plot.y0 >= 4 + 13 * stack
+    && lay.pts.every(p => p.y >= lay.plot.y0 && p.y <= lay.plot.y1 && p.x >= lay.plot.x0 && p.x <= lay.plot.x1)
+    && yt.length >= 2 && [1, 2, 5, 10].some(q => Math.abs(m - q) < 1e-9)
+    && yt.every(t => t.v >= 111 && t.v <= 446 && Number(t.label) === t.v && Math.abs(t.y - yOf(t.v)) < 1e-9)
+    && lay.xTicks.length === 2 && lay.xTicks.every((t, i) => t.v === [0.35, 0.7][i] && t.x === lay.band[i].x && t.label === String(t.v));
+  check("EXP-RENDERED", ok && axes, {
     means: res.rows.map(r => r.band.mean), ctrlWidth: +res.ctrlWidth.toFixed(4),
-    labels: lay.labels.map(l => l.kind),
+    labels: lay.labels.map(l => l.kind), axes, plot: lay.plot, yTicks: yt.map(t => t.label), xTicks: lay.xTicks.map(t => t.label),
   });
 }
 

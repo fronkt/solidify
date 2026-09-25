@@ -65,8 +65,10 @@ export function tabbables(root: Element | null): HTMLElement[] {
  * click on the backdrop), and focus goes back to the control that opened
  * it. main.ts's shortcuts (Space, the lens digits) stand down while a
  * .tmodal is open. Returns the backdrop (remove it to close) and the card.
+ * `host` is where the backdrop goes: #app, or a modal the plot sits in (the
+ * alloy composer's phase diagram), which inerts everything outside itself.
  */
-export function plotModal(title: string, onClose: () => void): { wrap: HTMLElement; card: HTMLElement } {
+export function plotModal(title: string, onClose: () => void, host?: HTMLElement): { wrap: HTMLElement; card: HTMLElement } {
   const opener = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
     ? document.activeElement : null;
   const close = () => {
@@ -102,7 +104,7 @@ export function plotModal(title: string, onClose: () => void): { wrap: HTMLEleme
     }
   };
   window.addEventListener("keydown", onKey);
-  document.getElementById("app")!.append(wrap);
+  (host ?? document.getElementById("app")!).append(wrap);
   closeB.focus({ preventScroll: true });
   return { wrap, card };
 }

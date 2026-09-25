@@ -97,7 +97,10 @@ export interface StatsResult {
   grainCount: number;
   meanAreaPx: number;
   astm: number | null;
+  /** mean temperature of the interface cells; 0 when there are none, so read
+   *  it only when `interfaceCells` > 0 (the HUD's ΔT shows a gap there) */
   interfaceT: number;
+  interfaceCells: number;
   diamsUm: number[];
   probeT: number | null;   // temperature at the cooling-curve probe cell
   probePhi: number | null;
@@ -825,7 +828,8 @@ export class Simulation {
     const total = this.n * this.n;
     const solid = data[0];
     const interf = data[1];
-    const interfT = interf > 0 ? data[2] / 1000 / interf : 0;
+    // (T + 1) x500 per interface cell (shaders.ts STATS), decoded back to T
+    const interfT = interf > 0 ? data[2] / 500 / interf - 1 : 0;
     const probeT = this.probe ? data[4] / 1000 - 1 : null;
     const probePhi = this.probe ? data[5] / 1000 : null;
     const liqCount = data[3];
@@ -854,7 +858,7 @@ export class Simulation {
       const meanAreaMm2 = meanAreaPx * (umPerPx / 1000) ** 2;
       astm = 3.322 * Math.log10(1 / meanAreaMm2) - 2.954;
     }
-    return { fracSolid: solid / total, grainCount: count, meanAreaPx, astm, interfaceT: interfT, diamsUm: diams, probeT, probePhi, meanLiqT, oriRose, soluteSum };
+    return { fracSolid: solid / total, grainCount: count, meanAreaPx, astm, interfaceT: interfT, interfaceCells: interf, diamsUm: diams, probeT, probePhi, meanLiqT, oriRose, soluteSum };
   }
 
   /**

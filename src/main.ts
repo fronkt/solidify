@@ -9,7 +9,7 @@ import { Renderer3D, slicePlane } from "./render3d";
 import { SlicePanel } from "./slicepanel";
 import { ViewCube } from "./viewcube";
 import { UI, type UIHost } from "./ui";
-import { Hud } from "./hud";
+import { Hud, type PlotMeta } from "./hud";
 import { Tour, SCENES, type TourHost } from "./tour";
 import { Optimizer, type OptHost, type Recipe } from "./optimizer";
 import { packShare, unpackShare, type ShareState } from "./share";
@@ -21,16 +21,22 @@ import { Analyze3D } from "./analyze3d";
 import { Nucleation } from "./nucleation";
 import { Lab, type LabHost, type LabSetup } from "./lab";
 import { HeatPanel, type HeatHost, type Census, regionCensus } from "./heatpanel";
-import { Units, scaleOf, DEFAULT_UM_PER_CELL } from "./units";
+import { Units, scaleOf, DEFAULT_UM_PER_CELL, K0 } from "./units";
 import { stream, getSeed, setSeed, reseed, seedHex } from "./rng";
 import { SOLVER } from "./shaders";
-import { calibrate, defaultLambda, pouredMixSource, A_T, type QuantSetup } from "./quant";
+import { calibrate, defaultLambda, pouredMixSource, A_T, A1, type QuantSetup } from "./quant";
 import * as experiment from "./experiment";
 import { WT_PER_C0 } from "./alloy";
 import { STATUS_LEARN } from "./learn/panels";
+import { chargeLiquidus, chemOf, type Chem } from "./plot/figures";
 
 /** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
 const SPEED_MULTS = [1, 2, 4] as const;
+
+/** the build that drew a figure, for its provenance: the commit the dev
+ *  server or the bundle was built from (vite.config.ts `define`) */
+declare const __SOLIDIFY_BUILD__: string | undefined;
+const BUILD = typeof __SOLIDIFY_BUILD__ === "string" ? __SOLIDIFY_BUILD__ : "dev";
 
 async function boot() {
   const gate = () => { document.getElementById("gate")!.style.display = "flex"; };
@@ -57,7 +63,13 @@ async function boot() {
   const canvas = document.getElementById("canvas") as HTMLCanvasElement;
   let sim = new Simulation(device, 1024);
   const renderer = new Renderer(device, canvas, sim);
-  const hud = new Hud(document.getElementById("hud")!);
+  // the HUD's glance plots read the live units, the run's identity and the
+  // charge's liquidus through closures: none is called until boot is done
+  const hud = new Hud(document.getElementById("hud")!, {
+    units: () => unitsNow(),
+    meta: () => plotMeta(),
+    chem: () => chemNow(),
+  });
 
   // ------------------------------------------------------------- app state
   let view: ViewMode = 0;
@@ -199,7 +211,78 @@ async function boot() {
       lambda: (p as { solver?: number }).solver === SOLVER.QUANT
         ? (p as { lambda?: number }).lambda ?? null
         : null,
+      // under the calibrated solver with the solute field on, T̃ = 1 is the
+      // nominal alloy's liquidus, not T_m (quant.ts liquidusShiftK): the
+      // thermometer's zero moves with the chemistry the kernel runs
+      ...(!three && sim.params.solver === SOLVER.QUANT && sim.params.alloyOn === 1 ? quantAnchor() : {}),
     }), si);
+  };
+  /** the calibrated alloy solver's T̃ = 1, for unitsNow (2D only: the volume
+   *  runs Kobayashi) */
+  const quantAnchor = (): { oneShiftK?: number; oneSource?: string } => {
+    const q = calibrateNow(sim.params.lambda);
+    return q ? { oneShiftK: q.liquidusShiftK, oneSource: q.liquidusSource } : {};
+  };
+
+  /**
+   * What a figure's provenance names (U2, plot/csv.ts): the melt as the head
+   * plate prints it, the run's seed, and the active solver's grid.
+   */
+  function plotMeta(): PlotMeta {
+    const three = mode === "3d" && sim3d != null;
+    const lam = sim.params.lambda;
+    return {
+      material: alloyName,
+      seed: seedHex(),
+      grid: three ? `${sim3d!.n}³ cells (TRUE 3D)` : `${sim.n}² cells (2D)`,
+      // the volume runs the Kobayashi kernel only (calibrated mode is 2D)
+      solver: three ? "Kobayashi (1993) phase field, TRUE 3D"
+        : sim.params.solver === SOLVER.QUANT
+          ? `Karma–Rappel quantitative (calibrated), λ = ${Number(lam.toPrecision(4))}, W₀/d₀ = ${(lam / A1).toFixed(1)}`
+          : "Kobayashi (1993) phase field, 2D",
+      // the seed alone does not fix the dials: the link reopens all of them
+      share: app.shareLink(),
+      build: BUILD,
+    };
+  }
+
+  /**
+   * The poured mix, when the solver is still carrying ITS chemistry on THIS
+   * material (the stamp check calibrateNow has always made), else null; and
+   * whether a mix was poured but the dials have moved off it since.
+   */
+  const pouredLive = (): { d: AlloyDerived | null; stale: boolean } => {
+    const stale = !!pouredMix && !(
+      sim.params.alloyOn === pouredMix.stamp.alloyOn
+      && sim.params.c0 === pouredMix.stamp.c0
+      && sim.params.mLiq === pouredMix.stamp.mLiq
+      && sim.params.kPart === pouredMix.stamp.kPart);
+    const d = pouredMix && pouredMix.materialKey === material && !stale ? pouredMix.derived : null;
+    return { d, stale };
+  };
+
+  /**
+   * The chemistry the active solver runs, for the figures (plot/figures.ts
+   * Chem): which kernel, the solute field it is RUNNING (the volume's
+   * alloyActive), its dimensionless m̃, c̃₀, k, and the material's own
+   * liquidus at that composition in °C (T_m + m_L·c₀ from its SI slope, or
+   * a poured mix's T_m + ΔT_L), which a figure prints beside the solver's.
+   */
+  const chemNow = (three = mode === "3d" && sim3d != null): Chem => {
+    const p = three && sim3d ? sim3d.params : sim.params;
+    const alloy = three && sim3d ? sim3d.alloyActive : sim.params.alloyOn === 1;
+    const si = (MATERIALS[material] ?? MATERIALS.generic).si ?? null;
+    const c0wt = si ? p.c0 * WT_PER_C0 : null;
+    let liqC: number | null = null, liqSource = "";
+    if (si) {
+      const TmC = si.Tm - K0;
+      const d = alloy ? pouredLive().d : null;
+      if (!alloy) { liqC = TmC; liqSource = "T_m: a pure melt"; }
+      else if (d) { liqC = TmC + d.dTL; liqSource = `${d.name}: T_m + ΔT_L, ΔT_L ${d.dTL.toFixed(2)} K (the composer's superposed shift)`; }
+      else { liqC = TmC + si.mL * c0wt!; liqSource = `T_m + m_L·c₀, m_L ${si.mL} K/wt%, c₀ ${c0wt!.toFixed(2)} wt% (${si.source.split(" · ")[0]})`; }
+    }
+    return chemOf({ solver: three ? SOLVER.KOB : sim.params.solver, mLiq: p.mLiq, c0: p.c0, kPart: p.kPart },
+      { alloy, c0wt, liqC, liqSource });
   };
 
   /**
@@ -227,17 +310,13 @@ async function boot() {
     // be carrying THAT chemistry. Move the composition slider, click a preset,
     // restore a scene — any of those rewrite c0/mLiq/kPart, and a ΔT₀ built for
     // a composition the kernel is no longer integrating is exactly the defect
-    // this milestone removed one level up.
-    const stale = pouredMix && !(
-      sim.params.alloyOn === pouredMix.stamp.alloyOn
-      && sim.params.c0 === pouredMix.stamp.c0
-      && sim.params.mLiq === pouredMix.stamp.mLiq
-      && sim.params.kPart === pouredMix.stamp.kPart);
-    const poured = pouredMix && pouredMix.materialKey === material && !stale ? pouredMix : null;
-    const d = poured?.derived ?? null;
+    // this milestone removed one level up. (pouredLive is that check.)
+    const { d, stale } = pouredLive();
     return calibrate({
       si, alloy, c0wt: sim.params.c0 * WT_PER_C0, lambda,
       dT0Override: alloy ? d?.dT0 ?? null : null,
+      dTLOverride: alloy ? d?.dTL ?? null : null,
+      mixName: d?.name,
       coefficientSource: !alloy ? undefined
         : !d
           ? (stale
@@ -945,11 +1024,18 @@ async function boot() {
     },
   };
 
-  const analyze = new Analyze({ getSim: () => sim, renderer, simParams: () => sim.params });
+  // the analysis columns' figures read the live units and the run's identity
+  // (U2): axes in °C and seconds for a real material, dimensionless for the
+  // model metal, and every export names its melt, seed and grid
+  const analyze = new Analyze({
+    getSim: () => sim, renderer, simParams: () => sim.params,
+    units: () => unitsNow(), meta: () => plotMeta(), chem: () => chemNow(false),
+  });
   const an3 = new Analyze3D({
     sim3d: () => sim3d,
     plane: () => (sim3d ? slicePlane(slice, sim3d.n) : null),
     lastStats: () => lastStats3,
+    units: () => unitsNow(), meta: () => plotMeta(), chem: () => chemNow(true),
   });
   // 3D probe crosshair on the shared overlay SVG (appended AFTER Analyze's
   // constructor set the overlay innerHTML — never rewrite it, append only)
@@ -1129,6 +1215,8 @@ async function boot() {
     maxUndercool: () => (mode === "3d" ? nuc3 : nuc).maxUndercool,
     setFilmSites(frac) { nuc.setFilm(frac); nuc3.setFilm(frac); },
     labShareLink: () => app.shareLink(),
+    plotMeta: () => plotMeta(),
+    chem: () => chemNow(),
     // L4: the same guaranteed-fresh census the heat-treat verdict stands on —
     // one measure() (declared below, resolved at call time), so the two cards
     // can never disagree about what was measured
@@ -1288,7 +1376,7 @@ async function boot() {
   heat = new HeatPanel(heatHost);
 
   (window as unknown as Record<string, unknown>).__solidify = {
-    app, opt, tour, ui, challenge, composer, analyze, lab, heat,
+    app, opt, tour, ui, challenge, composer, analyze, lab, heat, hud,
     // the composer's chemistry, for headless physics checks that need to set
     // up a named alloy exactly as the UI would
     alloy: (mix: Mix) => deriveAlloy(mix),
@@ -1649,10 +1737,13 @@ async function boot() {
     requestAnimationFrame(frame);
   }
 
-  // liquidus of the current charge: pure metal melts at 1, an alloy lower by
-  // its liquidus slope. Undercooling is measured from here.
-  const tEq2 = () => (sim.params.alloyOn ? 1 - sim.params.mLiq * sim.params.c0 : 1);
-  const tEq3 = () => (sim3d?.params.alloyOn ? 1 - sim3d.params.mLiq * sim3d.params.c0 : 1);
+  // liquidus of the current charge as the kernel runs it (plot/figures.ts
+  // chargeLiquidus, the HUD's and the lab's rule too): a pure metal melts at
+  // 1, a Kobayashi alloy lower by its liquidus slope, and under the calibrated
+  // solver T̃ = 1 IS the nominal alloy's liquidus (it read 1 − m·c₀ there, 0.15
+  // T̃ = 11 K low for Al–Cu). Undercooling is measured from here.
+  const tEq2 = () => chargeLiquidus(sim.params);
+  const tEq3 = () => (sim3d ? chargeLiquidus(sim3d.params) : 1);
   // how fast the melt is losing temperature right now — used only to bridge
   // between stats readbacks, never as the undercooling itself
   const coolProxy = () => Math.max(0, sim.params.coolRate);
@@ -1743,7 +1834,7 @@ async function boot() {
             // is why the fs > 0.995 finish could never fire with walls on
             lab.onStats(s.meanLiqT, s.fracSolidOpen);
             if (forPanels3) {
-              lastStats3 = s; hud.push3(s, sim3d.umPerCell); an3.onStats3(s, sim3d.simTime);
+              lastStats3 = s; hud.push3(s, sim3d.umPerCell, sim3d.simTime); an3.onStats3(s, sim3d.simTime);
               heat?.onCensus(census3(s));
             }
           });
@@ -1826,7 +1917,7 @@ async function boot() {
         if (!forPanels) return;
         lastStats = s;
         if (!opt.active) {
-          hud.push(s);
+          hud.push(s, sim.simTime);
           analyze.onStats(s, sim.simTime);
           // an applied ML recipe schedules cooling by solid fraction,
           // exactly as the optimizer's episodes did

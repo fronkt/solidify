@@ -89,6 +89,17 @@ export interface QuantSetup {
    * this field exists to make visible.
    */
   coefficientSource: string;
+  /**
+   * Where T̃ = 1 sits, K from T_m. The alloy model's reference state puts
+   * T̃ = 1 on the nominal alloy's LIQUIDUS (shaders.ts `uSup`: U = −1 in
+   * liquid at c∞, so the drive U + T vanishes at T = 1) and T̃ = 0 on its
+   * solidus, so this is m_L·c∞ from the same coefficients ΔT₀ was built from
+   * (the poured mix's superposed shift ΔT_L when its interval was used); 0 for
+   * a pure melt, whose T̃ = 1 is T_m. units.ts maps T̃ = 1 to T_m plus this.
+   */
+  liquidusShiftK: number;
+  /** one line: whose liquidus T̃ = 1 is, and the numbers */
+  liquidusSource: string;
   /** diffusion length at which the thin-interface limit stops being thin */
   maxLambdaAt(velocity: number): number;
   warnings: string[];
@@ -114,6 +125,14 @@ export interface QuantInput {
    * this module stays a pure calibration and knows nothing about diagrams.
    */
   dT0Override?: number | null;
+  /**
+   * The poured mix's own liquidus shift ΔT_L, K (`Derived.dTL`, negative for
+   * a depressant). Read only when `dT0Override` is used, so T̃ = 1 and the
+   * degree come from the same alloy.
+   */
+  dTLOverride?: number | null;
+  /** the poured mix's name, for `liquidusSource` */
+  mixName?: string;
   /** what to say about where ΔT₀ came from; surfaced as `coefficientSource` */
   coefficientSource?: string;
 }
@@ -192,9 +211,20 @@ export function calibrate(inp: QuantInput): QuantSetup {
       ? `ΔT₀ ${dT0.toFixed(2)} K · own SI coefficients: |m| ${Math.abs(si.mL)} K/wt%, k ${si.kPart}, c∞ ${c0wt.toFixed(2)} wt% · ${si.source.split(" · ")[0]}`
       : `ΔT₀ ${dT0.toFixed(2)} K = L/c_p (pure melt, no freezing range)`);
 
+  // T̃ = 1: the nominal alloy's liquidus, from the coefficients the interval
+  // came from (a poured mix's superposed shift, else m_L·c∞); a pure melt's T_m
+  const system = si.source.split(" · ")[0];
+  const mixShift = usedOverride && inp.dTLOverride != null && Number.isFinite(inp.dTLOverride) ? inp.dTLOverride : null;
+  const liquidusShiftK = !alloy ? 0 : mixShift ?? si.mL * Math.max(0, c0wt);
+  const liquidusSource = !alloy
+    ? "T_m: a pure melt"
+    : mixShift != null
+      ? `${inp.mixName ?? "the poured mix"}'s liquidus: T_m + ΔT_L, ΔT_L ${mixShift.toFixed(2)} K (the composer's superposed shift)`
+      : `the nominal alloy's liquidus: T_m + m_L·c∞, m_L ${si.mL} K/wt%, c∞ ${c0wt.toFixed(2)} wt% (${system})`;
+
   return {
     lambda, wOverD0: lambda / A1, d0, W0, tau0, dTilde, D, dT0, latent,
-    umPerCell, dx, dt, coefficientSource,
+    umPerCell, dx, dt, coefficientSource, liquidusShiftK, liquidusSource,
     maxLambdaAt: (v: number) => feasibleLambda(D, v, d0),
     warnings,
   };

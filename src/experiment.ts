@@ -42,6 +42,7 @@ import type { Nucleation } from "./nucleation";
 import { seedHex } from "./rng";
 import { token } from "./design/tool";
 import { series, seriesAlpha } from "./design/plot";
+import { ticks, fmtTick } from "./plot/ticks";
 
 // ---------------------------------------------------------------------------
 // The through-origin power-law fit and its r²-window band.
@@ -149,10 +150,15 @@ export function bandOf(ys: number[]): Band {
 // The sweep bench.
 
 export interface SweepSpec {
-  /** what is being measured — the y axis's name, with units in the string */
+  /** what is being measured — the y axis's name */
   name: string;
+  /** the measured value's unit ("count", "µm"), or "dimensionless"; absent
+   *  in the specs written before U2, whose name carried it */
+  unit?: string;
   /** the ONE swept parameter's name */
   swept: string;
+  /** the swept parameter's unit, or "dimensionless" (optional, as `unit`) */
+  sweptUnit?: string;
   values: number[];
   /** explicit seeds, one replicate per seed per value — recorded in the
    *  result, because a measurement whose seed is not recorded cannot be
@@ -281,22 +287,32 @@ export interface BandLayout {
   means: { x: number; y: number }[];
   /** every replicate as a scatter point */
   pts: { x: number; y: number }[];
+  /** (U2) the axes: the plot area, round y ticks (plot/ticks.ts) inside the
+   *  replicates' range, and an x tick at each swept value. Empty on a
+   *  refusal, which draws no axes (there is nothing to read off them) */
+  plot: { x0: number; y0: number; x1: number; y1: number } | null;
+  yTicks: { v: number; y: number; label: string }[];
+  xTicks: { v: number; x: number; label: string }[];
 }
 
 export function bandLayout(res: SweepResult, w: number, h: number): BandLayout {
   const s = res.spec;
-  const out: BandLayout = { w, h, labels: [{ kind: "title", text: s.name }], band: [], means: [], pts: [] };
+  const title = s.unit ? `${s.name} (${s.unit})` : s.name;
+  const out: BandLayout = { w, h, labels: [{ kind: "title", text: title }], band: [], means: [], pts: [], plot: null, yTicks: [], xTicks: [] };
   if (!res.ok) {
     out.labels.push({ kind: "refusal", text: `REFUSED: ${res.refusal ?? "unmatched"}` });
     return out;
   }
   out.labels.push({ kind: "controlled", text: `controlled ${s.controlled.name} · spread ${fmt(res.ctrlWidth)} ≤ ±${fmt(s.controlled.tol)}` });
-  out.labels.push({ kind: "axis", text: `${s.swept} →` });
+  out.labels.push({ kind: "axis", text: `${s.swept}${s.sweptUnit ? ` (${s.sweptUnit})` : ""} →` });
   const xs = res.rows.map(r => r.value);
   const ys = res.rows.flatMap(r => r.runs.map(x => x.y));
   const x0 = Math.min(...xs), x1 = Math.max(...xs);
   const y0 = Math.min(...ys), y1 = Math.max(...ys);
-  const padL = 34, padR = 10, padT = 22, padB = 18;
+  // the plot starts under the label stack the painter writes (13 px a line,
+  // wrapped as it wraps them), so a tick label never lands on a line of it
+  const lines = out.labels.reduce((a, l) => a + wrap(l.text, Math.max(8, Math.floor((w - 8) / 6))).length, 0);
+  const padL = 34, padR = 10, padT = Math.max(22, 4 + 13 * lines + 8), padB = 18;
   const sx = (v: number) => x1 === x0 ? (w + padL - padR) / 2 : padL + ((v - x0) / (x1 - x0)) * (w - padL - padR);
   const sy = (v: number) => y1 === y0 ? (h + padT - padB) / 2 : h - padB - ((v - y0) / (y1 - y0)) * (h - padT - padB);
   for (const r of res.rows) {
@@ -304,6 +320,13 @@ export function bandLayout(res: SweepResult, w: number, h: number): BandLayout {
     out.means.push({ x: sx(r.value), y: sy(r.band.mean) });
     for (const run of r.runs) out.pts.push({ x: sx(r.value), y: sy(run.y) });
   }
+  // the axes sit just outside the data: the y axis left of the first arm,
+  // the x axis under the lowest replicate, so no mark sits on a line
+  out.plot = { x0: padL - 6, y0: padT, x1: w - padR + 4, y1: h - padB + 4 };
+  const yt = y1 > y0 ? ticks(y0, y1, 3) : [y0];
+  const ystep = yt.length > 1 ? yt[1] - yt[0] : Math.abs(y0) || 1;
+  out.yTicks = yt.map(v => ({ v, y: sy(v), label: fmtTick(v, ystep) }));
+  out.xTicks = res.rows.map(r => ({ v: r.value, x: sx(r.value), label: fmt(r.value) }));
   return out;
 }
 
@@ -311,7 +334,9 @@ export function bandLayout(res: SweepResult, w: number, h: number): BandLayout {
  *  The backdrop and the labels are chrome, from the design tokens (a refusal
  *  is bright, never a hue); the band and the mean are data, one series in
  *  the plot palette's first slot, and the replicates it summarizes are gray
- *  dots (--fg-2) on it */
+ *  dots (--fg-2) on it. The axes (U2) are chrome in --fg-3, their labels at
+ *  the plot spec's 11 px; the bottom-right corner is never drawn on (the
+ *  painter gate reads the backdrop there) */
 export function drawBand(ctx: CanvasRenderingContext2D, res: SweepResult, w: number, h: number): void {
   const L = bandLayout(res, w, h);
   ctx.clearRect(0, 0, w, h);
@@ -328,6 +353,26 @@ export function drawBand(ctx: CanvasRenderingContext2D, res: SweepResult, w: num
     }
   }
   if (!res.ok) return;
+  if (L.plot) {
+    const P = L.plot;
+    ctx.strokeStyle = ctx.fillStyle = token("--fg-3");
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(P.x0 + 0.5, P.y0); ctx.lineTo(P.x0 + 0.5, P.y1 + 0.5); ctx.lineTo(P.x1, P.y1 + 0.5);
+    for (const t of L.yTicks) { ctx.moveTo(P.x0 - 3, Math.round(t.y) + 0.5); ctx.lineTo(P.x0, Math.round(t.y) + 0.5); }
+    for (const t of L.xTicks) { ctx.moveTo(Math.round(t.x) + 0.5, P.y1); ctx.lineTo(Math.round(t.x) + 0.5, P.y1 + 3); }
+    ctx.stroke();
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "right";
+    for (const t of L.yTicks) ctx.fillText(t.label, P.x0 - 5, t.y);
+    ctx.textBaseline = "top";
+    ctx.textAlign = "left";
+    // x labels centered under their arms, held 5 px in from the right edge
+    for (const t of L.xTicks) {
+      const tw = ctx.measureText(t.label).width;
+      ctx.fillText(t.label, Math.max(2, Math.min(w - 5 - tw, t.x - tw / 2)), P.y1 + 3);
+    }
+  }
   if (L.band.length > 1) {
     ctx.beginPath();
     for (let i = 0; i < L.band.length; i++) (i ? ctx.lineTo : ctx.moveTo).call(ctx, L.band[i].x, L.band[i].yHi);

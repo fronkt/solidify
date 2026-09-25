@@ -1192,7 +1192,11 @@ export class UI {
       + row("µm / cell", s.umPerCell.toFixed(2), s.prov.umPerCell)
       + row("domain", `${s.domainUm < 1000 ? s.domainUm.toFixed(0) + " µm" : (s.domainUm / 1000).toFixed(2) + " mm"}`,
         "derived: n × µm/cell")
-      + row("melting pt", `${u.meltC.toFixed(0)} °C`, "T = 1")
+      // under the calibrated alloy solver T = 1 is the nominal alloy's
+      // liquidus (units.ts oneShiftK), not the base metal's melting point
+      + (s.oneShiftK
+        ? row("liquidus c∞", `${u.oneC.toFixed(0)} °C`, "T = 1") + row("melting pt", `${u.meltC.toFixed(0)} °C`, "base metal")
+        : row("melting pt", `${u.meltC.toFixed(0)} °C`, "T = 1"))
       + `<div class="grp">${groups}</div>`
       + `<div class="grp dim">${esc(s.note)}</div>${lrn(s.learn)}`;
   }

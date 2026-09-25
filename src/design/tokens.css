@@ -121,6 +121,22 @@
   --data-2: #d95926;         /* orange */
   --data-3: #199e70;         /* aqua */
   --data-4: #c98500;         /* yellow */
+
+  /* a figure exported for print (src/plot/theme.ts PRINT, U2): light paper,
+     near-black chrome, and the same palette's LIGHT steps in the same slot
+     order (the dataviz reference palette, validated on a light surface).
+     Nothing on screen uses these; they exist for the "figure png" export */
+  --print-bg: #ffffff;
+  --print-fg: #111111;       /* axes, titles, marks (18.9:1 on --print-bg) */
+  --print-fg-2: #4d4d4d;     /* tick labels, reference lines (8.5:1) */
+  --print-data-1: #2a78d6;   /* 4.42:1 on --print-bg */
+  --print-data-2: #eb6834;   /* 3.20:1 */
+  /* slots 3 and 4 a step darker than the reference palette's light steps
+     (#1baf7a 2.82:1, #eda100 2.17:1 on white: under the 3:1 a data mark
+     needs, and the phase diagram's pour offset read as a faint yellow tick);
+     same hues, same order. PLOT-CONTRAST checks every print slot on paper */
+  --print-data-3: #0f8a60;   /* 4.35:1 */
+  --print-data-4: #a86a00;   /* 4.44:1 */
 }
 @media (max-width: 759px) {
   :root { --header-h: 60px; }
@@ -675,6 +691,34 @@ img, canvas, video { border-radius: var(--r-media); }
   background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-panel);
 }
 .tmodal__card canvas { display: block; }
+/* ---- figures (src/plot, U2). A plot is media: square-edged, no box. Its
+   wrapper holds the figure's canvas and the hover overlay canvas over it; the
+   wrapper sets the size, the canvases fill it. A plot that opens its full
+   figure is a button (click, Enter, Space); its focus ring sits inside it */
+.plot { position: relative; width: 100%; height: 100%; }
+.plot > canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.plot__over { pointer-events: none; }
+.plot--open { cursor: crosshair; }
+.plot:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+/* the enlarged figure: the plot, the exports and what the data is, the table */
+.figmodal__plot { max-width: 100%; }
+.figmodal__bar { margin-top: var(--s-3); }
+.figmodal__meta { margin-left: auto; font: 400 var(--t-ui-min)/1.35 var(--font-body); }
+.figmodal__table { margin-top: var(--s-3); max-height: 220px; overflow: auto; border-top: 1px solid var(--rule);
+  scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent; }
+.figmodal__table:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.dtable { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.dtable th { position: sticky; top: 0; padding: 6px 0 6px var(--s-4); background: var(--surface); text-align: right; white-space: nowrap;
+  font: 400 var(--t-ui-min)/1.2 var(--font-body); color: var(--fg-3); border-bottom: 1px solid var(--rule); }
+.dtable td { padding: 3px 0 3px var(--s-4); text-align: right; white-space: nowrap;
+  font: 400 var(--t-value-tool)/1.3 var(--font-mono); color: var(--fg); border-top: 1px solid var(--rule); }
+.dtable :is(th, td):first-child { padding-left: 0; }
+/* a column of words (the phase diagram's table names each vertex): set left,
+   in the body face, the numbers stay right in the mono */
+.dtable :is(th, td).txt { text-align: left; }
+.dtable td.txt { font-family: var(--font-body); color: var(--fg-2); }
+.dtable sub { font-size: 0.78em; }
+
 /* a small icon pill in a panel's header (the enlarge control) */
 .iconbtn {
   flex: none; width: 24px; height: 24px; min-height: 0; padding: 0;

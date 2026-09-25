@@ -22,7 +22,13 @@
 // load modules that import this one.
 import { token, tokenRGBA } from "./tool";
 
-const SLOTS = ["--data-1", "--data-2", "--data-3", "--data-4"] as const;
+/** the slots' tokens, in slot order: the plot core's screen theme
+ *  (plot/theme.ts) and the phase diagram's print map read THIS array, so a
+ *  reorder here reaches every figure and export (PLOT-CONTRAST checks it) */
+export const SLOTS = ["--data-1", "--data-2", "--data-3", "--data-4"] as const;
+/** each slot's light twin for a print figure, in the same order: its token
+ *  name is the screen token's with the "--print-" prefix */
+export const PRINT_SLOTS = SLOTS.map(s => s.replace(/^--/, "--print-")) as unknown as readonly [string, string, string, string];
 
 /** a slot's color for a canvas (the token's value) */
 export const series = (slot: 0 | 1 | 2 | 3): string => token(SLOTS[slot]);

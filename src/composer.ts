@@ -250,6 +250,9 @@ export class Composer {
     // while this is open.
     window.addEventListener("keydown", e => {
       if (!this.open_) return;
+      // the phase diagram's enlarged view opens over this card, inside it
+      // (plot/modal.ts): while it is up, Escape and Tab are its own
+      if (this.overlay.querySelector(".tmodal")) return;
       if (e.key === "Escape") { e.preventDefault(); this.close(); return; }
       if (e.key !== "Tab") return;
       const list = this.focusCycle();
@@ -272,7 +275,8 @@ export class Composer {
     const gcap = this.overlay.querySelector<HTMLElement>(".gcap")!;
     gcap.after(this.learn.explain(gcap, "about the element screen", composerText("element screen")).body);
     const fh = this.figure.head;
-    fh.after(this.learn.explain(fh, "about the phase diagram", composerText("phase diagram")).body);
+    // the "i" before the figure's ⤢, the analysis panels' order
+    fh.after(this.learn.explain(fh, "about the phase diagram", composerText("phase diagram"), this.figure.zoom).body);
     onLearnChange(() => this.applyLearn());
     this.applyLearn();
   }
@@ -594,6 +598,8 @@ export class Composer {
   }
 
   close() {
+    // the figure's enlarged view lives inside this card, so it goes with it
+    this.figure.closeBig();
     const wasOpen = this.open_;
     this.open_ = false;
     this.overlay.classList.remove("show");
