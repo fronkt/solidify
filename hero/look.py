@@ -107,7 +107,7 @@ Import (sequence renderer):
       L.frame(view_dict)
       L.set_warmth(w)
       L.render(path)
-  look.composite_and_metrics([...])     # plain python, PIL: *_on-0a0b0d.png + metrics
+  look.composite_and_metrics([...])     # plain python, PIL: *_on-0a0a0a.png + metrics
 """
 import argparse
 import json
@@ -131,7 +131,7 @@ if bpy is not None:
         sys.path.insert(0, HERE)
     from dendrite_gen import camera_basis, fit_distance, place_camera  # noqa: E402  (helpers only)
 
-PAGE_BG = (0x0A, 0x0B, 0x0D)
+PAGE_BG = (0x0A, 0x0A, 0x0A)
 DEFAULT_BLEND = 'C:/Users/frank/solidify-hero-out/dendrite_t{t:.2f}.blend'
 DEFAULT_FEATURES = 'C:/Users/frank/solidify-hero-out/features_dendrite_t{t:.2f}.json'
 DEFAULT_OUT = 'C:/Users/frank/solidify-hero-out/final_look'
@@ -661,10 +661,18 @@ class Look:
             ld.energy = ob['base_energy']
             self.lights[name] = ob
 
-    def _place_lights(self, f, r, u, target):
-        for ob in self.lights.values():
+    def _place_lights(self, f, r, u, target, light_frames=None):
+        """every lamp at its camera-space direction (coeff: toward camera, right, up) from the view target; a lamp named
+        in light_frames = {name: (f, r, u)} takes those coefficients in that frame instead of the camera's (the
+        sequence's trailing key light)."""
+        for name, ob in self.lights.items():
             a, b, c = ob['coeff']
-            v = a * (-f) + b * r + c * u
+            fr = (light_frames or {}).get(name)
+            if fr is not None:
+                lf, lr, lu = (np.asarray(x, dtype=np.float64) for x in fr)
+                v = a * (-lf) + b * lr + c * lu
+            else:
+                v = a * (-f) + b * r + c * u
             v = v / np.linalg.norm(v)
             loc = target + v * LIGHT_DIST
             ob.location = Vector(loc)
@@ -708,8 +716,9 @@ class Look:
         y = float(d @ u) / z / tan_half
         return [round((0.5 + 0.5 * x) * self.res, 1), round((0.5 - 0.5 * y) * self.res, 1)]
 
-    def frame(self, view, fit_points=None, **override):
-        """aim the camera and the light rig at a view; returns the camera parameters as plain data."""
+    def frame(self, view, fit_points=None, light_frames=None, **override):
+        """aim the camera and the light rig at a view; returns the camera parameters as plain data. light_frames
+        ({lamp name: (forward, right, up)}) places those lamps in their own frame instead of the camera's."""
         if isinstance(view, dict):
             V = dict(view)
         else:
@@ -741,7 +750,7 @@ class Look:
         self.cam.data.dof.focus_distance = max(depth, 0.01)
         self.cam.data.dof.aperture_fstop = max(fstop, 0.5)
         bpy.context.scene.view_settings.exposure = self.exposure + float(V.get('exposure', 0.0))
-        self._place_lights(f, r, u, target)
+        self._place_lights(f, r, u, target, light_frames)
         pts = landmark_points(self.feats)
         marks = {k: self.project(pts[k]) for k in V.get('landmarks', ()) if k in pts}
         return dict(view=view if isinstance(view, str) else 'custom', view_from=list(map(float, V['view_from'])),
@@ -931,7 +940,7 @@ def local_sharpness(lum, alpha, cx, cy, half=40):
     return out or None
 
 
-def composite_and_metrics(paths, bg=PAGE_BG, suffix='_on-0a0b0d', shot_info=None):
+def composite_and_metrics(paths, bg=PAGE_BG, suffix='_on-0a0a0a', shot_info=None):
     """straight-alpha 'over' onto the page colour in display (sRGB-encoded) space, exactly as a browser
     composites a transparent PNG, plus a readout per still. shot_info (from report.json) supplies per-shot
     feather fractions (applied to the transparent PNG first) and landmark pixels (local sharpness).
@@ -1002,7 +1011,7 @@ def composite_and_metrics(paths, bg=PAGE_BG, suffix='_on-0a0b0d', shot_info=None
     return out
 
 
-def _collect_pngs(items, suffix='_on-0a0b0d'):
+def _collect_pngs(items, suffix='_on-0a0a0a'):
     paths = []
     for it in items:
         if os.path.isdir(it):
@@ -1078,7 +1087,7 @@ def parse_args(argv):
                    help='view override, e.g. --view hero.view_from=1,-1.6,0.7 --view close.width=0.5')
     p.add_argument('--no-composite', action='store_true')
     p.add_argument('--composite', nargs='*', metavar='DIR_OR_PNG',
-                   help='(plain python) feather + composite stills onto #0a0b0d and write metrics; no rendering')
+                   help='(plain python) feather + composite stills onto #0a0a0a and write metrics; no rendering')
     return p.parse_args(argv)
 
 

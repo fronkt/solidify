@@ -1,0 +1,25 @@
+{
+ "version": 3,
+ "note": "the shipped v3 frame set (C:/Users/frank/solidify-hero-out/v3/seq, public/hero manifest version 1): 180 frames, no soft holds; encode_frames.py --timeline hero/timeline_v3.json re-encodes those masters to the v1 contract",
+ "frames": 180,
+ "px_per_frame": 17.7778,
+ "hold_px": 560,
+ "res": 1200,
+ "chapters": [
+  {"id": "seed", "from": 0, "to": 11},
+  {"id": "grow", "from": 12, "to": 95},
+  {"id": "cool", "from": 96, "to": 119},
+  {"id": "tour", "from": 120, "to": 179}
+ ],
+ "features": [
+  {"id": "tip", "kind": "point", "from": 122, "to": 133, "label": "left"},
+  {"id": "primary", "kind": "pair", "from": 134, "to": 145, "label": "left"},
+  {"id": "lambda2", "kind": "pair", "from": 146, "to": 157, "label": "right"},
+  {"id": "tertiary", "kind": "point", "from": 158, "to": 167, "label": "right"},
+  {"id": "neck", "kind": "point", "from": 168, "to": 179, "label": "right"}
+ ],
+ "poster": 122,
+ "growth": {"from": 12, "to": 95, "t": [0.03, 1.0], "law": "ease-out", "power": 1.8},
+ "warmth": {"from": 95, "to": 119, "law": "smoothstep"},
+ "budget_bytes": {"1200": 12582912, "600": 3670016, "poster": 409600}
+}

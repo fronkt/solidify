@@ -1,0 +1,26 @@
+{
+ "version": 4,
+ "frames": 778,
+ "px_per_frame": 10.0,
+ "hold_px": 560,
+ "res": 1200,
+ "chapters": [
+  {"id": "seed", "from": 0, "to": 35},
+  {"id": "grow", "from": 36, "to": 155},
+  {"id": "branch", "from": 156, "to": 275},
+  {"id": "cool", "from": 276, "to": 338},
+  {"id": "tour", "from": 339, "to": 638},
+  {"id": "pullback", "from": 639, "to": 777}
+ ],
+ "features": [
+  {"id": "primary", "kind": "pair", "from": 339, "to": 373, "hold": [347, 363], "label": "right"},
+  {"id": "tip", "kind": "point", "from": 419, "to": 455, "hold": [429, 445], "label": "right"},
+  {"id": "lambda2", "kind": "pair", "from": 477, "to": 513, "hold": [487, 503], "label": "right"},
+  {"id": "tertiary", "kind": "point", "from": 541, "to": 577, "hold": [551, 567], "label": "right"},
+  {"id": "neck", "kind": "point", "from": 602, "to": 638, "hold": [612, 628], "label": "right"}
+ ],
+ "poster": 777,
+ "growth": {"from": 0, "to": 275, "t": [0.03, 1.0], "law": "linear"},
+ "warmth": {"from": 276, "to": 338, "law": "cosine"},
+ "budget_bytes": {"1200": 54386090, "600": 15862642, "poster": 409600}
+}

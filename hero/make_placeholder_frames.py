@@ -1,53 +1,53 @@
 """PLACEHOLDER frames for the landing hero, written to the frame-set contract.
 
-The real hero is a Blender render of hero/dendrite_gen.py (180 frames, grow ->
-cool -> tour). Until those frames exist this script writes stand-ins with the
-SAME paths, sizes, frame count, background and manifest shape, so the page and
-its gates (scripts/verify-hero-manifest.mjs, scripts/verify-hero.mjs) can be
-built and tested now. The real render overwrites everything this writes.
+The real hero is a Blender render of hero/dendrite_gen.py (the frame set of
+hero/timeline.json: seed -> grow -> branch -> cool -> tour -> pullback). Until
+those frames exist this script writes stand-ins with the SAME paths, sizes,
+frame count, background and manifest shape (manifest version 2, as
+encode_frames.py writes it), so the page and its gates can be built and tested.
+The real render overwrites everything this writes. Frame count, chapters,
+feature windows and the poster frame come from the timeline.
 
 What a placeholder frame is: one of two finished stills (the incandescent look
 while growing, the satin-steel look once frozen) moved by a 2D camera (scale,
-in-plane turn, a pan toward each feature during the tour) over #0a0b0d, with
+in-plane turn, a pan toward each feature during the tour) over #0a0a0a, with
 its frame index printed small in the bottom-left corner. The anchors are the
 same five hand-picked points on the steel still, pushed through the same
 camera, so the callouts land where the stand-in draws them. manifest.source
 says PLACEHOLDER, and verify-hero-manifest.mjs prints a notice while it does.
 
-    python hero/make_placeholder_frames.py [--src C:/Users/frank/solidify-hero-out]
+    python hero/make_placeholder_frames.py [--src C:/Users/frank/solidify-hero-out] [--out public/hero]
 
-Needs Pillow (with WebP). Writes public/hero/{1200,600}/f000..f179.webp,
-public/hero/poster-{1200,600}.webp and public/hero/manifest.json.
+Needs Pillow (with WebP). Writes <out>/{1200,600}/f000.webp.. (one per timeline
+frame), <out>/poster-{1200,600}.webp and <out>/manifest.json.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "public" / "hero"
-N = 180
-SIZES = (1200, 600)
-BG = (10, 11, 13)   # #0a0b0d, the page background
-BUDGET = {1200: 12 * 1024 * 1024, 600: int(3.5 * 1024 * 1024)}
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import path_plan as PP  # noqa: E402  (timeline reader; numpy only)
 
-CHAPTERS = [
-    {"id": "seed", "from": 0, "to": 11},
-    {"id": "grow", "from": 12, "to": 95},
-    {"id": "cool", "from": 96, "to": 119},
-    {"id": "tour", "from": 120, "to": 179},
-]
-FEATURES = [
-    {"id": "tip", "kind": "point", "from": 122, "to": 133},
-    {"id": "primary", "kind": "pair", "from": 134, "to": 145},
-    {"id": "lambda2", "kind": "pair", "from": 146, "to": 157},
-    {"id": "tertiary", "kind": "point", "from": 158, "to": 167},
-    {"id": "neck", "kind": "point", "from": 168, "to": 179},
-]
+OUT = ROOT / "public" / "hero"
+TL = PP.load_timeline()
+N = PP.n_frames(TL)
+SIZES = (1200, 600)
+BG = (10, 10, 10)   # #0a0a0a, the page background
+BUDGET = {1200: 69905 * N, 600: 20389 * N}   # bytes: v3's per-frame budget (12 MiB / 3.5 MiB over its set)
+
+CHAPTERS = [{"id": c["id"], "from": int(c["from"]), "to": int(c["to"])} for c in TL["chapters"]]
+FEATURES = [{"id": f["id"], "kind": f["kind"], "from": int(f["from"]), "to": int(f["to"]), "hold": list(f["hold"]),
+             "label": f.get("label")} for f in TL["features"]]
+SEED_END = PP.chapter_span(TL, "seed")[1]      # the glow dot
+GROW_END = int(TL["growth"]["to"])             # the glow still grows until here
+TOUR0 = PP.chapter_span(TL, "tour")[0]         # glow -> steel cross-fade in between
 # Feature points picked by eye on satin-steel_hero.png (1000 x 1000 px).
 # primary = (root side, tip side) along the upward arm; lambda2 = the roots of
 # two adjacent secondary arms on the lower-right arm.
@@ -62,8 +62,9 @@ STEEL_CENTRE = (520, 470)    # middle of the steel crystal's bounding box
 STEEL_EXTENT = 665           # its larger bounding-box side, px
 GLOW_CENTRE = (532, 478)
 GLOW_EXTENT = 610
-POSTER_FRAME = 120           # first tour frame: the whole frozen crystal, no zoom (same camera as 119)
-OCCLUDED = {"tertiary": {158, 159}}   # exercise the page's visible=0 path
+POSTER_FRAME = int(TL["poster"])
+_TW = [f for f in FEATURES if f["id"] == "tertiary"][0]
+OCCLUDED = {"tertiary": {_TW["from"], _TW["from"] + 1}}   # exercise the page's visible=0 path
 
 
 def lerp(a: float, b: float, t: float) -> float:
@@ -84,15 +85,15 @@ def feature_at(i: int):
 
 def camera(i: int):
     """(fill fraction F, turn in degrees, zoom, pan target feature id, pan weight)."""
-    if i <= 11:
+    if i <= SEED_END:
         return 0.15, -8.0, 1.0, None, 0.0
-    if i <= 95:
-        u = (i - 12) / 83
+    if i <= GROW_END:
+        u = (i - SEED_END - 1) / max(GROW_END - SEED_END - 1, 1)
         return lerp(0.15, 0.78, u), lerp(-8.0, 22.0, u), 1.0, None, 0.0
-    if i <= 119:
-        v = (i - 96) / 23
+    if i < TOUR0:
+        v = (i - GROW_END - 1) / max(TOUR0 - GROW_END - 2, 1)
         return 0.78, lerp(22.0, 34.0, v), 1.0, None, 0.0
-    w = (i - 120) / 59
+    w = (i - TOUR0) / max(N - 1 - TOUR0, 1)
     f = feature_at(i)
     if f is None:
         return 0.78, lerp(34.0, 104.0, w), 1.0, None, 0.0
@@ -164,13 +165,13 @@ def label(img: Image.Image, text: str) -> None:
 def render(i: int, steel: Image.Image, glow: Image.Image, size: int, tag: str) -> Image.Image:
     base = Image.new("RGBA", (size, size), BG + (255,))
     F, theta, k, zoom, origin = frame_camera(i, size)
-    if i <= 11:
-        t = i / 11
+    if i <= SEED_END:
+        t = i / max(SEED_END, 1)
         base.alpha_composite(glow_dot(size, size * lerp(0.004, 0.018, t), lerp(0.35, 1.0, t)))
-    elif i <= 119:
+    elif i < TOUR0:
         # the glow still is matched to the steel one by its own bounding extent
         g = place(glow, GLOW_CENTRE, F * size / GLOW_EXTENT * zoom, theta, origin, size)
-        mix = 0.0 if i <= 95 else smooth((i - 96) / 23)
+        mix = 0.0 if i <= GROW_END else smooth((i - GROW_END - 1) / max(TOUR0 - GROW_END - 2, 1))
         if mix < 1:
             if mix > 0:
                 g.putalpha(g.getchannel("A").point(lambda a: int(a * (1 - mix))))
@@ -203,11 +204,14 @@ def anchors_at(i: int):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
+    global OUT
     ap.add_argument("--src", default="C:/Users/frank/solidify-hero-out")
+    ap.add_argument("--out", default=str(OUT), help="the frame-set directory (default public/hero)")
     ap.add_argument("--quality", type=int, default=74)
     ap.add_argument("--force", action="store_true",
                     help="overwrite even when public/hero holds a real (non-placeholder) render")
     args = ap.parse_args()
+    OUT = Path(args.out)
     # never clobber the real render: it lands in the same directory
     existing = OUT / "manifest.json"
     if existing.exists() and not args.force:
@@ -247,11 +251,13 @@ def main() -> None:
 
     rows = [anchors_at(i) for i in range(N)]
     manifest = {
-        "version": 1,
+        "version": 2,
         "frames": N,
+        "px_per_frame": TL["px_per_frame"],
+        "hold_px": TL["hold_px"],
         "pattern": "f{i:03d}.webp",
         "sizes": list(SIZES),
-        "background": "#0a0b0d",
+        "background": "#0a0a0a",
         "chapters": CHAPTERS,
         "features": FEATURES,
         "anchors": {f["id"]: [rows[i][f["id"]] for i in range(N)] for f in FEATURES},

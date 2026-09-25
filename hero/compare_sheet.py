@@ -1,6 +1,6 @@
 """
 compare_sheet.py -- side-by-side sheet of two generator versions in identical views (plain Python, PIL).
-Each transparent render is composited onto the page color #0a0b0d, scaled to one cell, labeled; optional
+Each transparent render is composited onto the page color #0a0a0a, scaled to one cell, labeled; optional
 magnified crops make small defects (pinholes) visible at sheet scale. Under each column header a density line
 is read from that side's features_<name>_t1.00.json (alive secondaries / tertiaries / hosts, long secondaries
 carrying tertiaries), so the sheet compares surface density and not only silhouettes.
@@ -20,7 +20,7 @@ import sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-PAGE_BG = (0x0A, 0x0B, 0x0D)
+PAGE_BG = (0x0A, 0x0A, 0x0A)
 
 
 def density_line(d, name):

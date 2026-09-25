@@ -29,6 +29,21 @@ Version note: v3 = v1 (the dense fir-tree that reads at page scale) with these r
   secondary that grew long enough (TERT_HOST_*), and the clearance pass caps rather than drops what it can;
   primary tips follow the Ivantsov paraboloid further back; the near-core stubs that could never protrude are
   not seeded (CORE_MIN_PROT).
+  v4 (the scroll hero's continuous camera): the emergence ramp (emerge_shift, EMERGE_*), in the DRAWN geometry only. A
+  side arm's drawn protrusion is a smooth function of its true one that starts buried inside the parent when the arm
+  switches on, so newborns surface as a swelling instead of appearing at once, remelting stubs sink back, and
+  tertiaries on a remelting host retract ahead of its retreating tip instead of vanishing (v3 dropped up to 14 tip
+  radii of tertiary in one frame, 61 times in the last 34 growth frames at seed 7).
+  v4.1: sample_arm keeps the one station of a short drawn arm (v4 drew nothing until a newborn's apex was ~1 rho out
+  of its parent, then the whole cap at once), and the ramp is 2 tip radii long, buried 0.35 rho deep, with lead gain 1.
+  Measured over EVERY birth and death of the timeline's 276 growth frames (hero/emerge_check.py, the sphere union
+  before the closing, so a little conservative): 8 of 1,891 births stick out of the rest of the crystal on the first
+  frame they are drawn, by at most 0.06 rho (0.0003 model units, 0.16 px at the full view); all 67 deaths are buried
+  (0.35 rho inside the parent) on their last drawn frame; the drawn protrusion of a surfacing arm rises at most 0.73
+  rho in one frame, and a tertiary retracting on a remelting host sinks at most 1.32 rho in one frame (v3: 14). The
+  skeleton and every rule that tests geometry (clearance, channel caps, necks) see the undrawn arms, so the t = 1
+  crystal's caps, drops and necks are v3's; the mesh changes only at arms inside the ramp (newborns near the tips and
+  tertiaries retracting on remelting hosts).
 
 Morphology model (what the numbers mean)
 -----------------------------------------
@@ -95,6 +110,32 @@ TAU_REMELT_R = 0.35 # ... and thin out on this one (radius): a loser gives its m
 TAU_YOUNG = 0.05    # newborn side branches start as broad swellings and sharpen to their own rho
 YOUNG_BLUNT = 2.5   # tip radius factor at birth: rho_eff = rho * (1 + YOUNG_BLUNT * exp(-age/TAU_YOUNG))
 STUB_BLUNT = 1.0    # a remelting stub's tip goes blunt by at most this factor (v1: up to 7x, a barrel)
+ALIVE_PROT = 0.5    # a side arm exists (alive) while it protrudes more than this many of its tip radii beyond its
+                    # parent's surface: born when its growth passes it, gone when a remelting stub shrinks below it
+# v4 emergence ramp (DRAWN geometry only; the skeleton, the states and every rule that tests geometry are unchanged):
+# a side arm switches on at ALIVE_PROT tip radii of protrusion, which v3 drew at once, a dome 0.5 rho high and ~2 rho
+# wide popping out of a static surface in one frame (and a remelting stub vanished the same way). The DRAWN protrusion
+# is instead a smooth function of the true one: EMERGE_BURY tip radii below the parent's surface (hidden inside it) at
+# the switch-on, a C1 cubic that leaves with zero speed and joins the true protrusion with matching speed EMERGE_RHO tip
+# radii later (emerge_shift). A newborn surfaces as a bump that swells out, a dying stub sinks back into its parent,
+# and the tip radius keeps its blunt-to-sharp law (young_factor); only the protrusion is ramped, never the radius.
+# The same curve also retires side arms whose PARENT's tip retreats past them: a stunted secondary that remelts takes
+# its tertiaries with it (set_state kills a side arm within two parent tip radii of the parent's tip), which v3 drew as
+# tertiaries up to 14 tip radii long vanishing in one frame (61 of them in frames 196-229 at seed 7, full view). The
+# ramp's input is min(h, a0 + EMERGE_TIP_K x (the parent tip's lead over the station - EMERGE_TIP_LEAD rho)), so such
+# an arm retracts in step with the retreating tip and has sunk into the host before the host's tip reaches it (the
+# margin covers a frame of retreat). On a growing host the lead grows faster than the tertiary (its tip speed is below
+# the host's), so the term is inactive there but for a few arms near a slowing (capped) host's tip.
+# v4.1 values, measured over EVERY birth and death of the 276 growth frames (hero/emerge_check.py, 2026-09-24): v4's
+# 1.0 / 0.25 / 2.0 with the old sampler left 492 of 1,889 tertiary births sticking out of the rest of the crystal on the
+# first frame they were drawn (up to 0.77 rho, 2 px at full view), because sample_arm drew nothing for a short arm
+# until its apex was ~1 rho out; with the sampler fixed a 1-rho ramp still let 106 out (a fast tertiary rises ~0.4 rho
+# a frame, and the ramp's steep middle takes 2.4x that). A 2-rho ramp buried 0.35 rho deep and a lead gain of 1 leave
+# 8 of 1,891 births out, by at most 0.06 rho (0.16 px at full view); every death is buried on its last drawn frame.
+EMERGE_RHO = 2.0
+EMERGE_BURY = 0.35
+EMERGE_TIP_K = 1.0
+EMERGE_TIP_LEAD = 1.0
 # radius law per generation (v3.1): r(station) = knee radius RMAX * rho, grown by the station's age (coarsening),
 # r = RMAX rho (1 + age / TAU_THICK)^(1/3); the tip is an Ivantsov paraboloid r^2 = 2 rho c joined to that trunk
 # radius by a soft minimum (KNEE_P). Primaries: a broad knee (2.2 rho) with slow thickening keeps the root at v1's
@@ -330,6 +371,36 @@ def effective_rho(arm, age):
     return rho
 
 
+def emerge_shift(arm):
+    """v4 emergence ramp: how far the DRAWN side arm sits behind its skeleton tip (model units, >= 0; 0 for a primary
+    and for any arm past the ramp). With h the true protrusion (L - R_root), a0 = ALIVE_PROT rho the switch-on, w =
+    EMERGE_RHO rho the ramp and b = EMERGE_BURY rho, the drawn protrusion p runs from -b at the switch-on (the apex
+    inside the parent) to its input at a0 + w along the cubic Hermite with dp/dh = 0 at the start and 1 at the end,
+    monotone in between. The input is h_in = min(h, a0 + EMERGE_TIP_K * lead), lead = how far the parent's tip still
+    runs ahead of the station (set_state kills the arm at lead < 0), so an arm on a retreating parent retracts along the
+    same curve and is buried before it dies. p depends only on continuous state, so a growing arm surfaces and a
+    remelting or orphaned one sinks back without a jump, and p <= h_in <= h: the drawn arm (the same profile around a
+    lower apex) lies inside the skeleton's at every station."""
+    if arm.gen == 0 or EMERGE_RHO <= 0.0:
+        return 0.0
+    h = arm.L - arm.R_root
+    a0 = ALIVE_PROT * arm.rho
+    w = EMERGE_RHO * arm.rho
+    h_in = h
+    par = arm.parent
+    if par is not None and EMERGE_TIP_K > 0.0:
+        lead = par.L - 2.0 * par.rho - arm.s_par
+        h_in = min(h, a0 + EMERGE_TIP_K * (lead - EMERGE_TIP_LEAD * arm.rho))
+    if h_in >= a0 + w:
+        return max(h - h_in, 0.0)
+    bury = EMERGE_BURY * arm.rho
+    span = a0 + w + bury                   # the drawn protrusion's travel over the ramp
+    x = min(max((h_in - a0) / w, 0.0), 1.0)
+    m = w / span                           # end slope of the unit Hermite that makes dp/dh = 1 at the top
+    p = -bury + span * ((m - 2.0) * x ** 3 + (3.0 - m) * x ** 2)
+    return max(h - p, 0.0)
+
+
 def neck_depth(arm, t):
     """root-neck depth factor (0..neck) of a side arm at time t; needs arm.L and arm.R_root set."""
     if arm.gen == 0 or arm.neck <= 0.0:
@@ -340,11 +411,12 @@ def neck_depth(arm, t):
     return k * min(1.0, max(0.0, prot / (2.5 * root_rmax(arm, t)) - 0.2))   # no neck on stubby young bumps
 
 
-def arm_profile(arm, t, c, shift):
+def arm_profile(arm, t, c, shift, L=None):
     """For stations at distance c behind the current tip: (radius, ridge offset delta, station birth).
-    shift=True returns the sphere radius whose envelope is the paraboloid; False the envelope itself."""
+    shift=True returns the sphere radius whose envelope is the paraboloid; False the envelope itself.
+    L: the tip position the stations hang from (default the skeleton's arm.L; sample_arm passes the drawn tip)."""
     c = np.asarray(c, dtype=np.float64)
-    L = arm.L
+    L = arm.L if L is None else L
     s = L - c
     rmax, tb = station_rmax(arm, t, s)
     rmax = capped_rmax(arm, t, s, rmax)
@@ -378,7 +450,7 @@ def set_state(arm, t):
     par = arm.parent
     arm.R_root = 0.0 if par is None else radius_env_at(par, t, arm.s_par)
     arm.L = length_at(arm, t, arm.R_root) if arm.age > 0.0 else 0.0
-    arm.alive = (not arm.dropped) and arm.age > 0.0 and (arm.L - arm.R_root) > 0.5 * arm.rho
+    arm.alive = (not arm.dropped) and arm.age > 0.0 and (arm.L - arm.R_root) > ALIVE_PROT * arm.rho
     if par is not None and ((not par.alive) or arm.s_par > par.L - 2.0 * par.rho):
         arm.alive = False           # a side branch within two tip radii of its parent's tip would fork that tip
     arm.k_neck = neck_depth(arm, t) if arm.alive else 0.0
@@ -445,12 +517,14 @@ def set_states(arms, t, A):
 
 def unnecked_points(arms, t, A):
     """all spheres at time t with every root neck switched off (the geometry a weld test must see: a neck only
-    widens gaps, and the necks are what the test decides)."""
+    widens gaps, and the necks are what the test decides). The skeleton's own arms, without the v4 emergence ramp:
+    the tests see every newborn at its full size, a superset of what is drawn, so they stay conservative and the
+    t = 1 crystal (caps, drops, necks) is v3's."""
     saved = [a.k_neck for a in arms]
     for a in arms:
         a.k_neck = 0.0
     try:
-        return collect_points(arms, t, A)
+        return collect_points(arms, t, A, emerge=False)
     finally:
         for a, k in zip(arms, saved):
             a.k_neck = k
@@ -935,17 +1009,19 @@ def clearance_pass(arms, A):
 # ----------------------------------------------------------------------------------------------
 # skeleton -> spheres
 # ----------------------------------------------------------------------------------------------
-def sample_arm(arm, t, voxel, out):
+def sample_arm(arm, t, voxel, out, emerge=True):
+    """the arm's spheres at time t for a `voxel` grid, appended to `out`. emerge=True (the drawn crystal) hangs the
+    profile from the drawn tip (emerge_shift); False from the skeleton's tip (the geometry the rules test)."""
     if not arm.alive:
         return
-    L = arm.L
+    L = arm.L - (emerge_shift(arm) if emerge else 0.0)
     rho = arm.rho
     h = max(0.5 * voxel, 0.3 * rho)
     age = max(t - arm.birth, 0.0)
     rho_eff = effective_rho(arm, age)
     c0 = 0.5 * rho_eff + 0.25 * h
-    if L - c0 <= h:
-        return
+    if L <= c0:           # v4.1: a short drawn arm keeps its one station (v4 returned while L - c0 <= h, so a blunt
+        return            # newborn on a thin host drew nothing until its apex was ~1 rho out, then appeared at once)
     c = np.arange(c0, L, h)
     s = L - c
     if arm.gen > 0:
@@ -954,7 +1030,7 @@ def sample_arm(arm, t, voxel, out):
         s = s[keep]
     if len(c) == 0:
         return
-    r, delta, tb = arm_profile(arm, t, c, shift=True)
+    r, delta, tb = arm_profile(arm, t, c, shift=True, L=L)
     ok = r > 0.3 * voxel
     c, s, r, delta, tb = c[ok], s[ok], r[ok], delta[ok], tb[ok]
     if len(c) == 0:
@@ -978,8 +1054,9 @@ def sample_arm(arm, t, voxel, out):
             out['arm'].append(who[lobed])
 
 
-def collect_points(arms, t, A):
-    """all spheres at time t: position, radius, station birth, generation, owning arm index (-1 = nucleus)."""
+def collect_points(arms, t, A, emerge=True):
+    """all spheres at time t: position, radius, station birth, generation, owning arm index (-1 = nucleus).
+    emerge=True: the drawn crystal (v4 emergence ramp); False: the skeleton's arms (unnecked_points, the tests)."""
     out = {'pos': [], 'rad': [], 'birth': [], 'gen': [], 'arm': []}
     out['pos'].append(np.zeros((1, 3)))
     out['rad'].append(np.array([nucleus_radius(A, t)]))
@@ -987,7 +1064,7 @@ def collect_points(arms, t, A):
     out['gen'].append(np.array([-1], dtype=np.int32))
     out['arm'].append(np.array([-1], dtype=np.int32))
     for a in arms:
-        sample_arm(a, t, A.voxel, out)
+        sample_arm(a, t, A.voxel, out, emerge=emerge)
     return {k: np.concatenate(v) for k, v in out.items()}
 
 

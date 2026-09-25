@@ -9,9 +9,9 @@ components and genus. No render. Exit code 2 with --strict if any stage is not o
 
 Anything after a second '--' is passed to the module's own parse_args (e.g. --seed 7 --tertiary-density 0).
 
---fine audits the close-up mesh the sequence renders for its tertiary and neck frames instead (render_sequence.
-build_fine_mesh: the same skeleton and arm states, meshed on the finer SDF grid with the tertiary tip spheres); it needs
---module to be the current hero/dendrite_gen.py:
+--fine audits the close-up mesh the sequence renders for every frozen frame instead (mesh_recipe.build_fine: the same
+skeleton and arm states, meshed on the finer SDF grid with the tertiary tip spheres; built fresh, the mesh cache is not
+read); it needs --module to be the current hero/dendrite_gen.py:
   blender.exe -b --factory-startup --python hero/topo_check.py -- --module hero/dendrite_gen.py --stages 1.0 --fine \
       --strict -- --seed 7
 """
@@ -95,13 +95,13 @@ def main():
     p.add_argument('--stages', default='0.1,0.3,0.6,1.0')
     p.add_argument('--out', default='', help='JSON report path')
     p.add_argument('--strict', action='store_true', help='exit code 2 if any stage fails the gate')
-    p.add_argument('--fine', action='store_true', help='audit the close-up mesh (render_sequence.build_fine_mesh)')
+    p.add_argument('--fine', action='store_true', help='audit the close-up mesh (mesh_cache.build_fine)')
     A_ = p.parse_args(argv)
 
     if A_.fine:
         if os.path.normcase(os.path.abspath(A_.module)) != os.path.normcase(os.path.abspath(GATE.__file__)):
             raise SystemExit('--fine builds with the current hero/dendrite_gen.py; pass it as --module')
-        import render_sequence as RS
+        import mesh_cache as MC
         M = GATE
     else:
         M = load_module(A_.module)
@@ -117,13 +117,12 @@ def main():
     for t in stages:
         GATE.clear_scene()
         if A_.fine:
-            ob, arms, _ok, secs, _t = RS.build_fine_mesh(A, t)
+            ob, meta = MC.build_fine(A, t)
             me = ob.data
-            alive = [a for a in arms if a.alive]
-            counts = {'alive_primary': sum(a.gen == 0 for a in alive), 'alive_secondary': sum(a.gen == 1 for a in alive),
-                      'alive_tertiary': sum(a.gen == 2 for a in alive), 'arms_total': len(arms),
-                      'voxel': RS.FINE_VOXEL, 'tertiary_tip_min': RS.TERT_TIP_MIN}
-            secs = round(secs, 1)
+            c = meta['counts']
+            counts = {'alive_primary': c['primary'], 'alive_secondary': c['secondary'], 'alive_tertiary': c['tertiary'],
+                      'emerging': c['emerging'], 'voxel': MC.FINE_VOXEL, 'tertiary_tip_min': MC.TERT_TIP_MIN}
+            secs = round(meta['build_seconds'], 1)
         else:
             me, counts, secs = build_v1_style(M, A, t)
         topo = GATE.mesh_topology(me)
