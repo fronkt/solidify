@@ -5179,10 +5179,11 @@ Protocol v3 prospectively covers the original reference tolerance band with matc
 
 Independent fixed-volume Wulff measurements on the unchanged production stencil at dx=.8, lambda4, R20 and fixed1000tau horizon measured effective anisotropy -.002816782 for raw0 and .013569171 for raw.0171; both were stationary/resolved. The intended .0171 therefore cannot be advertised as mesh-calibrated. No tip-output fitting is permitted. Before another reference campaign, compare a research-only19-point isotropic Laplacian against the SAME equilibrium cases, review the discrete moments/pipeline replacement, and assess coupled-heat kinetic calibration. Production source stays unchanged until that independent comparison passes review.
 
-- [ ] Compare unchanged and isotropic19-point Wulff equilibrium on identical inputs; preserve hashes and device-error evidence.
-- [ ] Choose and document the supported discrete calibration, then rerun affected quantitative, legacy and app gates.
-- [ ] Run the complete five-arm reference study on the frozen candidate; retain failures and all raw evidence.
-- [ ] Collect cloud artifacts, verify checksums, destroy only owned Vast instance58344925 and verify its removal.
+- [x] Compare unchanged and isotropic19-point Wulff equilibrium on identical inputs; preserve hashes and device-error evidence.
+- [x] Choose and document the more isotropic scalar operator, then rerun affected quantitative, legacy and app gates.
+- [x] Run the complete five-arm reference study on the frozen candidate; retain failures and all raw evidence.
+- [x] Collect cloud artifacts, verify checksums, destroy only owned Vast instance58344925 and verify its removal.
+- [ ] Resolve independent discrete capillary/anisotropy and coupled kinetic calibration or justified refinement, then meet the unchanged published-reference gate. Q3c remains open.
 
 ### Deterministic heat-treatment fixture review
 
@@ -5199,7 +5200,17 @@ The first fresh35-script final run was intentionally stopped after read-only rev
 - [x] Reproduce the old behavior with controlled allocation delays and runtime-status injection; preserve old logs/JSON.
 - [x] Keep shared quantitative dials out of the baseline until resource allocation succeeds. Check mode, solver identity, request token and staged user inputs before publishing; retain the independent material/composition snapshot.
 - [x] Guard quantitative entry and pending cleanup, publish grid-swap pitch only for the active mode, and make explicit reset clear the previous refusal while retaining the initial visible runtime diagnostic.
-- [ ] Prove the same delayed/canceled/user-edited paths pass on the fixed source and register the regressions.
-- [ ] Restart the full suite from a fresh source freeze. Cloud needle physics remains pinned independently to12ce78b, with no solver-equation change.
+- [x] Prove the same delayed/canceled/user-edited paths pass on the fixed source and register the regressions.
+- [ ] Complete the full suite from the reviewed source freeze. Cloud needle physics remains pinned independently to12ce78b, with no solver-equation change.
 
 Fixed-source integration review passes: the same three old-source failures now pass, and delayed material/solute edits preserve the operator's newer setup without starting calibration. A real composed A356 link retains its own coefficient source/freezing interval and restores canonical qualitative kPart/dSol. SESSION-3D-CANCELLATION registers all six cases in the existing completion driver; all9 completion gates pass. Typecheck/build pass. All local browsers and the scoped Vite instance are closed before the fresh final-suite freeze.
+
+### Completed cloud reference review
+
+The full five-arm protocol-v3 campaign is complete and NOT accepted: P ranges .32536-.33353 against .312, while sigma ranges .05019-.05294 against .063 (15.98-20.33% low). All arms passed the runner's reference-blind stationarity/resolution/clearance/travel conditions; the independent domain/dx/dt/width point comparisons change by at most3.12% and are within their10% band. The combined final assertion fails because every literature-reference verdict fails, rather than because every point control missed its band. Zero device errors; nine exact production/specialization pairs.
+
+Independent raw-data NumPy/QR replay reproduces the base miss. Coupled planar and Wulff local-curvature diagnostics do not establish a unique correction; no coefficient, reference value or acceptance threshold was fitted to the needle result. Future observation times should be fixed prospectively across matched physical arms, rather than selected by reference agreement. Q3 remains in draft; only R1/R2 are prepared for release in PR3.
+
+Raw science evidence is backed up in unpublished GitHub draft release q3-validation-2026-10-30, targeting12ce78b. The249,914,660-byte archive has SHA256 e12246766121b1eeed12985a84d84764528f7148210b6216f1491f51d6626eac; GitHub's asset digest matches. All179 tip checkpoints,102 equilibrium checkpoints, pinned sources and185 diagnostic-superset members were checked. Account/auth and bootstrap logs are excluded. Owned Vast instance58344925 was destroyed at05:20:16UTC and API absence verified; watchdog50492 stopped. Existing instances untouched. Estimated compute cost$0.765, excluding transfer/storage.
+
+The reviewed full local suite passed all scripts before verify-rail, which then hit a Runtime.callFunctionOn timeout without a layout assertion verdict. A focused traced copy is isolating the exact operation before corrective continuation. The source remains frozen; no successful-prefix checks or long-reference misses are reclassified.

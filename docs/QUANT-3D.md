@@ -1,6 +1,6 @@
 # Quantitative 3D solidification: implementation and acceptance contract
 
-Design checkpoint: 2026-10-29. The core and active-mode integration are implemented. Legacy preservation, allocation transactions, several independent physical checks and app integration have passed GPU checks. Alloy partition/width convergence has passed. The long 3D tip operating-state benchmark remains unpassed; lattice bias is being reduced and independently measured before that comparison. The acceptance targets below remain distinct from the recorded results.
+Status: 2026-10-30. The core and active-mode integration are implemented. Legacy preservation, allocation transactions, analytical geometry/heat checks, alloy partition/width checks and app integration pass GPU acceptance. The complete five-arm 3D needle campaign missed the published reference and Q3 remains unfinished. The acceptance targets below remain distinct from the recorded results.
 
 ## Scope and order
 
@@ -189,7 +189,7 @@ The final focused partition invocation passed (`verify-out/q3-at-stefan-target.l
 
 The lambda=6 negative-control error is at least 0.009459 across windows, exceeding the required `2*0.0002632+0.005=0.0055264`. All arms had finite nonnegative concentration, zero transverse variation, far liquid 0.3000000119 and matched travel within a single substep. The partition gate took 134.2 seconds on the recorded adapter. The 10,000-step closed-box mass criterion is separate: these longer partition trajectories record their own CPU mass drift and do not establish the same 5e-5 band after hundreds of thousands of substeps.
 
-The tip harness has demonstrated allocation, finite fields and growth in its intended geometry and has measured throughput. It has not yet established a stationary, domain-independent or mesh-refined operating state against the published 3D P and sigma*. Do not count the throughput/liveness run as the literature tip benchmark. Arbitrary spatial-rotation covariance and mesh-anisotropy convergence also remain distinct from the crystal-symmetry check above.
+The earlier throughput/liveness runs did not constitute a literature tip benchmark. The complete campaign recorded below now supplies five runner-qualified operating windows, but misses the literature-reference acceptance bands. Arbitrary spatial-rotation covariance and full mesh calibration also remain distinct from the crystal-symmetry check above.
 
 ## Independent lattice diagnosis and revised long-run protocol
 
@@ -209,3 +209,27 @@ A separate fixed-volume equilibrium experiment exposed a substantial lattice ani
 The 19-point candidate reduces the isotropic-case bias by about 28 times and the requested-anisotropy error from 20.65% to 2.91%. It is still a second-order method with residual mesh and finite-width error. The continuum d0/W0 is .8839/4=.220975; finite-radius effective d0 is report only. These equilibrium measurements do not establish kinetic cancellation or a stationary needle. Existing a(n)^2 relaxation retains leading continuum beta cancellation; discrete coupled-heat beta requires a separate outer-temperature measurement if a kinetic correction is proposed. No lattice coefficient is inferred from needle P or sigma.
 
 Artifacts include `verify-out/q3-cloud-wulff-result.json` and `q3-cloud-wulff19-result.json`, with complete histories, source/candidate hashes, metrology controls, hardware and zero-error reports. The checksum-verified cloud archive also preserves the original failed five-arm study. These measurements motivate the quantitative-only stencil change and its subsequent regression/reference campaign; they do not mark Q3 complete.
+
+## Completed five-arm reference campaign: not accepted
+
+The protocol-v3 campaign at frozen revision `12ce78b3578d7dc3e7280b67987132791c3d4a71` completed all five arms on actual NVIDIA RTX 5090 WebGPU. Nine production/specialization field pairs matched exactly. Device errors were empty. Every arm met the runner's independent stationarity, metrology, retained-window clearance and travel criteria; none met the uncertainty-inclusive 10% literature-reference comparison.
+
+| Arm | P | sigma* | sigma* point error against .063 |
+|---|---:|---:|---:|
+| Base | .32788026 | .05133256 | -18.52% |
+| Larger domain | .32705244 | .05155458 | -18.17% |
+| Finer dx | .33352871 | .05019442 | -20.33% |
+| Half dt | .32694107 | .05158256 | -18.12% |
+| Smaller interface width | .32535685 | .05293555 | -15.98% |
+
+The pointwise domain/dx/dt/width changes in P, sigma*, rho/d0 and Vd0/D are all within the original 10% control band; their largest change is 3.12%. The final combined runner assertion nevertheless fails because every reference verdict fails. Do not describe that assertion as evidence that each comparative control itself missed its band. The larger-domain sigma differs from base by only .43%; this narrows the diagnosis without proving that all finite-domain effects are absent.
+
+The [public numerical record](validation/quant3d-2026-10-30.json) retains configurations, actual terminal times, source hashes, hardware, uncertainty/drift budgets and individual verdicts. A separate NumPy polynomial/QR replay of ten raw base checkpoints reproduces P and sigma* to better than 5e-8 relative. The miss is not removed by different fitting arithmetic.
+
+Protocol v3 chooses the FIRST reference-blind qualifying window within a fixed maximum horizon; it does not enforce an exact common terminal time across arms. Independent CPU controls demonstrate that early qualification does not establish later persistence or the final combined precision budget. A future study should predeclare one common physical terminal time and terminal window, preserve all the current bands, and judge that endpoint even if an earlier window was favorable. Waiting until the reference comparison passes would make endpoint selection depend on the expected result and is not acceptable.
+
+Independent coupled traveling-wave CPU diagnostics completed 58 sparse solves with checked Jacobian and phase-energy identities. They find mesh- and speed-dependent outer-temperature residuals, but do not resolve a unique coarse-grid zero-speed kinetic coefficient. Local equilibrium-curvature fits also differ from the support-ratio fourth-harmonic prediction, with finite-radius, width and reconstruction effects still inseparable. Neither diagnostic identifies a unique correction or justifies fitting delta/tau to the observed needle result.
+
+The next scientific target is therefore independent discrete capillary/anisotropy and coupled kinetic calibration, or further justified interface/grid refinement, followed by the fixed-terminal reference campaign. The analytical and app checks do not supersede the failed reference gate. Q3 stays in draft and is not promoted to production; the independent readout/phase-data release is separate.
+
+The scientific-only raw evidence is backed up in an [unpublished draft evidence release](https://github.com/fronkt/solidify/releases/tag/untagged-3459ba2aba6970fa4704). The archive is 249,914,660 bytes, SHA256 `e12246766121b1eeed12985a84d84764528f7148210b6216f1491f51d6626eac`. All 179 tip checkpoints, 102 equilibrium checkpoints and pinned source hashes were verified; all 185 members of the diagnostic superset were also checked. The owned cloud instance was destroyed and API absence verified. Estimated compute cost was $0.765, excluding transfer/storage charges.
