@@ -1,4 +1,4 @@
-﻿# Independent protocol4 audit
+# Independent protocol4 audit
 
 Reviewed revision: `2bd78939bc00f7aa5484cd815e870dcd6ec2d95a`.
 Isolated worktree: `C:\Users\frank\solidify-review-protocol`.
@@ -153,4 +153,3 @@ Extra probes: `node verify-out/protocol-probes.mjs`; results retained as `verify
 `verify-out/velocity-oscillation-probe.mjs` SHA256: `f1d820ec66182f2efede73fe940d48591c1a0d2287d9892878f21f2a5f56dc39`.
 
 Mock modes: `positive`, `ledger-fail`, `cleanup-fail`, `gpu-error`, `page-error`, `launch-fail`, `newpage-fail`. The mock file was frozen after the first batch; supplemental exception injection is in a separate preload. `mock-*.log`, corresponding result JSONs, `protocol-self-test.log`, `protocol-probes.json`, `velocity-oscillation-probe.json`, and `archived-base-velocity-probe.json` remain under ignored `verify-out/`. All invocations use this isolated worktree as working directory.
-
