@@ -5170,3 +5170,16 @@ Q3 boundary correction accepted: the quantitative phase pass now gives normal an
 Long-tip preparation now has five prospective arms (domain,dx,dt,lambda3.6width againstlambda4base), matched physical extents/seed radii/times, a separate2.5%stationarity-input budget and propagated P/sigma uncertainty. Independent tanh/Gaussian/asymmetric phase-grid controls and drifting/oscillating/accelerating negative controls pass. The effective-versus-raw anisotropy distinction from KR1998 is recorded; raw coefficients must not be fitted to tip outcomes.
 
 User explicitly requested the full benchmark and Vast.ai acceleration if faster. Cloud bootstrap is authorized for one tagged owned instance within a small capped spend; preexisting instances stay untouched. Local full regression and cloud real-WebGPU throughput proceed independently on frozen commits. Cloud results must prove real NVIDIA hardware and production/harness equivalence before any speed or accuracy claim; download artifacts and destroy the owned rental afterward.
+
+### Long-run and lattice-calibration review
+
+The first full five-arm cloud campaign at ad96166 used real NVIDIA WebGPU, matched nine production/harness field hashes and reported no device errors, but every arm stopped during startup on the instantaneous D/V clearance proxy. It accepted no operating state. Eleven shared base/domain checkpoints were exactly identical despite different proxy verdicts, so this is not evidence of measured boundary contamination or published-reference disagreement.
+
+Protocol v3 prospectively covers the original reference tolerance band with matched geometry/time, retains raw phase brackets and direct far-face temperature patches, and assesses conservative clearance throughout the final stationary window. It removes only the startup proxy abort; all final accuracy, stationarity, travel and convergence requirements remain. CPU metrology and boundary positive/negative controls pass.
+
+Independent fixed-volume Wulff measurements on the unchanged production stencil at dx=.8, lambda4, R20 and fixed1000tau horizon measured effective anisotropy -.002816782 for raw0 and .013569171 for raw.0171; both were stationary/resolved. The intended .0171 therefore cannot be advertised as mesh-calibrated. No tip-output fitting is permitted. Before another reference campaign, compare a research-only19-point isotropic Laplacian against the SAME equilibrium cases, review the discrete moments/pipeline replacement, and assess coupled-heat kinetic calibration. Production source stays unchanged until that independent comparison passes review.
+
+- [ ] Compare unchanged and isotropic19-point Wulff equilibrium on identical inputs; preserve hashes and device-error evidence.
+- [ ] Choose and document the supported discrete calibration, then rerun affected quantitative, legacy and app gates.
+- [ ] Run the complete five-arm reference study on the frozen candidate; retain failures and all raw evidence.
+- [ ] Collect cloud artifacts, verify checksums, destroy only owned Vast instance58344925 and verify its removal.

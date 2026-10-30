@@ -5,7 +5,7 @@ export async function installQuant3TipDriver() {
   const { Sim3D, DEFAULTS3D } = await import("/src/sim3d.ts");
   const { FLUX3D_WGSL, phi3dWgsl, transport3dWgsl, P3, MAX_GRAINS3 } = await import("/src/shaders3d.ts");
   const { rect3dSpecialize } = await import("/scripts/fixtures/rect3d-specialize.mjs");
-  const { phaseCrossing } = await import("/scripts/fixtures/quant3d-tip-analysis.mjs");
+  const { phaseCrossing, localTip } = await import("/scripts/fixtures/quant3d-tip-analysis.mjs");
   const S = window.__solidify;
   S.app.setRun(false);
   // Large rectangular uploads exceed the instrument's default 256 MiB
@@ -13,8 +13,8 @@ export async function installQuant3TipDriver() {
   // the public instrument and all simulation equations remain unchanged.
   const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
   if (!adapter || adapter.info?.isFallbackAdapter || adapter.isFallbackAdapter) throw new Error("A hardware WebGPU adapter is required");
-  if (adapter.limits.maxBufferSize < 1024 ** 3 || adapter.limits.maxTextureDimension3D < 576)
-    throw new Error("The long reference fixture needs a 1 GiB upload limit and 576-cell 3D textures");
+  if (adapter.limits.maxBufferSize < 1024 ** 3 || adapter.limits.maxTextureDimension3D < 816)
+    throw new Error("The long reference fixture needs a 1 GiB upload limit and 816-cell 3D textures");
   const device = await adapter.requestDevice({
     requiredFeatures: adapter.features.has("float32-filterable") ? ["float32-filterable"] : [],
     requiredLimits: { maxBufferSize: Math.min(2 * 1024 ** 3, adapter.limits.maxBufferSize),
@@ -158,6 +158,7 @@ export async function installQuant3TipDriver() {
                 if (z < 2 || z + 3 >= dims[2]) break;
                 const phi = dz => data[2 * (i + dz * width * width)];
                 points.push({ x: (x + .5) * p.dx, y: (y + .5) * p.dx,
+                  xCell: x, yCell: y, zCell: z, phaseBracket: [-2, -1, 0, 1, 2, 3].map(phi),
                   z: (z + .5 + phaseCrossing([-2, -1, 0, 1, 2, 3].map(phi))) * p.dx,
                   zCoarse: (z + .5 + phaseCrossing([-1, 0, 1, 2].map(phi), [-1, 0, 1, 2])) * p.dx,
                   zRaw: (z + .5 + phaseCrossing([-2, -1, 0, 1, 2, 3].map(phi), [-2, -1, 0, 1, 2, 3], "raw")) * p.dx });
@@ -166,7 +167,45 @@ export async function installQuant3TipDriver() {
             }
           }
           const top = data[2 * ((dims[2] - 1) * width * width) + 1];
-          return { time, steps, points, aheadBoundaryTemperature: top };
+          let patchRho = config.radius, patchTip = Math.max(...points.map(point => point.z));
+          let patchSource = "initial seed radius; current local curvature unresolved";
+          try {
+            const tip = localTip(points, p.dx); patchRho = tip.rho; patchTip = tip.tip;
+            patchSource = "local curvature and axis intercept reconstructed from this same state snapshot";
+          } catch { /* diagnostics retain explicit fallback geometry */ }
+          if (!Number.isFinite(patchTip)) patchTip = config.radius;
+          const extent = Math.max(1, Math.ceil(2 * patchRho / p.dx));
+          const xCount = Math.min(dims[0], extent), yCount = Math.min(dims[1], extent);
+          const zBegin = Math.max(0, Math.floor(patchTip / p.dx - .5) - extent);
+          const zEnd = Math.min(dims[2], Math.ceil(patchTip / p.dx - .5) + extent + 1);
+          const patchSpecs = [
+            { face: "x-max", origin: [dims[0] - 1, 0, zBegin], size: [1, yCount, Math.max(1, zEnd - zBegin)] },
+            { face: "y-max", origin: [0, dims[1] - 1, zBegin], size: [xCount, 1, Math.max(1, zEnd - zBegin)] },
+            { face: "z-max", origin: [0, 0, dims[2] - 1], size: [xCount, yCount, 1] },
+          ];
+          const patches = [];
+          for (const spec of patchSpecs) {
+            const raw = await readTexture(state[dir], spec.size, 8, spec.origin);
+            const field = new Float32Array(raw.buffer), n = field.length / 2;
+            let min = Infinity, max = -Infinity, sum = 0, phaseMax = -Infinity;
+            for (let i = 0; i < field.length; i += 2) {
+              if (!Number.isFinite(field[i]) || !Number.isFinite(field[i + 1])) throw new Error("non-finite far-field diagnostic");
+              phaseMax = Math.max(phaseMax, field[i]);
+              min = Math.min(min, field[i + 1]); max = Math.max(max, field[i + 1]); sum += field[i + 1];
+            }
+            const temperatureDeviation = Math.max(Math.abs(min - p.tFar), Math.abs(max - p.tFar));
+            patches.push({ ...spec, samples: n, temperature: { min, max, mean: sum / n }, maximumPhase: phaseMax,
+              maxAbsTemperatureDeviation: temperatureDeviation,
+              maxAbsTemperatureDeviationOverUndercooling: temperatureDeviation / config.undercooling });
+          }
+          return { time, steps, points, aheadBoundaryTemperature: top,
+            phaseBracketSource: { component: "stored phase psi", crossing: .5, zOffsetsFromZCell: [-2, -1, 0, 1, 2, 3],
+              coordinates: "voxel centers: ((xCell+.5),(yCell+.5),(zCell+.5+offset))*dx; brackets are direct Float32 texture values" },
+            farFieldDiagnostics: { source: "direct current-state GPU texture readbacks; no diffusion-length proxy or extrapolated temperature",
+              referenceTemperature: p.tFar, referenceSource: "uniform initial far-field Ttilde = 1 - prescribed undercooling",
+              undercooling: config.undercooling, patchTipW0: patchTip, patchRhoW0: patchRho, patchSource,
+              patchGeometry: "transverse far faces within two local tip radii in z and the other transverse coordinate; ahead face within two radii of the axis; cell-centered coordinates",
+              patches } };
         },
         async destroy() { await device.queue.onSubmittedWorkDone(); for (const resource of resources) resource.destroy(); },
       };
