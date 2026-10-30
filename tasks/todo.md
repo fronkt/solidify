@@ -5310,3 +5310,51 @@ CI initially caught a stale documented script count after the new lifecycle step
 The inventory now counts argument-bearing self-test entries as well and documents
 all20 browser-free CI scripts. No physical gate was relaxed; the original count
 guard remains active, and its actual workflow/documentation check is rerun.
+
+## Quantitative 3D validation resumed - 2026-10-30
+
+User approved continuing the remaining quantitative validation after the completed
+3D optimizer. Research branch `research/q3-calibration` starts at `178d367` in
+`C:/Users/frank/solidify-q3-validation`; the optimizer PR remains independently
+reviewable. Existing production and historical failed evidence are preserved.
+
+Acceptance specification:
+- A result is accepted only by the original published-reference, stationarity,
+  uncertainty, clearance/travel and complete convergence gates at prospectively
+  fixed endpoints. No coefficient or estimator is selected to approach tip P or
+  sigma; preserve the original ten-percent bands and failed studies.
+- Repair the research readback that refused the two n144 radius cases. Prove
+  exact manufactured data and parity with the original reader on aligned grids;
+  neither shaders nor physical parameters change in this repair.
+- Complete the predeclared radius pair and assess the full mesh/radius matrix.
+  Retain raw checkpoint hashes, source freeze and readable device-error ledger.
+- Independently test whether capillary, kinetic or curvature-measurement error
+  is identifiable. Any proposed correction needs a separate physical diagnostic
+  and known-truth/signed controls before a full reference rerun.
+- Root owns local GPU timing and cloud lifecycle. Delegates initially use CPU
+  evidence only. Use one tagged Vast rental when faster, with a declared spend/
+  time cap, local push before remote pull, artifact verification and owned cleanup.
+
+Plan before implementation:
+- [x] Review recorded failures, independent audits and project lessons; isolate the research worktree.
+- [x] Repair and independently verify padded research volume readback and execution evidence.
+- [ ] Finish the declared radius cases on frozen source and reconcile all fourteen matrix cases.
+- [ ] Complete parallel capillary, kinetic-identifiability and metrology investigations; choose the smallest justified next experiment.
+- [ ] Implement a correction or refinement only if independent evidence supports it; run affected pure/GPU regressions.
+- [ ] Run the complete prospectively fixed reference campaign when its prerequisites are met, retaining all verdicts and raw data.
+- [ ] Record evidence/limitations, verify artifact backup and owned cleanup, commit/push completed phases, and leave Q3 open unless all required gates pass.
+
+Work allocation: q3_capillary_audit examines the existing matrix; q3_kinetic_diagnostic
+derives an identifiable moving-interface measurement; q3_metrology_diagnostic
+challenges local curvature using independent synthetic controls before raw tips.
+Root owns the readback/runner repair, production integration and GPU/cloud work.
+
+Readback checkpoint: seven CPU coordinate/stride controls pass; actual Intel
+WebGPU copies preserve every voxel/channel on both ping-pongs of 96/144 cubes,
+with exact legacy parity at96, a readable error ledger, zero errors and stable
+source hashes. The moved registered verifier was rerun on its final path. Root
+independently reran all19 actual-CLI lifecycle controls plus subset/stale-retry
+checks, including nonfinite/stalled/overshooting clocks. Independent read-only
+review found no blocking defect. Typecheck/build and the22-script CI inventory
+check pass. Production source and physical coefficients remain unchanged.
+Public proof: docs/validation/quant3d-calibration-readback-2026-10-30.json.

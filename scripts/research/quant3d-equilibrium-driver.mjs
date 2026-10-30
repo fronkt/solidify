@@ -3,6 +3,7 @@
 export async function installQuant3WulffCalibrationDriver() {
   const {Sim3D,DEFAULTS3D}=await import("/src/sim3d.ts");
   const M=await import("/scripts/fixtures/quant3d-wulff-analysis.mjs");
+  const {readStateVolumeAligned}=await import("/scripts/research/quant3d-readback.mjs");
   const S=window.__solidify,device=S.sim().device;S.app.setRun(false);
   const errors=[];
   const onError=event=>errors.push({kind:"uncaptured",message:event.error.message});
@@ -63,7 +64,7 @@ export async function installQuant3WulffCalibrationDriver() {
       const steps=Math.ceil(Math.min(config.controlPeriod,remaining)/sim.params.dt),got=await sim.stepSync(steps);
       if(got!==steps)throw new Error("short physics budget");
       const status=await sim.readQuantitativeStatus();if(!status||status.flags||status.issue)throw new Error(JSON.stringify(status));
-      const state=await sim.readStateVolume();if(!state)throw new Error("state readback failed");
+      const state=await readStateVolumeAligned(sim);if(!state)throw new Error("state readback failed");
       temperature=state.T[0];
       const moments=M.phaseMoments(state.phi,config.lambda),elapsed=sim.simTime-lastTime;
       const next=M.nextUniformTemperature({temperature,volume:moments.volume,previousVolume,targetVolume,mobility:moments.mobility,elapsed});
@@ -76,7 +77,7 @@ export async function installQuant3WulffCalibrationDriver() {
     },
     async measure() {
       if(!sim)throw new Error("not staged");
-      const state=await sim.readStateVolume();if(!state)throw new Error("readback failed");
+      const state=await readStateVolumeAligned(sim);if(!state)throw new Error("readback failed");
       let tmin=Infinity,tmax=-Infinity;
       for(const t of state.T){tmin=Math.min(tmin,t);tmax=Math.max(tmax,t);}
       if(tmax-tmin>1e-6)throw new Error("feedback temperature is not uniform");

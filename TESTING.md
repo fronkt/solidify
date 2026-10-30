@@ -1,5 +1,15 @@
 # Testing
 
+The quantitative-calibration continuation registers two additional scripts,
+bringing this branch's local suite to 37. `verify-quant3d-readback.mjs` checks
+coordinate-exact padded row/slice unpacking on the CPU; `--gpu` additionally
+copies both ping-pongs on real 96/144 cubes and checks original-reader parity
+on aligned rows. `verify-quant3d-equilibrium-lifecycle.mjs` drives the actual
+equilibrium CLI with an explicit synthetic browser across nineteen lifecycle
+cases, plus subset and stale-retry controls. These test execution evidence;
+they do not supply simulated physical acceptance. Both CPU checks run in CI;
+the real copy check runs sequentially in the local GPU suite.
+
 Final reviewed regression, 2026-10-30: all 35 registered scripts passed across
 the full run and corrective continuation. The first 22 passed in
 `verify-out/ordered-final-reviewed-suite.log`; an unmodified rail retry passed
@@ -11,7 +21,7 @@ comparison; these regression passes do not complete Q3 acceptance.
 
 Q3 adds three GPU verification scripts, also registered in `npm test`. The
 Wulff and tip geometry/protocol self-tests and the runner-lifecycle controls
-also run without a browser in CI, bringing that set to twenty scripts:
+also run without a browser in CI, bringing that set to twenty-two scripts:
 
 - `verify-passsplit3d.mjs` compares preserved fused and diagnostic split Kobayashi
   paths with the untouched `d59471e` volume snapshots. Eight fixed manufactured
@@ -126,7 +136,7 @@ fade and Sievert gas porosity — bringing the CI-runnable set to five at the ti
 left it, v8's `verify-hero-manifest.mjs` fourteen and v8 U2's `verify-plot.mjs` fifteen.
 The v8 completion adds process-plot and run-export coverage. Q3 adds the Wulff
 and tip self-tests plus runner-lifecycle controls, bringing the set to
-**twenty browser-free scripts**, and
+**twenty-two browser-free scripts**, and
 `CI-SCRIPT-COUNT` derives that number from `ci.yml`'s own run lines and fails if any place this
 document states it disagrees). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
@@ -147,7 +157,7 @@ except `verify-hero.mjs`, which runs with WebGPU removed and needs no GPU; it st
 hardcoded Chrome path and the 5199 server, so it is not in CI either.
 **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
-only the OS-agnostic steps — typecheck, build, and the twenty browser-free scripts
+only the OS-agnostic steps — typecheck, build, and the twenty-two browser-free scripts
 (`verify-units.mjs`, `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
 `verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
 `verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
@@ -1472,7 +1482,7 @@ rebuilt to make that relationship emergent:
 **Physics-behaviour tests (v5.0).**
 
 - **`UNITS-*`** (`verify-units.mjs`) — the scaling layer, checked without a browser, so it is
-  the first of the twenty browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0, the v7.1 arc added six more, v8 added figure/export checks, and Q3 added its self-tests and runner-lifecycle controls). Ten checks: that kelvin-per-unit really is the heat
+  the first of the twenty-two browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0, the v7.1 arc added six more, v8 added figure/export checks, and Q3 added its self-tests and runner-lifecycle controls). Ten checks: that kelvin-per-unit really is the heat
   equation's own `(L/c_p)/K` for four materials computed independently in the test; that the
   time factor is forced by whichever diffusivity is anchoring; that every converter round-trips;
   that an abstract material reads as *unknown* rather than as zero; that the undercooling dial's
@@ -1971,11 +1981,11 @@ spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 
 that evidence recorded in the constant's own docblock. The drift prints on every run, and
 `HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
-`npm run typecheck` and `npm run build` plus the twenty browser-free scripts — `verify-units.mjs`,
+`npm run typecheck` and `npm run build` plus the twenty-two browser-free scripts — `verify-units.mjs`,
 `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
 `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
 `verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
 `verify-composer-grid.mjs`, `verify-hero-manifest.mjs`, `verify-plot.mjs`,
 `verify-process-plots.mjs`, `verify-run-export.mjs`, `verify-quant3d-wulff.mjs --self-test`,
-`verify-quant3d-tip.mjs --self-test` and `verify-quant3d-tip-lifecycle.mjs` — are the checks anyone on any OS can run
+`verify-quant3d-tip.mjs --self-test`, `verify-quant3d-tip-lifecycle.mjs`, `verify-quant3d-readback.mjs` and `verify-quant3d-equilibrium-lifecycle.mjs` — are the checks anyone on any OS can run
 without a GPU, and are what CI actually gates on (`.github/workflows/ci.yml`).

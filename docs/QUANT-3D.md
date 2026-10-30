@@ -335,3 +335,22 @@ It and its checksum sidecar are backed up in the existing unpublished calibratio
 draft with matching server digests. The owned instance/watchdog were removed,
 preexisting resources were untouched, and estimated compute was$0.35031 excluding
 transfer extras. No Q3 promotion follows from these reviews or diagnostics.
+
+### Calibration readback and runner continuation
+
+The research equilibrium driver now uses a padded RG32Float readback helper.
+It removes row padding when reconstructing the phase/temperature arrays and
+does not change a production shader, simulation equation or physical parameter.
+Manufactured coordinate fields check every voxel and both ping-pongs; aligned
+96-cube data agrees exactly with the original reader, while the formerly
+refused 144-cube uses 1280-byte copy rows instead of the invalid 1152 bytes.
+
+The equilibrium CLI also retains a fresh uncompleted artifact before preflight,
+requires a readable error ledger, records cleanup failures, checks source hashes
+after browser cleanup and distinguishes a selected diagnostic from the complete
+declared matrix. Every control must make finite bounded clock progress; a
+nonfinite, stalled or overshooting endpoint cannot complete the study. Nineteen
+actual-CLI CPU lifecycle controls plus subset/stale-retry checks exercise these
+paths under an explicitly synthetic browser. They are execution tests, not
+equilibrium or published-reference evidence. The historical failed matrix is
+preserved; a separately pinned complete calibration run follows this repair.
