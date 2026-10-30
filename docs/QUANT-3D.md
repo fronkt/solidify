@@ -288,3 +288,13 @@ The smaller time step has larger floating-point discrepancies, so this is not
 evidence of monotonic time convergence. Bulk modal fits and their identifiability
 remain diagnostic. No zero-speed beta, fitted coefficient, or needle acceptance
 is established by this comparison.
+
+The [independent raw-profile audit](validation/quant3d-kinetic-assessment-2026-10-30.md)
+verifies all90 checkpoint hashes/clocks and replays the reported velocity/energy.
+It also demonstrates why small outer-temperature residuals do not establish an
+identifiable interface coefficient. A scientific-only local evidence archive is
+backed up in an [unpublished draft](https://github.com/fronkt/solidify/releases/tag/untagged-4ff2f3cab68d844e3925):
+69,137,619 bytes,224 verified members, SHA256
+`d4b39a1da16adc73d7b5f6196402c2348ab990b2bf78da36ee42c6bbd7faf0ec`.
+Both uploaded asset digests match locally verified files. Authentication/account
+and cloud bootstrap data are excluded. This backup is not a production release.
