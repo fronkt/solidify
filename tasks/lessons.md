@@ -681,3 +681,9 @@ split "bridgma/n" and the head plate sat under the toggles.
 require it was read (a per-item floor, not a list entry). When the property lives
 somewhere the probe's API cannot see (pseudo-elements, canvas, compositing), read the
 pixels, and prove the read on a planted defect.
+
+## Seed every stochastic input and own the manual GPU clock
+
+A3D calibration fixture seeded nucleation positions but inherited a random page seed for grain orientations. Armed animation frames could also consume queued quench stamps between manual growth batches. The same source therefore produced different specimens and coarsening fits.
+
+**Rule.** For a deterministic GPU fixture, control every named random stream and separate manual physics submission from animation submissions. Verify actual field bytes and delivered steps/frame/time before fitting a physical constant. Preserve stopping rules and scientific tolerances; reproducibility is a precondition, not a reason to widen acceptance.

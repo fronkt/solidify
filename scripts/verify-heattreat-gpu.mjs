@@ -764,44 +764,73 @@ await page.evaluate(() => {
     },
     // equivalent-SPHERE diameter in cells, from the same census the panel reads
     dCells: st => Math.cbrt((6 * st.meanVolVox) / Math.PI),
-    // `seed` (v7.0 C3a): the LCG's start, defaulted to the value every gate
-    // before HT3-SE-SELECTION was measured against — so those casts stay
-    // byte-identical while the selection gate can pour three DIFFERENT
-    // specimens against the one fixed work fabric, which is the replicate
-    // design WORK_SALT's docblock argues for.
+    // One declared seed controls both the position LCG and the named streams
+    // (including Marsaglia quaternions). Positions alone do not fix a cast.
+    // Selection replicates keep their existing seeds and fixed work fabric.
     async cast3(seeds = 2600, pPore = 0, seed = 0x2f6e2b1) {
       S.app.setRun(false);
       const s3 = S.sim3d();
-      // a SEEDED lattice, not Math.random(): K_MC is measured off whatever
-      // cast this helper produces, and an unseeded 2600-seed pour moves the
-      // measured constant cast to cast — enough to fail the 15 % drift gate on
-      // a good build (seen: 1.186 then 0.924 on identical code). A gate that
-      // fails at random is the mirror of the U0 lesson about a gate that
-      // cannot fail at all. Plain LCG so the pour is byte-identical run to run.
-      let rs = seed >>> 0;
-      const rnd = () => { rs = (rs * 1664525 + 1013904223) >>> 0; return rs / 4294967296; };
-      Object.assign(s3.params, {
-        scen: 0, heatIn: 0, coolRate: 0.5, alloyOn: 0, twinProb: 0,
-        pPore, noiseAmp: 0.01, aniMode3: 1, facet: 0,
-      });
-      s3.reset(1 - 0.9);
-      for (let i = 0; i < seeds; i++)
-        s3.addSeed3D(rnd() * s3.n, rnd() * s3.n, rnd() * s3.n, 2.5);
-      // drain the seed queue first: submit() stamps at most MAX_SEEDS3 = 128
-      // per command buffer, and a seed stamped into half-frozen melt is a
-      // different experiment from one stamped into the pour
-      for (let i = 0; i < Math.ceil(seeds / 128) + 2; i++) await s3.stepSync(0);
-      // freeze FULLY — an 80 %-solid cast leaves liquid films between grains
-      // that pin the Potts boundaries and contaminate the calibration. Quench
-      // pulses hurry the tail (the v3.0 harness lesson: quench hard rather
-      // than wait out cooling that recalescence keeps un-doing).
-      for (let k = 0; k < 250; k++) {
-        await s3.stepSync(76);
-        if (k % 10 === 9) s3.quench(0.15);
+      // Armed frames also call step(0). Hold that path while the exact-clock
+      // fixture owns the field, or a queued quench can acquire its own random
+      // noise frame between manual growth batches. Drain old work before reset.
+      const frameStep = s3.step;
+      s3.step = () => 0;
+      try {
+        await s3.device.queue.onSubmittedWorkDone();
+        await s3.stepSync(0); // consume old pending stamps/quench before discarding the old casting
+        S.setSeed(seed);
+        let rs = seed >>> 0;
+        const rnd = () => { rs = (rs * 1664525 + 1013904223) >>> 0; return rs / 4294967296; };
+        Object.assign(s3.params, {
+          scen: 0, heatIn: 0, coolRate: 0.5, alloyOn: 0, twinProb: 0,
+          pPore, noiseAmp: 0.01, aniMode3: 1, facet: 0,
+        });
+        s3.reset(1 - 0.9);
+        for (let i = 0; i < seeds; i++)
+          s3.addSeed3D(rnd() * s3.n, rnd() * s3.n, rnd() * s3.n, 2.5);
+        // drain the seed queue first: submit() stamps at most MAX_SEEDS3 = 128
+        // per command buffer, and a seed stamped into half-frozen melt is a
+        // different experiment from one stamped into the pour
+        for (let i = 0; i < Math.ceil(seeds / 128) + 2; i++) await s3.stepSync(0);
+        // Preserve the historical 98.5%-solid stopping rule and 250-batch cap.
+        // Remaining liquid is ineligible during anneal; the reproducibility
+        // witness below records that mask rather than calling it fully solid.
+        let deliveredSteps = 0, freezePasses = 0;
+        for (let k = 0; k < 250; k++) {
+          const got = await s3.stepSync(76);
+          if (got !== 76) throw new Error(`cast3 physics budget short: ${got}/76`);
+          deliveredSteps += got; freezePasses++;
+          if (k % 10 === 9) s3.quench(0.15);
+          const st = await window.__ht3.stats();
+          if (st && st.fracSolid > 0.985) break;
+        }
+        await s3.stepSync(0); // no pending quench may mutate the specimen during anneal
+        await s3.device.queue.onSubmittedWorkDone();
         const st = await window.__ht3.stats();
-        if (st && st.fracSolid > 0.985) break;
+        window.__ht3.lastCast = { seed: S.seed(), positionSeed: seed >>> 0, seeds, pPore,
+          deliveredSteps, freezePasses, frame: s3.frame, time: s3.simTime,
+          pendingSeeds: s3.pendingSeeds.length, pendingQuench: s3.pendingQuench,
+          solidFraction: st?.fracSolid ?? null, params: { ...s3.params } };
+        return st;
+      } finally { s3.step = frameStep; }
+    },
+    async fingerprint() {
+      const s3 = S.sim3d();
+      await s3.device.queue.onSubmittedWorkDone();
+      const state = await s3.readStateVolume(), grain = await s3.readGrainVolume(), wall = await s3.readMaskVolume();
+      if (!state || !grain || !wall) throw new Error("cast3 fingerprint readback failed");
+      const eligible = new Uint8Array(grain.length);
+      let liquid = 0;
+      for (let i = 0; i < grain.length; i++) {
+        liquid += state.phi[i] < .5;
+        eligible[i] = Number(state.phi[i] >= .5 && grain[i] > 0 && grain[i] !== 4095 && wall[i] === 0);
       }
-      return await window.__ht3.stats();
+      const sha = async a => [...new Uint8Array(await crypto.subtle.digest("SHA-256",
+        new Uint8Array(a.buffer, a.byteOffset, a.byteLength)))].map(v => v.toString(16).padStart(2, "0")).join("");
+      const hashes = {};
+      for (const [name, values] of Object.entries({ phi: state.phi, T: state.T, grain, quats: s3.quats, wall, eligible }))
+        hashes[name] = await sha(values);
+      return { ...window.__ht3.lastCast, liquid, eligible: eligible.reduce((s, v) => s + v, 0), hashes };
     },
   };
 });
@@ -888,9 +917,23 @@ if (!cast3 || cast3.grains < 100) { console.log("3D cast produced too few grains
 // printed rather than silently dropped, and K measured at the SHIPPED
 // exponent because its units are coupled to m.
 {
+  const castRepro = await page.evaluate(async () => {
+    await window.__ht3.cast3(2600, 0);
+    const first = await window.__ht3.fingerprint();
+    await window.__ht3.cast3(2600, 0);
+    const second = await window.__ht3.fingerprint();
+    return { first, second };
+  });
+  const { first, second } = castRepro;
+  check("HT3-CAST-REPRO", first.seed === 0x2f6e2b1 && second.seed === first.seed
+    && first.deliveredSteps > 0 && first.deliveredSteps === second.deliveredSteps
+    && first.frame === second.frame && first.time === second.time
+    && first.pendingSeeds === 0 && second.pendingSeeds === 0 && first.pendingQuench === 0 && second.pendingQuench === 0
+    && first.solidFraction > .985 && second.solidFraction === first.solidFraction
+    && Object.keys(first.hashes).length === 6 && Object.keys(first.hashes).every(k => first.hashes[k] === second.hashes[k]), castRepro);
   const out = await page.evaluate(async () => {
     const S = window.__solidify, s3 = S.sim3d();
-    await window.__ht3.cast3(2600, 0);   // clean cast: no pores in the census
+    // The second witnessed, controlled cast is the actual fitted specimen.
     const pts = [];
     const measure = async sweeps => {
       const st = await window.__ht3.stats();

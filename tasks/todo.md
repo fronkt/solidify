@@ -5183,3 +5183,9 @@ Independent fixed-volume Wulff measurements on the unchanged production stencil 
 - [ ] Choose and document the supported discrete calibration, then rerun affected quantitative, legacy and app gates.
 - [ ] Run the complete five-arm reference study on the frozen candidate; retain failures and all raw evidence.
 - [ ] Collect cloud artifacts, verify checksums, destroy only owned Vast instance58344925 and verify its removal.
+
+### Deterministic heat-treatment fixture review
+
+The full regression reached the legacy3D coarsening gate and failed its unchanged r-squared criterion. The cast helper fixed seed positions but left grain orientations under a random page seed, and armed animation frames could drain queued quench stamps between manually paced growth batches. Controlling both named RNG streams with the helper's existing seed and suspending only the frame-paced step path during cast construction makes repeated specimens agree in six field hashes and exact clocks. The production annealing model, constants, seed values and pass bands are unchanged.
+
+The complete heat-treatment script now passes all27 named gates: the actual fitted specimen is one of two byte-matched witnessed casts, r-squared=.99010 and K/shipped=.980. The historical98.5%solid stopping rule remains; remaining ineligible liquid is counted explicitly. The legacy scale gate also expected a shared2D/3D pitch despite the accepted per-dimension calibration design; it is being updated to verify both independent values survive switches and edits.
