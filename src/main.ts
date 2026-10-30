@@ -1949,8 +1949,8 @@ async function boot() {
           const s = lastStats3;
           const u = unitsNow();
           ui.setReadouts([
-            ["time", u.fmtTime(sim3d.simTime)],
-            ["melt", s?.meanLiqT != null ? u.fmtC(s.meanLiqT) : "—"],
+            ["time", u.fmtDuration(sim3d.simTime)],
+            ["melt", u.fmtTemperature(s?.meanLiqT ?? null)],
             ["solid", s ? `${(s.fracSolid * 100).toFixed(1)} %` : "—"],
             ["grains", s ? String(s.grainCount) : "—"],
             ["d̄ eq", s?.eqDiamUm != null ? `${s.eqDiamUm.toFixed(0)} µm` : "—"],
@@ -2036,13 +2036,13 @@ async function boot() {
       const s = lastStats;
       const u = unitsNow();
       ui.setReadouts([
-        ["time", u.fmtTime(sim.simTime)],
-        ["melt", s?.meanLiqT != null ? u.fmtC(s.meanLiqT) : "—"],
+        ["time", u.fmtDuration(sim.simTime)],
+        ["melt", u.fmtTemperature(s?.meanLiqT ?? null)],
         ["solid", s ? `${(s.fracSolid * 100).toFixed(1)} %` : "—"],
         ["grains", s ? String(s.grainCount) : "—"],
         ["ASTM", s?.astm != null ? `G ${s.astm.toFixed(1)}` : "—"],
         ["sites", nuc.p.nmax > 0 ? `${nuc.fired}/${nuc.p.nmax.toFixed(0)}` : "—"],
-        ["ΔT max", u.fmtK(nuc.maxUndercool)],
+        ["ΔT max", u.fmtTemperatureDifference(nuc.maxUndercool)],
         ["fps", `${fps.toFixed(0)} · ${sim.n}²${renderer.zoom > 1.01 ? ` · ${renderer.zoom.toFixed(1)}×` : ""}`],
       ]);
       updateScalebar();

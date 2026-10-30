@@ -412,13 +412,14 @@ export function hudFigure(k: HudKey, samples: HudSample[], b: Bridge, prov: Prov
   const Y = resolve(q, b);
   const xs = samples.map(p => X.conv(p.t));
   const ys = samples.map(p => { const v = valueOf(k, p); return Number.isFinite(v) ? Y.conv(v) : NaN; });
-  const [lo, hi] = k === "fs" ? [-2, 102] : extent([ys], { pad: 0.06, include: [0] });
+  const [rangeLo, hi] = k === "fs" ? [-2, 102] : extent([ys], { pad: 0.06, include: [0] });
+  const lo = k === "grains" ? 0 : rangeLo;
   const series: SeriesSpec = { key: k, slot: 0, xs, ys, sym: Y.sym, unit: Y.unit };
   const refs = k === "dt" ? [{ y: 0 }] : [];
   const [xlo, xhi] = xs.length > 1 ? [xs[0], xs[xs.length - 1]] : [0, 1];
   const fig: FigSpec = {
     x: { title: X.title, short: X.short, lo: xlo, hi: xhi > xlo ? xhi : xlo + 1, sym: X.sym, unit: X.unit },
-    panels: [{ y: { title: Y.title, short: Y.short, lo, hi, niceHi: k === "grains" }, series: [series], refs }],
+    panels: [{ y: { title: Y.title, short: Y.short, lo, hi, niceHi: k === "grains", integer: k === "grains" }, series: [series], refs }],
     empty: samples.length < 2 ? "recording starts when the melt runs" : null,
   };
   // the stems: outColumns adds the unit's suffix ("fs" -> "fs_percent")
