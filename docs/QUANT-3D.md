@@ -235,3 +235,37 @@ The next scientific target is therefore independent discrete capillary/anisotrop
 The scientific-only raw evidence is backed up in an [unpublished draft evidence release](https://github.com/fronkt/solidify/releases/tag/untagged-3459ba2aba6970fa4704). The archive is 249,914,660 bytes, SHA256 `e12246766121b1eeed12985a84d84764528f7148210b6216f1491f51d6626eac`. All 179 tip checkpoints, 102 equilibrium checkpoints and pinned source hashes were verified; all 185 members of the diagnostic superset were also checked. The owned cloud instance was destroyed and API absence verified. Estimated compute cost was $0.765, excluding transfer/storage charges.
 
 Final regression review: all 35 registered scripts passed across the reviewed full run, an unmodified responsive-driver retry, and a 12-script corrective continuation with source/test hashes unchanged. The first responsive run had an unreproduced CDP timeout; no assertion or timeout was relaxed. Both Intel/NVIDIA equilibrium runs and all analytical/alloy checks passed independently. The five-arm reference miss remains a separate failed gate, so none of this promotes Q3.
+
+### Prospective fixed-terminal continuation
+
+Protocol4 freezes the inherited v3 horizon and cadence as explicit constants,
+independent of subsequent reference values or observed histories. Every arm
+reaches the matched physical endpoint; its final ten declared checkpoints alone
+determine the terminal verdict. Each checkpoint rounds upward to an integer
+substep, with canonical `steps*dt` used for fitting and a floating-point
+accumulation bound for the reported clock. Earlier qualifying windows remain
+diagnostic. Missing, duplicated, unresolved, mis-timed and unfinished endpoints
+refuse acceptance. CPU controls include a late-drift case that is refused despite
+exact point agreement with the reference. These controls now run in CI.
+
+`--run --arms=base` (or another explicitly named subset) performs only a diagnostic
+subset of the unchanged five-arm registration. Full convergence and overall
+acceptance are not evaluated for a subset. A passing base arm cannot establish
+full-study acceptance. Pointwise control convergence and all-arm literature
+acceptance are separate verdicts in a complete run. No coefficient, reference
+value, physical requirement or scientific error band changes in this protocol.
+
+The research-only equilibrium matrix in `scripts/research/` predeclares mesh,
+radius, time-step and initial-shape comparisons using unmodified production
+shaders. Its first local baseline pair reached fixed1000tau0 horizons with
+unchanged source hashes and zero device errors. Raw epsilon0 measured
+-.0001011133; raw.0171 measured.0166019492. Both were stationary/resolved. These
+measurements reproduce the earlier equilibrium result; the refinement limit and
+moving-interface kinetic calibration remain open.
+
+Independent synthetic metrology stress tests also expose uncertainty
+undercoverage for some smooth non-polynomial local surfaces. Arithmetic replay
+and agreement between a few compact fits do not certify a universal radius-error
+bound. The current point estimates and reference bands are retained while
+known-truth controls and a justified model-form refusal rule are investigated.
+Neither this protocol checkpoint nor these diagnostics resolve Q3c.

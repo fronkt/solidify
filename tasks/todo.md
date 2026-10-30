@@ -5222,3 +5222,25 @@ All35 registered regression scripts passed across the reviewed full run and corr
 Only verified R1/R2 changes were released through PR3 from an isolated worktree (three cherry-picks, no Q3 modules/integration). Local and production real-WebGPU smoke passed dimensionless2D/3D headers, SI return, both visible unresolved phase refusals, and live archive export; ZIP CRC and independent PNG decoding passed, screenshots inspected, no browser/GPU errors. Production main a7584a6c63e6cba612834c92e01d1e9cc86dcaf4, deployment7431740168, actualURL https://solidify-ksacrcmu2-frankyc11223-1729s-projects.vercel.app, publicalias https://solidify.frankcai.dev. Main CI41010562651 passed. Public build a7584a6+local matches the source prefix; the suffix is the existing Vercel working-tree convention. Rollback source069abab7b9b551c751bd50e9362676d0a745efad / deployment7429099595.
 
 The protected preview required Vercel login and existing CLI credentials were invalid. Access settings were left intact; exact isolated-candidate and public post-deploy acceptance supplied the browser checks. All owned local browser sessions and Vite helpers were closed after verification. Q3 stays in draft PR2 with its raw failures backed up and its scientific next target explicit.
+
+## Q3 calibration continuation - 2026-10-30
+
+User requested continuation of the remaining quantitative3D validation gap. Production remains the verified R1/R2 release at a7584a6; do not promote the draft3D path until its independent reference gate passes. Preserve all prior failed studies and the original10% reference/physical acceptance bands.
+
+Plan before implementation:
+- [ ] Independently challenge tip-radius metrology using known non-polynomial, fourfold surfaces and raw archived samples. Separate arithmetic replay from model/fit bias; retain invalid/unresolved controls.
+- [ ] Resolve a controlled planar/equilibrium calibration diagnostic using actual production equations and independent references, including mesh/time/size and signed controls. Determine whether existing coarse-grid kinetic extrapolation is identifiable before using it to choose a coefficient.
+- [x] Replace first-qualifying observation times with prospective matched physical terminal times/windows in the next benchmark protocol. Add CPU controls proving the endpoint is independent of the expected reference and that unfinished/unstable endpoints cannot pass.
+- [ ] Choose the smallest justified formulation correction or numerical refinement from those independent diagnostics; preserve fused/split Kobayashi behavior and unit/chemistry ownership. Do not fit coefficients to needle P or sigma.
+- [ ] Run affected local pure/GPU gates under one GPU owner and a source freeze, then a frozen reference campaign only after its prerequisites are reviewable. Use cloud acceleration when justified; inspect current balance/rates before allocating, tag only owned resources and collect/destroy them afterward.
+- [ ] Record results/limits, run required regression checks, commit explicit paths and push completed phases. Keep Q3c open unless the complete reference gate actually passes.
+
+Working boundaries: root owns production source and localGPU scheduling; delegated work initially uses CPU/read-only evidence or isolated fixture files. No app/source edits during browser runs. Existing user untracked .claude/ and dist-embed/ remain untouched. Old cloud instance58344925 was destroyed; do not reuse stale identifiers as live resources.
+
+### Continuation checkpoint review
+
+Protocol4 uses the inherited v3 horizon/cadence as explicit constants, with integer substeps rounded upward independently and ten terminal-anchored observations. Earlier first-qualified windows are diagnostic only. CPU controls prove unchanged observation times when reference values change, refusal of six endpoint faults, and refusal of late drift despite exact point agreement with the reference. Root independently repeated the self-test. Pointwise convergence and overall literature acceptance now have separate verdicts; original physical/reference bands remain unchanged.
+
+The new research-only equilibrium matrix predeclares14 mesh/radius/dt/initial-shape cases using unmodified production shaders. Its local baseline pair reached fixed1000tau0 horizons, both stationary/resolved, with source hashes unchanged and zero device errors. Raw epsilon0 measured-.0001011133; raw.0171 measured.0166019492. This reproduces the prior equilibrium result and does not resolve the refinement limit or establish a unique kinetic correction. Raw brackets/history are retained in verify-out/q3-calib-local-baseline.
+
+User asked whether extra Claude/Codex sessions would help. Useful external work is an independent read-only equation/discretization audit and adversarial review of the new benchmark protocol, on isolated checkouts pinned to the pushed checkpoint. Root retains solver edits and GPU/cloud ownership; additional sessions must not duplicate rentals or run competing local GPU workloads.

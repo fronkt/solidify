@@ -1,6 +1,7 @@
 // Long 3D operating-state benchmark. Default: geometry self-check, unchanged-
 // production specialization check, then throughput only. --run executes all
-// pre-registered arms. Throughput is never reported as tip acceptance.
+// pre-registered arms; --arms=base (or named subsets) is diagnostic only.
+// Throughput is never reported as tip acceptance.
 import puppeteer from "puppeteer-core";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -8,6 +9,10 @@ import { resolve } from "node:path";
 import { closeBrowser } from "./browser-cleanup.mjs";
 import { installQuant3TipDriver } from "./fixtures/quant3d-tip-driver.mjs";
 import { localTip, operatingState, selfTestTipGeometry } from "./fixtures/quant3d-tip-analysis.mjs";
+import { fixedTerminalSchedule, terminalOperatingState, terminalReferenceAssessment,
+  selectTipArms, tipOverallAcceptance, TIP_TERMINAL_PHYSICAL_TIME,
+  TIP_SAMPLE_PERIOD_PHYSICAL, TIP_TERMINAL_SAMPLE_COUNT } from "./fixtures/quant3d-tip-protocol.mjs";
+import { selfTestTipTerminalProtocol } from "./fixtures/quant3d-tip-protocol-controls.mjs";
 
 const args = process.argv.slice(2), positional = args.filter(s => !s.startsWith("--"));
 const OUT = resolve(positional[0] ?? "verify-out/q3-tip"), PORT = positional[1] ?? "5199";
@@ -24,7 +29,7 @@ const referenceUpper = 1 + reference.acceptance.relativeTarget;
 const velocityMinimum = velocityExpected * referenceLower ** 3;
 const velocityMaximum = velocityExpected * referenceUpper ** 3;
 const radiusMaximum = rhoExpected / referenceLower ** 2;
-const maximumTime = 8 * D / velocityMinimum ** 2;
+const maximumTime = TIP_TERMINAL_PHYSICAL_TIME;
 const baseDt = (dx, coupling = lambda) => Math.min(dx * dx / (12 * A2 * coupling), .02 * (1 - 3 * target.epsilon4) ** 2 * Math.min(1, (dx / .8) ** 2));
 const common = { lambda, epsilon4: target.epsilon4, undercooling: reference.undercooling, radius: 8 };
 const arms = [
@@ -38,13 +43,19 @@ const arms = [
   return { ...common, ...arm, D: A2 * coupling, d0: A1 / coupling,
     radius: common.radius * lambda / coupling, physicalTimeScale: timeScale,
     maximumTimeTau0: maximumTime * timeScale,
-    samplePeriodTau0: .25 * diffusionExpected / velocityExpected * timeScale };
+    samplePeriodTau0: TIP_SAMPLE_PERIOD_PHYSICAL * timeScale };
 });
+const selection = selectTipArms(arms, args);
+const observationPlans = new Map(arms.map(arm => [arm.name, fixedTerminalSchedule({ dt: arm.dt,
+  physicalTimeScale: arm.physicalTimeScale })]));
 const contract = {
-  protocolVersion: 3,
+  protocolVersion: 4,
   previousStudy: { pin: "ad96166", artifact: "verify-out/q3-cloud-full-progress.json",
     outcome: "all five arms stopped during startup on D/V side-clearance proxy; no steady operating state accepted",
     change: "reference-band-derived geometry/time, no startup proxy abort, conservative retained-steady-window clearance and direct far-field patches; no physical parameter or accuracy threshold changed" },
+  previousProtocol3: { pin: "12ce78b", artifact: "q3-validation-2026-10-30 draft evidence release",
+    outcome: "all five fixed-parameter reference arms failed; first-qualifying observation times and the full raw study remain preserved",
+    change: "run every arm to the predeclared common physical endpoint and evaluate only its declared terminal samples; no physical coefficient, reference value, or error band changed" },
   target: target.full3D, relativeTarget: reference.acceptance.relativeTarget,
   expected: { rhoW0: rhoExpected, velocityW0PerTau0: velocityExpected, diffusionLengthW0: diffusionExpected },
   arms, minimumTravelDiffusionLengths: 6, minimumBoundaryDiffusionLengths: 8,
@@ -52,13 +63,23 @@ const contract = {
   referenceBandGeometry: { velocityMinimum, velocityMaximum, radiusMaximum,
     minimumSideW0: 8 * D / velocityMinimum + .5 * radiusMaximum,
     minimumAxialW0AtMaximumSpeedAndHorizon: common.radius + velocityMaximum * maximumTime + 8 * D / velocityMaximum,
-    derivation: "rho/d0=1/(P*sigma), V*d0/D=2*sigma*P^2; Vmin=(1-r)^3 Vref, rhomax=rhoref/(1-r)^2, horizon=8D/Vmin^2. Actual retained-window clearance remains mandatory." },
-  samplePeriodTau0: .25 * diffusionExpected / velocityExpected,
+    derivation: "rho/d0=1/(P*sigma), V*d0/D=2*sigma*P^2; Vmin=(1-r)^3 Vref, rhomax=rhoref/(1-r)^2. The inherited v3 horizon/cadence are now frozen constants, not recomputed from reference values or observations. Actual terminal-window clearance remains mandatory." },
+  samplePeriodTau0: TIP_SAMPLE_PERIOD_PHYSICAL,
+  terminalObservation: { terminalPhysicalTime: TIP_TERMINAL_PHYSICAL_TIME,
+    samplePeriodPhysical: TIP_SAMPLE_PERIOD_PHYSICAL, retainedSampleCount: TIP_TERMINAL_SAMPLE_COUNT,
+    timeUnit: "base-arm tau0; arm solver time is physical time times (lambda_base/lambda_arm)^3",
+    schedule: "cadence anchored at the fixed terminal time; every requested checkpoint is rounded upward with ceil(requested solver time/dt), independently, to an integer substep",
+    selection: "only the final ten declared checkpoints are evaluated; missing, unresolved, duplicated, mis-timed, or unfinished endpoints are refused; earlier qualifying/reference-matching windows cannot substitute",
+    firstQualification: "diagnostic only; it never changes a checkpoint, terminal time, or acceptance window",
+    clock: "exact integer substep identity; reported FP64 clock may differ only by its sequential arithmetic accumulation bound; fits use steps*dt",
+    caveat: "a fixed endpoint prevents outcome-selected observation timing; it does not establish asymptotic convergence or repair failed stationarity, boundary, metrology, or reference checks",
+    armSchedules: [...observationPlans].map(([name, plan]) => ({ name, ...plan })) },
   metrology: "quintic roots in the monotone atanh(1-2psi) ordinate checked against cubic roots in the same ordinate; raw-phase quintic sensitivity reported separately; even quadratic and quartic local surfaces over .25-.5 rho, extrapolated against window^4",
   stationarity: "last three four-sample windows overlap within independently estimated geometry/linear-fit uncertainty; full retained-window rho and velocity variation each <=one quarter of the reference target, independently of geometric uncertainty; propagated P and sigma uncertainty below the target",
   note: "Raw cubic epsilon4 is refined with dx; no unpublished grid-anisotropy correction is inserted to match the paper.",
   widthMatching: "W0 scales with lambda; tau0 scales with lambda^3. Extents and initial radius/d0 match; compare P, sigma, rho/d0 and Vd0/D, never unscaled solver rho or velocity across lambda.",
   boundaryAssessment: "D/V is a startup diagnostic, not an early contamination verdict. Final clearance must exceed eight conservative D/V lengths at every sample of the retained stationary window; conservative speed is min(V-error) over its fitted windows and geometry uses upper uncertainty bounds.",
+  controlComparison: "pointwise P, sigma, rho/d0 and Vd0/D changes retain the original reference-target band; control convergence is reported separately and cannot establish overall literature acceptance",
 };
 
 function retainedBoundaryCheck(samples, state, arm, initialTipUpper) {
@@ -138,19 +159,25 @@ function saveRawSample(label, config, raw) {
 }
 const geometry = selfTestTipGeometry();
 const boundaryControls = boundaryProtocolControls();
-writeFileSync(resolve(OUT, "tip-contract.json"), JSON.stringify({ source: reference.source, contract, geometry, boundaryControls }, null, 2));
+const terminalControls = selfTestTipTerminalProtocol(observationPlans);
+writeFileSync(resolve(OUT, "tip-contract.json"), JSON.stringify({ source: reference.source, contract, geometry, boundaryControls, terminalControls }, null, 2));
 console.log("QPF3-TIP-METROLOGY OK", JSON.stringify({ rho: geometry.measured.rho, quarticControl: true,
   interpolationControls: geometry.interpolationControls, driftingControlRefused: !geometry.driftingControl,
   uncertainDriftControl: geometry.uncertainDriftControl, acceleratingControlRefused: !geometry.acceleratingControl,
   oscillatingControlRefused: !geometry.oscillatingControl }));
 console.log("QPF3-TIP-BOUNDARY-PROTOCOL OK", JSON.stringify(boundaryControls));
+console.log("QPF3-TIP-TERMINAL-PROTOCOL OK", JSON.stringify(terminalControls));
+console.log("QPF3-TIP-EXECUTION-MODE", JSON.stringify({ diagnostic: selection.diagnostic, selectedArms: selection.names }));
 if (selfOnly) process.exit(0);
 
 const extraChromeArgs = process.env.CHROME_ARGS ? JSON.parse(process.env.CHROME_ARGS) : [];
 if (!Array.isArray(extraChromeArgs) || extraChromeArgs.some(v => typeof v !== "string")) throw new Error("CHROME_ARGS must be a JSON string array");
 const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH ?? "C:/Program Files/Google/Chrome/Application/chrome.exe", headless: true,
   protocolTimeout: 3_600_000, args: ["--enable-unsafe-webgpu", "--enable-gpu", ...extraChromeArgs], defaultViewport: { width: 800, height: 700 } });
-const page = await browser.newPage(), errors = [], result = { reference, contract, metadata: null, equivalence: null, throughput: [], arms: [], errors, accepted: false };
+const page = await browser.newPage(), errors = [], result = { reference, contract,
+  execution: { mode: selection.diagnostic ? "diagnostic subset" : "full five-arm study", selectedArms: selection.names,
+    requested: selection.requested, fullRegistrationPreserved: true },
+  metadata: null, equivalence: null, throughput: [], arms: [], errors, accepted: false };
 let failures = 0;
 const save = () => writeFileSync(resolve(OUT, "quant3d-tip-result.json"), JSON.stringify(result, null, 2));
 const report = (name, ok, data) => { if (!ok) failures++; console.log(name, ok ? "OK" : "FAIL", JSON.stringify(data)); };
@@ -176,7 +203,8 @@ try {
   result.metadata.equationUnits = { length: "W0", time: "tau0", thermalDiffusivity: D, capillaryLength: d0 };
   result.metadata.sourceHashes = Object.fromEntries(["src/sim3d.ts", "src/shaders3d.ts", "src/shaders3d-quant.ts",
     "scripts/verify-quant3d-tip.mjs", "scripts/fixtures/quant3d-tip-reference.json",
-    "scripts/fixtures/quant3d-tip-driver.mjs", "scripts/fixtures/quant3d-tip-analysis.mjs", "scripts/fixtures/rect3d-specialize.mjs"].map(path =>
+    "scripts/fixtures/quant3d-tip-driver.mjs", "scripts/fixtures/quant3d-tip-analysis.mjs", "scripts/fixtures/rect3d-specialize.mjs",
+    "scripts/fixtures/quant3d-tip-protocol.mjs", "scripts/fixtures/quant3d-tip-protocol-controls.mjs"].map(path =>
     [path, createHash("sha256").update(readFileSync(path)).digest("hex")]));
   result.equivalence = await page.evaluate(c => window.__q3tip.equivalence(c), arms[0]);
   const compared = result.equivalence.checkpoints.flatMap(p => p.comparisons);
@@ -208,58 +236,76 @@ try {
     result.status = "throughput-only; long operating-state acceptance not run";
     console.log(result.status); save();
   } else {
-    let matchedTime = null;
-    for (const arm of arms) {
-      const data = { config: arm, setup: await page.evaluate(c => window.__q3tip.stage(c), arm), samples: [], unresolvedSamples: [], state: null };
+    for (const arm of selection.selected) {
+      const plan = observationPlans.get(arm.name);
+      const options = { D: arm.D, d0: arm.d0, dims: arm.dims, dx: arm.dx, relativeTarget: contract.relativeTarget };
+      const data = { config: arm, setup: await page.evaluate(c => window.__q3tip.stage(c), arm),
+        samples: [], unresolvedSamples: [], state: null, firstQualified: null };
       result.arms.push(data); save();
       const zero = await page.evaluate(() => window.__q3tip.sample()), initialTip = Math.max(...zero.points.map(p => p.z));
       data.initialRaw = saveRawSample(`${arm.name}-initial`, arm, zero);
       const initialTipUpper = Math.max(initialTip, arm.radius);
       data.initialFarFieldDiagnostics = zero.farFieldDiagnostics;
-      let time = 0;
-      while (time < arm.maximumTimeTau0) {
-        const count = Math.max(1, Math.ceil(Math.min(arm.samplePeriodTau0, arm.maximumTimeTau0 - time) / arm.dt));
+      let time = 0, observedSteps = 0;
+      for (const checkpoint of plan.checkpoints) {
+        const count = checkpoint.steps - observedSteps;
         const advanced = await page.evaluate(n => window.__q3tip.advance(n), count);
-        const raw = await page.evaluate(() => window.__q3tip.sample()); time = raw.time;
+        const raw = await page.evaluate(() => window.__q3tip.sample()); time = raw.time; observedSteps = raw.steps;
+        if (observedSteps !== checkpoint.steps) throw new Error("GPU fixture missed a declared observation substep");
         const rawSample = saveRawSample(arm.name, arm, raw);
         try {
           const local = localTip(raw.points, arm.dx), sample = { time, steps: raw.steps, ...local,
             aheadBoundaryTemperature: raw.aheadBoundaryTemperature, farFieldDiagnostics: raw.farFieldDiagnostics, rawSample };
           data.samples.push(sample);
-          data.state = operatingState(data.samples, { D: arm.D, d0: arm.d0, dims: arm.dims, dx: arm.dx, relativeTarget: contract.relativeTarget });
+          data.state = operatingState(data.samples, options);
           const s = data.state;
           if (s.ready) {
             s.travelDiffusionLengths = (s.tip - initialTip) / s.diffusionLength;
             s.boundaryAssessment = retainedBoundaryCheck(data.samples, s, arm, initialTipUpper);
             s.boundaryClear = s.boundaryAssessment.assessed && s.boundaryAssessment.boundaryClear;
-            if (s.stationary && s.resolved && s.boundaryClear
-                && s.boundaryAssessment.conservativeTravelDiffusionLengths >= contract.minimumTravelDiffusionLengths
-                && (matchedTime == null || time / arm.physicalTimeScale >= matchedTime)) { data.stop = "resolved stationary window"; break; }
+            if (data.firstQualified == null && s.stationary && s.resolved && s.boundaryClear
+                && s.boundaryAssessment.conservativeTravelDiffusionLengths >= contract.minimumTravelDiffusionLengths) {
+              data.firstQualified = { diagnosticOnly: true, timeTau0: time, physicalTime: time / arm.physicalTimeScale,
+                steps: raw.steps, P: s.P, sigmaStar: s.sigmaStar };
+            }
           }
         } catch (error) { data.unresolvedSamples.push({ time, reason: String(error), rawSample }); }
         console.log("QPF3-TIP-PROGRESS", JSON.stringify({ arm: arm.name, timeTau0: time, steps: raw.steps,
           seconds: advanced.seconds, tip: data.state?.tip, P: data.state?.P, sigmaStar: data.state?.sigmaStar,
-          stationary: data.state?.stationary, resolved: data.state?.resolved })); save();
+          stationary: data.state?.stationary, resolved: data.state?.resolved, firstQualified: data.firstQualified })); save();
       }
-      if (arm.name === "base") matchedTime = time;
-      data.stop ??= "fixed registered horizon; no qualifying stationary and boundary-clear window";
+      const terminal = terminalOperatingState(data.samples, plan, options, observedSteps);
+      data.terminalObservation = { ...plan, complete: terminal.complete, endpointReached: terminal.endpointReached,
+        reason: terminal.reason ?? null, observedSteps, reportedTimeTau0: time, retainedSteps: terminal.retainedSteps };
+      data.state = terminal.state;
       const s = data.state;
-      data.relativeError = s?.ready ? { P: Math.abs(s.P / target.full3D.P - 1), sigmaStar: Math.abs(s.sigmaStar / target.full3D.sigmaStar - 1) } : null;
-      data.referenceErrorBudget = s?.ready ? Object.fromEntries(["P", "sigmaStar"].map(key => [key,
-        (1 + data.relativeError[key]) * (1 + s.uncertainty[key]) * (1 + s.drift[key]) - 1])) : null;
-      data.accepted = !!(data.samples.at(-1)?.time === time && s?.ready && s.stationary && s.resolved && s.boundaryClear
-        && s.boundaryAssessment.conservativeTravelDiffusionLengths >= contract.minimumTravelDiffusionLengths
-        && data.referenceErrorBudget.P <= contract.relativeTarget && data.referenceErrorBudget.sigmaStar <= contract.relativeTarget);
+      if (s.ready) {
+        s.travelDiffusionLengths = (s.tip - initialTip) / s.diffusionLength;
+        s.boundaryAssessment = retainedBoundaryCheck(terminal.samples, s, arm, initialTipUpper);
+        s.boundaryClear = s.boundaryAssessment.assessed && s.boundaryAssessment.boundaryClear;
+      }
+      data.stop = terminal.complete ? "fixed declared terminal substep reached; declared terminal window evaluated"
+        : "fixed declared terminal substep reached; terminal window refused";
+      const assessment = terminalReferenceAssessment(terminal, target.full3D, contract.relativeTarget);
+      data.relativeError = assessment.relativeError;
+      data.referenceErrorBudget = assessment.referenceErrorBudget;
+      data.accepted = !!(assessment.accepted && s.boundaryClear
+        && s.boundaryAssessment.conservativeTravelDiffusionLengths >= contract.minimumTravelDiffusionLengths);
       report(`QPF3-TIP-${arm.name.toUpperCase()}`, data.accepted, { state: data.state, relativeError: data.relativeError,
-        referenceErrorBudget: data.referenceErrorBudget, stop: data.stop, timeTau0: time }); save();
+        referenceErrorBudget: data.referenceErrorBudget, stop: data.stop, timeTau0: time,
+        terminalObservation: data.terminalObservation, firstQualified: data.firstQualified }); save();
     }
-    const base = result.arms[0].state;
-    result.convergence = result.arms.slice(1).map(a => ({ arm: a.config.name, changes: Object.fromEntries(["P", "sigmaStar", "rhoOverD0", "Vd0OverD"].map(key =>
+    const base = result.arms.find(arm => arm.config.name === "base")?.state;
+    result.convergence = result.arms.filter(arm => arm.config.name !== "base").map(a => ({ arm: a.config.name, changes: Object.fromEntries(["P", "sigmaStar", "rhoOverD0", "Vd0OverD"].map(key =>
       [key, a.state?.ready && base?.ready ? Math.abs(a.state[key] / base[key] - 1) : null])) }));
-    const converged = result.convergence.length === 4 && result.convergence.every(r => Object.values(r.changes).every(v => v != null && v <= contract.relativeTarget));
+    const converged = selection.diagnostic ? null : result.convergence.length === 4
+      && result.convergence.every(r => Object.values(r.changes).every(v => v != null && v <= contract.relativeTarget));
+    result.controlsConverged = converged;
     result.accepted = result.arms.length === 5 && result.arms.every(a => a.accepted) && converged && errors.length === 0;
-    report("QPF3-TIP-CONVERGENCE", result.accepted, result.convergence);
-    result.status = result.accepted ? "long 3D tip accepted" : "long 3D tip not accepted"; save();
+    if (selection.diagnostic) console.log("QPF3-TIP-CONVERGENCE NOT-EVALUATED", JSON.stringify({ reason: "diagnostic subset; full control matrix not run", comparisons: result.convergence }));
+    else report("QPF3-TIP-CONVERGENCE", converged, { converged, comparisons: result.convergence });
+    result.status = selection.diagnostic ? "diagnostic subset complete; full Q3 acceptance not evaluated"
+      : result.accepted ? "long 3D tip accepted" : "long 3D tip not accepted"; save();
   }
 } catch (error) {
   failures++; result.exception = error.stack ?? String(error); result.status = "refused or failed";
@@ -270,6 +316,13 @@ try {
   errors.push(...deviceErrors);
   if (deviceErrors.length) { result.accepted = false; result.status = "device validation failed"; }
   await page.evaluate(() => { window.__solidifyTipDevice?.destroy(); }).catch(() => {});
+  if (runLong) {
+    result.overallAcceptance = tipOverallAcceptance({ arms: result.arms, controlsConverged: result.controlsConverged,
+      errors, executionFailed: result.exception != null });
+    result.accepted = result.overallAcceptance.accepted;
+    if (selection.diagnostic) console.log("QPF3-TIP-ACCEPTANCE NOT-EVALUATED", JSON.stringify(result.overallAcceptance));
+    else report("QPF3-TIP-ACCEPTANCE", result.accepted, result.overallAcceptance);
+  }
   result.errors = errors; result.failures = failures; save();
   await closeBrowser(browser);
 }
