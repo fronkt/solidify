@@ -349,34 +349,52 @@ console.log("ALLOY3", Buffer.compare(fPlain, fAlloy) !== 0 &&
 // material swap in 3D lands the material's own alloy constants in the solver
 // (they were never mirrored — the previous charge's chemistry stayed behind),
 // and the constant does real work: with the alloy field on, the solid front
-// rejects solute, so max(c) must rise above the far-field c0. The dial itself
-// shares p() with 2D, so the param path is the same object either way.
+// rejects solute, so max(c) must rise above the far-field c0. Await allocation
+// and deliver the original five grow batches as exact steps, without frame
+// backpressure silently dropping any requested physics work.
 {
   const kp = await page.evaluate(async () => {
     const S = window.__solidify;
+    S.app.setRun(false);
     S.app.setMaterial("al");
     const s3 = S.sim3d();
+    const frameStep = s3.step;
+    s3.step = () => 0;
+    try {
+    await s3.device.queue.onSubmittedWorkDone();
+    await s3.stepSync(0);
+    await S.app.setAlloyOn(true);
     const landed = {
       kPart: s3.params.kPart, c0: s3.params.c0, mLiq: s3.params.mLiq, dSol: s3.params.dSol,
     };
     S.app.setParams({ scen: 0, coolRate: 0.05, kPart: landed.kPart });
-    S.app.resetArmed(); S.app.setAlloyOn(true); S.app.seedCenter(); S.app.setRun(true);
-    return landed;
-  });
-  await grow(5);
-  const rej = await page.evaluate(async () => {
-    const s3 = window.__solidify.sim3d();
-    const c = await s3.readSoluteVolume();
-    if (!c) return null;
-    let mx = 0;
-    for (let i = 0; i < c.length; i++) if (c[i] > mx) mx = c[i];
-    return { cMax: mx, c0: s3.params.c0 };
+    S.app.resetArmed(); S.app.seedCenter();
+    await s3.stepSync(0);
+    const before = await s3.readStateVolume();
+    const cBefore = await s3.readSoluteVolume();
+    if (!before || !cBefore) throw new Error("KPART3 initial readback unavailable");
+    let cMaxBefore = 0;
+    for (const c of cBefore) cMaxBefore = Math.max(cMaxBefore, c);
+    const requested = 5 * 30 * S.app.getSubsteps3() * S.app.getSpeedMult();
+    const timeBefore = s3.simTime;
+    const delivered = await s3.stepSync(requested);
+    const after = await s3.readStateVolume();
+    const cAfter = await s3.readSoluteVolume();
+    if (!after || !cAfter) throw new Error("KPART3 final readback unavailable");
+    let cMax = 0, phaseChange = 0;
+    for (let i = 0; i < cAfter.length; i++) {
+      cMax = Math.max(cMax, cAfter[i]);
+      phaseChange += Math.abs(after.phi[i] - before.phi[i]);
+    }
+    return { ...landed, requested, delivered, phaseChange, timeBefore, timeAfter: s3.simTime, cMaxBefore, cMax };
+    } finally { s3.step = frameStep; }
   });
   // al ships kPart 0.14 / c0 0.3 / mLiq 0.5 / dSol 0.9 (materials.ts params —
   // the model constants, not the si table's thermodynamic k)
   const ok = kp.kPart === 0.14 && kp.c0 === 0.3 && kp.mLiq === 0.5 && kp.dSol === 0.9
-    && rej && rej.cMax > rej.c0 * 1.15;
-  console.log("KPART3", ok ? "OK" : FAIL(), JSON.stringify({ ...kp, cMax: rej && +rej.cMax.toFixed(3) }));
+    && Number.isInteger(kp.requested) && kp.requested > 0 && kp.delivered === kp.requested
+    && kp.phaseChange > 0 && kp.timeAfter > kp.timeBefore && kp.cMax > kp.c0 * 1.15;
+  console.log("KPART3", ok ? "OK" : FAIL(), JSON.stringify(kp));
   await page.evaluate(() => {
     const S = window.__solidify.app;
     S.setAlloyOn(false); S.setMaterial("generic"); S.setRun(false);
