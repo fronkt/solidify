@@ -1,4 +1,5 @@
-﻿// Verifies the v1.8 tool batch: faceted growth, share-link round-trip,
+import { closeBrowser } from "./browser-cleanup.mjs";
+// Verifies the v1.8 tool batch: faceted growth, share-link round-trip,
 // analysis-panel enlargement, and the specimen-tilt view.
 import puppeteer from "puppeteer-core";
 
@@ -479,15 +480,24 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     }, quant);
     let card = false;
     for (let i = 0; i < 150 && !card; i++) { await new Promise(r => setTimeout(r, 1000)); card = await page.evaluate(() => !!window.__solidify.lab.hasResults); }
-    // the report's figure paints on the next animation frame after the report
-    // is built: wait for its layout before reading what it drew
-    for (let i = 0; i < 30 && !(await page.evaluate(() => !!window.__solidify.lab.curveView?.layout)); i++) await new Promise(r => setTimeout(r, 100));
+    // Exercise the visible report, then wait for its nonempty paint rather
+    // than accepting a layout produced for an empty record. Keep sampling
+    // diagnostics in the verdict so a fast pour and a missing paint differ.
+    if (card) await page.click("#foundryResultsBtn");
+    for (let i = 0; i < 30 && !(await page.evaluate(() => {
+      const lay = window.__solidify.lab.curveView?.layout;
+      return lay && !lay.empty && lay.panels[0].refs.length > 0;
+    })); i++) await new Promise(r => setTimeout(r, 100));
     const fig = await page.evaluate(() => {
       const L = window.__solidify.lab;
       const ref = L.curveFigure(false).fig.panels[0].refs[0];
       const lay = L.curveView?.layout;
       const drawn = lay && !lay.empty ? lay.panels[0].refs[0] : null;
-      return { y: ref.y, label: ref.label, painted: !!drawn, canvas: document.getElementById("foundryCurve")?.closest(".rplot") != null };
+      const series = L.report?.series ?? [];
+      return { y: ref.y, label: ref.label, painted: !!drawn, canvas: document.getElementById("foundryCurve")?.closest(".rplot") != null,
+        liquidSamples: series.filter(p => p.T != null && Number.isFinite(p.T)).length,
+        figEmpty: L.curveFigure(false).fig.empty, layoutEmpty: lay?.empty ?? null,
+        size: [L.curveView?.root.clientWidth ?? 0, L.curveView?.root.clientHeight ?? 0] };
     });
     const want = at.solver === 1 ? 1 : at.alloyOn === 1 ? 1 - at.mLiq * at.c0 : 1;
     const wantC = at.oneC - (1 - want) * at.K;
@@ -495,9 +505,9 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   };
   const kob = await pour(false);
   const cal = await pour(true);
-  const okKob = kob.card && kob.fig.painted && kob.fig.canvas && kob.at.solver === 0 && Math.abs(kob.fig.y - kob.wantC) < 1e-6
+  const okKob = kob.card && kob.fig.liquidSamples >= 2 && kob.fig.painted && kob.fig.canvas && kob.at.solver === 0 && Math.abs(kob.fig.y - kob.wantC) < 1e-6
     && kob.want < 0.99 && kob.fig.y < kob.at.meltC - 10 && kob.fig.label === "T_{liq}(c_{0}), model";
-  const okCal = cal.card && cal.fig.painted && cal.at.solver === 1 && cal.want === 1 && Math.abs(cal.fig.y - cal.at.oneC) < 1e-6
+  const okCal = cal.card && cal.fig.liquidSamples >= 2 && cal.fig.painted && cal.at.solver === 1 && cal.want === 1 && Math.abs(cal.fig.y - cal.at.oneC) < 1e-6
     && cal.at.oneC < cal.at.meltC - 10 && cal.fig.label === "T_{liq}(c_{0})";
   const ok = okKob && okCal;
   console.log("LAB-CURVE", ok ? "OK" : "FAIL", JSON.stringify({ kob, cal }));
@@ -659,10 +669,8 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   await page.close();
 }
 
-// 9. REFINE-Q — growth restriction refines the casting, and it does so through
-//    nucleation rather than around it. A high-Q alloy grows slower, so it
-//    recalesces less, so the melt keeps undercooling and activates MORE of its
-//    inoculant. This is the claim the science page makes, so it is checked.
+// 9. REFINE-FAIR — the two model chemistries agree within the existing 15%
+//    equivalence band when their starting undercooling and progress match.
 //
 //    The comparison has to be fair in two ways that an earlier version of this
 //    experiment was not: both charges start at the same undercooling BELOW THEIR
@@ -673,39 +681,40 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
 {
   const page = await browser.newPage();
   await boot(page);
-  const read = () => page.evaluate(async () => {
-    const s = window.__solidify.sim();
-    for (let t = 0; t < 60; t++) { const st = await s.readStats(); if (st) return st; await s.device.queue.onSubmittedWorkDone(); }
-    return null;
-  });
-  const cast = async (mix, nmax) => {
-    const pp = await page.evaluate(m => window.__solidify.alloy(m).params, mix);
-    const tEq = 1 - pp.mLiq * pp.c0;
-    await page.evaluate(([p, u, nm]) => {
-      const a = window.__solidify.app;
-      a.setParams({ scen: 0, heatIn: 0, coolRate: 0.25, delta: 0.045, aniMode: 4, noiseAmp: 0.012, latent: 1.35, ...p });
-      a.setInoculant(nm); a.clearMelt(u); a.setSpeed(24); a.setRun(true);
-    }, [pp, 1 - (tEq - 0.15), nmax]);
-    let s = null;
-    for (let i = 0; i < 160; i++) {
-      await page.evaluate(() => window.__solidify.tick(10));
-      await new Promise(r => setTimeout(r, 40));
-      s = await read();
-      if (s && s.fracSolid >= 0.20) break;
-    }
-    return { grains: s?.grainCount ?? -1, fs: +(s?.fracSolid ?? -1).toFixed(3), fired: await page.evaluate(() => window.__solidify.app.getNucFired()) };
-  };
+  // Seeds were already registered by EXP-REPRO-LIVE, before this migration.
+  // Each chemistry/Nmax pair gets BOTH seeds, with common random numbers
+  // within the pair. The bench owns update→stepSync→read→observe, including
+  // the nucleus drain, so no wall-clock frame decides the activation ratchet.
+  const seeds = [0x51105d1f, 0x0be5eed5];
+  const cast = async (mix, nmax, seed) => page.evaluate(async ([m, nm, seed]) => {
+    const S = window.__solidify, a = S.app;
+    a.setRun(false);
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const p = S.alloy(m).params;
+    const tEq = 1 - p.mLiq * p.c0;
+    a.setParams({ solver: 0, scen: 0, heatIn: 0, coolRate: 0.25, delta: 0.045, aniMode: 4,
+      noiseAmp: 0.012, latent: 1.35, twinProb: 0, ...p });
+    a.setInoculant(nm);
+    S.setSeed(seed);
+    const r = await S.experiment.castCensus({ undercool: 1 - (tEq - 0.15), tEq, fsRead: 0.20, chunk: 120, maxChunks: 320 });
+    return { seed: seed.toString(16).padStart(8, "0"), grains: r.grainCount, fs: r.fracSolid,
+      ctrl: r.ctrl, fired: r.fired, substeps: r.substeps };
+  }, [mix, nmax, seed]);
   const A356 = { base: "al", wt: { Si: 7, Mg: 0.35, Ti: 0.12 } };
   const lean = { base: "al", wt: { Zn: 1 } };
-  const rHi = await cast(A356, 3000);
-  const lHi = await cast(lean, 3000);
-  const rLo = await cast(A356, 600);
-  const lLo = await cast(lean, 600);
+  const pairs = [];
+  for (const nmax of [3000, 600]) for (const seed of seeds) {
+    pairs.push({ nmax, refined: await cast(A356, nmax, seed), lean: await cast(lean, nmax, seed) });
+  }
   const dev = (a, b) => Math.abs(a - b) / Math.max(1, b);
-  const matched = Math.abs(rHi.fs - lHi.fs) < 0.03 && Math.abs(rLo.fs - lLo.fs) < 0.03;
-  const ok = matched && dev(rHi.grains, lHi.grains) < 0.15 && dev(rLo.grains, lLo.grains) < 0.15;
+  const live = pairs.every(p => [p.refined, p.lean].every(r => r.grains > 20 && r.fired > 20 && r.fired <= p.nmax));
+  const matched = pairs.every(p => [p.refined, p.lean].every(r => Number.isFinite(r.ctrl) && r.ctrl >= 0.20 && r.ctrl < 0.23)
+    && Math.abs(p.refined.fs - p.lean.fs) < 0.03);
+  const equivalent = pairs.every(p => dev(p.refined.grains, p.lean.grains) < 0.15);
+  const ok = live && matched && equivalent;
   console.log("REFINE-FAIR", ok ? "OK" : "FAIL", JSON.stringify({
-    at3000: { refined: rHi, lean: lHi }, at600: { refined: rLo, lean: lLo }, matchedFs: matched,
+    pairs: pairs.map(p => ({ ...p, relativeDifference: dev(p.refined.grains, p.lean.grains) })),
+    live, matchedFs: matched, equivalent, tolerance: 0.15,
   }));
   if (!ok) process.exitCode = 1;
   await page.close();
@@ -816,5 +825,5 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
   if (!ok) process.exitCode = 1;
 }
 
-await browser.close();
+await closeBrowser(browser);
 console.log("done");

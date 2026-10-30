@@ -1,3 +1,4 @@
+import { closeBrowser } from "./browser-cleanup.mjs";
 // COMPOSER-GRID-PANEL — v7.1 P5's periodic grid, driven through the DOM the
 // way a visitor drives it.
 //
@@ -547,7 +548,7 @@ await new Promise(r => setTimeout(r, 700));
 
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 5) : "none");
 if (errors.length) failures++;
-await browser.close();
+await closeBrowser(browser);
 await viteServer.close();
 console.log(failures ? `done — ${failures} FAILED` : "done");
 if (failures) process.exitCode = 1;

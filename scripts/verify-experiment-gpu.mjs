@@ -1,3 +1,4 @@
+import { closeBrowser } from "./browser-cleanup.mjs";
 // EXP-* (GPU half) — the comparator layer running REAL casts.
 //
 // v7.0 C1. The browser-free half (verify-experiment.mjs) proves the bench's
@@ -231,6 +232,6 @@ await page.evaluate(async (C) => {
 
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 5) : "none");
 if (errors.length) failures++;
-await browser.close();
+await closeBrowser(browser);
 console.log(failures ? `done — ${failures} FAILED` : "done");
 if (failures) process.exitCode = 1;

@@ -22,6 +22,8 @@ export interface ShareState {
   sched?: [number, number, number] | null;  // applied recipe cooling schedule
   d?: 1;                                    // 1 = the setup lives in TRUE-3D mode
   g3?: number;                              // 3D grid edge (128 / 160 / 192)
+  g2?: number;                              // 2D grid edge; absent in older links
+  um?: number;                              // model cell pitch in µm (Kobayashi)
   sl?: [number, number, number, number, number]; // section plane: axis, off, tilt, turn, style
   /** heat-treat setup: temperature °C, hold minutes, spec σ_y MPa (0 = none),
    *  then (optional tail, v7.0 C2) the Zener dispersion's fraction and radius

@@ -1,3 +1,4 @@
+import { closeBrowser } from "./browser-cleanup.mjs";
 // SCALE3D — the 3D half of the length-anchor change, checked on its own.
 //
 // verify-3d covers the whole volume in 23 checks and takes long enough that it
@@ -83,6 +84,6 @@ await new Promise(r => setTimeout(r, 1200));
 
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 5) : "none");
 if (errors.length) failures++;
-await browser.close();
+await closeBrowser(browser);
 console.log(failures ? `done — ${failures} FAILED` : "done");
 if (failures) process.exitCode = 1;

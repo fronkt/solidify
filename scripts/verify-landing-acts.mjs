@@ -1,3 +1,4 @@
+import { closeBrowser } from "./browser-cleanup.mjs";
 // LANDING-* (browser, WebGPU) — the three live acts below the hero, the
 // composer and science acts, and the footer, held to docs/DESIGN.md section 6:
 // a live canvas on one side (square-edged, no card), a spec column on the
@@ -120,14 +121,14 @@ async function openLive(browser, viewport) {
 let browser = await launch("new");
 let desk = await openLive(browser, { width: 1440, height: 900, deviceScaleFactor: 1 });
 if (!desk) {
-  await browser.close();
+  await closeBrowser(browser);
   console.log("headless had no WebGPU; going headed");
   browser = await launch(false);
   desk = await openLive(browser, { width: 1440, height: 900, deviceScaleFactor: 1 });
 }
 if (!desk) {
   console.log("LANDING-BOOT FAIL: no WebGPU in either mode, cannot verify the live acts");
-  await browser.close();
+  await closeBrowser(browser);
   process.exit(1);
 }
 
@@ -619,6 +620,6 @@ await block("LANDING-A11Y", async () => {
   check("LANDING-A11Y", ok, { focusNotObscured: clear, focusShown: shown, reflow320: narrow, names: { ...names, contact: cn, ok: namesOk } });
 });
 
-await browser.close();
+await closeBrowser(browser);
 console.log(failures ? `done — ${failures} FAILED` : "done — all landing act checks passed");
 if (failures) process.exitCode = 1;

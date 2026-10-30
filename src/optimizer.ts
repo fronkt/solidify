@@ -9,8 +9,17 @@ import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
 import { OPT_CAVEATS, panelText } from "./learn/panels";
 import { paintRange } from "./design/tool";
 import { kv, num, panelHead, pill } from "./design/panel";
+import type { Units } from "./units";
+import { bridgeOf, type Bridge } from "./plot/quantity";
+import type { Figure } from "./plot/figures";
+import type { PlotMeta, Prov } from "./plot/csv";
+import { PlotView } from "./plot/view";
+import { openFigure, type FigureHandle } from "./plot/modal";
+import { convergenceFigure, type ConvergenceSample } from "./plot/process";
 
 export interface OptHost {
+  units(): Units;
+  meta(): PlotMeta;
   swapSim(n: number): Simulation;
   getSim(): Simulation;
   renderOnce(view: number): void;
@@ -179,6 +188,43 @@ export class Optimizer {
   /** learn mode's "i" on the panel header (rebuilt with the panel) */
   private learn = new LearnLayer(() => this.applyLearn());
   private finishing = false;
+  private searchVersion = 0;
+  private convergence: ConvergenceSample[] = [];
+  private convergenceRecorded = 0;
+  private bestError: number | null = null;
+  private plotBridge: Bridge | null = null;
+  private plotProv: Prov | null = null;
+  private plotTarget = 4;
+  private plot: PlotView | null = null;
+  private plotModal: FigureHandle | null = null;
+
+  exportFigures(): Figure[] {
+    if (!this.plotBridge || !this.plotProv || !this.convergence.length) return [];
+    return [convergenceFigure(this.convergence, this.plotBridge, this.plotProv, this.plotTarget, this.convergenceRecorded)];
+  }
+
+  private resetConvergence() {
+    this.convergence = [];
+    this.convergenceRecorded = 0;
+    this.bestError = null;
+    this.plotTarget = this.targetASTM;
+    this.plotProv = { ...this.host.meta(), extra: [
+      "Search-level initial setup and unit bridge. Every episode uses a 256² grid; undercooling, inoculant count, and three cooling rates vary between castings. The plotted error and casting count are dimensionless, with no fixed physical-time axis.",
+    ] };
+    this.plotBridge = bridgeOf(this.host.units(), this.plotProv.material);
+    this.paintConvergence();
+  }
+
+  private convergenceFigure(): Figure | null {
+    return this.plotBridge && this.plotProv
+      ? convergenceFigure(this.convergence, this.plotBridge, this.plotProv, this.plotTarget, this.convergenceRecorded) : null;
+  }
+
+  private paintConvergence() {
+    const figure = this.convergenceFigure();
+    if (figure) this.plot?.set(figure.fig);
+    this.plotModal?.update();
+  }
 
   constructor(private host: OptHost) {
     onLearnChange(() => this.applyLearn());
@@ -192,6 +238,9 @@ export class Optimizer {
 
   start(currentGrid: number, opts: OptStartOpts = {}) {
     if (this.active) return;
+    this.searchVersion++;
+    this.finishing = false;
+    this.polling = false;
     this.active = true;
     this.savedGrid = currentGrid;
     this.limit = opts.limit ?? 0;
@@ -212,6 +261,7 @@ export class Optimizer {
     // the bounded challenge AI (has a casting limit) auto-runs.
     this.running = this.limit > 0;
     this.host.swapSim(EP_GRID);
+    this.resetConvergence();
     this.host.renderOnce(1);   // show the fresh melt behind the intro panel
     this.buildPanel();
   }
@@ -244,8 +294,13 @@ export class Optimizer {
 
   stop() {
     if (!this.active) return;
+    this.searchVersion++;
+    this.finishing = false;
     this.active = false;
     this.running = false;
+    this.plotModal?.close();
+    this.plot?.destroy();
+    this.plot = null;
     this.panel?.remove();
     this.host.swapSim(this.savedGrid);
     this.host.onOptimizerDone();
@@ -289,12 +344,22 @@ export class Optimizer {
     const status = document.createElement("div");
     status.id = "labStatus";
     status.className = "pstatus q";
-    p.append(head, ex.body, desc, strip, report, status);
+    const chart = document.createElement("div");
+    chart.className = "processplot";
+    chart.style.cssText = "width:100%;height:240px;min-width:0";
+    this.plot?.destroy();
+    this.plot = new PlotView(chart, { id: "optConvergencePlot", label: "Optimizer convergence; open figure and data", onOpen: () => {
+      if (!this.convergenceFigure()) return;
+      this.plotModal?.close();
+      this.plotModal = openFigure(() => this.convergenceFigure()!);
+    } });
+    p.append(head, ex.body, desc, strip, chart, report, status);
     document.getElementById("app")!.append(p);
     this.panel = p;
     this.strip = strip;
     this.status = status;
     this.report = report;
+    this.paintConvergence();
     this.applyLearn();
     if (this.lockTarget) {
       // the challenge fixes the target: the slider shows it, locked (the
@@ -307,13 +372,27 @@ export class Optimizer {
       slider.addEventListener("input", () => {
         this.targetASTM = parseFloat(slider.value);
         (head.querySelector("b") as HTMLElement).textContent = `G ${this.targetASTM}`;
-        // new objective: past scores are stale, so re-arm the convergence watch
+        // A changed target is a new objective. Discard its old population as
+        // well as its best result; CMA must not rank mixed-target scores.
+        // The version also invalidates a census already being read back.
+        this.searchVersion++;
+        this.finishing = false;
+        this.polling = false;
+        this.cma = new SepCMAES(5);
+        this.queue = [];
+        this.scores = [];
+        this.genome = null;
+        this.stepsUsed = 0;
+        this.episode = 0;
         this.best = Infinity;
         this.bestASTM = null;
         this.bestRecipe = null;
         this.sinceImprove = 0;
         this.converged = false;
+        this.resetConvergence();
+        this.strip.replaceChildren();
         this.report.style.display = "none";
+        this.refreshStatus();
       });
     }
     this.refreshStatus();
@@ -345,13 +424,16 @@ export class Optimizer {
   private async finishEpisode() {
     if (this.finishing || !this.genome) return;
     this.finishing = true;
+    const version = this.searchVersion;
     const sim = this.host.getSim();
     let stats = null;
-    for (let tries = 0; tries < 40 && !stats; tries++) {
+    for (let tries = 0; tries < 40 && !stats && this.active && version === this.searchVersion; tries++) {
       stats = await sim.readStats();
       // a concurrent poll may hold the staging buffer; give the GPU a beat
       if (!stats) await sim.device.queue.onSubmittedWorkDone();
     }
+    // A readback from a closed search must never append to a restarted one.
+    if (!this.active || version !== this.searchVersion) return;
     let score = 8;
     let astm: number | null = null;
     if (stats && stats.astm !== null) {
@@ -359,6 +441,16 @@ export class Optimizer {
       score = Math.abs(stats.astm - this.targetASTM) + 0.15 * (this.stepsUsed / EP_MAX_STEPS);
     }
     this.scores.push(score);
+    const error = astm == null ? null : Math.abs(astm - this.targetASTM);
+    if (error != null) this.bestError = Math.min(this.bestError ?? Infinity, error);
+    this.convergence.push({ episode: this.episode, error, best: this.bestError, score });
+    this.convergenceRecorded++;
+    if (this.convergence.length > 900) {
+      const last = this.convergence[this.convergence.length - 1];
+      this.convergence = this.convergence.filter((_, i) => i % 2 === 0);
+      if (this.convergence[this.convergence.length - 1] !== last) this.convergence.push(last);
+    }
+    this.paintConvergence();
     if (score < this.best) {
       this.best = score;
       this.bestASTM = astm;
@@ -390,7 +482,7 @@ export class Optimizer {
 
     // the numbers in the mono, the words in Inter (textContent unchanged)
     this.status.innerHTML =
-      `casting ${num(`#${this.episode}`)} done · best |ΔG| ${num(this.best === Infinity ? "—" : this.best.toFixed(2))}` +
+      `casting ${num(`#${this.episode}`)} done · best score ${num(Number.isFinite(this.best) ? this.best.toFixed(2) : "—")}` +
       (this.bestASTM !== null ? ` (${num(`G ${this.bestASTM.toFixed(1)}`)})` : "") +
       ` · σ ${num(this.cma.sigma.toFixed(2))}`;
     this.genome = null;
@@ -426,7 +518,7 @@ export class Optimizer {
       (onTarget ? "" : learnSlot(OPT_CAVEATS.stalled.learn)) +
       `<div class="kv">` +
       kv("best", `${num(`G ${r.astm !== null ? r.astm.toFixed(1) : "—"}`)}` +
-        ` · target ${num(`G ${this.targetASTM}`)} · |ΔG| ${num(this.best.toFixed(2))} · ${num(this.episode)} castings`) +
+        ` · target ${num(`G ${this.targetASTM}`)} · |ΔG| ${num(r.astm == null ? "—" : Math.abs(r.astm - this.targetASTM).toFixed(2))} · ${num(this.episode)} castings`) +
       kv("recipe", `undercooling ${num(f(r.undercool))} · inoculant ${num(r.nmax.toFixed(0))} sites · ` +
         `cooling early ${num(f(r.cool[0]))} → mid ${num(f(r.cool[1]))} → late ${num(f(r.cool[2]))}`) +
       `</div>`;
@@ -481,7 +573,9 @@ export class Optimizer {
     if (!this.polling) {
       this.polling = true;
       const ep = this.episode;
+      const version = this.searchVersion;
       sim.readStats().then(s => {
+        if (version !== this.searchVersion) return;
         this.polling = false;
         if (!s || !this.active || !this.genome || ep !== this.episode) return;
         this.nuc.observe(sim.simTime, s.meanLiqT, 1);

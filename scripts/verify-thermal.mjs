@@ -13,7 +13,7 @@
 import { createServer } from "vite";
 
 const server = await createServer({
-  server: { middlewareMode: true }, appType: "custom", logLevel: "error",
+  server: { middlewareMode: true }, appType: "custom", logLevel: "error", optimizeDeps: { noDiscovery: true, include: [] },
 });
 const TH = await server.ssrLoadModule("/src/thermal.ts");
 
@@ -43,7 +43,7 @@ function curveT(t, p = LM) {
   if (t <= p.tN) return p.TN + (p.TL - p.TN) * halfCos((t - p.tL) / (p.tN - p.tL)); // B
   if (t <= p.tG) return p.TG + (p.TN - p.TG) * halfCos((t - p.tN) / (p.tG - p.tN)); // C
   if (t <= p.tS) return p.TS + (p.TG - p.TS) * halfCos((t - p.tG) / (p.tS - p.tG)); // D
-  return 0;                                                            // past solidus: no liquid
+  return null;                                                         // past solidus: no liquid
 }
 function smoothstep(u) { const x = Math.min(1, Math.max(0, u)); return x * x * (3 - 2 * x); }
 function curveFs(t, p = LM) {
@@ -55,7 +55,7 @@ function sampleCurve(times, noise = 0, seed = 7, p = LM) {
   const r = rng(seed);
   return times.map(t => {
     const T = curveT(t, p);
-    return { t, T: T > 0 ? T + noise * r() : 0, fs: curveFs(t, p) };
+    return { t, T: T != null ? T + noise * r() : null, fs: curveFs(t, p) };
   });
 }
 const evenTimes = (t0, t1, dt) => {
@@ -158,7 +158,7 @@ const GT = {
       T += (-k * (T - Tamb) + Lh * dfs) * dt;
     }
     const fs = fsOf(t);
-    s.push({ t, T: fs < 0.999 ? T : 0, fs });
+    s.push({ t, T: fs < 0.999 ? T : null, fs });
   }
   const a = TH.analyseCurve(s);
   const ok = a.fsRms !== null && a.fsRms < 0.08 && a.fsDerived.length > 10;
@@ -177,8 +177,8 @@ const GT = {
   const aFull = TH.analyseCurve(full);
   const aKept = TH.analyseCurve(stream);
   const spanKept = stream[0].t === full[0].t && stream[stream.length - 1].t === full[full.length - 1].t;
-  const nadirT = Math.min(...full.filter(p => p.T > 0).map(p => p.T));
-  const nadirKept = stream.some(p => p.T > 0 && Math.abs(p.T - nadirT) < 1e-9);
+  const nadirT = Math.min(...full.filter(p => p.T != null).map(p => p.T));
+  const nadirKept = stream.some(p => p.T != null && Math.abs(p.T - nadirT) < 1e-9);
   const ok = stream.length <= CAP && spanKept && nadirKept &&
     near(aKept.liquidus?.T, aFull.liquidus?.T, 0.02) &&
     near(aKept.nadir?.T, aFull.nadir?.T, 0.02) &&
@@ -188,6 +188,30 @@ const GT = {
     full: { TL: r3(aFull.liquidus?.T), TN: r3(aFull.nadir?.T), TS: r3(aFull.solidus?.T) },
     thinned: { TL: r3(aKept.liquidus?.T), TN: r3(aKept.nadir?.T), TS: r3(aKept.solidus?.T) },
   });
+}
+
+// TA-TEMPERATURE-DOMAIN: temperature offsets cannot change the extraction.
+// Shift a measured cooling curve so its first temperature is exactly zero
+// and the whole liquid branch is negative. Preserve the null solid tail.
+// This fails the old positive-temperature sentinel and retention minimum.
+{
+  const positive = sampleCurve(evenTimes(0, 17, 17 / 4999), 0, 23);
+  const shifted = positive.map(p => ({ ...p, T: p.T == null ? null : p.T - LM.T0 }));
+  const a = TH.analyseCurve(positive), b = TH.analyseCurve(shifted);
+  let kept = [];
+  for (const p of shifted) { kept.push(p); kept = TH.retain(kept, 1200); }
+  const min = Math.min(...shifted.filter(p => p.T != null).map(p => p.T));
+  const sameLandmarks = ["liquidus", "nadir", "growth", "solidus"].every(k =>
+    a[k] != null && b[k] != null && near(b[k].t, a[k].t, 1e-9) && near(b[k].T + LM.T0, a[k].T, 1e-9));
+  const minKept = kept.some(p => p.T === min);
+  const negative = Array.from({ length: 20 }, (_, i) => ({ t: i, T: -0.01 * i, fs: 0 }));
+  const cut = TH.analyseCurve(negative);
+  const ended = TH.analyseCurve([...negative, { t: 20, T: null, fs: 1 }]);
+  const invalid = TH.analyseCurve([...negative, { t: 20, T: NaN, fs: 0 }]);
+  check("TA-TEMPERATURE-DOMAIN", shifted[0].T === 0 && sameLandmarks && b.deriv.length === a.deriv.length && minKept
+    && cut.deriv.length === 20 && cut.solidus === null && ended.solidus != null && invalid.solidus === null,
+    { firstT: shifted[0].T, sameLandmarks, minKept, liquidSamples: b.deriv.length, zeroAndNegativeSamples: cut.deriv.length,
+      noLiquidEndsRecord: ended.solidus != null, missingDataIsNotSolidus: invalid.solidus === null });
 }
 
 // TA-CSC (Phase D N5) — Clyne–Davies off a prescribed f_s(t). A piecewise-

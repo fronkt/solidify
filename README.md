@@ -212,6 +212,16 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   recalescence arrest at the liquidus; ctrl-tap moves the probe), a Scheil overlay
   (analytic T(fs) path vs the measured interface temperature), and an SDAS ruler that
   measures secondary-arm spacing by dragging a linear-intercept line, metallographer-style.
+- **Process plots**: Lab Mode records a live cooling curve and solid fraction. Heat Treat
+  shows the furnace schedule, a material-law grain-growth prediction, and measured census
+  endpoints on its separate physical clock. Engineer it plots completed castings and the
+  best grain-number error; changing the target starts a fresh search. Every plot opens its
+  data table, hover readout, CSV, and image exports.
+- **Export run** in Advanced saves one ZIP with the setup, seed, material constants, unit
+  bridges, available instrument data as CSV, and a rendered PNG with scale and provenance.
+  Each dataset retains its original run identity. Edited compositions are distinguished
+  from their source mix. The setup link includes grid and cell pitch; the archive records
+  observations and controls, rather than a restartable copy of the current GPU field.
 - **Recorder** — one-button ⏺ capture of the canvas to a .webm clip.
 - **Touch** — pinch to zoom, two-finger pan, tap to nucleate.
 - **The science page** — [/science/](https://solidify.frankcai.dev/science/) documents the

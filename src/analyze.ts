@@ -54,6 +54,8 @@ export class Analyze {
    *  TimedRecord: kept only while sim time advances, 900 samples at most) */
   private curve = new ProbeRecord();
   private scheil = new ScheilRecord();
+  private curveMeta: PlotMeta | null = null;
+  private scheilMeta: PlotMeta | null = null;
   private ruler: { ax: number; ay: number; bx: number; by: number } | null = null;
   private measuring = false;
 
@@ -182,10 +184,10 @@ export class Analyze {
   onStats(s: StatsResult, simTime: number) {
     const b = this.bridgeNow(), chem = this.host.chem();
     const pr = this.probeOn ? probeSample(simTime, s.probeT, s.probePhi) : null;
-    if (pr) this.curve.push(pr, b, chem);
+    if (pr && this.curve.push(pr, b, chem) && this.curve.recorded === 1) this.curveMeta = this.host.meta();
     if (this.scheilOn) {
       const q = scheilSample(simTime, s.fracSolid, s.interfaceT, s.interfaceCells > 0);
-      if (q) this.scheil.push(q, b, chem);
+      if (q && this.scheil.push(q, b, chem) && this.scheil.recorded === 1) this.scheilMeta = this.host.meta();
     }
     if (this.textureOn) this.lastRose = s.oriRose;
     this.draw();
@@ -265,8 +267,8 @@ export class Analyze {
 
   // ------------------------------------------------------------ the figures
   /** what a figure's provenance names, plus what this panel adds */
-  private prov(recorded: number | undefined, extra: string[] = []): Prov {
-    return { ...this.host.meta(), recorded, extra };
+  private prov(recorded: number | undefined, extra: string[] = [], meta: PlotMeta | null = null): Prov {
+    return { ...(meta ?? this.host.meta()), recorded, extra };
   }
 
   /** a panel's figure (plot/analysis.ts), from its series and the bridge
@@ -279,13 +281,13 @@ export class Analyze {
       return probeFigure({
         samples: this.curve.samples, bridge: this.curve.bridge ?? this.bridgeNow(),
         chem: this.curve.chem ?? this.host.chem(), three: false,
-        prov: this.prov(this.curve.recorded, [`probe at cell (${Math.round(this.fx * sim.n)}, ${Math.round(this.fy * sim.n)})`]),
+        prov: this.prov(this.curve.recorded, [`probe at cell (${Math.round(this.fx * sim.n)}, ${Math.round(this.fy * sim.n)})`], this.curve.recorded ? this.curveMeta : null),
       });
     }
     if (which === "scheil") {
       return scheilFigure({
         samples: this.scheil.samples, bridge: this.scheil.bridge ?? this.bridgeNow(),
-        chem: this.scheil.chem ?? this.host.chem(), three: false, prov: this.prov(this.scheil.recorded),
+        chem: this.scheil.chem ?? this.host.chem(), three: false, prov: this.prov(this.scheil.recorded, [], this.scheil.recorded ? this.scheilMeta : null),
       });
     }
     return roseFigure({ rose: this.lastRose, j: p.aniMode, umPerCell: sim.umPerCell, bridge: this.bridgeNow(), prov: this.prov(undefined) });

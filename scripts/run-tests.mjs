@@ -32,6 +32,8 @@ const SUITE = [
   ["scripts/verify-hero-manifest.mjs"],
   // v8 U2: the plot core (src/plot), browser-free and in CI
   ["scripts/verify-plot.mjs"],
+  ["scripts/verify-process-plots.mjs"],
+  ["scripts/verify-run-export.mjs"],
   ["scripts/verify-scroll-order.mjs"],
   // v8 D1: the live acts below the hero, their spec rails read from the sims
   // and materials.ts, their layout, footer and copy
@@ -44,6 +46,7 @@ const SUITE = [
   // or on the chrome beside it, at five viewports, in 2D and TRUE 3D, with
   // the rail shown and hidden, with real scrollbars
   ["scripts/verify-rail.mjs", String(PORT)],
+  ["scripts/verify-completion-gpu.mjs", String(PORT)],
   ["scripts/verify-passsplit.mjs", String(PORT)],
   ["scripts/verify-quant.mjs", String(PORT)],
   ["scripts/verify-phasediagram-gpu.mjs", String(PORT)],
@@ -72,8 +75,16 @@ delete SUITE_ENV.HERO_ONLY_OK;
 function run(cmd, args, opts = {}) {
   return new Promise((resolvePromise, reject) => {
     const child = spawn(cmd, args, { stdio: "inherit", shell: true, env: SUITE_ENV, ...opts });
-    child.on("exit", (code) => (code === 0 ? resolvePromise() : reject(new Error(`${cmd} ${args.join(" ")} exited ${code}`))));
-    child.on("error", reject);
+    const timer = setTimeout(() => {
+      if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+      else child.kill("SIGKILL");
+      reject(new Error(`${args[0]} exceeded its 10-minute verification timeout`));
+    }, 600_000);
+    child.on("exit", (code) => {
+      clearTimeout(timer);
+      code === 0 ? resolvePromise() : reject(new Error(`${cmd} ${args.join(" ")} exited ${code}`));
+    });
+    child.on("error", err => { clearTimeout(timer); reject(err); });
   });
 }
 

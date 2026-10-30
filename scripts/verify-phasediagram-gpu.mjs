@@ -1,3 +1,4 @@
+import { closeBrowser } from "./browser-cleanup.mjs";
 // PD-CURSOR-LIVE — the composer's phase-diagram cursor, against a real cast.
 //
 // ITS OWN FILE, AND THAT IS THE POINT. It was written inside verify-quant.mjs
@@ -371,6 +372,6 @@ await viteServer.close();
 
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 5) : "none");
 if (errors.length) failures++;
-await browser.close();
+await closeBrowser(browser);
 console.log(failures ? `done — ${failures} FAILED` : "done");
 if (failures) process.exitCode = 1;

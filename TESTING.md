@@ -29,8 +29,9 @@ fade and Sievert gas porosity — bringing the CI-runnable set to five at the ti
 `verify-phasedata.mjs` eight, v7.1 P1's `verify-alloy.mjs` nine, v7.1 P2's
 `verify-phasediagram.mjs` ten, v7.1 P3's `verify-regimes.mjs` eleven, v7.1 P4's
 `verify-elements.mjs` twelve and v7.1 P5's `verify-composer-grid.mjs` thirteen, where v7.1 P6
-left it, v8's `verify-hero-manifest.mjs` fourteen and v8 U2's `verify-plot.mjs` fifteen:
-**fifteen browser-free scripts**, and
+left it, v8's `verify-hero-manifest.mjs` fourteen and v8 U2's `verify-plot.mjs` fifteen.
+The v8 completion adds process-plot and run-export coverage, bringing the set to
+**seventeen browser-free scripts**, and
 `CI-SCRIPT-COUNT` derives that number from `ci.yml`'s own run lines and fails if any place this
 document states it disagrees). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
@@ -51,15 +52,31 @@ except `verify-hero.mjs`, which runs with WebGPU removed and needs no GPU; it st
 hardcoded Chrome path and the 5199 server, so it is not in CI either.
 **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
-only the OS-agnostic steps — typecheck, build, and the fifteen browser-free scripts
+only the OS-agnostic steps — typecheck, build, and the seventeen browser-free scripts
 (`verify-units.mjs`, `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
 `verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
 `verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
-`verify-composer-grid.mjs`, `verify-hero-manifest.mjs`, `verify-plot.mjs`; see
+`verify-composer-grid.mjs`, `verify-hero-manifest.mjs`, `verify-plot.mjs`, `verify-process-plots.mjs`, `verify-run-export.mjs`; see
 `.github/workflows/ci.yml`) — rather than
 this suite. If you want to run the physics/UI verification yourself, do it locally.
 
 ## What each script checks
+
+- **`verify-process-plots.mjs`** (browser-free) runs three checks over live-pour
+  validity, optimizer error versus its search penalty, and the furnace's separate
+  physical clock and material-law prediction. Negative/zero liquid temperatures
+  stay real; missing samples remain gaps. Pinning/stored energy withdraw the law.
+- **`verify-run-export.mjs`** (browser-free) runs five checks over dataset provenance,
+  empty runs, ZIP records and checksums, safe unique archive paths, and physical
+  image scales. A prior Al–Cu record exported beside a current steel setup must
+  retain its own seed, units and share link. Browser verification additionally
+  opens the real archive, decodes its PNG and checks the current view in 2D/3D.
+- **`verify-completion-gpu.mjs`** exercises the actual instrument: calibration
+  admission and old-link fallback, grid/resolution sharing, paused live-pour
+  recording, figure dialogs, real archive-button download and PNG decoding,
+  optimizer observations, furnace preview, and 3D export. No software GPU fallback.
+  Browser cleanup is bounded to ten seconds for a stalled Chrome shutdown;
+  each suite script has a ten-minute process timeout. Cleanup preserves verdicts.
 
 - **`verify-rng.mjs`** (v7.0, C0a) — the seeded-stream contract, browser-free in the
   `verify-units.mjs` style. Seven checks. `RNG-DETERMINISM` (same seed, same sequence; `reset()`
@@ -1006,7 +1023,7 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   is on screen, and nothing sits under the rail or on the chrome beside it; since v8 U1a also
   that learn mode works and that no prose em dash reaches the rail in the states and strings
   listed under `RAIL-NO-EMDASH` below, and since v8 D2 that the chrome carries no color
-  (`RAIL-ACHROMATIC`). Ten checks,
+  (`RAIL-ACHROMATIC`). Eleven checks,
   measured in the real app at 1280x720, 1440x900, 1920x1080, 1024x768 and 960x1000 (a
   half-screen window on a 1920 display), in 2D and TRUE 3D, with every rail section opened by
   clicking its heading, every rail sample taken twice (learn mode off, and on with every
@@ -1355,7 +1372,7 @@ rebuilt to make that relationship emergent:
 **Physics-behaviour tests (v5.0).**
 
 - **`UNITS-*`** (`verify-units.mjs`) — the scaling layer, checked without a browser, so it is
-  the first of the fifteen browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0, the v7.1 arc added six more and v8 added `verify-hero-manifest.mjs` and `verify-plot.mjs`). Ten checks: that kelvin-per-unit really is the heat
+  the first of the seventeen browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0, the v7.1 arc added six more and v8 added `verify-hero-manifest.mjs` and `verify-plot.mjs`). Ten checks: that kelvin-per-unit really is the heat
   equation's own `(L/c_p)/K` for four materials computed independently in the test; that the
   time factor is forced by whichever diffusivity is anchoring; that every converter round-trips;
   that an abstract material reads as *unknown* rather than as zero; that the undercooling dial's
@@ -1388,8 +1405,18 @@ rebuilt to make that relationship emergent:
   wall-clock frames and the ≥2-fence backpressure guard skips them unpredictably, so the two
   casts had not run the same amount of physics. Anything derived from *how far a cast got* is
   not a controlled variable here (see postmortem #6 in `tasks/todo.md`, which records the same
-  trap one release earlier). Grain count at matched solid fraction is stable to <8 % across
-  four independent runs, so that is what is asserted.
+  trap one release earlier). The later unseeded matched-fraction gate also varied: a 15.2 %
+  difference crossed its existing 15 % equivalence threshold in the October 29 suite.
+
+  The gate now uses the controlled comparator's `castCensus`: fence-paced chunks with live
+  nucleation, its own liquidus reference, and the frame-loop transport and observations held
+  off for each cast. Both inoculant levels (3,000 and 600 sites) run both previously registered
+  comparator seeds (`0x51105d1f`, `0x0be5eed5`), with the same seed within each chemistry pair.
+  Every cast must activate more than 20 sites, grow more than 20 grains, and reach the declared
+  solid fraction 0.20 (within 0.03 chunk overshoot). Every pair must match its solid fraction
+  within 0.03 and retain the original **15 % grain-count equivalence threshold**. Individual
+  results, seeds, substep budgets and relative differences are printed; no seed selection,
+  averaging away a failed pair, or tolerance widening is allowed.
 
 - **`PASSSPLIT`** — the solidification step exists in two shapes, fused
   `FLUX → UPDATE` (what ships) and split `FLUX → PHI → TRANSPORT` (what the quantitative
@@ -1844,9 +1871,10 @@ spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 
 that evidence recorded in the constant's own docblock. The drift prints on every run, and
 `HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
-`npm run build` (Vite + `tsc`) plus the fifteen browser-free scripts — `verify-units.mjs`,
+`npm run build` (Vite + `tsc`) plus the seventeen browser-free scripts — `verify-units.mjs`,
 `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
 `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
 `verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
-`verify-composer-grid.mjs`, `verify-hero-manifest.mjs` and `verify-plot.mjs` — are the checks anyone on any OS can run
+`verify-composer-grid.mjs`, `verify-hero-manifest.mjs`, `verify-plot.mjs`,
+`verify-process-plots.mjs` and `verify-run-export.mjs` — are the checks anyone on any OS can run
 without a GPU, and are what CI actually gates on (`.github/workflows/ci.yml`).

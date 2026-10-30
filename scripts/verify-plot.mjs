@@ -152,7 +152,7 @@ function castRecord(tl, n = 400, tk = 1) {
     if (t < 4) { T = tl + 0.12 - 0.05 * t; fs = 0; }
     else if (t < 5) { T = tl - 0.08 + 0.05 * (t - 4) + 0.002 * Math.sin(t * 9); fs = 0.1 * (t - 4); }
     else if (t < 17) { T = tl - 0.03 - 0.012 * (t - 5); fs = 0.1 + 0.85 * (t - 5) / 12; }
-    else { T = 0; fs = 1; }
+    else { T = null; fs = 1; }
     s.push({ t: t * tk, T, fs });
   }
   return s;
@@ -619,6 +619,17 @@ const WINDOWS = [[1440, 900], [1024, 768], [390, 844]];
   // liveness: the Kobayashi Al–Cu line is not T̃ = 1 and not the alloy's own
   // (the "model" case); the calibrated one IS the alloy's own liquidus
   const kob = rows.find(r => r.key === "al" && !r.quant), qr = rows.find(r => r.key === "al" && r.quant);
+  // A liquid temperature is present by explicit value, not by its sign.
+  // Preserve zero/negative samples in both the drawn trace and CSV; only
+  // the no-liquid null becomes a gap/blank. This exercises the export path.
+  const domainSeries = [{ t: 0, T: 0, fs: 0.2 }, { t: 1, T: -0.25, fs: 0.8 }, { t: 2, T: null, fs: 1 }];
+  const domain = F.coolingFigure({ series: domainSeries, ta: TA.analyseCurve(domainSeries), bridge: bridge("generic"), chem: chemFor("generic"), full: false, prov: PROV });
+  const dT = domain.columns.find(c => c.key === "T").values;
+  const dY = domain.fig.panels[0].series[0].ys;
+  const csvRows = C.toCSV(domain.title, domain.columns, domain.bridge, domain.prov).split("\n").filter(l => l && !l.startsWith("#"));
+  const ti = csvRows[0].split(",").indexOf("T_dimensionless");
+  if (dT[0] !== 0 || dT[1] !== -0.25 || !Number.isNaN(dT[2]) || dY[0] !== 0 || dY[1] !== -0.25 || !Number.isNaN(dY[2])
+    || ti < 0 || csvRows[1].split(",")[ti] !== "0" || csvRows[2].split(",")[ti] !== "-0.25" || csvRows[3].split(",")[ti] !== "") bad.push({ temperatureDomain: { dT, dY, csvRows, ti } });
   check("PLOT-LIQUIDUS", bad.length === 0 && kob.liquidus < 0.99 && kob.label.endsWith("model") && qr.liquidus === 1 && Math.abs(qr.drawn - qr.material) < 0.01,
     { rows, bad: bad.slice(0, 6), nBad: bad.length });
 }
@@ -1113,7 +1124,7 @@ const WINDOWS = [[1440, 900], [1024, 768], [390, 844]];
   // the HUD: ΔT from the interface COUNT and the charge's liquidus, the
   // chemistry latched with the series; the histogram without a sample count
   need("hud.ts", /const chem = this\.host\.chem\(\);\s*this\.record\(\{[\s\S]{0,120}dt: hudDeltaT\(s\.interfaceCells, s\.interfaceT, chargeLiquidus\(chem\)\),\s*\}, chem\);/, "push: hudDeltaT(interfaceCells, interfaceT, chargeLiquidus(chem)), recorded with chem");
-  need("hud.ts", /this\.rec\.push\(p, bridgeOf\(this\.host\.units\(\), this\.host\.meta\(\)\.material\), chem\)/, "record latches bridge and chemistry");
+  need("hud.ts", /const meta = this\.host\.meta\(\);\s*if \(this\.rec\.push\(p, bridgeOf\(this\.host\.units\(\), meta\.material\), chem\) && this\.rec\.recorded === 1\)\s*this\.recordMeta = meta;/, "record latches bridge, chemistry and original run identity");
   need("hud.ts", /histFigure\(this\.diams, b, \{ \.\.\.this\.host\.meta\(\) \}, this\.mode3\)/, "the histogram's provenance carries no sample count");
   // main.ts: the HUD records against sim time in both dimensions; the
   // undercooling and every host's chemistry come from chargeLiquidus / chemNow

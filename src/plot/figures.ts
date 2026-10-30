@@ -151,8 +151,8 @@ export function liquidusProv(c: Chem, b: Bridge): string[] {
 
 export interface CoolingInput {
   /** the lab's record: time since the pour, the mean liquid temperature
-   *  (a non-positive value is "no liquid left"), the measured solid fraction */
-  series: { t: number; T: number; fs: number }[];
+   *  (null means no liquid left), the measured solid fraction */
+  series: { t: number; T: number | null; fs: number }[];
   ta: ThermalAnalysis;
   /** latched at the pour */
   bridge: Bridge;
@@ -187,7 +187,7 @@ export function coolingFigure(c: CoolingInput): Figure {
   const Tq = resolve(Q.temp, b);
   const R = resolve(Q.rate, b);
   const xs = s.map(p => X.conv(p.t));
-  const Ts = s.map(p => (p.T > 0 ? Tq.conv(p.T) : NaN));
+  const Ts = s.map(p => (p.T != null && Number.isFinite(p.T) ? Tq.conv(p.T) : NaN));
   const liq = Tq.conv(chargeLiquidus(c.chem));
   const [tlo, thi] = extent([Ts], { pad: 0.08, include: [liq] });
   const lm = (l: { t: number; T: number } | null, label: string) =>
@@ -234,7 +234,7 @@ export function coolingFigure(c: CoolingInput): Figure {
   const fig: FigSpec = {
     x: { title: X.title, short: X.short, lo: xlo, hi: xhi > xlo ? xhi : xlo + 1, sym: X.sym, unit: X.unit },
     panels,
-    empty: s.filter(p => p.T > 0).length < 2 ? "no cooling record: pour and let it freeze" : null,
+    empty: s.filter(p => p.T != null && Number.isFinite(p.T)).length < 2 ? "no cooling record: pour and let it freeze" : null,
   };
   // the table and the CSV: one row per recorded sample. The derivative is
   // defined on the liquid prefix (thermal.ts), index for index; the
@@ -242,7 +242,7 @@ export function coolingFigure(c: CoolingInput): Figure {
   const zc = new Map(c.ta.fsDerived.map(d => [d.t, d.fs]));
   const columns: Column[] = [
     { key: "t", q: Q.time, values: s.map(p => p.t) },
-    { key: "T", q: Q.temp, values: s.map(p => (p.T > 0 ? p.T : NaN)) },
+    { key: "T", q: Q.temp, values: s.map(p => (p.T != null && Number.isFinite(p.T) ? p.T : NaN)) },
     { key: "dTdt", q: Q.rate, values: s.map((_, i) => c.ta.deriv[i]?.dTdt ?? NaN) },
     { key: "fs_measured", q: Q.fs, values: s.map(p => p.fs) },
     { key: "fs_measured_rescaled", q: Q.fsProgressMeasured, values: prog },

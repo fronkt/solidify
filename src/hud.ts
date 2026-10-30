@@ -68,6 +68,7 @@ export class Hud {
    *  (plot/figures.ts HudRecord: the rule the gate drives), with the bridge
    *  and the chemistry it started under */
   private rec = new HudRecord(1200);
+  private recordMeta: PlotMeta | null = null;
   private diams: number[] = [];
   private mode3 = false;
   private modal: { key: CardKey; h: FigureHandle } | null = null;
@@ -140,6 +141,7 @@ export class Hud {
 
   reset() {
     this.rec.clear();
+    this.recordMeta = null;
     this.diams = [];
     this.drawAll();
   }
@@ -147,7 +149,9 @@ export class Hud {
   /** a new sample, kept only if sim time moved on since the last one; the
    *  series latches the bridge and the chemistry it started under */
   private record(p: HudSample, chem: Chem) {
-    this.rec.push(p, bridgeOf(this.host.units(), this.host.meta().material), chem);
+    const meta = this.host.meta();
+    if (this.rec.push(p, bridgeOf(this.host.units(), meta.material), chem) && this.rec.recorded === 1)
+      this.recordMeta = meta;
   }
 
   private get samples(): HudSample[] { return this.rec.samples; }
@@ -172,7 +176,7 @@ export class Hud {
 
   /** the series' provenance: the run's identity and how many samples it took */
   private prov(): Prov {
-    return { ...this.host.meta(), recorded: this.rec.recorded };
+    return { ...(this.recordMeta ?? this.host.meta()), recorded: this.rec.recorded };
   }
 
   private bridgeNow(): Bridge {
