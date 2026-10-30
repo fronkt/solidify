@@ -20,6 +20,9 @@ export interface ShareState {
    *  whitelist doctrine on every optional tail element */
   lab?: [string, number, number, number, number, string, number?, number?, string?];
   sched?: [number, number, number] | null;  // applied recipe cooling schedule
+  /** Lossless 3D model-recipe provenance; legacy links need only sched. */
+  opt3?: { version: 1; maxSteps: number; target: number; diameter: number | null;
+    unit: "µm" | "cells"; params: Record<string, number> };
   d?: 1;                                    // 1 = the setup lives in TRUE-3D mode
   g3?: number;                              // 3D grid edge (128 / 160 / 192)
   g2?: number;                              // 2D grid edge; absent in older links

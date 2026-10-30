@@ -702,3 +702,19 @@ Adding a browser-free lifecycle check also changes the documented CI inventory.
 Count workflow invocations with modes such as --self-test, update TESTING.md in
 the same phase, and run verify-phasedata before pushing workflow additions.
 Passing only the new test misses the existing cross-document count contract.
+
+## A hash change is not a fresh setup restoration
+
+Navigating an open app to the same pathname with a different recipe hash can
+reuse the existing document and its already armed recipe. Matching dials then
+proves nothing about link restoration. Force a new document, require its identity
+to change, and assert a fresh optimizer history before checking the restored
+recipe and actual replay.
+
+## Cancellation must retain writes made before an await
+
+A casting batch selects its next cooling rate before awaiting the census. The
+parent's last published parameter snapshot can therefore lag an owned write.
+Before dropping a canceled clock on target reset, retain that clock's current
+expected parameters so Exit can restore the original setup. Version checks stop
+late publication; they do not undo writes that already happened.

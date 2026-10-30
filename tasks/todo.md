@@ -5310,3 +5310,97 @@ CI initially caught a stale documented script count after the new lifecycle step
 The inventory now counts argument-bearing self-test entries as well and documents
 all20 browser-free CI scripts. No physical gate was relaxed; the original count
 guard remains active, and its actual workflow/documentation check is rerun.
+
+## Build the 3D optimizer - 2026-10-30
+
+User explicitly requested the 3D parameter-search optimizer. Implement the full
+selected-volume workflow on the development branch; scientific acceptance of
+the separate quantitative3D solver remains open. Existing user .claude/ and
+dist-embed/ files stay untouched. Root owns main.ts integration and GPU timing;
+delegated module/tests/UI work has disjoint file ownership.
+
+Acceptance specification before implementation:
+- Real casting episodes run on the selected Sim3D grid and native volume census,
+  with no hidden2D or lower-resolution proxy. Optimize mean-volume-equivalent
+  sphere diameter, shown in micrometres for known SI or cells otherwise. Identify
+  the census minimum-grain-volume threshold; do not call this an ASTM2D result.
+- Search three solid-fraction cooling stages, inoculant count and initial
+  undercooling with the existing CMA-ES algorithm and an independent random
+  stream. Preserve material/chemistry, grid, seed and pitch. Use free casting and
+  no stochastic twins explicitly in both the measured recipe and its replay.
+- Enter paused. A bounded casting budget, progress, pause/resume, exit, target
+  changes, invalid trials, best-so-far report and convergence figure/export work.
+  Only a completed finite nonzero-grain census can win; a step-budget timeout
+  never supplies an applicable recipe. Refuse calibrated3D with a visible reason.
+- Give the episode sole ownership of the GPU clock: fixed fence-paced delivered
+  substeps, initial and per-batch temperature observations, and complete seed
+  burst draining before physics. Pause cannot start another batch; stale awaited
+  work cannot publish after exit, objective/context change or solver replacement.
+- Apply the best recipe ARMED on the same3D grid, with the three-stage schedule
+  retained. A3D recipe link restores dimension, schedule, seed, pitch, material
+  and inoculant. Keep2D/3D schedules independent and leave2D optimizer behavior
+  and the challenge unchanged. The restored object is a setup, not a field save.
+- Expose the optimizer in3D controls with accurate learn text, guard incompatible
+  modes/settings and interactive seed mutations, and retain camera interaction.
+
+Plan:
+- [x] Inspect existing optimizer/3D interfaces and review the design/measurement hazards in parallel.
+- [x] Implement the3D casting/search module and a shared clock for applying the same measured schedule.
+- [x] Integrate transport, controls/interlocks, recipe application/sharing, figures/export and copy.
+- [x] Verify genuine3D episodes, independently recounted volume metrics, pause/invalid/stale-work paths and apply/share replay on real WebGPU under a source freeze; verify legacy2D behavior.
+- [x] Independent review, required regression/type/build/CI checks, explicit-path commits/push, and an evidence-based completion summary.
+
+Work allocation: optimizer3d_engine owns new optimizer3d module, minimal shared
+CMA export/RNG injection and optional Nucleation injection; optimizer3d_tests owns
+new3D GPU acceptance fixtures; root owns main/sim3d/share and final verification.
+
+### Implementation review checkpoint
+
+Pushed initial implementation as 17d1c48 on feature/3d-optimizer; PR4 targets
+v7-experiments so this feature can be reviewed separately from Q3 acceptance.
+Typecheck/build, RNG, plot/export arithmetic and original solver/source identity
+pass. The initial 9,000-step resource limit stopped genuine Al96-cube trials at
+solid fractions .3894/.2831; both were correctly refused. The default is now
+60,000 at the native dt=.00009; cooling ranges and .92 completion stay fixed.
+Actual completed trials reached .920123/.920076 at41,776/51,936 steps, with an
+independent raw-voxel census matching their volume metric. Applied replay twice
+matched measured diameter and exact state/grain hashes with zero device errors.
+
+That first complete browser run is explicitly review-refused as a full acceptance
+claim: its hash-only navigation reused the page and did not prove fresh shared
+restoration. Its raw runner verdict and review refusal are both retained. The
+corrected final gate must force a new document, inspect real ZIP/CSV/PNG exports,
+cross a CMA generation with actual invalid casts and exercise a real cooling-
+segment transition followed by target change and Exit.
+
+Independent review found finite API-target overflow and a canceled-batch cooling
+restoration race. Root reproduced both failures before changing production code;
+seven model checks and the separately scoped CPU lifecycle reproducer now pass.
+Invalid scores reserve the finite worst sentinel and nonfinite errors refuse;
+reset preserves the current clock's owned parameter writes before dropping it.
+The phone resize guard also preserves transport access while allowing deliberate
+drawer reopening. Final GPU/regression verification remains pending.
+
+### Final review and verification
+
+All 37 registered scripts passed in one full npm test run on 9d5fa9a, with
+all 151 source files under src/scripts/app unchanged. The corrected fifteen-gate
+3D acceptance passed with zero page/device errors and a readable error ledger.
+The real volume census agrees with independently recounted voxels and grain IDs.
+Cold sharing proves a new document and empty optimizer history before admitting
+the exact recipe. The winner replayed at 51,936 steps with 18.6379694049 um diameter;
+state/grain SHA256 match exactly at speed 1 and 4. Nine actual one-step invalid
+castings span a CMA generation and never supply a winner. At a real .330226 solid
+fraction transition, target change plus Exit restores cooling .123 after the
+awaited batch wrote .331247; stale results do not publish.
+
+The actual 1,191,801-byte ZIP passed independent header/name/CRC validation, its
+two-row convergence CSV matches recorded measurements, and its 758 x 614 PNG decodes
+with a nonblank physics area. Python zipfile/Pillow independently confirm it.
+ZIP SHA256: 9b1a7d03a5a923d03e351e3f3b80184732ce507908c3f4e55e947cde3c8694d7.
+Typecheck/build and all 21 browser-free CI scripts pass (run 41072120918).
+Independent engine, test and visual reviews have no remaining blocker. The
+original solver/default 2D arithmetic identity check passes, and owned Vite/Chrome
+helpers are closed. Evidence and review are committed under docs/validation and
+docs/reviews. The optimizer is complete for the qualitative Kobayashi model;
+quantitative 3D literature acceptance remains open. PR 4 is separate from PR 2.

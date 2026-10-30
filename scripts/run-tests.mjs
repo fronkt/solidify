@@ -18,6 +18,7 @@ const SUITE = [
   // only ones the GitHub workflow can also run
   ["scripts/verify-units.mjs"],
   ["scripts/verify-rng.mjs"],
+  ["scripts/verify-optimizer3d-model.mjs"],
   ["scripts/verify-heattreat.mjs"],
   ["scripts/verify-thermal.mjs"],
   ["scripts/verify-fade.mjs"],
@@ -41,6 +42,7 @@ const SUITE = [
   // the landing hero driven by scroll (no WebGPU needed; the script removes it)
   ["scripts/verify-hero.mjs"],
   ["scripts/verify-optimizer.mjs"],
+  ["scripts/verify-optimizer3d.mjs", String(PORT)],
   ["scripts/verify-tools.mjs"],
   // v8 U0: the control rail never scrolls sideways and nothing sits under it
   // or on the chrome beside it, at five viewports, in 2D and TRUE 3D, with
@@ -80,11 +82,14 @@ delete SUITE_ENV.HERO_ONLY_OK;
 function run(cmd, args, opts = {}) {
   return new Promise((resolvePromise, reject) => {
     const child = spawn(cmd, args, { stdio: "inherit", shell: true, env: SUITE_ENV, ...opts });
+    // Four complete current-volume casts plus replay/export/race checks need
+    // more time than the small fixed-workload gates; physics budgets stay fixed.
+    const timeoutMs = args[0] === "scripts/verify-optimizer3d.mjs" ? 1_200_000 : 600_000;
     const timer = setTimeout(() => {
       if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
       else child.kill("SIGKILL");
-      reject(new Error(`${args[0]} exceeded its 10-minute verification timeout`));
-    }, 600_000);
+      reject(new Error(`${args[0]} exceeded its ${timeoutMs / 60000}-minute verification timeout`));
+    }, timeoutMs);
     child.on("exit", (code) => {
       clearTimeout(timer);
       code === 0 ? resolvePromise() : reject(new Error(`${cmd} ${args.join(" ")} exited ${code}`));
