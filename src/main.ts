@@ -884,7 +884,7 @@ async function boot() {
     setLambda(v) {
       if (mode === "3d" && sim3d) {
         if (heat?.busy || lab.running) return;
-        if (sim3d.params.solver === SOLVER.QUANT) void setSolver3(SOLVER.QUANT, v);
+        if (quantPending3 || sim3d.params.solver === SOLVER.QUANT) void setSolver3(SOLVER.QUANT, v);
         else sim3d.params.lambda = v;
         return;
       }

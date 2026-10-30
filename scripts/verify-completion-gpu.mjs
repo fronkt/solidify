@@ -242,6 +242,7 @@ try {
       S.app.setMaterial("scn"); S.app.setUmPerCell(1.7);
       const before = { ...S.sim().params, pitch: S.sim().umPerCell };
       await S.app.setMode("3d"); S.app.setRun(false); S.app.setAlloyOn(false);
+      S.sim3d().params.coolRate = 0;
       const kob = { ...S.sim3d().params, pitch: S.sim3d().umPerCell };
       const s3 = S.sim3d(), prepare = s3.enableQuant.bind(s3);
       s3.enableQuant = async () => { await new Promise(r => setTimeout(r, 80)); return prepare(); };
@@ -263,7 +264,8 @@ try {
     await sleep(1000);
     const state = await page.evaluate(async () => {
       const S = window.__solidify; S.app.setRun(false);
-      return { time: S.sim3d().simTime, status: await S.sim3d().readQuantitativeStatus(), solver: S.sim3d().params.solver };
+      return { time: S.sim3d().simTime, status: await S.sim3d().readQuantitativeStatus(),
+        solver: S.sim3d().params.solver, issue: S.app.calibrationIssue(), parameters: { ...S.sim3d().params } };
     });
     assert(state.time > 0 && state.solver === 1 && !state.status?.issue, JSON.stringify(state));
     const packed = await archive("completion-run-3d-calibrated.zip");
