@@ -5434,3 +5434,12 @@ All 497 candidate raw profiles and the 213-profile CPU transient diagnosis are
 backed up. Public proof: docs/validation/quant3d-lattice-candidate-2026-10-30.json.
 Full five-arm fixed-terminal candidate study is running under the original
 owned-rental cutoffs. BASE still fails sigma; remaining arms continue. Q3 is open.
+
+Prospective translation diagnostic, implemented while the immutable cloud run
+continues: R20/dx0.8, epsilon 0/0.0171 crossed with declared center offsets 0/0.4
+on all axes. Same baseline volume target, default physics, horizon and cadence;
+no coefficient/window selection. The existing fourteen-case runner is preserved.
+
+- [ ] Add the optional coordinate adapter and separate four-arm diagnostic CLI; prove default parity, known geometry and missing-offset/recentering refusals before GPU execution.
+- [ ] Freeze/push the diagnostic and run it as the sole local GPU study, preserving every raw sample and strict clock/ledger/source/cleanup evidence.
+- [ ] Replay the unchanged local-curvature estimator, compare paired offsets and document limits without promoting Q3 or fitting a correction.
