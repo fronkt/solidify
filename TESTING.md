@@ -10,6 +10,15 @@ cases, plus subset and stale-retry controls. These test execution evidence;
 they do not supply simulated physical acceptance. Both CPU checks run in CI;
 the real copy check runs sequentially in the local GPU suite.
 
+Opt-in lattice kinetics is a separate research experiment, outside that suite.
+`scripts/research/quant3d-lattice-kinetic.md` documents target generation,
+fixed-duration GPU recovery and the explicit `--lattice-kinetics` option.
+`quant3d-lattice-transient.md` reproduces the independent Float64 heat-pulse
+diagnosis. The same explicit option on `verify-quant3d-tip.mjs` selects matching
+native/rectangular candidate pipelines and records the model in its unchanged
+five-arm fixed-terminal contract. Both recovery studies remain scientifically
+refused; execution/legacy checks and completed equilibrium cases do not pass Q3.
+
 Final reviewed regression, 2026-10-30: all 35 registered scripts passed across
 the full run and corrective continuation. The first 22 passed in
 `verify-out/ordered-final-reviewed-suite.log`; an unmodified rail retry passed

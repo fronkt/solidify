@@ -5338,9 +5338,9 @@ Acceptance specification:
 Plan before implementation:
 - [x] Review recorded failures, independent audits and project lessons; isolate the research worktree.
 - [x] Repair and independently verify padded research volume readback and execution evidence.
-- [ ] Finish the declared radius cases on frozen source and reconcile all fourteen matrix cases.
+- [x] Finish the declared radius cases on frozen source and reconcile all fourteen matrix cases.
 - [x] Complete parallel capillary, kinetic-identifiability and metrology investigations; choose the smallest justified next experiment.
-- [ ] Implement a correction or refinement only if independent evidence supports it; run affected pure/GPU regressions.
+- [x] Implement an explicitly opt-in research candidate supported by independent derivation; run native/GPU safety and affected regressions, preserving scientific refusals.
 - [ ] Run the complete prospectively fixed reference campaign when its prerequisites are met, retaining all verdicts and raw data.
 - [ ] Record evidence/limitations, verify artifact backup and owned cleanup, commit/push completed phases, and leave Q3 open unless all required gates pass.
 
@@ -5416,3 +5416,21 @@ Prospective experimental candidate specification:
   response before the separate fixed-terminal five-arm candidate experiment.
   Preserve the known heat-pulse recovery failure and independent CPU transient
   evidence. Candidate results cannot by themselves erase open calibration scope.
+
+Equilibrium completion: all 14 cases completed stationary/resolved at 26445ae,
+zero errors, stable sources and readable ledger. Local and remote checks verify
+714 compressed/uncompressed raw checkpoints and nine archived source hashes.
+The 730-member archive has matching GitHub server digest. Public result:
+docs/validation/quant3d-equilibrium-complete-2026-10-30.json. R30 local-stiffness
+errors do not form a smooth radius trend; translation remains a diagnostic,
+not an empirical correction.
+
+Candidate a11a814: default/alloy WGSL matches baseline in 19 independent checks.
+Native/rectangular fields match; four invalid native inputs refuse before
+advancement, a valid input advances, and negative local tau emits GPU flag32.
+Both legacy paths retain 390 exact field comparisons each; allocation controls,
+typecheck/build and CI41105696719 pass. Recovery retains its original refusal.
+All 497 candidate raw profiles and the 213-profile CPU transient diagnosis are
+backed up. Public proof: docs/validation/quant3d-lattice-candidate-2026-10-30.json.
+Full five-arm fixed-terminal candidate study is running under the original
+owned-rental cutoffs. BASE still fails sigma; remaining arms continue. Q3 is open.

@@ -353,4 +353,40 @@ nonfinite, stalled or overshooting endpoint cannot complete the study. Nineteen
 actual-CLI CPU lifecycle controls plus subset/stale-retry checks exercise these
 paths under an explicitly synthetic browser. They are execution tests, not
 equilibrium or published-reference evidence. The historical failed matrix is
-preserved; a separately pinned complete calibration run follows this repair.
+preserved. The separately pinned run at 26445ae completed all fourteen cases,
+with a readable ledger, stable sources and zero errors. All 714 compressed and
+uncompressed checkpoint hashes and nine archived source hashes verify locally.
+The 1,461,775,985-byte archive is backed up with matching server digest. See
+[complete equilibrium evidence](validation/quant3d-equilibrium-complete-2026-10-30.json).
+
+The new R30 local-stiffness replay is nonmonotone across R20/30/40, including the
+isotropic case. Scalar d0 and support anisotropy alone do not bound local
+curvature error. Half-cell translation is the next independent lattice-phase
+control; no coefficient is retuned from the needle discrepancy.
+
+### Explicit lattice-kinetic research candidate
+
+An independently derived principal-plane h-squared correction is available only
+through the immutable `latticeKinetics` research option, default false. App
+creation never enables it. Default pure/alloy, flux, transport and preserved
+Kobayashi WGSL match the frozen baseline byte-for-byte; both legacy paths also
+reproduce all 390 field comparisons each, with zero errors.
+
+The candidate uses local anisotropy in the additive relaxation formula, refuses
+nonpositive/nonfinite tau and checks CFL using corrected tau. Actual native
+admission, shader refusal and native/rectangular field hashes are tested.
+The planar and full-reference runners require an explicit `--lattice-kinetics`
+flag and record the chosen model. The five full-reference arms, fixed endpoints,
+metrology and ten-percent bands are unchanged.
+
+Original scalar-input and native candidate studies both complete with clean
+execution evidence but are scientifically refused: five positive recovery arms
+pass; added heat fails temperature RMS. Independent Float64 dynamics reproduces
+the residual with conserved enthalpy; its measured speed change predicts the
+liquid diffusion tail. This does not retroactively pass recovery or prove
+finite-width stability. See [candidate evidence](validation/quant3d-lattice-candidate-2026-10-30.json)
+and [transient reproduction](../scripts/research/quant3d-lattice-transient.md).
+
+The full five-arm candidate benchmark is running at frozen a11a814. Its base arm
+reaches the fixed endpoint but still fails sigma: 0.05269623 versus 0.063. Q3
+remains open; these diagnostics do not authorize production adoption.
