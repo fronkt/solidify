@@ -44,7 +44,13 @@ const r3 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(3));
       // a composition inside the drawable range for this pair
       const c = Math.max(1e-3, Math.min(sol.cap, (row.Cinv ?? sol.cap) * 0.5));
       const fig = F.layout({ base: bk, wt: { [el]: c } }, null);
-      if (!fig.ok) { refusedRows++; continue; }
+      if (!fig.ok) {
+        refusedRows++;
+        const expected = { "ni-W": /cannot|inconsistent|contradict/i, "fe-Si": /endpoints unresolved/, "mg-Zr": /endpoints unresolved/ };
+        if (!expected[key]?.test(fig.reason)) bad.push({ key, why: ["unexpected diagram refusal", fig.reason] });
+        if (row.unresolved && fig.learn !== row.unresolved) bad.push({ key, why: ["missing source-specific uncertainty"] });
+        continue;
+      }
 
       const line = id => fig.polylines.find(l => l.id === id);
       const liq = line("liquidus"), sld = line("solidus");
@@ -277,7 +283,7 @@ const r3 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(3));
 
   const ok = bad.length === 0 && markerBad.length === 0 && residBad.length === 0
     && withSolver.length >= 1 && withoutSolver.length >= 1
-    && invariantRows >= 15 && isoRows >= 1
+    && invariantRows >= 15 && isoRows >= 1 && refusedRows === 3
     && othersDominant.length >= 1 && chordDominant.length >= 1
     && noteBad.length === 0 && oppositeParts >= 1 && silentResiduals >= 1
     && chordBad.length === 0 && chordFigs >= 20;

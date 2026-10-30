@@ -771,7 +771,7 @@ export class Composer {
     // implying that everything on it is in the model.
     const phaseRows = d.totalWt > 0 ? `
       <div class="phases">
-        <div><span>EQUILIBRIUM LEAVES</span><b>${esc(d.phasesEquilibrium.join(" · "))}</b></div>
+        <div><span>EQUILIBRIUM LEAVES</span><b>${esc(d.phasesEquilibrium.join(" · ") || "unresolved")}</b></div>
         <div><span>SOLVER GROWS</span><b>${esc(d.phasesGrown.join(" · "))}</b></div>
       </div>${hintSlot("EQUILIBRIUM LEAVES")}
       ${row(`regime · ${esc(base.symbol)}–${esc(d.dominant ?? "")}`, d.regime.toLowerCase().replace(/-/g, " "), "w")}

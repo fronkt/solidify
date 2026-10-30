@@ -77,7 +77,7 @@ block("PD-REGIME-EXACT", () => {
   const bad = [];
   const counts = {};
   let productPeritectics = 0, isoRows = 0, invariantRows = 0;
-  const nameChanges = [], unplaceable = [];
+  const nameChanges = [], unplaceable = [], incomplete = [];
   // measured, then pinned: exactly one shipped row fails the geometric
   // consistency test, and a NEW one appearing here must fail this gate
   const KNOWN_UNPLACEABLE = ["ni-W"];
@@ -101,6 +101,27 @@ block("PD-REGIME-EXACT", () => {
           if (p?.fraction !== null) why.push(`iso returned a fraction at ${w}`);
           if (p?.notGrown !== null) why.push(`iso named an ungrown phase at ${w}`);
           counts[p?.regime] = (counts[p?.regime] ?? 0) + 1;
+        }
+        if (why.length) bad.push({ key, why });
+        continue;
+      }
+
+      if ([row.Tinv, row.Cinv, row.Csm].some(v => v == null)) {
+        incomplete.push(key);
+        for (const w of [0.01, base.solutes[el].cap, 50]) {
+          const p = at(w);
+          if (p?.regime !== "UNASSESSED" || p?.fraction !== null || p?.notGrown !== null || p?.equilibrium?.length !== 0) {
+            why.push(`${key} invented a phase claim at ${w} from unknown endpoints`);
+          }
+          if (!p?.source?.includes(row.unresolved)) why.push(`${key} omitted its unresolved reason`);
+        }
+        if (row.Cinv == null) {
+          const cap = base.solutes[el].cap;
+          const within = A.derive({ base: bk, wt: { [el]: cap } });
+          const beyond = A.derive({ base: bk, wt: { [el]: cap + 0.01 } });
+          if (within.dominant !== el || beyond.dominant !== null || !beyond.refusals.some(s => /scope/.test(s))) {
+            why.push(`${key} failed its bounded dilute-scope refusal`);
+          }
         }
         if (why.length) bad.push({ key, why });
         continue;
@@ -224,21 +245,22 @@ block("PD-REGIME-EXACT", () => {
   const bandRegimes = A.FAMOUS.map(p => { const f = safe(() => F.layout(p.mix, null)); return f?.ok ? f.band?.regime : null; }).filter(Boolean);
 
   const ok = bad.length === 0 && bandBad.length === 0
-    && invariantRows >= 20 && isoRows >= 1 && productPeritectics >= 2
+    && invariantRows >= 20 && isoRows >= 1 && productPeritectics >= 1
     && (counts["SINGLE-PHASE"] ?? 0) >= 1 && (counts["TWO-PHASE-TERMINATION"] ?? 0) >= 1
     && (counts["PAST-THE-INVARIANT"] ?? 0) >= 1
     && (counts["SINGLE-PHASE-ALL-COMPOSITIONS"] ?? 0) >= 1
     && !counts["UNASSESSED"] && !counts["NONE"]
     && unplaceable.length === KNOWN_UNPLACEABLE.length
+    && JSON.stringify(incomplete.sort()) === JSON.stringify(["fe-Si", "mg-Zr"])
     && new Set(bandRegimes).size >= 2;
   check("PD-REGIME-EXACT", ok, {
     invariantRows, isoRows, productPeritectics, bad, bandBad,
-    geometricallyUnplaceableRows: unplaceable,
+    geometricallyUnplaceableRows: unplaceable, incompleteEndpointRows: incomplete,
     regimeCensus: counts,
     bandRegimesOverPresets: [...new Set(bandRegimes)],
     primaryPhaseChangesAcrossTheInvariant: nameChanges.length,
     sample: nameChanges.slice(0, 4),
-    note: "UNASSESSED is asserted UNREACHABLE from the shipped table: every pair in BASES has a row in BINARY, which PD-ROW-SOURCED proves is a bijection",
+    note: "UNASSESSED is required for exactly the named incomplete or geometrically inconsistent rows; complete rows still exercise every phase regime",
   });
 });
 
@@ -566,6 +588,7 @@ block("PD-CAP-CEILING", () => {
     "al-Fe": { cap: 2, ceiling: 1.8, max: 1.75 },
     "al-Ti": { cap: 0.5, ceiling: 0.15, max: 0.14 },
     "fe-C": { cap: 2, ceiling: 0.53, max: 0.52 },
+    "fe-Ni": { cap: 10, ceiling: 5.15, max: 5.10 },
     "mg-Zr": { cap: 0.8, ceiling: 0.58, max: 0.57 },
     "zn-Al": { cap: 5, ceiling: 5, max: 4.95 },
   };
@@ -666,7 +689,7 @@ block("PD-CAP-CEILING", () => {
   })).filter(Boolean).sort((a, b) => a.marginWt - b.marginWt).slice(0, 3);
 
   const ok = bad.length === 0 && pinBad.length === 0 && unexpected.length === 0
-    && presetBad.length === 0 && Object.keys(binding).length === 5;
+    && presetBad.length === 0 && Object.keys(binding).length === Object.keys(PINNED).length;
   check("PD-CAP-CEILING", ok, {
     pairsWhereTheDiagramBinds: binding, pinMismatches: pinBad, unexpectedlyBinding: unexpected,
     allNinePresetsStillPour: presetBad.length === 0, presetsRefused: presetBad,

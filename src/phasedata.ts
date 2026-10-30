@@ -23,17 +23,17 @@
 // materials.ts already uses for Γ, ε₄, the Murr stacking-fault energies and the
 // Ransley–Neufeld hydrogen solubilities. Facts are not copyrightable expression
 // and no figure is reproduced: the app draws its own from the numbers.
-// docs/PHASE-AUDIT.md records, per row, an INDEPENDENT recomputation of these
-// numbers from openly-licensed CALPHAD databases (MatCalc mc_al/mc_fe/mc_ni,
-// ODbL 1.0; NIST solder, US Government work) through pycalphad, so a reader can
-// check any row without taking this file's word for it.
+// docs/PHASE-AUDIT.md records attempted independent cross-checks from open
+// CALPHAD databases. docs/PHASE-RECONCILIATION.md identifies database scope,
+// method failures and unresolved endpoints; an attempted audit is not proof
+// that a database represents every binary correctly.
 //
 // Bump PHASE_TABLE_VERSION whenever a row changes. PD-DOC-CONSTANTS gates the
 // documents that quote these numbers against the module itself, so a document
 // quoting a retired invariant fails the build rather than sitting there wrong.
 
 /** Bump on any row change. Quoted by science/index.html and README.md. */
-export const PHASE_TABLE_VERSION = "1.1.1";
+export const PHASE_TABLE_VERSION = "1.2.0";
 
 export type InvariantKind = "eutectic" | "peritectic" | "isomorphous";
 
@@ -45,12 +45,14 @@ export interface BinaryRow {
    * invention.
    */
   invariant: InvariantKind;
-  /** invariant temperature, °C; null for isomorphous */
+  /** invariant temperature, °C; null if absent or unresolved */
   Tinv: number | null;
-  /** liquid composition at the invariant, wt% solute; null for isomorphous */
+  /** liquid composition at the invariant, wt% solute; null if absent or unresolved */
   Cinv: number | null;
   /** max solid solubility in the base-rich primary phase, wt% solute */
   Csm: number | null;
+  /** Why an invariant endpoint remains unknown; incomplete rows make no phase claim. */
+  unresolved?: string;
   /**
    * The composition of the second phase itself, wt% solute (v7.1 P3).
    *
@@ -67,8 +69,8 @@ export interface BinaryRow {
    * `null` means THIS ROW DOES NOT CARRY IT, not that the phase has no
    * composition. Every value here is transcribed from the same cited sentence
    * that row's own `second` and `source` fields already state; a row whose
-   * literature value is a bracket rather than a number is left null and says so
-   * (Fe–Ni), and the eutectic rows are null because the classifier never
+   * endpoint is unresolved is left null and says so, and the eutectic rows
+   * are null because the classifier never
    * consults it for them — for a eutectic the two solids appear together and no
    * reaction consumes either one. Filling in the remaining rows is data entry
    * with its own audit and is deliberately not done half-way here.
@@ -223,20 +225,21 @@ export const BINARY: Record<string, Record<string, BinaryRow>> = {
       source: "Alves, Rezende, Senk & Kundin, J. Mater. Res. Technol. 2018 (open access), Table 2, values from Thermo-Calc TCFE7: Mn in delta 8.9 wt%, Mn in gamma 10.1 wt%, Mn in liquid 12.3 wt%, T_p = 1473 C; quoted k_delta = 0.724, k_gamma = 0.821. The primary assessment (Witusiewicz, Sommer & Mittemeijer, 'Reevaluation of the Fe-Mn phase diagram', J. Phase Equilib. Diffus. 25 (2004) 346) could not be opened;… DOWNGRADED FROM cited-found TO disputed. Geometry is a proper peritectic and SATISFIES the expected ordering (8.9 < 10.1 < 12.3, k < 1). But only ONE numeric source exists in this dataset - a single CALPHAD/TCFE7 table - and… Independently recomputed from MatCalc mc_fe v2.062 through pycalphad 0.11.2: 1473.6 °C / 12.72 wt% / C_SM 9.80 wt% (docs/PHASE-AUDIT.md).",
     },
     Si: {
-      invariant: "eutectic",
-      Tinv: 1200, Cinv: 19.2, Csm: 17.8,
-      reaction: "L -> bcc Fe(Si) solid solution (D0_3-ordered) + beta-Fe2Si",
-      second: "beta-Fe2Si (P-3m1, high-temperature silicide) at 20.1 wt% Si",
-      cite: "C_inv: Cui & Jung 2017, via Edmund et al. 2022; T and C_SM read off a figure · no invariant in the recomputation",
-      source: "C_inv: Edmund et al., 'The Fe-FeSi phase diagram at Mercury's core conditions', Nat. Commun. 13:387 (2022): 'Eutectic liquid compositions are located at about 19.2 wt% Si and 21.5 wt% Si above the DO3 + beta, and beta + B20 mixed phase regions, respectively', citing Cui & Jung, 'Critical reassessment of the Fe-Si system', Calphad 56 (2017) 108-125. T_inv and C_SM: read off the 0 GPa T-X diagram,… ONLY C_inv IS A QUOTED NUMBER. T_inv = 1200 C (+/- 15) and C_SM = 17.8 wt% (+/- 1) are FIGURE READS. Geometry OK but tight: 17.8 < 19.2 < 20.1 wt% Si (k = 0.927), and the ordering only survives because the second eutectic (beta +… The recomputation returned NO_INVARIANT_IN_RANGE; see docs/PHASE-AUDIT.md.",
+      invariant: "peritectic",
+      Tinv: 1286, Cinv: null, Csm: null,
+      unresolved: "The first Fe-rich liquid reaction is L + bcc_A2 -> bcc_B2 at 1286 C; its three composition endpoints are not tabulated in the source. No phase geometry is claimed.",
+      reaction: "L + bcc_A2 -> bcc_B2",
+      second: "bcc_B2 ordered Fe-Si solid solution (peritectic product)",
+      cite: "Bernhard et al. 2025, Fig. 9, DOI 10.1007/s11663-024-03419-1; first peritectic at 1286 C, endpoints unresolved",
+      source: "Bernhard et al., Metallurgical and Materials Transactions B 56 (2025) 2249-2276, DOI 10.1007/s11663-024-03419-1, Fig. 9 and Table VIII: the first Fe-rich liquid-involving invariant is bcc_A2 + liquid -> bcc_B2 at 1286 C. The later bcc_B2 + Fe2Si eutectic is 1194 C in this assessment (Table IX), not the first invariant. The prior 1200 C / 19.2 / 17.8 wt% tuple described that later eutectic and is withdrawn here. Peritectic endpoints are not tabulated; no values are invented from a figure. The 5 wt% dilute solver cap remains an instrument limit. MatCalc mc_fe v2.062 lacks Fe2Si, FeSi and Fe5Si3 and its BCC_B2 order/disorder contribution is unsupported by the sanitizer; NO_INVARIANT_IN_RANGE was a database/model-coverage failure, not evidence of an isomorphous diagram. See docs/PHASE-RECONCILIATION.md.",
     },
     Ni: {
       invariant: "peritectic",
-      Tinv: 1517, Cinv: 12.426, Csm: 4, Csecond: null,
+      Tinv: 1517.25, Cinv: 5.15, Csm: 4.02, Csecond: 4.54,
       reaction: "L + delta -> gamma",
-      second: "gamma-austenite (fcc Fe-Ni solid solution), the peritectic PRODUCT, at ~4.2-4.7 wt% Ni",
-      cite: "Swartzendruber et al. 1991 (T, C_SM); C_inv from MatCalc mc_fe, no cited value found",
-      source: "PARTLY CALPHAD-SOURCED: no cited value was found for the invariant liquid composition on this row, so that field is the MatCalc mc_fe v2.062 assessment via pycalphad 0.11.2 rather than a handbook reading; the remaining fields are cited. C_SM and T: Landolt-Boernstein binary summary for Fe-Ni, derived from Swartzendruber, Itkin & Alcock, 'The Fe-Ni (iron-nickel) system', J. Phase Equilib. 12 (1991) 288-312: '(delta-Fe) dissolves 3.8 at.% Ni at 1517 C' = 3.99 wt% Ni. Bracketing of the gamma point: Phelan, Reid & Dippenaar, Metall. Mater. Trans. A 34 (2003) 1931 call Fe-4.2 wt% Ni HYPOperitectic and Fe-4.7 wt% Ni HYPERperitectic. C_inv DELIBERATELY NULL - NOT A LAZY GAP. I re-attempted this during consolidation: Swartzendruber 1991, Cacciamani et al. Intermetallics 14 (2006) 1312, and the ASM Fe-Ni evaluation are all inaccessible (403/paywall), and the…",
+      second: "gamma-austenite (fcc Fe-Ni solid solution), the peritectic PRODUCT, at 4.54 wt% Ni",
+      cite: "Luo et al. 2007, Table 1, DOI 10.1007/s11433-007-0042-x; one coherent atomic-fraction tuple converted to wt%",
+      source: "Luo et al., 'A simple model for lamellar peritectic coupled growth with peritectic reaction', Science in China Series G 50 (2007) 442-450, DOI 10.1007/s11433-007-0042-x, Table 1: T_p = 1790.4 K, x_Ni(delta) = 0.0383, x_Ni(gamma) = 0.0433, x_Ni(liquid) = 0.0491. With M_Fe = 55.845 and M_Ni = 58.6934, these give 4.017502689, 4.540825071 and 5.147545467 wt% Ni; shipped concentrations round to 0.01 wt%. The 4.54 wt% product is therefore sourced, not inferred from a hypo/hyperperitectic bracket. This replaces the inconsistent combination of literature T/C_SM with a MatCalc liquid endpoint. An independent common-tangent calculation of mc_fe v2.062 instead gives 1503.918 C and delta/gamma/liquid = 10.0704/11.1946/12.4293 wt% Ni: a different assessed tuple that must not be mixed with the cited one. See docs/PHASE-RECONCILIATION.md.",
     },
     Cr: {
       invariant: "isomorphous",
@@ -261,8 +264,8 @@ export const BINARY: Record<string, Record<string, BinaryRow>> = {
       Tinv: 1282, Cinv: 21.6, Csm: 18.3,
       reaction: "L -> gamma (Ni, fcc) + delta-Ni3Nb",
       second: "delta-Ni3Nb (orthorhombic Pmmn, Cu3Ti-type; the 'delta' phase of alloy 718) at 31.7 wt% Nb",
-      cite: "Okamoto 1998, after Bolcavage & Kattner 1996 · checked against MatCalc mc_ni (pycalphad)",
-      source: "Okamoto, 'Nb-Ni (Niobium-Nickel)', J. Phase Equilibria 19(3) (1998) 289, Fig.1, reproducing the calculated diagram of Bolcavage & Kattner, J. Phase Equilibria 17(2) (1996) 92-100. Numbers PRINTED ON the figure and read directly from the rendered PDF: eutectic horizontal at 1282 C from (Ni) = 12.4 at.% Nb through L = 14.8 at.% Nb to Ni3Nb = 22.7 at.% Nb. Independent C_SM: Goodall, Data in Brief 26… GEOMETRY OK: 18.3 < 21.6 < 31.7 wt% Nb. Both compositions are printed labels on an ASM-published figure, which is the strongest evidence class in this table short of a verbatim sentence. REAL ASSESSMENT SPREAD, both defensible:… Independently recomputed from MatCalc mc_ni v2.036 through pycalphad 0.11.2: 1362.0 °C / 27.24 wt% / C_SM 24.94 wt% (docs/PHASE-AUDIT.md).",
+      cite: "Okamoto 1998 / Bolcavage & Kattner 1996; Chen et al. 2005 DTA 1285 +/- 2 C; mc_ni differs by 80 K",
+      source: "Okamoto, 'Nb-Ni (Niobium-Nickel)', J. Phase Equilibria 19(3) (1998) 289, Fig.1, reproducing the calculated diagram of Bolcavage & Kattner, J. Phase Equilibria 17(2) (1996) 92-100. Numbers PRINTED ON the figure and read directly from the rendered PDF: eutectic horizontal at 1282 C from (Ni) = 12.4 at.% Nb through L = 14.8 at.% Nb to Ni3Nb = 22.7 at.% Nb. Independent C_SM: Goodall, Data in Brief 26… GEOMETRY OK: 18.3 < 21.6 < 31.7 wt% Nb. Both compositions are printed labels on an ASM-published figure, which is the strongest evidence class in this table short of a verbatim sentence. Chen et al., J. Mater. Sci. 40 (2005) 6019-6022, DOI 10.1007/s10853-005-4553-4, independently measured the Ni-rich eutectic at 1285 +/- 2 C. Full and restricted LIQUID/FCC_A1/DELTA equilibria reproduce the 80 K MatCalc discrepancy, excluding unit conversion, phase filtering and reaction identity as its cause. The database extrapolation is not certified as equally defensible; the cited 1282 C tuple is retained. See docs/PHASE-RECONCILIATION.md. Independently recomputed from MatCalc mc_ni v2.036 through pycalphad 0.11.2: 1362.0 °C / 27.24 wt% / C_SM 24.94 wt% (docs/PHASE-AUDIT.md).",
     },
     Ti: {
       invariant: "eutectic",
@@ -304,7 +307,7 @@ export const BINARY: Record<string, Record<string, BinaryRow>> = {
       reaction: "L -> (Ni, fcc) + (W) bcc",
       second: "(W) bcc terminal solid solution (99.7 at.% W = 99.90 wt% W at the invariant)",
       cite: "Okamoto 1991, after Nagender Naidu et al. 1986; geometrically inconsistent, not drawn",
-      source: "Okamoto, 'Ni-W (Nickel-Tungsten)', J. Phase Equilibria 12(6) (1991) 706, Fig.1 (diagram of Nagender Naidu, Sriramamurthy & Rama Rao, J. Alloy Phase Diagrams 2(1) (1986) 1-11, modified with the (Ni) solvus and peritectoid temperatures of Fernandez Guillermet & Ostlund, Metall. Trans. A 17(10) (1986) 1809-1823). ALL FOUR NUMBERS PRINTED ON the figure and read directly: congruent liquidus/solidus… THE NUMBERS ARE SOLID (every one a printed label) BUT THE ROW MUST BE FLAGGED IN THE READOUT. (1) It is a EUTECTIC, not a peritectic: the liquid (20.7 at.% W) lies BETWEEN the two solids (17.5 and 99.7 at.%), and there is no… Independently recomputed from MatCalc mc_ni v2.036 through pycalphad 0.11.2: 1497.9 °C / 44.53 wt% / C_SM 40.14 wt% (docs/PHASE-AUDIT.md). *** GEOMETRICALLY INCONSISTENT, FOUND BY v7.1 P2 WHEN THIS ROW WAS DRAWN, AND NOT REPAIRED HERE. *** T_inv 1495 C is ABOVE pure Ni's 1455 C, so this system's Ni-rich liquidus RISES with tungsten; a rising liquidus means the first solid is RICHER in solute than the liquid (k > 1), which requires C_SM > C_inv. This row has C_SM 39.9 < C_inv 45, i.e. the liquid richer, k = 0.887 at the invariant — the opposite. The two statements cannot both be true: with C_SM < C_inv the (Ni) solidus would reach 1495 C at a SMALLER composition than the liquidus and therefore sit ABOVE it, and a solidus above a liquidus is not a phase diagram. The shipped dilute k = 1.3 agrees with the rising liquidus and disagrees with the chord, which is the same disagreement PD-CONSTRUCT-AGREE already records for this pair (ratios 0.89 / 0.68). One of T_inv, the reaction type, or the C_SM/C_inv pair is wrong and THIS INSTRUMENT HAS NOT RESOLVED WHICH, so nothing is invented: the numbers stand as read from the ASM figure, PD-SLOPE-CONSISTENT carries ni-W as its single named exception, and phasediagram.ts REFUSES to draw this pair rather than render an impossible figure. Every other one of the 24 non-isomorphous rows passes the same test, including the two other rows whose invariant sits above the base's melting point (Al-Ti 665 C with C_SM 1.32 > C_inv 0.15, and Mg-Zr 653.6 C with 2.58 > 0.58) — both consistent, both k > 1.",
+      source: "Okamoto, 'Ni-W (Nickel-Tungsten)', J. Phase Equilibria 12(6) (1991) 706, Fig.1 (diagram of Nagender Naidu, Sriramamurthy & Rama Rao, J. Alloy Phase Diagrams 2(1) (1986) 1-11, modified with the (Ni) solvus and peritectoid temperatures of Fernandez Guillermet & Ostlund, Metall. Trans. A 17(10) (1986) 1809-1823). ALL FOUR NUMBERS PRINTED ON the figure and read directly: congruent liquidus/solidus… THE NUMBERS ARE SOLID (every one a printed label) BUT THE ROW MUST BE FLAGGED IN THE READOUT. (1) It is a EUTECTIC, not a peritectic: the liquid (20.7 at.% W) lies BETWEEN the two solids (17.5 and 99.7 at.%), and there is no… Independently recomputed from MatCalc mc_ni v2.036 through pycalphad 0.11.2: 1497.9 °C / 44.53 wt% / C_SM 40.14 wt% (docs/PHASE-AUDIT.md). *** GEOMETRICALLY INCONSISTENT, FOUND BY v7.1 P2 WHEN THIS ROW WAS DRAWN, AND NOT REPAIRED HERE. *** T_inv 1495 C is ABOVE pure Ni's 1455 C, so this system's Ni-rich liquidus RISES with tungsten; a rising liquidus means the first solid is RICHER in solute than the liquid (k > 1), which requires C_SM > C_inv. This row has C_SM 39.9 < C_inv 45, i.e. the liquid richer, k = 0.887 at the invariant — the opposite. The two statements cannot both be true: with C_SM < C_inv the (Ni) solidus would reach 1495 C at a SMALLER composition than the liquidus and therefore sit ABOVE it, and a solidus above a liquidus is not a phase diagram. The shipped dilute k = 1.3 agrees with the rising liquidus and disagrees with the chord, which is the same disagreement PD-CONSTRUCT-AGREE already records for this pair (ratios 0.89 / 0.68). One of T_inv, the reaction type, or the C_SM/C_inv pair is wrong and THIS INSTRUMENT HAS NOT RESOLVED WHICH, so nothing is invented: the numbers stand as read from the ASM figure, PD-SLOPE-CONSISTENT carries ni-W as its single named exception, and phasediagram.ts REFUSES to draw this pair rather than render an impossible figure. Other complete invariant tuples pass this geometric test. Al-Ti rises with C_SM > C_inv; Mg-Zr and Fe-Si have unresolved endpoints and are refused separately, not certified by this test.",
     },
   },
   mg: {
@@ -313,8 +316,8 @@ export const BINARY: Record<string, Record<string, BinaryRow>> = {
       Tinv: 437, Cinv: 32.3, Csm: 12.9,
       reaction: "L -> (Mg) hcp + beta-Mg17Al12",
       second: "beta-Mg17Al12 (= gamma-Al12Mg17), bcc I-43m, a ~ 1.06 nm, at 43.9 wt% Al",
-      cite: "Nie 2012, Metall. Mater. Trans. A 43 (T, C_SM); C_inv recalled from ASM · checked against MatCalc mc_al",
-      source: "T_inv and C_SM read directly from J.F. Nie, 'Precipitation and Hardening in Magnesium Alloys', Metall. Mater. Trans. A 43A (2012) 3891, p.3892: 'a eutectic temperature of 710 K (437 C)' and 'The equilibrium solid solubility of Al in alpha-Mg is 11.8 at. pct (12.9 wt pct) at the eutectic temperature'. Same 11.8 at.% at 710 K attributed to J.L. Murray, Bull. Alloy Phase Diagrams 3 (1982) 60 in… CONFIDENCE DOWNGRADED TO recalled BECAUSE OF C_inv, EVEN THOUGH T AND C_SM ARE CITED. 32.3 wt% Al (30.1 at.%) is the researcher's recollection of ASM Vol.3 / the ASM Magnesium Specialty Handbook; no openable primary source states… Independently recomputed from MatCalc mc_al v2.037 through pycalphad 0.11.2: 435.3 °C / 33.00 wt% / C_SM 10.15 wt% (docs/PHASE-AUDIT.md).",
+      cite: "Nie 2012, DOI 10.1007/s11661-012-1217-2 (T, C_SM); liquid endpoint approximate; mc_al solid endpoint differs",
+      source: "T_inv and C_SM read directly from J.F. Nie, 'Precipitation and Hardening in Magnesium Alloys', Metall. Mater. Trans. A 43A (2012) 3891, p.3892: 'a eutectic temperature of 710 K (437 C)' and 'The equilibrium solid solubility of Al in alpha-Mg is 11.8 at. pct (12.9 wt pct) at the eutectic temperature'. Same 11.8 at.% at 710 K attributed to J.L. Murray, Bull. Alloy Phase Diagrams 3 (1982) 60 in… CONFIDENCE DOWNGRADED TO recalled BECAUSE OF C_inv, EVEN THOUGH T AND C_SM ARE CITED. 32.3 wt% Al (30.1 at.%) is the researcher's recollection of ASM Vol.3 / the ASM Magnesium Specialty Handbook; no openable primary source states… Nie DOI 10.1007/s11661-012-1217-2 was reopened in full in 2026: T and C_SM are directly stated, not recalled. Only the liquid endpoint remains approximate. Full and restricted LIQUID/HCP_A3/G_AL12MG17 equilibria reproduce the lower mc_al solid endpoint; it is not a coordinate or phase-filter error. See docs/PHASE-RECONCILIATION.md. Independently recomputed from MatCalc mc_al v2.037 through pycalphad 0.11.2: 435.3 °C / 33.00 wt% / C_SM 10.15 wt% (docs/PHASE-AUDIT.md).",
     },
     Zn: {
       invariant: "eutectic",
@@ -326,11 +329,12 @@ export const BINARY: Record<string, Record<string, BinaryRow>> = {
     },
     Zr: {
       invariant: "peritectic",
-      Tinv: 653.6, Cinv: 0.58, Csm: 2.58,
-      reaction: "L + (alpha-Zr) -> (Mg) hcp   [base solid is the PRODUCT; peritectic sits ABOVE pure Mg's melting point]",
-      second: "(alpha-Zr), hcp zirconium terminal solid solution -- there is NO intermetallic compound in the Mg-Zr system",
-      cite: "Schaum & Burnett 1952, J. Res. NBS 49 · checked against MatCalc mc_al (pycalphad)",
-      source: "C_inv and T: Schaum & Burnett, 'Magnesium-Rich Side of the Magnesium-Zirconium Constitution Diagram', J. Res. Natl. Bur. Stand. 49(3) (1952) 155, RP2352, read directly at nvlpubs.nist.gov: 'The peritectic reaction was found to take place at 654 C, beginning at 0.58 percent of zirconium'. 653.6 C is the ASM/Massalski-assessed value quoted throughout the CALPHAD literature; Metals 2022, 12, 1388… SECOND k > 1 SYSTEM, STRUCTURALLY IDENTICAL TO Al-Ti. Expected ordering for this peritectic class: C_inv < C_SM < C_second, i.e. 0.58 < 2.58 < ~99 - SATISFIED; k ~ 4.5 (reported k = 6.55, m = +6.9 K/wt%). A comparator assuming k… Independently recomputed from MatCalc mc_al v2.037 through pycalphad 0.11.2: 651.9 °C / 0.20 wt% (docs/PHASE-AUDIT.md).",
+      Tinv: 654, Cinv: 0.58, Csm: null,
+      unresolved: "Schaum and Burnett locate the peritectic liquid at 0.58 wt% Zr and 654 C, but a traceable Mg-rich solid endpoint is unavailable. No phase geometry is claimed.",
+      reaction: "L + (alpha-Zr) -> (Mg) hcp   [base solid is the PRODUCT]",
+      second: "(alpha-Zr) hcp terminal solid solution (peritectic reactant)",
+      cite: "Schaum & Burnett, NBS RP2352 (1952); 654 C / liquid 0.58 wt% Zr, Mg-rich solid endpoint unresolved",
+      source: "Schaum & Burnett, 'Magnesium-Rich Side of the Magnesium-Zirconium Constitution Diagram', J. Res. NBS 49 (1952) 155, RP2352, Fig. 7 and text, https://nvlpubs.nist.gov/nistpubs/jres/049/3/V49.N03.A04.pdf: peritectic at 654 C beginning at 0.58 percent zirconium. The prior C_SM = 2.58 wt% could not be traced to this source and is withdrawn; the solid endpoint is null rather than digitized without an uncertainty budget. The known liquid endpoint still bounds the dilute solver to 0.57 wt% Zr. mc_al v2.037 activates an unvalidated CBCC_A12 solution in this binary; restricting to terminal phases produces two HCP_A3 composition sets that the original phase-name dictionary silently merged. Neither calculation certifies C_SM. See docs/PHASE-RECONCILIATION.md.",
     },
   },
   cu: {

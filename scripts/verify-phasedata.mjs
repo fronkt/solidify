@@ -85,9 +85,13 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
 //    the wrong side of the diagram, which is the single most likely
 //    hand-entry error and one that no amount of sourcing would catch.
 {
+  const unresolved = rows.filter(r => r.row.invariant !== "isomorphous"
+    && [r.row.Tinv, r.row.Cinv, r.row.Csm].some(v => v == null));
+  const unresolvedKeys = unresolved.map(r => `${r.baseKey}-${r.el}`).sort();
   const bad = rows.filter(r => {
     const { invariant, Csm, Cinv, Tinv } = r.row;
     if (invariant === "isomorphous") return false;
+    if ([Csm, Cinv, Tinv].some(v => v == null)) return !r.row.unresolved || r.row.unresolved.length < 40;
     if (!Number.isFinite(Csm) || !Number.isFinite(Cinv) || !Number.isFinite(Tinv)) return true;
     if (Cinv <= 0 || Csm < 0) return true;
     if (invariant === "eutectic" && !(Csm < Cinv)) return true;
@@ -95,8 +99,9 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
   }).map(r => `${r.baseKey}-${r.el}`);
   const eut = rows.filter(r => r.row.invariant === "eutectic").length;
   const per = rows.filter(r => r.row.invariant === "peritectic").length;
-  const ok = bad.length === 0 && eut >= 1 && per >= 1;
-  check("PD-ORDERING", ok, { eutectic: eut, peritectic: per, bad });
+  const ok = bad.length === 0 && eut >= 1 && per >= 1
+    && JSON.stringify(unresolvedKeys) === JSON.stringify(["fe-Si", "mg-Zr"]);
+  check("PD-ORDERING", ok, { eutectic: eut, peritectic: per, explicitlyUnresolved: unresolvedKeys, bad });
 }
 
 // 5. PD-SOLUTE-SOURCED — the coefficient table gains provenance in the same
@@ -135,7 +140,7 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
   const KNOWN_BAD = ["ni-W"];
   const rising = [], inconsistent = [];
   for (const { baseKey, el, row } of rows) {
-    if (row.invariant === "isomorphous") continue;
+    if (row.invariant === "isomorphous" || row.Tinv == null || row.Csm == null || row.Cinv == null) continue;
     const base = A.BASES[baseKey];
     const si = M.MATERIALS[base.materialKey].si;
     const TmC = si.Tm - 273.15;
@@ -158,7 +163,7 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
   const ok = unexpected.length === 0 && repaired.length === 0
     && badSourced.length === 0 && rising.length >= 2;
   check("PD-SLOPE-CONSISTENT", ok, {
-    checked: rows.filter(r => r.row.invariant !== "isomorphous").length,
+    checked: rows.filter(r => r.row.invariant !== "isomorphous" && r.row.Tinv != null && r.row.Csm != null && r.row.Cinv != null).length,
     risingInvariants: rising, inconsistent, unexpected, repaired, badSourced,
   });
 }
@@ -184,9 +189,12 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
   for (const [bk, byBase] of Object.entries(PD.BINARY)) {
     for (const [el, row] of Object.entries(byBase)) {
       const key = `${bk}-${el}`;
-      if (!("Csecond" in row)) continue;
       const reactant = row.invariant === "peritectic" && row.Csm != null
         && row.Cinv != null && row.Csm < row.Cinv;
+      if (!("Csecond" in row)) {
+        if (reactant) bad.push({ key, why: "complete reactant-peritectic has no sourced product field" });
+        continue;
+      }
       if (!reactant) { bad.push({ key, why: "Csecond is carried on a row that is not a reactant-peritectic" }); continue; }
       if (row.Csecond == null) {
         // a null is an ANSWER here, and it has to say so in its own source
@@ -210,13 +218,20 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
       }
     }
   }
-  // Liveness on both halves: the field is carried by real rows, AND at least
-  // one row declines it for a stated reason, so "populate everything" and
-  // "populate nothing" both fail.
-  const ok = bad.length === 0 && carried.length >= 3 && nulls.length >= 1;
+  // Fe-Ni's source atomic fractions independently constrain all three fields.
+  // Complete reactant-peritectics must carry a sourced product; unknown
+  // invariant tuples are tested as explicit refusals by PD-REGIME-EXACT.
+  const feNi = PD.BINARY.fe.Ni;
+  const convert = x => 100 * x * 58.6934 / (x * 58.6934 + (1 - x) * 55.845);
+  const coherentFeNi = feNi.Tinv === 1790.4 - 273.15
+    && Math.abs(feNi.Csm - convert(0.0383)) < 0.005
+    && Math.abs(feNi.Csecond - convert(0.0433)) < 0.005
+    && Math.abs(feNi.Cinv - convert(0.0491)) < 0.005;
+  const ok = bad.length === 0 && carried.length >= 3 && coherentFeNi;
   check("PD-PRODUCT-SOURCED", ok, {
     rowsCarryingAProductComposition: carried, rowsDecliningIt: nulls, bad,
-    note: "Fe-Ni declines: its literature value is a 4.2-4.7 wt% bracket rather than a number, and the row's source says so",
+    coherentFeNi,
+    note: "Fe-Ni uses all three endpoints from Luo et al. 2007 Table 1, converted from atomic fraction to wt% and rounded together",
   });
 }
 
@@ -306,7 +321,7 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
   const kRatios = [];
   for (const [bk, byEl] of Object.entries(PD.BINARY)) {
     for (const [el, row] of Object.entries(byEl)) {
-      if (row.invariant === "isomorphous") continue;
+      if (row.invariant === "isomorphous" || row.Csm == null || row.Cinv == null) continue;
       const r = (row.Csm / row.Cinv) / A.BASES[bk].solutes[el].k;
       kRatios.push({ key: `${bk}-${el}`, r, entered: row.invariant === "eutectic" && row.Cinv <= 60 });
     }

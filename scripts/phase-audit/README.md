@@ -1,9 +1,18 @@
 # phase-audit — recomputing every row of `src/phasedata.ts`
 
+The [2026 reconciliation](../../docs/PHASE-RECONCILIATION.md) corrects five
+interpretations in the original audit. This is an attempted cross-check within
+specified database and algorithm scope, not proof that every binary is modeled.
+Fe-Si/Mg-Zr coverage failures and duplicate composition sets are now explicit
+unsupported results. See `reconcile.py` for full/restricted sensitivity probes
+and an independent Fe-Ni common-tangent calculation; `verify_audit.py` checks the
+method's data-loss regression without any database download.
+
+
 This is the tooling behind `docs/PHASE-AUDIT.md`. It recomputes the binary invariant
 (type, T_inv, C_inv, C_SM, second phase) for all 25 of the composer's (base, solute)
-pairs from openly-licensed CALPHAD databases, so no shipped row rests on a hand
-transcription alone.
+pairs from openly licensed CALPHAD databases where their scope permits. A failed
+or unsupported calculation does not certify the hand-entered row.
 
 **It is not part of `npm test` and it is not in CI.** It needs Python, pycalphad and a
 network fetch of four `.tdb` files, none of which a `npm ci` runner has — which is
@@ -40,8 +49,8 @@ Roughly 10 minutes per system on 8 cores, 5 systems concurrently.
   prime/double-prime transition precipitates) are suspended for an equilibrium
   calculation. Leaving them in puts the Al–Si eutectic at 604 °C instead of 577 °C.
 - `invariant.py` — the calculation. Locates the invariant as the composition where the
-  first-forming solid changes identity, which is the definition and reads eutectics and
-  peritectics with one code path.
+  first-forming solid changes identity, which can locate many eutectics and peritectics but cannot resolve same-identity
+  composition-set reactions. Duplicate vertices are refused rather than merged.
 - `runall.py` — the 25 systems and their scan windows. **The window is an input**, so a
   window that excludes an invariant reports `NO_INVARIANT_IN_RANGE` rather than
   inventing one.
