@@ -265,6 +265,27 @@ const LOADS3 = (alloy: boolean) => /* wgsl */ `  let c = vec3i(gid);
   let gph = vec3f(sE.r - sW.r, sN.r - sS.r, sU.r - sD.r) * inv2dx;
 
 `;
+// The quantitative scalar Laplacian has an isotropic leading truncation error:
+// (2 * faceSum + edgeSum - 24 * center) / (6 * dx^2). Keep LOADS3 unchanged
+// for the original fused kernel, and keep its arithmetic for split Kobayashi.
+const QUANT_EDGES3 = (() => {
+  const edges: number[][] = [];
+  for (let a = 0; a < 3; a++) for (let b = a + 1; b < 3; b++) {
+    for (const u of [-1, 1]) for (const v of [-1, 1]) {
+      const edge = [0, 0, 0]; edge[a] = u; edge[b] = v; edges.push(edge);
+    }
+  }
+  return edges;
+})();
+const quantLap3 = (name: string, channel: string, center: string) => /* wgsl */ `
+  if (P.solver == 1u) {
+    let edge${name} = ${QUANT_EDGES3.map(e => `textureLoad(state, cid3(P, c + vec3i(${e.join(", ")})), 0).${channel}`).join(" + ")};
+    lap${name} = (2.0 * (sE.${channel} + sW.${channel} + sN.${channel} + sS.${channel} + sU.${channel} + sD.${channel}) + edge${name} - 24.0 * ${center}) * (invdx2 / 6.0);
+  }`;
+const splitLoads3 = (alloy: boolean) => LOADS3(alloy)
+  .replace("let lapPhi =", "var lapPhi =")
+  .replace("let lapT   =", "var lapT   =")
+  .replace("  let gph =", `${quantLap3("Phi", "r", "phi")}\n${quantLap3("T", "g", "T")}\n  let gph =`);
 const EARLY3 = (alloy: boolean) => /* wgsl */ `  // mould wall: dead geometry — φ pinned 0, held at the mould temperature,
   // never claimed (walls keep id 0, so the claim loop needs no extra guard);
   // taps stamped into a wall self-heal next step. Used by the grain-selector
@@ -522,7 +543,7 @@ ${QUANT_COMMON3}
 @compute @workgroup_size(4, 4, 4)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
   if (gid.x >= P.n || gid.y >= P.n || gid.z >= P.n) { return; }
-${LOADS3(alloy)}
+${splitLoads3(alloy)}
   if (((P.scen == 3u || P.scen == 4u) && textureLoad(mask, c, 0).r == 1u)
       || textureLoad(grain, c, 0).r == PORE) {
     textureStore(phaseOut, c, vec4f(0.0, -phi, 0.0, 0.0)); return;
@@ -591,7 +612,7 @@ ${alloy ? QUANT_FACES3 : ""}
 @compute @workgroup_size(4, 4, 4)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
   if (gid.x >= P.n || gid.y >= P.n || gid.z >= P.n) { return; }
-${LOADS3(alloy)}${splitEarly3(alloy)}
+${splitLoads3(alloy)}${splitEarly3(alloy)}
   let aux = textureLoad(phiAux, c, 0);
   let phiNew = aux.r;
   let dPhi = aux.g;

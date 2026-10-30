@@ -1,6 +1,6 @@
 # Quantitative 3D solidification: implementation and acceptance contract
 
-Design checkpoint: 2026-10-29. The core and active-mode integration are implemented. Legacy preservation, allocation transactions, several independent physical checks and app integration have passed GPU checks. Alloy partition/width convergence and the long 3D tip operating-state benchmark remain unpassed. The acceptance targets below remain distinct from the recorded results.
+Design checkpoint: 2026-10-29. The core and active-mode integration are implemented. Legacy preservation, allocation transactions, several independent physical checks and app integration have passed GPU checks. Alloy partition/width convergence has passed. The long 3D tip operating-state benchmark remains unpassed; lattice bias is being reduced and independently measured before that comparison. The acceptance targets below remain distinct from the recorded results.
 
 ## Scope and order
 
@@ -66,7 +66,9 @@ tau(n) = tau0 a(n)^2
 
 The existing flux stores `epsBar^2 a^2` in `.w`, so the local relaxation factor is available without another texture. This is the full variational cubic operator, not a directional multiplier on the Laplacian. Material calibration uses the measured `si.eps4` rather than the qualitative `to3D` tuning.
 
-Use W0 and tau0 as solver units. Reuse the physical calibration for d0, W0, tau0 and the temperature reference, with dimension-aware timestep selection. The 7-point diffusion operator has an explicit stability edge `dt <= dx^2/(6 Dtilde)`. The 2D safety coefficient 0.15 is close to that edge in 3D; use a separately named 3D coefficient 1/12 as the initial half-edge margin, without changing 2D defaults. Reaction and anisotropy stability still require verification.
+Use W0 and tau0 as solver units. Reuse the physical calibration for d0, W0, tau0 and the temperature reference, with dimension-aware timestep selection. Quantitative phase and heat now use the 19-point scalar Laplacian `(2 faceSum + edgeSum - 24 center)/(6 dx^2)`, with six face and twelve edge neighbors. Its leading truncation error is `dx^2 Laplacian^2/12`: it remains second order, while removing the leading lab-frame cubic error of the 7-point scalar stencil. The anisotropic variational correction and conservative solute face currents retain their existing discretizations. The original fused and diagnostic split Kobayashi paths retain the 7-point expressions.
+
+The 19-point scalar diffusion Fourier stability edge is `dt <= 3 dx^2/(8 Dtilde)`; the stricter nonnegative-weight bound is `dx^2/(4 Dtilde)`. Retain the existing conservative 3D coefficient `1/12`, below both bounds, without changing 2D defaults. The independent fixed-volume Wulff comparison below measures the resulting improvement and residual bias, without changing material anisotropy or fitting to a needle. Reaction and anisotropy stability still require verification; these scalar bounds do not establish full-scheme stability.
 
 Under imposed temperature, omit conduction and latent feedback but retain the explicitly selected external program. Under coupled pure heat, multiply conduction by `dTherm` in all ordinary, pore and wall branches. Niyama's non-latent cooling rate must use that same factor; otherwise the defect map becomes inconsistent with the temperature evolution.
 
@@ -188,3 +190,22 @@ The final focused partition invocation passed (`verify-out/q3-at-stefan-target.l
 The lambda=6 negative-control error is at least 0.009459 across windows, exceeding the required `2*0.0002632+0.005=0.0055264`. All arms had finite nonnegative concentration, zero transverse variation, far liquid 0.3000000119 and matched travel within a single substep. The partition gate took 134.2 seconds on the recorded adapter. The 10,000-step closed-box mass criterion is separate: these longer partition trajectories record their own CPU mass drift and do not establish the same 5e-5 band after hundreds of thousands of substeps.
 
 The tip harness has demonstrated allocation, finite fields and growth in its intended geometry and has measured throughput. It has not yet established a stationary, domain-independent or mesh-refined operating state against the published 3D P and sigma*. Do not count the throughput/liveness run as the literature tip benchmark. Arbitrary spatial-rotation covariance and mesh-anisotropy convergence also remain distinct from the crystal-symmetry check above.
+
+## Independent lattice diagnosis and revised long-run protocol
+
+The first five-arm cloud study used revision `ad96166`, real NVIDIA RTX 5090 WebGPU, nine matching production/specialized field-hash comparisons and zero device errors. All five arms stopped during startup under the original instantaneous D/V clearance proxy; none reached an accepted operating state. Eleven shared base/domain checkpoints were exactly identical, so different proxy verdicts did not demonstrate actual boundary contamination. Those runs establish neither agreement nor disagreement with the published steady reference.
+
+Protocol v3 keeps the original physical coefficients and accuracy bands. Its geometry and horizon cover the original 10% reference band prospectively, using `Vmin=.9^3 Vref`, `rhomax=rhoref/.9^2` and `tmax=8D/Vmin^2`. It records direct temperature patches on all three far faces and raw phase brackets for independent reprocessing. Startup D/V remains a diagnostic. Final acceptance still requires stationarity, resolved curvature, six conservative diffusion lengths of travel, and eight conservative lengths of clearance at EVERY retained steady-window sample. Domain/dx/dt/width convergence and uncertainty-inclusive reference comparisons remain mandatory.
+
+A separate fixed-volume equilibrium experiment exposed a substantial lattice anisotropy in the original 7-point scalar stencil. At n=96, dx/W0=.8, initial R/W0=20, lambda=4 and a fixed 1,000 tau0 horizon, uniform-temperature volume feedback produced stationary, resolved Wulff shapes. Local support fits at [100]/[110] infer epsilon; [111] is held out. The feedback controls volume only and supplies no fitted energy coefficient. Both methods used identical initial conditions, metrology, horizon and stationarity criteria, without fitting delta to a dendrite outcome.
+
+| Scalar stencil | Raw epsilon | Measured effective epsilon | Geometry uncertainty | Effective d0/W0 |
+|---|---:|---:|---:|---:|
+| Original 7-point | 0 | -.002816782 | .0000128 | .21897633 |
+| Original 7-point | .0171 | .013569171 | .0000231 | .21886903 |
+| Isotropic 19-point research candidate | 0 | -.000101146 | .0000248 | .21836795 |
+| Isotropic 19-point research candidate | .0171 | .016602039 | .0000483 | .21820485 |
+
+The 19-point candidate reduces the isotropic-case bias by about 28 times and the requested-anisotropy error from 20.65% to 2.91%. It is still a second-order method with residual mesh and finite-width error. The continuum d0/W0 is .8839/4=.220975; finite-radius effective d0 is report only. These equilibrium measurements do not establish kinetic cancellation or a stationary needle. Existing a(n)^2 relaxation retains leading continuum beta cancellation; discrete coupled-heat beta requires a separate outer-temperature measurement if a kinetic correction is proposed. No lattice coefficient is inferred from needle P or sigma.
+
+Artifacts include `verify-out/q3-cloud-wulff-result.json` and `q3-cloud-wulff19-result.json`, with complete histories, source/candidate hashes, metrology controls, hardware and zero-error reports. The checksum-verified cloud archive also preserves the original failed five-arm study. These measurements motivate the quantitative-only stencil change and its subsequent regression/reference campaign; they do not mark Q3 complete.
