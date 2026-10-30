@@ -54,7 +54,7 @@ export function bridgeOf(u: Units, material: string): Bridge {
  *  pure number that is not a fraction (a projection coordinate), `id` a label
  *  that is a number (a grain's id) */
 export type QKind = "temp" | "dtemp" | "time" | "rate" | "length" | "fraction" | "percent" | "count"
-  | "angle" | "volume" | "dimless" | "id";
+  | "angle" | "volume" | "dimless" | "id" | "seconds" | "celsius";
 
 /** a plotted quantity: its kind, its symbol (markup allowed) and a name for
  *  the axis title ("" for a symbol-only title) */
@@ -117,6 +117,11 @@ export function resolve(q: Quantity, b: Bridge, span = 0): Resolved {
       // the full title names the scale's anchor; a short panel keeps the word
       if (!b.known) return { ...same("dimensionless, T_{m} = 1", dim), short: title("", dim, "dimensionless"), unit: "dimensionless" };
       return { title: title(q.name, q.sym, "°C"), short: title("", q.sym, "°C"), sym: q.sym, unit: "°C", si: true, conv: v => u.celsius(v) };
+    case "celsius": return { ...same("°C"), si: true };
+    case "seconds": {
+      const tu = timeUnit(span);
+      return { title: title(q.name, q.sym, `${tu.unit}, furnace clock`), short: title("", q.sym, `${tu.unit}, furnace`), sym: q.sym, unit: tu.unit, si: true, conv: v => v * tu.perSecond };
+    }
     case "dtemp":
       if (!b.known) return same("dimensionless", dim);
       return { title: title(q.name, q.sym, "K"), short: title("", q.sym, "K"), sym: q.sym, unit: "K", si: true, conv: v => u.kelvin(v) };
@@ -183,6 +188,8 @@ export function outColumns(cols: Column[], b: Bridge): OutColumn[] {
         break;
       }
       case "length": out.push({ key: `${c.key}_um`, head: `${c.q.sym} (µm)`, values: c.values }); break;
+      case "seconds": out.push({ key: `${c.key}_s`, head: `${c.q.sym} (s)`, values: c.values, si: "time" }); break;
+      case "celsius": out.push({ key: `${c.key}_C`, head: `${c.q.sym} (°C)`, values: c.values }); break;
       case "fraction": out.push({ key: c.key, head: `${c.q.sym} (dimensionless)`, values: c.values }); break;
       case "percent": out.push({ key: `${c.key}_percent`, head: `${c.q.sym} (%)`, values: c.values }); break;
       case "count": out.push({ key: c.key, head: `${c.q.sym} (count)`, values: c.values }); break;
