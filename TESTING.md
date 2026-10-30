@@ -12,6 +12,9 @@ seventeen-script browser-free CI set:
   The original capture was repeated before editing the volume core; all 390 hashes
   agreed. Metadata and hashes live in `scripts/fixtures/kob3d-baseline.json`; large
   raw snapshots are retained locally under `verify-out/q3-kob-original`.
+  Early auxiliary-texture and late bind-group failures must preserve all original
+  bytes and permit continued growth. Overlapping quant/alloy preparations must
+  deduplicate, and off/on must cancel stale alloy publication.
 - `verify-quant3d.mjs` checks a stationary analytic tanh plane in all three normals,
   critical spheres with the two-curvature radius and a one-curvature cylindrical
   control, the insulated `sum(T-latent*psi)` ledger, a two-sided sharp-interface
@@ -20,9 +23,39 @@ seventeen-script browser-free CI set:
   initial conditions and sharp-interface predictions are independent of the GPU
   update. The plane width target is 2%, refined critical-radius bracket 5%, Stefan
   travel target 5%, and concentration/energy drift target 5e-5. These are the design
-  criteria in `docs/QUANT-3D.md`, not claims that an unmeasured solver has passed.
+  criteria in `docs/QUANT-3D.md`.
   Invalid/clipped/unresolved profiles fail. AT-on/off profiles and their actual
   thin-interface velocity ratios remain in `verify-out/quant3d-result.json`.
+
+The alloy partition reference uses the production 3D shader strings in a
+`1024x8x8` domain, with only integer bounds specialized. Twelve raw cube hashes
+for state, IDs, concentration and age must first agree with `Sim3D`. Both
+lambda=3 and 6 traverse exactly 120 capillary lengths; the final crossing must
+use one substep. A one-sided Stefan calculation targets nominal `V*tau0/W=.08`
+at lambda=6 and chooses `Ttilde=.8692701173245906` before measuring partition.
+Every AT-on/off arm must have both nominal and local relaxation rates below .1,
+an unchanged far liquid, finite nonnegative concentration and transverse
+invariance. The grid is `dx/W0=.4`; the timestep is half the smaller independent
+thermal and local phase bounds.
+
+Outer metrology removes the known diffuse mixture factor, fits the transient
+erfc liquid profile and leading inverse-displacement solid history, and checks
+all three fixed windows 5–9, 6–10 and 7–11 interface widths from the front.
+Analytic controls include a deliberately wrong partition and an invalid profile.
+Window spread must stay below .0015 and normalized fit residuals below .005.
+The original 10% partition/width bands and `off_error > 2*on_error + .005` hold
+at the worst window. No endpoint band was widened after the two documented
+failed fixture attempts.
+
+The 2026-10-29 focused run passed with AT-on `k_eff=.149988/.149760` and AT-off
+`.155712/.160165`, for `k=.15`. Nominal rates ranged from .0206 to .0847;
+all far liquid values remained .3000000119. This gate took 134 seconds. Other
+focused gates passed: width .99687 W0, refined sphere error 1.56%, refined Stefan
+travel error .934%, energy drift 5.38e-6 and 10,000-step mass drift at most 6.0e-6.
+The 5e-5 conservation criterion is for 10,000 steps. The longer partition
+trajectories record their actual mass drift separately and do not claim that
+same bound after hundreds of thousands of steps. The full suite still must run
+after the final freeze.
 
 These gates do not establish a full three-dimensional dendrite operating-state
 reference on their own. A published 3D tip comparison additionally needs domain,
@@ -103,7 +136,11 @@ this suite. If you want to run the physics/UI verification yourself, do it local
 - **`verify-completion-gpu.mjs`** exercises the actual instrument: calibration
   admission and old-link fallback, grid/resolution sharing, paused live-pour
   recording, figure dialogs, real archive-button download and PNG decoding,
-  optimizer observations, furnace preview, and 3D export. No software GPU fallback.
+  optimizer observations, furnace preview, and 3D export. It also checks actual
+  calibrated-volume entry, pending coupling updates, independent 2D parameters,
+  pure growth/status, composed quantitative sharing and chemistry restoration,
+  unsupported symmetry/steel refusal, and truthful unresolved Fe-Si/Mg-Zr panels.
+  No software GPU fallback.
   Browser cleanup is bounded to ten seconds for a stalled Chrome shutdown;
   each suite script has a ten-minute process timeout. Cleanup preserves verdicts.
 

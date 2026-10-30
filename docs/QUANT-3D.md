@@ -1,6 +1,6 @@
 # Quantitative 3D solidification: implementation and acceptance contract
 
-Design checkpoint: 2026-10-29. The core and active-mode integration are implemented in the working tree and await GPU validation. The acceptance targets below are not measured results.
+Design checkpoint: 2026-10-29. The core and active-mode integration are implemented. Legacy preservation, allocation transactions, several independent physical checks and app integration have passed GPU checks. Alloy partition/width convergence and the long 3D tip operating-state benchmark remain unpassed. The acceptance targets below remain distinct from the recorded results.
 
 ## Scope and order
 
@@ -145,6 +145,43 @@ Use `P=rho*V/(2D)` and `sigma*=2D*d0/(rho^2*V)` with the paper's local tip-radiu
 
 [Karma, PRL 87, 115701 (2001)](https://doi.org/10.1103/PhysRevLett.87.115701) is the dilute-alloy anti-trapping reference. [Echebarria et al., PRE 70, 061604 (2004)](https://arxiv.org/pdf/cond-mat/0404164), equations 8–11 and Appendix B, explicitly separates concentration conservation, anti-trapping, face discretization and a temperature-dependent relaxation time. The temperature factor is required for the port's externally driven alloy mode; it does not itself establish a model of coupled physical heat and solute diffusion.
 
-Planned harness: `scripts/verify-passsplit3d.mjs` for baseline equivalence, `scripts/verify-quant3d.mjs` for planar/sphere/partition/conservation, plus an independently sourced tip fixture JSON and documented long-run tip check. Browser-free calibration/face-flux arithmetic should be gated separately. Fixture metadata records source revision, phase-table version, seed, adapter, grid, dt, dx, boundary conditions and all measured liveness/convergence diagnostics.
+The implemented harness consists of `scripts/verify-passsplit3d.mjs` for baseline equivalence, `scripts/verify-quant3d.mjs` for planar/sphere/partition/conservation, and the separate long-run `scripts/verify-quant3d-tip.mjs` with an independently sourced fixture JSON. Fixture metadata records source revision, phase-table version, seed, adapter, grid, dt, dx, boundary conditions, source/fixture hashes and measured liveness/convergence diagnostics.
 
-The untouched fused source at revision `d59471e` has 390 raw golden field captures under `verify-out/q3-kob-original/manifest.json`. Repeating the original capture reproduced all 390 SHA256 values. A browser-free generated-source comparison also confirms that the refactored fused main-function expressions are token-identical to that revision, and checks generated binding uniqueness. Neither observation substitutes for the pending GPU split comparison or independent quantitative benchmarks.
+The untouched fused source at revision `d59471e` has 390 raw golden field captures under `verify-out/q3-kob-original/manifest.json`. Repeating the original capture reproduced all 390 SHA256 values. A browser-free generated-source comparison also confirms that the refactored fused main-function expressions are token-identical to that revision, and checks generated binding uniqueness. The separate GPU split comparison and physical benchmarks are recorded below.
+
+## Recorded GPU evidence
+
+The following results were obtained on 2026-10-29 from the named scripts. Focused invocations explicitly marked other gates as skipped; these results do not represent one complete final regression-suite run.
+
+| Check | Recorded result | Evidence |
+|---|---|---|
+| Original Kobayashi preservation | Refactored fused and diagnostic split each reproduced all 390 original raw field hashes across eight live fixtures; zero mismatches or GPU errors. | `scripts/verify-passsplit3d.mjs`; `verify-out/q3-passsplit-first.log` |
+| Allocation transactions | Injected auxiliary-texture and bind-group failures preserved every original field byte, parameters and solute-pair identity, then allowed continued Kobayashi evolution. Concurrent quant/alloy requests deduplicated; off/on canceled stale publication; successful quantitative continuations had flags 0. | `PASSSPLIT3-ALLOCATION`; `verify-out/q3-passsplit-allocation.log` |
+| Planar equilibrium | All three coordinate normals had fitted width about 0.99687 W0 and drift below 2.1e-5 cells after 2,000 steps, with zero transverse variation. | `QPF3-EQUIL`; `verify-out/q3-physics-initial.log` |
+| Sphere and cylinder curvature | Estimated sphere critical-radius errors were 1.98% at dx/W0=0.8 and 1.56% at 0.4. The one-curvature cylindrical control differed by 1.80%. Both sides of every bracket moved in the predicted opposite directions. | `QPF3-GIBBS-THOMSON`; same log |
+| Insulated pure heat | The 10,000-step energy-ledger relative drift was 5.38e-6, with live phase evolution. | `QPF3-ENERGY`; same log |
+| Crystal orientation | Isotropic results were identical for changed quaternions. Cubic 90-degree agreement was within 1.2e-7 in phase, while a 30-degree crystal rotation produced a live, different field. This establishes crystal symmetry response, not arbitrary spatial-rotation or mesh-anisotropy convergence. | `QPF3-COVARIANCE`; same log |
+| Stefan motion | Travel error against the independent similarity solution fell from 2.01% at dx/W0=0.8 to 0.934% at 0.4 over about 60 tau0. | `QPF3-STEFAN`; `verify-out/q3-physics-alloy.log` |
+| Closed-box alloy mass | All four 10,000-step combinations of AT on/off and mold/no-mold used a nonuniform oblique 3D field and pore. Relative concentration drift ranged from 7.6e-7 to 6.0e-6; GPU reduction versus CPU sum differed by 1.6e-9 to 4.5e-9. No negative or non-finite concentrations occurred. | `QPF3-MASS`; same log |
+| App integration | Eight completion checks passed, including rapid pending-lambda coalescing, live pure 3D flags 0, independent mode parameters/pitch, calibrated setup links and Kobayashi restoration, unsupported-symmetry refusal, imposed-alloy export, composed-mix round trips, unsupported-steel withdrawal and visible unresolved Fe-Si/Mg-Zr phase panels. | `scripts/verify-completion-gpu.mjs`; `verify-out/q3-completion-final.log` |
+
+The first partition/width fixture at Ttilde=0.55 failed the existing acceptance bands. Its lambda=6 runs reached tau(T)V/W about 0.46 with AT and 1.18 without AT; the far-field and matched-travel checks also failed. Those results are retained in `q3-physics-alloy.log`; they do not validate quantitative partitioning.
+
+The first long-domain rectangular rerun at Ttilde=0.9, dx/W0=0.4 and 120 d0 travel matched within one substep produced AT-on k_eff values 0.15122 and 0.15077 for lambda 3 and 6. Both nominal tau0 V/W values were below 0.1, far fields were undisturbed, and transverse invariance was exact. However, the largest AT-off error was only 0.00482: that invocation failed the original negative-control separation requirement (`verify-out/q3-at-rect.log`). Its raw exponential liquid extrapolation and linear solid-history fit also retained a small diffuse-mixture bias. These failed measurements remain part of the audit history.
+
+The accepted redesign selected its drive from the independent one-sided solute Stefan problem before measuring partition. With `ci=c0/k*[1-(1-k)T]`, mass balance gives `Omega=(ci-c0)/[(1-k)ci]=sqrt(pi)*beta*exp(beta^2)*erfc(beta)` and front velocity `V=2*D*beta^2/s` at displacement `s`. Targeting nominal `V*tau0/W=.08` at lambda=6 and `s=120*d0` gives beta=0.4336517346 and Ttilde=0.8692701173245906. Lambda 3 uses the same temperature, chemistry and physical displacement. Each arm uses a 1024x8x8 domain, dx/W0=0.4 and half the smaller thermal/local-phase timestep bound. The final crossing is one substep; both nominal and local velocity ratios must remain below 0.1 at measurement. Twelve raw cube comparisons of state, IDs, concentration and age first prove the rectangular shader specialization agrees exactly with production `Sim3D`.
+
+The metrology now divides out the model's known mixture factor `A=1-(1-k)psi`, fits an erfc liquid profile using the measured time, initial interface position and known diffusivity, and fits the leading solid-history correction against inverse displacement. Fixed outer windows 5–9, 6–10 and 7–11 W0 are all tested. Analytic erfc/tanh-mixture/history controls recover imposed partition values, including a deliberately wrong k_eff=0.18; an oscillatory invalid profile fails the residual check. Independent erf reference values agree within 1.4e-7. Window spread is limited to 0.0015 and normalized profile residuals to 0.005. The original 10% partition and width bands and `off_error > 2*on_error + 0.005` requirement are evaluated at the worst window, without widening a band.
+
+The final focused partition invocation passed (`verify-out/q3-at-stefan-target.log`; raw profiles in `verify-out/quant3d-result.json`):
+
+| lambda | AT | k_eff, central window | All-window range | Nominal tau0 V/W | Local tau(T)V/W | Steps |
+|---|---|---|---|---|---|---|
+| 3 | on | 0.1499877 | 0.1499795–0.1499901 | 0.02056 | 0.005369 | 502,585 |
+| 3 | off | 0.1557122 | 0.1550400–0.1558656 | 0.02116 | 0.005526 | 487,793 |
+| 6 | on | 0.1497604 | 0.1497368–0.1497730 | 0.08187 | 0.021377 | 62,252 |
+| 6 | off | 0.1601655 | 0.1594594–0.1604933 | 0.08463 | 0.022099 | 59,919 |
+
+The lambda=6 negative-control error is at least 0.009459 across windows, exceeding the required `2*0.0002632+0.005=0.0055264`. All arms had finite nonnegative concentration, zero transverse variation, far liquid 0.3000000119 and matched travel within a single substep. The partition gate took 134.2 seconds on the recorded adapter. The 10,000-step closed-box mass criterion is separate: these longer partition trajectories record their own CPU mass drift and do not establish the same 5e-5 band after hundreds of thousands of substeps.
+
+The tip harness has demonstrated allocation, finite fields and growth in its intended geometry and has measured throughput. It has not yet established a stationary, domain-independent or mesh-refined operating state against the published 3D P and sigma*. Do not count the throughput/liveness run as the literature tip benchmark. Arbitrary spatial-rotation covariance and mesh-anisotropy convergence also remain distinct from the crystal-symmetry check above.

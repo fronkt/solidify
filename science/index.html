@@ -642,10 +642,10 @@
       <tr><td>Solute conservation</td><td>flat over 20 000 substeps of growth</td><td>1.6×10⁻³</td></tr>
     </table>
 
-    <p>And what it does <i>not</i> fix. The Lewis mismatch is unchanged — one explicit grid at one
-    timestep still cannot carry heat and solute four orders apart, and the alloy path anchors on
-    solute. The calibrated solver is <b>2D only</b>; the volume still runs the Kobayashi model, and
-    the switch says so rather than appearing and doing nothing. And the thin-interface expansion has
+    <p>And what it does <i>not</i> fix. The 2D coupled-alloy Lewis mismatch is unchanged: one explicit
+    grid at one timestep still cannot carry heat and solute four orders apart, and its clock anchors
+    on solute. The calibrated 3D alloy path instead uses an imposed temperature field. The 2D
+    measurements above do not establish a 3D needle operating state. The thin-interface expansion has
     a validity bound of its own, τ<sub>0</sub>V/W<sub>0</sub> ≲ 0.2, which a deeply undercooled pure
     melt reaches by λ ≈ 4 — the app reports λ and the ratio it implies so that stays visible.</p>
 

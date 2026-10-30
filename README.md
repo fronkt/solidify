@@ -320,9 +320,21 @@ the same dial, untouched — reads 11 K where the Kobayashi scaling made it 37 K
 band real castings occupy, reached by fixing the temperature scale rather than by tuning
 nucleation.
 
-Limits, stated: it is **2D only** (the volume still runs Kobayashi, and the switch says so
-instead of appearing and doing nothing), the Lewis mismatch is unchanged, and the expansion has
-its own validity bound `τ0·V/W0 ≲ 0.2` that a deeply undercooled *pure* melt reaches by λ ≈ 4.
+Calibrated **3D volumes** support smooth cubic interface energy. Pure melts solve heat diffusion
+and latent release; dilute alloys conserve concentration through face currents and use an imposed
+temperature field with EFKP's temperature-dependent relaxation time. Hexagonal, icosahedral and
+cusped shapes use the qualitative solver. Each dimension retains its own calibration and scale.
+
+The 3D checks include a sphere's two-curvature critical radius (1.56% error after refinement),
+a planar Stefan front (0.934% error after refinement), and closed-volume heat and solute ledgers.
+Both 3D Kobayashi dispatch paths reproduce all 390 original field hashes. See
+[the 3D acceptance record](docs/QUANT-3D.md) for measured conditions and outstanding checks.
+The published 3D needle operating-state benchmark is separate from the 2D results above.
+
+Limits, stated: the 2D coupled-alloy Lewis mismatch is unchanged. The 3D alloy path uses imposed
+temperature instead of claiming a coupled physical heat/solute solution. The thin-interface
+expansion also has its own low-speed validity bound; a deeply undercooled *pure* melt reaches
+`τ0·V/W0 ≈ 0.2` by λ ≈ 4. Calibration does not remove the need for convergence checks.
 
 Two consequences worth knowing. The undercooling slider's own maximum is deeper than any
 real aluminium melt reaches (249 K against a Turnbull limit near 187 K) — it turns red

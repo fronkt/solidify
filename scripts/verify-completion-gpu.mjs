@@ -268,6 +268,7 @@ try {
         solver: S.sim3d().params.solver, issue: S.app.calibrationIssue(), parameters: { ...S.sim3d().params } };
     });
     assert(state.time > 0 && state.solver === 1 && !state.status?.issue, JSON.stringify(state));
+    await page.evaluate(() => window.__solidify.app.setView3d(1));
     const packed = await archive("completion-run-3d-calibrated.zip");
     assert(packed.manifest.solver.includes("TRUE 3D") && packed.manifest.solver.includes("coupled heat"));
     assert.equal(packed.manifest.parameters.solver, 1);
@@ -323,6 +324,22 @@ try {
     });
     assert.equal(withdrawn.solver, 0, JSON.stringify(withdrawn));
     assert(withdrawn.reason, JSON.stringify(withdrawn));
+  });
+  await block("SESSION-PHASE-REFUSAL", async () => {
+    await boot();
+    for (const hash of ["#alloy=fe:Si4", "#alloy=mg:Zr0.4"]) {
+      const shown = await page.evaluate(hash => {
+        const S = window.__solidify; S.app.setRun(false);
+        const applied = S.composer.applyHash(hash); S.app.openComposer();
+        const root = document.getElementById("composer");
+        return { applied, visible: root?.classList.contains("show"),
+          equilibrium: root?.querySelector(".phases b")?.textContent,
+          diagram: root?.querySelector(".figwrap")?.textContent };
+      }, hash);
+      assert(shown.applied && shown.visible && shown.equilibrium === "unresolved" && /no diagram/i.test(shown.diagram)
+        && /unresolved/i.test(shown.diagram), JSON.stringify({ hash, ...shown }));
+      await page.evaluate(() => window.__solidify.app.closeComposer());
+    }
   });
   assert.deepEqual(errors, [], errors.join(" | "));
 } catch (e) { failed++; console.error(e.stack); }

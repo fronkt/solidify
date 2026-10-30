@@ -6,6 +6,8 @@ import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { closeBrowser } from "./browser-cleanup.mjs";
 import { installQuant3Driver } from "./fixtures/quant3d-driver.mjs";
+import { installQuant3PlanarDriver } from "./fixtures/quant3d-planar-driver.mjs";
+import { selfTestPartitionMetrology } from "./fixtures/quant3d-partition-analysis.mjs";
 
 const OUT = resolve(process.argv[2] ?? "verify-out"), PORT = process.argv[3] ?? "5199";
 // Optional explicit gate filter supports diagnosing a failed fixture. The
@@ -16,10 +18,17 @@ const browser = await puppeteer.launch({ executablePath: "C:/Program Files/Googl
   protocolTimeout: 3_600_000, args: ["--enable-unsafe-webgpu", "--enable-gpu"], defaultViewport: { width: 800, height: 700 } });
 const page = await browser.newPage(), errors = [], results = [];
 page.on("pageerror", e => errors.push(e.message));
-page.on("console", m => { if (m.type() === "error" || /binding size|minimum.*binding size/.test(m.text())) errors.push(m.text()); });
+page.on("console", m => {
+  if (m.type() === "error" || /binding size|minimum.*binding size/.test(m.text())) errors.push(m.text());
+  else if (m.text().startsWith("QPF3-AT-PROGRESS")) console.log(m.text());
+});
 let failures = 0;
 let metadata = null;
-const check = (name, ok, data) => { results.push({ name, ok, data }); if (!ok) failures++; console.log(name, ok ? "OK" : "FAIL", JSON.stringify(data)); };
+const check = (name, ok, data) => {
+  results.push({ name, ok, data }); if (!ok) failures++;
+  const concise=Array.isArray(data)?data.map(r=>r&&typeof r==="object"&&"profile"in r?(({profile,params,shaderHashes,...rest})=>rest)(r):r):data;
+  console.log(name, ok ? "OK" : "FAIL", JSON.stringify(concise));
+};
 async function gate(name, run, judge) {
   if (only && !only.test(name)) { console.log(name, "SKIP (focused invocation)"); return; }
   const start = performance.now();
@@ -30,6 +39,7 @@ try {
   await page.goto(`http://localhost:${PORT}/app/`, { waitUntil: "networkidle0" });
   await page.waitForFunction(() => !!window.__solidify);
   await page.evaluate(installQuant3Driver);
+  await page.evaluate(installQuant3PlanarDriver);
   metadata = await page.evaluate(async () => {
     const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
     const { PHASE_TABLE_VERSION } = await import("/src/phasedata.ts");
@@ -41,6 +51,9 @@ try {
   });
   metadata.sourceHashes = Object.fromEntries(["sim3d", "shaders3d", "shaders3d-quant"].map(s =>
     [s, createHash("sha256").update(readFileSync(`src/${s}.ts`)).digest("hex")]));
+  metadata.fixtureHashes = Object.fromEntries(["scripts/verify-quant3d.mjs", "scripts/fixtures/quant3d-driver.mjs",
+    "scripts/fixtures/quant3d-planar-driver.mjs", "scripts/fixtures/quant3d-partition-analysis.mjs", "scripts/fixtures/rect3d-specialize.mjs"].map(path =>
+    [path, createHash("sha256").update(readFileSync(path)).digest("hex")]));
 
   // A planar equilibrium profile is tanh(x/sqrt(2)W0), for every normal.
   await gate("QPF3-EQUIL", () => page.evaluate(async () => {
@@ -156,46 +169,70 @@ try {
     && r.gpu.count === r.n ** 3 && r.gpu.nonFinite === 0 && r.gpu.negative === 0
     && r.reductionRelativeError < 1e-5 && r.gpu.min === r.final.min && r.gpu.max === r.final.max));
 
+  await gate("QPF3-AT-METROLOGY", async () => selfTestPartitionMetrology(),
+    r=>r.invalidProfileRefused&&r.maxAbsoluteError<1e-6&&r.erfMaxError<1.5e-7);
+
+  await gate("QPF3-AT-PRODUCTION", () => page.evaluate(() => window.__q3planar.equivalence()),
+    rows => rows.length === 12 && rows.every(r => r.mismatches === 0 && r.productionHash === r.specializedHash));
+
   await gate("QPF3-AT-PARTITION", () => page.evaluate(async () => {
-    const Q = window.__q3, rows = [], k = 0.15, c0 = 0.3;
-    const fit = pts => {
-      let sx=0,sy=0,sxx=0,sxy=0;
-      for(const [x,y] of pts){sx+=x;sy+=y;sxx+=x*x;sxy+=x*y;}
-      const m=(pts.length*sxy-sx*sy)/(pts.length*sxx-sx*sx);
-      return {m,b:(sy-m*sx)/pts.length};
-    };
+    const {partitionRegime,measurePartition}=await import("/scripts/fixtures/quant3d-partition-analysis.mjs");
+    const P = window.__q3planar, rows = [], k = 0.15, c0 = 0.3, A1=.8839,A2=.6267,dx=.4;
+    const regime=partitionRegime(.08,6,120,k,c0),T=regime.T;
+    // Prospective regime, chosen after the original T=.55 fixture failed its
+    // validity checks: retain lambda3/6 and select temperature from the
+    // independent one-sided Stefan relation targeting nominal Vtau0/W=.08
+    // in lambda6. This gives T=.8692701173 BEFORE measuring partition.
+    // Resolve W0 with dx=.4; require BOTH nominal and local rates<.1.
+    // No partition, width or negative-control tolerance is changed.
     for (const lambda of [3,6]) for (const at of [0.35355339059,0]) {
-      const st=await Q.stage({n:128,dx:0.8,lambda,x0:24*0.8,T:0.55,alloy:true,params:{atCoef:at,kPart:k,c0}});
-      const start=Q.cross(Q.profile((await Q.state()).phi,st.n)), target=120*Q.A1/(lambda*st.dx);
-      let steps=0, previous=start, previousTime=0, velocity=NaN, x=start;
-      for(let j=0;j<200;j++){
-        await Q.advance(500);steps+=500;
-        x=Q.cross(Q.profile((await Q.state()).phi,st.n));
-        velocity=(x-previous)*st.dx/(steps*st.dt-previousTime);previous=x;previousTime=steps*st.dt;
-        if(!Number.isFinite(x)||x-start>=target||x>st.n-40)break;
+      const D=A2*lambda,factor=1-(1-k)*T,dt=.5*Math.min(dx*dx/(12*D),dx*dx*factor/12);
+      const config={dims:[1024,8,8],dx,dt,lambda,at,T,x0:64};
+      const setup=await P.stage(config),initial=await P.sample(),start=initial.front,target=start+120*A1/(lambda*dx);
+      const initialCensus=await P.census();
+      const history=[{x:start,time:0,steps:0}];let s=initial,x=start,perStep=0,lastBatch=0,lastBefore=start;
+      const started=performance.now();let progressAt=0;
+      console.log("QPF3-AT-PROGRESS",JSON.stringify({event:"start",lambda,at,T,dx,dt,dims:config.dims,regime}));
+      while(x<target){
+        const batch=perStep>0?Math.max(1,Math.min(10000,Math.floor(.45*(target-x)/perStep))):1;
+        lastBefore=x;lastBatch=batch;await P.advance(batch);s=await P.sample();x=s.front;
+        if(!Number.isFinite(x)||x<=start||s.steps>10000000)throw new Error("unresolved or stalled matched-displacement fixture");
+        perStep=Math.max(1e-10,(x-lastBefore)/batch);history.push({x,time:s.time,steps:s.steps});
+        if(s.steps-progressAt>=100000){progressAt=s.steps;console.log("QPF3-AT-PROGRESS",JSON.stringify({lambda,at,steps:s.steps,time:s.time,travelD0:(x-start)*dx*lambda/A1}));}
+        if(x>=target&&lastBatch!==1)throw new Error("matched displacement crossed in a multi-step batch");
       }
-      const s=await Q.state(), phi=Q.profile(s.phi,st.n), c=Q.profile(s.c,st.n), xi=Math.floor(x-0.5);
-      const sp=[]; for(let i=xi-16;i<=xi-5;i++)if(i>=0&&phi[i]>.99)sp.push([i+0.5,c[i]]);
-      let peak=c0;for(let i=xi+1;i<Math.min(st.n,xi+60);i++)if(phi[i]<.3)peak=Math.max(peak,c[i]);
-      const lp=[];for(let i=xi+2;i<Math.min(st.n,xi+60);i++){const excess=c[i]-c0;if(phi[i]<.05&&excess>.1*(peak-c0)&&excess>1e-4)lp.push([i+0.5,Math.log(excess)]);}
-      const sf=fit(sp),lf=fit(lp),cs=sf.m*x+sf.b,cl=c0+Math.exp(lf.m*x+lf.b),keff=cs/cl;
-      rows.push({n:st.n,dx:st.dx,dt:st.dt,D:st.D,lambda,at,kEff:keff,cs,cl,solidPoints:sp.length,liquidPoints:lp.length,front:x,initialFront:start,
-        matchedTravelD0:(x-start)*st.dx*lambda/Q.A1,targetD0:120,velocityW0:velocity,
-        tauVOverW:velocity*(1-(1-k)*.55),farLiquid:c.at(-1),steps,
-        profile:{phi,concentration:c}});
+      const phi=s.phi,c=s.c,profile={phi,concentration:c,front:x};
+      const metrology=[[5,9],[6,10],[7,11]].map(w=>measurePartition(profile,{dx,D,timeTau0:s.time,x0:config.x0,k,c0},w));
+      const measured=metrology[1],{cs,cl,kEff:keff,solidPoints,liquidPoints}=measured;
+      const earlier=history.reduce((a,b)=>Math.abs(b.x-(x-5*A1/(lambda*dx)))<Math.abs(a.x-(x-5*A1/(lambda*dx)))?b:a,history[0]);
+      const velocity=(x-earlier.x)*dx/(s.time-earlier.time),census=await P.census();
+      rows.push({...config,regime,params:setup.params,shaderHashes:setup.shaderHashes,D,kEff:keff,cs,cl,
+        solidPoints,liquidPoints,metrology,metrologySpread:Math.max(...metrology.map(m=>m.kEff))-Math.min(...metrology.map(m=>m.kEff)),front:x,initialFront:start,
+        matchedTravelD0:(x-start)*dx*lambda/A1,targetD0:120,lastBatch,overshootCells:x-target,lastStepMotionCells:x-lastBefore,
+        velocityW0:velocity,pEpsilon:velocity/(A1*A2),velocityWindowD0:(x-earlier.x)*dx*lambda/A1,tauVOverW:velocity*factor,
+        farLiquid:c.at(-1),steps:s.steps,timeTau0:s.time,elapsedMs:performance.now()-started,initialCensus,census,
+        longRunMassRelativeDrift:(census.mass-initialCensus.mass)/initialCensus.mass,
+        profile});
+      console.log("QPF3-AT-PROGRESS",JSON.stringify({event:"complete",lambda,at,steps:s.steps,elapsedMs:performance.now()-started,kEff:keff,tauVOverW:velocity*factor}));
     }
     return rows;
   }), rows => {
-    const live=rows.length===4&&rows.every(r=>r.solidPoints>=5&&r.liquidPoints>=5&&r.cs>0&&r.cl>0&&r.front<88
-      && r.matchedTravelD0>=120&&Math.abs(r.farLiquid-.3)<1e-4);
-    const on=rows.filter(r=>r.at>0),off=rows.filter(r=>r.at===0),k=.15;
-    return live&&on.every(r=>Math.abs(r.kEff/k-1)<.10)&&Math.abs(on[0].kEff-on[1].kEff)<.1*k
-      &&off.some((r,i)=>Math.abs(r.kEff-k)>2*Math.abs(on[i].kEff-k)+.005);
+    const k=.15;
+    const live=rows.length===4&&rows.every(r=>r.solidPoints>=5&&r.liquidPoints>=5&&r.cs>0&&r.cl>0
+      && r.matchedTravelD0>=120 && r.lastBatch===1 && r.overshootCells<=r.lastStepMotionCells+1e-9
+      && r.velocityW0>0 && r.velocityW0<.1 && r.tauVOverW>0 && r.tauVOverW<.1 && Math.abs(r.farLiquid-.3)<1e-4
+      && r.metrologySpread<.01*k && r.metrology.every(m=>m.solidRelativeResidual<.005&&m.liquidRelativeResidual<.005)
+      && r.census.nonFinite===0 && r.census.negative===0 && r.census.transverseError<1e-6);
+    const on=rows.filter(r=>r.at>0),off=rows.filter(r=>r.at===0);
+    return live&&on.every(r=>r.metrology.every(m=>Math.abs(m.kEff/k-1)<.10))
+      &&on[0].metrology.every(a=>on[1].metrology.every(b=>Math.abs(a.kEff-b.kEff)<.1*k))
+      &&off.some((r,i)=>Math.min(...r.metrology.map(m=>Math.abs(m.kEff-k)))
+        >2*Math.max(...on[i].metrology.map(m=>Math.abs(m.kEff-k)))+.005);
   });
 
   check("QPF3-ERRORS", errors.length === 0, errors.slice(0, 12));
 } finally {
-  await page.evaluate(async () => { await window.__q3?.destroy(); }).catch(() => {});
+  await page.evaluate(async () => { await window.__q3?.destroy(); await window.__q3planar?.destroy(); }).catch(() => {});
   writeFileSync(resolve(OUT, "quant3d-result.json"), JSON.stringify({ metadata, results, errors, failures }, null, 2));
   await closeBrowser(browser);
 }
