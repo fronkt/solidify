@@ -702,3 +702,32 @@ Adding a browser-free lifecycle check also changes the documented CI inventory.
 Count workflow invocations with modes such as --self-test, update TESTING.md in
 the same phase, and run verify-phasedata before pushing workflow additions.
 Passing only the new test misses the existing cross-document count contract.
+
+## A perturbed traveling wave need not recover on an assumed thermal clock
+
+The lattice kinetic experiment required an added-heat front to recover its
+original fixed-speed temperature profile after five D/V-squared times. All
+execution checks passed, but that thermal clause failed. An independent Float64
+march reproduced the residual while conserving enthalpy. The small speed shift
+changed the liquid diffusion length and predicted the temperature tail. Positive
+bare relaxation did not establish asymptotic stability of either finite-speed
+branch, and a neutral translation could not absorb the added enthalpy.
+
+**Rule.** Identify conserved quantities and available neutral modes before
+requiring recovery to the original wave. Establish the transient expectation in
+an independent solver, distinguish field evolution from stability, and include
+signed or zero-integral controls when appropriate. A failed frozen predicate
+stays failed; a later diagnosis requires its own prospectively specified test.
+
+## A commit archive does not always preserve measured source bytes
+
+Git normalizes line endings. Twenty-five local scientific source records used
+Windows byte representations that differed from their commit archive, although
+the generated WGSL and source logic were identical. A separate exact-byte
+archive reconstructed every recorded hash from the pinned Git content and
+verified LF/CRLF representation; no result or scientific source was altered.
+
+**Rule.** Preserve the exact files whose hashes were measured, alongside the
+commit archive. If reconstruction is necessary, verify the reconstructed bytes
+against every original hash and label the representation. Keep generated shader
+hashes as a separate model-provenance check.

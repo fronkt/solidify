@@ -5310,3 +5310,173 @@ CI initially caught a stale documented script count after the new lifecycle step
 The inventory now counts argument-bearing self-test entries as well and documents
 all20 browser-free CI scripts. No physical gate was relaxed; the original count
 guard remains active, and its actual workflow/documentation check is rerun.
+
+## Quantitative 3D validation resumed - 2026-10-30
+
+User approved continuing the remaining quantitative validation after the completed
+3D optimizer. Research branch `research/q3-calibration` starts at `178d367` in
+`C:/Users/frank/solidify-q3-validation`; the optimizer PR remains independently
+reviewable. Existing production and historical failed evidence are preserved.
+
+Acceptance specification:
+- A result is accepted only by the original published-reference, stationarity,
+  uncertainty, clearance/travel and complete convergence gates at prospectively
+  fixed endpoints. No coefficient or estimator is selected to approach tip P or
+  sigma; preserve the original ten-percent bands and failed studies.
+- Repair the research readback that refused the two n144 radius cases. Prove
+  exact manufactured data and parity with the original reader on aligned grids;
+  neither shaders nor physical parameters change in this repair.
+- Complete the predeclared radius pair and assess the full mesh/radius matrix.
+  Retain raw checkpoint hashes, source freeze and readable device-error ledger.
+- Independently test whether capillary, kinetic or curvature-measurement error
+  is identifiable. Any proposed correction needs a separate physical diagnostic
+  and known-truth/signed controls before a full reference rerun.
+- Root owns local GPU timing and cloud lifecycle. Delegates initially use CPU
+  evidence only. Use one tagged Vast rental when faster, with a declared spend/
+  time cap, local push before remote pull, artifact verification and owned cleanup.
+
+Plan before implementation:
+- [x] Review recorded failures, independent audits and project lessons; isolate the research worktree.
+- [x] Repair and independently verify padded research volume readback and execution evidence.
+- [x] Finish the declared radius cases on frozen source and reconcile all fourteen matrix cases.
+- [x] Complete parallel capillary, kinetic-identifiability and metrology investigations; choose the smallest justified next experiment.
+- [x] Implement an explicitly opt-in research candidate supported by independent derivation; run native/GPU safety and affected regressions, preserving scientific refusals.
+- [x] Run the complete prospectively fixed experimental reference campaign, retaining all verdicts and raw data; do not reinterpret failed recovery as a pass.
+- [x] Record evidence/limitations, verify artifact backup and owned cleanup, commit/push completed phases, and leave Q3 open unless all required gates pass.
+
+Work allocation: q3_capillary_audit examines the existing matrix; q3_kinetic_diagnostic
+derives an identifiable moving-interface measurement; q3_metrology_diagnostic
+challenges local curvature using independent synthetic controls before raw tips.
+Root owns the readback/runner repair, production integration and GPU/cloud work.
+
+Readback checkpoint: seven CPU coordinate/stride controls pass; actual Intel
+WebGPU copies preserve every voxel/channel on both ping-pongs of 96/144 cubes,
+with exact legacy parity at96, a readable error ledger, zero errors and stable
+source hashes. The moved registered verifier was rerun on its final path. Root
+independently reran all19 actual-CLI lifecycle controls plus subset/stale-retry
+checks, including nonfinite/stalled/overshooting clocks. Independent read-only
+review found no blocking defect. Typecheck/build and the22-script CI inventory
+check pass. Production source and physical coefficients remain unchanged.
+Public proof: docs/validation/quant3d-calibration-readback-2026-10-30.json.
+
+Independent diagnostic checkpoint: all three audits are complete. Existing tip
+curvature alternatives change sigma by less than one percent on the measured
+fields; capillary mesh errors are small and converge. Exact independent algebra
+and prospective CPU refinement support a principal-plane lattice kinetic
+candidate, without using the needle reference. A separate production-WGSL
+finite-speed recovery study with two perturbations, a half-dt control and an
+actual wrong-relaxation negative control is being frozen before its first GPU
+run. No production correction is adopted yet. Full reports, raw CPU solves and
+hash manifests are backed up in the unpublished calibration evidence draft;
+all208 archive members and the server digest are verified. Review and limits:
+docs/reviews/quant3d-independent-diagnostics-2026-10-30.md.
+
+GPU kinetic protocol is now frozen before its first execution. Root reproduced
+the CPU input/metrology checks, including neutral translation, signed speed and
+shape errors, missing perturbation/sample refusals and final-evidence controls.
+The three generated targets exactly reproduce the independently derived CPU
+profiles. The seven arms, fixed five-thermal-time durations, tolerances and
+negative-control interpretation are specified in
+scripts/research/quant3d-lattice-kinetic.md. No production equation is changed.
+
+First GPU kinetic run at b24f3f2 completed with valid Intel hardware, nine exact
+native/specialized hash pairs, stable sources/inputs, all declared clocks/raw
+samples, a readable device ledger and zero errors. It is scientifically refused:
+five of six positive recovery arms pass; the added-heat arm fails its frozen
+temperature-RMS clause. The wrong-tau control rejects the late target and differs
+in early response by 7.8739%. No band, window or coefficient is changed.
+All 497 raw checkpoints and 557 archive members are verified and durably backed
+up, including the exact pre-correction source. Public result:
+docs/validation/quant3d-lattice-kinetic-2026-10-30.json.
+
+Re-plan after the failed recovery clause: pause production adoption, retain the
+original refusal, and separate conserved added heat/slow planar dynamics from
+Float32 numerical detuning with an independent coupled CPU march and raw replay.
+Only a separately specified experiment may address a demonstrated protocol
+limitation. The cloud equilibrium matrix continues on its original immutable
+source; it is not affected by local diagnostic changes.
+
+Independent Float64 evolution now reproduces the failed positive heat-pulse
+temperature clause with energy conserved to about 8e-11. The measured speed
+change predicts the altered liquid diffusion tail. Both baseline and corrected
+finite-speed branches have a negative outer undercooling slope; a claimed
+asymptotic recovery is therefore not an established prerequisite for either.
+This does not revise the original refusal or prove a finite-width instability.
+
+Prospective experimental candidate specification:
+- Add an explicit, immutable research option to the native 3D shader factory
+  and Sim3D allocation, default false. Prove default and alloy WGSL bytes match
+  the frozen baseline; the app does not enable this option.
+- Only the opted-in pure phase branch uses the derived additive local tau.
+  Refuse non-positive/nonfinite relaxation and retain CFL using actual local
+  tau. Add conservative host positivity/CFL admission for that option.
+- Give both planar and full-reference harnesses an explicit recorded option,
+  preserving native equivalence, clocks, physical coefficients and bands.
+- Verify candidate native/rectangular equality, finite-speed profiles and signed
+  response before the separate fixed-terminal five-arm candidate experiment.
+  Preserve the known heat-pulse recovery failure and independent CPU transient
+  evidence. Candidate results cannot by themselves erase open calibration scope.
+
+Equilibrium completion: all 14 cases completed stationary/resolved at 26445ae,
+zero errors, stable sources and readable ledger. Local and remote checks verify
+714 compressed/uncompressed raw checkpoints and nine archived source hashes.
+The 730-member archive has matching GitHub server digest. Public result:
+docs/validation/quant3d-equilibrium-complete-2026-10-30.json. R30 local-stiffness
+errors do not form a smooth radius trend; translation remains a diagnostic,
+not an empirical correction.
+
+Candidate a11a814: default/alloy WGSL matches baseline in 19 independent checks.
+Native/rectangular fields match; four invalid native inputs refuse before
+advancement, a valid input advances, and negative local tau emits GPU flag32.
+Both legacy paths retain 390 exact field comparisons each; allocation controls,
+typecheck/build and CI41105696719 pass. Recovery retains its original refusal.
+All 497 candidate raw profiles and the 213-profile CPU transient diagnosis are
+backed up. Public proof: docs/validation/quant3d-lattice-candidate-2026-10-30.json.
+Full five-arm fixed-terminal candidate study is running under the original
+owned-rental cutoffs. BASE still fails sigma; remaining arms continue. Q3 is open.
+
+Prospective translation diagnostic, implemented while the immutable cloud run
+continues: R20/dx0.8, epsilon 0/0.0171 crossed with declared center offsets 0/0.4
+on all axes. Same baseline volume target, default physics, horizon and cadence;
+no coefficient/window selection. The existing fourteen-case runner is preserved.
+
+- [x] Add the optional coordinate adapter and separate four-arm diagnostic CLI; prove default parity, known geometry and missing-offset/recentering refusals before GPU execution.
+- [x] Freeze/push the diagnostic and run it as the sole local GPU study, preserving every raw sample and strict clock/ledger/source/cleanup evidence.
+- [x] Replay the unchanged local-curvature estimator, compare paired offsets and document limits without promoting Q3 or fitting a correction.
+
+### Review and remaining scientific work
+
+The full five-arm candidate campaign completed at a11a814: every fixed endpoint
+was reached with stationary/resolved/boundary-clear observations, source freeze,
+readable GPU ledger and zero errors. All four convergence comparisons pass;
+maximum pointwise change is 3.4653%. Every literature arm still fails sigma:
+0.0510893-0.0545223 versus 0.063. No reference band, estimator, endpoint or
+coefficient was selected to improve agreement. Public final evidence:
+docs/validation/quant3d-lattice-five-arm-2026-10-30.json.
+
+The cloud packet verifies all 312 raw tip checkpoints, eleven source hashes,
+nine exact native comparisons and its startup-only compatibility copy. All
+fourteen scoped backup assets matched GitHub before owned instance 58431724 was
+destroyed at 19:08:07 UTC, with API absence verified. The watchdog exited and both
+pre-existing instances were untouched. Estimated compute was $0.75748 excluding
+transfers. No active rental remains from this work.
+
+The separate four-arm translation diagnostic completed at 0fbf067 with actual
+upload/hash/centroid liveness, preserved schedules, source freeze, zero errors
+and required cleanup/ledger evidence. All 206 raw surfaces verify. The frozen
+unchanged local-stiffness replay finds signed octic C100-error changes of
+-2.37254 pp (epsilon 0) and -0.41104 pp (epsilon 0.0171). Known geometry and once-only
+recentering controls pass; this is inferred response sensitivity, not a fitted
+correction or a bound on evolved-profile/needle error. Public evidence:
+docs/validation/quant3d-translation-2026-10-30.json.
+
+All 18 final scoped backup assets, including the translation packet and a source
+byte supplement, have matching server digests. The supplement exactly verifies
+34 local source records; 25 Windows line-ending representations differ from Git
+archives. Scientific sources/results were not modified. Local browser/server
+and owned watchdog are closed; original optimizer checkout remains untouched.
+
+Q3c remains OPEN. Next independent targets are local-stiffness grid refinement
+with paired lattice phases, and moving-interface kinetic calibration away from
+principal planes (including finite-speed stability). The complete literature
+reference must pass before any quantitative 3D promotion or candidate adoption.

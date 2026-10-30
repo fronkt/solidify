@@ -405,7 +405,11 @@ export class Sim3D {
   /** true when the GPU is >= 2 submitted frames behind — callers should skip stepping */
   get busy() { return this.inFlight >= 2; }
 
-  private constructor(device: GPUDevice, n: number) {
+  /** Explicit research option; immutable because it selects allocated pipelines. */
+  readonly latticeKinetics: boolean;
+
+  private constructor(device: GPUDevice, n: number, options: { latticeKinetics?: boolean } = {}) {
+    this.latticeKinetics = options.latticeKinetics === true;
     this.device = device;
     this.n = n;
     this.params = { ...DEFAULTS3D };
@@ -418,12 +422,12 @@ export class Sim3D {
    * 128³ ≈ 120 MB, 96³ ≈ 50 MB — plus 57 MB for the solute pair while the alloy
    * is on. Resolves null if even the smallest rung fails.
    */
-  static async create(device: GPUDevice, n: number): Promise<Sim3D | null> {
+  static async create(device: GPUDevice, n: number, options: { latticeKinetics?: boolean } = {}): Promise<Sim3D | null> {
     // 96 is the landing-demo size and the last-chance rung for tight GPUs
     const ladder = [...GRID3_LADDER].filter(v => v <= n);
     if (!ladder.length) ladder.push(96);
     for (const rung of ladder) {
-      const sim = new Sim3D(device, rung);
+      const sim = new Sim3D(device, rung, options);
       device.pushErrorScope("out-of-memory");
       sim.build();
       const err = await device.popErrorScope();
@@ -653,7 +657,7 @@ export class Sim3D {
       for (const alloy of d.limits.maxStorageTexturesPerShaderStage >= 4 ? [false, true] : [false]) {
         const mk = (code: string, label: string) => d.createComputePipelineAsync({ layout: "auto",
           compute: { module: shaderModule(d, code, label), entryPoint: "main" } });
-        phase.push(await mk(phi3dWgsl(alloy), `phase3${alloy ? "-alloy" : ""}`));
+        phase.push(await mk(phi3dWgsl(alloy, this.latticeKinetics), `phase3${alloy ? "-alloy" : ""}`));
         transport.push(await mk(transport3dWgsl(alloy), `transport3${alloy ? "-alloy" : ""}`));
       }
       let mass: QuantResources3["mass"] = null;
@@ -768,6 +772,7 @@ export class Sim3D {
       if (flags & 4) reasons.push("the phase field became non-finite");
       if (flags & 8) reasons.push("solute left the supported concentration range");
       if (flags & 16) reasons.push("temperature left the supported model range");
+      if (flags & 32) reasons.push("the experimental lattice relaxation is non-positive or non-finite");
       // CPU admission refusals are also latched until reset. A clean GPU word
       // must not erase a reason reported before any dispatch was submitted.
       if (reasons.length) this.quantIssue = `Calibrated 3D stopped: ${reasons.join("; ")}.`;
@@ -2071,6 +2076,19 @@ export class Sim3D {
   private submit(substeps: number): number {
     if (this.params.solver === 1) {
       if (!this.quant) { this.quantIssue = "Calibrated 3D resources are not ready."; return 0; }
+      if (this.latticeKinetics && this.params.alloyOn !== 1) {
+        const p = this.params;
+        const aMin = p.aniMode3 === 0 ? 1 : Math.max(0, 1 - 3 * Math.abs(p.delta));
+        const tauMin = p.tau * (47 / 75) * p.lambda / p.dTherm
+          * (aMin * aMin - (1321 / 9870) * Math.pow(p.dx / p.epsBar, 2));
+        if (![p.tau, p.lambda, p.dTherm, p.dx, p.epsBar, p.dt, tauMin].every(v => Number.isFinite(v) && v > 0)) {
+          this.quantIssue = "Experimental lattice kinetics needs finite positive local relaxation and model parameters."; return 0;
+        }
+        const bound = p.dx * p.dx * tauMin / (12 * p.epsBar * p.epsBar * (1 + 20 * Math.abs(p.delta)));
+        if (p.dt > bound) {
+          this.quantIssue = "Experimental lattice kinetics needs a smaller timestep for its corrected relaxation."; return 0;
+        }
+      }
       if (this.params.aniMode3 > 1 || this.params.facet > 0.5) {
         this.quantIssue = "Calibrated 3D supports isotropic or smooth cubic interfaces."; return 0;
       }

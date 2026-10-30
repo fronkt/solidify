@@ -335,3 +335,90 @@ It and its checksum sidecar are backed up in the existing unpublished calibratio
 draft with matching server digests. The owned instance/watchdog were removed,
 preexisting resources were untouched, and estimated compute was$0.35031 excluding
 transfer extras. No Q3 promotion follows from these reviews or diagnostics.
+
+### Calibration readback and runner continuation
+
+The research equilibrium driver now uses a padded RG32Float readback helper.
+It removes row padding when reconstructing the phase/temperature arrays and
+does not change a production shader, simulation equation or physical parameter.
+Manufactured coordinate fields check every voxel and both ping-pongs; aligned
+96-cube data agrees exactly with the original reader, while the formerly
+refused 144-cube uses 1280-byte copy rows instead of the invalid 1152 bytes.
+
+The equilibrium CLI also retains a fresh uncompleted artifact before preflight,
+requires a readable error ledger, records cleanup failures, checks source hashes
+after browser cleanup and distinguishes a selected diagnostic from the complete
+declared matrix. Every control must make finite bounded clock progress; a
+nonfinite, stalled or overshooting endpoint cannot complete the study. Nineteen
+actual-CLI CPU lifecycle controls plus subset/stale-retry checks exercise these
+paths under an explicitly synthetic browser. They are execution tests, not
+equilibrium or published-reference evidence. The historical failed matrix is
+preserved. The separately pinned run at 26445ae completed all fourteen cases,
+with a readable ledger, stable sources and zero errors. All 714 compressed and
+uncompressed checkpoint hashes and nine archived source hashes verify locally.
+The 1,461,775,985-byte archive is backed up with matching server digest. See
+[complete equilibrium evidence](validation/quant3d-equilibrium-complete-2026-10-30.json).
+
+The new R30 local-stiffness replay is nonmonotone across R20/30/40, including the
+isotropic case. Scalar d0 and support anisotropy alone do not bound local
+curvature error. Half-cell translation is the next independent lattice-phase
+control; no coefficient is retuned from the needle discrepancy.
+
+### Explicit lattice-kinetic research candidate
+
+An independently derived principal-plane h-squared correction is available only
+through the immutable `latticeKinetics` research option, default false. App
+creation never enables it. Default pure/alloy, flux, transport and preserved
+Kobayashi WGSL match the frozen baseline byte-for-byte; both legacy paths also
+reproduce all 390 field comparisons each, with zero errors.
+
+The candidate uses local anisotropy in the additive relaxation formula, refuses
+nonpositive/nonfinite tau and checks CFL using corrected tau. Actual native
+admission, shader refusal and native/rectangular field hashes are tested.
+The planar and full-reference runners require an explicit `--lattice-kinetics`
+flag and record the chosen model. The five full-reference arms, fixed endpoints,
+metrology and ten-percent bands are unchanged.
+
+Original scalar-input and native candidate studies both complete with clean
+execution evidence but are scientifically refused: five positive recovery arms
+pass; added heat fails temperature RMS. Independent Float64 dynamics reproduces
+the residual with conserved enthalpy; its measured speed change predicts the
+liquid diffusion tail. This does not retroactively pass recovery or prove
+finite-width stability. See [candidate evidence](validation/quant3d-lattice-candidate-2026-10-30.json)
+and [transient reproduction](../scripts/research/quant3d-lattice-transient.md).
+
+The full five-arm candidate benchmark finished at frozen a11a814. All arms reach
+their fixed endpoints, are stationary/resolved/boundary-clear, and retain stable
+sources and readable error evidence with zero errors. Pointwise control changes
+pass (maximum 3.47%), while every arm fails the unchanged literature comparison:
+sigma ranges from 0.05109 to 0.05452 versus 0.063. See
+[full candidate evidence](validation/quant3d-lattice-five-arm-2026-10-30.json).
+All 312 raw checkpoints, eleven source hashes and nine native field comparisons
+verify; the frozen cloud compatibility copy is also verified. Archives and
+sidecars have matching GitHub digests. The owned rental was destroyed with API
+absence verified; pre-existing resources were untouched. Q3 remains open.
+
+### Paired translation diagnostic
+
+A separate four-arm local experiment at 0fbf067 pairs R20/dx0.8 bodies at offsets
+0 and 0.4 along all axes, for raw epsilon 0 and 0.0171. It retains one volume
+target per pair, the original physical model, horizon and cadence. Shared actual
+coordinates serve initialization, fitting and the independently measured
+centroid. Full upload/readback hashes, missing-offset/recentering controls and
+known geometry establish that the translation happened. Exact node roots retain
+their raw phase values; non-tie roots and default initialization remain identical.
+
+All four arms complete with stationary/resolved centered observations and clean
+execution evidence. The unchanged local-stiffness replay finds signed octic
+C100-error changes of -2.37254 percentage points at epsilon 0 and -0.41104 at
+epsilon 0.0171. The manufactured smooth-sphere errors are much smaller, but do
+not bound interpolation error in evolved profiles. This demonstrates sensitivity
+of inferred local capillary response to lattice position; it supplies no scalar
+correction or bound on needle sigma. Global support fits alone remain insufficient
+to calibrate local stiffness. Grid refinement and moving oblique-interface
+calibration remain open. No physical coefficient or accuracy band was retuned.
+
+Commit archives accompany the data. An additional exact-source ZIP reproduces
+all 34 recorded local source hashes across the three studies, including Windows
+line-ending representations; Git's normalized source bytes alone differ for 25
+of those files. Source and result data were not changed to obtain that agreement.

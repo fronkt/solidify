@@ -11,7 +11,7 @@ fn uSup3(psi: f32, conc: f32) -> f32 {
 fn finite3(v: f32) -> bool { return v >= -3.0e38 && v <= 3.0e38; }
 `;
 
-export const QUANT_PHASE3 = (alloy: boolean) => /* wgsl */ `
+export const QUANT_PHASE3 = (alloy: boolean, latticeKinetics = false) => /* wgsl */ `
     let interfaceActive = (phi > 1.0e-6 && phi < 0.999999) || dot(gph, gph) > QGMIN3;
     let q = 2.0 * phi - 1.0;
     let well = 1.0 - q * q;
@@ -25,7 +25,15 @@ export const QUANT_PHASE3 = (alloy: boolean) => /* wgsl */ `
       }
       atomicMin(&qStatus.minTau, bitcast<u32>(factor));
     }
-    let tauLoc = P.tau * fC.w / max(1.0e-20, P.epsBar * P.epsBar) * factor;
+${alloy || !latticeKinetics ? "    let tauLoc = P.tau * fC.w / max(1.0e-20, P.epsBar * P.epsBar) * factor;" : /* wgsl */ `    // Experimental principal-plane h^2 correction; never applied to alloy.
+    // Derived independently of the needle reference; see research protocol.
+    let w2 = max(1.0e-20, P.epsBar * P.epsBar);
+    let tauLoc = P.tau * (47.0 / 75.0) * P.lambda / P.dTherm
+      * (fC.w / w2 - (1321.0 / 9870.0) * P.dx * P.dx / w2);
+    if (!(tauLoc > 0.0) || !finite3(tauLoc)) {
+      atomicOr(&qStatus.flags, 32u);
+      textureStore(phaseOut, c, vec4f(phi, 0.0, 0.0, 0.0)); return;
+    }`}
     // A hot bulk liquid has no interface kinetics to evaluate yet.
     if (!interfaceActive && !(factor > 0.0)) {
       textureStore(phaseOut, c, vec4f(phi, 0.0, 0.0, 0.0)); return;

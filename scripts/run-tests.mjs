@@ -34,6 +34,7 @@ const SUITE = [
   ["scripts/verify-plot.mjs"],
   ["scripts/verify-process-plots.mjs"],
   ["scripts/verify-run-export.mjs"],
+  ["scripts/verify-quant3d-equilibrium-lifecycle.mjs"],
   ["scripts/verify-scroll-order.mjs"],
   // v8 D1: the live acts below the hero, their spec rails read from the sims
   // and materials.ts, their layout, footer and copy
@@ -54,6 +55,7 @@ const SUITE = [
   // Independent equilibrium lattice-bias regression, separate from the long
   // moving-needle study. Uses fixed inputs and records the raw surface data.
   ["scripts/verify-quant3d-wulff.mjs", String(PORT)],
+  ["scripts/verify-quant3d-readback.mjs", String(PORT), "--gpu"],
   ["scripts/verify-phasediagram-gpu.mjs", String(PORT)],
   // the first gate in this suite that CLICKS the composer: v7.1 P5's periodic
   // grid, driven through the DOM the way a visitor drives it

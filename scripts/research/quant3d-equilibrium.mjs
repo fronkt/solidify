@@ -9,30 +9,36 @@ import {installQuant3WulffCalibrationDriver} from './quant3d-equilibrium-driver.
 import {equilibriumState,selfTestWulff} from '../fixtures/quant3d-wulff-analysis.mjs';
 const out=resolve(process.argv[2]??'verify-out/q3-wulff-calibration-v4'),port=process.argv[3]??'5199';
 const selected=process.argv[4]?.split(',');
-const matrix=JSON.parse(readFileSync('scripts/research/quant3d-equilibrium-matrix.json'));
-const declaredNames=new Set([...matrix.geometries,...matrix.controls].map(c=>c.name));
-if(selected&&(new Set(selected).size!==selected.length||selected.some(name=>!declaredNames.has(name))))
-  throw new Error('Select distinct declared geometry/control names');
-const cases=[...matrix.geometries.flatMap(g=>matrix.rawEpsilons.map(epsilon=>({...g,epsilon,lambda:matrix.lambda}))),
-  ...matrix.controls.map(c=>({...c,lambda:matrix.lambda}))].filter(c=>!selected||selected.includes(c.name));
-if(!cases.length)throw new Error('No declared equilibrium cases selected');
-if(cases.some(c=>c.matchBaselinePhaseVolume)&&!cases.some(c=>c.name==='baseline'))
-  throw new Error('Initial-shape control requires baseline in the same invocation');
 const paths=['src/sim3d.ts','src/shaders3d.ts','src/shaders3d-quant.ts','scripts/fixtures/quant3d-wulff-analysis.mjs',
   'scripts/fixtures/quant3d-tip-analysis.mjs','scripts/research/quant3d-equilibrium.mjs',
-  'scripts/research/quant3d-equilibrium-driver.mjs','scripts/research/quant3d-equilibrium-matrix.json'];
+  'scripts/research/quant3d-equilibrium-driver.mjs','scripts/research/quant3d-equilibrium-matrix.json',
+  'scripts/research/quant3d-readback.mjs'];
 const sha=s=>createHash('sha256').update(s).digest('hex');
 const hashes=()=>Object.fromEntries(paths.map(p=>[p,sha(readFileSync(p))]));
-const result={purpose:matrix.purpose,matrix,selected:cases,source:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),
-  sourceHashes:hashes(),controls:selfTestWulff(),started:new Date().toISOString(),cases:[],errors:[],completed:false};
+const result={purpose:'Independent production-WGSL equilibrium calibration',
+  started:new Date().toISOString(),cases:[],errors:[],completed:false,fullMatrixCompleted:false,
+  deviceErrorLedgerRead:false,sourceStable:false,status:'initializing'};
 mkdirSync(resolve(out,'samples'),{recursive:true});
 const save=()=>writeFileSync(resolve(out,'calibration-result.json'),JSON.stringify(result,null,2));save();
-const args=process.env.CHROME_ARGS?JSON.parse(process.env.CHROME_ARGS):[];
-const browser=await puppeteer.launch({executablePath:process.env.CHROME_PATH??'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  headless:true,protocolTimeout:3_600_000,args:['--enable-unsafe-webgpu','--enable-gpu',...args]});
-let page;
+let browser=null,page=null,warm=null,cases=[],registeredCaseCount=0;
 try{
-  const warm=await browser.newPage();await warm.setRequestInterception(true);
+  const matrix=JSON.parse(readFileSync('scripts/research/quant3d-equilibrium-matrix.json'));
+  const declaredNames=new Set([...matrix.geometries,...matrix.controls].map(c=>c.name));
+  if(selected&&(new Set(selected).size!==selected.length||selected.some(name=>!declaredNames.has(name))))
+    throw new Error('Select distinct declared geometry/control names');
+  const registered=[...matrix.geometries.flatMap(g=>matrix.rawEpsilons.map(epsilon=>({...g,epsilon,lambda:matrix.lambda}))),
+    ...matrix.controls.map(c=>({...c,lambda:matrix.lambda}))];
+  cases=registered.filter(c=>!selected||selected.includes(c.name)); registeredCaseCount=registered.length;
+  if(!cases.length)throw new Error('No declared equilibrium cases selected');
+  if(cases.some(c=>c.matchBaselinePhaseVolume)&&!cases.some(c=>c.name==='baseline'))
+    throw new Error('Initial-shape control requires baseline in the same invocation');
+  Object.assign(result,{purpose:matrix.purpose,matrix,selected:cases,source:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),
+    sourceHashes:hashes(),controls:selfTestWulff(),status:'preparing hardware'}); save();
+  const args=process.env.CHROME_ARGS?JSON.parse(process.env.CHROME_ARGS):[];
+  if(!Array.isArray(args)||args.some(arg=>typeof arg!=='string'))throw new Error('CHROME_ARGS must be a string array');
+  browser=await puppeteer.launch({executablePath:process.env.CHROME_PATH??'C:/Program Files/Google/Chrome/Application/chrome.exe',
+    headless:true,protocolTimeout:3_600_000,args:['--enable-unsafe-webgpu','--enable-gpu',...args]});
+  warm=await browser.newPage();await warm.setRequestInterception(true);
   warm.once('request',r=>r.respond({status:200,contentType:'text/html',body:'<!doctype html><link rel="icon" href="data:,"><title>GPU admission</title>'}));
   await warm.goto(`http://localhost:${port}/__calibration_gpu_admission__`,{waitUntil:'domcontentloaded'});
   await warm.setRequestInterception(false);
@@ -70,6 +76,10 @@ try{
       while(time<declared.maximumTime){
         const before=performance.now();
         const control=await page.evaluate(remaining=>window.__q3wulffCalib.control(remaining),declared.maximumTime-time);
+        const dt=c.setup.params.dt,tolerance=1e-6;
+        if(!Number.isFinite(control.time)||control.time<=time
+          ||control.time-time>Math.min(c.config.controlPeriod??4,declared.maximumTime-time)+dt+tolerance)
+          throw new Error('Control clock failed its finite bounded progress contract');
         control.wallMilliseconds=performance.now()-before;c.controls.push(control);time=control.time;
         if(time>=next||time>=declared.maximumTime){
           const measured=await measure(c);save();
@@ -79,9 +89,13 @@ try{
         }
       }
       c.wallMilliseconds=performance.now()-wall;c.finalTime=time;
-      c.completed=!!(c.measurements.at(-1)?.time===time&&c.equilibrium.stationary&&c.equilibrium.resolved);
+      c.completed=!!(Number.isFinite(time)&&time>=declared.maximumTime&&time<=declared.maximumTime+c.setup.params.dt+1e-6
+        &&c.measurements.at(-1)?.time===time&&c.equilibrium.stationary&&c.equilibrium.resolved);
     }catch(error){c.error=error.stack??String(error);c.completed=false;}
-    finally{await page.evaluate(()=>window.__q3wulffCalib.destroy())}
+    finally{
+      try{await page.evaluate(()=>window.__q3wulffCalib.destroy())}
+      catch(error){c.completed=false;result.errors.push({kind:'fixture cleanup failed',message:error.message})}
+    }
     const last=c.measurements.at(-1);
     c.summary=last?{epsilon: last.epsilon,epsilonError:last.epsilonError,d0Effective:last.d0Effective,
       a1Effective:last.a1Effective,support100:last.h100,support110:last.h110,
@@ -90,13 +104,34 @@ try{
   }
 }catch(error){result.exception=error.stack??String(error)}
 finally{
-  if(page){result.errors.push(...await page.evaluate(()=>window.__q3wulffCalib?.errors()??[]).catch(e=>[{kind:'read-errors',message:e.message}]));
-    await page.evaluate(()=>window.__q3wulffCalib?.dispose()).catch(e=>result.errors.push({kind:'cleanup',message:e.message}));}
-  result.finalHashes=hashes();result.sourceStable=JSON.stringify(result.sourceHashes)===JSON.stringify(result.finalHashes);
-  result.finished=new Date().toISOString();result.completed=!result.exception&&result.errors.length===0&&result.sourceStable
-    &&result.cases.length===cases.length&&result.cases.every(c=>c.completed);
-  save();await closeBrowser(browser);
+  const failed=(kind,error)=>result.errors.push({kind,message:error?.message??String(error)});
+  if(page){
+    try{await page.evaluate(()=>window.__q3wulffCalib?.dispose())}catch(error){failed('fixture cleanup failed',error)}
+    try{
+      const errors=await page.evaluate(()=>{
+        const ledger=window.__q3wulffCalib?.errors();
+        if(!Array.isArray(ledger))throw new Error('GPU error ledger is unavailable');
+        return ledger;
+      });
+      if(!Array.isArray(errors))throw new Error('GPU error ledger did not return an array');
+      result.errors.push(...errors);result.deviceErrorLedgerRead=true;
+    }catch(error){failed('GPU error ledger read failed',error)}
+  }
+  if(warm)try{await warm.evaluate(()=>{window.__calibWarmDevice?.destroy()})}catch(error){failed('warm device cleanup failed',error)}
+  if(browser)try{await closeBrowser(browser)}catch(error){failed('browser cleanup failed',error)}
+  if(result.sourceHashes)try{
+    result.finalHashes=hashes();result.sourceStable=JSON.stringify(result.sourceHashes)===JSON.stringify(result.finalHashes);
+    if(!result.sourceStable)failed('source verification','benchmark source changed during execution');
+  }catch(error){failed('final source verification failed',error)}
+  result.finished=new Date().toISOString();result.completed=!result.exception&&result.errors.length===0&&result.deviceErrorLedgerRead
+    &&result.sourceStable&&cases.length>0&&result.cases.length===cases.length&&result.cases.every(c=>c.completed);
+  result.fullMatrixCompleted=result.completed&&cases.length===registeredCaseCount;
+  result.status=result.exception?'refused or failed':result.errors.length?'execution evidence failed'
+    :!result.completed?'equilibrium matrix incomplete':result.fullMatrixCompleted?'full declared equilibrium matrix complete'
+    :'selected equilibrium diagnostic complete; full matrix not evaluated';
+  save();
 }
-console.log('WULFF-CALIBRATION-FINAL',JSON.stringify({completed:result.completed,sourceStable:result.sourceStable,
+console.log('WULFF-CALIBRATION-FINAL',JSON.stringify({completed:result.completed,fullMatrixCompleted:result.fullMatrixCompleted,
+  status:result.status,deviceErrorLedgerRead:result.deviceErrorLedgerRead,sourceStable:result.sourceStable,
   cases:result.cases.map(c=>({config:c.config,completed:c.completed,summary:c.summary,error:c.error})),errors:result.errors,exception:result.exception}));
 process.exitCode=result.completed?0:1;
