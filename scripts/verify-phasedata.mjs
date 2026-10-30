@@ -301,7 +301,7 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
 
   const NUM = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
     "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
-    "seventeen", "eighteen", "nineteen", "twenty"];
+    "seventeen", "eighteen", "nineteen", "twenty", "twenty-one"];
 
   const alSi = PD.BINARY.al.Si, feC = PD.BINARY.fe.C;
   const A356TiB = A.derive({ base: "al", wt: { Si: 7, Mg: 0.35, Ti: 0.12 } });
@@ -600,7 +600,7 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
   const { readFileSync } = await import("node:fs");
   const NUM = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
     "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
-    "seventeen", "eighteen", "nineteen", "twenty"];
+    "seventeen", "eighteen", "nineteen", "twenty", "twenty-one"];
   const ci = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
   const testing = readFileSync(new URL("../TESTING.md", import.meta.url), "utf8");
   // Include browser-free modes such as --self-test; they are CI run entries too.
@@ -658,7 +658,7 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
   const { readFileSync, existsSync } = await import("node:fs");
   const NUM = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
     "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
-    "seventeen", "eighteen", "nineteen", "twenty"];
+    "seventeen", "eighteen", "nineteen", "twenty", "twenty-one"];
   const testing = readFileSync(new URL("../TESTING.md", import.meta.url), "utf8");
   const RE = new RegExp(String.raw`\b(${NUM.join("|")})\s+checks?\b`, "i");
   const rows = [], bad = [], uncountable = [];

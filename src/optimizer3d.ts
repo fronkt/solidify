@@ -254,6 +254,9 @@ export class Optimizer3D {
   }
 
   private resetSearch() {
+    // Cancellation can happen after a batch wrote its next cooling stage but
+    // before its census returned. Exit must still recognize that owned write.
+    if (this.clock) this.lastExpected = this.clock.expectedParams();
     this.clock?.cancel(); this.clock = null; this.candidate = null;
     const rng = stream("optimizer3d"); rng.reset(); this.cma = new SepCMAES(5, 8, .8, rng);
     this.queue = []; this.scores = []; this.history = []; this.episode = 0; this.totalSteps = 0;
@@ -460,7 +463,7 @@ export class Optimizer3D {
     const stepLabel = document.createElement("label"); stepLabel.className = "pnote q"; stepLabel.textContent = " steps per casting ";
     const stepSelect = document.createElement("select"); stepSelect.id = "opt3StepBudget"; stepSelect.setAttribute("aria-label", "3D substep budget per casting");
     this.stepBudgetSelect = stepSelect;
-    for (const n of [...new Set([3000, 6000, 9000, 18000, this.maxSteps])].sort((a, b) => a - b)) {
+    for (const n of [...new Set([3000, 9000, 18000, 30000, 60000, 100000, this.maxSteps])].sort((a, b) => a - b)) {
       const o = document.createElement("option"); o.value = String(n); o.textContent = String(n); stepSelect.append(o);
     }
     stepSelect.value = String(this.maxSteps); stepSelect.addEventListener("change", () => {
@@ -538,7 +541,7 @@ export class Optimizer3D {
         { key: "relative_diameter_error", q: { kind: "dimless", sym: "|Δd|/d_target", name: "Relative diameter error" }, values: this.history.map(r => r.error ?? NaN) },
         { key: "best_relative_error", q: { kind: "dimless", sym: "best", name: "Best relative diameter error" }, values: this.history.map(r => r.best ?? NaN) },
         { key: "diameter_cells", q: { kind: "dimless", sym: "d_cells", name: "Volume-equivalent diameter in cells" }, values: this.history.map(r => r.diameterCells ?? NaN) },
-        { key: "diameter_um", q: { kind: "length", sym: "d", name: "Volume-equivalent diameter" }, values: this.history.map(r => r.diameterCells == null ? NaN : r.diameterCells * this.saved!.pitch) },
+        { key: "diameter", q: { kind: "length", sym: "d", name: "Volume-equivalent diameter" }, values: this.history.map(r => r.diameterCells == null ? NaN : r.diameterCells * this.saved!.pitch) },
         { key: "solid_fraction", q: { kind: "fraction", sym: "f_s", name: "Solid fraction" }, values: this.history.map(r => r.fracSolid) },
         { key: "grain_count", q: { kind: "count", sym: "N", name: "Censused grains" }, values: this.history.map(r => r.grainCount) },
         { key: "delivered_steps", q: { kind: "count", sym: "N_steps", name: "Delivered substeps" }, values: this.history.map(r => r.deliveredSteps) },

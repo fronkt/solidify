@@ -4,7 +4,9 @@ import type { NucState } from "./nucleation";
 
 export const CAST3_BATCH = 16;
 export const CAST3_COMPLETE = .92;
-export const CAST3_MAX_STEPS = 9000;
+// The native 3D timestep is smaller than 2D's. Allow the cooling schedule to
+// remove recalescence heat without treating an unfinished volume as a result.
+export const CAST3_MAX_STEPS = 60_000;
 export const OPT3_EPISODES = 16;
 
 export interface Recipe3D {
@@ -58,12 +60,15 @@ export function measureCasting3(stats: StatsResult3D | null, recipe: Pick<Recipe
   const meanVolVox = stats && Number.isFinite(stats.meanVolVox) && stats.meanVolVox > 0 ? stats.meanVolVox : null;
   const diameterCells = meanVolVox != null ? Math.cbrt(6 * meanVolVox / Math.PI) : null;
   const diameter = diameterCells != null ? diameterCells * (recipe.known ? recipe.pitch : 1) : null;
-  const reason = !stats ? "No grain census was available"
+  let reason = !stats ? "No grain census was available"
     : !Number.isFinite(fracSolid) || fracSolid < CAST3_COMPLETE || fracSolid > 1 ? "Casting did not reach the declared solid fraction"
     : !Number.isSafeInteger(grainCount) || grainCount <= 0 || diameter == null || !Number.isFinite(diameter) || diameter <= 0 ? "No finite censused grain diameter"
     : !Number.isFinite(recipe.target) || recipe.target <= 0 || !(recipe.pitch > 0) || !Number.isFinite(recipe.pitch) ? "Invalid target or cell pitch"
     : null;
-  const error = reason == null && diameter != null ? Math.abs(diameter / recipe.target - 1) : null;
+  const relativeError = reason == null && diameter != null ? Math.abs(diameter / recipe.target - 1) : null;
+  if (reason == null && (relativeError == null || !Number.isFinite(relativeError) || relativeError >= Number.MAX_VALUE))
+    reason = "Relative diameter error exceeds the supported finite range";
+  const error = reason == null ? relativeError : null;
   return { valid: reason == null, reason, diameter, diameterCells, meanVolVox, grainCount, fracSolid,
-    error, score: error ?? 1e6 };
+    error, score: error ?? Number.MAX_VALUE };
 }

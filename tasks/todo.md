@@ -5353,3 +5353,30 @@ Plan:
 Work allocation: optimizer3d_engine owns new optimizer3d module, minimal shared
 CMA export/RNG injection and optional Nucleation injection; optimizer3d_tests owns
 new3D GPU acceptance fixtures; root owns main/sim3d/share and final verification.
+
+### Implementation review checkpoint
+
+Pushed initial implementation as 17d1c48 on feature/3d-optimizer; PR4 targets
+v7-experiments so this feature can be reviewed separately from Q3 acceptance.
+Typecheck/build, RNG, plot/export arithmetic and original solver/source identity
+pass. The initial 9,000-step resource limit stopped genuine Al96-cube trials at
+solid fractions .3894/.2831; both were correctly refused. The default is now
+60,000 at the native dt=.00009; cooling ranges and .92 completion stay fixed.
+Actual completed trials reached .920123/.920076 at41,776/51,936 steps, with an
+independent raw-voxel census matching their volume metric. Applied replay twice
+matched measured diameter and exact state/grain hashes with zero device errors.
+
+That first complete browser run is explicitly review-refused as a full acceptance
+claim: its hash-only navigation reused the page and did not prove fresh shared
+restoration. Its raw runner verdict and review refusal are both retained. The
+corrected final gate must force a new document, inspect real ZIP/CSV/PNG exports,
+cross a CMA generation with actual invalid casts and exercise a real cooling-
+segment transition followed by target change and Exit.
+
+Independent review found finite API-target overflow and a canceled-batch cooling
+restoration race. Root reproduced both failures before changing production code;
+seven model checks and the separately scoped CPU lifecycle reproducer now pass.
+Invalid scores reserve the finite worst sentinel and nonfinite errors refuse;
+reset preserves the current clock's owned parameter writes before dropping it.
+The phone resize guard also preserves transport access while allowing deliberate
+drawer reopening. Final GPU/regression verification remains pending.

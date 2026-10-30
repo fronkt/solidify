@@ -235,7 +235,7 @@ export class UI {
     // CONTROLS brings it in as a drawer (app/index.html .railCramped)
     const rail = document.getElementById("rail")!;
     this.setRailHidden(innerWidth - rail.offsetWidth < RAIL_ROOM);
-    addEventListener("resize", () => this.railRoom());
+    addEventListener("resize", () => this.railRoom(true));
     document.getElementById("readoutsToggle")!.addEventListener("click", () => {
       document.body.classList.toggle("readoutsOpen");
       this.readingsState();
@@ -268,9 +268,16 @@ export class UI {
    *  app/index.html .narrow, the CSS's --lens-under-head), and whether the
    *  open rail leaves the chrome beside it too little room (.railCramped,
    *  .railPhone) */
-  private railRoom() {
+  private railRoom(afterResize = false) {
     const open = !document.body.classList.contains("railHidden");
     const free = innerWidth - (open ? document.getElementById("rail")!.offsetWidth : 0);
+    // A panel already on screen needs the same room after a resize as one
+    // opened on a phone. Keep its transport reachable when the rail becomes
+    // a drawer; setRailHidden re-enters once with open=false.
+    if (afterResize && open && free < RAIL_ROOM && document.querySelector("#app > .modepanel")) {
+      this.setRailHidden(true);
+      return;
+    }
     document.body.classList.toggle("narrow", free < RAIL_ROOM);
     document.body.classList.toggle("railCramped", open && free < RAIL_ROOM);
     document.body.classList.toggle("railPhone", open && free < RAIL_ROOM_PHONE);

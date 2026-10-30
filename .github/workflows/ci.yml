@@ -22,6 +22,7 @@ jobs:
       # so unlike the rest of the verification suite they can be gated here.
       - run: node scripts/verify-units.mjs
       - run: node scripts/verify-rng.mjs
+      - run: node scripts/verify-optimizer3d-model.mjs
       - run: node scripts/verify-heattreat.mjs
       - run: node scripts/verify-thermal.mjs
       - run: node scripts/verify-fade.mjs

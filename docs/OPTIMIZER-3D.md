@@ -5,6 +5,10 @@ budget, then press **run**. Entry is paused. The search evaluates real castings
 on the selected volume grid using the current material, composition, seed and
 cell pitch. Camera and lens controls remain available during a search.
 
+The default limits are sixteen castings and 60,000 delivered substeps per
+casting. The panel offers smaller budgets and up to 100,000 steps. A slow
+cooling schedule may remain unfinished within that fixed resource limit.
+
 The objective is the diameter of a sphere with the mean censused grain volume:
 `d = cbrt(6 meanVolumeVoxels / pi)`. Known material scales display micrometres;
 the unscaled model displays cells. The census excludes grains below the native
@@ -45,3 +49,7 @@ checks pause hashes, invalid casts and late-census cancellation, applies and
 shares the winner, replays it twice, inspects phone controls and exercises the
 legacy 2D path. Source files must remain frozen throughout the browser run.
 GPU acceptance evidence is recorded separately after execution.
+
+`node scripts/verify-optimizer3d-model.mjs` also runs seven browser-free model
+checks in CI, including finite-score ordering, overflow refusal, charged
+liquidus bounds and independent volume/diameter arithmetic.
