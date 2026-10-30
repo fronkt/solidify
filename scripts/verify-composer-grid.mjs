@@ -116,7 +116,9 @@ const block = (name, fn) => {
     "fe-C": [1, 0.05, 0.8, 0.17000000000000004, 1.5, ["strong alloy: model depression capped so growth stays watchable"]],
     "fe-Mn": [1, 0.6666666666666666, 0.33, 0.76, 0.7200000000000001, ["strong alloy: model depression capped so growth stays watchable"]],
     "fe-Si": [1, 0.3333333333333333, 0.66, 0.52, 0.8, ["strong alloy: model depression capped so growth stays watchable"]],
-    "fe-Ni": [1, 0.6666666666666666, 0.33, 0.83, 0.7200000000000001, ["strong alloy: model depression capped so growth stays watchable"]],
+    // R2 table 1.2.0: coherent first-peritectic liquid 5.15 wt% tightens this
+    // end-of-slider probe to 5.10 wt%. The other pre-P5 numerical pins stand.
+    "fe-Ni": [1, 0.33999999999999997, 0.42128744939271257, 0.83, 0.7200000000000001, []],
     "fe-Cr": [1, 0.6666666666666666, 0.1, 0.9, 0.7200000000000001, []],
     "fe-Mo": [1, 0.3333333333333333, 0.23305263157894737, 0.8, 0.6400000000000001, []],
     "ni-Nb": [1, 0.4, 0.5499999999999999, 0.48, 0.6400000000000001, ["strong alloy: model depression capped so growth stays watchable"]],
@@ -212,6 +214,7 @@ const block = (name, fn) => {
 //    now and silently widening it would be as much a break as narrowing it.
 {
   const CORPUS = [
+    { hash: "#alloy=fe:Ni10", base: "fe", wt: { Ni: 5.1 }, refusals: 1, clamped: ["Ni"], re: "alloy=fe:Ni5.1" },
     // the landing page's own published link
     { hash: "#alloy=al:Si7,Mg0.35,Ti0.12", base: "al", wt: { Si: 7, Mg: 0.35, Ti: 0.12 }, refusals: 0, clamped: [], re: "alloy=al:Si7,Mg0.35,Ti0.12" },
     { hash: "#alloy=al:Cu4.4,Mg1.5", base: "al", wt: { Cu: 4.4, Mg: 1.5 }, refusals: 0, clamped: [], re: "alloy=al:Cu4.4,Mg1.5" },
@@ -276,7 +279,7 @@ const block = (name, fn) => {
       n + E.ELEMENTS.filter(r => E.admit(bk, r.symbol, E.probeWt(bk, r.symbol))?.tier === "ASSESSED").length, 0);
     const shippedPairs = Object.values(A.BASES).reduce((n, b) => n + Object.keys(b.solutes).length, 0);
 
-    const ok = bad.length === 0 && restored === 14 && refused >= 4
+    const ok = bad.length === 0 && restored === 15 && refused >= 4
       && newSymbols.length === 0 && assessedCount === shippedPairs && shippedPairs === 25;
     check("ALLOY-SHARE-PRE-P5", ok, {
       links: CORPUS.length, restored, bad, refusalsRaised: refused,
@@ -561,11 +564,11 @@ block("GRID-REASON-LINE", () => {
   const ok = bad.length === 0 && branchBad.length === 0 && rows.length === 708
     && skels.size >= 20 && biggest < 354 && skelReasonClash.length === 0
     && lostAtOne.length === 3 && atProbe.length === 25
-    // 46 = the 23 pairs carrying a ceiling (25 assessed less the two
-    // isomorphous ones, which have no invariant to be past) driven at two
+    // 44 = the 22 pairs carrying a known liquid ceiling (25 records less two
+    // isomorphous and the unresolved Fe-Si liquid endpoint) driven at two
     // compositions each. Measured, not guessed — the first draft of this line
     // said 10, which is the lesson this milestone wrote down two hours earlier.
-    && uncovered.length === 0 && extra.length === 0 && past === 46 && notComp === 12;
+    && uncovered.length === 0 && extra.length === 0 && past === 44 && notComp === 12;
   check("GRID-REASON-LINE", ok, {
     pairs: rows.length, bad: bad.slice(0, 8), badCount: bad.length,
     reasonsCovered: covered.size, uncovered, extra,

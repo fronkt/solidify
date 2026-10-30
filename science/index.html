@@ -418,10 +418,9 @@
 
     <p><b>And now it is drawn.</b> The composer carries a phase diagram for the poured mix's
     dominant binary — the solute with the largest |m·c| — built from the cited invariants in
-    <code>phasedata.ts</code> (table version <b>1.1.1</b>, bumped on any row change, and every row
-    independently recomputed from openly-licensed CALPHAD assessments in
-    <a href="https://github.com/fronkt/solidify/blob/main/docs/PHASE-AUDIT.md">docs/PHASE-AUDIT.md</a>
-    so a reader can check any one of them without taking this file's word for it) and drawn as
+    <code>phasedata.ts</code> (table version <b>1.2.0</b>, bumped on any row change, and every row
+    checked against openly licensed CALPHAD assessments, with database limitations and unknown
+    endpoints recorded in <a href="https://github.com/fronkt/solidify/blob/main/docs/PHASE-RECONCILIATION.md">docs/PHASE-RECONCILIATION.md</a>) and drawn as
     STRAIGHT CHORDS from the pure metal's melting point to the invariant. The straightness is the point rather than a compromise: those chords ARE the
     linearised diagram this solver integrates, so the figure is a picture of the model and the
     real curvature becomes a caveat the panel prints instead of a feature it silently lacks. The
@@ -471,9 +470,11 @@
     composition of the reaction's own product</b>, so L + δ → γ consumes the δ-ferrite entirely
     and the casting ends as austenite alone — while this solver grows δ-ferrite from the first frame to the last.
     Its two columns read <code>gamma-austenite</code> against <code>(Fe)</code>. A melt leaner
-    than that product keeps some δ and the readout says so instead; Fe–Ni's product composition
-    is a bracket in the literature rather than a number, so that row declines to decide. The
-    regimes are deliberately not called <i>hypoeutectic</i>: seven of the shipped rows are
+    than that product keeps some δ and the readout says so instead. Fe-Ni now uses a coherent
+    tuple from Luo et al. 2007 Table 1, including its 4.54 wt% Ni product. Fe-Si and Mg-Zr decline
+    phase claims because invariant endpoints remain unresolved. Fe-Si is refused beyond the
+    instrument's 5 wt% dilute scope. The
+    regimes are deliberately not called <i>hypoeutectic</i>: eight of the shipped rows are
     peritectics and the word would be false for all of them. One honest consequence, printed
     rather than hidden: the maximum solid solubility in this table is quoted AT the invariant
     temperature and there is no solvus below it, so whatever precipitates on further cooling is
@@ -489,8 +490,8 @@
     constituent of AZ91, and which this solver grows no more than it grows the equilibrium one.
     AA2024's copper gives 8.8 % and the galvanising bath's aluminium 1.5 %. Below 1 % of the
     casting the app stops calling it a phase, and that floor is not roundness: the two tables
-    this app ships disagree about k by ratios from 0.39 to 3.30 across all twenty-three rows with
-    an invariant, and from 0.68 to 2.34 over the fifteen <code>PD-CONSTRUCT-AGREE</code> actually
+    this app ships disagree about k by ratios from 0.68 to 3.30 across the twenty-one complete
+    invariant rows, and from 0.68 to 2.34 over the fourteen <code>PD-CONSTRUCT-AGREE</code> actually
     enters, so a predicted fraction of a few thousandths is smaller than the coefficients can
     support. Leaving this out would have been
     the one place the two-column device failed to fire — on a dendritic-solidification simulator,
@@ -503,7 +504,7 @@
     base-rich one, so that composition is refused inside <code>derive()</code>, where a hand-built
     <code>#alloy=</code> link and <code>window.__solidify.alloy</code> cannot walk around it, with
     the phase and the number named. Measured against the table, the hand-picked cap reached past
-    the invariant for five of the twenty-five pairs — and one of them, Zn–Al, had its slider
+    the invariant for six of the twenty-five pairs — and one of them, Zn–Al, had its slider
     maximum sitting exactly ON the eutectic at 5 wt%. <b>Cast iron therefore leaves the
     composer.</b> Fe–C stops at 0.52 wt% C against the 0.53 wt% peritectic: past it the primary
     phase is austenite, and this app models the steel as bcc δ-ferrite, so what it drew for a

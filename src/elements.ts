@@ -1001,6 +1001,11 @@ export function admit(baseKey: string, elSym: string, wt: number): Admission | n
   const pdRow = Object.hasOwn(BINARY, baseKey) && Object.hasOwn(BINARY[baseKey], elSym) ? BINARY[baseKey][elSym] : undefined;
 
   if (solute && solute.source.trim().length > 0 && pdRow) {
+    if (pdRow.unresolved && bound?.ceiling == null && wt > solute.cap) {
+      return out("NO-ASSESSMENT",
+        `${base.symbol}–${elSym} has no sourced first invariant liquid endpoint. The dilute instrument scope ends at ${solute.cap} wt%; ${wt} wt% is outside it, so this composition is refused.`,
+        `${wt} wt% exceeds the ${solute.cap} wt% dilute instrument scope; first invariant endpoint unresolved.`);
+    }
     // ASSESSED — unless the composition itself is past the one boundary this
     // instrument refuses to cross. The test is `>=` and it reads the SAME
     // `soluteBound` ceiling `derive()` enforces, so an admission and a pour can
@@ -1022,6 +1027,11 @@ export function admit(baseKey: string, elSym: string, wt: number): Admission | n
     // readout says is derived from those two sources" would be false for it.
     const placed = phasesFor(baseKey, elSym, Math.max(wt, 1e-6));
     const contradicts = placed?.regime === "UNASSESSED";
+    if (pdRow.unresolved) {
+      return out("CITED-PAIR",
+        `${base.symbol}–${elSym} can be poured using its cited dilute coefficients, m ${solute.m} K/wt% and k ${solute.k}; ${pdRow.unresolved}`,
+        `Pourable dilute coefficients (m ${solute.m} K/wt%, k ${solute.k}); invariant endpoints unresolved, so no equilibrium phase is claimed.`);
+    }
     return out("CITED-PAIR", `${base.symbol}–${elSym} is assessed: a cited dilute data row (m ${solute.m} K/wt%, k ${solute.k}) and a cited ${pdRow.invariant} row from the same binary, so it can be poured${contradicts
       ? `. But the invariant row fails its own geometry check (its temperature and its two compositions cannot all be right), so only the coefficient row is poured and no phase is claimed.`
       : `, and everything the readout says about it comes from those two sources.`}`,
