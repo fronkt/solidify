@@ -164,6 +164,7 @@ try {
   await page.evaluate(async () => { await window.__q3tip?.destroy(); }).catch(() => {});
   const deviceErrors = await page.evaluate(() => window.__solidifyTipDeviceErrors ?? []).catch(() => []);
   errors.push(...deviceErrors);
+  if (deviceErrors.length) { result.accepted = false; result.status = "device validation failed"; }
   await page.evaluate(() => { window.__solidifyTipDevice?.destroy(); }).catch(() => {});
   result.errors = errors; result.failures = failures; save();
   await closeBrowser(browser);
