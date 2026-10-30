@@ -69,12 +69,15 @@ try {
   await page.waitForFunction(() => !!window.__solidify);
   await page.evaluate(installQuant3TipDriver);
   result.metadata = await page.evaluate(async () => {
-    const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
+    const adapter = window.__solidifyTipAdapter;
     const { PHASE_TABLE_VERSION } = await import("/src/phasedata.ts");
     return { capturedAt: new Date().toISOString(), build: window.__solidify.app.meta().build, phaseTable: PHASE_TABLE_VERSION,
       seed: "deterministic sphere; no stochastic source", adapter: adapter?.info ? { vendor: adapter.info.vendor,
-        architecture: adapter.info.architecture, device: adapter.info.device, description: adapter.info.description } : null,
-      boundary: "cell-centered first octant; reflected zero-normal-gradient faces via production clamping; distant faces tested by enlargement" };
+        architecture: adapter.info.architecture, device: adapter.info.device, description: adapter.info.description,
+        isFallbackAdapter: adapter.info.isFallbackAdapter ?? adapter.isFallbackAdapter ?? null } : null,
+      deviceLimits: { maxBufferSize: window.__solidifyTipDevice.limits.maxBufferSize,
+        maxTextureDimension3D: window.__solidifyTipDevice.limits.maxTextureDimension3D },
+      boundary: "cell-centered first octant; even scalar and odd normal correction-flux reflection; distant faces tested by enlargement" };
   });
   result.metadata.equationUnits = { length: "W0", time: "tau0", thermalDiffusivity: D, capillaryLength: d0 };
   result.metadata.sourceHashes = Object.fromEntries(["src/sim3d.ts", "src/shaders3d.ts", "src/shaders3d-quant.ts",
@@ -159,6 +162,9 @@ try {
   console.error(result.exception);
 } finally {
   await page.evaluate(async () => { await window.__q3tip?.destroy(); }).catch(() => {});
+  const deviceErrors = await page.evaluate(() => window.__solidifyTipDeviceErrors ?? []).catch(() => []);
+  errors.push(...deviceErrors);
+  await page.evaluate(() => { window.__solidifyTipDevice?.destroy(); }).catch(() => {});
   result.errors = errors; result.failures = failures; save();
   await closeBrowser(browser);
 }

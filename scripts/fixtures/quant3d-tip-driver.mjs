@@ -6,8 +6,25 @@ export async function installQuant3TipDriver() {
   const { FLUX3D_WGSL, phi3dWgsl, transport3dWgsl, P3, MAX_GRAINS3 } = await import("/src/shaders3d.ts");
   const { rect3dSpecialize } = await import("/scripts/fixtures/rect3d-specialize.mjs");
   const { phaseCrossing } = await import("/scripts/fixtures/quant3d-tip-analysis.mjs");
-  const S = window.__solidify, device = S.sim().device;
+  const S = window.__solidify;
   S.app.setRun(false);
+  // Large rectangular uploads exceed the instrument's default 256 MiB
+  // staging-buffer limit. This benchmark owns a device with explicit limits;
+  // the public instrument and all simulation equations remain unchanged.
+  const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
+  if (!adapter || adapter.info?.isFallbackAdapter || adapter.isFallbackAdapter) throw new Error("A hardware WebGPU adapter is required");
+  if (adapter.limits.maxBufferSize < 1024 ** 3 || adapter.limits.maxTextureDimension3D < 576)
+    throw new Error("The long reference fixture needs a 1 GiB upload limit and 576-cell 3D textures");
+  const device = await adapter.requestDevice({
+    requiredFeatures: adapter.features.has("float32-filterable") ? ["float32-filterable"] : [],
+    requiredLimits: { maxBufferSize: Math.min(2 * 1024 ** 3, adapter.limits.maxBufferSize),
+      maxTextureDimension3D: Math.min(2048, adapter.limits.maxTextureDimension3D) },
+  });
+  window.__solidifyTipAdapter = adapter;
+  window.__solidifyTipDevice = device;
+  window.__solidifyTipDeviceErrors = [];
+  device.addEventListener("uncapturederror", e => window.__solidifyTipDeviceErrors.push(String(e.error?.message ?? e.error)));
+  device.lost.then(info => { if (info.reason !== "destroyed") window.__solidifyTipDeviceErrors.push(`Device lost: ${info.message}`); });
   let active = null;
   const sources = [FLUX3D_WGSL, phi3dWgsl(false), transport3dWgsl(false)];
   const shaderErrors = [];
