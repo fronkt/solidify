@@ -1,0 +1,38 @@
+{
+  "version": 2,
+  "source": {
+    "authors": "Alain Karma and Wouter-Jan Rappel",
+    "title": "Numerical Simulation of Three-Dimensional Dendritic Growth",
+    "journal": "Physical Review Letters 77, 4050 (1996)",
+    "url": "https://arxiv.org/pdf/patt-sol/9607005",
+    "location": "Table I, PDF page 3",
+    "evidence": "verify-out/q3-kr96-table.png; table visually checked before port implementation"
+  },
+  "undercooling": 0.45,
+  "publishedGrid": [200, 200, 400],
+  "geometry": "three-dimensional cubic dendrite; full 3D column, not the distinct axisymmetric column",
+  "anisotropyScope": {
+    "publishedEpsilon": "effective lattice-corrected surface-energy anisotropy",
+    "fixtureEpsilon": "raw continuum energy coefficient, held fixed during dx refinement; no fitted offset is applied",
+    "followupSource": "Karma and Rappel, Phys. Rev. E 57, 4323 (1998), Sec. VI.B, Eq. 108 and Table V",
+    "doi": "https://doi.org/10.1103/PhysRevE.57.4323",
+    "leadingEstimate": "epsilon_effective = epsilon_raw - (dx/W0)^2/240 + O(epsilon_raw*dx^2,dx^4)",
+    "publishedExample": { "dxOverW0": 0.8, "epsilonRaw": 0.02, "epsilonEffective": 0.0171 },
+    "limit": "The published method independently measures equilibrium Wulff shapes and calibrates discrete planar kinetic coefficients. Its exact corrections cannot be transferred to a different discretization or fitted from tip P/sigma. A failed coarse-grid comparison calls for diagnosis or refinement."
+  },
+  "definitions": {
+    "P": "rho*V/(2*D)",
+    "sigmaStar": "2*D*d0/(rho*rho*V)",
+    "radius": "local tip radius; do not substitute a whole-tip parabolic fit",
+    "rhoOverD0": "1/(P*sigmaStar)",
+    "Vd0OverD": "2*sigmaStar*P*P"
+  },
+  "rows": [
+    {"epsilon4": 0.0171, "full3D": {"P": 0.312, "sigmaStar": 0.063}, "numericalSolvability": {"P": 0.324, "sigmaStar": 0.0578}},
+    {"epsilon4": 0.0265, "full3D": {"P": 0.236, "sigmaStar": 0.16}, "numericalSolvability": {"P": 0.247, "sigmaStar": 0.142}}
+  ],
+  "acceptance": {
+    "relativeTarget": 0.1,
+    "requires": ["temporal stationarity", "domain enlargement", "dx refinement", "dt refinement", "interface-width refinement at matched physical size and time", "resolved local curvature", "thin-interface validity reported"]
+  }
+}

@@ -1,0 +1,603 @@
+{
+  "purpose": "Independent production-WGSL equilibrium mesh, radius, dt and initial-shape diagnostics; no needle-output fitting",
+  "source": "26445ae5827267ddd9b7692f034b1a4cd6fab35d",
+  "completed": true,
+  "fullMatrixCompleted": true,
+  "deviceErrorLedgerRead": true,
+  "sourceStable": true,
+  "status": "full declared equilibrium matrix complete",
+  "errors": [],
+  "metadata": {
+    "hardware": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "device": "",
+      "description": "",
+      "isFallbackAdapter": false
+    },
+    "deviceLimits": {
+      "maxBufferSize": 268435456,
+      "maxTextureDimension3D": 2048
+    },
+    "compiledSourceHashes": {
+      "flux": "daeb196529bea5f11dd3fb4a2c62325104061e1b56b6bc6a81ecb149d0694efc",
+      "purePhase": "4e60cc421b0723f77c5802f172d6e8f9e8f2dab78363e8051801007573154976",
+      "pureTransport": "c6065681d943ec6e47e98abb05d0a2507b112b737518b1e45481f9d1ba4ffc6c"
+    },
+    "build": "26445ae"
+  },
+  "sourceHashes": {
+    "src/sim3d.ts": "8c03b2da6e2417a290a404212046318e9d15c8762bf24b5b90a1bbcc69d7eb01",
+    "src/shaders3d.ts": "1b5c93e9c30342cd4dc8017427e18f9d9c1fa88a3a207903c20d58fe44599a73",
+    "src/shaders3d-quant.ts": "3704128f1a5751af427ef7b1115d3bc7a635bcd4793be654a240b892df9f9c08",
+    "scripts/fixtures/quant3d-wulff-analysis.mjs": "d0ec16e378a2b224094b2d2fe815ad08c57b88c4fa007816faa2fb46800c925a",
+    "scripts/fixtures/quant3d-tip-analysis.mjs": "4adc7d75909656853e1a4d0dcbd7f7def8190fa25c7d4d240f13129f669c5f92",
+    "scripts/research/quant3d-equilibrium.mjs": "ac6283db9eff93389a32727c47e5bc5b7ac41b5d90a11860561bc8b022502727",
+    "scripts/research/quant3d-equilibrium-driver.mjs": "1d5a828f05013931787116a6e4404770fb4875f9c26b0b9eb7e9b677e474d807",
+    "scripts/research/quant3d-equilibrium-matrix.json": "d0c68dc924e5b62a9758b53a22fba2c9a23b7c79ea3dd0e95c6ba34a3486de4d",
+    "scripts/research/quant3d-readback.mjs": "5b0d3ece3239b28275c6773f1324af344ffa065cd729b25fad58c8690e2b74a7"
+  },
+  "q3Accepted": false,
+  "cases": [
+    {
+      "config": {
+        "name": "baseline",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "epsilon": 0,
+        "lambda": 4
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 1.6254793644421284e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 0,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 2.480037308268705e-05,
+          "heldOut111Residual": 0.0001870641105808379
+        }
+      },
+      "finalTime": 1000,
+      "completed": true,
+      "summary": {
+        "epsilon": -0.0001011457388551701,
+        "epsilonError": 2.480037308268705e-05,
+        "d0Effective": 0.2183679474968799,
+        "a1Effective": 0.8734717899875196,
+        "support100": 20.01899394754602,
+        "support110": 20.02304402906243,
+        "heldOut111RelativeResidual": -0.0001870641105808379
+      }
+    },
+    {
+      "config": {
+        "name": "baseline",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "epsilon": 0.0171,
+        "lambda": 4
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 2.185514524910559e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 1.7881393432617188e-07,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 4.831446561247288e-05,
+          "heldOut111Residual": 0.00047952487472030183
+        }
+      },
+      "finalTime": 1000.0072101252032,
+      "completed": true,
+      "summary": {
+        "epsilon": 0.016602038729755794,
+        "epsilonError": 4.831446561247288e-05,
+        "d0Effective": 0.21820484796323622,
+        "a1Effective": 0.8728193918529449,
+        "support100": 20.59509959483824,
+        "support110": 19.922426064606267,
+        "heldOut111RelativeResidual": -0.00047952487472030183
+      }
+    },
+    {
+      "config": {
+        "name": "grid",
+        "n": 128,
+        "dx": 0.6,
+        "radius": 20,
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "epsilon": 0,
+        "lambda": 4
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 3.144099058882688e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 5.960464477539063e-08,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 7.587996391101639e-06,
+          "heldOut111Residual": 5.507037640292594e-05
+        }
+      },
+      "finalTime": 1000.0012500000156,
+      "completed": true,
+      "summary": {
+        "epsilon": -3.2689518124119196e-05,
+        "epsilonError": 7.587996391101639e-06,
+        "d0Effective": 0.21946580884552308,
+        "a1Effective": 0.8778632353820923,
+        "support100": 20.01780508495793,
+        "support110": 20.019113872545827,
+        "heldOut111RelativeResidual": -5.507037640292594e-05
+      }
+    },
+    {
+      "config": {
+        "name": "grid",
+        "n": 128,
+        "dx": 0.6,
+        "radius": 20,
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "epsilon": 0.0171,
+        "lambda": 4
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 2.687059883488274e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 5.960464477539063e-08,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 1.2129169902591608e-05,
+          "heldOut111Residual": 0.00023951162846660146
+        }
+      },
+      "finalTime": 1000.0004598875469,
+      "completed": true,
+      "summary": {
+        "epsilon": 0.01680536581496538,
+        "epsilonError": 1.2129169902591608e-05,
+        "d0Effective": 0.21935269923728573,
+        "a1Effective": 0.8774107969491429,
+        "support100": 20.594353882561993,
+        "support110": 19.913602851233765,
+        "heldOut111RelativeResidual": -0.00023951162846660146
+      }
+    },
+    {
+      "config": {
+        "name": "radius",
+        "n": 144,
+        "dx": 0.8,
+        "radius": 30,
+        "maximumTime": 2250,
+        "measurementPeriod": 45,
+        "epsilon": 0,
+        "lambda": 4
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 6.196609247943741e-08,
+          "epsilonSpan": 0,
+          "temperatureSpan": 0,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 2.627711327083182e-05,
+          "heldOut111Residual": 0.0002178687205426875
+        }
+      },
+      "finalTime": 2250.0199999999277,
+      "completed": true,
+      "summary": {
+        "epsilon": -0.00015073495219325347,
+        "epsilonError": 2.627711327083182e-05,
+        "d0Effective": 0.21848302276561385,
+        "a1Effective": 0.8739320910624554,
+        "support100": 30.0085100137759,
+        "support110": 30.017558040274377,
+        "heldOut111RelativeResidual": -0.0002178687205426875
+      }
+    },
+    {
+      "config": {
+        "name": "radius",
+        "n": 144,
+        "dx": 0.8,
+        "radius": 30,
+        "maximumTime": 2250,
+        "measurementPeriod": 45,
+        "epsilon": 0.0171,
+        "lambda": 4
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 1.913858898028309e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 5.960464477539063e-08,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 3.9885383432015226e-05,
+          "heldOut111Residual": 0.0005127738713334929
+        }
+      },
+      "finalTime": 2250.0072224648343,
+      "completed": true,
+      "summary": {
+        "epsilon": 0.01657820672971911,
+        "epsilonError": 3.9885383432015226e-05,
+        "d0Effective": 0.21828067604269658,
+        "a1Effective": 0.8731227041707863,
+        "support100": 30.87122634466923,
+        "support110": 29.864339576973748,
+        "heldOut111RelativeResidual": -0.0005127738713334929
+      }
+    },
+    {
+      "config": {
+        "name": "cross",
+        "n": 192,
+        "dx": 0.6,
+        "radius": 30,
+        "maximumTime": 2250,
+        "measurementPeriod": 45,
+        "epsilon": 0,
+        "lambda": 4
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 2.3121970249562196e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 5.960464477539063e-08,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 4.818766865314787e-06,
+          "heldOut111Residual": 5.301621452507247e-05
+        }
+      },
+      "finalTime": 2250.011249999643,
+      "completed": true,
+      "summary": {
+        "epsilon": -3.008529254569142e-05,
+        "epsilonError": 4.818766865314787e-06,
+        "d0Effective": 0.21953038700868413,
+        "a1Effective": 0.8781215480347365,
+        "support100": 30.011391085437797,
+        "support110": 30.01319694272856,
+        "heldOut111RelativeResidual": -5.301621452507247e-05
+      }
+    },
+    {
+      "config": {
+        "name": "cross",
+        "n": 192,
+        "dx": 0.6,
+        "radius": 30,
+        "maximumTime": 2250,
+        "measurementPeriod": 45,
+        "epsilon": 0.0171,
+        "lambda": 4
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 1.6919148859706468e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 1.1920928955078125e-07,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 9.521340593020983e-06,
+          "heldOut111Residual": 0.0002442567060367842
+        }
+      },
+      "finalTime": 2250.0060974253315,
+      "completed": true,
+      "summary": {
+        "epsilon": 0.01682120112227238,
+        "epsilonError": 9.521340593020983e-06,
+        "d0Effective": 0.21942959038675738,
+        "a1Effective": 0.8777183615470295,
+        "support100": 30.8752278615212,
+        "support110": 29.85369444545667,
+        "heldOut111RelativeResidual": -0.0002442567060367842
+      }
+    },
+    {
+      "config": {
+        "name": "fine-grid",
+        "n": 192,
+        "dx": 0.4,
+        "radius": 20,
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "epsilon": 0,
+        "lambda": 4
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 1.9672402640225073e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 0,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 1.2342390543249578e-06,
+          "heldOut111Residual": 9.744143806129973e-06
+        }
+      },
+      "finalTime": 1000.0000000001031,
+      "completed": true,
+      "summary": {
+        "epsilon": -5.5344885961624345e-06,
+        "epsilonError": 1.2342390543249578e-06,
+        "d0Effective": 0.22018723765043244,
+        "a1Effective": 0.8807489506017298,
+        "support100": 20.016517755824417,
+        "support110": 20.016739319429167,
+        "heldOut111RelativeResidual": -9.744143806129973e-06
+      }
+    },
+    {
+      "config": {
+        "name": "fine-grid",
+        "n": 192,
+        "dx": 0.4,
+        "radius": 20,
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "epsilon": 0.0171,
+        "lambda": 4
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 4.1668213768275564e-08,
+          "epsilonSpan": 0,
+          "temperatureSpan": 0,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 4.286144781168871e-06,
+          "heldOut111Residual": 9.628010714029663e-05
+        }
+      },
+      "finalTime": 1000.0027099666781,
+      "completed": true,
+      "summary": {
+        "epsilon": 0.01696131082453722,
+        "epsilonError": 4.286144781168871e-06,
+        "d0Effective": 0.2201554597664711,
+        "a1Effective": 0.8806218390658844,
+        "support100": 20.59496687992024,
+        "support110": 19.90798374505908,
+        "heldOut111RelativeResidual": -9.628010714029663e-05
+      }
+    },
+    {
+      "config": {
+        "name": "large-radius",
+        "n": 192,
+        "dx": 0.8,
+        "radius": 40,
+        "maximumTime": 4000,
+        "measurementPeriod": 80,
+        "epsilon": 0,
+        "lambda": 4
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 1.6647557266047386e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 0,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 4.295151649882819e-05,
+          "heldOut111Residual": 0.00013475219176289506
+        }
+      },
+      "finalTime": 4000.0000000003956,
+      "completed": true,
+      "summary": {
+        "epsilon": -4.3247501224869214e-05,
+        "epsilonError": 4.295151649882819e-05,
+        "d0Effective": 0.21847597098952473,
+        "a1Effective": 0.8739038839580989,
+        "support100": 40.00982475419987,
+        "support110": 40.01328555376093,
+        "heldOut111RelativeResidual": -0.00013475219176289506
+      }
+    },
+    {
+      "config": {
+        "name": "large-radius",
+        "n": 192,
+        "dx": 0.8,
+        "radius": 40,
+        "maximumTime": 4000,
+        "measurementPeriod": 80,
+        "epsilon": 0.0171,
+        "lambda": 4
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 7.524369438627332e-08,
+          "epsilonSpan": 0,
+          "temperatureSpan": 0,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 4.5170452675581674e-05,
+          "heldOut111Residual": 0.0005712621187409273
+        }
+      },
+      "finalTime": 4000.0108398667767,
+      "completed": true,
+      "summary": {
+        "epsilon": 0.016520904165776607,
+        "epsilonError": 4.5170452675581674e-05,
+        "d0Effective": 0.21829804794248805,
+        "a1Effective": 0.8731921917699522,
+        "support100": 41.14814582373622,
+        "support110": 39.81063358770161,
+        "heldOut111RelativeResidual": -0.0005712621187409273
+      }
+    },
+    {
+      "config": {
+        "name": "half-dt",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "epsilon": 0.0171,
+        "dtScale": 0.5,
+        "lambda": 4
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 2.893100177203678e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 5.960464477539063e-08,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 4.829972530949467e-05,
+          "heldOut111Residual": 0.00048084397178982125
+        }
+      },
+      "finalTime": 1000.0072101251988,
+      "completed": true,
+      "summary": {
+        "epsilon": 0.01659695169017355,
+        "epsilonError": 4.829972530949467e-05,
+        "d0Effective": 0.2182042309392139,
+        "a1Effective": 0.8728169237568556,
+        "support100": 20.59493830065542,
+        "support110": 19.922472786235392,
+        "heldOut111RelativeResidual": -0.00048084397178982125
+      }
+    },
+    {
+      "config": {
+        "name": "initial-shape",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "epsilon": 0.0171,
+        "initialAxes": [
+          1.25,
+          0.8944271909999159,
+          0.8944271909999159
+        ],
+        "matchBaselinePhaseVolume": true,
+        "lambda": 4,
+        "targetVolume": 66257.30229489849
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 1.241745425373253e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 1.1920928955078125e-07,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 7.362677455039629e-05,
+          "heldOut111Residual": 0.0004791608619157296
+        }
+      },
+      "finalTime": 1000.0072101252032,
+      "completed": true,
+      "summary": {
+        "epsilon": 0.016605904220669238,
+        "epsilonError": 7.362677455039629e-05,
+        "d0Effective": 0.2182120202311825,
+        "a1Effective": 0.87284808092473,
+        "support100": 20.595228014800863,
+        "support110": 19.92239622738604,
+        "heldOut111RelativeResidual": -0.0004791608619157296
+      }
+    }
+  ],
+  "preservation": {
+    "name": "solidify-q3-equilibrium-matrix-2026-10-30.tar.gz",
+    "bytes": 1461775985,
+    "sha256": "b3c839472d4cb641341883dcc2109d27db31c08efd5bf2dc601b06424730bc81",
+    "downloadChecksumVerified": true,
+    "downloadedAt": "2026-10-30T18:20:22.930567+00:00",
+    "members": 730,
+    "rawCheckpointsVerified": 714,
+    "sourceHashesVerified": 9,
+    "serverDigestMatches": true,
+    "releaseDraft": "https://github.com/fronkt/solidify/releases/tag/untagged-4ff2f3cab68d844e3925"
+  },
+  "radiusStiffness": {
+    "scope": "unchanged local-curvature estimator; no scalar retuning or bound on needle sigma",
+    "epsilon0OcticRelativeErrors": {
+      "R20": 0.000517,
+      "R30": -0.025192,
+      "R40": 0.009696
+    },
+    "epsilon0171OcticRelativeErrors": {
+      "R20": -0.018654,
+      "R30": -0.041534,
+      "R40": -0.035008
+    },
+    "nextDiscriminatingControl": "half-cell translation with unchanged radius, mesh, coefficients and estimator",
+    "preservation": {
+      "name": "q3-radius-stiffness-completion-2026-10-30.zip",
+      "bytes": 3472629,
+      "members": 10,
+      "sha256": "38cfca61cb9b781cdc864925f07ba7db8faf41e1da386d8aa383ec97e902ea7e",
+      "memberHashesVerified": true,
+      "releaseDraft": "https://github.com/fronkt/solidify/releases/tag/untagged-4ff2f3cab68d844e3925"
+    }
+  }
+}

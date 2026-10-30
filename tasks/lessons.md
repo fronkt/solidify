@@ -681,3 +681,53 @@ split "bridgma/n" and the head plate sat under the toggles.
 require it was read (a per-item floor, not a list entry). When the property lives
 somewhere the probe's API cannot see (pseudo-elements, canvas, compositing), read the
 pixels, and prove the read on a planted defect.
+
+## Seed every stochastic input and own the manual GPU clock
+
+A3D calibration fixture seeded nucleation positions but inherited a random page seed for grain orientations. Armed animation frames could also consume queued quench stamps between manual growth batches. The same source therefore produced different specimens and coarsening fits.
+
+**Rule.** For a deterministic GPU fixture, control every named random stream and separate manual physics submission from animation submissions. Verify actual field bytes and delivered steps/frame/time before fitting a physical constant. Preserve stopping rules and scientific tolerances; reproducibility is a precondition, not a reason to widen acceptance.
+
+## Async setup owns its publication, not merely its allocation
+
+A shared 3D setup wrote calibrated dials before allocation, then resumed after the operator left the mode. A completed allocation does not authorize publishing into a different mode, solver instance or user-edited setup. Preserve the qualitative baseline until preparation succeeds, check ownership after every await, and keep composed kPart/dSol canonical before taking a restoration snapshot. Publish a dormant volume's scale only into that volume; an explicit reset must permit retry after a visible runtime refusal.
+
+## Separate a compound gate from its component results
+
+The five-arm reference runner's final convergence assertion included every arm's literature acceptance. That assertion failed even though all pointwise domain/grid/time/width differences were within their comparison band. Report the condition that actually failed. A fixed maximum horizon also does not make a first-qualifying endpoint a fixed terminal observation; predeclare paired physical endpoints when the convergence comparison requires them.
+
+## A CI inventory includes argument-bearing test modes
+
+Adding a browser-free lifecycle check also changes the documented CI inventory.
+Count workflow invocations with modes such as --self-test, update TESTING.md in
+the same phase, and run verify-phasedata before pushing workflow additions.
+Passing only the new test misses the existing cross-document count contract.
+
+## A perturbed traveling wave need not recover on an assumed thermal clock
+
+The lattice kinetic experiment required an added-heat front to recover its
+original fixed-speed temperature profile after five D/V-squared times. All
+execution checks passed, but that thermal clause failed. An independent Float64
+march reproduced the residual while conserving enthalpy. The small speed shift
+changed the liquid diffusion length and predicted the temperature tail. Positive
+bare relaxation did not establish asymptotic stability of either finite-speed
+branch, and a neutral translation could not absorb the added enthalpy.
+
+**Rule.** Identify conserved quantities and available neutral modes before
+requiring recovery to the original wave. Establish the transient expectation in
+an independent solver, distinguish field evolution from stability, and include
+signed or zero-integral controls when appropriate. A failed frozen predicate
+stays failed; a later diagnosis requires its own prospectively specified test.
+
+## A commit archive does not always preserve measured source bytes
+
+Git normalizes line endings. Twenty-five local scientific source records used
+Windows byte representations that differed from their commit archive, although
+the generated WGSL and source logic were identical. A separate exact-byte
+archive reconstructed every recorded hash from the pinned Git content and
+verified LF/CRLF representation; no result or scientific source was altered.
+
+**Rule.** Preserve the exact files whose hashes were measured, alongside the
+commit archive. If reconstruction is necessary, verify the reconstructed bytes
+against every original hash and label the representation. Keep generated shader
+hashes as a separate model-provenance check.

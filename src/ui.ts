@@ -42,6 +42,7 @@ export interface UIHost extends AppControl {
   canCalibrate(): boolean;
   /** a scientific reason this composition cannot use the calibrated solver */
   calibrationIssue?(): string | null;
+  calibrationBusy?(): boolean;
   isCalibrated(): boolean;
   setCalibrated(on: boolean): void;
   getLambda(): number;
@@ -170,6 +171,7 @@ export interface UIHost extends AppControl {
 interface SliderBind { update(): void }
 
 export class UI {
+  private derived3: HTMLElement[] = [];
   private binds: SliderBind[] = [];
   private sections: Record<string, { root: HTMLElement; setOpen: (b: boolean) => void }> = {};
   private viewBtns: HTMLButtonElement[] = [];
@@ -726,7 +728,7 @@ export class UI {
     this.alloyPanel.className = "subpanel";
     alloy.append(this.alloyPanel);
     this.slider(this.alloyPanel, "composition c₀", 0.05, 0.7, 0.01, () => p().c0, v => { p().c0 = v; });
-    this.slider(this.alloyPanel, "liquidus slope", 0.1, 0.8, 0.01, () => p().mLiq, v => { p().mLiq = v; });
+    this.derived3.push(this.slider(this.alloyPanel, "liquidus slope", 0.1, 0.8, 0.01, () => p().mLiq, v => { p().mLiq = v; }));
     // dSol joins `derived`: calibrated mode overwrites it with the scaled
     // diffusivity (main.ts setSolver, `dSol: q.dTilde`), so leaving it live was
     // the dead-knob class — a dial the user can drag whose value is replaced on
@@ -775,10 +777,10 @@ export class UI {
     // on screen doing nothing
     const facChk = this.check(cr, "faceted (cusped ε)", () => p().facet > 0.5, b => { p().facet = b ? 1 : 0; });
     this.facetRow = facChk.parentElement as HTMLElement;
-    this.slider(cr, "tip noise", 0, 0.04, 0.001, () => p().noiseAmp, v => { p().noiseAmp = v; }, v => v.toFixed(3));
-    this.slider(cr, "latent heat K", 0.8, 2.2, 0.01, () => p().latent, v => { p().latent = v; });
-    this.slider(cr, "twin rate", 0, 0.004, 0.0001, () => p().twinProb, v => { p().twinProb = v; },
-      v => v > 0 ? `${(v * 1000).toFixed(1)}‰` : "off");
+    this.derived3.push(this.slider(cr, "tip noise", 0, 0.04, 0.001, () => p().noiseAmp, v => { p().noiseAmp = v; }, v => v.toFixed(3)));
+    this.derived.push(this.slider(cr, "latent heat K", 0.8, 2.2, 0.01, () => p().latent, v => { p().latent = v; }));
+    this.derived3.push(this.slider(cr, "twin rate", 0, 0.004, 0.0001, () => p().twinProb, v => { p().twinProb = v; },
+      v => v > 0 ? `${(v * 1000).toFixed(1)}‰` : "off"));
     // hex 3D only: δz sign picks the growth habit (managed manually in sync —
     // visible iff 3D ∧ hex, so neither only2d nor only3d fits)
     // (the value cell names the habit; the sign convention is the learn hint)
@@ -943,7 +945,7 @@ export class UI {
     // (shaders3d.ts solute rejection), but the dial was 2D-only — the inverse
     // of a dead knob, a working control users could not reach. p() is the
     // ACTIVE solver's params, so the same slider now drives both dimensions.
-    this.slider(adv, "partition k", 0.05, 0.9, 0.01, () => p().kPart, v => { p().kPart = v; });
+    this.derived3.push(this.slider(adv, "partition k", 0.05, 0.9, 0.01, () => p().kPart, v => { p().kPart = v; }));
     // the inoculant's potency distribution: where the site population sits and
     // how tightly it clusters. Potent refiners fire just below the liquidus.
     this.slider(adv, "site ΔT_N", 0.03, 0.6, 0.005,
@@ -1040,22 +1042,32 @@ export class UI {
     const cal = host.calibration();
     const on = !!cal;
     const calIssue = host.calibrationIssue?.() ?? null;
+    const calBusy = host.calibrationBusy?.() ?? false;
     this.calSwitch.style.display = host.canCalibrate() || on || calIssue ? "" : "none";
-    this.calSwitch.classList.toggle("disabled", !!calIssue && !on);
-    this.calSwitch.setAttribute("aria-disabled", String(!!calIssue && !on));
+    this.calSwitch.classList.toggle("disabled", calBusy || (!!calIssue && !on));
+    this.calSwitch.setAttribute("aria-disabled", String(calBusy || (!!calIssue && !on)));
     this.calSwitch.title = calIssue ?? "";
     this.lamRow.style.display = on ? "" : "none";
+    for (const input of this.lamRow.querySelectorAll("input")) input.disabled = calBusy;
     for (const el of this.derived) {
       el.style.opacity = on ? "0.42" : "";
       el.style.pointerEvents = on ? "none" : "";
       el.title = on ? RAIL_CAVEATS.derived.line : "";
+      for (const input of el.querySelectorAll("input")) input.disabled = on;
+    }
+    for (const el of this.derived3) {
+      const locked = on && m3;
+      el.style.opacity = locked ? "0.42" : "";
+      el.style.pointerEvents = locked ? "none" : "";
+      el.title = locked ? "Set by the calibrated 3D model" : "";
+      for (const input of el.querySelectorAll("input")) input.disabled = locked;
     }
     const nm = (m: number) => (m < 1e-6 ? `${(m * 1e9).toFixed(1)} nm` : `${(m * 1e6).toFixed(2)} µm`);
     const learnOn = isLearnOn();
     const lrn = (t: string) => (learnOn ? `<div class="lrnText">${esc(t)}</div>` : "");
     const calCav = on ? RAIL_CAVEATS.calLocked
       : host.canCalibrate() ? RAIL_CAVEATS.calOff
-        : m3 ? RAIL_CAVEATS.cal3d : RAIL_CAVEATS.calNoSI;
+        : RAIL_CAVEATS.calNoSI;
     this.calNote.innerHTML = on
       // the numbers a reader needs to judge the calibration, not just trust it:
       // d₀ is Γ over the reference interval — and since v7.1 P1 that interval is
@@ -1069,6 +1081,8 @@ export class UI {
         // this readout until v7.1 P1, and it was wrong for every poured mix.
         + `<br><span class="calsrc">${esc(cal.coefficientSource)}</span>`
         // the locked-dials line in --fg: it is the state, brightness says so
+        + (m3 ? `<br>${p.alloyOn === 1 ? "Dilute alloy · imposed temperature · EFKP τ(T)" : "Pure melt · coupled heat diffusion"}` : "")
+        + (calBusy && calIssue ? `<br>${esc(calIssue)}` : "")
         + `<br><span class="calok">${esc(calCav.line)}</span>${lrn(calCav.learn)}`
       : calIssue ? `<span class="calok">${esc(calIssue)}</span>` : `${esc(calCav.line)}${lrn(calCav.learn)}`;
 

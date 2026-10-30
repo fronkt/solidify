@@ -1,0 +1,59 @@
+# Quantitative 3D research diagnostics
+
+These scripts investigate the unresolved quantitative 3D reference discrepancy.
+They use the production WGSL without changing its coefficients. A completed
+diagnostic is not acceptance of the selected needle state.
+
+## Equilibrium matrix
+
+Start Vite from the repository root on port 5199, then run:
+
+```text
+node scripts/research/quant3d-equilibrium.mjs verify-out/q3-equilibrium 5199
+```
+
+The optional fourth argument selects comma-separated names from
+`quant3d-equilibrium-matrix.json`, for example `baseline` or
+`baseline,half-dt,initial-shape`. The shape control requires the baseline in the
+same invocation so that it inherits the measured initial phase volume. A
+baseline selection runs both declared raw anisotropies.
+
+The 14 predeclared cases separate mesh spacing, particle radius, time step and
+initial shape. Every case runs its full fixed horizon with uniform-temperature
+volume feedback. The original equilibrium stationarity/resolution checks remain;
+effective anisotropy and scalar capillary length are reported independently.
+Scalar capillary length is a diagnostic and has no fitted acceptance target.
+This experiment does not measure moving-interface kinetics.
+
+Results retain hardware identity, generated shader and file hashes, control
+history, final verdicts, and compressed raw surface brackets with checksums. Use
+one GPU owner and freeze all listed source/input files during each run. Set
+`CHROME_PATH` and JSON-array `CHROME_ARGS` for a supported cloud graphics setup.
+
+The first local baseline pair reached the fixed 1000 tau0 horizon with no device
+errors: raw epsilon 0 measured -0.0001011133, while raw epsilon 0.0171 measured
+0.0166019492. Both met the original equilibrium checks. These two observations do
+not resolve the mesh/radius limit or justify a needle calibration coefficient.
+
+## Finite-speed planar cross-check
+
+See [quant3d-kinetic.md](quant3d-kinetic.md) for the independent coupled CPU
+traveling profile, its exporter and physical-lattice controls, and the production
+WebGPU comparison. The default command runs only a CPU metrology self-test;
+`--run` explicitly starts the ten-arm GPU diagnostic. Its finite-speed comparison
+does not establish a zero-speed kinetic coefficient or needle acceptance.
+
+## Known-truth metrology controls
+
+[quant3d-metrology-controls.md](quant3d-metrology-controls.md) describes a small
+CPU-only experiment that challenges the unchanged estimator with independently
+known curvatures. Its report preserves uncertainty undercoverage, including a
+smooth falsely resolved example. Diagnostic completion is distinct from accuracy
+acceptance; no estimator or threshold is changed by these controls.
+
+## Runner lifecycle controls
+
+`node scripts/verify-quant3d-tip-lifecycle.mjs` runs the real benchmark CLI with a
+synthetic CPU browser. It tests missing GPU error evidence, cleanup failures,
+initialization and retry artifacts, late page errors, source changes, and subset
+verdicts. These checks run in CI and never launch Chrome or execute GPU physics.

@@ -27,18 +27,36 @@ await page.goto(`http://localhost:${PORT}/app/`, { waitUntil: "networkidle0", ti
 await page.waitForFunction("!!window.__solidify", { timeout: 20000 });
 await new Promise(r => setTimeout(r, 700));
 
-await page.evaluate(async () => { await window.__solidify.app.setMode("3d"); });
+await page.evaluate(async () => {
+  const S = window.__solidify.app;
+  S.setRun(false);
+  S.setUmPerCell(1.25);
+  await S.setMode("3d");
+  S.setRun(false);
+});
 await new Promise(r => setTimeout(r, 1200));
 
-// 1. both solvers carry the SAME resolution, and setting it moves both
+// 1. Each dimension retains its own resolution. The active host follows mode
+//    switches without overwriting the other dimension's manual pitch.
 {
-  const got = await page.evaluate(() => {
+  const got = await page.evaluate(async () => {
     const S = window.__solidify;
     S.app.setUmPerCell(2.5);
-    return { two: S.sim().umPerCell, three: S.sim3d()?.umPerCell ?? null, host: S.app.getUmPerCell() };
+    const read = () => ({ two: S.sim().umPerCell, three: S.sim3d()?.umPerCell ?? null, host: S.app.getUmPerCell() });
+    const in3d = read();
+    await S.app.setMode("2d");
+    const in2d = read();
+    S.app.setUmPerCell(1.75);
+    const edited2d = read();
+    await S.app.setMode("3d");
+    S.app.setRun(false);
+    return { in3d, in2d, edited2d, back3d: read() };
   });
-  const ok = got.two === 2.5 && got.three === 2.5 && got.host === 2.5;
-  console.log("SCALE3D-SHARED", ok ? "OK" : FAIL(), JSON.stringify(got));
+  const ok = got.in3d.two === 1.25 && got.in3d.three === 2.5 && got.in3d.host === 2.5
+    && got.in2d.two === 1.25 && got.in2d.three === 2.5 && got.in2d.host === 1.25
+    && got.edited2d.two === 1.75 && got.edited2d.three === 2.5 && got.edited2d.host === 1.75
+    && got.back3d.two === 1.75 && got.back3d.three === 2.5 && got.back3d.host === 2.5;
+  console.log("SCALE3D-INDEPENDENT", ok ? "OK" : FAIL(), JSON.stringify(got));
 }
 
 // 2. the volume's own measurements follow it. eqDiamUm is computed in sim3d from
@@ -57,15 +75,19 @@ await new Promise(r => setTimeout(r, 1200));
     S.app.seedCenter();
     S.app.setRun(true);
     for (let i = 0; i < 12; i++) S.tick(10);
+    S.app.setRun(false);
+    await s3.device.queue.onSubmittedWorkDone();
     const a = await read();
     S.app.setUmPerCell(2.0);
     const b = await read();
-    return { vox: a?.meanVolVox ?? null, d1: a?.eqDiamUm ?? null, d2: b?.eqDiamUm ?? null, vox2: b?.meanVolVox ?? null };
+    return { vox: a?.meanVolVox ?? null, d1: a?.eqDiamUm ?? null, d2: b?.eqDiamUm ?? null,
+      vox2: b?.meanVolVox ?? null, grains: a?.grainCount ?? null, grains2: b?.grainCount ?? null };
   });
   // same structure, twice the micron pitch -> twice the diameter (volume is
-  // unchanged in voxels between the two reads at this cadence)
+  // paused and queue-drained, so the voxel census must agree exactly)
   const ratio = out.d1 && out.d2 ? out.d2 / out.d1 : 0;
-  const ok = out.d1 != null && Math.abs(ratio - 2) < 0.25;
+  const ok = out.vox > 0 && out.vox2 === out.vox && out.grains > 0 && out.grains2 === out.grains
+    && out.d1 > 0 && Math.abs(ratio - 2) < 1e-6;
   console.log("SCALE3D-FOLLOWS", ok ? "OK" : FAIL(),
     JSON.stringify({ ...out, ratio: +ratio.toFixed(3) }));
 }

@@ -1160,7 +1160,8 @@ const WINDOWS = [[1440, 900], [1024, 768], [390, 844]];
   need("main.ts", /plotMeta: \(\) => plotMeta\(\),\s*chem: \(\) => chemNow\(\),/, "the lab host's chemistry");
   need("main.ts", /meta: \(\) => plotMeta\(\), chem: \(\) => chemNow\(false\)/, "the 2D analysis host's chemistry");
   need("main.ts", /meta: \(\) => plotMeta\(\), chem: \(\) => chemNow\(true\)/, "the 3D analysis host's chemistry");
-  need("main.ts", /sim\.params\.solver === SOLVER\.QUANT && sim\.params\.alloyOn === 1 \? quantAnchor\(\)/, "unitsNow's calibrated T̃ = 1");
+  need("main.ts", /p\.solver === SOLVER\.QUANT && p\.alloyOn === 1 \? quantAnchor\(\)/, "the active dimension's calibrated T̃ = 1");
+  need("main.ts", /calibrationFor\(activeParams\(\)\.lambda, mode === "3d"\)/, "the active dimension's liquidus anchor");
   // the 2D interface reduction reads under T̃ = 0 (offset like the probe's
   // and the 3D one), and TRUE 3D tests presence by the interface count
   need("shaders.ts", /atomicAdd\(&stats\.interfT, u32\(clamp\(s\.g \+ 1\.0, 0\.0, 3\.0\) \* 500\.0\)\)/, "the 2D interface sum offset by +1");

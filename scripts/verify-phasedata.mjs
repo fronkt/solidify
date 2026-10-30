@@ -301,7 +301,7 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
 
   const NUM = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
     "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
-    "seventeen", "eighteen", "nineteen", "twenty"];
+    "seventeen", "eighteen", "nineteen", "twenty", "twenty-one", "twenty-two"];
 
   const alSi = PD.BINARY.al.Si, feC = PD.BINARY.fe.C;
   const A356TiB = A.derive({ base: "al", wt: { Si: 7, Mg: 0.35, Ti: 0.12 } });
@@ -600,10 +600,11 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
   const { readFileSync } = await import("node:fs");
   const NUM = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
     "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
-    "seventeen", "eighteen", "nineteen", "twenty"];
+    "seventeen", "eighteen", "nineteen", "twenty", "twenty-one", "twenty-two"];
   const ci = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
   const testing = readFileSync(new URL("../TESTING.md", import.meta.url), "utf8");
-  const runs = [...ci.matchAll(/^[ \t]*-[ \t]*run:[ \t]*node[ \t]+scripts\/(verify-[a-z0-9-]+\.mjs)[ \t]*\r?$/gm)]
+  // Include browser-free modes such as --self-test; they are CI run entries too.
+  const runs = [...ci.matchAll(/^[ \t]*-[ \t]*run:[ \t]*node[ \t]+scripts\/(verify-[a-z0-9-]+\.mjs)(?:[ \t]+[^\r\n]+)?[ \t]*\r?$/gm)]
     .map(m => m[1]);
   const word = NUM[runs.length];
   // NUMBER WORDS ONLY. A bare /([a-z]+) browser-free scripts/ also matches the
@@ -657,7 +658,7 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
   const { readFileSync, existsSync } = await import("node:fs");
   const NUM = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
     "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
-    "seventeen", "eighteen", "nineteen", "twenty"];
+    "seventeen", "eighteen", "nineteen", "twenty", "twenty-one", "twenty-two"];
   const testing = readFileSync(new URL("../TESTING.md", import.meta.url), "utf8");
   const RE = new RegExp(String.raw`\b(${NUM.join("|")})\s+checks?\b`, "i");
   const rows = [], bad = [], uncountable = [];

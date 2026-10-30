@@ -1,0 +1,331 @@
+{
+  "purpose": "Research readback and execution-evidence repair; no physical-equation change or scientific acceptance",
+  "baseline": "178d367a3f0bf1e568f8147a23266ba956a1fdd2",
+  "readback": {
+    "scope": "Research readback, not physical validation",
+    "checks": [
+      {
+        "kind": "cpu-coordinate-stride",
+        "n": 1,
+        "bytesPerRow": 256,
+        "rowsPerImage": 1,
+        "size": 256,
+        "voxels": 1
+      },
+      {
+        "kind": "cpu-coordinate-stride",
+        "n": 32,
+        "bytesPerRow": 256,
+        "rowsPerImage": 32,
+        "size": 262144,
+        "voxels": 32768
+      },
+      {
+        "kind": "cpu-coordinate-stride",
+        "n": 96,
+        "bytesPerRow": 768,
+        "rowsPerImage": 96,
+        "size": 7077888,
+        "voxels": 884736
+      },
+      {
+        "kind": "cpu-coordinate-stride",
+        "n": 128,
+        "bytesPerRow": 1024,
+        "rowsPerImage": 128,
+        "size": 16777216,
+        "voxels": 2097152
+      },
+      {
+        "kind": "cpu-coordinate-stride",
+        "n": 144,
+        "bytesPerRow": 1280,
+        "rowsPerImage": 144,
+        "size": 26542080,
+        "voxels": 2985984
+      },
+      {
+        "kind": "cpu-coordinate-stride",
+        "n": 160,
+        "bytesPerRow": 1280,
+        "rowsPerImage": 160,
+        "size": 32768000,
+        "voxels": 4096000
+      },
+      {
+        "kind": "cpu-coordinate-stride",
+        "n": 192,
+        "bytesPerRow": 1536,
+        "rowsPerImage": 192,
+        "size": 56623104,
+        "voxels": 7077888
+      },
+      {
+        "kind": "gpu-coordinate-copy",
+        "n": 96,
+        "layout": {
+          "n": 96,
+          "bytesPerRow": 768,
+          "rowsPerImage": 96,
+          "size": 7077888
+        },
+        "pairs": [
+          {
+            "dir": 0,
+            "phiSha256": "be0bb6628a182f2cc1b769a660ecda9c41287192eb7d88632cadf7f573412c7f",
+            "temperatureSha256": "c9bbe63f09f447ba49fee5ceb8edd2e743a1cf6c5673db662e550072960d0322",
+            "legacyParity": true
+          },
+          {
+            "dir": 1,
+            "phiSha256": "be0bb6628a182f2cc1b769a660ecda9c41287192eb7d88632cadf7f573412c7f",
+            "temperatureSha256": "27b785cbbaea46d8867f0a14b7e507ee9fa2a711679b8e0ae08bf2f75852e5f6",
+            "legacyParity": true
+          }
+        ]
+      },
+      {
+        "kind": "gpu-coordinate-copy",
+        "n": 144,
+        "layout": {
+          "n": 144,
+          "bytesPerRow": 1280,
+          "rowsPerImage": 144,
+          "size": 26542080
+        },
+        "pairs": [
+          {
+            "dir": 0,
+            "phiSha256": "52ae30bb1a3a43f3c28e28cdc0503c56d3f34da775f3198ef183b3f52f3d7ee8",
+            "temperatureSha256": "c24906058273086aa8c14ee5f3c535e02817ab52826ee996a0ec88d98ae8298d",
+            "legacyParity": false
+          },
+          {
+            "dir": 1,
+            "phiSha256": "52ae30bb1a3a43f3c28e28cdc0503c56d3f34da775f3198ef183b3f52f3d7ee8",
+            "temperatureSha256": "84bb114250bf5e9b0ed310b82a8e623e8ab53d2457583d561e699875f39b715c",
+            "legacyParity": false
+          }
+        ]
+      }
+    ],
+    "errors": [],
+    "passed": true,
+    "sourceHashes": {
+      "src/sim3d.ts": "fe23fa813c8e78cdf4a38851149f7c11a3501c6e04760e0b3b85d5b967759e69",
+      "src/shaders3d.ts": "59e5fb07123816ba3873e5e13c709d6b0b743302064d47f17c7d958c2db6c947",
+      "src/shaders3d-quant.ts": "441583c1839b126936641ee71495dec1b2b4572f575ed2d3f63207aa5ca86b70",
+      "scripts/research/quant3d-readback.mjs": "5b0d3ece3239b28275c6773f1324af344ffa065cd729b25fad58c8690e2b74a7",
+      "scripts/verify-quant3d-readback.mjs": "006f660f11965fbbc0b459b5748d1f74527d1baa2a3151af088d978cac9dbdc9"
+    },
+    "hardware": {
+      "vendor": "intel",
+      "architecture": "xe-2lpg",
+      "isFallbackAdapter": false
+    },
+    "deviceErrorLedgerRead": true,
+    "finalHashes": {
+      "src/sim3d.ts": "fe23fa813c8e78cdf4a38851149f7c11a3501c6e04760e0b3b85d5b967759e69",
+      "src/shaders3d.ts": "59e5fb07123816ba3873e5e13c709d6b0b743302064d47f17c7d958c2db6c947",
+      "src/shaders3d-quant.ts": "441583c1839b126936641ee71495dec1b2b4572f575ed2d3f63207aa5ca86b70",
+      "scripts/research/quant3d-readback.mjs": "5b0d3ece3239b28275c6773f1324af344ffa065cd729b25fad58c8690e2b74a7",
+      "scripts/verify-quant3d-readback.mjs": "006f660f11965fbbc0b459b5748d1f74527d1baa2a3151af088d978cac9dbdc9"
+    },
+    "sourceStable": true
+  },
+  "lifecycle": {
+    "purpose": "CPU-only synthetic execution-evidence plumbing, no GPU or scientific validation",
+    "passed": true,
+    "rows": [
+      {
+        "mode": "positive",
+        "passed": true,
+        "exitCode": 0,
+        "completed": true,
+        "fullMatrixCompleted": true,
+        "status": "full declared equilibrium matrix complete",
+        "expectedError": null
+      },
+      {
+        "mode": "ledger-fail",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "execution evidence failed",
+        "expectedError": "GPU error ledger read failed"
+      },
+      {
+        "mode": "ledger-missing",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "execution evidence failed",
+        "expectedError": "GPU error ledger is unavailable"
+      },
+      {
+        "mode": "ledger-nonarray",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "execution evidence failed",
+        "expectedError": "GPU error ledger is unavailable"
+      },
+      {
+        "mode": "fixture-destroy-fail",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "execution evidence failed",
+        "expectedError": "fixture cleanup failed"
+      },
+      {
+        "mode": "fixture-dispose-fail",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "execution evidence failed",
+        "expectedError": "fixture cleanup failed"
+      },
+      {
+        "mode": "warm-cleanup-fail",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "execution evidence failed",
+        "expectedError": "warm device cleanup failed"
+      },
+      {
+        "mode": "browser-cleanup-fail",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "execution evidence failed",
+        "expectedError": "browser cleanup failed"
+      },
+      {
+        "mode": "gpu-error",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "execution evidence failed",
+        "expectedError": "manufactured GPU error"
+      },
+      {
+        "mode": "page-error",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "execution evidence failed",
+        "expectedError": "manufactured late page exception"
+      },
+      {
+        "mode": "console-error",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "execution evidence failed",
+        "expectedError": "manufactured console error"
+      },
+      {
+        "mode": "launch-fail",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "refused or failed",
+        "expectedError": "manufactured launch failure"
+      },
+      {
+        "mode": "newpage-fail",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "refused or failed",
+        "expectedError": "manufactured newPage failure"
+      },
+      {
+        "mode": "source-change",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "execution evidence failed",
+        "expectedError": "benchmark source changed during execution"
+      },
+      {
+        "mode": "invalid-chrome-options",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "refused or failed",
+        "expectedError": "CHROME_ARGS"
+      },
+      {
+        "mode": "control-fail",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "equilibrium matrix incomplete",
+        "expectedError": "manufactured control failure"
+      },
+      {
+        "mode": "control-no-progress",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "equilibrium matrix incomplete",
+        "expectedError": "Control clock failed its finite bounded progress contract"
+      },
+      {
+        "mode": "late-overshoot",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "equilibrium matrix incomplete",
+        "expectedError": "Control clock failed its finite bounded progress contract"
+      },
+      {
+        "mode": "late-infinite",
+        "passed": true,
+        "exitCode": 1,
+        "completed": false,
+        "fullMatrixCompleted": false,
+        "status": "equilibrium matrix incomplete",
+        "expectedError": "Control clock failed its finite bounded progress contract"
+      },
+      {
+        "mode": "subset",
+        "passed": true
+      },
+      {
+        "mode": "failed-retry",
+        "passed": true
+      },
+      {
+        "mode": "invalid-selection-retry",
+        "passed": true
+      }
+    ],
+    "failures": [],
+    "passingSubsetCannotCompleteFullMatrix": true,
+    "failedRetryReplacedSuccess": true,
+    "invalidSelectionRetryReplacedSuccess": true
+  },
+  "productionShadersUnchanged": true,
+  "note": "Coordinate fields test GPU copying only. Synthetic-browser lifecycle values test verdict plumbing only. The original failed14-case study remains preserved."
+}

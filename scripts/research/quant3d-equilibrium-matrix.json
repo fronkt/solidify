@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "purpose": "Independent production-WGSL equilibrium mesh, radius, dt and initial-shape diagnostics; no needle-output fitting",
+  "lambda": 4,
+  "rawEpsilons": [0, 0.0171],
+  "geometries": [
+    {"name":"baseline","n":96,"dx":0.8,"radius":20,"maximumTime":1000,"measurementPeriod":20},
+    {"name":"grid","n":128,"dx":0.6,"radius":20,"maximumTime":1000,"measurementPeriod":20},
+    {"name":"radius","n":144,"dx":0.8,"radius":30,"maximumTime":2250,"measurementPeriod":45},
+    {"name":"cross","n":192,"dx":0.6,"radius":30,"maximumTime":2250,"measurementPeriod":45},
+    {"name":"fine-grid","n":192,"dx":0.4,"radius":20,"maximumTime":1000,"measurementPeriod":20},
+    {"name":"large-radius","n":192,"dx":0.8,"radius":40,"maximumTime":4000,"measurementPeriod":80}
+  ],
+  "controls": [
+    {"name":"half-dt","n":96,"dx":0.8,"radius":20,"maximumTime":1000,"measurementPeriod":20,"epsilon":0.0171,"dtScale":0.5},
+    {"name":"initial-shape","n":96,"dx":0.8,"radius":20,"maximumTime":1000,"measurementPeriod":20,"epsilon":0.0171,"initialAxes":[1.25,0.8944271909999159,0.8944271909999159],"matchBaselinePhaseVolume":true}
+  ],
+  "invariants": ["same continuum coefficients and production shaders", "physical domain/radius ratio fixed", "horizon/radius^2 fixed", "full fixed horizon; no early success stop", "original equilibrium judge; scalar d0 report only", "raw checkpoint brackets and source hashes retained"],
+  "scope": "This matrix measures equilibrium discretization effects. It does not calibrate moving-interface kinetics or certify a selected needle state."
+}

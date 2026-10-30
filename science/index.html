@@ -379,11 +379,30 @@
     independent of it — which is a test, not a promise, and it is the test a pretty dendrite cannot
     pass by looking pretty.</p>
 
+    <p><b>Calibrated volumes</b> use smooth cubic interface energy and a separate 3D timestep bound.
+    A pure melt solves heat diffusion and latent release. A dilute alloy conserves concentration
+    through face currents and uses an <b>imposed temperature field</b>, with the temperature-dependent
+    relaxation factor of Echebarria et al. This is an imposed-temperature approximation, not a
+    coupled heat-and-solute solution at the material's physical Lewis number. Hexagonal,
+    icosahedral and cusped shapes retain the qualitative solver. Each dimension keeps its own
+    calibration and physical scale; links and exports identify the active model.</p>
+
+    <p>Three-dimensional validation uses spherical curvature, a planar Stefan reference and
+    closed-volume conservation. A sphere has two principal curvatures, so its critical radius is
+    2d<sub>0</sub>/Δ. The 2D tip velocity below is not a 3D reference. A converged 3D needle
+    comparison is recorded separately and must establish domain, mesh and time independence
+    before a published operating-state match is claimed.</p>
+
+    <p>The three-dimensional needle reference is
+    <a href="https://arxiv.org/pdf/patt-sol/9607005">Karma and Rappel's 1996 cubic-growth calculation</a>.
+    Its effective interface anisotropy includes a lattice calibration. Raw grid parameters and
+    measured material anisotropy are compared only after checking that discretization effect.</p>
+
     <p>In an alloy the model also carries an <b>anti-trapping current</b>. With no diffusion in the
     solid, an interface of finite width traps solute it should have rejected; the error is not small
     and not random, it looks exactly like a larger partition coefficient, and a dendrite grown with
     it is entirely convincing. The current cancels it. Measured here: with the current on the
-    effective partition coefficient sits on the real k and does not care how wide the interface is;
+    effective partition coefficient in the 2D benchmark sits on the real k and does not care how wide the interface is;
     with it off, k<sub>eff</sub> runs 24–40 % high and the excess <i>grows</i> with the width.</p>
 
     <p>One consequence arrives for free. Under the calibrated alloy path one dimensionless degree is
@@ -628,10 +647,10 @@
       <tr><td>Solute conservation</td><td>flat over 20 000 substeps of growth</td><td>1.6×10⁻³</td></tr>
     </table>
 
-    <p>And what it does <i>not</i> fix. The Lewis mismatch is unchanged — one explicit grid at one
-    timestep still cannot carry heat and solute four orders apart, and the alloy path anchors on
-    solute. The calibrated solver is <b>2D only</b>; the volume still runs the Kobayashi model, and
-    the switch says so rather than appearing and doing nothing. And the thin-interface expansion has
+    <p>And what it does <i>not</i> fix. The 2D coupled-alloy Lewis mismatch is unchanged: one explicit
+    grid at one timestep still cannot carry heat and solute four orders apart, and its clock anchors
+    on solute. The calibrated 3D alloy path instead uses an imposed temperature field. The 2D
+    measurements above do not establish a 3D needle operating state. The thin-interface expansion has
     a validity bound of its own, τ<sub>0</sub>V/W<sub>0</sub> ≲ 0.2, which a deeply undercooled pure
     melt reaches by λ ≈ 4 — the app reports λ and the ratio it implies so that stays visible.</p>
 

@@ -1,0 +1,3921 @@
+{
+  "purpose": "Full fixed-terminal five-arm experimental lattice-kinetic comparison; Q3 remains open",
+  "sourceCommit": "a11a814af369eff32261ef80aaece6915b338c4d",
+  "contract": {
+    "protocolVersion": 4,
+    "experimentalLatticeKinetics": true,
+    "phaseRelaxation": "experimental pure3D: tau=P.tau*(47/75)*lambda/D*[a(n)^2-(1321/9870)*(dx/epsBar)^2]; analytic coefficients, no needle fit",
+    "previousStudy": {
+      "pin": "ad96166",
+      "artifact": "verify-out/q3-cloud-full-progress.json",
+      "outcome": "all five arms stopped during startup on D/V side-clearance proxy; no steady operating state accepted",
+      "change": "reference-band-derived geometry/time, no startup proxy abort, conservative retained-steady-window clearance and direct far-field patches; no physical parameter or accuracy threshold changed"
+    },
+    "previousProtocol3": {
+      "pin": "12ce78b",
+      "artifact": "q3-validation-2026-10-30 draft evidence release",
+      "outcome": "all five fixed-parameter reference arms failed; first-qualifying observation times and the full raw study remain preserved",
+      "change": "run every arm to the predeclared common physical endpoint and evaluate only its declared terminal samples; no physical coefficient, reference value, or error band changed"
+    },
+    "target": {
+      "P": 0.312,
+      "sigmaStar": 0.063
+    },
+    "relativeTarget": 0.1,
+    "expected": {
+      "rhoW0": 11.242114367114368,
+      "velocityW0PerTau0": 0.13914137046815253,
+      "diffusionLengthW0": 18.016208921657636
+    },
+    "arms": [
+      {
+        "lambda": 4,
+        "epsilon4": 0.0171,
+        "undercooling": 0.45,
+        "radius": 8,
+        "name": "base",
+        "dims": [
+          270,
+          270,
+          612
+        ],
+        "dx": 0.8,
+        "dt": 0.0180006338,
+        "D": 2.5068,
+        "d0": 0.220975,
+        "physicalTimeScale": 1,
+        "maximumTimeTau0": 1949.1356423198636,
+        "samplePeriodTau0": 32.370331090315965
+      },
+      {
+        "lambda": 4,
+        "epsilon4": 0.0171,
+        "undercooling": 0.45,
+        "radius": 8,
+        "name": "domain",
+        "dims": [
+          300,
+          300,
+          680
+        ],
+        "dx": 0.8,
+        "dt": 0.0180006338,
+        "D": 2.5068,
+        "d0": 0.220975,
+        "physicalTimeScale": 1,
+        "maximumTimeTau0": 1949.1356423198636,
+        "samplePeriodTau0": 32.370331090315965
+      },
+      {
+        "lambda": 4,
+        "epsilon4": 0.0171,
+        "undercooling": 0.45,
+        "radius": 8,
+        "name": "dx",
+        "dims": [
+          360,
+          360,
+          816
+        ],
+        "dx": 0.6,
+        "dt": 0.010125356512499998,
+        "D": 2.5068,
+        "d0": 0.220975,
+        "physicalTimeScale": 1,
+        "maximumTimeTau0": 1949.1356423198636,
+        "samplePeriodTau0": 32.370331090315965
+      },
+      {
+        "lambda": 4,
+        "epsilon4": 0.0171,
+        "undercooling": 0.45,
+        "radius": 8,
+        "name": "dt",
+        "dims": [
+          270,
+          270,
+          612
+        ],
+        "dx": 0.8,
+        "dt": 0.0090003169,
+        "D": 2.5068,
+        "d0": 0.220975,
+        "physicalTimeScale": 1,
+        "maximumTimeTau0": 1949.1356423198636,
+        "samplePeriodTau0": 32.370331090315965
+      },
+      {
+        "lambda": 3.6,
+        "epsilon4": 0.0171,
+        "undercooling": 0.45,
+        "radius": 8.88888888888889,
+        "name": "width",
+        "dims": [
+          300,
+          300,
+          680
+        ],
+        "dx": 0.8,
+        "dt": 0.0180006338,
+        "D": 2.25612,
+        "d0": 0.2455277777777778,
+        "physicalTimeScale": 1.3717421124828535,
+        "maximumTimeTau0": 2673.711443511473,
+        "samplePeriodTau0": 44.40374635159941
+      }
+    ],
+    "minimumTravelDiffusionLengths": 6,
+    "minimumBoundaryDiffusionLengths": 8,
+    "maximumTimeTau0": 1949.1356423198636,
+    "referenceBandGeometry": {
+      "velocityMinimum": 0.10143405907128321,
+      "velocityMaximum": 0.18519716409311107,
+      "radiusMaximum": 13.879153539647367,
+      "minimumSideW0": 204.64831665084026,
+      "minimumAxialW0AtMaximumSpeedAndHorizon": 477.26114874225465,
+      "derivation": "rho/d0=1/(P*sigma), V*d0/D=2*sigma*P^2; Vmin=(1-r)^3 Vref, rhomax=rhoref/(1-r)^2. The inherited v3 horizon/cadence are now frozen constants, not recomputed from reference values or observations. Actual terminal-window clearance remains mandatory."
+    },
+    "samplePeriodTau0": 32.370331090315965,
+    "terminalObservation": {
+      "terminalPhysicalTime": 1949.1356423198636,
+      "samplePeriodPhysical": 32.370331090315965,
+      "retainedSampleCount": 10,
+      "timeUnit": "base-arm tau0; arm solver time is physical time times (lambda_base/lambda_arm)^3",
+      "schedule": "cadence anchored at the fixed terminal time; every requested checkpoint is rounded upward with ceil(requested solver time/dt), independently, to an integer substep",
+      "selection": "only the final ten declared checkpoints are evaluated; missing, unresolved, duplicated, mis-timed, or unfinished endpoints are refused; earlier qualifying/reference-matching windows cannot substitute",
+      "firstQualification": "diagnostic only; it never changes a checkpoint, terminal time, or acceptance window",
+      "clock": "exact integer substep identity; reported FP64 clock may differ only by its sequential arithmetic accumulation bound; fits use steps*dt",
+      "caveat": "a fixed endpoint prevents outcome-selected observation timing; it does not establish asymptotic convergence or repair failed stationarity, boundary, metrology, or reference checks",
+      "armSchedules": [
+        {
+          "name": "base",
+          "terminalPhysicalTime": 1949.1356423198636,
+          "samplePeriodPhysical": 32.370331090315965,
+          "physicalTimeScale": 1,
+          "dt": 0.0180006338,
+          "terminalSteps": 108282,
+          "terminalTimeTau0": 1949.1446291316,
+          "terminalPhysicalTimeRounded": 1949.1446291316,
+          "maximumPhysicalRounding": 0.0180006338,
+          "checkpoints": [
+            {
+              "index": 0,
+              "steps": 385,
+              "requestedPhysicalTime": 6.915776900905712,
+              "requestedTimeTau0": 6.915776900905712,
+              "timeTau0": 6.930244012999999,
+              "physicalTime": 6.930244012999999,
+              "roundingTau0": 0.014467112094287415
+            },
+            {
+              "index": 1,
+              "steps": 2183,
+              "requestedPhysicalTime": 39.28610799122157,
+              "requestedTimeTau0": 39.28610799122157,
+              "timeTau0": 39.295383585399996,
+              "physicalTime": 39.295383585399996,
+              "roundingTau0": 0.00927559417842616
+            },
+            {
+              "index": 2,
+              "steps": 3981,
+              "requestedPhysicalTime": 71.65643908153766,
+              "requestedTimeTau0": 71.65643908153766,
+              "timeTau0": 71.6605231578,
+              "physicalTime": 71.6605231578,
+              "roundingTau0": 0.004084076262344638
+            },
+            {
+              "index": 3,
+              "steps": 5780,
+              "requestedPhysicalTime": 104.02677017185351,
+              "requestedTimeTau0": 104.02677017185351,
+              "timeTau0": 104.043663364,
+              "physicalTime": 104.043663364,
+              "roundingTau0": 0.016893192146483216
+            },
+            {
+              "index": 4,
+              "steps": 7578,
+              "requestedPhysicalTime": 136.3971012621696,
+              "requestedTimeTau0": 136.3971012621696,
+              "timeTau0": 136.40880293639998,
+              "physicalTime": 136.40880293639998,
+              "roundingTau0": 0.011701674230380377
+            },
+            {
+              "index": 5,
+              "steps": 9376,
+              "requestedPhysicalTime": 168.76743235248546,
+              "requestedTimeTau0": 168.76743235248546,
+              "timeTau0": 168.7739425088,
+              "physicalTime": 168.7739425088,
+              "roundingTau0": 0.006510156314533333
+            },
+            {
+              "index": 6,
+              "steps": 11174,
+              "requestedPhysicalTime": 201.13776344280154,
+              "requestedTimeTau0": 201.13776344280154,
+              "timeTau0": 201.13908208119997,
+              "physicalTime": 201.13908208119997,
+              "roundingTau0": 0.001318638398430494
+            },
+            {
+              "index": 7,
+              "steps": 12973,
+              "requestedPhysicalTime": 233.5080945331174,
+              "requestedTimeTau0": 233.5080945331174,
+              "timeTau0": 233.52222228739998,
+              "physicalTime": 233.52222228739998,
+              "roundingTau0": 0.014127754282583282
+            },
+            {
+              "index": 8,
+              "steps": 14771,
+              "requestedPhysicalTime": 265.8784256234335,
+              "requestedTimeTau0": 265.8784256234335,
+              "timeTau0": 265.88736185979997,
+              "physicalTime": 265.88736185979997,
+              "roundingTau0": 0.008936236366480443
+            },
+            {
+              "index": 9,
+              "steps": 16569,
+              "requestedPhysicalTime": 298.24875671374934,
+              "requestedTimeTau0": 298.24875671374934,
+              "timeTau0": 298.2525014322,
+              "physicalTime": 298.2525014322,
+              "roundingTau0": 0.0037447184506618214
+            },
+            {
+              "index": 10,
+              "steps": 18368,
+              "requestedPhysicalTime": 330.61908780406543,
+              "requestedTimeTau0": 330.61908780406543,
+              "timeTau0": 330.6356416384,
+              "physicalTime": 330.6356416384,
+              "roundingTau0": 0.016553834334558815
+            },
+            {
+              "index": 11,
+              "steps": 20166,
+              "requestedPhysicalTime": 362.9894188943813,
+              "requestedTimeTau0": 362.9894188943813,
+              "timeTau0": 363.00078121079997,
+              "physicalTime": 363.00078121079997,
+              "roundingTau0": 0.01136231641868335
+            },
+            {
+              "index": 12,
+              "steps": 21964,
+              "requestedPhysicalTime": 395.3597499846974,
+              "requestedTimeTau0": 395.3597499846974,
+              "timeTau0": 395.36592078319995,
+              "physicalTime": 395.36592078319995,
+              "roundingTau0": 0.00617079850258051
+            },
+            {
+              "index": 13,
+              "steps": 23762,
+              "requestedPhysicalTime": 427.73008107501323,
+              "requestedTimeTau0": 427.73008107501323,
+              "timeTau0": 427.7310603556,
+              "physicalTime": 427.7310603556,
+              "roundingTau0": 0.0009792805867618881
+            },
+            {
+              "index": 14,
+              "steps": 25561,
+              "requestedPhysicalTime": 460.1004121653291,
+              "requestedTimeTau0": 460.1004121653291,
+              "timeTau0": 460.1142005618,
+              "physicalTime": 460.1142005618,
+              "roundingTau0": 0.013788396470886255
+            },
+            {
+              "index": 15,
+              "steps": 27359,
+              "requestedPhysicalTime": 492.4707432556452,
+              "requestedTimeTau0": 492.4707432556452,
+              "timeTau0": 492.47934013419996,
+              "physicalTime": 492.47934013419996,
+              "roundingTau0": 0.008596878554783416
+            },
+            {
+              "index": 16,
+              "steps": 29157,
+              "requestedPhysicalTime": 524.841074345961,
+              "requestedTimeTau0": 524.841074345961,
+              "timeTau0": 524.8444797065999,
+              "physicalTime": 524.8444797065999,
+              "roundingTau0": 0.0034053606389079505
+            },
+            {
+              "index": 17,
+              "steps": 30956,
+              "requestedPhysicalTime": 557.2114054362771,
+              "requestedTimeTau0": 557.2114054362771,
+              "timeTau0": 557.2276199127999,
+              "physicalTime": 557.2276199127999,
+              "roundingTau0": 0.016214476522804944
+            },
+            {
+              "index": 18,
+              "steps": 32754,
+              "requestedPhysicalTime": 589.581736526593,
+              "requestedTimeTau0": 589.581736526593,
+              "timeTau0": 589.5927594852,
+              "physicalTime": 589.5927594852,
+              "roundingTau0": 0.011022958606986322
+            },
+            {
+              "index": 19,
+              "steps": 34552,
+              "requestedPhysicalTime": 621.9520676169091,
+              "requestedTimeTau0": 621.9520676169091,
+              "timeTau0": 621.9578990576,
+              "physicalTime": 621.9578990576,
+              "roundingTau0": 0.005831440690940326
+            },
+            {
+              "index": 20,
+              "steps": 36350,
+              "requestedPhysicalTime": 654.3223987072249,
+              "requestedTimeTau0": 654.3223987072249,
+              "timeTau0": 654.3230386299999,
+              "physicalTime": 654.3230386299999,
+              "roundingTau0": 0.0006399227750080172
+            },
+            {
+              "index": 21,
+              "steps": 38149,
+              "requestedPhysicalTime": 686.692729797541,
+              "requestedTimeTau0": 686.692729797541,
+              "timeTau0": 686.7061788361999,
+              "physicalTime": 686.7061788361999,
+              "roundingTau0": 0.01344903865890501
+            },
+            {
+              "index": 22,
+              "steps": 39947,
+              "requestedPhysicalTime": 719.0630608878569,
+              "requestedTimeTau0": 719.0630608878569,
+              "timeTau0": 719.0713184086,
+              "physicalTime": 719.0713184086,
+              "roundingTau0": 0.008257520743086388
+            },
+            {
+              "index": 23,
+              "steps": 41745,
+              "requestedPhysicalTime": 751.433391978173,
+              "requestedTimeTau0": 751.433391978173,
+              "timeTau0": 751.436457981,
+              "physicalTime": 751.436457981,
+              "roundingTau0": 0.0030660028270403927
+            },
+            {
+              "index": 24,
+              "steps": 43544,
+              "requestedPhysicalTime": 783.8037230684888,
+              "requestedTimeTau0": 783.8037230684888,
+              "timeTau0": 783.8195981872,
+              "physicalTime": 783.8195981872,
+              "roundingTau0": 0.01587511871116476
+            },
+            {
+              "index": 25,
+              "steps": 45342,
+              "requestedPhysicalTime": 816.1740541588049,
+              "requestedTimeTau0": 816.1740541588049,
+              "timeTau0": 816.1847377595999,
+              "physicalTime": 816.1847377595999,
+              "roundingTau0": 0.010683600795005077
+            },
+            {
+              "index": 26,
+              "steps": 47140,
+              "requestedPhysicalTime": 848.5443852491208,
+              "requestedTimeTau0": 848.5443852491208,
+              "timeTau0": 848.5498773319999,
+              "physicalTime": 848.5498773319999,
+              "roundingTau0": 0.005492082879186455
+            },
+            {
+              "index": 27,
+              "steps": 48938,
+              "requestedPhysicalTime": 880.9147163394368,
+              "requestedTimeTau0": 880.9147163394368,
+              "timeTau0": 880.9150169044,
+              "physicalTime": 880.9150169044,
+              "roundingTau0": 0.00030056496314045944
+            },
+            {
+              "index": 28,
+              "steps": 50737,
+              "requestedPhysicalTime": 913.2850474297527,
+              "requestedTimeTau0": 913.2850474297527,
+              "timeTau0": 913.2981571106,
+              "physicalTime": 913.2981571106,
+              "roundingTau0": 0.013109680847264826
+            },
+            {
+              "index": 29,
+              "steps": 52535,
+              "requestedPhysicalTime": 945.6553785200687,
+              "requestedTimeTau0": 945.6553785200687,
+              "timeTau0": 945.6632966829999,
+              "physicalTime": 945.6632966829999,
+              "roundingTau0": 0.00791816293121883
+            },
+            {
+              "index": 30,
+              "steps": 54333,
+              "requestedPhysicalTime": 978.0257096103846,
+              "requestedTimeTau0": 978.0257096103846,
+              "timeTau0": 978.0284362553999,
+              "physicalTime": 978.0284362553999,
+              "roundingTau0": 0.002726645015286522
+            },
+            {
+              "index": 31,
+              "steps": 56132,
+              "requestedPhysicalTime": 1010.3960407007006,
+              "requestedTimeTau0": 1010.3960407007006,
+              "timeTau0": 1010.4115764615999,
+              "physicalTime": 1010.4115764615999,
+              "roundingTau0": 0.015535760899297202
+            },
+            {
+              "index": 32,
+              "steps": 57930,
+              "requestedPhysicalTime": 1042.7663717910166,
+              "requestedTimeTau0": 1042.7663717910166,
+              "timeTau0": 1042.776716034,
+              "physicalTime": 1042.776716034,
+              "roundingTau0": 0.010344242983364893
+            },
+            {
+              "index": 33,
+              "steps": 59728,
+              "requestedPhysicalTime": 1075.1367028813324,
+              "requestedTimeTau0": 1075.1367028813324,
+              "timeTau0": 1075.1418556064,
+              "physicalTime": 1075.1418556064,
+              "roundingTau0": 0.005152725067546271
+            },
+            {
+              "index": 34,
+              "steps": 61527,
+              "requestedPhysicalTime": 1107.5070339716485,
+              "requestedTimeTau0": 1107.5070339716485,
+              "timeTau0": 1107.5249958125999,
+              "physicalTime": 1107.5249958125999,
+              "roundingTau0": 0.017961840951329577
+            },
+            {
+              "index": 35,
+              "steps": 63325,
+              "requestedPhysicalTime": 1139.8773650619646,
+              "requestedTimeTau0": 1139.8773650619646,
+              "timeTau0": 1139.890135385,
+              "physicalTime": 1139.890135385,
+              "roundingTau0": 0.012770323035283582
+            },
+            {
+              "index": 36,
+              "steps": 65123,
+              "requestedPhysicalTime": 1172.2476961522805,
+              "requestedTimeTau0": 1172.2476961522805,
+              "timeTau0": 1172.2552749574,
+              "physicalTime": 1172.2552749574,
+              "roundingTau0": 0.00757880511946496
+            },
+            {
+              "index": 37,
+              "steps": 66921,
+              "requestedPhysicalTime": 1204.6180272425963,
+              "requestedTimeTau0": 1204.6180272425963,
+              "timeTau0": 1204.6204145298,
+              "physicalTime": 1204.6204145298,
+              "roundingTau0": 0.0023872872036463377
+            },
+            {
+              "index": 38,
+              "steps": 68720,
+              "requestedPhysicalTime": 1236.9883583329124,
+              "requestedTimeTau0": 1236.9883583329124,
+              "timeTau0": 1237.0035547359998,
+              "physicalTime": 1237.0035547359998,
+              "roundingTau0": 0.015196403087429644
+            },
+            {
+              "index": 39,
+              "steps": 70518,
+              "requestedPhysicalTime": 1269.3586894232283,
+              "requestedTimeTau0": 1269.3586894232283,
+              "timeTau0": 1269.3686943083999,
+              "physicalTime": 1269.3686943083999,
+              "roundingTau0": 0.010004885171611022
+            },
+            {
+              "index": 40,
+              "steps": 72316,
+              "requestedPhysicalTime": 1301.7290205135441,
+              "requestedTimeTau0": 1301.7290205135441,
+              "timeTau0": 1301.7338338808,
+              "physicalTime": 1301.7338338808,
+              "roundingTau0": 0.0048133672557924
+            },
+            {
+              "index": 41,
+              "steps": 74115,
+              "requestedPhysicalTime": 1334.0993516038602,
+              "requestedTimeTau0": 1334.0993516038602,
+              "timeTau0": 1334.116974087,
+              "physicalTime": 1334.116974087,
+              "roundingTau0": 0.01762248313980308
+            },
+            {
+              "index": 42,
+              "steps": 75913,
+              "requestedPhysicalTime": 1366.4696826941763,
+              "requestedTimeTau0": 1366.4696826941763,
+              "timeTau0": 1366.4821136593998,
+              "physicalTime": 1366.4821136593998,
+              "roundingTau0": 0.01243096522352971
+            },
+            {
+              "index": 43,
+              "steps": 77711,
+              "requestedPhysicalTime": 1398.8400137844922,
+              "requestedTimeTau0": 1398.8400137844922,
+              "timeTau0": 1398.8472532317999,
+              "physicalTime": 1398.8472532317999,
+              "roundingTau0": 0.007239447307711089
+            },
+            {
+              "index": 44,
+              "steps": 79509,
+              "requestedPhysicalTime": 1431.210344874808,
+              "requestedTimeTau0": 1431.210344874808,
+              "timeTau0": 1431.2123928042,
+              "physicalTime": 1431.2123928042,
+              "roundingTau0": 0.002047929391892467
+            },
+            {
+              "index": 45,
+              "steps": 81308,
+              "requestedPhysicalTime": 1463.580675965124,
+              "requestedTimeTau0": 1463.580675965124,
+              "timeTau0": 1463.5955330104,
+              "physicalTime": 1463.5955330104,
+              "roundingTau0": 0.014857045275903147
+            },
+            {
+              "index": 46,
+              "steps": 83106,
+              "requestedPhysicalTime": 1495.9510070554402,
+              "requestedTimeTau0": 1495.9510070554402,
+              "timeTau0": 1495.9606725827998,
+              "physicalTime": 1495.9606725827998,
+              "roundingTau0": 0.009665527359629777
+            },
+            {
+              "index": 47,
+              "steps": 84904,
+              "requestedPhysicalTime": 1528.321338145756,
+              "requestedTimeTau0": 1528.321338145756,
+              "timeTau0": 1528.3258121551999,
+              "physicalTime": 1528.3258121551999,
+              "roundingTau0": 0.0044740094438111555
+            },
+            {
+              "index": 48,
+              "steps": 86703,
+              "requestedPhysicalTime": 1560.691669236072,
+              "requestedTimeTau0": 1560.691669236072,
+              "timeTau0": 1560.7089523614,
+              "physicalTime": 1560.7089523614,
+              "roundingTau0": 0.01728312532804921
+            },
+            {
+              "index": 49,
+              "steps": 88501,
+              "requestedPhysicalTime": 1593.062000326388,
+              "requestedTimeTau0": 1593.062000326388,
+              "timeTau0": 1593.0740919338,
+              "physicalTime": 1593.0740919338,
+              "roundingTau0": 0.012091607412003214
+            },
+            {
+              "index": 50,
+              "steps": 90299,
+              "requestedPhysicalTime": 1625.4323314167038,
+              "requestedTimeTau0": 1625.4323314167038,
+              "timeTau0": 1625.4392315061998,
+              "physicalTime": 1625.4392315061998,
+              "roundingTau0": 0.006900089495957218
+            },
+            {
+              "index": 51,
+              "steps": 92097,
+              "requestedPhysicalTime": 1657.80266250702,
+              "requestedTimeTau0": 1657.80266250702,
+              "timeTau0": 1657.8043710785998,
+              "physicalTime": 1657.8043710785998,
+              "roundingTau0": 0.0017085715799112222
+            },
+            {
+              "index": 52,
+              "steps": 93896,
+              "requestedPhysicalTime": 1690.1729935973358,
+              "requestedTimeTau0": 1690.1729935973358,
+              "timeTau0": 1690.1875112848,
+              "physicalTime": 1690.1875112848,
+              "roundingTau0": 0.014517687464149276
+            },
+            {
+              "index": 53,
+              "steps": 95694,
+              "requestedPhysicalTime": 1722.5433246876519,
+              "requestedTimeTau0": 1722.5433246876519,
+              "timeTau0": 1722.5526508572,
+              "physicalTime": 1722.5526508572,
+              "roundingTau0": 0.00932616954810328
+            },
+            {
+              "index": 54,
+              "steps": 97492,
+              "requestedPhysicalTime": 1754.9136557779677,
+              "requestedTimeTau0": 1754.9136557779677,
+              "timeTau0": 1754.9177904295998,
+              "physicalTime": 1754.9177904295998,
+              "roundingTau0": 0.004134651632057285
+            },
+            {
+              "index": 55,
+              "steps": 99291,
+              "requestedPhysicalTime": 1787.2839868682838,
+              "requestedTimeTau0": 1787.2839868682838,
+              "timeTau0": 1787.3009306358,
+              "physicalTime": 1787.3009306358,
+              "roundingTau0": 0.016943767516067965
+            },
+            {
+              "index": 56,
+              "steps": 101089,
+              "requestedPhysicalTime": 1819.6543179585997,
+              "requestedTimeTau0": 1819.6543179585997,
+              "timeTau0": 1819.6660702082,
+              "physicalTime": 1819.6660702082,
+              "roundingTau0": 0.011752249600249343
+            },
+            {
+              "index": 57,
+              "steps": 102887,
+              "requestedPhysicalTime": 1852.0246490489158,
+              "requestedTimeTau0": 1852.0246490489158,
+              "timeTau0": 1852.0312097806,
+              "physicalTime": 1852.0312097806,
+              "roundingTau0": 0.006560731684203347
+            },
+            {
+              "index": 58,
+              "steps": 104685,
+              "requestedPhysicalTime": 1884.3949801392316,
+              "requestedTimeTau0": 1884.3949801392316,
+              "timeTau0": 1884.3963493529998,
+              "physicalTime": 1884.3963493529998,
+              "roundingTau0": 0.0013692137681573513
+            },
+            {
+              "index": 59,
+              "steps": 106484,
+              "requestedPhysicalTime": 1916.7653112295477,
+              "requestedTimeTau0": 1916.7653112295477,
+              "timeTau0": 1916.7794895591999,
+              "physicalTime": 1916.7794895591999,
+              "roundingTau0": 0.014178329652168031
+            },
+            {
+              "index": 60,
+              "steps": 108282,
+              "requestedPhysicalTime": 1949.1356423198636,
+              "requestedTimeTau0": 1949.1356423198636,
+              "timeTau0": 1949.1446291316,
+              "physicalTime": 1949.1446291316,
+              "roundingTau0": 0.00898681173634941
+            }
+          ],
+          "retained": [
+            {
+              "index": 51,
+              "steps": 92097,
+              "requestedPhysicalTime": 1657.80266250702,
+              "requestedTimeTau0": 1657.80266250702,
+              "timeTau0": 1657.8043710785998,
+              "physicalTime": 1657.8043710785998,
+              "roundingTau0": 0.0017085715799112222
+            },
+            {
+              "index": 52,
+              "steps": 93896,
+              "requestedPhysicalTime": 1690.1729935973358,
+              "requestedTimeTau0": 1690.1729935973358,
+              "timeTau0": 1690.1875112848,
+              "physicalTime": 1690.1875112848,
+              "roundingTau0": 0.014517687464149276
+            },
+            {
+              "index": 53,
+              "steps": 95694,
+              "requestedPhysicalTime": 1722.5433246876519,
+              "requestedTimeTau0": 1722.5433246876519,
+              "timeTau0": 1722.5526508572,
+              "physicalTime": 1722.5526508572,
+              "roundingTau0": 0.00932616954810328
+            },
+            {
+              "index": 54,
+              "steps": 97492,
+              "requestedPhysicalTime": 1754.9136557779677,
+              "requestedTimeTau0": 1754.9136557779677,
+              "timeTau0": 1754.9177904295998,
+              "physicalTime": 1754.9177904295998,
+              "roundingTau0": 0.004134651632057285
+            },
+            {
+              "index": 55,
+              "steps": 99291,
+              "requestedPhysicalTime": 1787.2839868682838,
+              "requestedTimeTau0": 1787.2839868682838,
+              "timeTau0": 1787.3009306358,
+              "physicalTime": 1787.3009306358,
+              "roundingTau0": 0.016943767516067965
+            },
+            {
+              "index": 56,
+              "steps": 101089,
+              "requestedPhysicalTime": 1819.6543179585997,
+              "requestedTimeTau0": 1819.6543179585997,
+              "timeTau0": 1819.6660702082,
+              "physicalTime": 1819.6660702082,
+              "roundingTau0": 0.011752249600249343
+            },
+            {
+              "index": 57,
+              "steps": 102887,
+              "requestedPhysicalTime": 1852.0246490489158,
+              "requestedTimeTau0": 1852.0246490489158,
+              "timeTau0": 1852.0312097806,
+              "physicalTime": 1852.0312097806,
+              "roundingTau0": 0.006560731684203347
+            },
+            {
+              "index": 58,
+              "steps": 104685,
+              "requestedPhysicalTime": 1884.3949801392316,
+              "requestedTimeTau0": 1884.3949801392316,
+              "timeTau0": 1884.3963493529998,
+              "physicalTime": 1884.3963493529998,
+              "roundingTau0": 0.0013692137681573513
+            },
+            {
+              "index": 59,
+              "steps": 106484,
+              "requestedPhysicalTime": 1916.7653112295477,
+              "requestedTimeTau0": 1916.7653112295477,
+              "timeTau0": 1916.7794895591999,
+              "physicalTime": 1916.7794895591999,
+              "roundingTau0": 0.014178329652168031
+            },
+            {
+              "index": 60,
+              "steps": 108282,
+              "requestedPhysicalTime": 1949.1356423198636,
+              "requestedTimeTau0": 1949.1356423198636,
+              "timeTau0": 1949.1446291316,
+              "physicalTime": 1949.1446291316,
+              "roundingTau0": 0.00898681173634941
+            }
+          ]
+        },
+        {
+          "name": "domain",
+          "terminalPhysicalTime": 1949.1356423198636,
+          "samplePeriodPhysical": 32.370331090315965,
+          "physicalTimeScale": 1,
+          "dt": 0.0180006338,
+          "terminalSteps": 108282,
+          "terminalTimeTau0": 1949.1446291316,
+          "terminalPhysicalTimeRounded": 1949.1446291316,
+          "maximumPhysicalRounding": 0.0180006338,
+          "checkpoints": [
+            {
+              "index": 0,
+              "steps": 385,
+              "requestedPhysicalTime": 6.915776900905712,
+              "requestedTimeTau0": 6.915776900905712,
+              "timeTau0": 6.930244012999999,
+              "physicalTime": 6.930244012999999,
+              "roundingTau0": 0.014467112094287415
+            },
+            {
+              "index": 1,
+              "steps": 2183,
+              "requestedPhysicalTime": 39.28610799122157,
+              "requestedTimeTau0": 39.28610799122157,
+              "timeTau0": 39.295383585399996,
+              "physicalTime": 39.295383585399996,
+              "roundingTau0": 0.00927559417842616
+            },
+            {
+              "index": 2,
+              "steps": 3981,
+              "requestedPhysicalTime": 71.65643908153766,
+              "requestedTimeTau0": 71.65643908153766,
+              "timeTau0": 71.6605231578,
+              "physicalTime": 71.6605231578,
+              "roundingTau0": 0.004084076262344638
+            },
+            {
+              "index": 3,
+              "steps": 5780,
+              "requestedPhysicalTime": 104.02677017185351,
+              "requestedTimeTau0": 104.02677017185351,
+              "timeTau0": 104.043663364,
+              "physicalTime": 104.043663364,
+              "roundingTau0": 0.016893192146483216
+            },
+            {
+              "index": 4,
+              "steps": 7578,
+              "requestedPhysicalTime": 136.3971012621696,
+              "requestedTimeTau0": 136.3971012621696,
+              "timeTau0": 136.40880293639998,
+              "physicalTime": 136.40880293639998,
+              "roundingTau0": 0.011701674230380377
+            },
+            {
+              "index": 5,
+              "steps": 9376,
+              "requestedPhysicalTime": 168.76743235248546,
+              "requestedTimeTau0": 168.76743235248546,
+              "timeTau0": 168.7739425088,
+              "physicalTime": 168.7739425088,
+              "roundingTau0": 0.006510156314533333
+            },
+            {
+              "index": 6,
+              "steps": 11174,
+              "requestedPhysicalTime": 201.13776344280154,
+              "requestedTimeTau0": 201.13776344280154,
+              "timeTau0": 201.13908208119997,
+              "physicalTime": 201.13908208119997,
+              "roundingTau0": 0.001318638398430494
+            },
+            {
+              "index": 7,
+              "steps": 12973,
+              "requestedPhysicalTime": 233.5080945331174,
+              "requestedTimeTau0": 233.5080945331174,
+              "timeTau0": 233.52222228739998,
+              "physicalTime": 233.52222228739998,
+              "roundingTau0": 0.014127754282583282
+            },
+            {
+              "index": 8,
+              "steps": 14771,
+              "requestedPhysicalTime": 265.8784256234335,
+              "requestedTimeTau0": 265.8784256234335,
+              "timeTau0": 265.88736185979997,
+              "physicalTime": 265.88736185979997,
+              "roundingTau0": 0.008936236366480443
+            },
+            {
+              "index": 9,
+              "steps": 16569,
+              "requestedPhysicalTime": 298.24875671374934,
+              "requestedTimeTau0": 298.24875671374934,
+              "timeTau0": 298.2525014322,
+              "physicalTime": 298.2525014322,
+              "roundingTau0": 0.0037447184506618214
+            },
+            {
+              "index": 10,
+              "steps": 18368,
+              "requestedPhysicalTime": 330.61908780406543,
+              "requestedTimeTau0": 330.61908780406543,
+              "timeTau0": 330.6356416384,
+              "physicalTime": 330.6356416384,
+              "roundingTau0": 0.016553834334558815
+            },
+            {
+              "index": 11,
+              "steps": 20166,
+              "requestedPhysicalTime": 362.9894188943813,
+              "requestedTimeTau0": 362.9894188943813,
+              "timeTau0": 363.00078121079997,
+              "physicalTime": 363.00078121079997,
+              "roundingTau0": 0.01136231641868335
+            },
+            {
+              "index": 12,
+              "steps": 21964,
+              "requestedPhysicalTime": 395.3597499846974,
+              "requestedTimeTau0": 395.3597499846974,
+              "timeTau0": 395.36592078319995,
+              "physicalTime": 395.36592078319995,
+              "roundingTau0": 0.00617079850258051
+            },
+            {
+              "index": 13,
+              "steps": 23762,
+              "requestedPhysicalTime": 427.73008107501323,
+              "requestedTimeTau0": 427.73008107501323,
+              "timeTau0": 427.7310603556,
+              "physicalTime": 427.7310603556,
+              "roundingTau0": 0.0009792805867618881
+            },
+            {
+              "index": 14,
+              "steps": 25561,
+              "requestedPhysicalTime": 460.1004121653291,
+              "requestedTimeTau0": 460.1004121653291,
+              "timeTau0": 460.1142005618,
+              "physicalTime": 460.1142005618,
+              "roundingTau0": 0.013788396470886255
+            },
+            {
+              "index": 15,
+              "steps": 27359,
+              "requestedPhysicalTime": 492.4707432556452,
+              "requestedTimeTau0": 492.4707432556452,
+              "timeTau0": 492.47934013419996,
+              "physicalTime": 492.47934013419996,
+              "roundingTau0": 0.008596878554783416
+            },
+            {
+              "index": 16,
+              "steps": 29157,
+              "requestedPhysicalTime": 524.841074345961,
+              "requestedTimeTau0": 524.841074345961,
+              "timeTau0": 524.8444797065999,
+              "physicalTime": 524.8444797065999,
+              "roundingTau0": 0.0034053606389079505
+            },
+            {
+              "index": 17,
+              "steps": 30956,
+              "requestedPhysicalTime": 557.2114054362771,
+              "requestedTimeTau0": 557.2114054362771,
+              "timeTau0": 557.2276199127999,
+              "physicalTime": 557.2276199127999,
+              "roundingTau0": 0.016214476522804944
+            },
+            {
+              "index": 18,
+              "steps": 32754,
+              "requestedPhysicalTime": 589.581736526593,
+              "requestedTimeTau0": 589.581736526593,
+              "timeTau0": 589.5927594852,
+              "physicalTime": 589.5927594852,
+              "roundingTau0": 0.011022958606986322
+            },
+            {
+              "index": 19,
+              "steps": 34552,
+              "requestedPhysicalTime": 621.9520676169091,
+              "requestedTimeTau0": 621.9520676169091,
+              "timeTau0": 621.9578990576,
+              "physicalTime": 621.9578990576,
+              "roundingTau0": 0.005831440690940326
+            },
+            {
+              "index": 20,
+              "steps": 36350,
+              "requestedPhysicalTime": 654.3223987072249,
+              "requestedTimeTau0": 654.3223987072249,
+              "timeTau0": 654.3230386299999,
+              "physicalTime": 654.3230386299999,
+              "roundingTau0": 0.0006399227750080172
+            },
+            {
+              "index": 21,
+              "steps": 38149,
+              "requestedPhysicalTime": 686.692729797541,
+              "requestedTimeTau0": 686.692729797541,
+              "timeTau0": 686.7061788361999,
+              "physicalTime": 686.7061788361999,
+              "roundingTau0": 0.01344903865890501
+            },
+            {
+              "index": 22,
+              "steps": 39947,
+              "requestedPhysicalTime": 719.0630608878569,
+              "requestedTimeTau0": 719.0630608878569,
+              "timeTau0": 719.0713184086,
+              "physicalTime": 719.0713184086,
+              "roundingTau0": 0.008257520743086388
+            },
+            {
+              "index": 23,
+              "steps": 41745,
+              "requestedPhysicalTime": 751.433391978173,
+              "requestedTimeTau0": 751.433391978173,
+              "timeTau0": 751.436457981,
+              "physicalTime": 751.436457981,
+              "roundingTau0": 0.0030660028270403927
+            },
+            {
+              "index": 24,
+              "steps": 43544,
+              "requestedPhysicalTime": 783.8037230684888,
+              "requestedTimeTau0": 783.8037230684888,
+              "timeTau0": 783.8195981872,
+              "physicalTime": 783.8195981872,
+              "roundingTau0": 0.01587511871116476
+            },
+            {
+              "index": 25,
+              "steps": 45342,
+              "requestedPhysicalTime": 816.1740541588049,
+              "requestedTimeTau0": 816.1740541588049,
+              "timeTau0": 816.1847377595999,
+              "physicalTime": 816.1847377595999,
+              "roundingTau0": 0.010683600795005077
+            },
+            {
+              "index": 26,
+              "steps": 47140,
+              "requestedPhysicalTime": 848.5443852491208,
+              "requestedTimeTau0": 848.5443852491208,
+              "timeTau0": 848.5498773319999,
+              "physicalTime": 848.5498773319999,
+              "roundingTau0": 0.005492082879186455
+            },
+            {
+              "index": 27,
+              "steps": 48938,
+              "requestedPhysicalTime": 880.9147163394368,
+              "requestedTimeTau0": 880.9147163394368,
+              "timeTau0": 880.9150169044,
+              "physicalTime": 880.9150169044,
+              "roundingTau0": 0.00030056496314045944
+            },
+            {
+              "index": 28,
+              "steps": 50737,
+              "requestedPhysicalTime": 913.2850474297527,
+              "requestedTimeTau0": 913.2850474297527,
+              "timeTau0": 913.2981571106,
+              "physicalTime": 913.2981571106,
+              "roundingTau0": 0.013109680847264826
+            },
+            {
+              "index": 29,
+              "steps": 52535,
+              "requestedPhysicalTime": 945.6553785200687,
+              "requestedTimeTau0": 945.6553785200687,
+              "timeTau0": 945.6632966829999,
+              "physicalTime": 945.6632966829999,
+              "roundingTau0": 0.00791816293121883
+            },
+            {
+              "index": 30,
+              "steps": 54333,
+              "requestedPhysicalTime": 978.0257096103846,
+              "requestedTimeTau0": 978.0257096103846,
+              "timeTau0": 978.0284362553999,
+              "physicalTime": 978.0284362553999,
+              "roundingTau0": 0.002726645015286522
+            },
+            {
+              "index": 31,
+              "steps": 56132,
+              "requestedPhysicalTime": 1010.3960407007006,
+              "requestedTimeTau0": 1010.3960407007006,
+              "timeTau0": 1010.4115764615999,
+              "physicalTime": 1010.4115764615999,
+              "roundingTau0": 0.015535760899297202
+            },
+            {
+              "index": 32,
+              "steps": 57930,
+              "requestedPhysicalTime": 1042.7663717910166,
+              "requestedTimeTau0": 1042.7663717910166,
+              "timeTau0": 1042.776716034,
+              "physicalTime": 1042.776716034,
+              "roundingTau0": 0.010344242983364893
+            },
+            {
+              "index": 33,
+              "steps": 59728,
+              "requestedPhysicalTime": 1075.1367028813324,
+              "requestedTimeTau0": 1075.1367028813324,
+              "timeTau0": 1075.1418556064,
+              "physicalTime": 1075.1418556064,
+              "roundingTau0": 0.005152725067546271
+            },
+            {
+              "index": 34,
+              "steps": 61527,
+              "requestedPhysicalTime": 1107.5070339716485,
+              "requestedTimeTau0": 1107.5070339716485,
+              "timeTau0": 1107.5249958125999,
+              "physicalTime": 1107.5249958125999,
+              "roundingTau0": 0.017961840951329577
+            },
+            {
+              "index": 35,
+              "steps": 63325,
+              "requestedPhysicalTime": 1139.8773650619646,
+              "requestedTimeTau0": 1139.8773650619646,
+              "timeTau0": 1139.890135385,
+              "physicalTime": 1139.890135385,
+              "roundingTau0": 0.012770323035283582
+            },
+            {
+              "index": 36,
+              "steps": 65123,
+              "requestedPhysicalTime": 1172.2476961522805,
+              "requestedTimeTau0": 1172.2476961522805,
+              "timeTau0": 1172.2552749574,
+              "physicalTime": 1172.2552749574,
+              "roundingTau0": 0.00757880511946496
+            },
+            {
+              "index": 37,
+              "steps": 66921,
+              "requestedPhysicalTime": 1204.6180272425963,
+              "requestedTimeTau0": 1204.6180272425963,
+              "timeTau0": 1204.6204145298,
+              "physicalTime": 1204.6204145298,
+              "roundingTau0": 0.0023872872036463377
+            },
+            {
+              "index": 38,
+              "steps": 68720,
+              "requestedPhysicalTime": 1236.9883583329124,
+              "requestedTimeTau0": 1236.9883583329124,
+              "timeTau0": 1237.0035547359998,
+              "physicalTime": 1237.0035547359998,
+              "roundingTau0": 0.015196403087429644
+            },
+            {
+              "index": 39,
+              "steps": 70518,
+              "requestedPhysicalTime": 1269.3586894232283,
+              "requestedTimeTau0": 1269.3586894232283,
+              "timeTau0": 1269.3686943083999,
+              "physicalTime": 1269.3686943083999,
+              "roundingTau0": 0.010004885171611022
+            },
+            {
+              "index": 40,
+              "steps": 72316,
+              "requestedPhysicalTime": 1301.7290205135441,
+              "requestedTimeTau0": 1301.7290205135441,
+              "timeTau0": 1301.7338338808,
+              "physicalTime": 1301.7338338808,
+              "roundingTau0": 0.0048133672557924
+            },
+            {
+              "index": 41,
+              "steps": 74115,
+              "requestedPhysicalTime": 1334.0993516038602,
+              "requestedTimeTau0": 1334.0993516038602,
+              "timeTau0": 1334.116974087,
+              "physicalTime": 1334.116974087,
+              "roundingTau0": 0.01762248313980308
+            },
+            {
+              "index": 42,
+              "steps": 75913,
+              "requestedPhysicalTime": 1366.4696826941763,
+              "requestedTimeTau0": 1366.4696826941763,
+              "timeTau0": 1366.4821136593998,
+              "physicalTime": 1366.4821136593998,
+              "roundingTau0": 0.01243096522352971
+            },
+            {
+              "index": 43,
+              "steps": 77711,
+              "requestedPhysicalTime": 1398.8400137844922,
+              "requestedTimeTau0": 1398.8400137844922,
+              "timeTau0": 1398.8472532317999,
+              "physicalTime": 1398.8472532317999,
+              "roundingTau0": 0.007239447307711089
+            },
+            {
+              "index": 44,
+              "steps": 79509,
+              "requestedPhysicalTime": 1431.210344874808,
+              "requestedTimeTau0": 1431.210344874808,
+              "timeTau0": 1431.2123928042,
+              "physicalTime": 1431.2123928042,
+              "roundingTau0": 0.002047929391892467
+            },
+            {
+              "index": 45,
+              "steps": 81308,
+              "requestedPhysicalTime": 1463.580675965124,
+              "requestedTimeTau0": 1463.580675965124,
+              "timeTau0": 1463.5955330104,
+              "physicalTime": 1463.5955330104,
+              "roundingTau0": 0.014857045275903147
+            },
+            {
+              "index": 46,
+              "steps": 83106,
+              "requestedPhysicalTime": 1495.9510070554402,
+              "requestedTimeTau0": 1495.9510070554402,
+              "timeTau0": 1495.9606725827998,
+              "physicalTime": 1495.9606725827998,
+              "roundingTau0": 0.009665527359629777
+            },
+            {
+              "index": 47,
+              "steps": 84904,
+              "requestedPhysicalTime": 1528.321338145756,
+              "requestedTimeTau0": 1528.321338145756,
+              "timeTau0": 1528.3258121551999,
+              "physicalTime": 1528.3258121551999,
+              "roundingTau0": 0.0044740094438111555
+            },
+            {
+              "index": 48,
+              "steps": 86703,
+              "requestedPhysicalTime": 1560.691669236072,
+              "requestedTimeTau0": 1560.691669236072,
+              "timeTau0": 1560.7089523614,
+              "physicalTime": 1560.7089523614,
+              "roundingTau0": 0.01728312532804921
+            },
+            {
+              "index": 49,
+              "steps": 88501,
+              "requestedPhysicalTime": 1593.062000326388,
+              "requestedTimeTau0": 1593.062000326388,
+              "timeTau0": 1593.0740919338,
+              "physicalTime": 1593.0740919338,
+              "roundingTau0": 0.012091607412003214
+            },
+            {
+              "index": 50,
+              "steps": 90299,
+              "requestedPhysicalTime": 1625.4323314167038,
+              "requestedTimeTau0": 1625.4323314167038,
+              "timeTau0": 1625.4392315061998,
+              "physicalTime": 1625.4392315061998,
+              "roundingTau0": 0.006900089495957218
+            },
+            {
+              "index": 51,
+              "steps": 92097,
+              "requestedPhysicalTime": 1657.80266250702,
+              "requestedTimeTau0": 1657.80266250702,
+              "timeTau0": 1657.8043710785998,
+              "physicalTime": 1657.8043710785998,
+              "roundingTau0": 0.0017085715799112222
+            },
+            {
+              "index": 52,
+              "steps": 93896,
+              "requestedPhysicalTime": 1690.1729935973358,
+              "requestedTimeTau0": 1690.1729935973358,
+              "timeTau0": 1690.1875112848,
+              "physicalTime": 1690.1875112848,
+              "roundingTau0": 0.014517687464149276
+            },
+            {
+              "index": 53,
+              "steps": 95694,
+              "requestedPhysicalTime": 1722.5433246876519,
+              "requestedTimeTau0": 1722.5433246876519,
+              "timeTau0": 1722.5526508572,
+              "physicalTime": 1722.5526508572,
+              "roundingTau0": 0.00932616954810328
+            },
+            {
+              "index": 54,
+              "steps": 97492,
+              "requestedPhysicalTime": 1754.9136557779677,
+              "requestedTimeTau0": 1754.9136557779677,
+              "timeTau0": 1754.9177904295998,
+              "physicalTime": 1754.9177904295998,
+              "roundingTau0": 0.004134651632057285
+            },
+            {
+              "index": 55,
+              "steps": 99291,
+              "requestedPhysicalTime": 1787.2839868682838,
+              "requestedTimeTau0": 1787.2839868682838,
+              "timeTau0": 1787.3009306358,
+              "physicalTime": 1787.3009306358,
+              "roundingTau0": 0.016943767516067965
+            },
+            {
+              "index": 56,
+              "steps": 101089,
+              "requestedPhysicalTime": 1819.6543179585997,
+              "requestedTimeTau0": 1819.6543179585997,
+              "timeTau0": 1819.6660702082,
+              "physicalTime": 1819.6660702082,
+              "roundingTau0": 0.011752249600249343
+            },
+            {
+              "index": 57,
+              "steps": 102887,
+              "requestedPhysicalTime": 1852.0246490489158,
+              "requestedTimeTau0": 1852.0246490489158,
+              "timeTau0": 1852.0312097806,
+              "physicalTime": 1852.0312097806,
+              "roundingTau0": 0.006560731684203347
+            },
+            {
+              "index": 58,
+              "steps": 104685,
+              "requestedPhysicalTime": 1884.3949801392316,
+              "requestedTimeTau0": 1884.3949801392316,
+              "timeTau0": 1884.3963493529998,
+              "physicalTime": 1884.3963493529998,
+              "roundingTau0": 0.0013692137681573513
+            },
+            {
+              "index": 59,
+              "steps": 106484,
+              "requestedPhysicalTime": 1916.7653112295477,
+              "requestedTimeTau0": 1916.7653112295477,
+              "timeTau0": 1916.7794895591999,
+              "physicalTime": 1916.7794895591999,
+              "roundingTau0": 0.014178329652168031
+            },
+            {
+              "index": 60,
+              "steps": 108282,
+              "requestedPhysicalTime": 1949.1356423198636,
+              "requestedTimeTau0": 1949.1356423198636,
+              "timeTau0": 1949.1446291316,
+              "physicalTime": 1949.1446291316,
+              "roundingTau0": 0.00898681173634941
+            }
+          ],
+          "retained": [
+            {
+              "index": 51,
+              "steps": 92097,
+              "requestedPhysicalTime": 1657.80266250702,
+              "requestedTimeTau0": 1657.80266250702,
+              "timeTau0": 1657.8043710785998,
+              "physicalTime": 1657.8043710785998,
+              "roundingTau0": 0.0017085715799112222
+            },
+            {
+              "index": 52,
+              "steps": 93896,
+              "requestedPhysicalTime": 1690.1729935973358,
+              "requestedTimeTau0": 1690.1729935973358,
+              "timeTau0": 1690.1875112848,
+              "physicalTime": 1690.1875112848,
+              "roundingTau0": 0.014517687464149276
+            },
+            {
+              "index": 53,
+              "steps": 95694,
+              "requestedPhysicalTime": 1722.5433246876519,
+              "requestedTimeTau0": 1722.5433246876519,
+              "timeTau0": 1722.5526508572,
+              "physicalTime": 1722.5526508572,
+              "roundingTau0": 0.00932616954810328
+            },
+            {
+              "index": 54,
+              "steps": 97492,
+              "requestedPhysicalTime": 1754.9136557779677,
+              "requestedTimeTau0": 1754.9136557779677,
+              "timeTau0": 1754.9177904295998,
+              "physicalTime": 1754.9177904295998,
+              "roundingTau0": 0.004134651632057285
+            },
+            {
+              "index": 55,
+              "steps": 99291,
+              "requestedPhysicalTime": 1787.2839868682838,
+              "requestedTimeTau0": 1787.2839868682838,
+              "timeTau0": 1787.3009306358,
+              "physicalTime": 1787.3009306358,
+              "roundingTau0": 0.016943767516067965
+            },
+            {
+              "index": 56,
+              "steps": 101089,
+              "requestedPhysicalTime": 1819.6543179585997,
+              "requestedTimeTau0": 1819.6543179585997,
+              "timeTau0": 1819.6660702082,
+              "physicalTime": 1819.6660702082,
+              "roundingTau0": 0.011752249600249343
+            },
+            {
+              "index": 57,
+              "steps": 102887,
+              "requestedPhysicalTime": 1852.0246490489158,
+              "requestedTimeTau0": 1852.0246490489158,
+              "timeTau0": 1852.0312097806,
+              "physicalTime": 1852.0312097806,
+              "roundingTau0": 0.006560731684203347
+            },
+            {
+              "index": 58,
+              "steps": 104685,
+              "requestedPhysicalTime": 1884.3949801392316,
+              "requestedTimeTau0": 1884.3949801392316,
+              "timeTau0": 1884.3963493529998,
+              "physicalTime": 1884.3963493529998,
+              "roundingTau0": 0.0013692137681573513
+            },
+            {
+              "index": 59,
+              "steps": 106484,
+              "requestedPhysicalTime": 1916.7653112295477,
+              "requestedTimeTau0": 1916.7653112295477,
+              "timeTau0": 1916.7794895591999,
+              "physicalTime": 1916.7794895591999,
+              "roundingTau0": 0.014178329652168031
+            },
+            {
+              "index": 60,
+              "steps": 108282,
+              "requestedPhysicalTime": 1949.1356423198636,
+              "requestedTimeTau0": 1949.1356423198636,
+              "timeTau0": 1949.1446291316,
+              "physicalTime": 1949.1446291316,
+              "roundingTau0": 0.00898681173634941
+            }
+          ]
+        },
+        {
+          "name": "dx",
+          "terminalPhysicalTime": 1949.1356423198636,
+          "samplePeriodPhysical": 32.370331090315965,
+          "physicalTimeScale": 1,
+          "dt": 0.010125356512499998,
+          "terminalSteps": 192501,
+          "terminalTimeTau0": 1949.1412540127621,
+          "terminalPhysicalTimeRounded": 1949.1412540127621,
+          "maximumPhysicalRounding": 0.010125356512499998,
+          "checkpoints": [
+            {
+              "index": 0,
+              "steps": 684,
+              "requestedPhysicalTime": 6.915776900905712,
+              "requestedTimeTau0": 6.915776900905712,
+              "timeTau0": 6.9257438545499985,
+              "physicalTime": 6.9257438545499985,
+              "roundingTau0": 0.00996695364428657
+            },
+            {
+              "index": 1,
+              "steps": 3880,
+              "requestedPhysicalTime": 39.28610799122157,
+              "requestedTimeTau0": 39.28610799122157,
+              "timeTau0": 39.28638326849999,
+              "physicalTime": 39.28638326849999,
+              "roundingTau0": 0.0002752772784191393
+            },
+            {
+              "index": 2,
+              "steps": 7077,
+              "requestedPhysicalTime": 71.65643908153766,
+              "requestedTimeTau0": 71.65643908153766,
+              "timeTau0": 71.65714803896249,
+              "physicalTime": 71.65714803896249,
+              "roundingTau0": 0.0007089574248340114
+            },
+            {
+              "index": 3,
+              "steps": 10274,
+              "requestedPhysicalTime": 104.02677017185351,
+              "requestedTimeTau0": 104.02677017185351,
+              "timeTau0": 104.02791280942498,
+              "physicalTime": 104.02791280942498,
+              "roundingTau0": 0.0011426375714620463
+            },
+            {
+              "index": 4,
+              "steps": 13471,
+              "requestedPhysicalTime": 136.3971012621696,
+              "requestedTimeTau0": 136.3971012621696,
+              "timeTau0": 136.39867757988748,
+              "physicalTime": 136.39867757988748,
+              "roundingTau0": 0.0015763177178769183
+            },
+            {
+              "index": 5,
+              "steps": 16668,
+              "requestedPhysicalTime": 168.76743235248546,
+              "requestedTimeTau0": 168.76743235248546,
+              "timeTau0": 168.76944235034995,
+              "physicalTime": 168.76944235034995,
+              "roundingTau0": 0.0020099978644907424
+            },
+            {
+              "index": 6,
+              "steps": 19865,
+              "requestedPhysicalTime": 201.13776344280154,
+              "requestedTimeTau0": 201.13776344280154,
+              "timeTau0": 201.14020712081245,
+              "physicalTime": 201.14020712081245,
+              "roundingTau0": 0.0024436780109056144
+            },
+            {
+              "index": 7,
+              "steps": 23062,
+              "requestedPhysicalTime": 233.5080945331174,
+              "requestedTimeTau0": 233.5080945331174,
+              "timeTau0": 233.51097189127495,
+              "physicalTime": 233.51097189127495,
+              "roundingTau0": 0.00287735815754786
+            },
+            {
+              "index": 8,
+              "steps": 26259,
+              "requestedPhysicalTime": 265.8784256234335,
+              "requestedTimeTau0": 265.8784256234335,
+              "timeTau0": 265.8817366617374,
+              "physicalTime": 265.8817366617374,
+              "roundingTau0": 0.0033110383039343105
+            },
+            {
+              "index": 9,
+              "steps": 29456,
+              "requestedPhysicalTime": 298.24875671374934,
+              "requestedTimeTau0": 298.24875671374934,
+              "timeTau0": 298.25250143219995,
+              "physicalTime": 298.25250143219995,
+              "roundingTau0": 0.003744718450604978
+            },
+            {
+              "index": 10,
+              "steps": 32653,
+              "requestedPhysicalTime": 330.61908780406543,
+              "requestedTimeTau0": 330.61908780406543,
+              "timeTau0": 330.6232662026624,
+              "physicalTime": 330.6232662026624,
+              "roundingTau0": 0.004178398596991428
+            },
+            {
+              "index": 11,
+              "steps": 35850,
+              "requestedPhysicalTime": 362.9894188943813,
+              "requestedTimeTau0": 362.9894188943813,
+              "timeTau0": 362.9940309731249,
+              "physicalTime": 362.9940309731249,
+              "roundingTau0": 0.004612078743605252
+            },
+            {
+              "index": 12,
+              "steps": 39047,
+              "requestedPhysicalTime": 395.3597499846974,
+              "requestedTimeTau0": 395.3597499846974,
+              "timeTau0": 395.3647957435874,
+              "physicalTime": 395.3647957435874,
+              "roundingTau0": 0.005045758890048546
+            },
+            {
+              "index": 13,
+              "steps": 42244,
+              "requestedPhysicalTime": 427.73008107501323,
+              "requestedTimeTau0": 427.73008107501323,
+              "timeTau0": 427.7355605140499,
+              "physicalTime": 427.7355605140499,
+              "roundingTau0": 0.00547943903666237
+            },
+            {
+              "index": 14,
+              "steps": 45441,
+              "requestedPhysicalTime": 460.1004121653291,
+              "requestedTimeTau0": 460.1004121653291,
+              "timeTau0": 460.10632528451237,
+              "physicalTime": 460.10632528451237,
+              "roundingTau0": 0.005913119183276194
+            },
+            {
+              "index": 15,
+              "steps": 48638,
+              "requestedPhysicalTime": 492.4707432556452,
+              "requestedTimeTau0": 492.4707432556452,
+              "timeTau0": 492.4770900549749,
+              "physicalTime": 492.4770900549749,
+              "roundingTau0": 0.006346799329719488
+            },
+            {
+              "index": 16,
+              "steps": 51835,
+              "requestedPhysicalTime": 524.841074345961,
+              "requestedTimeTau0": 524.841074345961,
+              "timeTau0": 524.8478548254374,
+              "physicalTime": 524.8478548254374,
+              "roundingTau0": 0.006780479476333312
+            },
+            {
+              "index": 17,
+              "steps": 55032,
+              "requestedPhysicalTime": 557.2114054362771,
+              "requestedTimeTau0": 557.2114054362771,
+              "timeTau0": 557.2186195958999,
+              "physicalTime": 557.2186195958999,
+              "roundingTau0": 0.007214159622776606
+            },
+            {
+              "index": 18,
+              "steps": 58229,
+              "requestedPhysicalTime": 589.581736526593,
+              "requestedTimeTau0": 589.581736526593,
+              "timeTau0": 589.5893843663623,
+              "physicalTime": 589.5893843663623,
+              "roundingTau0": 0.0076478397693335864
+            },
+            {
+              "index": 19,
+              "steps": 61426,
+              "requestedPhysicalTime": 621.9520676169091,
+              "requestedTimeTau0": 621.9520676169091,
+              "timeTau0": 621.9601491368248,
+              "physicalTime": 621.9601491368248,
+              "roundingTau0": 0.00808151991577688
+            },
+            {
+              "index": 20,
+              "steps": 64623,
+              "requestedPhysicalTime": 654.3223987072249,
+              "requestedTimeTau0": 654.3223987072249,
+              "timeTau0": 654.3309139072874,
+              "physicalTime": 654.3309139072874,
+              "roundingTau0": 0.008515200062447548
+            },
+            {
+              "index": 21,
+              "steps": 67820,
+              "requestedPhysicalTime": 686.692729797541,
+              "requestedTimeTau0": 686.692729797541,
+              "timeTau0": 686.7016786777498,
+              "physicalTime": 686.7016786777498,
+              "roundingTau0": 0.008948880208777155
+            },
+            {
+              "index": 22,
+              "steps": 71017,
+              "requestedPhysicalTime": 719.0630608878569,
+              "requestedTimeTau0": 719.0630608878569,
+              "timeTau0": 719.0724434482123,
+              "physicalTime": 719.0724434482123,
+              "roundingTau0": 0.009382560355447822
+            },
+            {
+              "index": 23,
+              "steps": 74214,
+              "requestedPhysicalTime": 751.433391978173,
+              "requestedTimeTau0": 751.433391978173,
+              "timeTau0": 751.4432082186748,
+              "physicalTime": 751.4432082186748,
+              "roundingTau0": 0.009816240501891116
+            },
+            {
+              "index": 24,
+              "steps": 77410,
+              "requestedPhysicalTime": 783.8037230684888,
+              "requestedTimeTau0": 783.8037230684888,
+              "timeTau0": 783.8038476326249,
+              "physicalTime": 783.8038476326249,
+              "roundingTau0": 0.00012456413605832495
+            },
+            {
+              "index": 25,
+              "steps": 80607,
+              "requestedPhysicalTime": 816.1740541588049,
+              "requestedTimeTau0": 816.1740541588049,
+              "timeTau0": 816.1746124030873,
+              "physicalTime": 816.1746124030873,
+              "roundingTau0": 0.0005582442823879319
+            },
+            {
+              "index": 26,
+              "steps": 83804,
+              "requestedPhysicalTime": 848.5443852491208,
+              "requestedTimeTau0": 848.5443852491208,
+              "timeTau0": 848.5453771735498,
+              "physicalTime": 848.5453771735498,
+              "roundingTau0": 0.0009919244290585993
+            },
+            {
+              "index": 27,
+              "steps": 87001,
+              "requestedPhysicalTime": 880.9147163394368,
+              "requestedTimeTau0": 880.9147163394368,
+              "timeTau0": 880.9161419440123,
+              "physicalTime": 880.9161419440123,
+              "roundingTau0": 0.0014256045755018931
+            },
+            {
+              "index": 28,
+              "steps": 90198,
+              "requestedPhysicalTime": 913.2850474297527,
+              "requestedTimeTau0": 913.2850474297527,
+              "timeTau0": 913.2869067144748,
+              "physicalTime": 913.2869067144748,
+              "roundingTau0": 0.0018592847220588737
+            },
+            {
+              "index": 29,
+              "steps": 93395,
+              "requestedPhysicalTime": 945.6553785200687,
+              "requestedTimeTau0": 945.6553785200687,
+              "timeTau0": 945.6576714849373,
+              "physicalTime": 945.6576714849373,
+              "roundingTau0": 0.0022929648686158544
+            },
+            {
+              "index": 30,
+              "steps": 96592,
+              "requestedPhysicalTime": 978.0257096103846,
+              "requestedTimeTau0": 978.0257096103846,
+              "timeTau0": 978.0284362553998,
+              "physicalTime": 978.0284362553998,
+              "roundingTau0": 0.002726645015172835
+            },
+            {
+              "index": 31,
+              "steps": 99789,
+              "requestedPhysicalTime": 1010.3960407007006,
+              "requestedTimeTau0": 1010.3960407007006,
+              "timeTau0": 1010.3992010258622,
+              "physicalTime": 1010.3992010258622,
+              "roundingTau0": 0.0031603251616161288
+            },
+            {
+              "index": 32,
+              "steps": 102986,
+              "requestedPhysicalTime": 1042.7663717910166,
+              "requestedTimeTau0": 1042.7663717910166,
+              "timeTau0": 1042.7699657963246,
+              "physicalTime": 1042.7699657963246,
+              "roundingTau0": 0.0035940053080594225
+            },
+            {
+              "index": 33,
+              "steps": 106183,
+              "requestedPhysicalTime": 1075.1367028813324,
+              "requestedTimeTau0": 1075.1367028813324,
+              "timeTau0": 1075.1407305667872,
+              "physicalTime": 1075.1407305667872,
+              "roundingTau0": 0.00402768545473009
+            },
+            {
+              "index": 34,
+              "steps": 109380,
+              "requestedPhysicalTime": 1107.5070339716485,
+              "requestedTimeTau0": 1107.5070339716485,
+              "timeTau0": 1107.5114953372497,
+              "physicalTime": 1107.5114953372497,
+              "roundingTau0": 0.004461365601173384
+            },
+            {
+              "index": 35,
+              "steps": 112577,
+              "requestedPhysicalTime": 1139.8773650619646,
+              "requestedTimeTau0": 1139.8773650619646,
+              "timeTau0": 1139.8822601077122,
+              "physicalTime": 1139.8822601077122,
+              "roundingTau0": 0.0048950457476166775
+            },
+            {
+              "index": 36,
+              "steps": 115774,
+              "requestedPhysicalTime": 1172.2476961522805,
+              "requestedTimeTau0": 1172.2476961522805,
+              "timeTau0": 1172.2530248781748,
+              "physicalTime": 1172.2530248781748,
+              "roundingTau0": 0.005328725894287345
+            },
+            {
+              "index": 37,
+              "steps": 118971,
+              "requestedPhysicalTime": 1204.6180272425963,
+              "requestedTimeTau0": 1204.6180272425963,
+              "timeTau0": 1204.6237896486373,
+              "physicalTime": 1204.6237896486373,
+              "roundingTau0": 0.0057624060409580125
+            },
+            {
+              "index": 38,
+              "steps": 122168,
+              "requestedPhysicalTime": 1236.9883583329124,
+              "requestedTimeTau0": 1236.9883583329124,
+              "timeTau0": 1236.9945544190998,
+              "physicalTime": 1236.9945544190998,
+              "roundingTau0": 0.006196086187401306
+            },
+            {
+              "index": 39,
+              "steps": 125365,
+              "requestedPhysicalTime": 1269.3586894232283,
+              "requestedTimeTau0": 1269.3586894232283,
+              "timeTau0": 1269.3653191895621,
+              "physicalTime": 1269.3653191895621,
+              "roundingTau0": 0.0066297663338446
+            },
+            {
+              "index": 40,
+              "steps": 128562,
+              "requestedPhysicalTime": 1301.7290205135441,
+              "requestedTimeTau0": 1301.7290205135441,
+              "timeTau0": 1301.7360839600246,
+              "physicalTime": 1301.7360839600246,
+              "roundingTau0": 0.0070634464805152675
+            },
+            {
+              "index": 41,
+              "steps": 131759,
+              "requestedPhysicalTime": 1334.0993516038602,
+              "requestedTimeTau0": 1334.0993516038602,
+              "timeTau0": 1334.1068487304872,
+              "physicalTime": 1334.1068487304872,
+              "roundingTau0": 0.007497126626958561
+            },
+            {
+              "index": 42,
+              "steps": 134956,
+              "requestedPhysicalTime": 1366.4696826941763,
+              "requestedTimeTau0": 1366.4696826941763,
+              "timeTau0": 1366.4776135009497,
+              "physicalTime": 1366.4776135009497,
+              "roundingTau0": 0.007930806773401855
+            },
+            {
+              "index": 43,
+              "steps": 138153,
+              "requestedPhysicalTime": 1398.8400137844922,
+              "requestedTimeTau0": 1398.8400137844922,
+              "timeTau0": 1398.8483782714122,
+              "physicalTime": 1398.8483782714122,
+              "roundingTau0": 0.008364486920072522
+            },
+            {
+              "index": 44,
+              "steps": 141350,
+              "requestedPhysicalTime": 1431.210344874808,
+              "requestedTimeTau0": 1431.210344874808,
+              "timeTau0": 1431.2191430418748,
+              "physicalTime": 1431.2191430418748,
+              "roundingTau0": 0.00879816706674319
+            },
+            {
+              "index": 45,
+              "steps": 144547,
+              "requestedPhysicalTime": 1463.580675965124,
+              "requestedTimeTau0": 1463.580675965124,
+              "timeTau0": 1463.589907812337,
+              "physicalTime": 1463.589907812337,
+              "roundingTau0": 0.00923184721295911
+            },
+            {
+              "index": 46,
+              "steps": 147744,
+              "requestedPhysicalTime": 1495.9510070554402,
+              "requestedTimeTau0": 1495.9510070554402,
+              "timeTau0": 1495.9606725827996,
+              "physicalTime": 1495.9606725827996,
+              "roundingTau0": 0.009665527359402404
+            },
+            {
+              "index": 47,
+              "steps": 150941,
+              "requestedPhysicalTime": 1528.321338145756,
+              "requestedTimeTau0": 1528.321338145756,
+              "timeTau0": 1528.3314373532621,
+              "physicalTime": 1528.3314373532621,
+              "roundingTau0": 0.010099207506073071
+            },
+            {
+              "index": 48,
+              "steps": 154137,
+              "requestedPhysicalTime": 1560.691669236072,
+              "requestedTimeTau0": 1560.691669236072,
+              "timeTau0": 1560.692076767212,
+              "physicalTime": 1560.692076767212,
+              "roundingTau0": 0.00040753114012659353
+            },
+            {
+              "index": 49,
+              "steps": 157334,
+              "requestedPhysicalTime": 1593.062000326388,
+              "requestedTimeTau0": 1593.062000326388,
+              "timeTau0": 1593.0628415376746,
+              "physicalTime": 1593.0628415376746,
+              "roundingTau0": 0.0008412112865698873
+            },
+            {
+              "index": 50,
+              "steps": 160531,
+              "requestedPhysicalTime": 1625.4323314167038,
+              "requestedTimeTau0": 1625.4323314167038,
+              "timeTau0": 1625.433606308137,
+              "physicalTime": 1625.433606308137,
+              "roundingTau0": 0.0012748914332405548
+            },
+            {
+              "index": 51,
+              "steps": 163728,
+              "requestedPhysicalTime": 1657.80266250702,
+              "requestedTimeTau0": 1657.80266250702,
+              "timeTau0": 1657.8043710785996,
+              "physicalTime": 1657.8043710785996,
+              "roundingTau0": 0.0017085715796838485
+            },
+            {
+              "index": 52,
+              "steps": 166925,
+              "requestedPhysicalTime": 1690.1729935973358,
+              "requestedTimeTau0": 1690.1729935973358,
+              "timeTau0": 1690.1751358490621,
+              "physicalTime": 1690.1751358490621,
+              "roundingTau0": 0.002142251726354516
+            },
+            {
+              "index": 53,
+              "steps": 170122,
+              "requestedPhysicalTime": 1722.5433246876519,
+              "requestedTimeTau0": 1722.5433246876519,
+              "timeTau0": 1722.5459006195247,
+              "physicalTime": 1722.5459006195247,
+              "roundingTau0": 0.0025759318727978098
+            },
+            {
+              "index": 54,
+              "steps": 173319,
+              "requestedPhysicalTime": 1754.9136557779677,
+              "requestedTimeTau0": 1754.9136557779677,
+              "timeTau0": 1754.916665389987,
+              "physicalTime": 1754.916665389987,
+              "roundingTau0": 0.0030096120192411036
+            },
+            {
+              "index": 55,
+              "steps": 176516,
+              "requestedPhysicalTime": 1787.2839868682838,
+              "requestedTimeTau0": 1787.2839868682838,
+              "timeTau0": 1787.2874301604495,
+              "physicalTime": 1787.2874301604495,
+              "roundingTau0": 0.0034432921656843973
+            },
+            {
+              "index": 56,
+              "steps": 179713,
+              "requestedPhysicalTime": 1819.6543179585997,
+              "requestedTimeTau0": 1819.6543179585997,
+              "timeTau0": 1819.658194930912,
+              "physicalTime": 1819.658194930912,
+              "roundingTau0": 0.003876972312355065
+            },
+            {
+              "index": 57,
+              "steps": 182910,
+              "requestedPhysicalTime": 1852.0246490489158,
+              "requestedTimeTau0": 1852.0246490489158,
+              "timeTau0": 1852.0289597013746,
+              "physicalTime": 1852.0289597013746,
+              "roundingTau0": 0.0043106524587983586
+            },
+            {
+              "index": 58,
+              "steps": 186107,
+              "requestedPhysicalTime": 1884.3949801392316,
+              "requestedTimeTau0": 1884.3949801392316,
+              "timeTau0": 1884.399724471837,
+              "physicalTime": 1884.399724471837,
+              "roundingTau0": 0.004744332605469026
+            },
+            {
+              "index": 59,
+              "steps": 189304,
+              "requestedPhysicalTime": 1916.7653112295477,
+              "requestedTimeTau0": 1916.7653112295477,
+              "timeTau0": 1916.7704892422996,
+              "physicalTime": 1916.7704892422996,
+              "roundingTau0": 0.00517801275191232
+            },
+            {
+              "index": 60,
+              "steps": 192501,
+              "requestedPhysicalTime": 1949.1356423198636,
+              "requestedTimeTau0": 1949.1356423198636,
+              "timeTau0": 1949.1412540127621,
+              "physicalTime": 1949.1412540127621,
+              "roundingTau0": 0.005611692898582987
+            }
+          ],
+          "retained": [
+            {
+              "index": 51,
+              "steps": 163728,
+              "requestedPhysicalTime": 1657.80266250702,
+              "requestedTimeTau0": 1657.80266250702,
+              "timeTau0": 1657.8043710785996,
+              "physicalTime": 1657.8043710785996,
+              "roundingTau0": 0.0017085715796838485
+            },
+            {
+              "index": 52,
+              "steps": 166925,
+              "requestedPhysicalTime": 1690.1729935973358,
+              "requestedTimeTau0": 1690.1729935973358,
+              "timeTau0": 1690.1751358490621,
+              "physicalTime": 1690.1751358490621,
+              "roundingTau0": 0.002142251726354516
+            },
+            {
+              "index": 53,
+              "steps": 170122,
+              "requestedPhysicalTime": 1722.5433246876519,
+              "requestedTimeTau0": 1722.5433246876519,
+              "timeTau0": 1722.5459006195247,
+              "physicalTime": 1722.5459006195247,
+              "roundingTau0": 0.0025759318727978098
+            },
+            {
+              "index": 54,
+              "steps": 173319,
+              "requestedPhysicalTime": 1754.9136557779677,
+              "requestedTimeTau0": 1754.9136557779677,
+              "timeTau0": 1754.916665389987,
+              "physicalTime": 1754.916665389987,
+              "roundingTau0": 0.0030096120192411036
+            },
+            {
+              "index": 55,
+              "steps": 176516,
+              "requestedPhysicalTime": 1787.2839868682838,
+              "requestedTimeTau0": 1787.2839868682838,
+              "timeTau0": 1787.2874301604495,
+              "physicalTime": 1787.2874301604495,
+              "roundingTau0": 0.0034432921656843973
+            },
+            {
+              "index": 56,
+              "steps": 179713,
+              "requestedPhysicalTime": 1819.6543179585997,
+              "requestedTimeTau0": 1819.6543179585997,
+              "timeTau0": 1819.658194930912,
+              "physicalTime": 1819.658194930912,
+              "roundingTau0": 0.003876972312355065
+            },
+            {
+              "index": 57,
+              "steps": 182910,
+              "requestedPhysicalTime": 1852.0246490489158,
+              "requestedTimeTau0": 1852.0246490489158,
+              "timeTau0": 1852.0289597013746,
+              "physicalTime": 1852.0289597013746,
+              "roundingTau0": 0.0043106524587983586
+            },
+            {
+              "index": 58,
+              "steps": 186107,
+              "requestedPhysicalTime": 1884.3949801392316,
+              "requestedTimeTau0": 1884.3949801392316,
+              "timeTau0": 1884.399724471837,
+              "physicalTime": 1884.399724471837,
+              "roundingTau0": 0.004744332605469026
+            },
+            {
+              "index": 59,
+              "steps": 189304,
+              "requestedPhysicalTime": 1916.7653112295477,
+              "requestedTimeTau0": 1916.7653112295477,
+              "timeTau0": 1916.7704892422996,
+              "physicalTime": 1916.7704892422996,
+              "roundingTau0": 0.00517801275191232
+            },
+            {
+              "index": 60,
+              "steps": 192501,
+              "requestedPhysicalTime": 1949.1356423198636,
+              "requestedTimeTau0": 1949.1356423198636,
+              "timeTau0": 1949.1412540127621,
+              "physicalTime": 1949.1412540127621,
+              "roundingTau0": 0.005611692898582987
+            }
+          ]
+        },
+        {
+          "name": "dt",
+          "terminalPhysicalTime": 1949.1356423198636,
+          "samplePeriodPhysical": 32.370331090315965,
+          "physicalTimeScale": 1,
+          "dt": 0.0090003169,
+          "terminalSteps": 216564,
+          "terminalTimeTau0": 1949.1446291316,
+          "terminalPhysicalTimeRounded": 1949.1446291316,
+          "maximumPhysicalRounding": 0.0090003169,
+          "checkpoints": [
+            {
+              "index": 0,
+              "steps": 769,
+              "requestedPhysicalTime": 6.915776900905712,
+              "requestedTimeTau0": 6.915776900905712,
+              "timeTau0": 6.9212436960999995,
+              "physicalTime": 6.9212436960999995,
+              "roundingTau0": 0.005466795194287499
+            },
+            {
+              "index": 1,
+              "steps": 4365,
+              "requestedPhysicalTime": 39.28610799122157,
+              "requestedTimeTau0": 39.28610799122157,
+              "timeTau0": 39.286383268499996,
+              "physicalTime": 39.286383268499996,
+              "roundingTau0": 0.0002752772784262447
+            },
+            {
+              "index": 2,
+              "steps": 7962,
+              "requestedPhysicalTime": 71.65643908153766,
+              "requestedTimeTau0": 71.65643908153766,
+              "timeTau0": 71.6605231578,
+              "physicalTime": 71.6605231578,
+              "roundingTau0": 0.004084076262344638
+            },
+            {
+              "index": 3,
+              "steps": 11559,
+              "requestedPhysicalTime": 104.02677017185351,
+              "requestedTimeTau0": 104.02677017185351,
+              "timeTau0": 104.0346630471,
+              "physicalTime": 104.0346630471,
+              "roundingTau0": 0.0078928752464833
+            },
+            {
+              "index": 4,
+              "steps": 15155,
+              "requestedPhysicalTime": 136.3971012621696,
+              "requestedTimeTau0": 136.3971012621696,
+              "timeTau0": 136.39980261949998,
+              "physicalTime": 136.39980261949998,
+              "roundingTau0": 0.0027013573303804606
+            },
+            {
+              "index": 5,
+              "steps": 18752,
+              "requestedPhysicalTime": 168.76743235248546,
+              "requestedTimeTau0": 168.76743235248546,
+              "timeTau0": 168.7739425088,
+              "physicalTime": 168.7739425088,
+              "roundingTau0": 0.006510156314533333
+            },
+            {
+              "index": 6,
+              "steps": 22348,
+              "requestedPhysicalTime": 201.13776344280154,
+              "requestedTimeTau0": 201.13776344280154,
+              "timeTau0": 201.13908208119997,
+              "physicalTime": 201.13908208119997,
+              "roundingTau0": 0.001318638398430494
+            },
+            {
+              "index": 7,
+              "steps": 25945,
+              "requestedPhysicalTime": 233.5080945331174,
+              "requestedTimeTau0": 233.5080945331174,
+              "timeTau0": 233.51322197049998,
+              "physicalTime": 233.51322197049998,
+              "roundingTau0": 0.005127437382583366
+            },
+            {
+              "index": 8,
+              "steps": 29542,
+              "requestedPhysicalTime": 265.8784256234335,
+              "requestedTimeTau0": 265.8784256234335,
+              "timeTau0": 265.88736185979997,
+              "physicalTime": 265.88736185979997,
+              "roundingTau0": 0.008936236366480443
+            },
+            {
+              "index": 9,
+              "steps": 33138,
+              "requestedPhysicalTime": 298.24875671374934,
+              "requestedTimeTau0": 298.24875671374934,
+              "timeTau0": 298.2525014322,
+              "physicalTime": 298.2525014322,
+              "roundingTau0": 0.0037447184506618214
+            },
+            {
+              "index": 10,
+              "steps": 36735,
+              "requestedPhysicalTime": 330.61908780406543,
+              "requestedTimeTau0": 330.61908780406543,
+              "timeTau0": 330.62664132149996,
+              "physicalTime": 330.62664132149996,
+              "roundingTau0": 0.007553517434530477
+            },
+            {
+              "index": 11,
+              "steps": 40331,
+              "requestedPhysicalTime": 362.9894188943813,
+              "requestedTimeTau0": 362.9894188943813,
+              "timeTau0": 362.9917808939,
+              "physicalTime": 362.9917808939,
+              "roundingTau0": 0.0023619995187118548
+            },
+            {
+              "index": 12,
+              "steps": 43928,
+              "requestedPhysicalTime": 395.3597499846974,
+              "requestedTimeTau0": 395.3597499846974,
+              "timeTau0": 395.36592078319995,
+              "physicalTime": 395.36592078319995,
+              "roundingTau0": 0.00617079850258051
+            },
+            {
+              "index": 13,
+              "steps": 47524,
+              "requestedPhysicalTime": 427.73008107501323,
+              "requestedTimeTau0": 427.73008107501323,
+              "timeTau0": 427.7310603556,
+              "physicalTime": 427.7310603556,
+              "roundingTau0": 0.0009792805867618881
+            },
+            {
+              "index": 14,
+              "steps": 51121,
+              "requestedPhysicalTime": 460.1004121653291,
+              "requestedTimeTau0": 460.1004121653291,
+              "timeTau0": 460.10520024489995,
+              "physicalTime": 460.10520024489995,
+              "roundingTau0": 0.004788079570857917
+            },
+            {
+              "index": 15,
+              "steps": 54718,
+              "requestedPhysicalTime": 492.4707432556452,
+              "requestedTimeTau0": 492.4707432556452,
+              "timeTau0": 492.47934013419996,
+              "physicalTime": 492.47934013419996,
+              "roundingTau0": 0.008596878554783416
+            },
+            {
+              "index": 16,
+              "steps": 58314,
+              "requestedPhysicalTime": 524.841074345961,
+              "requestedTimeTau0": 524.841074345961,
+              "timeTau0": 524.8444797065999,
+              "physicalTime": 524.8444797065999,
+              "roundingTau0": 0.0034053606389079505
+            },
+            {
+              "index": 17,
+              "steps": 61911,
+              "requestedPhysicalTime": 557.2114054362771,
+              "requestedTimeTau0": 557.2114054362771,
+              "timeTau0": 557.2186195959,
+              "physicalTime": 557.2186195959,
+              "roundingTau0": 0.007214159622890293
+            },
+            {
+              "index": 18,
+              "steps": 65507,
+              "requestedPhysicalTime": 589.581736526593,
+              "requestedTimeTau0": 589.581736526593,
+              "timeTau0": 589.5837591682999,
+              "physicalTime": 589.5837591682999,
+              "roundingTau0": 0.002022641706957984
+            },
+            {
+              "index": 19,
+              "steps": 69104,
+              "requestedPhysicalTime": 621.9520676169091,
+              "requestedTimeTau0": 621.9520676169091,
+              "timeTau0": 621.9578990576,
+              "physicalTime": 621.9578990576,
+              "roundingTau0": 0.005831440690940326
+            },
+            {
+              "index": 20,
+              "steps": 72700,
+              "requestedPhysicalTime": 654.3223987072249,
+              "requestedTimeTau0": 654.3223987072249,
+              "timeTau0": 654.3230386299999,
+              "physicalTime": 654.3230386299999,
+              "roundingTau0": 0.0006399227750080172
+            },
+            {
+              "index": 21,
+              "steps": 76297,
+              "requestedPhysicalTime": 686.692729797541,
+              "requestedTimeTau0": 686.692729797541,
+              "timeTau0": 686.6971785193,
+              "physicalTime": 686.6971785193,
+              "roundingTau0": 0.004448721758990359
+            },
+            {
+              "index": 22,
+              "steps": 79894,
+              "requestedPhysicalTime": 719.0630608878569,
+              "requestedTimeTau0": 719.0630608878569,
+              "timeTau0": 719.0713184086,
+              "physicalTime": 719.0713184086,
+              "roundingTau0": 0.008257520743086388
+            },
+            {
+              "index": 23,
+              "steps": 83490,
+              "requestedPhysicalTime": 751.433391978173,
+              "requestedTimeTau0": 751.433391978173,
+              "timeTau0": 751.436457981,
+              "physicalTime": 751.436457981,
+              "roundingTau0": 0.0030660028270403927
+            },
+            {
+              "index": 24,
+              "steps": 87087,
+              "requestedPhysicalTime": 783.8037230684888,
+              "requestedTimeTau0": 783.8037230684888,
+              "timeTau0": 783.8105978703,
+              "physicalTime": 783.8105978703,
+              "roundingTau0": 0.006874801811136422
+            },
+            {
+              "index": 25,
+              "steps": 90683,
+              "requestedPhysicalTime": 816.1740541588049,
+              "requestedTimeTau0": 816.1740541588049,
+              "timeTau0": 816.1757374427,
+              "physicalTime": 816.1757374427,
+              "roundingTau0": 0.001683283895090426
+            },
+            {
+              "index": 26,
+              "steps": 94280,
+              "requestedPhysicalTime": 848.5443852491208,
+              "requestedTimeTau0": 848.5443852491208,
+              "timeTau0": 848.5498773319999,
+              "physicalTime": 848.5498773319999,
+              "roundingTau0": 0.005492082879186455
+            },
+            {
+              "index": 27,
+              "steps": 97876,
+              "requestedPhysicalTime": 880.9147163394368,
+              "requestedTimeTau0": 880.9147163394368,
+              "timeTau0": 880.9150169044,
+              "physicalTime": 880.9150169044,
+              "roundingTau0": 0.00030056496314045944
+            },
+            {
+              "index": 28,
+              "steps": 101473,
+              "requestedPhysicalTime": 913.2850474297527,
+              "requestedTimeTau0": 913.2850474297527,
+              "timeTau0": 913.2891567936999,
+              "physicalTime": 913.2891567936999,
+              "roundingTau0": 0.0041093639472364885
+            },
+            {
+              "index": 29,
+              "steps": 105070,
+              "requestedPhysicalTime": 945.6553785200687,
+              "requestedTimeTau0": 945.6553785200687,
+              "timeTau0": 945.6632966829999,
+              "physicalTime": 945.6632966829999,
+              "roundingTau0": 0.00791816293121883
+            },
+            {
+              "index": 30,
+              "steps": 108666,
+              "requestedPhysicalTime": 978.0257096103846,
+              "requestedTimeTau0": 978.0257096103846,
+              "timeTau0": 978.0284362553999,
+              "physicalTime": 978.0284362553999,
+              "roundingTau0": 0.002726645015286522
+            },
+            {
+              "index": 31,
+              "steps": 112263,
+              "requestedPhysicalTime": 1010.3960407007006,
+              "requestedTimeTau0": 1010.3960407007006,
+              "timeTau0": 1010.4025761446999,
+              "physicalTime": 1010.4025761446999,
+              "roundingTau0": 0.006535443999268864
+            },
+            {
+              "index": 32,
+              "steps": 115859,
+              "requestedPhysicalTime": 1042.7663717910166,
+              "requestedTimeTau0": 1042.7663717910166,
+              "timeTau0": 1042.7677157171,
+              "physicalTime": 1042.7677157171,
+              "roundingTau0": 0.0013439260833365552
+            },
+            {
+              "index": 33,
+              "steps": 119456,
+              "requestedPhysicalTime": 1075.1367028813324,
+              "requestedTimeTau0": 1075.1367028813324,
+              "timeTau0": 1075.1418556064,
+              "physicalTime": 1075.1418556064,
+              "roundingTau0": 0.005152725067546271
+            },
+            {
+              "index": 34,
+              "steps": 123053,
+              "requestedPhysicalTime": 1107.5070339716485,
+              "requestedTimeTau0": 1107.5070339716485,
+              "timeTau0": 1107.5159954956998,
+              "physicalTime": 1107.5159954956998,
+              "roundingTau0": 0.00896152405130124
+            },
+            {
+              "index": 35,
+              "steps": 126649,
+              "requestedPhysicalTime": 1139.8773650619646,
+              "requestedTimeTau0": 1139.8773650619646,
+              "timeTau0": 1139.8811350680999,
+              "physicalTime": 1139.8811350680999,
+              "roundingTau0": 0.003770006135255244
+            },
+            {
+              "index": 36,
+              "steps": 130246,
+              "requestedPhysicalTime": 1172.2476961522805,
+              "requestedTimeTau0": 1172.2476961522805,
+              "timeTau0": 1172.2552749574,
+              "physicalTime": 1172.2552749574,
+              "roundingTau0": 0.00757880511946496
+            },
+            {
+              "index": 37,
+              "steps": 133842,
+              "requestedPhysicalTime": 1204.6180272425963,
+              "requestedTimeTau0": 1204.6180272425963,
+              "timeTau0": 1204.6204145298,
+              "physicalTime": 1204.6204145298,
+              "roundingTau0": 0.0023872872036463377
+            },
+            {
+              "index": 38,
+              "steps": 137439,
+              "requestedPhysicalTime": 1236.9883583329124,
+              "requestedTimeTau0": 1236.9883583329124,
+              "timeTau0": 1236.9945544190998,
+              "physicalTime": 1236.9945544190998,
+              "roundingTau0": 0.006196086187401306
+            },
+            {
+              "index": 39,
+              "steps": 141035,
+              "requestedPhysicalTime": 1269.3586894232283,
+              "requestedTimeTau0": 1269.3586894232283,
+              "timeTau0": 1269.3596939914999,
+              "physicalTime": 1269.3596939914999,
+              "roundingTau0": 0.0010045682715826842
+            },
+            {
+              "index": 40,
+              "steps": 144632,
+              "requestedPhysicalTime": 1301.7290205135441,
+              "requestedTimeTau0": 1301.7290205135441,
+              "timeTau0": 1301.7338338808,
+              "physicalTime": 1301.7338338808,
+              "roundingTau0": 0.0048133672557924
+            },
+            {
+              "index": 41,
+              "steps": 148229,
+              "requestedPhysicalTime": 1334.0993516038602,
+              "requestedTimeTau0": 1334.0993516038602,
+              "timeTau0": 1334.1079737701,
+              "physicalTime": 1334.1079737701,
+              "roundingTau0": 0.008622166239774742
+            },
+            {
+              "index": 42,
+              "steps": 151825,
+              "requestedPhysicalTime": 1366.4696826941763,
+              "requestedTimeTau0": 1366.4696826941763,
+              "timeTau0": 1366.4731133424998,
+              "physicalTime": 1366.4731133424998,
+              "roundingTau0": 0.003430648323501373
+            },
+            {
+              "index": 43,
+              "steps": 155422,
+              "requestedPhysicalTime": 1398.8400137844922,
+              "requestedTimeTau0": 1398.8400137844922,
+              "timeTau0": 1398.8472532317999,
+              "physicalTime": 1398.8472532317999,
+              "roundingTau0": 0.007239447307711089
+            },
+            {
+              "index": 44,
+              "steps": 159018,
+              "requestedPhysicalTime": 1431.210344874808,
+              "requestedTimeTau0": 1431.210344874808,
+              "timeTau0": 1431.2123928042,
+              "physicalTime": 1431.2123928042,
+              "roundingTau0": 0.002047929391892467
+            },
+            {
+              "index": 45,
+              "steps": 162615,
+              "requestedPhysicalTime": 1463.580675965124,
+              "requestedTimeTau0": 1463.580675965124,
+              "timeTau0": 1463.5865326935,
+              "physicalTime": 1463.5865326935,
+              "roundingTau0": 0.005856728375874809
+            },
+            {
+              "index": 46,
+              "steps": 166211,
+              "requestedPhysicalTime": 1495.9510070554402,
+              "requestedTimeTau0": 1495.9510070554402,
+              "timeTau0": 1495.9516722658998,
+              "physicalTime": 1495.9516722658998,
+              "roundingTau0": 0.0006652104596014397
+            },
+            {
+              "index": 47,
+              "steps": 169808,
+              "requestedPhysicalTime": 1528.321338145756,
+              "requestedTimeTau0": 1528.321338145756,
+              "timeTau0": 1528.3258121551999,
+              "physicalTime": 1528.3258121551999,
+              "roundingTau0": 0.0044740094438111555
+            },
+            {
+              "index": 48,
+              "steps": 173405,
+              "requestedPhysicalTime": 1560.691669236072,
+              "requestedTimeTau0": 1560.691669236072,
+              "timeTau0": 1560.6999520445,
+              "physicalTime": 1560.6999520445,
+              "roundingTau0": 0.008282808428020871
+            },
+            {
+              "index": 49,
+              "steps": 177001,
+              "requestedPhysicalTime": 1593.062000326388,
+              "requestedTimeTau0": 1593.062000326388,
+              "timeTau0": 1593.0650916169,
+              "physicalTime": 1593.0650916169,
+              "roundingTau0": 0.0030912905119748757
+            },
+            {
+              "index": 50,
+              "steps": 180598,
+              "requestedPhysicalTime": 1625.4323314167038,
+              "requestedTimeTau0": 1625.4323314167038,
+              "timeTau0": 1625.4392315061998,
+              "physicalTime": 1625.4392315061998,
+              "roundingTau0": 0.006900089495957218
+            },
+            {
+              "index": 51,
+              "steps": 184194,
+              "requestedPhysicalTime": 1657.80266250702,
+              "requestedTimeTau0": 1657.80266250702,
+              "timeTau0": 1657.8043710785998,
+              "physicalTime": 1657.8043710785998,
+              "roundingTau0": 0.0017085715799112222
+            },
+            {
+              "index": 52,
+              "steps": 187791,
+              "requestedPhysicalTime": 1690.1729935973358,
+              "requestedTimeTau0": 1690.1729935973358,
+              "timeTau0": 1690.1785109679,
+              "physicalTime": 1690.1785109679,
+              "roundingTau0": 0.005517370564120938
+            },
+            {
+              "index": 53,
+              "steps": 191387,
+              "requestedPhysicalTime": 1722.5433246876519,
+              "requestedTimeTau0": 1722.5433246876519,
+              "timeTau0": 1722.5436505403,
+              "physicalTime": 1722.5436505403,
+              "roundingTau0": 0.0003258526480749424
+            },
+            {
+              "index": 54,
+              "steps": 194984,
+              "requestedPhysicalTime": 1754.9136557779677,
+              "requestedTimeTau0": 1754.9136557779677,
+              "timeTau0": 1754.9177904295998,
+              "physicalTime": 1754.9177904295998,
+              "roundingTau0": 0.004134651632057285
+            },
+            {
+              "index": 55,
+              "steps": 198581,
+              "requestedPhysicalTime": 1787.2839868682838,
+              "requestedTimeTau0": 1787.2839868682838,
+              "timeTau0": 1787.2919303188999,
+              "physicalTime": 1787.2919303188999,
+              "roundingTau0": 0.007943450616039627
+            },
+            {
+              "index": 56,
+              "steps": 202177,
+              "requestedPhysicalTime": 1819.6543179585997,
+              "requestedTimeTau0": 1819.6543179585997,
+              "timeTau0": 1819.6570698913,
+              "physicalTime": 1819.6570698913,
+              "roundingTau0": 0.0027519327002210048
+            },
+            {
+              "index": 57,
+              "steps": 205774,
+              "requestedPhysicalTime": 1852.0246490489158,
+              "requestedTimeTau0": 1852.0246490489158,
+              "timeTau0": 1852.0312097806,
+              "physicalTime": 1852.0312097806,
+              "roundingTau0": 0.006560731684203347
+            },
+            {
+              "index": 58,
+              "steps": 209370,
+              "requestedPhysicalTime": 1884.3949801392316,
+              "requestedTimeTau0": 1884.3949801392316,
+              "timeTau0": 1884.3963493529998,
+              "physicalTime": 1884.3963493529998,
+              "roundingTau0": 0.0013692137681573513
+            },
+            {
+              "index": 59,
+              "steps": 212967,
+              "requestedPhysicalTime": 1916.7653112295477,
+              "requestedTimeTau0": 1916.7653112295477,
+              "timeTau0": 1916.7704892422998,
+              "physicalTime": 1916.7704892422998,
+              "roundingTau0": 0.0051780127521396935
+            },
+            {
+              "index": 60,
+              "steps": 216564,
+              "requestedPhysicalTime": 1949.1356423198636,
+              "requestedTimeTau0": 1949.1356423198636,
+              "timeTau0": 1949.1446291316,
+              "physicalTime": 1949.1446291316,
+              "roundingTau0": 0.00898681173634941
+            }
+          ],
+          "retained": [
+            {
+              "index": 51,
+              "steps": 184194,
+              "requestedPhysicalTime": 1657.80266250702,
+              "requestedTimeTau0": 1657.80266250702,
+              "timeTau0": 1657.8043710785998,
+              "physicalTime": 1657.8043710785998,
+              "roundingTau0": 0.0017085715799112222
+            },
+            {
+              "index": 52,
+              "steps": 187791,
+              "requestedPhysicalTime": 1690.1729935973358,
+              "requestedTimeTau0": 1690.1729935973358,
+              "timeTau0": 1690.1785109679,
+              "physicalTime": 1690.1785109679,
+              "roundingTau0": 0.005517370564120938
+            },
+            {
+              "index": 53,
+              "steps": 191387,
+              "requestedPhysicalTime": 1722.5433246876519,
+              "requestedTimeTau0": 1722.5433246876519,
+              "timeTau0": 1722.5436505403,
+              "physicalTime": 1722.5436505403,
+              "roundingTau0": 0.0003258526480749424
+            },
+            {
+              "index": 54,
+              "steps": 194984,
+              "requestedPhysicalTime": 1754.9136557779677,
+              "requestedTimeTau0": 1754.9136557779677,
+              "timeTau0": 1754.9177904295998,
+              "physicalTime": 1754.9177904295998,
+              "roundingTau0": 0.004134651632057285
+            },
+            {
+              "index": 55,
+              "steps": 198581,
+              "requestedPhysicalTime": 1787.2839868682838,
+              "requestedTimeTau0": 1787.2839868682838,
+              "timeTau0": 1787.2919303188999,
+              "physicalTime": 1787.2919303188999,
+              "roundingTau0": 0.007943450616039627
+            },
+            {
+              "index": 56,
+              "steps": 202177,
+              "requestedPhysicalTime": 1819.6543179585997,
+              "requestedTimeTau0": 1819.6543179585997,
+              "timeTau0": 1819.6570698913,
+              "physicalTime": 1819.6570698913,
+              "roundingTau0": 0.0027519327002210048
+            },
+            {
+              "index": 57,
+              "steps": 205774,
+              "requestedPhysicalTime": 1852.0246490489158,
+              "requestedTimeTau0": 1852.0246490489158,
+              "timeTau0": 1852.0312097806,
+              "physicalTime": 1852.0312097806,
+              "roundingTau0": 0.006560731684203347
+            },
+            {
+              "index": 58,
+              "steps": 209370,
+              "requestedPhysicalTime": 1884.3949801392316,
+              "requestedTimeTau0": 1884.3949801392316,
+              "timeTau0": 1884.3963493529998,
+              "physicalTime": 1884.3963493529998,
+              "roundingTau0": 0.0013692137681573513
+            },
+            {
+              "index": 59,
+              "steps": 212967,
+              "requestedPhysicalTime": 1916.7653112295477,
+              "requestedTimeTau0": 1916.7653112295477,
+              "timeTau0": 1916.7704892422998,
+              "physicalTime": 1916.7704892422998,
+              "roundingTau0": 0.0051780127521396935
+            },
+            {
+              "index": 60,
+              "steps": 216564,
+              "requestedPhysicalTime": 1949.1356423198636,
+              "requestedTimeTau0": 1949.1356423198636,
+              "timeTau0": 1949.1446291316,
+              "physicalTime": 1949.1446291316,
+              "roundingTau0": 0.00898681173634941
+            }
+          ]
+        },
+        {
+          "name": "width",
+          "terminalPhysicalTime": 1949.1356423198636,
+          "samplePeriodPhysical": 32.370331090315965,
+          "physicalTimeScale": 1.3717421124828535,
+          "dt": 0.0180006338,
+          "terminalSteps": 148535,
+          "terminalTimeTau0": 2673.724141483,
+          "terminalPhysicalTimeRounded": 1949.1448991411066,
+          "maximumPhysicalRounding": 0.013122462040199996,
+          "checkpoints": [
+            {
+              "index": 0,
+              "steps": 528,
+              "requestedPhysicalTime": 6.915776900905712,
+              "requestedTimeTau0": 9.486662415508523,
+              "timeTau0": 9.5043346464,
+              "physicalTime": 6.928659957225599,
+              "roundingTau0": 0.017672230891477625
+            },
+            {
+              "index": 1,
+              "steps": 2994,
+              "requestedPhysicalTime": 39.28610799122157,
+              "requestedTimeTau0": 53.890408767107786,
+              "timeTau0": 53.893897597199995,
+              "physicalTime": 39.28865134835879,
+              "roundingTau0": 0.0034888300922091275
+            },
+            {
+              "index": 2,
+              "steps": 5461,
+              "requestedPhysicalTime": 71.65643908153766,
+              "requestedTimeTau0": 98.29415511870737,
+              "timeTau0": 98.3014611818,
+              "physicalTime": 71.66176520153218,
+              "roundingTau0": 0.007306063092627824
+            },
+            {
+              "index": 3,
+              "steps": 7928,
+              "requestedPhysicalTime": 104.02677017185351,
+              "requestedTimeTau0": 142.69790147030662,
+              "timeTau0": 142.70902476639998,
+              "physicalTime": 104.03487905470557,
+              "roundingTau0": 0.011123296093359158
+            },
+            {
+              "index": 4,
+              "steps": 10395,
+              "requestedPhysicalTime": 136.3971012621696,
+              "requestedTimeTau0": 187.1016478219062,
+              "timeTau0": 187.116588351,
+              "physicalTime": 136.40799290787896,
+              "roundingTau0": 0.014940529093792065
+            },
+            {
+              "index": 5,
+              "steps": 12861,
+              "requestedPhysicalTime": 168.76743235248546,
+              "requestedTimeTau0": 231.50539417350547,
+              "timeTau0": 231.50615130179997,
+              "physicalTime": 168.76798429901214,
+              "roundingTau0": 0.0007571282945093571
+            },
+            {
+              "index": 6,
+              "steps": 15328,
+              "requestedPhysicalTime": 201.13776344280154,
+              "requestedTimeTau0": 275.90914052510504,
+              "timeTau0": 275.9137148864,
+              "physicalTime": 201.14109815218555,
+              "roundingTau0": 0.004574361294942264
+            },
+            {
+              "index": 7,
+              "steps": 17795,
+              "requestedPhysicalTime": 233.5080945331174,
+              "requestedTimeTau0": 320.31288687670434,
+              "timeTau0": 320.32127847099997,
+              "physicalTime": 233.51421200535893,
+              "roundingTau0": 0.008391594295630966
+            },
+            {
+              "index": 8,
+              "steps": 20262,
+              "requestedPhysicalTime": 265.8784256234335,
+              "requestedTimeTau0": 364.7166332283039,
+              "timeTau0": 364.72884205559996,
+              "physicalTime": 265.88732585853234,
+              "roundingTau0": 0.012208827296035452
+            },
+            {
+              "index": 9,
+              "steps": 22729,
+              "requestedPhysicalTime": 298.24875671374934,
+              "requestedTimeTau0": 409.12037957990316,
+              "timeTau0": 409.1364056402,
+              "physicalTime": 298.2604397117057,
+              "roundingTau0": 0.01602606029683784
+            },
+            {
+              "index": 10,
+              "steps": 25195,
+              "requestedPhysicalTime": 330.61908780406543,
+              "requestedTimeTau0": 453.52412593150274,
+              "timeTau0": 453.525968591,
+              "physicalTime": 330.6204311028389,
+              "roundingTau0": 0.0018426594972424937
+            },
+            {
+              "index": 11,
+              "steps": 27662,
+              "requestedPhysicalTime": 362.9894188943813,
+              "requestedTimeTau0": 497.927872283102,
+              "timeTau0": 497.93353217559996,
+              "physicalTime": 362.99354495601233,
+              "roundingTau0": 0.005659892497988039
+            },
+            {
+              "index": 12,
+              "steps": 30129,
+              "requestedPhysicalTime": 395.3597499846974,
+              "requestedTimeTau0": 542.3316186347016,
+              "timeTau0": 542.3410957602,
+              "physicalTime": 395.3666588091857,
+              "roundingTau0": 0.009477125498392525
+            },
+            {
+              "index": 13,
+              "steps": 32596,
+              "requestedPhysicalTime": 427.73008107501323,
+              "requestedTimeTau0": 586.7353649863009,
+              "timeTau0": 586.7486593448,
+              "physicalTime": 427.7397726623591,
+              "roundingTau0": 0.01329435849913807
+            },
+            {
+              "index": 14,
+              "steps": 35063,
+              "requestedPhysicalTime": 460.1004121653291,
+              "requestedTimeTau0": 631.1391113379001,
+              "timeTau0": 631.1562229294,
+              "physicalTime": 460.11288651553247,
+              "roundingTau0": 0.017111591499883616
+            },
+            {
+              "index": 15,
+              "steps": 37529,
+              "requestedPhysicalTime": 492.4707432556452,
+              "requestedTimeTau0": 675.5428576894997,
+              "timeTau0": 675.5457858801999,
+              "physicalTime": 492.47287790666564,
+              "roundingTau0": 0.0029281907002314256
+            },
+            {
+              "index": 16,
+              "steps": 39996,
+              "requestedPhysicalTime": 524.841074345961,
+              "requestedTimeTau0": 719.9466040410989,
+              "timeTau0": 719.9533494648,
+              "physicalTime": 524.8459917598391,
+              "roundingTau0": 0.006745423701090658
+            },
+            {
+              "index": 17,
+              "steps": 42463,
+              "requestedPhysicalTime": 557.2114054362771,
+              "requestedTimeTau0": 764.3503503926985,
+              "timeTau0": 764.3609130494,
+              "physicalTime": 557.2191056130125,
+              "roundingTau0": 0.010562656701495143
+            },
+            {
+              "index": 18,
+              "steps": 44930,
+              "requestedPhysicalTime": 589.581736526593,
+              "requestedTimeTau0": 808.7540967442978,
+              "timeTau0": 808.768476634,
+              "physicalTime": 589.5922194661858,
+              "roundingTau0": 0.014379889702127002
+            },
+            {
+              "index": 19,
+              "steps": 47396,
+              "requestedPhysicalTime": 621.9520676169091,
+              "requestedTimeTau0": 853.1578430958974,
+              "timeTau0": 853.1580395847999,
+              "physicalTime": 621.952210857319,
+              "roundingTau0": 0.00019648890247481177
+            },
+            {
+              "index": 20,
+              "steps": 49863,
+              "requestedPhysicalTime": 654.3223987072249,
+              "requestedTimeTau0": 897.5615894474967,
+              "timeTau0": 897.5656031694,
+              "physicalTime": 654.3253247104925,
+              "roundingTau0": 0.004013721903334044
+            },
+            {
+              "index": 21,
+              "steps": 52330,
+              "requestedPhysicalTime": 686.692729797541,
+              "requestedTimeTau0": 941.9653357990962,
+              "timeTau0": 941.973166754,
+              "physicalTime": 686.6984385636658,
+              "roundingTau0": 0.00783095490373853
+            },
+            {
+              "index": 22,
+              "steps": 54797,
+              "requestedPhysicalTime": 719.0630608878569,
+              "requestedTimeTau0": 986.3690821506955,
+              "timeTau0": 986.3807303386,
+              "physicalTime": 719.0715524168393,
+              "roundingTau0": 0.011648187904484075
+            },
+            {
+              "index": 23,
+              "steps": 57264,
+              "requestedPhysicalTime": 751.433391978173,
+              "requestedTimeTau0": 1030.7728285022952,
+              "timeTau0": 1030.7882939232,
+              "physicalTime": 751.4446662700126,
+              "roundingTau0": 0.015465420904774874
+            },
+            {
+              "index": 24,
+              "steps": 59730,
+              "requestedPhysicalTime": 783.8037230684888,
+              "requestedTimeTau0": 1075.1765748538944,
+              "timeTau0": 1075.1778568739999,
+              "physicalTime": 783.8046576611457,
+              "roundingTau0": 0.0012820201054637437
+            },
+            {
+              "index": 25,
+              "steps": 62197,
+              "requestedPhysicalTime": 816.1740541588049,
+              "requestedTimeTau0": 1119.5803212054939,
+              "timeTau0": 1119.5854204585999,
+              "physicalTime": 816.1777715143191,
+              "roundingTau0": 0.005099253105981916
+            },
+            {
+              "index": 26,
+              "steps": 64664,
+              "requestedPhysicalTime": 848.5443852491208,
+              "requestedTimeTau0": 1163.984067557093,
+              "timeTau0": 1163.9929840431998,
+              "physicalTime": 848.5508853674925,
+              "roundingTau0": 0.008916486106727461
+            },
+            {
+              "index": 27,
+              "steps": 67131,
+              "requestedPhysicalTime": 880.9147163394368,
+              "requestedTimeTau0": 1208.3878139086928,
+              "timeTau0": 1208.4005476277998,
+              "physicalTime": 880.9239992206659,
+              "roundingTau0": 0.01273371910701826
+            },
+            {
+              "index": 28,
+              "steps": 69598,
+              "requestedPhysicalTime": 913.2850474297527,
+              "requestedTimeTau0": 1252.791560260292,
+              "timeTau0": 1252.8081112123998,
+              "physicalTime": 913.2971130738392,
+              "roundingTau0": 0.016550952107763806
+            },
+            {
+              "index": 29,
+              "steps": 72064,
+              "requestedPhysicalTime": 945.6553785200687,
+              "requestedTimeTau0": 1297.1953066118915,
+              "timeTau0": 1297.1976741632,
+              "physicalTime": 945.6571044649726,
+              "roundingTau0": 0.0023675513084526756
+            },
+            {
+              "index": 30,
+              "steps": 74531,
+              "requestedPhysicalTime": 978.0257096103846,
+              "requestedTimeTau0": 1341.5990529634907,
+              "timeTau0": 1341.6052377478,
+              "physicalTime": 978.030218318146,
+              "roundingTau0": 0.006184784309198221
+            },
+            {
+              "index": 31,
+              "steps": 76998,
+              "requestedPhysicalTime": 1010.3960407007006,
+              "requestedTimeTau0": 1386.0027993150902,
+              "timeTau0": 1386.0128013324,
+              "physicalTime": 1010.4033321713193,
+              "roundingTau0": 0.010002017309716393
+            },
+            {
+              "index": 32,
+              "steps": 79465,
+              "requestedPhysicalTime": 1042.7663717910166,
+              "requestedTimeTau0": 1430.4065456666897,
+              "timeTau0": 1430.420364917,
+              "physicalTime": 1042.7764460244928,
+              "roundingTau0": 0.013819250310234565
+            },
+            {
+              "index": 33,
+              "steps": 81932,
+              "requestedPhysicalTime": 1075.1367028813324,
+              "requestedTimeTau0": 1474.810292018289,
+              "timeTau0": 1474.8279285016,
+              "physicalTime": 1075.1495598776662,
+              "roundingTau0": 0.01763648331098011
+            },
+            {
+              "index": 34,
+              "steps": 84398,
+              "requestedPhysicalTime": 1107.5070339716485,
+              "requestedTimeTau0": 1519.2140383698886,
+              "timeTau0": 1519.2174914523998,
+              "physicalTime": 1107.5095512687992,
+              "roundingTau0": 0.003453082511214234
+            },
+            {
+              "index": 35,
+              "steps": 86865,
+              "requestedPhysicalTime": 1139.8773650619646,
+              "requestedTimeTau0": 1563.617784721488,
+              "timeTau0": 1563.6250550369998,
+              "physicalTime": 1139.8826651219727,
+              "roundingTau0": 0.007270315511732406
+            },
+            {
+              "index": 36,
+              "steps": 89332,
+              "requestedPhysicalTime": 1172.2476961522805,
+              "requestedTimeTau0": 1608.0215310730873,
+              "timeTau0": 1608.0326186215998,
+              "physicalTime": 1172.255778975146,
+              "roundingTau0": 0.011087548512477952
+            },
+            {
+              "index": 37,
+              "steps": 91799,
+              "requestedPhysicalTime": 1204.6180272425963,
+              "requestedTimeTau0": 1652.4252774246866,
+              "timeTau0": 1652.4401822061998,
+              "physicalTime": 1204.6288928283193,
+              "roundingTau0": 0.014904781513223497
+            },
+            {
+              "index": 38,
+              "steps": 94265,
+              "requestedPhysicalTime": 1236.9883583329124,
+              "requestedTimeTau0": 1696.8290237762862,
+              "timeTau0": 1696.829745157,
+              "physicalTime": 1236.9888842194528,
+              "roundingTau0": 0.0007213807136849937
+            },
+            {
+              "index": 39,
+              "steps": 96732,
+              "requestedPhysicalTime": 1269.3586894232283,
+              "requestedTimeTau0": 1741.2327701278855,
+              "timeTau0": 1741.2373087416,
+              "physicalTime": 1269.3619980726262,
+              "roundingTau0": 0.004538613714430539
+            },
+            {
+              "index": 40,
+              "steps": 99199,
+              "requestedPhysicalTime": 1301.7290205135441,
+              "requestedTimeTau0": 1785.6365164794847,
+              "timeTau0": 1785.6448723262,
+              "physicalTime": 1301.7351119257994,
+              "roundingTau0": 0.008355846715176085
+            },
+            {
+              "index": 41,
+              "steps": 101666,
+              "requestedPhysicalTime": 1334.0993516038602,
+              "requestedTimeTau0": 1830.0402628310844,
+              "timeTau0": 1830.0524359107999,
+              "physicalTime": 1334.1082257789728,
+              "roundingTau0": 0.012173079715466883
+            },
+            {
+              "index": 42,
+              "steps": 104133,
+              "requestedPhysicalTime": 1366.4696826941763,
+              "requestedTimeTau0": 1874.4440091826839,
+              "timeTau0": 1874.4599994953999,
+              "physicalTime": 1366.4813396321463,
+              "roundingTau0": 0.015990312715985056
+            },
+            {
+              "index": 43,
+              "steps": 106599,
+              "requestedPhysicalTime": 1398.8400137844922,
+              "requestedTimeTau0": 1918.8477555342831,
+              "timeTau0": 1918.8495624461998,
+              "physicalTime": 1398.8413310232793,
+              "roundingTau0": 0.0018069119166739256
+            },
+            {
+              "index": 44,
+              "steps": 109066,
+              "requestedPhysicalTime": 1431.210344874808,
+              "requestedTimeTau0": 1963.2515018858824,
+              "timeTau0": 1963.2571260307998,
+              "physicalTime": 1431.2144448764527,
+              "roundingTau0": 0.005624144917419471
+            },
+            {
+              "index": 45,
+              "steps": 111533,
+              "requestedPhysicalTime": 1463.580675965124,
+              "requestedTimeTau0": 2007.655248237482,
+              "timeTau0": 2007.6646896153998,
+              "physicalTime": 1463.5875587296262,
+              "roundingTau0": 0.00944137791771027
+            },
+            {
+              "index": 46,
+              "steps": 114000,
+              "requestedPhysicalTime": 1495.9510070554402,
+              "requestedTimeTau0": 2052.0589945890815,
+              "timeTau0": 2052.0722532,
+              "physicalTime": 1495.9606725827996,
+              "roundingTau0": 0.013258610918455815
+            },
+            {
+              "index": 47,
+              "steps": 116467,
+              "requestedPhysicalTime": 1528.321338145756,
+              "requestedTimeTau0": 2096.4627409406808,
+              "timeTau0": 2096.4798167845997,
+              "physicalTime": 1528.3337864359728,
+              "roundingTau0": 0.017075843918973987
+            },
+            {
+              "index": 48,
+              "steps": 118933,
+              "requestedPhysicalTime": 1560.691669236072,
+              "requestedTimeTau0": 2140.86648729228,
+              "timeTau0": 2140.8693797354,
+              "physicalTime": 1560.6937778271063,
+              "roundingTau0": 0.002892443119890231
+            },
+            {
+              "index": 49,
+              "steps": 121400,
+              "requestedPhysicalTime": 1593.062000326388,
+              "requestedTimeTau0": 2185.2702336438797,
+              "timeTau0": 2185.2769433199996,
+              "physicalTime": 1593.0668916802795,
+              "roundingTau0": 0.006709676119953656
+            },
+            {
+              "index": 50,
+              "steps": 123867,
+              "requestedPhysicalTime": 1625.4323314167038,
+              "requestedTimeTau0": 2229.673979995479,
+              "timeTau0": 2229.6845069046,
+              "physicalTime": 1625.440005533453,
+              "roundingTau0": 0.010526909120926575
+            },
+            {
+              "index": 51,
+              "steps": 126334,
+              "requestedPhysicalTime": 1657.80266250702,
+              "requestedTimeTau0": 2274.0777263470786,
+              "timeTau0": 2274.0920704892,
+              "physicalTime": 1657.8131193866266,
+              "roundingTau0": 0.014344142121444747
+            },
+            {
+              "index": 52,
+              "steps": 128800,
+              "requestedPhysicalTime": 1690.1729935973358,
+              "requestedTimeTau0": 2318.481472698678,
+              "timeTau0": 2318.4816334399998,
+              "physicalTime": 1690.1731107777596,
+              "roundingTau0": 0.00016074132190624368
+            },
+            {
+              "index": 53,
+              "steps": 131267,
+              "requestedPhysicalTime": 1722.5433246876519,
+              "requestedTimeTau0": 2362.8852190502776,
+              "timeTau0": 2362.8891970246,
+              "physicalTime": 1722.546224630933,
+              "roundingTau0": 0.003977974322424416
+            },
+            {
+              "index": 54,
+              "steps": 133734,
+              "requestedPhysicalTime": 1754.9136557779677,
+              "requestedTimeTau0": 2407.288965401877,
+              "timeTau0": 2407.2967606091997,
+              "physicalTime": 1754.9193384841062,
+              "roundingTau0": 0.007795207322942588
+            },
+            {
+              "index": 55,
+              "steps": 136201,
+              "requestedPhysicalTime": 1787.2839868682838,
+              "requestedTimeTau0": 2451.692711753476,
+              "timeTau0": 2451.7043241938,
+              "physicalTime": 1787.2924523372799,
+              "roundingTau0": 0.011612440323915507
+            },
+            {
+              "index": 56,
+              "steps": 138668,
+              "requestedPhysicalTime": 1819.6543179585997,
+              "requestedTimeTau0": 2496.0964581050753,
+              "timeTau0": 2496.1118877783997,
+              "physicalTime": 1819.665566190453,
+              "roundingTau0": 0.01542967332443368
+            },
+            {
+              "index": 57,
+              "steps": 141134,
+              "requestedPhysicalTime": 1852.0246490489158,
+              "requestedTimeTau0": 2540.500204456675,
+              "timeTau0": 2540.5014507292,
+              "physicalTime": 1852.0255575815863,
+              "roundingTau0": 0.0012462725248951756
+            },
+            {
+              "index": 58,
+              "steps": 143601,
+              "requestedPhysicalTime": 1884.3949801392316,
+              "requestedTimeTau0": 2584.903950808274,
+              "timeTau0": 2584.9090143137996,
+              "physicalTime": 1884.3986714347595,
+              "roundingTau0": 0.005063505525413348
+            },
+            {
+              "index": 59,
+              "steps": 146068,
+              "requestedPhysicalTime": 1916.7653112295477,
+              "requestedTimeTau0": 2629.307697159874,
+              "timeTau0": 2629.3165778984,
+              "physicalTime": 1916.7717852879332,
+              "roundingTau0": 0.00888073852593152
+            },
+            {
+              "index": 60,
+              "steps": 148535,
+              "requestedPhysicalTime": 1949.1356423198636,
+              "requestedTimeTau0": 2673.711443511473,
+              "timeTau0": 2673.724141483,
+              "physicalTime": 1949.1448991411066,
+              "roundingTau0": 0.012697971526904439
+            }
+          ],
+          "retained": [
+            {
+              "index": 51,
+              "steps": 126334,
+              "requestedPhysicalTime": 1657.80266250702,
+              "requestedTimeTau0": 2274.0777263470786,
+              "timeTau0": 2274.0920704892,
+              "physicalTime": 1657.8131193866266,
+              "roundingTau0": 0.014344142121444747
+            },
+            {
+              "index": 52,
+              "steps": 128800,
+              "requestedPhysicalTime": 1690.1729935973358,
+              "requestedTimeTau0": 2318.481472698678,
+              "timeTau0": 2318.4816334399998,
+              "physicalTime": 1690.1731107777596,
+              "roundingTau0": 0.00016074132190624368
+            },
+            {
+              "index": 53,
+              "steps": 131267,
+              "requestedPhysicalTime": 1722.5433246876519,
+              "requestedTimeTau0": 2362.8852190502776,
+              "timeTau0": 2362.8891970246,
+              "physicalTime": 1722.546224630933,
+              "roundingTau0": 0.003977974322424416
+            },
+            {
+              "index": 54,
+              "steps": 133734,
+              "requestedPhysicalTime": 1754.9136557779677,
+              "requestedTimeTau0": 2407.288965401877,
+              "timeTau0": 2407.2967606091997,
+              "physicalTime": 1754.9193384841062,
+              "roundingTau0": 0.007795207322942588
+            },
+            {
+              "index": 55,
+              "steps": 136201,
+              "requestedPhysicalTime": 1787.2839868682838,
+              "requestedTimeTau0": 2451.692711753476,
+              "timeTau0": 2451.7043241938,
+              "physicalTime": 1787.2924523372799,
+              "roundingTau0": 0.011612440323915507
+            },
+            {
+              "index": 56,
+              "steps": 138668,
+              "requestedPhysicalTime": 1819.6543179585997,
+              "requestedTimeTau0": 2496.0964581050753,
+              "timeTau0": 2496.1118877783997,
+              "physicalTime": 1819.665566190453,
+              "roundingTau0": 0.01542967332443368
+            },
+            {
+              "index": 57,
+              "steps": 141134,
+              "requestedPhysicalTime": 1852.0246490489158,
+              "requestedTimeTau0": 2540.500204456675,
+              "timeTau0": 2540.5014507292,
+              "physicalTime": 1852.0255575815863,
+              "roundingTau0": 0.0012462725248951756
+            },
+            {
+              "index": 58,
+              "steps": 143601,
+              "requestedPhysicalTime": 1884.3949801392316,
+              "requestedTimeTau0": 2584.903950808274,
+              "timeTau0": 2584.9090143137996,
+              "physicalTime": 1884.3986714347595,
+              "roundingTau0": 0.005063505525413348
+            },
+            {
+              "index": 59,
+              "steps": 146068,
+              "requestedPhysicalTime": 1916.7653112295477,
+              "requestedTimeTau0": 2629.307697159874,
+              "timeTau0": 2629.3165778984,
+              "physicalTime": 1916.7717852879332,
+              "roundingTau0": 0.00888073852593152
+            },
+            {
+              "index": 60,
+              "steps": 148535,
+              "requestedPhysicalTime": 1949.1356423198636,
+              "requestedTimeTau0": 2673.711443511473,
+              "timeTau0": 2673.724141483,
+              "physicalTime": 1949.1448991411066,
+              "roundingTau0": 0.012697971526904439
+            }
+          ]
+        }
+      ]
+    },
+    "metrology": "quintic roots in the monotone atanh(1-2psi) ordinate checked against cubic roots in the same ordinate; raw-phase quintic sensitivity reported separately; even quadratic and quartic local surfaces over .25-.5 rho, extrapolated against window^4",
+    "stationarity": "last three four-sample windows overlap within independently estimated geometry/linear-fit uncertainty; retained-sample rho variation and variation/trend among the three fitted four-sample velocities each <=one quarter of the reference target, independently of geometric uncertainty; propagated P and sigma uncertainty below the target; this does not bound every adjacent-interval or sub-cadence velocity",
+    "note": "Raw cubic epsilon4 is refined with dx; no unpublished grid-anisotropy correction is inserted to match the paper.",
+    "widthMatching": "W0 scales with lambda; tau0 scales with lambda^3. Extents and initial radius/d0 match; compare P, sigma, rho/d0 and Vd0/D, never unscaled solver rho or velocity across lambda.",
+    "boundaryAssessment": "D/V is a startup diagnostic, not an early contamination verdict. Final clearance must exceed eight conservative D/V lengths at every sample of the retained stationary window; conservative speed is min(V-error) over its fitted windows and geometry uses upper uncertainty bounds.",
+    "controlComparison": "pointwise P, sigma, rho/d0 and Vd0/D changes retain the original reference-target band; control convergence is reported separately and cannot establish overall literature acceptance"
+  },
+  "metadata": {
+    "capturedAt": "2026-10-30T18:19:51.073Z",
+    "build": "a11a814",
+    "phaseTable": "1.2.0",
+    "seed": "deterministic sphere; no stochastic source",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "device": "",
+      "description": "",
+      "isFallbackAdapter": false
+    },
+    "deviceLimits": {
+      "maxBufferSize": 2147483648,
+      "maxTextureDimension3D": 2048
+    },
+    "boundary": "cell-centered first octant; even scalar and odd normal correction-flux reflection; distant faces tested by enlargement",
+    "equationUnits": {
+      "length": "W0",
+      "time": "tau0",
+      "thermalDiffusivity": 2.5068,
+      "capillaryLength": 0.220975
+    },
+    "sourceHashes": {
+      "src/sim3d.ts": "e86147dea8a4361e528c2565a6fab359247cfcbd60f919bc68aed4fbb9c132a8",
+      "src/shaders3d.ts": "0feab7cf504f9e1e0fe8c7386d505b4a8c29f66c6638d378679be1e4c87e661b",
+      "src/shaders3d-quant.ts": "fbb480c8ddc4a3661bb8b831de05783b6c752570e60730790051e3d2d3df16e3",
+      "scripts/verify-quant3d-tip.mjs": "4712261bb103839240a1db7a3880081b2a1b331ed0daf0edec77ade25f93bd51",
+      "scripts/fixtures/quant3d-tip-reference.json": "bf502050c19d5196a288b5eed0c9e78bec1332f1c01b37737d2b1f4e10ab56c5",
+      "scripts/fixtures/quant3d-tip-driver.mjs": "4f6edec3d656c6cb814ec2decbf0de853ef1539ec9cc134ec41ea5196be569f6",
+      "scripts/fixtures/quant3d-tip-analysis.mjs": "4adc7d75909656853e1a4d0dcbd7f7def8190fa25c7d4d240f13129f669c5f92",
+      "scripts/fixtures/rect3d-specialize.mjs": "b8fe39178d149f9ef62ebf4d8b38d7256084bae48d28398c0adfa5b9c4ea5e73",
+      "scripts/fixtures/quant3d-tip-protocol.mjs": "30eadbf4a78901393a17c7c3aef562ef02f5876c774e1307a40191e05ee92fab",
+      "scripts/fixtures/quant3d-tip-protocol-controls.mjs": "307e933787d0ad3ef19a090695b97b86154a752df7f50203f5dd57d2c1ba3be8",
+      "scripts/browser-cleanup.mjs": "af3c57e0d09047d4212ce702f9d7e8eaf3f95074812339ac5f33936c1b5e4323"
+    }
+  },
+  "execution": {
+    "mode": "full five-arm study",
+    "selectedArms": [
+      "base",
+      "domain",
+      "dx",
+      "dt",
+      "width"
+    ],
+    "requested": null,
+    "fullRegistrationPreserved": true
+  },
+  "sourceHashes": {
+    "src/sim3d.ts": "e86147dea8a4361e528c2565a6fab359247cfcbd60f919bc68aed4fbb9c132a8",
+    "src/shaders3d.ts": "0feab7cf504f9e1e0fe8c7386d505b4a8c29f66c6638d378679be1e4c87e661b",
+    "src/shaders3d-quant.ts": "fbb480c8ddc4a3661bb8b831de05783b6c752570e60730790051e3d2d3df16e3",
+    "scripts/verify-quant3d-tip.mjs": "4712261bb103839240a1db7a3880081b2a1b331ed0daf0edec77ade25f93bd51",
+    "scripts/fixtures/quant3d-tip-reference.json": "bf502050c19d5196a288b5eed0c9e78bec1332f1c01b37737d2b1f4e10ab56c5",
+    "scripts/fixtures/quant3d-tip-driver.mjs": "4f6edec3d656c6cb814ec2decbf0de853ef1539ec9cc134ec41ea5196be569f6",
+    "scripts/fixtures/quant3d-tip-analysis.mjs": "4adc7d75909656853e1a4d0dcbd7f7def8190fa25c7d4d240f13129f669c5f92",
+    "scripts/fixtures/rect3d-specialize.mjs": "b8fe39178d149f9ef62ebf4d8b38d7256084bae48d28398c0adfa5b9c4ea5e73",
+    "scripts/fixtures/quant3d-tip-protocol.mjs": "30eadbf4a78901393a17c7c3aef562ef02f5876c774e1307a40191e05ee92fab",
+    "scripts/fixtures/quant3d-tip-protocol-controls.mjs": "307e933787d0ad3ef19a090695b97b86154a752df7f50203f5dd57d2c1ba3be8",
+    "scripts/browser-cleanup.mjs": "af3c57e0d09047d4212ce702f9d7e8eaf3f95074812339ac5f33936c1b5e4323"
+  },
+  "sourceStable": true,
+  "deviceErrorLedgerRead": true,
+  "errors": [],
+  "executionComplete": true,
+  "accepted": false,
+  "q3Accepted": false,
+  "overallAcceptance": {
+    "referenceArms": [
+      {
+        "name": "base",
+        "accepted": false
+      },
+      {
+        "name": "domain",
+        "accepted": false
+      },
+      {
+        "name": "dx",
+        "accepted": false
+      },
+      {
+        "name": "dt",
+        "accepted": false
+      },
+      {
+        "name": "width",
+        "accepted": false
+      }
+    ],
+    "missingArms": [],
+    "allFiveReferenceArmsAccepted": false,
+    "controlsConverged": true,
+    "errorCount": 0,
+    "executionFailed": false,
+    "accepted": false,
+    "deviceErrorLedgerRead": true,
+    "sourceStable": true
+  },
+  "convergence": [
+    {
+      "arm": "domain",
+      "changes": {
+        "P": 1.0163981156718904e-06,
+        "sigmaStar": 1.8381225938002288e-06,
+        "rhoOverD0": 8.217270217603101e-07,
+        "Vd0OverD": 1.9467093403946478e-07
+      }
+    },
+    {
+      "arm": "dx",
+      "changes": {
+        "P": 0.012493387082722851,
+        "sigmaStar": 0.030493512577197235,
+        "rhoOverD0": 0.018725283931336767,
+        "Vd0OverD": 0.006117347774627135
+      }
+    },
+    {
+      "arm": "dt",
+      "changes": {
+        "P": 0.00042355840548424784,
+        "sigmaStar": 0.0008037301158587695,
+        "rhoOverD0": 0.00037968706670221675,
+        "Vd0OverD": 4.3888002488667865e-05
+      }
+    },
+    {
+      "arm": "width",
+      "changes": {
+        "P": 0.011150450671308487,
+        "sigmaStar": 0.03465268429416635,
+        "rhoOverD0": 0.02259357118641936,
+        "Vd0OverD": 0.011707637864630582
+      }
+    }
+  ],
+  "maximumPointwiseControlChange": 0.03465268429416635,
+  "arms": [
+    {
+      "config": {
+        "lambda": 4,
+        "epsilon4": 0.0171,
+        "undercooling": 0.45,
+        "radius": 8,
+        "name": "base",
+        "dims": [
+          270,
+          270,
+          612
+        ],
+        "dx": 0.8,
+        "dt": 0.0180006338,
+        "D": 2.5068,
+        "d0": 0.220975,
+        "physicalTimeScale": 1,
+        "maximumTimeTau0": 1949.1356423198636,
+        "samplePeriodTau0": 32.370331090315965
+      },
+      "accepted": false,
+      "terminalObservation": {
+        "complete": true,
+        "endpointReached": true,
+        "terminalPhysicalTime": 1949.1356423198636,
+        "terminalSteps": 108282,
+        "observedSteps": 108282,
+        "reportedTimeTau0": 1949.1446291311502,
+        "retainedSteps": [
+          92097,
+          93896,
+          95694,
+          97492,
+          99291,
+          101089,
+          102887,
+          104685,
+          106484,
+          108282
+        ]
+      },
+      "state": {
+        "P": 0.3302933866906661,
+        "sigmaStar": 0.05269623440867122,
+        "rho": 12.695905529283616,
+        "velocity": 0.13043251776667586,
+        "rhoOverD0": 57.45403565690062,
+        "Vd0OverD": 0.011497656619391733,
+        "stationary": true,
+        "resolved": true,
+        "boundaryClear": true,
+        "diffusionLength": 19.219133716979137,
+        "travelDiffusionLengths": 13.843049992304739
+      },
+      "relativeError": {
+        "P": 0.05863264964957082,
+        "sigmaStar": 0.1635518347829965
+      },
+      "referenceErrorBudget": {
+        "P": 0.09456152485751113,
+        "sigmaStar": 0.24343081478592432
+      }
+    },
+    {
+      "config": {
+        "lambda": 4,
+        "epsilon4": 0.0171,
+        "undercooling": 0.45,
+        "radius": 8,
+        "name": "domain",
+        "dims": [
+          300,
+          300,
+          680
+        ],
+        "dx": 0.8,
+        "dt": 0.0180006338,
+        "D": 2.5068,
+        "d0": 0.220975,
+        "physicalTimeScale": 1,
+        "maximumTimeTau0": 1949.1356423198636,
+        "samplePeriodTau0": 32.370331090315965
+      },
+      "accepted": false,
+      "terminalObservation": {
+        "complete": true,
+        "endpointReached": true,
+        "terminalPhysicalTime": 1949.1356423198636,
+        "terminalSteps": 108282,
+        "observedSteps": 108282,
+        "reportedTimeTau0": 1949.1446291345037,
+        "retainedSteps": [
+          92097,
+          93896,
+          95694,
+          97492,
+          99291,
+          101089,
+          102887,
+          104685,
+          106484,
+          108282
+        ]
+      },
+      "state": {
+        "P": 0.33029372240024196,
+        "sigmaStar": 0.05269613754653215,
+        "rho": 12.695915961852256,
+        "velocity": 0.1304325431580959,
+        "rhoOverD0": 57.454082868434234,
+        "Vd0OverD": 0.011497658857651286,
+        "stationary": true,
+        "resolved": true,
+        "boundaryClear": true,
+        "diffusionLength": 19.219129975573154,
+        "travelDiffusionLengths": 13.843054616444586
+      },
+      "relativeError": {
+        "P": 0.05863372564180125,
+        "sigmaStar": 0.16355337227726752
+      },
+      "referenceErrorBudget": {
+        "P": 0.09456364609772172,
+        "sigmaStar": 0.24343410536096455
+      }
+    },
+    {
+      "config": {
+        "lambda": 4,
+        "epsilon4": 0.0171,
+        "undercooling": 0.45,
+        "radius": 8,
+        "name": "dx",
+        "dims": [
+          360,
+          360,
+          816
+        ],
+        "dx": 0.6,
+        "dt": 0.010125356512499998,
+        "D": 2.5068,
+        "d0": 0.220975,
+        "physicalTimeScale": 1,
+        "maximumTimeTau0": 1949.1356423198636,
+        "samplePeriodTau0": 32.370331090315965
+      },
+      "accepted": false,
+      "terminalObservation": {
+        "complete": true,
+        "endpointReached": true,
+        "terminalPhysicalTime": 1949.1356423198636,
+        "terminalSteps": 192501,
+        "observedSteps": 192501,
+        "reportedTimeTau0": 1949.1412540030296,
+        "retainedSteps": [
+          163728,
+          166925,
+          170122,
+          173319,
+          176516,
+          179713,
+          182910,
+          186107,
+          189304,
+          192501
+        ]
+      },
+      "state": {
+        "P": 0.33441986982145605,
+        "sigmaStar": 0.051089341121959474,
+        "rho": 12.93363996508488,
+        "velocity": 0.12963461669437684,
+        "rhoOverD0": 58.52987878757724,
+        "Vd0OverD": 0.011427321455257669,
+        "stationary": true,
+        "resolved": true,
+        "boundaryClear": true,
+        "diffusionLength": 19.337427485977496,
+        "travelDiffusionLengths": 13.664869321478402
+      },
+      "relativeError": {
+        "P": 0.0718585571200514,
+        "sigmaStar": 0.18905807742921465
+      },
+      "referenceErrorBudget": {
+        "P": 0.08706296906133071,
+        "sigmaStar": 0.22233604440324717
+      }
+    },
+    {
+      "config": {
+        "lambda": 4,
+        "epsilon4": 0.0171,
+        "undercooling": 0.45,
+        "radius": 8,
+        "name": "dt",
+        "dims": [
+          270,
+          270,
+          612
+        ],
+        "dx": 0.8,
+        "dt": 0.0090003169,
+        "D": 2.5068,
+        "d0": 0.220975,
+        "physicalTimeScale": 1,
+        "maximumTimeTau0": 1949.1356423198636,
+        "samplePeriodTau0": 32.370331090315965
+      },
+      "accepted": false,
+      "terminalObservation": {
+        "complete": true,
+        "endpointReached": true,
+        "terminalPhysicalTime": 1949.1356423198636,
+        "terminalSteps": 216564,
+        "observedSteps": 216564,
+        "reportedTimeTau0": 1949.1446291342343,
+        "retainedSteps": [
+          184194,
+          187791,
+          191387,
+          194984,
+          198581,
+          202177,
+          205774,
+          209370,
+          212967,
+          216564
+        ]
+      },
+      "state": {
+        "P": 0.3301534881504574,
+        "sigmaStar": 0.05273858795925782,
+        "rho": 12.691085058154073,
+        "velocity": 0.1304267933440115,
+        "rhoOverD0": 57.43222110263185,
+        "Vd0OverD": 0.011497152010209406,
+        "stationary": true,
+        "resolved": true,
+        "boundaryClear": true,
+        "diffusionLength": 19.21997724338823,
+        "travelDiffusionLengths": 13.842122031519406
+      },
+      "relativeError": {
+        "P": 0.05818425689249174,
+        "sigmaStar": 0.1628795562022568
+      },
+      "referenceErrorBudget": {
+        "P": 0.09412879127816942,
+        "sigmaStar": 0.24280731990232773
+      }
+    },
+    {
+      "config": {
+        "lambda": 3.6,
+        "epsilon4": 0.0171,
+        "undercooling": 0.45,
+        "radius": 8.88888888888889,
+        "name": "width",
+        "dims": [
+          300,
+          300,
+          680
+        ],
+        "dx": 0.8,
+        "dt": 0.0180006338,
+        "D": 2.25612,
+        "d0": 0.2455277777777778,
+        "physicalTimeScale": 1.3717421124828535,
+        "maximumTimeTau0": 2673.711443511473,
+        "samplePeriodTau0": 44.40374635159941
+      },
+      "accepted": false,
+      "terminalObservation": {
+        "complete": true,
+        "endpointReached": true,
+        "terminalPhysicalTime": 1949.1356423198636,
+        "terminalSteps": 148535,
+        "observedSteps": 148535,
+        "reportedTimeTau0": 2673.724141488185,
+        "retainedSteps": [
+          126334,
+          128800,
+          131267,
+          133734,
+          136201,
+          138668,
+          141134,
+          143601,
+          146068,
+          148535
+        ]
+      },
+      "state": {
+        "P": 0.3266104665753124,
+        "sigmaStar": 0.0545223003831263,
+        "rho": 13.787844093257434,
+        "velocity": 0.10688725530487266,
+        "rhoOverD0": 56.15594381233936,
+        "Vd0OverD": 0.011632267019383443,
+        "stationary": true,
+        "resolved": true,
+        "boundaryClear": true,
+        "diffusionLength": 21.107474352904923,
+        "travelDiffusionLengths": 14.182346910655147
+      },
+      "relativeError": {
+        "P": 0.0468284185106167,
+        "sigmaStar": 0.13456666058529687
+      },
+      "referenceErrorBudget": {
+        "P": 0.08167492423048439,
+        "sigmaStar": 0.21072787137137383
+      }
+    }
+  ],
+  "preservation": {
+    "name": "solidify-q3-candidate-2026-10-30.tar.gz",
+    "bytes": 127319479,
+    "sha256": "ceea1d7c64943a37fb3d8ba723249a274db2bdaa7fb0b40e768ed52191cbb23f",
+    "downloadChecksumVerified": true,
+    "downloadedAt": "2026-10-30T19:06:15.445882+00:00",
+    "members": 336,
+    "rawCheckpointsVerified": 312,
+    "sourceHashesVerified": 11,
+    "nativePairs": 9,
+    "compatibilityCopyVerified": true,
+    "serverDigestMatches": true,
+    "releaseDraft": "https://github.com/fronkt/solidify/releases/tag/untagged-4ff2f3cab68d844e3925"
+  },
+  "ownedCleanup": {
+    "owned_instance_id": 58431724,
+    "label": "solidify-q3-calib-20261030",
+    "created_at": "2026-10-30T17:37:41.459873+00:00",
+    "destroyed_at": "2026-10-30T19:08:07.187782+00:00",
+    "api_absence_verified": true,
+    "preexisting_untouched": [
+      57481902,
+      57579841
+    ],
+    "cleanup_reason": "scientific artifacts verified and backed up",
+    "watchdogExitVerified": true,
+    "computeEstimateExcludingTransfersUsd": 0.7574807379128601
+  },
+  "interpretation": [
+    "All five arms reach their prospectively fixed endpoints and are stationary, resolved and boundary-clear.",
+    "All four pointwise convergence comparisons pass; maximum change is about 3.47 percent.",
+    "Every arm still fails the unchanged literature reference, primarily sigma:0.05109-0.05452 versus0.063.",
+    "The independently derived correction is experimental and remains disabled in app creation.",
+    "Principal-plane kinetic evidence and a completed equilibrium matrix do not establish arbitrary-angle capillary or kinetic calibration.",
+    "Historical and current scientific refusals remain preserved; no Q3 promotion follows."
+  ]
+}
