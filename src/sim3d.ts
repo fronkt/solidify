@@ -4,7 +4,7 @@
 // orientations, and an out-of-memory creation ladder for weaker GPUs.
 
 import {
-  FLUX3D_WGSL, update3dWgsl, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL, STEREO3D_WGSL,
+  FLUX3D_WGSL, update3dWgsl, phi3dWgsl, transport3dWgsl, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL, STEREO3D_WGSL,
   LINE3D_WGSL, REGION3D_WGSL, HTMASK3_WGSL, ANNEAL3_WGSL, anneal3Wgsl, TWINSTAMP3_WGSL, HOMOG3_WGSL, HOMOG_D3,
   HT_COLOURS_3D, MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
 } from "./shaders3d";
@@ -12,6 +12,7 @@ import { shaderModule, H2U, HT_STRIDE, HT_KT_DEFAULT, WORK_SALT } from "./shader
 import { HT_RECOVER_3D } from "./heattreat";
 import { DEFAULT_UM_PER_CELL } from "./units";
 import { stream } from "./rng";
+import { QUANT_MASS3 } from "./shaders3d-quant";
 
 /**
  * Grid rungs, largest first — the out-of-memory creation ladder walks this and
@@ -20,6 +21,10 @@ import { stream } from "./rng";
  * selection silently showed nothing.
  */
 export const GRID3_LADDER: readonly number[] = [192, 160, 128, 96];
+
+// Error scopes belong to the device, not an instance. Serializing resource
+// preparation also protects direct-class callers that create two volumes.
+const RESOURCE_QUEUE3 = new WeakMap<GPUDevice, Promise<void>>();
 
 /** the lab's mould geometries. `open` = no walls (moldShell off). Values in
  *  MOLD_KIND_ID are deliberately disjoint from fillPigtail's own kind=3 —
@@ -119,6 +124,11 @@ export interface Phys3DParams {
   /** scen 4 only: the lab programme's set-point slope (the lab supplies it
    *  each tick). Scen 1/3 derive theirs in writeParams from gradG·pullV. */
   envRate: number;
+  solver: number;
+  lambda: number;
+  dTherm: number;
+  atCoef: number;
+  frozenT: number;
 }
 
 export const DEFAULTS3D: Phys3DParams = {
@@ -157,7 +167,38 @@ export const DEFAULTS3D: Phys3DParams = {
   moldT: 0.06,
   nyCrit: 8,
   envRate: 0,
+  solver: 0, lambda: 3, dTherm: 1, atCoef: 0, frozenT: 0,
 };
+
+interface QuantResources3 {
+  aux: GPUTexture;
+  status: GPUBuffer;
+  staging: GPUBuffer;
+  phase: GPUComputePipeline[];
+  transport: GPUComputePipeline[];
+  phaseBG: GPUBindGroup[][];
+  transportBG: GPUBindGroup[][];
+  mass: {
+    shape: GPUBuffer; partials: GPUBuffer; staging: GPUBuffer;
+    pipe: GPUComputePipeline; groups: GPUBindGroup[]; bytes: number;
+  } | null;
+}
+
+export interface QuantitativeStatus3 {
+  flags: number;
+  issue: string | null;
+  minTauFactor: number | null;
+}
+
+export interface QuantitativeMass3 {
+  /** Sum of concentration samples. Multiply by dx^3 for the volume integral. */
+  mass: number;
+  min: number;
+  max: number;
+  count: number;
+  nonFinite: number;
+  negative: number;
+}
 
 export interface StatsResult3D {
   fracSolid: number;
@@ -341,6 +382,19 @@ export class Sim3D {
   private statsInFlight = false;
   private paramData = new ArrayBuffer(P3.BYTES);
   private inFlight = 0;
+  /** Diagnostic split for Kobayashi; quantitative mode always uses the split. */
+  splitPasses = false;
+  private quant: QuantResources3 | null = null;
+  private quantPending: Promise<boolean> | null = null;
+  private alloyPending: Promise<boolean> | null = null;
+  private alloyPendingEpoch = 0;
+  private alloyEpoch = 0;
+  private quantIssue: string | null = null;
+  private quantReading = false;
+  private quantMassReading = false;
+  private quantEpoch = 0;
+  private destroyed = false;
+  get quantitativeIssue(): string | null { return this.quantIssue; }
   /**
    * The volume's own stream: Marsaglia quaternions, Sigma3 plate directions,
    * chill-floor jitter, the twin probe's site search. Separate from the plane's,
@@ -511,6 +565,7 @@ export class Sim3D {
           { binding: 4, resource: so },
           { binding: 5, resource: go },
           { binding: 6, resource: this.ageTex.createView() },
+          { binding: 7, resource: this.maskTex.createView() },
         ],
       });
       this.statsBG[dir] = d.createBindGroup({
@@ -559,59 +614,277 @@ export class Sim3D {
   }
   soluteTexture(dir: number): GPUTexture | null { return this.soluteTex[dir] ?? null; }
 
+  /** Allocate the split without changing solver flags or the current casting.
+   * Concurrent requests share one transaction; failures destroy only the new
+   * resources. The caller publishes calibrated parameters after success. */
+  enableQuant(): Promise<boolean> {
+    if (this.destroyed) return Promise.resolve(false);
+    if (this.quant) return Promise.resolve(true);
+    if (this.quantPending) return this.quantPending;
+    this.quantPending = this.resourceTransaction(() => this.allocateQuant()).finally(() => { this.quantPending = null; });
+    return this.quantPending;
+  }
+
+  private resourceTransaction<T>(run: () => Promise<T>): Promise<T> {
+    const tail = RESOURCE_QUEUE3.get(this.device) ?? Promise.resolve();
+    const result = tail.then(run, run);
+    RESOURCE_QUEUE3.set(this.device, result.then(() => {}, () => {}));
+    return result;
+  }
+
+  private async allocateQuant(): Promise<boolean> {
+    if (this.destroyed) return false;
+    const d = this.device;
+    await d.queue.onSubmittedWorkDone();
+    if (this.destroyed) return false;
+    const made: { aux?: GPUTexture; status?: GPUBuffer; staging?: GPUBuffer } = {};
+    const extraBuffers: GPUBuffer[] = [];
+    let candidate: QuantResources3 | null = null;
+    let groupPair: GPUTexture[] | null = null;
+    let problem: unknown = null;
+    d.pushErrorScope("out-of-memory");
+    d.pushErrorScope("validation");
+    try {
+      made.aux = d.createTexture({ size: [this.n, this.n, this.n], dimension: "3d", format: "rg32float",
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING });
+      made.status = d.createBuffer({ size: 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
+      made.staging = d.createBuffer({ size: 16, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const phase: GPUComputePipeline[] = [], transport: GPUComputePipeline[] = [];
+      for (const alloy of d.limits.maxStorageTexturesPerShaderStage >= 4 ? [false, true] : [false]) {
+        const mk = (code: string, label: string) => d.createComputePipelineAsync({ layout: "auto",
+          compute: { module: shaderModule(d, code, label), entryPoint: "main" } });
+        phase.push(await mk(phi3dWgsl(alloy), `phase3${alloy ? "-alloy" : ""}`));
+        transport.push(await mk(transport3dWgsl(alloy), `transport3${alloy ? "-alloy" : ""}`));
+      }
+      let mass: QuantResources3["mass"] = null;
+      if (transport.length > 1) {
+        const buffer = (size: number, usage: GPUBufferUsageFlags) => {
+          const b = d.createBuffer({ size, usage }); extraBuffers.push(b); return b;
+        };
+        const bytes = Math.ceil(this.n ** 3 / 256) * 32;
+        const shape = buffer(16, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
+        const partials = buffer(bytes, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC);
+        const staging = buffer(bytes, GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ);
+        d.queue.writeBuffer(shape, 0, new Uint32Array([this.n, this.n ** 3, 0, 0]));
+        const pipe = await d.createComputePipelineAsync({ layout: "auto", compute: {
+          module: shaderModule(d, QUANT_MASS3, "quant3-mass"), entryPoint: "main" } });
+        mass = { shape, partials, staging, pipe, groups: [], bytes };
+      }
+      candidate = { aux: made.aux, status: made.status, staging: made.staging, phase, transport,
+        phaseBG: [], transportBG: [], mass };
+      groupPair = this.soluteTex;
+      this.quantGroups(candidate, groupPair);
+    } catch (err) { problem = err; }
+    const validation = await d.popErrorScope();
+    const memory = await d.popErrorScope();
+    if (problem || validation || memory || this.destroyed || !candidate) {
+      made.aux?.destroy(); made.status?.destroy(); made.staging?.destroy();
+      for (const b of extraBuffers) b.destroy();
+      this.quantIssue = memory
+        ? "Not enough GPU memory for calibrated 3D. The current casting is unchanged; try a smaller volume."
+        : "This device could not prepare calibrated 3D. The current casting is unchanged.";
+      return false;
+    }
+    // disableAlloy may have invalidated a pair during an awaited compilation
+    // or error-scope result. A second allocation cannot publish until this
+    // transaction finishes, so only the alloy groups need invalidation.
+    if (groupPair !== this.soluteTex) {
+      candidate.phaseBG[1] = []; candidate.transportBG[1] = [];
+      if (candidate.mass) candidate.mass.groups = [];
+    }
+    this.quant = candidate;
+    this.clearQuantitativeStatus();
+    return true;
+  }
+
+  private quantGroups(q: QuantResources3, pair = this.soluteTex): void {
+    const d = this.device;
+    q.phaseBG = [[], []]; q.transportBG = [[], []];
+    for (const alloy of [0, 1]) {
+      if (!q.phase[alloy] || (alloy && pair.length !== 2)) continue;
+      for (const dir of [0, 1]) {
+        const phase: GPUBindGroupEntry[] = [
+          { binding: 0, resource: { buffer: this.paramBuf } },
+          { binding: 1, resource: this.stateTex[dir].createView() },
+          { binding: 2, resource: this.grainTex[dir].createView() },
+          { binding: 3, resource: this.fluxTex.createView() },
+          { binding: 4, resource: q.aux.createView() },
+          { binding: 5, resource: this.maskTex.createView() },
+          { binding: 7, resource: { buffer: q.status } },
+        ];
+        if (alloy) phase.push({ binding: 6, resource: pair[dir].createView() });
+        q.phaseBG[alloy][dir] = d.createBindGroup({ layout: q.phase[alloy].getBindGroupLayout(0), entries: phase });
+        const transport: GPUBindGroupEntry[] = [
+          { binding: 0, resource: { buffer: this.paramBuf } },
+          { binding: 1, resource: this.stateTex[dir].createView() },
+          { binding: 2, resource: this.grainTex[dir].createView() },
+          { binding: 3, resource: q.aux.createView() },
+          { binding: 4, resource: this.stateTex[1 - dir].createView() },
+          { binding: 5, resource: this.grainTex[1 - dir].createView() },
+          { binding: 6, resource: this.ageTex.createView() },
+          { binding: 7, resource: this.fedTex[0].createView() },
+          { binding: 10, resource: { buffer: this.quatBuf } },
+          { binding: 11, resource: { buffer: this.twinCtrBuf } },
+          { binding: 12, resource: this.maskTex.createView() },
+          { binding: 13, resource: { buffer: q.status } },
+        ];
+        if (alloy) transport.push({ binding: 8, resource: pair[dir].createView() },
+          { binding: 9, resource: pair[1 - dir].createView() });
+        q.transportBG[alloy][dir] = d.createBindGroup({ layout: q.transport[alloy].getBindGroupLayout(0), entries: transport });
+      }
+    }
+    if (q.mass) q.mass.groups = pair.map(t => d.createBindGroup({
+      layout: q.mass!.pipe.getBindGroupLayout(0), entries: [
+        { binding: 0, resource: { buffer: q.mass!.shape } },
+        { binding: 1, resource: t.createView() },
+        { binding: 2, resource: { buffer: q.mass!.partials } },
+      ],
+    }));
+  }
+
+  private clearQuantitativeStatus(): void {
+    this.quantEpoch++;
+    this.quantIssue = null;
+    if (this.quant) this.device.queue.writeBuffer(this.quant.status, 0, new Uint32Array([0, 0x7f800000, 0, 0]));
+  }
+
+  async readQuantitativeStatus(): Promise<QuantitativeStatus3 | null> {
+    const q = this.quant;
+    if (!q || this.quantReading || this.destroyed) return null;
+    this.quantReading = true;
+    const epoch = this.quantEpoch;
+    try {
+      const enc = this.device.createCommandEncoder();
+      enc.copyBufferToBuffer(q.status, 0, q.staging, 0, 16);
+      this.device.queue.submit([enc.finish()]);
+      await q.staging.mapAsync(GPUMapMode.READ);
+      const raw = q.staging.getMappedRange().slice(0);
+      q.staging.unmap();
+      if (epoch !== this.quantEpoch || q !== this.quant) return null;
+      const flags = new Uint32Array(raw)[0], tau = new Float32Array(raw)[1];
+      const reasons: string[] = [];
+      if (flags & 1) reasons.push("alloy interface temperature is outside the positive-relaxation range");
+      if (flags & 2) reasons.push("the interface needs a smaller timestep at this temperature");
+      if (flags & 4) reasons.push("the phase field became non-finite");
+      if (flags & 8) reasons.push("solute left the supported concentration range");
+      if (flags & 16) reasons.push("temperature left the supported model range");
+      // CPU admission refusals are also latched until reset. A clean GPU word
+      // must not erase a reason reported before any dispatch was submitted.
+      if (reasons.length) this.quantIssue = `Calibrated 3D stopped: ${reasons.join("; ")}.`;
+      return { flags, issue: this.quantIssue, minTauFactor: Number.isFinite(tau) ? tau : null };
+    } catch { return null; }
+    finally { this.quantReading = false; }
+  }
+
+  /** On-demand float reduction, independent from the integer Stats3 layout.
+   * A 256-lane balanced FP32 tree produces each partial; JavaScript doubles
+   * accumulate the partials in increasing linear workgroup order. */
+  async readQuantitativeMass(): Promise<QuantitativeMass3 | null> {
+    const q = this.quant, mass = q?.mass;
+    if (!q || !mass || this.soluteTex.length !== 2 || mass.groups.length !== 2 || this.quantMassReading || this.destroyed) return null;
+    this.quantMassReading = true;
+    const epoch = this.quantEpoch, pair = this.soluteTex;
+    try {
+      const enc = this.device.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(mass.pipe); pass.setBindGroup(0, mass.groups[this.dir]);
+      pass.dispatchWorkgroups(Math.ceil(this.n ** 3 / 256)); pass.end();
+      enc.copyBufferToBuffer(mass.partials, 0, mass.staging, 0, mass.bytes);
+      this.device.queue.submit([enc.finish()]);
+      await mass.staging.mapAsync(GPUMapMode.READ);
+      const raw = mass.staging.getMappedRange().slice(0); mass.staging.unmap();
+      if (q !== this.quant || epoch !== this.quantEpoch || pair !== this.soluteTex) return null;
+      const f = new Float32Array(raw), u = new Uint32Array(raw);
+      const out: QuantitativeMass3 = { mass: 0, min: Infinity, max: -Infinity,
+        count: 0, nonFinite: 0, negative: 0 };
+      for (let i = 0; i < f.length; i += 8) {
+        out.mass += f[i];
+        if (u[i + 3]) { out.min = Math.min(out.min, f[i + 1]); out.max = Math.max(out.max, f[i + 2]); }
+        out.count += u[i + 3] + u[i + 4]; out.nonFinite += u[i + 4]; out.negative += u[i + 5];
+      }
+      return out;
+    } catch { return null; }
+    finally { this.quantMassReading = false; }
+  }
+
   /**
    * Lazily allocate the solute ping-pong pair (+2·n³·4 B) and its bind groups.
    * Runtime allocation sits OUTSIDE the create-time OOM ladder, so it gets its
    * own error scope; failure leaves alloy off and reports false.
    */
-  async enableAlloy(): Promise<boolean> {
+  enableAlloy(): Promise<boolean> {
+    if (this.destroyed) return Promise.resolve(false);
+    if (this.soluteTex.length === 2) { this.params.alloyOn = 1; return Promise.resolve(true); }
+    if (this.alloyPending && this.alloyPendingEpoch === this.alloyEpoch) return this.alloyPending;
+    const epoch = this.alloyEpoch;
+    const pending = this.resourceTransaction(() => this.allocateAlloy(epoch)).finally(() => {
+      if (this.alloyPending === pending) this.alloyPending = null;
+    });
+    this.alloyPending = pending; this.alloyPendingEpoch = epoch;
+    return pending;
+  }
+
+  private async allocateAlloy(epoch: number): Promise<boolean> {
+    if (this.destroyed || epoch !== this.alloyEpoch) return false;
     if (this.soluteTex.length === 2) { this.params.alloyOn = 1; return true; }
     if (!this.updateAlloyPipe) return false;
     const d = this.device;
     const n = this.n;
+    const pair: GPUTexture[] = [];
+    const homogBG: GPUBindGroup[][] = [], updateBG: GPUBindGroup[] = [];
+    const quant = this.quant;
+    const quantCandidate = quant ? { ...quant, mass: quant.mass ? { ...quant.mass } : null } : null;
+    let problem: unknown = null;
     d.pushErrorScope("out-of-memory");
-    const mkTex = () => d.createTexture({
-      size: [n, n, n], dimension: "3d", format: "r32float",
-      usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
-    });
-    const pair = [mkTex(), mkTex()];
-    const err = await d.popErrorScope();
-    if (err) {
+    d.pushErrorScope("validation");
+    try {
+      for (let i = 0; i < 2; i++) pair.push(d.createTexture({
+        size: [n, n, n], dimension: "3d", format: "r32float",
+        usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
+      }));
+      this.fillSolute(pair);
+      for (const dir of [0, 1]) {
+        homogBG[dir] = [0, 1].map(pp => d.createBindGroup({
+          layout: this.homogPipe.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: this.hgBuf } },
+            { binding: 1, resource: this.stateTex[dir].createView() },
+            { binding: 2, resource: this.maskTex.createView() },
+            { binding: 3, resource: pair[pp].createView() },
+            { binding: 4, resource: pair[1 - pp].createView() },
+          ],
+        }));
+        updateBG[dir] = d.createBindGroup({
+          layout: this.updateAlloyPipe.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: this.paramBuf } },
+            { binding: 1, resource: this.stateTex[dir].createView() },
+            { binding: 2, resource: this.grainTex[dir].createView() },
+            { binding: 3, resource: this.fluxTex.createView() },
+            { binding: 4, resource: this.stateTex[1 - dir].createView() },
+            { binding: 5, resource: this.grainTex[1 - dir].createView() },
+            { binding: 6, resource: this.ageTex.createView() },
+            { binding: 7, resource: this.fedTex[0].createView() },
+            { binding: 8, resource: pair[dir].createView() },
+            { binding: 9, resource: pair[1 - dir].createView() },
+            { binding: 10, resource: { buffer: this.quatBuf } },
+            { binding: 11, resource: { buffer: this.twinCtrBuf } },
+            { binding: 12, resource: this.maskTex.createView() },
+          ],
+        });
+      }
+      if (quantCandidate) this.quantGroups(quantCandidate, pair);
+    } catch (err) { problem = err; }
+    const validation = await d.popErrorScope();
+    const memory = await d.popErrorScope();
+    if (problem || validation || memory || this.destroyed || epoch !== this.alloyEpoch) {
       for (const t of pair) t.destroy();
-      this.params.alloyOn = 0;
       return false;
     }
-    this.soluteTex = pair;
-    this.fillSolute();
-    for (const dir of [0, 1]) {
-      this.homogBG[dir] = [0, 1].map(pp => d.createBindGroup({
-        layout: this.homogPipe.getBindGroupLayout(0),
-        entries: [
-          { binding: 0, resource: { buffer: this.hgBuf } },
-          { binding: 1, resource: this.stateTex[dir].createView() },
-          { binding: 2, resource: this.maskTex.createView() },
-          { binding: 3, resource: this.soluteTex[pp].createView() },
-          { binding: 4, resource: this.soluteTex[1 - pp].createView() },
-        ],
-      }));
-      this.updateAlloyBG[dir] = d.createBindGroup({
-        layout: this.updateAlloyPipe.getBindGroupLayout(0),
-        entries: [
-          { binding: 0, resource: { buffer: this.paramBuf } },
-          { binding: 1, resource: this.stateTex[dir].createView() },
-          { binding: 2, resource: this.grainTex[dir].createView() },
-          { binding: 3, resource: this.fluxTex.createView() },
-          { binding: 4, resource: this.stateTex[1 - dir].createView() },
-          { binding: 5, resource: this.grainTex[1 - dir].createView() },
-          { binding: 6, resource: this.ageTex.createView() },
-          { binding: 7, resource: this.fedTex[0].createView() },
-          { binding: 8, resource: this.soluteTex[dir].createView() },
-          { binding: 9, resource: this.soluteTex[1 - dir].createView() },
-          { binding: 10, resource: { buffer: this.quatBuf } },
-          { binding: 11, resource: { buffer: this.twinCtrBuf } },
-          { binding: 12, resource: this.maskTex.createView() },
-        ],
-      });
+    this.soluteTex = pair; this.homogBG = homogBG; this.updateAlloyBG = updateBG;
+    if (quant && quantCandidate && this.quant === quant) {
+      quant.phaseBG = quantCandidate.phaseBG; quant.transportBG = quantCandidate.transportBG;
+      if (quant.mass && quantCandidate.mass) quant.mass.groups = quantCandidate.mass.groups;
     }
     this.params.alloyOn = 1;
     return true;
@@ -763,27 +1036,38 @@ export class Sim3D {
   }
 
   disableAlloy() {
+    this.alloyEpoch++;
     this.params.alloyOn = 0;
     const old = this.soluteTex;
     this.soluteTex = [];
     this.updateAlloyBG = [];
     this.homogBG = [];
+    if (this.quant) {
+      this.quant.phaseBG[1] = []; this.quant.transportBG[1] = [];
+      if (this.quant.mass) this.quant.mass.groups = [];
+    }
     // the caller rebinds the renderer synchronously after this call; deferring
     // the destroy one microtask means no frame ever binds a dead texture
     queueMicrotask(() => { for (const t of old) t.destroy(); });
   }
 
   /** flood both solute textures with the far-field composition c0 */
-  private fillSolute() {
-    if (this.soluteTex.length !== 2) return;
+  private fillSolute(pair = this.soluteTex) {
+    if (pair.length !== 2) return;
     const n = this.n;
     const c = new Float32Array(n * n * n).fill(this.params.c0);
-    for (const t of this.soluteTex)
+    for (const t of pair)
       this.device.queue.writeTexture(
         { texture: t }, c, { bytesPerRow: n * 4, rowsPerImage: n }, [n, n, n]);
   }
 
   destroy() {
+    this.destroyed = true;
+    this.quantEpoch++;
+    this.alloyEpoch++;
+    this.quant?.aux.destroy(); this.quant?.status.destroy(); this.quant?.staging.destroy();
+    this.quant?.mass?.shape.destroy(); this.quant?.mass?.partials.destroy(); this.quant?.mass?.staging.destroy();
+    this.quant = null;
     for (const t of this.stateTex) t?.destroy();
     for (const t of this.grainTex) t?.destroy();
     this.fluxTex?.destroy();
@@ -908,6 +1192,7 @@ export class Sim3D {
   }
 
   reset(tFar = this.params.tFar) {
+    this.clearQuantitativeStatus();
     const n = this.n;
     this.params.tFar = tFar;
     const state = new Float32Array(n * n * n * 2);
@@ -1297,6 +1582,11 @@ export class Sim3D {
     // programme's slope as supplied per tick for scen 4, nothing elsewhere
     f[P3.envRate] = p.scen === 1 || p.scen === 3 ? -(p.gradG * p.pullV)
       : p.scen === 4 ? p.envRate : 0;
+    u[P3.solver] = p.solver;
+    f[P3.lambda] = p.lambda;
+    f[P3.dTherm] = p.dTherm;
+    f[P3.atCoef] = p.atCoef;
+    u[P3.frozenT] = p.frozenT;
     this.device.queue.writeBuffer(target ?? this.paramBuf, 0, this.paramData);
   }
 
@@ -1779,6 +2069,19 @@ export class Sim3D {
    * bookkeeping exist exactly once.
    */
   private submit(substeps: number): number {
+    if (this.params.solver === 1) {
+      if (!this.quant) { this.quantIssue = "Calibrated 3D resources are not ready."; return 0; }
+      if (this.params.aniMode3 > 1 || this.params.facet > 0.5) {
+        this.quantIssue = "Calibrated 3D supports isotropic or smooth cubic interfaces."; return 0;
+      }
+      if (this.params.alloyOn === 1 && !this.alloyActive) {
+        this.quantIssue = "The calibrated alloy solute field is unavailable."; return 0;
+      }
+      if (this.params.alloyOn === 1 && !(this.params.kPart >= 0.001 && this.params.kPart <= 0.999
+          && Number.isFinite(this.params.c0) && this.params.c0 > 0)) {
+        this.quantIssue = "Calibrated alloy growth needs a finite positive charge and k between 0.001 and 0.999."; return 0;
+      }
+    }
     // bridgman + selector: the reference isotherm rides sim time (2D frontX port)
     if (this.params.scen === 1 || this.params.scen === 3)
       this.frontZ = 1 + this.params.pullV * this.simTime;
@@ -1823,6 +2126,7 @@ export class Sim3D {
     this.pendingQuench = 0;
 
     const alloy = this.alloyActive;
+    const split = (this.splitPasses || this.params.solver === 1) && this.quant != null;
     const enc = d.createCommandEncoder();
     // STAMP flips the state ping-pong without writing solute — mirror the flip
     // by copying solute across BEFORE the compute pass, or the pair desyncs
@@ -1851,9 +2155,19 @@ export class Sim3D {
       pass.setPipeline(this.fluxPipe);
       pass.setBindGroup(0, this.fluxBG[dir]);
       this.dispatch(pass);
-      pass.setPipeline(alloy ? this.updateAlloyPipe! : this.updatePipe);
-      pass.setBindGroup(0, alloy ? this.updateAlloyBG[dir] : this.updateBG[dir]);
-      this.dispatch(pass);
+      if (split) {
+        const q = this.quant!, ai = Number(alloy);
+        pass.setPipeline(q.phase[ai]);
+        pass.setBindGroup(0, q.phaseBG[ai][dir]);
+        this.dispatch(pass);
+        pass.setPipeline(q.transport[ai]);
+        pass.setBindGroup(0, q.transportBG[ai][dir]);
+        this.dispatch(pass);
+      } else {
+        pass.setPipeline(alloy ? this.updateAlloyPipe! : this.updatePipe);
+        pass.setBindGroup(0, alloy ? this.updateAlloyBG[dir] : this.updateBG[dir]);
+        this.dispatch(pass);
+      }
       dir = 1 - dir;
     }
     pass.end();

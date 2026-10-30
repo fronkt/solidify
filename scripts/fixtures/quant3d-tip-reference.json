@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "source": {
+    "authors": "Alain Karma and Wouter-Jan Rappel",
+    "title": "Numerical Simulation of Three-Dimensional Dendritic Growth",
+    "journal": "Physical Review Letters 77, 4050 (1996)",
+    "url": "https://arxiv.org/pdf/patt-sol/9607005",
+    "location": "Table I, PDF page 3",
+    "evidence": "verify-out/q3-kr96-table.png; table visually checked before port implementation"
+  },
+  "undercooling": 0.45,
+  "publishedGrid": [200, 200, 400],
+  "geometry": "three-dimensional cubic dendrite; full 3D column, not the distinct axisymmetric column",
+  "definitions": {
+    "P": "rho*V/(2*D)",
+    "sigmaStar": "2*D*d0/(rho*rho*V)",
+    "radius": "local tip radius; do not substitute a whole-tip parabolic fit",
+    "rhoOverD0": "1/(P*sigmaStar)",
+    "Vd0OverD": "2*sigmaStar*P*P"
+  },
+  "rows": [
+    {"epsilon4": 0.0171, "full3D": {"P": 0.312, "sigmaStar": 0.063}, "numericalSolvability": {"P": 0.324, "sigmaStar": 0.0578}},
+    {"epsilon4": 0.0265, "full3D": {"P": 0.236, "sigmaStar": 0.16}, "numericalSolvability": {"P": 0.247, "sigmaStar": 0.142}}
+  ],
+  "acceptance": {
+    "relativeTarget": 0.1,
+    "requires": ["temporal stationarity", "domain enlargement", "dx refinement", "dt refinement", "resolved local curvature", "thin-interface validity reported"]
+  }
+}

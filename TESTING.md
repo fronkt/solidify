@@ -1,5 +1,34 @@
 # Testing
 
+Q3 adds two GPU-only scripts, also registered in `npm test`; neither changes the
+seventeen-script browser-free CI set:
+
+- `verify-passsplit3d.mjs` compares preserved fused and diagnostic split Kobayashi
+  paths with the untouched `d59471e` volume snapshots. Eight fixed manufactured
+  fixtures cover cubic/hexagonal/icosahedral anisotropy, alloy transport, pores,
+  feed flood, lab/mold, Bridgman and weld conditions. Each has five checkpoints,
+  including a mid-run seed stamp and quench. Both state/grain/solute ping-pongs,
+  age, feed, mask and flux fields owe **390 exact SHA-256 matches per path**.
+  The original capture was repeated before editing the volume core; all 390 hashes
+  agreed. Metadata and hashes live in `scripts/fixtures/kob3d-baseline.json`; large
+  raw snapshots are retained locally under `verify-out/q3-kob-original`.
+- `verify-quant3d.mjs` checks a stationary analytic tanh plane in all three normals,
+  critical spheres with the two-curvature radius and a one-curvature cylindrical
+  control, the insulated `sum(T-latent*psi)` ledger, a two-sided sharp-interface
+  Stefan solution at two resolutions, closed-box concentration conservation, and
+  partition/anti-trapping contrasts at matched travel in capillary lengths. Its
+  initial conditions and sharp-interface predictions are independent of the GPU
+  update. The plane width target is 2%, refined critical-radius bracket 5%, Stefan
+  travel target 5%, and concentration/energy drift target 5e-5. These are the design
+  criteria in `docs/QUANT-3D.md`, not claims that an unmeasured solver has passed.
+  Invalid/clipped/unresolved profiles fail. AT-on/off profiles and their actual
+  thin-interface velocity ratios remain in `verify-out/quant3d-result.json`.
+
+These gates do not establish a full three-dimensional dendrite operating-state
+reference on their own. A published 3D tip comparison additionally needs domain,
+temporal-stationarity and grid/time refinement evidence; the existing 2D tip
+velocity is never its expected answer.
+
 ```bash
 npm test
 ```

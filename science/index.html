@@ -379,11 +379,25 @@
     independent of it — which is a test, not a promise, and it is the test a pretty dendrite cannot
     pass by looking pretty.</p>
 
+    <p><b>Calibrated volumes</b> use smooth cubic interface energy and a separate 3D timestep bound.
+    A pure melt solves heat diffusion and latent release. A dilute alloy conserves concentration
+    through face currents and uses an <b>imposed temperature field</b>, with the temperature-dependent
+    relaxation factor of Echebarria et al. This is an imposed-temperature approximation, not a
+    coupled heat-and-solute solution at the material's physical Lewis number. Hexagonal,
+    icosahedral and cusped shapes retain the qualitative solver. Each dimension keeps its own
+    calibration and physical scale; links and exports identify the active model.</p>
+
+    <p>Three-dimensional validation uses spherical curvature, a planar Stefan reference and
+    closed-volume conservation. A sphere has two principal curvatures, so its critical radius is
+    2d<sub>0</sub>/Δ. The 2D tip velocity below is not a 3D reference. A converged 3D needle
+    comparison is recorded separately and must establish domain, mesh and time independence
+    before a published operating-state match is claimed.</p>
+
     <p>In an alloy the model also carries an <b>anti-trapping current</b>. With no diffusion in the
     solid, an interface of finite width traps solute it should have rejected; the error is not small
     and not random, it looks exactly like a larger partition coefficient, and a dendrite grown with
     it is entirely convincing. The current cancels it. Measured here: with the current on the
-    effective partition coefficient sits on the real k and does not care how wide the interface is;
+    effective partition coefficient in the 2D benchmark sits on the real k and does not care how wide the interface is;
     with it off, k<sub>eff</sub> runs 24–40 % high and the excess <i>grows</i> with the width.</p>
 
     <p>One consequence arrives for free. Under the calibrated alloy path one dimensionless degree is

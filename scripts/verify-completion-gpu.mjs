@@ -235,6 +235,93 @@ try {
     assert(manifest.solver.includes("Kobayashi"));
     await page.screenshot({ path: resolve(OUT, "completion-3d.png") });
   });
+  await block("SESSION-3D-CALIBRATION", async () => {
+    const pure = await page.evaluate(async () => {
+      const S = window.__solidify;
+      await S.app.setMode("2d"); S.app.setRun(false);
+      S.app.setMaterial("scn"); S.app.setUmPerCell(1.7);
+      const before = { ...S.sim().params, pitch: S.sim().umPerCell };
+      await S.app.setMode("3d"); S.app.setRun(false); S.app.setAlloyOn(false);
+      const kob = { ...S.sim3d().params, pitch: S.sim3d().umPerCell };
+      const s3 = S.sim3d(), prepare = s3.enableQuant.bind(s3);
+      s3.enableQuant = async () => { await new Promise(r => setTimeout(r, 80)); return prepare(); };
+      try {
+        const entering = S.app.setCalibrated(true);
+        S.app.setLambda(2.5); S.app.setLambda(3.5);
+        await entering;
+      } finally { s3.enableQuant = prepare; }
+      const q = S.app.calibration();
+      const calibrated = { ...S.sim3d().params, pitch: S.sim3d().umPerCell };
+      S.app.seedCenter();
+      S.app.setRun(true);
+      return { before, kob, q, calibrated, dormant2: { ...S.sim().params, pitch: S.sim().umPerCell } };
+    });
+    assert(pure.q && pure.calibrated.solver === 1 && pure.calibrated.frozenT === 0, JSON.stringify(pure));
+    assert.equal(pure.calibrated.lambda, 3.5, "latest pending coupling was lost");
+    assert(Math.abs(pure.calibrated.pitch / pure.q.umPerCell - 1) < 1e-12);
+    assert.deepEqual(pure.dormant2, pure.before, "3D calibration changed the dormant 2D setup");
+    await sleep(1000);
+    const state = await page.evaluate(async () => {
+      const S = window.__solidify; S.app.setRun(false);
+      return { time: S.sim3d().simTime, status: await S.sim3d().readQuantitativeStatus(), solver: S.sim3d().params.solver };
+    });
+    assert(state.time > 0 && state.solver === 1 && !state.status?.issue, JSON.stringify(state));
+    const packed = await archive("completion-run-3d-calibrated.zip");
+    assert(packed.manifest.solver.includes("TRUE 3D") && packed.manifest.solver.includes("coupled heat"));
+    assert.equal(packed.manifest.parameters.solver, 1);
+    const link = await page.evaluate(() => window.__solidify.app.shareLink());
+    await boot(link);
+    await page.waitForFunction(() => window.__solidify.mode() === "3d" && window.__solidify.sim3d()?.params.solver === 1);
+    const restored = await page.evaluate(async () => {
+      const S = window.__solidify;
+      const q = S.app.calibration(); const pitch = S.app.getUmPerCell();
+      await S.app.setCalibrated(false);
+      const kob = { ...S.sim3d().params, pitch: S.sim3d().umPerCell };
+      S.app.setMaterial("ice"); const reason = S.app.calibrationIssue(); await S.app.setCalibrated(true);
+      return { q, pitch, kob, refused: S.sim3d().params.solver === 0, reason };
+    });
+    assert(restored.q && Math.abs(restored.pitch / restored.q.umPerCell - 1) < 1e-12);
+    assert(restored.kob.epsBar < .1 && restored.kob.tau < .1 && restored.kob.dTherm === 1);
+    assert(restored.refused && /cubic|symmetry/i.test(restored.reason), JSON.stringify(restored));
+    await page.evaluate(async () => {
+      const S = window.__solidify; S.app.setMaterial("al"); await S.app.setAlloyOn(true); await S.app.setCalibrated(true);
+    });
+    const alloy = await archive("completion-run-3d-alloy-calibrated.zip");
+    assert.equal(alloy.manifest.parameters.solver, 1);
+    assert.equal(alloy.manifest.parameters.frozenT, 1);
+    assert(alloy.manifest.solver.includes("imposed temperature"));
+    assert(Math.abs(alloy.manifest.parameters.kPart - .17) < 1e-6);
+    await page.evaluate(() => {
+      const S = window.__solidify; S.app.setCalibrated(false);
+      S.composer.applyHash("#alloy=al:Si7,Mg0.35");
+    });
+    await page.waitForFunction(() => window.__solidify.sim3d().alloyActive);
+    const composedLink = await page.evaluate(async () => {
+      const S = window.__solidify; await S.app.setCalibrated(true); return S.app.shareLink();
+    });
+    await boot(composedLink);
+    await page.waitForFunction(() => window.__solidify.mode() === "3d" && window.__solidify.sim3d()?.params.solver === 1);
+    const roundTrip = await page.evaluate(async () => {
+      const S = window.__solidify, q = S.app.calibration(), k = S.sim3d().params.kPart;
+      await S.app.setCalibrated(false);
+      const kobK = S.sim3d().params.kPart;
+      await S.app.setCalibrated(true);
+      return { q, next: S.app.calibration(), k, kobK };
+    });
+    assert(roundTrip.q && roundTrip.next && roundTrip.k === roundTrip.kobK, JSON.stringify(roundTrip));
+    assert.equal(roundTrip.q.dT0, roundTrip.next.dT0);
+    assert(!roundTrip.next.coefficientSource.includes("dials have moved"));
+    const composedArchive = await archive("completion-run-3d-composed-calibrated.zip");
+    assert(composedArchive.manifest.material.mix && !composedArchive.manifest.material.compositionEdited);
+    const withdrawn = await page.evaluate(async () => {
+      const S = window.__solidify;
+      S.app.setMaterial("steel"); S.sim3d().params.c0 = .35; S.tick(1);
+      await new Promise(r => setTimeout(r, 100));
+      return { solver: S.sim3d().params.solver, reason: S.app.calibrationIssue() };
+    });
+    assert.equal(withdrawn.solver, 0, JSON.stringify(withdrawn));
+    assert(withdrawn.reason, JSON.stringify(withdrawn));
+  });
   assert.deepEqual(errors, [], errors.join(" | "));
 } catch (e) { failed++; console.error(e.stack); }
 finally { await closeBrowser(browser); }

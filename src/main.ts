@@ -2,7 +2,7 @@ import { Simulation, DEFAULTS, type StatsResult } from "./sim";
 import { MATERIALS, to3D } from "./materials";
 import { Renderer, type ViewMode } from "./render";
 import {
-  Sim3D, GRID3_LADDER, type StatsResult3D, moldWallThickness, stepSectionBounds,
+  Sim3D, DEFAULTS3D, GRID3_LADDER, type StatsResult3D, moldWallThickness, stepSectionBounds,
 } from "./sim3d";
 import { LENS3_NAMES, ICOSA_DELTA_MAX } from "./shaders3d";
 import { Renderer3D, slicePlane } from "./render3d";
@@ -136,9 +136,16 @@ async function boot() {
   let recipeSchedule: [number, number, number] | null = null;
   // model resolution — the length anchor for BOTH solvers (units.ts)
   let umPerCell = DEFAULT_UM_PER_CELL;
+  const setPitch = (dimension: "2d" | "3d", value: number) => {
+    const pitch = Number.isFinite(value) && value > 0 ? value : DEFAULT_UM_PER_CELL;
+    if (dimension === "2d") sim.umPerCell = pitch;
+    else if (sim3d) sim3d.umPerCell = pitch;
+    if (mode === dimension) umPerCell = pitch;
+  };
 
   // ------------------------------------------------------- TRUE-3D mode state
   let mode: "2d" | "3d" = "2d";
+  let reset2OnReturn = false;
   let sim3d: Sim3D | null = null;
   let renderer3d: Renderer3D | null = null;
   let viewcube: ViewCube | null = null;
@@ -216,13 +223,12 @@ async function boot() {
       // under the calibrated solver with the solute field on, T̃ = 1 is the
       // nominal alloy's liquidus, not T_m (quant.ts liquidusShiftK): the
       // thermometer's zero moves with the chemistry the kernel runs
-      ...(!three && sim.params.solver === SOLVER.QUANT && sim.params.alloyOn === 1 ? quantAnchor() : {}),
+      ...(p.solver === SOLVER.QUANT && p.alloyOn === 1 ? quantAnchor() : {}),
     }), si);
   };
-  /** the calibrated alloy solver's T̃ = 1, for unitsNow (2D only: the volume
-   *  runs Kobayashi) */
+  /** The active calibrated alloy solver's T̃ = 1, for unitsNow. */
   const quantAnchor = (): { oneShiftK?: number; oneSource?: string } => {
-    const q = calibrateNow(sim.params.lambda);
+    const q = activeParams().solver === SOLVER.QUANT ? calibrationFor(activeParams().lambda, mode === "3d") : null;
     return q ? { oneShiftK: q.liquidusShiftK, oneSource: q.liquidusSource } : {};
   };
 
@@ -232,16 +238,17 @@ async function boot() {
    */
   function plotMeta(): PlotMeta {
     const three = mode === "3d" && sim3d != null;
-    const lam = sim.params.lambda;
+    const p = three ? sim3d!.params : sim.params;
+    const lam = p.lambda;
     return {
       material: alloyName,
       seed: seedHex(),
       grid: three ? `${sim3d!.n}³ cells (TRUE 3D)` : `${sim.n}² cells (2D)`,
-      // the volume runs the Kobayashi kernel only (calibrated mode is 2D)
-      solver: three ? "Kobayashi (1993) phase field, TRUE 3D"
-        : sim.params.solver === SOLVER.QUANT
-          ? `Karma–Rappel quantitative (calibrated), λ = ${Number(lam.toPrecision(4))}, W₀/d₀ = ${(lam / A1).toFixed(1)}`
-          : "Kobayashi (1993) phase field, 2D",
+      // Provenance follows the active solver, including its thermal approximation.
+      solver: p.solver === SOLVER.QUANT
+        ? `Karma–Rappel calibrated, ${three ? "TRUE 3D" : "2D"}, λ = ${Number(lam.toPrecision(4))}, W₀/d₀ = ${(lam / A1).toFixed(1)}`
+          + (three ? (p.alloyOn === 1 ? "; dilute alloy, imposed temperature, EFKP τ(T)" : "; pure melt, coupled heat") : "")
+        : `Kobayashi (1993) phase field, ${three ? "TRUE 3D" : "2D"}`,
       // the seed alone does not fix the dials: the link reopens all of them
       share: app.shareLink(),
       build: BUILD,
@@ -283,7 +290,7 @@ async function boot() {
       else if (d) { liqC = TmC + d.dTL; liqSource = `${d.name}: T_m + ΔT_L, ΔT_L ${d.dTL.toFixed(2)} K (the composer's superposed shift)`; }
       else { liqC = TmC + si.mL * c0wt!; liqSource = `T_m + m_L·c₀, m_L ${si.mL} K/wt%, c₀ ${c0wt!.toFixed(2)} wt% (${si.source.split(" · ")[0]})`; }
     }
-    return chemOf({ solver: three ? SOLVER.KOB : sim.params.solver, mLiq: p.mLiq, c0: p.c0, kPart: p.kPart },
+    return chemOf({ solver: p.solver, mLiq: p.mLiq, c0: p.c0, kPart: p.kPart },
       { alloy, c0wt, liqC, liqSource });
   };
 
@@ -296,10 +303,12 @@ async function boot() {
   const pouredShare = (): string | undefined =>
     pouredMix ? encodeMix(pouredMix.mix).replace(/^alloy=/, "") : undefined;
 
-  const calibrateNow = (lambda: number): QuantSetup | null => {
+  const activeParams = () => mode === "3d" && sim3d ? sim3d.params : sim.params;
+  const calibrationFor = (lambda: number, three = false): QuantSetup | null => {
     const si = (MATERIALS[material] ?? MATERIALS.generic).si;
     if (!si) return null;
-    const alloy = sim.params.alloyOn === 1;
+    const p = three && sim3d ? sim3d.params : sim.params;
+    const alloy = p.alloyOn === 1;
     // The poured mix's OWN freezing range, when one was poured onto THIS
     // material. Before v7.1 P1 this line did not exist and ΔT₀ came from
     // `si.mL`/`si.kPart` — for aluminium, −3.4 and 0.17, which materials.ts
@@ -313,22 +322,29 @@ async function boot() {
     // restore a scene — any of those rewrite c0/mLiq/kPart, and a ΔT₀ built for
     // a composition the kernel is no longer integrating is exactly the defect
     // this milestone removed one level up. (pouredLive is that check.)
-    const { d, stale } = pouredLive();
-    if (materialCalibrationIssue(material, alloy, sim.params.c0 * WT_PER_C0, d != null)) return null;
-    return calibrate({
-      si, alloy, c0wt: sim.params.c0 * WT_PER_C0, lambda,
+    const { d, stale } = pouredLive(p);
+    if (materialCalibrationIssue(material, alloy, p.c0 * WT_PER_C0, d != null)) return null;
+    const q = calibrate({
+      dimensions: three ? 3 : 2,
+      si, alloy, c0wt: p.c0 * WT_PER_C0, lambda,
       dT0Override: alloy ? d?.dT0 ?? null : null,
       dTLOverride: alloy ? d?.dTL ?? null : null,
       mixName: d?.name,
       coefficientSource: !alloy ? undefined
         : !d
           ? (stale
-            ? `composition dials have moved since ${pouredMix!.derived.name} was poured · using ${MATERIALS[material].label}'s own SI coefficients: |m| ${Math.abs(si.mL)} K/wt%, k ${si.kPart}, c∞ ${(sim.params.c0 * WT_PER_C0).toFixed(2)} wt%`
+            ? `composition dials have moved since ${pouredMix!.derived.name} was poured · using ${MATERIALS[material].label}'s own SI coefficients: |m| ${Math.abs(si.mL)} K/wt%, k ${si.kPart}, c∞ ${(p.c0 * WT_PER_C0).toFixed(2)} wt%`
             : undefined)
           // terse: the composer prints the mix's full dT0Source beside it
           : pouredMixSource(d, si),
     });
+    if (three) {
+      const k = alloy ? (d?.dT0 != null ? d.params.kPart! : si.kPart) : 1;
+      q.dt = Math.min(q.dt, 0.02 * k * Math.pow(1 - 3 * si.eps4, 2) * Math.min(1, Math.pow(q.dx / 0.8, 2)));
+    }
+    return q;
   };
+  const calibrateNow = (lambda: number) => calibrationFor(lambda);
 
   /**
    * The dials calibrated mode takes over, stashed so leaving it restores the
@@ -352,6 +368,7 @@ async function boot() {
    * convergence knob. Returns the calibration so a caller can print it.
    */
   const setSolver = (kind: number, lambda?: number): QuantSetup | null => {
+    if (mode === "3d") reset2OnReturn = true;
     const P = sim.params as unknown as Record<string, number>;
     if (kind === SOLVER.QUANT) {
       // entering the mode picks the λ the material can afford; changing λ later
@@ -366,14 +383,14 @@ async function boot() {
           // calibrated eps/tau/diffusivity cannot be used by that kernel.
           const fallback = { ...DEFAULTS, ...(MATERIALS[material] ?? MATERIALS.generic).params };
           for (const k of KOB_OWNED) P[k] = fallback[k];
-          app.setUmPerCell(DEFAULT_UM_PER_CELL);
+          setPitch("2d", DEFAULT_UM_PER_CELL);
         }
         setSolver(SOLVER.KOB);
         return null;
       }
       const si = MATERIALS[material].si!;
       if (!kobSnapshot) {
-        kobSnapshot = { umPerCell };
+        kobSnapshot = { umPerCell: sim.umPerCell };
         for (const k of KOB_OWNED) kobSnapshot[k] = P[k];
       }
       Object.assign(sim.params, {
@@ -389,7 +406,7 @@ async function boot() {
         // quantitative in exactly the way it claims to be
         atCoef: A_T,
       });
-      app.setUmPerCell(q.umPerCell);
+      setPitch("2d", q.umPerCell);
       quantStamp = calibrationStamp();
       return q;
     }
@@ -398,10 +415,134 @@ async function boot() {
     if (kobSnapshot) {
       const { umPerCell: um, ...dials } = kobSnapshot;
       Object.assign(sim.params, dials);
-      app.setUmPerCell(um);
+      setPitch("2d", um);
       kobSnapshot = null;
     }
     return null;
+  };
+
+  const KOB3_OWNED = ["dx", "dt", "epsBar", "tau", "latent", "delta", "dTherm", "dSol",
+    "lambda", "atCoef", "frozenT", "kPart", "noiseAmp", "twinProb", "pPore"] as const;
+  let kobSnapshot3: Record<string, number> | null = null;
+  let quantStamp3 = "";
+  let quantRequest3 = 0;
+  let quantPending3 = false;
+  let queuedLambda3: number | undefined;
+  let quantError3: string | null = null;
+  let quantErrorStamp3 = "";
+  const calibrationStamp3 = () => sim3d ? [material, sim3d.n, sim3d.params.alloyOn, sim3d.params.c0,
+    sim3d.params.mLiq, sim3d.params.kPart, sim3d.params.lambda, sim3d.params.aniMode3, sim3d.params.facet,
+    pouredLive(sim3d.params).d?.dT0, pouredLive(sim3d.params).d?.dTL].join("|") : "";
+  const calibrationIssue3 = (): string | null => {
+    if (!sim3d) return "Create a volume before calibrating it.";
+    if (heat?.busy || lab.running) return "Finish the active treatment or pour before changing calibration.";
+    if (quantPending3) return "Preparing calibrated volume…";
+    if (quantError3 && quantErrorStamp3 === calibrationStamp3()) return quantError3;
+    const m = MATERIALS[material] ?? MATERIALS.generic;
+    if (!m.si) return "Calibration needs measured Γ and D for this material.";
+    if (to3D(m).aniMode3 !== 1 || ![0, 1].includes(sim3d.params.aniMode3))
+      return "3D calibration supports measured smooth cubic anisotropy; this symmetry uses Kobayashi.";
+    if (sim3d.params.facet > 0.5) return "Cusped faceting is qualitative; turn faceting off before calibrating.";
+    if (sim3d.params.alloyOn === 1) {
+      if (!(Number.isFinite(sim3d.params.c0) && sim3d.params.c0 > 0)) return "Alloy calibration needs a positive finite composition.";
+      const d = pouredLive(sim3d.params).d;
+      if (d && d.dT0 == null) return "This mix has no assessed freezing range for 3D calibration; its growth remains qualitative.";
+      const k = d?.dT0 != null ? d.params.kPart! : m.si.kPart;
+      if (!(Number.isFinite(k) && k >= 0.001 && k <= 0.999))
+        return "The calibrated dilute-alloy model needs a partition coefficient from 0.001 to 0.999.";
+    }
+    return materialCalibrationIssue(material, sim3d.params.alloyOn === 1,
+      sim3d.params.c0 * WT_PER_C0, pouredLive(sim3d.params).d != null);
+  };
+  const restoreSolver3 = () => {
+    quantRequest3++;
+    quantPending3 = false;
+    queuedLambda3 = undefined;
+    quantStamp3 = "";
+    if (!sim3d) return;
+    const p = sim3d.params as unknown as Record<string, number>;
+    if (kobSnapshot3) {
+      const { umPerCell: pitch, ...dials } = kobSnapshot3;
+      Object.assign(p, dials);
+      setPitch("3d", pitch);
+      kobSnapshot3 = null;
+    } else if (p.solver === SOLVER.QUANT) {
+      for (const k of KOB3_OWNED) p[k] = DEFAULTS3D[k];
+      const m = MATERIALS[material] ?? MATERIALS.generic;
+      const mp = m.params as Record<string, number>;
+      for (const k of KOB3_OWNED) if (k in mp) p[k] = mp[k];
+      p.delta = to3D(m).delta;
+      setPitch("3d", DEFAULT_UM_PER_CELL);
+    }
+    p.solver = SOLVER.KOB;
+  };
+  const setSolver3 = async (kind: number, lambda?: number): Promise<QuantSetup | null> => {
+    if (mode3dPending && kind === SOLVER.QUANT) return null;
+    if (kind === SOLVER.QUANT && quantPending3) {
+      if (lambda != null) queuedLambda3 = lambda;
+      return null;
+    }
+    quantError3 = null;
+    if (kind !== SOLVER.QUANT) { restoreSolver3(); return null; }
+    if (!sim3d) return null;
+    const reason = calibrationIssue3();
+    if (reason) {
+      restoreSolver3(); quantError3 = reason; quantErrorStamp3 = calibrationStamp3();
+      return null;
+    }
+    const s3 = sim3d;
+    const coupling = lambda ?? (kobSnapshot3 ? s3.params.lambda : defaultLambda(s3.alloyActive));
+    if (!(Number.isFinite(coupling) && coupling >= 0.05 && coupling <= 40)) {
+      restoreSolver3(); quantError3 = "3D coupling must be finite and between 0.05 and 40.";
+      quantErrorStamp3 = calibrationStamp3();
+      return null;
+    }
+    const q = calibrationFor(coupling, true);
+    if (!q) return null;
+    const request = ++quantRequest3;
+    const stamp = calibrationStamp3();
+    const wasRunning = running3d;
+    running3d = false;
+    quantPending3 = true;
+    ui.sync();
+    await device.queue.onSubmittedWorkDone();
+    const ready = await s3.enableQuant();
+    if (request !== quantRequest3 || s3 !== sim3d || mode !== "3d") return null;
+    quantPending3 = false;
+    if (!ready || stamp !== calibrationStamp3()) {
+      restoreSolver3();
+      quantError3 = !ready ? (s3.quantitativeIssue ?? "Not enough GPU memory for calibration; choose a smaller volume.")
+        : "The volume changed while calibration was preparing; try again.";
+      quantErrorStamp3 = calibrationStamp3();
+      running3d = wasRunning;
+      ui.sync();
+      return null;
+    }
+    if (queuedLambda3 != null) {
+      const nextLambda = queuedLambda3;
+      queuedLambda3 = undefined;
+      return setSolver3(SOLVER.QUANT, nextLambda);
+    }
+    if (!kobSnapshot3) {
+      kobSnapshot3 = { umPerCell: s3.umPerCell };
+      const p = s3.params as unknown as Record<string, number>;
+      for (const k of KOB3_OWNED) kobSnapshot3[k] = p[k];
+    }
+    const si = MATERIALS[material].si!;
+    const d = pouredLive(s3.params).d;
+    Object.assign(s3.params, {
+      solver: SOLVER.QUANT, lambda: q.lambda, dx: q.dx, dt: q.dt, epsBar: 1, tau: 1,
+      latent: q.latent, delta: si.eps4, dTherm: q.dTilde, dSol: q.dTilde, atCoef: A_T,
+      kPart: s3.alloyActive ? (d?.dT0 != null ? d.params.kPart! : si.kPart) : s3.params.kPart,
+      frozenT: s3.alloyActive ? 1 : 0, noiseAmp: 0, twinProb: 0, pPore: 0,
+    });
+    setPitch("3d", q.umPerCell);
+    quantStamp3 = calibrationStamp3();
+    // Entry changes the equation's length and time units, so a new initial
+    // field is required. A refused allocation leaves the old casting intact.
+    app.resetArmed();
+    ui.sync();
+    return q;
   };
 
   /** carry the current material + shared dials onto the 3D solver */
@@ -437,11 +578,12 @@ async function boot() {
   const apply3DMaterial = () => {
     if (!sim3d) return;
     const m3 = to3D(MATERIALS[material] ?? MATERIALS.generic);
-    Object.assign(sim3d.params, {
+    const baseline2 = kobSnapshot ?? (sim.params as unknown as Record<string, number>);
+    const material3 = {
       aniMode3: m3.aniMode3,
       delta: m3.delta,
       deltaZ: m3.deltaZ,
-      latent: sim.params.latent,
+      latent: baseline2.latent,
       noiseAmp: sim.params.noiseAmp,
       meltGlow: sim.params.meltGlow,
       coolRate: sim.params.coolRate,
@@ -453,8 +595,13 @@ async function boot() {
       c0: sim.params.c0,
       mLiq: sim.params.mLiq,
       kPart: sim.params.kPart,
-      dSol: sim.params.dSol,
-    });
+      dSol: baseline2.dSol,
+    };
+    if (kobSnapshot3) for (const k of KOB3_OWNED) {
+      if (k in material3) kobSnapshot3[k] = (material3 as Record<string, number>)[k];
+    }
+    Object.assign(sim3d.params, material3);
+    if (sim3d.params.solver === SOLVER.QUANT) quantStamp3 = "material changed";
   };
 
   /** lazy-create the 3D stack once, then start a fresh melt with a centre seed */
@@ -466,6 +613,7 @@ async function boot() {
         sim3d = await Sim3D.create(device, grid3);
         if (!sim3d) { caps3d.supported = false; ui.sync(); return; }
         grid3 = sim3d.n;
+        sim3d.umPerCell = kobSnapshot?.umPerCell ?? sim.umPerCell;
         renderer3d = new Renderer3D(device, canvas, sim3d);
         viewcube = new ViewCube(
           document.getElementById("viewcube") as HTMLCanvasElement,
@@ -482,6 +630,7 @@ async function boot() {
       running3d = !armed;
       renderer3d!.resetView();
       mode = "3d";
+      umPerCell = sim3d.umPerCell;
       document.body.classList.add("mode3d");
       hud.reset();
       hud.setMode3(true);
@@ -493,7 +642,11 @@ async function boot() {
   };
 
   const exit3D = () => {
+    quantRequest3++;
+    quantPending3 = false;
+    queuedLambda3 = undefined;
     mode = "2d";
+    umPerCell = sim.umPerCell;
     probeMark3.style.display = "none";   // the frame loop's 3D branch stops updating it
     ruler3(null);
     rulerText3.style.display = "none";
@@ -501,20 +654,27 @@ async function boot() {
     hud.reset();
     hud.setMode3(false);
     setHintMode(false);
+    if (reset2OnReturn) { reset2OnReturn = false; app.resetArmed(); }
     ui.sync();
   };
 
   /** rebuild the 3D solver at a new grid edge (destroy first — ~403 MB at 192³) */
   const swapSim3D = async (n: number) => {
     if (!sim3d || mode3dPending) return;
+    quantRequest3++;
+    quantPending3 = false;
+    queuedLambda3 = undefined;
+    quantError3 = null;
     mode3dPending = true;
     try {
       const params = { ...sim3d.params };
+      const pitch = sim3d.umPerCell;
       sim3d.destroy();
       sim3d = null;
       const created = await Sim3D.create(device, n);
       if (!created) { caps3d.supported = false; exit3D(); return; }
       created.params = params;
+      created.umPerCell = pitch;
       // a grid swap rebuilds textures — the solute pair must re-allocate too
       if (params.alloyOn === 1) {
         created.params.alloyOn = 0;
@@ -523,6 +683,13 @@ async function boot() {
       created.reset(1 - undercool);
       created.addSeed3D(created.n / 2, created.n / 2, created.n / 2, brush + 1);
       sim3d = created;
+      if (params.solver === SOLVER.QUANT && !(await created.enableQuant())) {
+        const reason = created.quantitativeIssue ?? "Calibration allocation failed at this volume size.";
+        restoreSolver3();
+        quantError3 = reason; quantErrorStamp3 = calibrationStamp3();
+        created.reset(1 - undercool);
+      }
+      umPerCell = created.umPerCell;
       grid3 = created.n;
       renderer3d!.rebind3(created);
       lastStats3 = null;
@@ -608,6 +775,10 @@ async function boot() {
     // chapter passing 2D-only fields (scen, alloyOn…) must not pollute them
     setParams(p) {
       if (mode === "3d" && sim3d) {
+        // Presets describe qualitative morphologies and own these dials.
+        // Leaving calibration makes the requested preset take effect.
+        if (sim3d.params.solver === SOLVER.QUANT || quantPending3) restoreSolver3();
+        quantError3 = null;
         const P = sim3d.params as unknown as Record<string, number>;
         for (const [k, v] of Object.entries(p)) if (k in P) P[k] = v as number;
         return;
@@ -686,37 +857,45 @@ async function boot() {
     // a new seed re-draws every stream, so the next pour is a genuinely new cast
     // rather than the same one with the dials nudged
     reseed: () => { reseed(); },
-    // ---- calibrated mode (Phase Q). 2D only for now: the volume still runs
-    // the Kobayashi solver, and offering a switch that silently did nothing
-    // there would be exactly the dead-knob class U0 spent a milestone removing.
-    canCalibrate: () => mode === "2d" && !!(MATERIALS[material] ?? {}).si
+    // ---- calibrated mode: each dimension owns its parameters and resources.
+    canCalibrate: () => mode === "3d" ? !calibrationIssue3() : !!(MATERIALS[material] ?? {}).si
       && !materialCalibrationIssue(material, sim.params.alloyOn === 1, sim.params.c0 * WT_PER_C0, pouredLive().d != null),
     calibrationIssue: () => mode === "2d"
       ? materialCalibrationIssue(material, sim.params.alloyOn === 1, sim.params.c0 * WT_PER_C0, pouredLive().d != null)
-      : null,
-    isCalibrated: () => sim.params.solver === SOLVER.QUANT,
+      : calibrationIssue3(),
+    isCalibrated: () => activeParams().solver === SOLVER.QUANT,
+    calibrationBusy: () => mode === "3d" && (!!heat?.busy || lab.running),
     setCalibrated(on) {
       if (on && !app.canCalibrate()) return;
+      if (mode === "3d") {
+        if (heat?.busy || lab.running) return;
+        if (on) return setSolver3(SOLVER.QUANT);
+        restoreSolver3(); quantError3 = null;
+        app.resetArmed(); ui.sync();
+        return;
+      }
       setSolver(on ? SOLVER.QUANT : SOLVER.KOB);
       // dx, dt and the cell pitch all just changed, so the field in the
       // textures is no longer a solution of the equations being solved
       app.resetArmed();
       ui.sync();
     },
-    getLambda: () => sim.params.lambda,
+    getLambda: () => activeParams().lambda,
     setLambda(v) {
+      if (mode === "3d" && sim3d) {
+        if (heat?.busy || lab.running) return;
+        if (sim3d.params.solver === SOLVER.QUANT) void setSolver3(SOLVER.QUANT, v);
+        else sim3d.params.lambda = v;
+        return;
+      }
       if (sim.params.solver !== SOLVER.QUANT) { sim.params.lambda = v; return; }
       setSolver(SOLVER.QUANT, v);
       app.resetArmed();
     },
-    calibration: () => (sim.params.solver === SOLVER.QUANT ? calibrateNow(sim.params.lambda) : null),
+    calibration: () => activeParams().solver === SOLVER.QUANT ? calibrationFor(activeParams().lambda, mode === "3d") : null,
     getUmPerCell: () => umPerCell,
     setUmPerCell(v) {
-      umPerCell = Math.max(0.01, v);
-      // both solvers measure in the same physical units — that they did not
-      // was the 2D-vs-3D discrepancy this release removed
-      sim.umPerCell = umPerCell;
-      if (sim3d) sim3d.umPerCell = umPerCell;
+      setPitch(mode, Math.max(0.01, v));
     },
     getUndercool: () => undercool,
     setUndercool(v) { undercool = v; },
@@ -747,6 +926,8 @@ async function boot() {
         return false;
       }
       material = k;
+      quantError3 = null;
+      if (mode === "3d") reset2OnReturn = true;
       alloyName = m.label;
       // picking a material is not pouring an alloy: the composed chemistry and
       // its caveats end here, and the calibration goes back to this material's
@@ -946,7 +1127,7 @@ async function boot() {
     setAlloyOn(b) {
       if (mode === "3d" && sim3d) {
         if (b) {
-          void sim3d.enableAlloy().then(ok => {
+          return sim3d.enableAlloy().then(ok => {
             if (ok && sim3d && renderer3d) renderer3d.rebindBGs(sim3d);
             ui.sync();
           });
@@ -1164,6 +1345,11 @@ async function boot() {
         // route the pseudo-binary onto the 3D solver + allocate the solute pair
         const P = sim3d.params as unknown as Record<string, number>;
         for (const [k, v] of Object.entries(params)) if (k in P) P[k] = v as number;
+        if (kobSnapshot3) for (const k of KOB3_OWNED) {
+          const v = (params as Record<string, number>)[k];
+          if (typeof v === "number") kobSnapshot3[k] = v;
+        }
+        if (sim3d.params.solver === SOLVER.QUANT) quantStamp3 = "alloy changed";
         sim3d.params.coolRate = Math.min(sim3d.params.coolRate, 0.2);
         app.setAlloyOn(true);
         app.resetArmed();
@@ -1482,8 +1668,8 @@ async function boot() {
     exportRun: () => exportRun(false),
     tick(k: number) { for (let i = 0; i < k; i++) frameBody(last + 1000 / 60); },
     units: () => unitsNow(),
-    calibrate: (lambda: number) => calibrateNow(lambda),
-    setSolver: (kind: number, lambda?: number) => setSolver(kind, lambda),
+    calibrate: (lambda: number) => calibrationFor(lambda, mode === "3d"),
+    setSolver: (kind: number, lambda?: number) => mode === "3d" ? setSolver3(kind, lambda) : setSolver(kind, lambda),
     seed: () => getSeed(),
     setSeed: (s: number) => { setSeed(s); ui.sync(); },
     // the controlled-experiment layer (v7.0 C1). The cast wrappers hold the
@@ -1848,8 +2034,15 @@ async function boot() {
     // rather than running old calibrated dials under a new chemistry label.
     if (!benchHold && sim.params.solver === SOLVER.QUANT && quantStamp && quantStamp !== calibrationStamp()) {
       setSolver(SOLVER.QUANT, sim.params.lambda);
-      app.resetArmed();
+      if (mode === "2d") app.resetArmed();
       ui.sync();
+    }
+    if (mode === "3d" && sim3d && !quantPending3 && !mode3dPending
+        && sim3d.params.solver === SOLVER.QUANT && quantStamp3 && quantStamp3 !== calibrationStamp3()) {
+      void setSolver3(SOLVER.QUANT, sim3d.params.lambda).then(q => {
+        if (!q && mode === "3d" && sim3d && !quantPending3) app.resetArmed();
+        ui.sync();
+      });
     }
     const dt = Math.min(0.1, Math.max(0, (t - last) / 1000));
     last = Math.max(last, t);
@@ -1864,7 +2057,7 @@ async function boot() {
     // ------------------------------------------------------- TRUE-3D branch
     if (mode === "3d") {
       if (sim3d && renderer3d) {
-        if (running3d) {
+        if (running3d && !quantPending3 && !mode3dPending) {
           if (lab.running) lab.tick(substeps3d * speedMult * sim3d.params.dt);
           nuc3.update(sim3d.simTime, coolProxy3(), (x, y, z, d) =>
             sim3d!.addSeed3D(x, y, z, 3.0, undefined, d));
@@ -1881,7 +2074,7 @@ async function boot() {
             }
           }
           sim3d.step(substeps3d * speedMult);
-        } else if (!heat?.busy) {
+        } else if (!heat?.busy && !quantPending3 && !mode3dPending) {
           // stamp queued taps so staging is visible while armed — but never
           // during a treatment: a stamp writes φ, and solid state means it can't
           sim3d.step(0);
@@ -1941,6 +2134,16 @@ async function boot() {
           });
         }
         if (forPanels3) {
+          if (sim3d.params.solver === SOLVER.QUANT && quantStamp3 && !quantPending3) {
+            const observed = sim3d;
+            void observed.readQuantitativeStatus().then(status => {
+              if (!status?.issue || observed !== sim3d || mode !== "3d" || observed.params.solver !== SOLVER.QUANT) return;
+              restoreSolver3();
+              quantError3 = `Calibration stopped: ${status.issue}`;
+              quantErrorStamp3 = calibrationStamp3();
+              app.resetArmed(); ui.sync();
+            });
+          }
           // GPU-born twins live only in the GPU quat buffer — mirror them back
           // for the IPF/pole panels while the twin rate is nonzero
           if (sim3d.params.twinProb > 0) void sim3d.refreshQuats();
@@ -2110,6 +2313,14 @@ async function boot() {
           // taken from the mix's derivation, which is what those params were,
           // and the staleness check then confirms the two agree.
           const dp = d.params;
+          // packShare rounds numeric dials to five decimals. Restore an
+          // unedited composed charge from its canonical mix, rather than
+          // calling that serialization rounding a changed chemistry.
+          const chemKeys = ["alloyOn", "c0", "mLiq", "kPart"] as const;
+          if (chemKeys.every(k => typeof dp[k] === "number"
+              && (shared.p[k] === dp[k] || shared.p[k] === +dp[k]!.toFixed(5)))) {
+            for (const k of chemKeys) shared.p[k] = dp[k]!;
+          }
           pouredMix = {
             materialKey: shared.m, mix, derived: d,
             stamp: { alloyOn: dp.alloyOn!, c0: dp.c0!, mLiq: dp.mLiq!, kPart: dp.kPart! },
@@ -2167,8 +2378,8 @@ async function boot() {
       // that cannot restore a solver flag onto a Kobayashi timestep.
       if (sim.params.solver === SOLVER.QUANT) setSolver(SOLVER.QUANT, sim.params.lambda);
     }
-    if (typeof shared.um === "number" && Number.isFinite(shared.um) && shared.um >= 0.01 && shared.um <= 10000
-      && (shared.d === 1 || shared.p.solver !== SOLVER.QUANT)) app.setUmPerCell(shared.um);
+    if (shared.d !== 1 && typeof shared.um === "number" && Number.isFinite(shared.um) && shared.um >= 0.01 && shared.um <= 10000
+      && shared.p.solver !== SOLVER.QUANT) app.setUmPerCell(shared.um);
     undercool = shared.u;
     view = Math.max(0, Math.min(9, Math.round(shared.v))) as ViewMode;
     applyNucShare(nuc, shared);
@@ -2227,20 +2438,41 @@ async function boot() {
         app.setSliceTilt(shared.sl[2]); app.setSliceTurn(shared.sl[3]);
         app.setCutStyle(shared.sl[4]);
       }
-      void enter3D(true).then(() => {
+      void enter3D(true).then(async () => {
         // land the packed dials AFTER apply3DMaterial would overwrite them,
         // then allocate the solute pair if the link carried alloy
         if (sim3d) {
           const P = sim3d.params as unknown as Record<string, number>;
+          const quant = shared.p.solver === SOLVER.QUANT;
+          if (quant && !kobSnapshot3) {
+            kobSnapshot3 = { umPerCell: sim3d.umPerCell };
+            for (const k of KOB3_OWNED) kobSnapshot3[k] = P[k];
+          }
           for (const [k, v] of Object.entries(shared.p))
-            if (k in P && typeof v === "number") P[k] = v;
+            if (k !== "solver" && k in P && Number.isFinite(v)) P[k] = v;
+          P.solver = SOLVER.KOB;
+          if (clampedChem) Object.assign(P, clampedChem);
           if (sim3d.params.alloyOn === 1) {
             sim3d.params.alloyOn = 0;
-            void sim3d.enableAlloy().then(() => {
-              if (sim3d && renderer3d) renderer3d.rebindBGs(sim3d);
-              ui.sync();
-            });
+            const allocated = await sim3d.enableAlloy();
+            if (!allocated) {
+              restoreSolver3();
+              quantError3 = "The shared alloy field could not be allocated; choose a smaller volume.";
+              quantErrorStamp3 = calibrationStamp3();
+              ui.sync(); return;
+            }
+            if (renderer3d) renderer3d.rebindBGs(sim3d);
           }
+          if (quant && kobSnapshot3) {
+            const d = pouredLive(sim3d.params).d;
+            if (d) for (const k of ["kPart", "dSol"] as const) {
+              if (typeof d.params[k] === "number") kobSnapshot3[k] = d.params[k]!;
+            }
+          }
+          if (quant) await setSolver3(SOLVER.QUANT, shared.p.lambda);
+          else if (typeof shared.um === "number" && Number.isFinite(shared.um)
+              && shared.um >= 0.01 && shared.um <= 10000) setPitch("3d", shared.um);
+          app.resetArmed();
         }
         app.setView3d(view3d);
         openHeat();

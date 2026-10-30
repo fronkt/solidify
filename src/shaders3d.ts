@@ -16,6 +16,7 @@
 // 2D solver uses, which avoids the checkerboard mode of a naive div(F).
 
 import { HT_COMMON, PALETTE_WGSL, PIN_SALT } from "./shaders";
+import { QUANT_COMMON3, QUANT_PHASE3, QUANT_FACES3, QUANT_SOLUTE3 } from "./shaders3d-quant";
 
 export const MAX_GRAINS3 = 4096;
 export const MAX_SEEDS3 = 128;   // as in 2D: a big inoculant burst must land while liquid remains
@@ -35,7 +36,7 @@ export const LENS3_NAMES = ["MELT", "ORIENT", "SLICE", "FIELD", "SEM", "RINGS", 
 export const ICOSA_DELTA_MAX = 0.035;
 
 // Params3D slot map — single source of truth shared with sim3d.writeParams
-// (u = u32 view, f = f32 view over one 192-byte buffer)
+// (u = u32 view, f = f32 view over one 224-byte buffer)
 export const P3 = {
   n: 0, frame: 1, dx: 2, dt: 3,
   epsBar: 4, delta: 5, aniMode3: 6, tau: 7,
@@ -55,7 +56,8 @@ export const P3 = {
   holdT: 43, holdRate: 44, moldT: 45,   // scen 4: set-point (lab) cooling
   nyCrit: 46,     // dimensionless Niyama threshold (was the free _s46 slot)
   envRate: 47,    // the imposed environment's own dT/dt (was the free _s47 slot)
-  BYTES: 192,
+  solver: 48, lambda: 49, dTherm: 50, atCoef: 51, frozenT: 52,
+  BYTES: 224,
 } as const;
 
 const COMMON3 = /* wgsl */ `
@@ -107,6 +109,8 @@ struct Params3D {
   envRate: f32,    // continuous rate of the imposed cooling: −gradG·pullV for
                    // the pulled profile, the lab programme's set-point slope,
                    // 0 in the free/weld scenarios — the Niyama record's Ṫ
+  solver: u32, lambda: f32, dTherm: f32, atCoef: f32, frozenT: u32,
+  _q53: f32, _q54: f32, _q55: f32,
 }
 const PORE = ${PORE_ID}u;
 const PI = 3.14159265359;
@@ -236,26 +240,10 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 // (4 storage textures — needs device limit ≥ 4); the base variant keeps 3 so
 // the ≥3 caps gate still serves weak devices. Never dummy-bind storage:
 // layout:"auto" drops statically-unused bindings (the v1.9 black-canvas bug).
-export const update3dWgsl = (alloy: boolean) => /* wgsl */ `
-${COMMON3}
-@group(0) @binding(0) var<uniform> P: Params3D;
-@group(0) @binding(1) var state: texture_3d<f32>;
-@group(0) @binding(2) var grain: texture_3d<u32>;
-@group(0) @binding(3) var flux: texture_3d<f32>;
-@group(0) @binding(4) var stateOut: texture_storage_3d<rg32float, write>;
-@group(0) @binding(5) var grainOut: texture_storage_3d<r32uint, write>;
-@group(0) @binding(6) var ageOut: texture_storage_3d<rg32float, write>;
-@group(0) @binding(7) var fed: texture_3d<u32>;
-${alloy ? /* wgsl */ `@group(0) @binding(8) var solute: texture_3d<f32>;
-@group(0) @binding(9) var soluteOut: texture_storage_3d<r32float, write>;` : ""}
-@group(0) @binding(10) var<storage, read_write> quats: array<vec4f>;
-@group(0) @binding(11) var<storage, read_write> twinCtr: atomic<u32>;
-@group(0) @binding(12) var mask: texture_3d<u32>;
-
-@compute @workgroup_size(4, 4, 4)
-fn main(@builtin(global_invocation_id) gid: vec3u) {
-  if (gid.x >= P.n || gid.y >= P.n || gid.z >= P.n) { return; }
-  let c = vec3i(gid);
+// One source for the legacy equations: the optional split path stores only
+// the new phase and its increment between dispatches. Kobayashi remains fused
+// by default, so opting into quantitative resources never changes its model.
+const LOADS3 = (alloy: boolean) => /* wgsl */ `  let c = vec3i(gid);
   let inv2dx = 1.0 / (2.0 * P.dx);
   let invdx2 = 1.0 / (P.dx * P.dx);
   let s = textureLoad(state, c, 0);
@@ -276,7 +264,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let lapT   = (sE.g + sW.g + sN.g + sS.g + sU.g + sD.g - 6.0 * T) * invdx2;
   let gph = vec3f(sE.r - sW.r, sN.r - sS.r, sU.r - sD.r) * inv2dx;
 
-  // mould wall: dead geometry — φ pinned 0, held at the mould temperature,
+`;
+const EARLY3 = (alloy: boolean) => /* wgsl */ `  // mould wall: dead geometry — φ pinned 0, held at the mould temperature,
   // never claimed (walls keep id 0, so the claim loop needs no extra guard);
   // taps stamped into a wall self-heal next step. Used by the grain-selector
   // pigtail (scen 3) and the lab's mould shell (scen 4).
@@ -298,7 +287,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     return;
   }
 
-  // anisotropic terms from the flux texture
+`;
+const ANISO3_CORE = /* wgsl */ `  // anisotropic terms from the flux texture
   let fC = textureLoad(flux, c, 0);
   let fE = textureLoad(flux, cid3(P, c + vec3i(1, 0, 0)), 0);
   let fW = textureLoad(flux, cid3(P, c - vec3i(1, 0, 0)), 0);
@@ -310,7 +300,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let gradW = vec3f(fE.w - fW.w, fN.w - fS.w, fU.w - fD.w) * inv2dx;
   let aniso = fC.w * lapPhi + dot(gradW, gph) + divA;
 
-  ${alloy
+`;
+const KOB_PHASE3 = (alloy: boolean) => /* wgsl */ `  ${alloy
     ? /* wgsl */ `// constitutional undercooling: solute depresses the local liquidus
   let tEq = 1.0 - P.mLiq * conc;
   let m = (P.alpha / PI) * atan(P.gamma * (tEq - T));`
@@ -319,7 +310,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let react = phi * (1.0 - phi) * (phi - 0.5 + m) + P.noiseAmp * phi * (1.0 - phi) * chi;
   let phiNew = clamp(phi + (P.dt / P.tau) * (aniso + react), 0.0, 1.0);
   let dPhi = phiNew - phi;
-  ${alloy ? /* wgsl */ `
+`;
+const KOB_SOLUTE3 = /* wgsl */ `
   // Warren–Boettinger dilute solute (2D port): variable-D 6-face diffusion +
   // partition rejection (1-k)·c·dφ at the moving interface; no anti-trapping
   let cE = textureLoad(solute, cid3(P, c + vec3i(1, 0, 0)), 0).r;
@@ -337,9 +329,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
             + 0.5 * (dHere + mix(P.dSol, dSolid, sU.r)) * (cU - conc)
             + 0.5 * (dHere + mix(P.dSol, dSolid, sD.r)) * (cD - conc)) * invdx2;
   let cNew = clamp(conc + P.dt * divC + (1.0 - P.kPart) * conc * dPhi, 0.0, 2.0);
-  textureStore(soluteOut, c, vec4f(cNew, 0.0, 0.0, 0.0));` : ""}
-
-  var TNew = T + P.dt * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn;
+  textureStore(soluteOut, c, vec4f(cNew, 0.0, 0.0, 0.0));`;
+const TRANSPORT3 = (alloy: boolean) => /* wgsl */ `  var TNew = T + P.dt * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn;
   if (P.scen == 1u || P.scen == 3u) {
     // bridgman / selector: relax T toward the pulled linear profile (2D port,
     // minus its no-op /dx*dx algebra); cold below the isotherm, columns race up
@@ -470,7 +461,123 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   }
 
   textureStore(stateOut, c, vec4f(phiNew, TNew, 0.0, 0.0));
-  textureStore(grainOut, c, vec4u(id, 0u, 0u, 0u));
+  textureStore(grainOut, c, vec4u(id, 0u, 0u, 0u));`;
+
+export const update3dWgsl = (alloy: boolean) => /* wgsl */ `
+${COMMON3}
+@group(0) @binding(0) var<uniform> P: Params3D;
+@group(0) @binding(1) var state: texture_3d<f32>;
+@group(0) @binding(2) var grain: texture_3d<u32>;
+@group(0) @binding(3) var flux: texture_3d<f32>;
+@group(0) @binding(4) var stateOut: texture_storage_3d<rg32float, write>;
+@group(0) @binding(5) var grainOut: texture_storage_3d<r32uint, write>;
+@group(0) @binding(6) var ageOut: texture_storage_3d<rg32float, write>;
+@group(0) @binding(7) var fed: texture_3d<u32>;
+${alloy ? /* wgsl */ `@group(0) @binding(8) var solute: texture_3d<f32>;
+@group(0) @binding(9) var soluteOut: texture_storage_3d<r32float, write>;` : ""}
+@group(0) @binding(10) var<storage, read_write> quats: array<vec4f>;
+@group(0) @binding(11) var<storage, read_write> twinCtr: atomic<u32>;
+@group(0) @binding(12) var mask: texture_3d<u32>;
+
+@compute @workgroup_size(4, 4, 4)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= P.n || gid.y >= P.n || gid.z >= P.n) { return; }
+${LOADS3(alloy)}${EARLY3(alloy)}${ANISO3_CORE}${KOB_PHASE3(alloy)}
+${alloy ? KOB_SOLUTE3 : ""}${TRANSPORT3(alloy)}
+}
+`;
+
+/** Split phase pass; the original Kobayashi expression is the same fragment
+ * that the fused kernel evaluates. Only quantitative terms use the status. */
+export const phi3dWgsl = (alloy: boolean) => /* wgsl */ `
+${COMMON3}
+@group(0) @binding(0) var<uniform> P: Params3D;
+@group(0) @binding(1) var state: texture_3d<f32>;
+@group(0) @binding(2) var grain: texture_3d<u32>;
+@group(0) @binding(3) var flux: texture_3d<f32>;
+@group(0) @binding(4) var phaseOut: texture_storage_3d<rg32float, write>;
+@group(0) @binding(5) var mask: texture_3d<u32>;
+${alloy ? "@group(0) @binding(6) var solute: texture_3d<f32>;" : ""}
+@group(0) @binding(7) var<storage, read_write> qStatus: QuantStatus3;
+${QUANT_COMMON3}
+@compute @workgroup_size(4, 4, 4)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= P.n || gid.y >= P.n || gid.z >= P.n) { return; }
+${LOADS3(alloy)}
+  if (((P.scen == 3u || P.scen == 4u) && textureLoad(mask, c, 0).r == 1u)
+      || textureLoad(grain, c, 0).r == PORE) {
+    textureStore(phaseOut, c, vec4f(0.0, -phi, 0.0, 0.0)); return;
+  }
+${ANISO3_CORE}
+  var phiNew = phi;
+  var dPhi = 0.0;
+  if (P.solver == 1u) {
+${QUANT_PHASE3(alloy)}
+  } else {
+${KOB_PHASE3(alloy).replace("let phiNew =", "phiNew =").replace("let dPhi =", "dPhi =")}
+  }
+  textureStore(phaseOut, c, vec4f(phiNew, dPhi, 0.0, 0.0));
+}
+`;
+
+function splitEarly3(alloy: boolean): string {
+  return EARLY3(alloy)
+    .replace("textureStore(stateOut, c, vec4f(0.0, mix(T + P.dt * lapT, wallT, min(1.0, P.dt * 30.0)), 0.0, 0.0));", `
+    var wallHeat = T + P.dt * lapT;
+    if (P.solver == 1u) { wallHeat = T; if (P.frozenT == 0u) { wallHeat = T + P.dt * P.dTherm * lapT; } }
+    textureStore(stateOut, c, vec4f(0.0, mix(wallHeat, wallT, min(1.0, P.dt * 30.0)), 0.0, 0.0));`)
+    .replace("textureStore(stateOut, c, vec4f(0.0, clamp(T + P.dt * lapT - P.dt * P.coolRate, -1.0, 2.0), 0.0, 0.0));", `
+    var poreHeat = T + P.dt * lapT - P.dt * P.coolRate;
+    if (P.solver == 1u) { poreHeat = T - P.dt * P.coolRate; if (P.frozenT == 0u) { poreHeat += P.dt * P.dTherm * lapT; } }
+    textureStore(stateOut, c, vec4f(0.0, clamp(poreHeat, -1.0, 2.0), 0.0, 0.0));`);
+}
+
+function splitTransport3(alloy: boolean): string {
+  return TRANSPORT3(alloy)
+    .replace("var TNew = T + P.dt * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn;", `
+  var TNew = T + P.dt * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn;
+  if (P.solver == 1u) {
+    TNew = T - P.dt * P.coolRate + P.dt * P.heatIn;
+    if (P.frozenT == 0u) { TNew = T + P.dt * P.dTherm * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn; }
+  }`)
+    .replace("TNew = clamp(TNew, -1.0, 2.0);", `
+  if (P.solver == 1u && (!finite3(TNew) || TNew < -1.00001 || TNew > 2.00001)) { atomicOr(&qStatus.flags, 16u); }
+  TNew = clamp(TNew, -1.0, 2.0);`)
+    .replace("var bEnv = lapT - P.coolRate + P.heatIn;", `
+    var bEnv = lapT - P.coolRate + P.heatIn;
+    if (P.solver == 1u) { bEnv = -P.coolRate + P.heatIn; if (P.frozenT == 0u) { bEnv += P.dTherm * lapT; } }`)
+    // Quantitative transport has already written the conservative c_new.
+    // A newly formed pore preserves that value instead of undoing this cell's
+    // face exchange after its neighbours received the opposite exchange.
+    .replace("textureStore(soluteOut, c, vec4f(conc, 0.0, 0.0, 0.0));", "if (P.solver == 0u) { textureStore(soluteOut, c, vec4f(conc, 0.0, 0.0, 0.0)); }");
+}
+
+export const transport3dWgsl = (alloy: boolean) => /* wgsl */ `
+${COMMON3}
+@group(0) @binding(0) var<uniform> P: Params3D;
+@group(0) @binding(1) var state: texture_3d<f32>;
+@group(0) @binding(2) var grain: texture_3d<u32>;
+@group(0) @binding(3) var phiAux: texture_3d<f32>;
+@group(0) @binding(4) var stateOut: texture_storage_3d<rg32float, write>;
+@group(0) @binding(5) var grainOut: texture_storage_3d<r32uint, write>;
+@group(0) @binding(6) var ageOut: texture_storage_3d<rg32float, write>;
+@group(0) @binding(7) var fed: texture_3d<u32>;
+${alloy ? "@group(0) @binding(8) var solute: texture_3d<f32>;\n@group(0) @binding(9) var soluteOut: texture_storage_3d<r32float, write>;" : ""}
+@group(0) @binding(10) var<storage, read_write> quats: array<vec4f>;
+@group(0) @binding(11) var<storage, read_write> twinCtr: atomic<u32>;
+@group(0) @binding(12) var mask: texture_3d<u32>;
+@group(0) @binding(13) var<storage, read_write> qStatus: QuantStatus3;
+${QUANT_COMMON3}
+${alloy ? QUANT_FACES3 : ""}
+@compute @workgroup_size(4, 4, 4)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= P.n || gid.y >= P.n || gid.z >= P.n) { return; }
+${LOADS3(alloy)}${splitEarly3(alloy)}
+  let aux = textureLoad(phiAux, c, 0);
+  let phiNew = aux.r;
+  let dPhi = aux.g;
+${alloy ? `if (P.solver == 1u) { ${QUANT_SOLUTE3} } else { ${KOB_SOLUTE3} }` : ""}
+${splitTransport3(alloy)}
 }
 `;
 
@@ -536,6 +643,7 @@ ${COMMON3}
 @group(0) @binding(4) var stateOut: texture_storage_3d<rg32float, write>;
 @group(0) @binding(5) var grainOut: texture_storage_3d<r32uint, write>;
 @group(0) @binding(6) var ageOut: texture_storage_3d<rg32float, write>;
+@group(0) @binding(7) var mask: texture_3d<u32>;
 
 @compute @workgroup_size(4, 4, 4)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -546,20 +654,26 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   var id = textureLoad(grain, c, 0).r;
   var stamped = false;
   let Tq = clamp(s.g - P.quenchDT, -1.0, 2.0);
-  if (phi < 0.3 && id != PORE) {
+  let quantWall = P.solver == 1u && (P.scen == 3u || P.scen == 4u) && textureLoad(mask, c, 0).r == 1u;
+  if (phi < 0.3 && id != PORE && !quantWall) {
     let p = vec3f(gid) + 0.5;
     // activation undercooling against the liquidus. STAMP3D binds no solute
     // texture, so an alloy uses the nominal liquidus (1 - m*c0) rather than
     // the 2D pass's per-cell one — documented on the science page.
-    let dT = 1.0 - P.mLiq * P.c0 * f32(P.alloyOn) - Tq;
+    var dT = 1.0 - P.mLiq * P.c0 * f32(P.alloyOn) - Tq;
+    // In the calibrated solidus-reference units the nominal liquidus is 1.
+    if (P.solver == 1u) { dT = 1.0 - Tq; }
+    let wCell = P.epsBar / P.dx;
+    let margin = select(0.0, 6.0 * wCell, P.solver == 1u);
     for (var i = 0u; i < P.seedCount; i++) {
       let b = i * ${SEED3_STRIDE}u;
       let pos = vec3f(seeds[b], seeds[b + 1u], seeds[b + 2u]);
       let r = seeds[b + 3u];
       if (dT <= seeds[b + 5u]) { continue; }
       let d = distance(p, pos);
-      if (d < r) {
-        let v = 1.0 - smoothstep(r - 2.0, r, d);
+      if (d < r + margin) {
+        var v = 1.0 - smoothstep(r - 2.0, r, d);
+        if (P.solver == 1u) { v = 0.5 * (1.0 - tanh((d - r) / (sqrt(2.0) * wCell))); }
         if (v > phi) { phi = v; id = u32(seeds[b + 4u]); stamped = true; }
       }
     }

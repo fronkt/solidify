@@ -57,6 +57,8 @@ export const DX_PER_W0 = 0.8;
  * margin every other timestep in this app already carries.
  */
 export const DT_SAFETY = 0.15;
+/** Half of the 3D seven-point diffusion stability edge. */
+export const DT_SAFETY_3D = 1 / 12;
 
 /** what one dimensionless degree means, and why */
 export interface QuantSetup {
@@ -106,6 +108,8 @@ export interface QuantSetup {
 }
 
 export interface QuantInput {
+  /** The default preserves the existing 2D calibration exactly. */
+  dimensions?: 2 | 3;
   si: MaterialSI;
   /** solute field live? picks d₀'s reference interval and which D anchors time */
   alloy: boolean;
@@ -182,7 +186,7 @@ export function calibrate(inp: QuantInput): QuantSetup {
   const dTilde = A2 * lambda;
 
   const dx = dxPerW0;
-  const dt = (DT_SAFETY * dx * dx) / Math.max(1, dTilde);
+  const dt = ((inp.dimensions === 3 ? DT_SAFETY_3D : DT_SAFETY) * dx * dx) / Math.max(1, dTilde);
   const umPerCell = W0 * dx * 1e6;
   // (L/c_p)/latent is the kelvin scale units.ts derives from the heat equation,
   // so asking for a reference interval of dT0 IS asking for this latent

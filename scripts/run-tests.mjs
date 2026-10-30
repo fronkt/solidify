@@ -48,7 +48,9 @@ const SUITE = [
   ["scripts/verify-rail.mjs", String(PORT)],
   ["scripts/verify-completion-gpu.mjs", String(PORT)],
   ["scripts/verify-passsplit.mjs", String(PORT)],
+  ["scripts/verify-passsplit3d.mjs", String(PORT)],
   ["scripts/verify-quant.mjs", String(PORT)],
+  ["scripts/verify-quant3d.mjs", String(PORT)],
   ["scripts/verify-phasediagram-gpu.mjs", String(PORT)],
   // the first gate in this suite that CLICKS the composer: v7.1 P5's periodic
   // grid, driven through the DOM the way a visitor drives it

@@ -238,8 +238,8 @@ export const RAIL_CAVEATS = {
     learn: LOCKED,
   },
   cal3d: {
-    line: "calibrated solver: 2D only",
-    learn: "The calibrated solver runs in 2D only for now; the volume still uses the Kobayashi model.",
+    line: "3D calibration: smooth cubic energy",
+    learn: "Calibrated volumes support smooth cubic interface energy. Hexagonal, icosahedral and cusped shapes use the qualitative model.",
   },
   calNoSI: {
     line: "calibration needs SI data (Γ, D)",
