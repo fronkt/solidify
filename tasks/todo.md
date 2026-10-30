@@ -5370,3 +5370,11 @@ run. No production correction is adopted yet. Full reports, raw CPU solves and
 hash manifests are backed up in the unpublished calibration evidence draft;
 all208 archive members and the server digest are verified. Review and limits:
 docs/reviews/quant3d-independent-diagnostics-2026-10-30.md.
+
+GPU kinetic protocol is now frozen before its first execution. Root reproduced
+the CPU input/metrology checks, including neutral translation, signed speed and
+shape errors, missing perturbation/sample refusals and final-evidence controls.
+The three generated targets exactly reproduce the independently derived CPU
+profiles. The seven arms, fixed five-thermal-time durations, tolerances and
+negative-control interpretation are specified in
+scripts/research/quant3d-lattice-kinetic.md. No production equation is changed.
