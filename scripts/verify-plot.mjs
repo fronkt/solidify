@@ -299,8 +299,33 @@ const WINDOWS = [[1440, 900], [1024, 768], [390, 844]];
     parse: parseTick("2.5×10⁴") === 25000 && parseTick("−0.50") === -0.5 && parseTick("5×10⁻⁴") === 5e-4,
   };
   const fmtBad = Object.entries(fmt).filter(([, v]) => !v).map(([k]) => k);
+  // Count axes may have fewer ticks, never fractional grains/castings. The
+  // data domain remains unchanged, and continuous axes keep their decimals.
+  const integerGold = [
+    [[0, 1, 6], [0, 1]], [[0, 3, 6], [0, 1, 2, 3]], [[1, 0, 6], [1, 0]],
+    [[-1.2, 2.8, 6], [-1, 0, 1, 2]], [[0.2, 0.8, 6], []], [[2, 2, 6], [2]],
+  ];
+  if (typeof T.integerTicks !== "function") bad.push("integer ticks unavailable");
+  else for (const [[a, b, n], want] of integerGold) {
+    const got = T.integerTicks(a, b, n);
+    if (!eq(got, want) || !got.every(Number.isInteger)) bad.push({ countDomain: [a, b, n], got, want });
+  }
+  const singleHist = F.histFigure([1, 3, 9], bridge("generic"), PROV, false);
+  const histLayout = L.layoutFigure(singleHist.fig, 252, 220);
+  const histTicks = histLayout.panels[0].y.ticks.map(t => t.v);
+  if (Math.max(...singleHist.fig.panels[0].bars.counts) !== 1 || !eq(histTicks, [0, 1])) bad.push({ singleGrainBins: histTicks });
+  const grainFig = F.hudFigure("grains", [
+    { t: 0, fs: 0, dt: 0, grains: 0, pore: 0 }, { t: 1, fs: 0.1, dt: 0, grains: 1, pore: 0 },
+  ], bridge("generic"), PROV);
+  const grainLayout = L.layoutFigure(grainFig.fig, 252, 180);
+  if (grainLayout.panels[0].y.lo !== 0 || !grainLayout.panels[0].y.ticks.every(t => Number.isInteger(t.v))) bad.push({ grainTicks: grainLayout.panels[0].y });
+  const process = await server.ssrLoadModule("/src/plot/process.ts");
+  const casting = process.convergenceFigure([{ episode: 1, error: 0.25, best: 0.25, score: 0.3 }], bridge("generic"), PROV, 3);
+  const castingLayout = L.layoutFigure(casting.fig, 252, 180);
+  const castingTicks = castingLayout.x.ticks.map(t => t.v);
+  if (!eq(castingTicks, [0, 1]) || !castingLayout.panels[0].y.ticks.some(t => !Number.isInteger(t.v))) bad.push({ castingTicks, continuousErrorTicks: castingLayout.panels[0].y.ticks });
   check("PLOT-TICKS", bad.length === 0 && fmtBad.length === 0 && cases === 400,
-    { gold: gold.length, sweep: cases, bad: bad.slice(0, 4), nBad: bad.length, fmtBad });
+    { gold: gold.length, integerGold: integerGold.length, histTicks, castingTicks, sweep: cases, bad: bad.slice(0, 4), nBad: bad.length, fmtBad });
 }
 
 // ------------------------------------------------------------ PLOT-LAYOUT

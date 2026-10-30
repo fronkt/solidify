@@ -13,7 +13,7 @@
 // no gridlines, tick labels Inter 11 px, axis titles 12 px; stacked panels
 // share the x axis and label it once, at the bottom; a panel with a legend
 // or a tag gets a header band. Text may carry `_{...}` subscripts.
-import { ticks, tickStep, fmtTick, axisPower, pow10Text, decimalsFor } from "./ticks";
+import { ticks, integerTicks, tickStep, fmtTick, axisPower, pow10Text, decimalsFor } from "./ticks";
 
 /** type sizes, CSS px (DESIGN.md: 11 px for ticks, the 12 px floor for the rest) */
 export const FONT = { tick: 11, title: 12, label: 11, legend: 11, tag: 11, empty: 12, value: 11 } as const;
@@ -85,6 +85,9 @@ export interface AxisSpec {
   /** the readout's symbol and unit for the value at the cursor */
   sym?: string;
   unit?: string;
+  /** Whole-number ticks. Defaults to true for the semantic unit "count";
+   *  set explicitly where a count axis has no readout unit. */
+  integer?: boolean;
   /** extend `hi` to the next round tick (a count axis) */
   niceHi?: boolean;
 }
@@ -209,12 +212,13 @@ const lerp = (v: number, lo: number, hi: number, a: number, b: number): number =
   a + ((v - lo) / (hi - lo || 1)) * (b - a);
 
 /** ticks of an axis, their labels (with a factored power) and positions */
-function axisTicks(lo: number, hi: number, count: number, a: number, b: number) {
+function axisTicks(lo: number, hi: number, count: number, a: number, b: number, integer = false) {
   // at least two labelled ticks, or the axis has no scale a reader can take
   // off it (a short stacked panel asked for two got one: the rate panel of
   // a three-panel figure at 1024x768)
-  let vs = ticks(lo, hi, count);
-  for (let c = count + 1; vs.length < 2 && c <= count + 4; c++) vs = ticks(lo, hi, c);
+  const makeTicks = integer ? integerTicks : ticks;
+  let vs = makeTicks(lo, hi, count);
+  for (let c = count + 1; vs.length < 2 && c <= count + 4; c++) vs = makeTicks(lo, hi, c);
   const step = vs.length > 1 ? vs[1] - vs[0] : Math.abs(tickStep(lo, hi, count)) || 1;
   const power = axisPower(vs);
   const f = Math.pow(10, power);
@@ -322,12 +326,13 @@ export function layoutFigure(fig: FigSpec, w: number, h: number, measure: Measur
     const y0 = top, y1 = top + heights[i];
     top = y1 + GAP;
     let hi = p.y.hi;
+    const integer = p.y.integer ?? p.y.unit === "count";
     const count = Math.max(2, Math.min(6, Math.round(heights[i] / 34)));
     if (p.y.niceHi) {
-      const st = Math.abs(tickStep(p.y.lo, hi, count));
+      const st = Math.max(integer ? 1 : 0, Math.abs(tickStep(p.y.lo, hi, count)));
       if (st > 0) hi = Math.ceil(hi / st - 1e-9) * st;
     }
-    const t = axisTicks(p.y.lo, hi, count, y1, y0);
+    const t = axisTicks(p.y.lo, hi, count, y1, y0, integer);
     return { y0, y1, lo: p.y.lo, hi, ...t };
   });
   const yLabelW = Math.max(0, ...yAx.flatMap(a => a.ticks.map(t => measure(t.label, FONT.tick))));
@@ -342,7 +347,7 @@ export function layoutFigure(fig: FigSpec, w: number, h: number, measure: Measur
   let xt: ReturnType<typeof axisTicks> | null = null;
   for (let count = Math.max(2, Math.min(9, Math.round((w - left - right) / 64))); count >= 2 && !xt; count--) {
     for (let pass = 0; pass < 2; pass++) {
-      const t = axisTicks(fig.x.lo, fig.x.hi, count, left, w - right);
+      const t = axisTicks(fig.x.lo, fig.x.hi, count, left, w - right, fig.x.integer ?? fig.x.unit === "count");
       const ws = t.ticks.map(k => measure(k.label, FONT.tick));
       // the last label may not run past the canvas: widen the right margin
       // once and lay the ticks out again
@@ -356,7 +361,7 @@ export function layoutFigure(fig: FigSpec, w: number, h: number, measure: Measur
       break;
     }
   }
-  xt ??= axisTicks(fig.x.lo, fig.x.hi, 2, left, w - right);
+  xt ??= axisTicks(fig.x.lo, fig.x.hi, 2, left, w - right, fig.x.integer ?? fig.x.unit === "count");
   const x0 = left, x1 = w - right;
   const X = (v: number) => lerp(v, fig.x.lo, fig.x.hi, x0, x1);
 

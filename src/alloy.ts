@@ -88,11 +88,11 @@ export const BASES: Record<string, AlloyBase> = {
       },
       Si: {
         m: -7.6, k: 0.52, dRel: 1.0, mass: 28.09, cap: 5,
-        source: "Dilute-limit binary coefficients for Si in Fe, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -17.60 K/wt% and k 0.927 against the shipped -7.6 / 0.52 — ratio 2.32 / 1.78. They are NOT expected to match: this system's invariant sits far from the dilute limit, so a chord drawn across the whole diagram is not the dilute slope. The shipped value is the dilute-limit coefficient and is what the solver integrates.",
+        source: "Dilute-limit binary coefficients for Si in Fe, from the Kurz & Fisher-style textbook compilation this table was built on. The first liquid-involving invariant is a 1286 C peritectic; its endpoints remain unresolved, so there is no certified invariant chord to compare. The shipped dilute coefficients remain an instrument input within the 5 wt% Si cap, not a claim about high-Si phase topology.",
       },
       Ni: {
         m: -4.7, k: 0.83, dRel: 0.9, mass: 58.69, cap: 10,
-        source: "Dilute-limit binary coefficients for Ni in Fe, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from this pair's phasedata.ts row reconstructs m -1.69 K/wt% and k 0.322 against the shipped -4.7 / 0.83 — ratio 0.36 / 0.39. They are NOT expected to match: this system's invariant sits far from the dilute limit, so a chord drawn across the whole diagram is not the dilute slope. The shipped value is the dilute-limit coefficient and is what the solver integrates.",
+        source: "Dilute-limit binary coefficients for Ni in Fe, from the Kurz & Fisher-style textbook compilation this table was built on. Invariant chord from Luo et al. 2007 Table 1 reconstructs m -4.03 K/wt% and k 0.781 against the shipped -4.7 / 0.83, ratio 0.86 / 0.94. The coherent invariant tuple is a cross-check, not a fit of the dilute coefficients.",
       },
       Cr: {
         m: -1, k: 0.95, dRel: 0.9, mass: 52.0, cap: 10,
@@ -284,10 +284,10 @@ export interface InvariantFraction { lever: number; scheil: number }
  * 0.000 %. The floor sits in that gap.
  *
  * The justification is not roundness. The two shipped tables disagree about k
- * by ratios from 0.39 to 3.30 over all twenty-three rows with an invariant, and
- * from 0.68 to 2.34 over the fifteen `PD-CONSTRUCT-AGREE` actually enters (it
+ * by ratios from 0.68 to 3.30 over the twenty-one complete invariant rows, and
+ * from 0.68 to 2.34 over the fourteen `PD-CONSTRUCT-AGREE` actually enters (it
  * takes eutectics with C_inv <= 60 wt%, so the 3.30 is cu-Sn, a peritectic it
- * excludes, and the 0.39 is fe-Ni). The gate was cited for the whole span here
+ * excludes; incomplete endpoint rows are excluded from this comparison). The gate was cited for the whole span here
  * until v7.1 P6; it measures the narrower one. Either way a
  * predicted fraction of a few thousandths is far below what the inputs can
  * support; calling it a phase present in the casting would be claiming more
@@ -345,8 +345,8 @@ export interface SolutePhases {
  * drawn from, and is enforced inside `derive()` where `window.__solidify.alloy`
  * cannot walk around it.
  *
- * Measured on this tree, the ceiling BINDS for five of the twenty-five pairs,
- * and the plan that specified this milestone had found four of them: Fe–C
+ * Measured on this tree, the ceiling BINDS for six of the twenty-five pairs,
+ * including the corrected Fe-Ni 5.15 wt% liquid endpoint and: Fe–C
  * (cap 2 against a 0.53 wt% peritectic), Al–Fe (2 against 1.8), Al–Ti (0.5
  * against 0.15), Mg–Zr (0.8 against 0.58) — and Zn–Al, whose cap of 5 wt% IS
  * the eutectic composition exactly, so the slider's own maximum was the one
@@ -382,9 +382,9 @@ export function soluteBound(baseKey: string, el: string): SoluteBound | null {
   const step = Math.min(sol.cap, ceiling ?? sol.cap) <= 1 ? 0.01 : 0.05;
   if (ceiling == null) {
     return { max: sol.cap, ceiling: null, boundBy: "cap", step,
-      source: row
+      source: row?.invariant === "isomorphous"
         ? `${base.symbol}–${el} is isomorphous (no invariant, no change of primary phase), so the ${sol.cap} wt% bound is the slider's own, not the diagram's.`
-        : `no assessed ${base.symbol}–${el} invariant row, so the ${sol.cap} wt% bound is the slider's own, not the diagram's.` };
+        : `${base.symbol}–${el}: first invariant liquid endpoint unresolved; ${sol.cap} wt% is the slider cap.` };
   }
   if (ceiling > sol.cap) {
     return { max: sol.cap, ceiling, boundBy: "cap", step,
@@ -439,8 +439,8 @@ export function phasesFor(baseKey: string, el: string, w: number): SolutePhases 
   }
   const { Tinv, Cinv, Csm } = row;
   if (Tinv == null || Cinv == null || Csm == null) {
-    return R("UNASSESSED", P, [P], `${pair} ${row.invariant} row incomplete (needs T, C_inv and C_SM) · phases not claimed`,
-      `The ${pair} row records a ${row.invariant} but not all three of its temperature, its liquid composition and the maximum solid solubility, so this composition cannot be placed against it.`);
+    return R("UNASSESSED", P, [], `${pair} ${row.invariant} row incomplete (needs T, C_inv and C_SM) · phases not claimed`,
+      row.unresolved ?? `The ${pair} row records a ${row.invariant} but not all three of its temperature, its liquid composition and the maximum solid solubility, so this composition cannot be placed against it.`);
   }
 
   // THE SAME GEOMETRIC TEST phasediagram.ts refuses to DRAW on, applied to the
@@ -960,6 +960,12 @@ export function derive(mix: Mix): Derived {
     // stops being able to say what freezes first, whatever else the row gets
     // wrong.
     const b = soluteBound(mix.base, el);
+    const incomplete = BINARY[mix.base]?.[el]?.unresolved;
+    if (incomplete && b?.ceiling == null && w > base.solutes[el].cap) {
+      say(refusals, `${el} dropped: ${w} wt% exceeds the ${base.solutes[el].cap} wt% dilute instrument scope; first invariant endpoint unresolved`,
+        incomplete);
+      return false;
+    }
     if (b?.ceiling != null && w >= b.ceiling) {
       const row = BINARY[mix.base][el];
       // AT the invariant liquid exactly, "past it the first phase to freeze is

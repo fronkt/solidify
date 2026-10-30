@@ -112,16 +112,28 @@ const mk = (key, over = {}) => {
   });
 }
 
-// 6. A material with no SI identity must read as unknown everywhere, and unknown
-//    has to look different from zero.
+// 6. SI-only consumers still refuse a material with no SI identity. Instrument
+//    readouts retain its dimensionless values; missing data differs from zero.
 {
   const u = mk("generic");
+  const readoutMethods = [u.fmtTemperature, u.fmtTemperatureDifference, u.fmtDuration];
+  const methodsPresent = readoutMethods.every(f => typeof f === "function");
+  const readouts = methodsPresent && u.fmtTemperature(0.75) === "0.75 dimensionless"
+    && u.fmtTemperature(0) === "0 dimensionless" && u.fmtTemperature(-0.25) === "-0.25 dimensionless"
+    && u.fmtDuration(12.5) === "12.5 dimensionless" && u.fmtDuration(0) === "0 dimensionless"
+    && u.fmtTemperatureDifference(0.125) === "0.125 dimensionless"
+    && [null, NaN, Infinity, -Infinity].every(v => readoutMethods.every(f => f.call(u, v) === "—"));
+  const si = mk("al");
+  const siUnchanged = methodsPresent && [-0.25, 0, 0.75, 250].every(v =>
+    si.fmtTemperature(v) === si.fmtC(v) && si.fmtTemperatureDifference(v) === si.fmtK(v) && si.fmtDuration(v) === si.fmtTime(v))
+    && [null, NaN, Infinity, -Infinity].every(v => readoutMethods.every(f => f.call(si, v) === "—"));
   const ok = u.known === false && u.scale.abstract === true
     && Number.isNaN(u.scale.kelvinPerUnit)
     && u.fmtC(0.5) === "—" && u.fmtRate(0.3) === "—" && u.fmtTime(2) === "—"
     // lengths ARE still real: the resolution was set, not derived
-    && u.fmtLen(40).endsWith("µm");
-  check("UNITS-ABSTRACT", ok, { known: u.known, len: u.fmtLen(40), temp: u.fmtC(0.5) });
+    && u.fmtLen(40).endsWith("µm") && readouts && siUnchanged;
+  check("UNITS-ABSTRACT", ok, { known: u.known, len: u.fmtLen(40), siOnlyTemp: u.fmtC(0.5),
+    temperature: u.fmtTemperature?.(0.75), duration: u.fmtDuration?.(12.5), readouts, siUnchanged });
 }
 
 // 7. Physical sanity: the undercooling dial's own maximum is past what any real

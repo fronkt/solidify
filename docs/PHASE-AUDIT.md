@@ -1,5 +1,15 @@
 # PHASE-AUDIT — where every row of `src/phasedata.ts` comes from
 
+> **Current reconciliation (table 1.2.0):** [PHASE-RECONCILIATION.md](PHASE-RECONCILIATION.md)
+> supersedes the Ni-Nb, Mg-Zr, Fe-Ni, Mg-Al and Fe-Si decisions below. The tables
+> and discussion below are the **historical v7.1 audit snapshot**, not current
+> shipped values. Fe-Ni used mixed assessments; Mg-Zr had an unsourced solid
+> endpoint and a composition-set overwrite; Fe-Si was the wrong first invariant
+> and its database lacked the required model scope. Those limitations invalidate
+> the earlier blanket claim that every row was successfully recomputed. Current
+> incomplete rows refuse phase geometry and equilibrium phase claims.
+
+
 `src/phasedata.ts` carries four numbers and two names per (base, solute) pair: the
 invariant type on the base-rich side, its temperature, the liquid composition there,
 the maximum solid solubility in the base-rich primary phase, the reaction, and the

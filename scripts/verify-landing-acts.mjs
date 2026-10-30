@@ -545,7 +545,7 @@ await block("LANDING-A11Y", async () => {
   // below the header's bottom edge
   const clear = [];
   for (const [path, sel, pre] of [["", '#composeAct .cta a[href^="app/#alloy"]', "#composeAct"],
-    ["science/", '.doc a[href*="PHASE-AUDIT"]', null], ["contact/", '.ways a[href$="issues/new"]', null]]) {
+    ["science/", '.doc a[href*="PHASE-RECONCILIATION"]', null], ["contact/", '.ways a[href$="issues/new"]', null]]) {
     const page = await open2(path);
     if (pre) {   // the act's reveal run first, so only the header can hide it
       await page.evaluate(sel => document.querySelector(sel).scrollIntoView(), pre);
@@ -553,6 +553,7 @@ await block("LANDING-A11Y", async () => {
     }
     const parked = await page.evaluate(sel => {
       const t = document.querySelector(sel);
+      if (!t) throw new Error(`Focus fixture target is missing: ${sel}`);
       window.scrollTo(0, t.getBoundingClientRect().top + scrollY - 20);
       return { top: t.getBoundingClientRect().top, header: document.getElementById("topnav").getBoundingClientRect().bottom };
     }, sel);

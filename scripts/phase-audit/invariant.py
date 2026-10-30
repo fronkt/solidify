@@ -52,6 +52,42 @@ def is_liq(name):
     return "LIQ" in name.upper()
 
 
+class UnsupportedEquilibrium(ValueError):
+    """A result the phase-identity search cannot represent without losing data."""
+
+
+def phase_vertices(names, fractions, compositions):
+    """Do not collapse distinct composition sets with the same phase name.
+
+    The search below tracks phase *identity*, so it cannot locate an invariant
+    involving two HCP_A3 composition sets. Reject that topology explicitly.
+    """
+    out = {}
+    for nm, fraction, composition in zip(names, fractions, compositions):
+        nm, f = str(nm), float(fraction)
+        if nm in ("", "nan") or not np.isfinite(f) or f <= 1e-9:
+            continue
+        if nm in out:
+            raise UnsupportedEquilibrium(
+                f"multiple composition sets for {nm}: x={out[nm]['x']} and "
+                f"{float(composition)}; phase-identity search cannot represent this equilibrium")
+        out[nm] = {"f": f, "x": float(composition)}
+    return out
+
+
+def model_limit(base, solute, phases):
+    """Known coverage failures, rather than a claimed absence of an invariant."""
+    if {base, solute} == {"FE", "SI"}:
+        missing = sorted({"BCC_B2", "FE2SI", "FESI", "FE5SI3"} - set(phases))
+        if missing:
+            return "Fe-Si high-Si/order model incomplete; unavailable active phases: " + ", ".join(missing)
+    if {base, solute} == {"MG", "ZR"} and "CBCC_A12" in phases:
+        return ("Mg-Zr mc_al binary extrapolation activates CBCC_A12 (Mn structure); "
+                "its Mg-Zr stability is not validated. Terminal HCP phases can also "
+                "have two composition sets, unsupported by this identity-change method.")
+    return None
+
+
 class Calc:
     def __init__(self, tdb, base, solute):
         self.db = Database(tdb)
@@ -71,16 +107,7 @@ class Calc:
         n = np.atleast_1d(e.NP.values.squeeze())
         xx = e.X.values.squeeze()
         ci = list(e.component.values).index(self.solute)
-        out = {}
-        for i in range(p.shape[0]):
-            nm = str(p[i])
-            if nm in ("", "nan"):
-                continue
-            f = float(n[i])
-            if not np.isfinite(f) or f <= 1e-9:
-                continue
-            out[nm] = {"f": f, "x": float(xx[i, ci])}
-        return out
+        return phase_vertices(p, n, xx[:, ci])
 
     def scanT(self, x, ts):
         """one vectorised call over a temperature array -> list of phase dicts"""
@@ -96,16 +123,7 @@ class Calc:
             xx = xx[None, :, :]
         out = []
         for ti in range(p.shape[0]):
-            d = {}
-            for vtx in range(p.shape[1]):
-                nm = str(p[ti, vtx])
-                if nm in ("", "nan"):
-                    continue
-                f = float(n[ti, vtx])
-                if not np.isfinite(f) or f <= 1e-9:
-                    continue
-                d[nm] = {"f": f, "x": float(xx[ti, vtx, ci])}
-            out.append(d)
+            out.append(phase_vertices(p[ti], n[ti], xx[ti, :, ci]))
         return out
 
     def liquidus(self, x, tlo, thi, tol=0.15, n1=21, n2=13):
@@ -154,6 +172,9 @@ def run(tdb, base, solute, tmin, tmax, xmax=0.5, nscan=14, xmin=1e-3):
     res = {"base": base, "solute": solute, "tdb": tdb,
            "n_phases": len(c.phases),
            "suspended": [f"{n} ({w})" for n, w in c.suspended]}
+    limitation = model_limit(base, solute, c.phases)
+    if limitation:
+        return {**res, "status": "UNSUPPORTED_DATABASE_MODEL", "note": limitation}
 
     # ---- primary: the first solid to form at the dilute end ---------------
     x_dilute = xmin
@@ -299,8 +320,13 @@ def main():
     ap.add_argument("--nscan", type=int, default=14)
     ap.add_argument("--xmin", type=float, default=1e-3)
     a = ap.parse_args()
-    print(json.dumps(run(a.tdb, a.base.upper(), a.solute.upper(),
-                         a.tmin, a.tmax, a.xmax, a.nscan, a.xmin), indent=2, default=str))
+    try:
+        result = run(a.tdb, a.base.upper(), a.solute.upper(),
+                     a.tmin, a.tmax, a.xmax, a.nscan, a.xmin)
+    except UnsupportedEquilibrium as exc:
+        result = {"base": a.base.upper(), "solute": a.solute.upper(), "tdb": a.tdb,
+                  "status": "UNSUPPORTED_MULTIPLE_COMPOSITION_SETS", "note": str(exc)}
+    print(json.dumps(result, indent=2, default=str))
 
 
 if __name__ == "__main__":

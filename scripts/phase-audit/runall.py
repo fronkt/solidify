@@ -14,7 +14,8 @@ import json, pathlib, subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 HERE = pathlib.Path(__file__).parent
-PY = str(HERE / "pdaudit" / "Scripts" / "python.exe")
+VENV_PY = HERE / "pdaudit" / "Scripts" / "python.exe"
+PY = str(VENV_PY) if VENV_PY.exists() else sys.executable
 OUT = HERE / "results"
 OUT.mkdir(exist_ok=True)
 

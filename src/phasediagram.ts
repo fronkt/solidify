@@ -167,6 +167,10 @@ export function layout(mix: Mix, meltC: number | null,
   const byBase = Object.hasOwn(BINARY, mix.base) ? BINARY[mix.base] : {};
   const row: BinaryRow | undefined = Object.hasOwn(byBase, dominant) ? byBase[dominant] : undefined;
   if (!row) return { ok: false, reason: `no diagram: no assessed ${base.symbol}–${dominant} invariant in this build` };
+  if (row.invariant !== "isomorphous" && (row.Tinv == null || row.Cinv == null || row.Csm == null)) {
+    return { ok: false, reason: `no diagram: ${base.symbol}–${dominant} invariant endpoints unresolved`,
+      learn: row.unresolved ?? "A phase diagram needs a sourced temperature and both composition endpoints. This row is incomplete." };
+  }
 
   const sol = base.solutes[dominant];
   const TmC = si.Tm - C_PER_K;

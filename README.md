@@ -119,8 +119,11 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   per element — aluminium appears as a solute under three different bases with three different
   coefficients, and titanium changes sign between Al and Ni. Since v7.1 every pair also carries
   its own cited `source`, and every pair has a binary invariant row in `src/phasedata.ts` whose
-  numbers are independently recomputed from open CALPHAD databases (`docs/PHASE-AUDIT.md`). That
-  table carries a version — currently 1.1.1 — which is bumped on any row change and which
+  numbers are checked against open CALPHAD databases, with model-scope failures and unknown
+  endpoints recorded in `docs/PHASE-RECONCILIATION.md`. The
+  review corrects Fe–Ni's mixed-assessment tuple and refuses equilibrium phase claims for
+  Fe–Si and Mg–Zr where endpoints remain unknown. The
+  table carries a version — currently 1.2.0 — which is bumped on any row change and which
   `PD-DOC-CONSTANTS` requires this file and the science page to quote, so a retired invariant
   cannot sit in a document after the table has moved on. The composer reports the real
   chemistry — liquidus shift ΔT_L = Σmᵢcᵢ and growth restriction factor Q = Σmᵢcᵢ(kᵢ−1) —
@@ -149,7 +152,7 @@ with an OOM ladder down through 160³/128³/96³, all four selectable in the ENG
   its say, because a dendritic solidifier that called AZ91 single-phase would be hiding the
   11.9 % β-Mg17Al12 that is its textbook as-cast constituent. The composition ceiling is now derived rather than assumed: each solute stops at the
   smaller of its hand-picked ergonomic cap and one step below the invariant its primary phase
-  changes at, and for five of the twenty-five pairs the diagram is the smaller one — which
+  changes at, and for six of the twenty-five pairs the diagram is the smaller one — which
   removes cast iron: Fe–C stops at 0.52 wt% C against a 0.53 wt% peritectic,
   past which the primary phase is austenite and this solver grows δ-ferrite. And since v7.1 P5
   the element list is no longer closed: under the quick solute list — six entries at the most,

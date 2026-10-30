@@ -440,6 +440,28 @@ export class Units {
   }
 
   // ---- formatters, in one place so every panel reads the same
+  // These three readout formatters retain abstract-model values. The SI-only
+  // fmtC/fmtK/fmtTime APIs below still return a dash without a real identity,
+  // so consumers that require physical units keep their existing contract.
+  fmtTemperature(t: number | null): string {
+    if (t == null || !Number.isFinite(t)) return "—";
+    return this.known ? this.fmtC(t) : this.fmtDimensionless(t);
+  }
+
+  fmtTemperatureDifference(dt: number | null): string {
+    if (dt == null || !Number.isFinite(dt)) return "—";
+    return this.known ? this.fmtK(dt) : this.fmtDimensionless(dt);
+  }
+
+  fmtDuration(t: number | null): string {
+    if (t == null || !Number.isFinite(t)) return "—";
+    return this.known ? this.fmtTime(t) : this.fmtDimensionless(t);
+  }
+
+  private fmtDimensionless(v: number): string {
+    return `${Number(v.toPrecision(4))} dimensionless`;
+  }
+
   fmtC(t: number): string { return this.known ? `${this.celsius(t).toFixed(0)} °C` : "—"; }
   fmtK(dt: number): string { return this.known ? `${this.kelvin(dt).toFixed(1)} K` : "—"; }
 
