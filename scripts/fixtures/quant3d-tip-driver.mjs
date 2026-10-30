@@ -4,22 +4,14 @@
 export async function installQuant3TipDriver() {
   const { Sim3D, DEFAULTS3D } = await import("/src/sim3d.ts");
   const { FLUX3D_WGSL, phi3dWgsl, transport3dWgsl, P3, MAX_GRAINS3 } = await import("/src/shaders3d.ts");
+  const { rect3dSpecialize } = await import("/scripts/fixtures/rect3d-specialize.mjs");
+  const { phaseCrossing } = await import("/scripts/fixtures/quant3d-tip-analysis.mjs");
   const S = window.__solidify, device = S.sim().device;
   S.app.setRun(false);
   let active = null;
   const sources = [FLUX3D_WGSL, phi3dWgsl(false), transport3dWgsl(false)];
   const shaderErrors = [];
   const digest = async bytes => [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(x => x.toString(16).padStart(2, "0")).join("");
-
-  function specialize(source, dims) {
-    const guard = "gid.x >= P.n || gid.y >= P.n || gid.z >= P.n";
-    const upper = "vec3i(i32(p.n) - 1)";
-    if (source.split(guard).length !== 2 || source.split(upper).length !== 2) {
-      throw new Error("production bounds changed; rectangular specialization needs review");
-    }
-    return source.replace(guard, `any(gid >= vec3u(${dims.map(n => `${n}u`).join(", ")}))`)
-      .replace(upper, `vec3i(${dims.map(n => n - 1).join(", ")})`);
-  }
 
   async function readTexture(texture, dims, bpp, origin = [0, 0, 0]) {
     const row = Math.ceil(dims[0] * bpp / 256) * 256;
@@ -75,7 +67,7 @@ export async function installQuant3TipDriver() {
       const twin = buf(4, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
       const status = buf(16, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC);
       const staging = buf(16, GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ);
-      const codes = sources.map(source => specialize(source, dims));
+      const codes = sources.map(source => rect3dSpecialize(source, dims));
       const pipes = [];
       for (let i = 0; i < codes.length; i++) {
         const module = device.createShaderModule({ code: codes[i], label: `tip production pass ${i}` });
@@ -146,8 +138,12 @@ export async function installQuant3TipDriver() {
             for (let z = dims[2] - 2; z >= 0; z--) {
               const i = (z * width + y) * width + x, a = data[2 * i], b = data[2 * (i + width * width)];
               if (a >= .5 && b < .5) {
+                if (z < 2 || z + 3 >= dims[2]) break;
+                const phi = dz => data[2 * (i + dz * width * width)];
                 points.push({ x: (x + .5) * p.dx, y: (y + .5) * p.dx,
-                  z: (z + .5 + (a - .5) / (a - b)) * p.dx });
+                  z: (z + .5 + phaseCrossing([-2, -1, 0, 1, 2, 3].map(phi))) * p.dx,
+                  zCoarse: (z + .5 + phaseCrossing([-1, 0, 1, 2].map(phi), [-1, 0, 1, 2])) * p.dx,
+                  zRaw: (z + .5 + phaseCrossing([-2, -1, 0, 1, 2, 3].map(phi), [-2, -1, 0, 1, 2, 3], "raw")) * p.dx });
                 break;
               }
             }

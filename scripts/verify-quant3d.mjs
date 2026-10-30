@@ -8,6 +8,7 @@ import { closeBrowser } from "./browser-cleanup.mjs";
 import { installQuant3Driver } from "./fixtures/quant3d-driver.mjs";
 import { installQuant3PlanarDriver } from "./fixtures/quant3d-planar-driver.mjs";
 import { selfTestPartitionMetrology } from "./fixtures/quant3d-partition-analysis.mjs";
+import { quant3BoundaryChecks } from "./fixtures/quant3d-boundary.mjs";
 
 const OUT = resolve(process.argv[2] ?? "verify-out"), PORT = process.argv[3] ?? "5199";
 // Optional explicit gate filter supports diagnosing a failed fixture. The
@@ -52,7 +53,8 @@ try {
   metadata.sourceHashes = Object.fromEntries(["sim3d", "shaders3d", "shaders3d-quant"].map(s =>
     [s, createHash("sha256").update(readFileSync(`src/${s}.ts`)).digest("hex")]));
   metadata.fixtureHashes = Object.fromEntries(["scripts/verify-quant3d.mjs", "scripts/fixtures/quant3d-driver.mjs",
-    "scripts/fixtures/quant3d-planar-driver.mjs", "scripts/fixtures/quant3d-partition-analysis.mjs", "scripts/fixtures/rect3d-specialize.mjs"].map(path =>
+    "scripts/fixtures/quant3d-planar-driver.mjs", "scripts/fixtures/quant3d-partition-analysis.mjs", "scripts/fixtures/rect3d-specialize.mjs",
+    "scripts/fixtures/quant3d-boundary.mjs"].map(path =>
     [path, createHash("sha256").update(readFileSync(path)).digest("hex")]));
 
   // A planar equilibrium profile is tanh(x/sqrt(2)W0), for every normal.
@@ -130,6 +132,14 @@ try {
       runs:runs.map(({phi,...r})=>r)};
   }),r=>r.runs.every(q=>Math.abs(q.final-q.initial)>1)&&r.isotropic90<1e-6&&r.isotropic30<1e-6
     &&r.cubic90<2e-5&&r.cubic30>1e-4);
+
+  await gate("QPF3-BOUNDARY",()=>page.evaluate(quant3BoundaryChecks),r=>
+    r.mirror.length===3&&r.mirror.every(m=>m.correct.maxPhi<2e-6&&m.correct.maxT<2e-6
+      &&m.correct.boundarySamples===2977&&Math.abs(m.phase-m.initialPhase)>1e-5)
+    &&r.mirror.every(m=>m.oldOperator.boundaryPhi>2e-6)
+    &&r.manufactured.length===6&&r.manufactured.every(m=>m.correct.samples===1024
+      &&m.correct.maxError<2e-6&&m.oldOperator.maxError>1e-4
+      &&Math.abs(m.oldOperator.meanPhi-.5005)<2e-6));
 
   // Two-sided Stefan similarity solution with equal diffusivities, far-field
   // solid0.7/liquid0.9, melting T1, latent1. The nonlinear jump condition is

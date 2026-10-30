@@ -57,6 +57,16 @@ trajectories record their actual mass drift separately and do not claim that
 same bound after hundreds of thousands of steps. The full suite still must run
 after the final freeze.
 
+`QPF3-BOUNDARY` also compares a centered 64-cube with its reflected 32-cube
+octant after 1, 17 and 64 substeps, using manufactured tanh-sphere and mirrored
+temperature fields. The state error limit is 2e-6. Removing only the marked
+normal-flux ghost fix must fail at the symmetry faces. Independent linear-flux
+probes cover all six faces: `phi=.5,T=1,w=1` must advance to `.501`, whereas the
+old clamped-normal operator advances to `.5005`. The focused gate passed with
+phase/temperature errors below 1.8e-7 and six analytic-probe errors of 1.3e-8;
+the planted old operator failed every boundary clause. Fused and split legacy
+paths still reproduced all 390 golden hashes each after this correction.
+
 These gates do not establish a full three-dimensional dendrite operating-state
 reference on their own. A published 3D tip comparison additionally needs domain,
 temporal-stationarity and grid/time refinement evidence; the existing 2D tip

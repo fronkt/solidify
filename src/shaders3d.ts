@@ -301,6 +301,25 @@ const ANISO3_CORE = /* wgsl */ `  // anisotropic terms from the flux texture
   let aniso = fC.w * lapPhi + dot(gradW, gph) + divA;
 
 `;
+// Keep the legacy fragment verbatim. For the quantitative split, a reflected
+// no-flux face has even scalar fields/w and an odd normal correction A.
+const PHASE_ANISO3_CORE = ANISO3_CORE.replace(
+  "  let aniso = fC.w * lapPhi + dot(gradW, gph) + divA;",
+  /* wgsl */ `  var aniso = fC.w * lapPhi + dot(gradW, gph) + divA;
+  // QUANT-NORMAL-FLUX-BEGIN
+  if (P.solver == 1u) {
+    let fluxEdge = textureDimensions(flux) - vec3u(1u);
+    let aE = select(fE.x, -fC.x, gid.x == fluxEdge.x);
+    let aW = select(fW.x, -fC.x, gid.x == 0u);
+    let aN = select(fN.y, -fC.y, gid.y == fluxEdge.y);
+    let aS = select(fS.y, -fC.y, gid.y == 0u);
+    let aU = select(fU.z, -fC.z, gid.z == fluxEdge.z);
+    let aD = select(fD.z, -fC.z, gid.z == 0u);
+    let reflectedDivA = ((aE - aW) + (aN - aS) + (aU - aD)) * inv2dx;
+    aniso = fC.w * lapPhi + dot(gradW, gph) + reflectedDivA;
+  }
+  // QUANT-NORMAL-FLUX-END`,
+);
 const KOB_PHASE3 = (alloy: boolean) => /* wgsl */ `  ${alloy
     ? /* wgsl */ `// constitutional undercooling: solute depresses the local liquidus
   let tEq = 1.0 - P.mLiq * conc;
@@ -508,7 +527,7 @@ ${LOADS3(alloy)}
       || textureLoad(grain, c, 0).r == PORE) {
     textureStore(phaseOut, c, vec4f(0.0, -phi, 0.0, 0.0)); return;
   }
-${ANISO3_CORE}
+${PHASE_ANISO3_CORE}
   var phiNew = phi;
   var dPhi = 0.0;
   if (P.solver == 1u) {
