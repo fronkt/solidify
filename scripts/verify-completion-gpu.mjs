@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import puppeteer from "puppeteer-core";
 import { closeBrowser } from "./browser-cleanup.mjs";
+import { app3DIntegrationChecks } from "./fixtures/app3d-integration.mjs";
 
 const OUT = resolve(process.argv[2] ?? "verify-out");
 const PORT = process.argv[3] ?? "5199";
@@ -340,6 +341,10 @@ try {
         && /unresolved/i.test(shown.diagram), JSON.stringify({ hash, ...shown }));
       await page.evaluate(() => window.__solidify.app.closeComposer());
     }
+  });
+  await block("SESSION-3D-CANCELLATION", async () => {
+    const result = await app3DIntegrationChecks(browser, `http://localhost:${PORT}`);
+    writeFileSync(resolve(OUT, "completion-3d-cancellation.json"), JSON.stringify(result, null, 2));
   });
   assert.deepEqual(errors, [], errors.join(" | "));
 } catch (e) { failed++; console.error(e.stack); }

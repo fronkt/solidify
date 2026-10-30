@@ -5191,3 +5191,15 @@ The full regression reached the legacy3D coarsening gate and failed its unchange
 The complete heat-treatment script now passes all27 named gates: the actual fitted specimen is one of two byte-matched witnessed casts, r-squared=.99010 and K/shipped=.980. The historical98.5%solid stopping rule remains; remaining ineligible liquid is counted explicitly. The legacy scale gate also expected a shared2D/3D pitch despite the accepted per-dimension calibration design; it is being updated to verify both independent values survive switches and edits.
 
 The independent19-point comparison is complete: both fixed1000tau0 equilibrium cases are stationary/resolved with zero device errors. Isotropic bias falls from-.0028168 to-.0001011; raw.0171 measures.0166020 instead of.0135692. This independently motivates changing only quantitative scalar phase/heat Laplacians to19-point, preserving all solver0 expressions and conservative solute faces. Residual anisotropy/scalar-capillary error stays documented; no coefficients were fitted. TypeScript, production build, generated fused token identity and binding checks pass for this checkpoint. GPU regression and full reference acceptance remain pending.
+
+### Integration re-plan after independent review
+
+The first fresh35-script final run was intentionally stopped after read-only review found three actual async/retry defects. An unchanged-source GPU probe reproduced all three without page errors: leaving shared-alloy allocation caused a preparing latch and quantitative dials under Kobayashi; leaving a grid swap published the dormant3D pitch into active2D; correcting cooling and resetting after a runtime refusal left retry disabled.
+
+- [x] Reproduce the old behavior with controlled allocation delays and runtime-status injection; preserve old logs/JSON.
+- [x] Keep shared quantitative dials out of the baseline until resource allocation succeeds. Check mode, solver identity, request token and staged user inputs before publishing; retain the independent material/composition snapshot.
+- [x] Guard quantitative entry and pending cleanup, publish grid-swap pitch only for the active mode, and make explicit reset clear the previous refusal while retaining the initial visible runtime diagnostic.
+- [ ] Prove the same delayed/canceled/user-edited paths pass on the fixed source and register the regressions.
+- [ ] Restart the full suite from a fresh source freeze. Cloud needle physics remains pinned independently to12ce78b, with no solver-equation change.
+
+Fixed-source integration review passes: the same three old-source failures now pass, and delayed material/solute edits preserve the operator's newer setup without starting calibration. A real composed A356 link retains its own coefficient source/freezing interval and restores canonical qualitative kPart/dSol. SESSION-3D-CANCELLATION registers all six cases in the existing completion driver; all9 completion gates pass. Typecheck/build pass. All local browsers and the scoped Vite instance are closed before the fresh final-suite freeze.

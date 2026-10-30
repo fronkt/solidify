@@ -477,6 +477,7 @@ async function boot() {
     p.solver = SOLVER.KOB;
   };
   const setSolver3 = async (kind: number, lambda?: number): Promise<QuantSetup | null> => {
+    if (kind === SOLVER.QUANT && mode !== "3d") return null;
     if (mode3dPending && kind === SOLVER.QUANT) return null;
     if (kind === SOLVER.QUANT && quantPending3) {
       if (lambda != null) queuedLambda3 = lambda;
@@ -507,7 +508,13 @@ async function boot() {
     ui.sync();
     await device.queue.onSubmittedWorkDone();
     const ready = await s3.enableQuant();
-    if (request !== quantRequest3 || s3 !== sim3d || mode !== "3d") return null;
+    if (request !== quantRequest3) return null;
+    if (s3 !== sim3d || mode !== "3d") {
+      quantPending3 = false;
+      queuedLambda3 = undefined;
+      ui.sync();
+      return null;
+    }
     quantPending3 = false;
     if (!ready || stamp !== calibrationStamp3()) {
       restoreSolver3();
@@ -689,7 +696,7 @@ async function boot() {
         quantError3 = reason; quantErrorStamp3 = calibrationStamp3();
         created.reset(1 - undercool);
       }
-      umPerCell = created.umPerCell;
+      if (mode === "3d") umPerCell = created.umPerCell;
       grid3 = created.n;
       renderer3d!.rebind3(created);
       lastStats3 = null;
@@ -996,6 +1003,7 @@ async function boot() {
     resetArmed() {
       if (heat?.busy) return;  // a treatment owns the field until it finishes
       if (mode === "3d" && sim3d) {
+        quantError3 = null;
         sim3d.reset(1 - undercool);
         lastStats3 = null;
         nuc3.stage(sim3d.n, true);
@@ -2139,9 +2147,10 @@ async function boot() {
             void observed.readQuantitativeStatus().then(status => {
               if (!status?.issue || observed !== sim3d || mode !== "3d" || observed.params.solver !== SOLVER.QUANT) return;
               restoreSolver3();
+              app.resetArmed();
               quantError3 = `Calibration stopped: ${status.issue}`;
               quantErrorStamp3 = calibrationStamp3();
-              app.resetArmed(); ui.sync();
+              ui.sync();
             });
           }
           // GPU-born twins live only in the GPU quat buffer — mirror them back
@@ -2439,44 +2448,59 @@ async function boot() {
         app.setCutStyle(shared.sl[4]);
       }
       void enter3D(true).then(async () => {
-        // land the packed dials AFTER apply3DMaterial would overwrite them,
-        // then allocate the solute pair if the link carried alloy
-        if (sim3d) {
-          const P = sim3d.params as unknown as Record<string, number>;
-          const quant = shared.p.solver === SOLVER.QUANT;
-          if (quant && !kobSnapshot3) {
-            kobSnapshot3 = { umPerCell: sim3d.umPerCell };
-            for (const k of KOB3_OWNED) kobSnapshot3[k] = P[k];
+        const s3 = sim3d;
+        if (!s3 || mode !== "3d") return;
+        const request = quantRequest3;
+        const ownsRestore = () => mode === "3d" && sim3d === s3 && quantRequest3 === request;
+        // Allocation may finish after the operator changes mode, material or
+        // dials. Allocate before publishing packed parameters, and leave the
+        // existing qualitative baseline intact when that restore is canceled.
+        const inputStamp = () => JSON.stringify([material, undercool, pouredMix,
+          running3d, s3.simTime, s3.umPerCell, Object.entries(s3.params)
+            .filter(([key]) => key !== "alloyOn" && key !== "nyCrit")]);
+        const stagedInputs = inputStamp();
+        if (shared.p.alloyOn === 1) {
+          const allocated = await s3.enableAlloy();
+          if (!ownsRestore() || inputStamp() !== stagedInputs) return;
+          if (!allocated) {
+            restoreSolver3();
+            quantError3 = "The shared alloy field could not be allocated; choose a smaller volume.";
+            quantErrorStamp3 = calibrationStamp3();
+            ui.sync(); return;
           }
+          if (renderer3d) renderer3d.rebindBGs(s3);
+        }
+        if (ownsRestore()) {
+          const P = s3.params as unknown as Record<string, number>;
+          const quant = shared.p.solver === SOLVER.QUANT;
           for (const [k, v] of Object.entries(shared.p))
-            if (k !== "solver" && k in P && Number.isFinite(v)) P[k] = v;
+            // Quantitative dials are rederived only after allocation succeeds.
+            // setSolver3 snapshots the untouched material/composition baseline.
+            if (k !== "solver" && (!quant || !(KOB3_OWNED as readonly string[]).includes(k))
+                && k in P && Number.isFinite(v)) P[k] = v;
           P.solver = SOLVER.KOB;
           if (clampedChem) Object.assign(P, clampedChem);
-          if (sim3d.params.alloyOn === 1) {
-            sim3d.params.alloyOn = 0;
-            const allocated = await sim3d.enableAlloy();
-            if (!allocated) {
-              restoreSolver3();
-              quantError3 = "The shared alloy field could not be allocated; choose a smaller volume.";
-              quantErrorStamp3 = calibrationStamp3();
-              ui.sync(); return;
-            }
-            if (renderer3d) renderer3d.rebindBGs(sim3d);
-          }
-          if (quant && kobSnapshot3) {
-            const d = pouredLive(sim3d.params).d;
+          if (quant) {
+            // A composed link carries its canonical partition coefficient,
+            // while its packed diffusivity is already in quantitative units.
+            // Restore both qualitative chemistry values before snapshotting.
+            const d = pouredLive({ ...s3.params,
+              kPart: clampedChem?.kPart ?? shared.p.kPart ?? s3.params.kPart }).d;
             if (d) for (const k of ["kPart", "dSol"] as const) {
-              if (typeof d.params[k] === "number") kobSnapshot3[k] = d.params[k]!;
+              if (typeof d.params[k] === "number") P[k] = d.params[k]!;
             }
+            const preparing = setSolver3(SOLVER.QUANT, shared.p.lambda);
+            const calibrationRequest = quantRequest3;
+            await preparing;
+            if (mode !== "3d" || sim3d !== s3 || quantRequest3 !== calibrationRequest) return;
           }
-          if (quant) await setSolver3(SOLVER.QUANT, shared.p.lambda);
           else if (typeof shared.um === "number" && Number.isFinite(shared.um)
               && shared.um >= 0.01 && shared.um <= 10000) setPitch("3d", shared.um);
           app.resetArmed();
+          app.setView3d(view3d);
+          openHeat();
+          ui.sync();
         }
-        app.setView3d(view3d);
-        openHeat();
-        ui.sync();
       });
     }
   }
