@@ -387,6 +387,38 @@ liquid diffusion tail. This does not retroactively pass recovery or prove
 finite-width stability. See [candidate evidence](validation/quant3d-lattice-candidate-2026-10-30.json)
 and [transient reproduction](../scripts/research/quant3d-lattice-transient.md).
 
-The full five-arm candidate benchmark is running at frozen a11a814. Its base arm
-reaches the fixed endpoint but still fails sigma: 0.05269623 versus 0.063. Q3
-remains open; these diagnostics do not authorize production adoption.
+The full five-arm candidate benchmark finished at frozen a11a814. All arms reach
+their fixed endpoints, are stationary/resolved/boundary-clear, and retain stable
+sources and readable error evidence with zero errors. Pointwise control changes
+pass (maximum 3.47%), while every arm fails the unchanged literature comparison:
+sigma ranges from 0.05109 to 0.05452 versus 0.063. See
+[full candidate evidence](validation/quant3d-lattice-five-arm-2026-10-30.json).
+All 312 raw checkpoints, eleven source hashes and nine native field comparisons
+verify; the frozen cloud compatibility copy is also verified. Archives and
+sidecars have matching GitHub digests. The owned rental was destroyed with API
+absence verified; pre-existing resources were untouched. Q3 remains open.
+
+### Paired translation diagnostic
+
+A separate four-arm local experiment at 0fbf067 pairs R20/dx0.8 bodies at offsets
+0 and 0.4 along all axes, for raw epsilon 0 and 0.0171. It retains one volume
+target per pair, the original physical model, horizon and cadence. Shared actual
+coordinates serve initialization, fitting and the independently measured
+centroid. Full upload/readback hashes, missing-offset/recentering controls and
+known geometry establish that the translation happened. Exact node roots retain
+their raw phase values; non-tie roots and default initialization remain identical.
+
+All four arms complete with stationary/resolved centered observations and clean
+execution evidence. The unchanged local-stiffness replay finds signed octic
+C100-error changes of -2.37254 percentage points at epsilon 0 and -0.41104 at
+epsilon 0.0171. The manufactured smooth-sphere errors are much smaller, but do
+not bound interpolation error in evolved profiles. This demonstrates sensitivity
+of inferred local capillary response to lattice position; it supplies no scalar
+correction or bound on needle sigma. Global support fits alone remain insufficient
+to calibrate local stiffness. Grid refinement and moving oblique-interface
+calibration remain open. No physical coefficient or accuracy band was retuned.
+
+Commit archives accompany the data. An additional exact-source ZIP reproduces
+all 34 recorded local source hashes across the three studies, including Windows
+line-ending representations; Git's normalized source bytes alone differ for 25
+of those files. Source and result data were not changed to obtain that agreement.

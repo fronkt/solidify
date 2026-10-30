@@ -5341,8 +5341,8 @@ Plan before implementation:
 - [x] Finish the declared radius cases on frozen source and reconcile all fourteen matrix cases.
 - [x] Complete parallel capillary, kinetic-identifiability and metrology investigations; choose the smallest justified next experiment.
 - [x] Implement an explicitly opt-in research candidate supported by independent derivation; run native/GPU safety and affected regressions, preserving scientific refusals.
-- [ ] Run the complete prospectively fixed reference campaign when its prerequisites are met, retaining all verdicts and raw data.
-- [ ] Record evidence/limitations, verify artifact backup and owned cleanup, commit/push completed phases, and leave Q3 open unless all required gates pass.
+- [x] Run the complete prospectively fixed experimental reference campaign, retaining all verdicts and raw data; do not reinterpret failed recovery as a pass.
+- [x] Record evidence/limitations, verify artifact backup and owned cleanup, commit/push completed phases, and leave Q3 open unless all required gates pass.
 
 Work allocation: q3_capillary_audit examines the existing matrix; q3_kinetic_diagnostic
 derives an identifiable moving-interface measurement; q3_metrology_diagnostic
@@ -5440,6 +5440,43 @@ continues: R20/dx0.8, epsilon 0/0.0171 crossed with declared center offsets 0/0.
 on all axes. Same baseline volume target, default physics, horizon and cadence;
 no coefficient/window selection. The existing fourteen-case runner is preserved.
 
-- [ ] Add the optional coordinate adapter and separate four-arm diagnostic CLI; prove default parity, known geometry and missing-offset/recentering refusals before GPU execution.
-- [ ] Freeze/push the diagnostic and run it as the sole local GPU study, preserving every raw sample and strict clock/ledger/source/cleanup evidence.
-- [ ] Replay the unchanged local-curvature estimator, compare paired offsets and document limits without promoting Q3 or fitting a correction.
+- [x] Add the optional coordinate adapter and separate four-arm diagnostic CLI; prove default parity, known geometry and missing-offset/recentering refusals before GPU execution.
+- [x] Freeze/push the diagnostic and run it as the sole local GPU study, preserving every raw sample and strict clock/ledger/source/cleanup evidence.
+- [x] Replay the unchanged local-curvature estimator, compare paired offsets and document limits without promoting Q3 or fitting a correction.
+
+### Review and remaining scientific work
+
+The full five-arm candidate campaign completed at a11a814: every fixed endpoint
+was reached with stationary/resolved/boundary-clear observations, source freeze,
+readable GPU ledger and zero errors. All four convergence comparisons pass;
+maximum pointwise change is 3.4653%. Every literature arm still fails sigma:
+0.0510893-0.0545223 versus 0.063. No reference band, estimator, endpoint or
+coefficient was selected to improve agreement. Public final evidence:
+docs/validation/quant3d-lattice-five-arm-2026-10-30.json.
+
+The cloud packet verifies all 312 raw tip checkpoints, eleven source hashes,
+nine exact native comparisons and its startup-only compatibility copy. All
+fourteen scoped backup assets matched GitHub before owned instance 58431724 was
+destroyed at 19:08:07 UTC, with API absence verified. The watchdog exited and both
+pre-existing instances were untouched. Estimated compute was $0.75748 excluding
+transfers. No active rental remains from this work.
+
+The separate four-arm translation diagnostic completed at 0fbf067 with actual
+upload/hash/centroid liveness, preserved schedules, source freeze, zero errors
+and required cleanup/ledger evidence. All 206 raw surfaces verify. The frozen
+unchanged local-stiffness replay finds signed octic C100-error changes of
+-2.37254 pp (epsilon 0) and -0.41104 pp (epsilon 0.0171). Known geometry and once-only
+recentering controls pass; this is inferred response sensitivity, not a fitted
+correction or a bound on evolved-profile/needle error. Public evidence:
+docs/validation/quant3d-translation-2026-10-30.json.
+
+All 18 final scoped backup assets, including the translation packet and a source
+byte supplement, have matching server digests. The supplement exactly verifies
+34 local source records; 25 Windows line-ending representations differ from Git
+archives. Scientific sources/results were not modified. Local browser/server
+and owned watchdog are closed; original optimizer checkout remains untouched.
+
+Q3c remains OPEN. Next independent targets are local-stiffness grid refinement
+with paired lattice phases, and moving-interface kinetic calibration away from
+principal planes (including finite-speed stability). The complete literature
+reference must pass before any quantitative 3D promotion or candidate adoption.

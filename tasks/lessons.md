@@ -718,3 +718,16 @@ requiring recovery to the original wave. Establish the transient expectation in
 an independent solver, distinguish field evolution from stability, and include
 signed or zero-integral controls when appropriate. A failed frozen predicate
 stays failed; a later diagnosis requires its own prospectively specified test.
+
+## A commit archive does not always preserve measured source bytes
+
+Git normalizes line endings. Twenty-five local scientific source records used
+Windows byte representations that differed from their commit archive, although
+the generated WGSL and source logic were identical. A separate exact-byte
+archive reconstructed every recorded hash from the pinned Git content and
+verified LF/CRLF representation; no result or scientific source was altered.
+
+**Rule.** Preserve the exact files whose hashes were measured, alongside the
+commit archive. If reconstruction is necessary, verify the reconstructed bytes
+against every original hash and label the representation. Keep generated shader
+hashes as a separate model-provenance check.

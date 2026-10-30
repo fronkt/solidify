@@ -19,6 +19,12 @@ native/rectangular candidate pipelines and records the model in its unchanged
 five-arm fixed-terminal contract. Both recovery studies remain scientifically
 refused; execution/legacy checks and completed equilibrium cases do not pass Q3.
 
+`scripts/research/quant3d-equilibrium-translation.mjs` defaults to CPU controls;
+`--run` explicitly starts the separate four-arm local spatial diagnostic. It
+checks actual translated uploads, exact/recentered coordinates, missing-adapter
+controls, original step schedules and post-cleanup execution evidence. Its
+`diagnosticPassed` flag does not certify the fourteen-case matrix or Q3.
+
 Final reviewed regression, 2026-10-30: all 35 registered scripts passed across
 the full run and corrective continuation. The first 22 passed in
 `verify-out/ordered-final-reviewed-suite.log`; an unmodified rail retry passed
