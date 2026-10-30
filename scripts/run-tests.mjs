@@ -51,6 +51,9 @@ const SUITE = [
   ["scripts/verify-passsplit3d.mjs", String(PORT)],
   ["scripts/verify-quant.mjs", String(PORT)],
   ["scripts/verify-quant3d.mjs", String(PORT)],
+  // Independent equilibrium lattice-bias regression, separate from the long
+  // moving-needle study. Uses fixed inputs and records the raw surface data.
+  ["scripts/verify-quant3d-wulff.mjs", String(PORT)],
   ["scripts/verify-phasediagram-gpu.mjs", String(PORT)],
   // the first gate in this suite that CLICKS the composer: v7.1 P5's periodic
   // grid, driven through the DOM the way a visitor drives it

@@ -1,7 +1,8 @@
 # Testing
 
-Q3 adds two GPU-only scripts, also registered in `npm test`; neither changes the
-seventeen-script browser-free CI set:
+Q3 adds three GPU verification scripts, also registered in `npm test`. The
+Wulff geometry/verdict self-test also runs without a browser in CI, bringing
+that set to eighteen scripts:
 
 - `verify-passsplit3d.mjs` compares preserved fused and diagnostic split Kobayashi
   paths with the untouched `d59471e` volume snapshots. Eight fixed manufactured
@@ -26,6 +27,18 @@ seventeen-script browser-free CI set:
   criteria in `docs/QUANT-3D.md`.
   Invalid/clipped/unresolved profiles fail. AT-on/off profiles and their actual
   thin-interface velocity ratios remain in `verify-out/quant3d-result.json`.
+- `verify-quant3d-wulff.mjs` measures fixed-volume equilibrium shapes at raw
+  cubic anisotropy 0 and .0171, using production shaders at n=96, dx=.8,
+  radius=20, lambda=4 and a fixed 1,000-tau0 horizon. Uniform-temperature
+  feedback holds phase volume; it does not measure coupled kinetic beta.
+  Independent support fits recover [100]/[110] energy and hold [111] out.
+  Stationarity, geometry uncertainty, raw six-cell surface brackets, device
+  errors and source hashes are retained. New regression guards limit the
+  uncertainty-inclusive isotropic bias to .0004 and relative cubic error to
+  5%; these follow the independent stencil comparison and are not a
+  retrospective literature-acceptance claim. Effective scalar d0 is report
+  only. `--self-test` exercises analytic geometry and drifting, unfinished
+  and wrong-energy negative controls without opening a browser.
 
 The alloy partition reference uses the production 3D shader strings in a
 `1024x8x8` domain, with only integer bounds specialized. Twelve raw cube hashes
