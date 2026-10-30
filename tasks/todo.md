@@ -5085,12 +5085,12 @@ Scope approved: finish the five near-term targets from the restart audit. Larger
 
 Acceptance plan (reviewed before implementation):
 - [x] Correctness: explicit validity for absent liquid samples; negative and zero calibrated temperatures remain analyzable/exportable; inspect steel preset composition and make quantitative calibration physically consistent or explicitly unavailable with a useful explanation. Regression checks cover real failure cases.
-- [ ] Mobile: at 390x844 and narrow/landscape layouts, mode panels do not cover tour and analysis columns do not collide with legend; retain accessible controls, desktop behavior, and the existing dark design.
+- [x] Mobile: at 390x844 and narrow/landscape layouts, mode panels do not cover tour and analysis columns do not collide with legend; retain accessible controls, desktop behavior, and the existing dark design.
 - [x] Plots: add live pour temperature, heat-treatment schedule + grain size vs time, optimizer convergence using the shared plot framework with hover, enlargement, provenance, CSV and PNG. Bound records, latch units, stop collecting when paused/reset correctly.
 - [x] Run export: one downloadable archive containing versioned JSON (parameters, seed, material/constants, units, solver and reproducibility link), all available recorded time series as CSV, and a micrograph PNG with scale/provenance. Include meaningful empty-state/errors and 2D/3D support.
-- [ ] Tour/copy: shorten instructional copy without losing scientific limitations; align labels and American spelling; replace prose em dashes while keeping mathematical minus signs and names intact.
-- [ ] Verification: targeted regression checks, typecheck/build, browser-free CI scripts, visual/download checks, then full browser/GPU suite with no concurrent source edits. Resolve failures and record evidence.
-- [ ] Review final diff, record results, commit with specific paths, and push the verified development branch.
+- [x] Tour/copy: shorten instructional copy without losing scientific limitations; align labels and American spelling; replace prose em dashes while keeping mathematical minus signs and names intact.
+- [x] Verification: targeted regression checks, typecheck/build, browser-free CI scripts, visual/download checks, then full browser/GPU suite with no concurrent source edits. Resolve failures and record evidence.
+- [x] Review final diff, record results, commit with specific paths, and push the verified development branch.
 
 ### Implementation and acceptance evidence
 
@@ -5098,4 +5098,15 @@ Acceptance plan (reviewed before implementation):
 - Live Lab, furnace, and optimizer figures use shared hover/dialog/table/export behavior, bounded records and original run provenance. Furnace schedule time stays separate from the solidification clock; measured endpoints and material-law predictions are distinguished.
 - Complete-run ZIP adds versioned metadata, per-dataset CSVs, raw series, material constants, unit bridges, Lab setup/status, seed, setup link, and scaled rendered PNG. Perspective scales explicitly apply at the camera target. The archive is an observation/setup package, not a serialized GPU-field restart.
 - `verify-completion-gpu.mjs`: all six checks passed on real WebGPU (calibration/old links, 512² and 1.7 µm sharing, live-pour pause and real download, optimizer observations, delivered furnace endpoints, 96³ archive). Python zipfile CRC validation and Pillow PNG decoding independently passed for 2D, furnace and 3D packages. Source remained frozen during browser runs.
-- Seventeen browser-free scripts are now registered in CI and the local suite. The full suite is running; responsive rail evidence and final review remain pending. Chrome cleanup is bounded per owned browser; each verification process has a ten-minute timeout.
+- Seventeen browser-free scripts are registered in CI and the local suite. Browser/GPU checks ran with source edits frozen. Chrome cleanup is bounded per owned browser; each verification process in the main runner has a ten-minute timeout.
+- Responsive acceptance now passes all eleven rail gates, including 36 phone states, eight expanded-readings checks, all mode-panel bounds, source/visible copy checks, and keyboard behavior. CSS anchors now follow DOM order; short screens retain an expandable readings panel, and narrow 3D lens rows explicitly clear the ViewCube. Focused geometry covered thirty cases across five screen sizes with button hit testing.
+- Two legacy timing-sensitive checks were repaired without widening scientific thresholds: Lab curve opens Results and waits for nonempty paint with measured samples; REFINE-FAIR uses both previously registered comparator seeds and controlled fence-paced casts. All four seed/inoculant comparisons remain below the original 15% bound; the full tools script passes.
+- Implementation backed up in afccf99 and 1fbfc0b on v7-experiments. Draft PR https://github.com/fronkt/solidify/pull/1 has green GitHub CI and a Ready Vercel preview. No production promotion.
+
+### Final review
+
+All five near-term targets are complete. Typecheck, production build, and all 32 verification scripts passed across the full run and corrective continuations. The first 21 scripts passed in `verify-out/completion-suite-final.log`; the repaired full tools script passed in `verify-out/completion-continuation.log`; the final ten scripts each exited 0 in `verify-out/completion-remaining.log` (rail, completion acceptance, pass split, quantitative solver, phase-diagram GPU, composer GPU, experiment GPU, heat-treatment GPU, scale3d, and 3d). No source edits ran alongside any verification script. Final `git diff --check` is clean.
+
+Independent Python zipfile CRC validation and Pillow decoding passed for the exported 2D, furnace, edited-composition, and 3D archives. Representative source/export and responsive screenshots were inspected. The archive documents its setup/observation scope and approximate perspective scale; furnace predictions remain distinct from measured endpoints; illustrative steel is refused for unsupported calibration without changing its qualitative morphology. New classroom modules, the calibrated 3D port, recrystallization, convection, and hero rerenders remain outside this completed batch.
+
+Preview: https://solidify-git-v7-experiments-frankyc11223-1729s-projects.vercel.app . Production remains the previously approved release until a separate deployment instruction.
