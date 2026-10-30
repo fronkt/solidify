@@ -1,6 +1,7 @@
 // Frozen analytic-lattice kinetic experiment. Production 3D equations are
-// unchanged; only integer bounds and the declared uniform tau input differ.
-export async function installQuant3LatticeKineticDriver(targets) {
+// unchanged by default; an explicit option selects the experimental local tau.
+export async function installQuant3LatticeKineticDriver(targets, options = {}) {
+  const latticeKinetics = options.latticeKinetics === true;
   const { Sim3D, DEFAULTS3D } = await import("/src/sim3d.ts");
   const { FLUX3D_WGSL, phi3dWgsl, transport3dWgsl, P3, MAX_GRAINS3 } = await import("/src/shaders3d.ts");
   const { rect3dSpecialize } = await import("/scripts/fixtures/rect3d-specialize.mjs");
@@ -10,7 +11,7 @@ export async function installQuant3LatticeKineticDriver(targets) {
   const onError=event=>errors.push({kind:"device",message:event.error.message});
   device.addEventListener("uncapturederror",onError);
   device.lost.then(info=>{if(!disposed)errors.push({kind:"device-lost",reason:info.reason,message:info.message});});
-  const sources=[FLUX3D_WGSL,phi3dWgsl(false),transport3dWgsl(false)],ints=new Set([
+  const sources=[FLUX3D_WGSL,phi3dWgsl(false,latticeKinetics),transport3dWgsl(false)],ints=new Set([
     "n","frame","aniMode3","seedCount","curGen","scen","alloyOn","idFloor","probeX","probeY","probeZ","solver","frozenT"]);
   const quats=new Float32Array(MAX_GRAINS3*4);for(let i=0;i<MAX_GRAINS3;i++)quats[4*i+3]=1;
   const sha=async b=>[...new Uint8Array(await crypto.subtle.digest("SHA-256",b))].map(v=>v.toString(16).padStart(2,"0")).join("");
@@ -43,7 +44,7 @@ export async function installQuant3LatticeKineticDriver(targets) {
   async function create(c){
     if(c.dx!==.8||![.016,.008].includes(c.dt)||!Number.isFinite(c.offset??0)
       ||![1,1.1].includes(c.widthScale??1)||![0,.002].includes(c.temperatureKick??0)
-      ||![1,targetFor(c).config.tauScale].includes(c.tauScale))throw new Error("unexpected frozen lattice-kinetic arm");
+      ||!(latticeKinetics?[1,1/targetFor(c).config.tauScale]:[1,targetFor(c).config.tauScale]).includes(c.tauScale))throw new Error("unexpected frozen lattice-kinetic arm");
     const dims=c.dims,res=[],p=params(c);
     const tex=format=>{const t=device.createTexture({size:dims,dimension:"3d",format,
       usage:GPUTextureUsage.TEXTURE_BINDING|(format==="r8uint"?0:GPUTextureUsage.STORAGE_BINDING)|GPUTextureUsage.COPY_DST|GPUTextureUsage.COPY_SRC});res.push(t);return t;};
@@ -112,9 +113,33 @@ export async function installQuant3LatticeKineticDriver(targets) {
     async stage(c){await this.destroy();active=await create(c);return {params:active.p,shaderHashes:active.shaderHashes};},
     sample:()=>active.sample(),census:()=>active.census(),advance:n=>active.advance(n),
     async destroy(){const old=active;active=null;if(old)await old.destroy();},
+    async safety(){
+      if(!latticeKinetics)throw new Error("candidate safety controls require the explicit option");
+      const c={dims:[32,32,32],dx:.8,dt:.016,offset:0,targetKey:"0.125",tauScale:1};
+      const sim=new Sim3D(device,32,{latticeKinetics});sim.build();const controls=[];
+      try{
+        if(!await sim.enableQuant())throw new Error("candidate safety allocation failed");
+        for(const [name,change] of [["coarse-dx",{dx:4}],["zero-D",{dTherm:0}],
+          ["nonfinite-tau",{tau:NaN}],["unsafe-dt",{dt:.1}]]){
+          Object.assign(sim.params,params(c),change);sim.reset(params(c).tFar);
+          const before=sim.simTime,advanced=await sim.stepSync(1);
+          controls.push({name,advanced,unchangedClock:sim.simTime===before,issue:sim.quantitativeIssue});
+          if(advanced!==0||sim.simTime!==before||!sim.quantitativeIssue)throw new Error(`candidate admission control failed: ${name}`);
+        }
+        Object.assign(sim.params,params(c));sim.reset(params(c).tFar);
+        const advanced=await sim.stepSync(1),status=await sim.readQuantitativeStatus();
+        if(advanced!==1||!status||status.flags||status.issue)throw new Error("candidate positive admission control failed");
+        controls.push({name:"positive",advanced,status});
+      }finally{try{await device.queue.onSubmittedWorkDone();}finally{sim.destroy();}}
+      const direct=await create(c);let refusal=null;
+      try{direct.p.tau=-1;try{await direct.advance(1);}catch(error){refusal=error.message;}
+        if(!/^quantitative diagnostic flags 32$/.test(refusal??""))throw new Error("actual local-tau GPU refusal was not observed");
+      }finally{await direct.destroy();}
+      return {passed:true,controls,actualGpuLocalTauRefusal:refusal};
+    },
     async equivalence(){
-      const n=32,c={dims:[n,n,n],dx:.8,dt:.016,offset:0,targetKey:"0.125",tauScale:targets["0.125"].config.tauScale};
-      const rect=await create(c),sim=new Sim3D(device,n);sim.build();const comparisons=[];let stateByteChanges=0;
+      const n=32,c={dims:[n,n,n],dx:.8,dt:.016,offset:0,targetKey:"0.125",tauScale:latticeKinetics?1:targets["0.125"].config.tauScale};
+      const rect=await create(c),sim=new Sim3D(device,n,{latticeKinetics});sim.build();const comparisons=[];let stateByteChanges=0;
       try{if(!await sim.enableQuant())throw new Error("production cube allocation failed");Object.assign(sim.params,params(c));sim.reset(params(c).tFar);
         const init=fields(c);device.queue.writeBuffer(sim.quatBuffer,0,quats);for(const d of [0,1]){
           device.queue.writeTexture({texture:sim.stateTexture(d)},init.state,{bytesPerRow:n*8,rowsPerImage:n},c.dims);

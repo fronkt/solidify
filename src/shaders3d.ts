@@ -529,7 +529,7 @@ ${alloy ? KOB_SOLUTE3 : ""}${TRANSPORT3(alloy)}
 
 /** Split phase pass; the original Kobayashi expression is the same fragment
  * that the fused kernel evaluates. Only quantitative terms use the status. */
-export const phi3dWgsl = (alloy: boolean) => /* wgsl */ `
+export const phi3dWgsl = (alloy: boolean, latticeKinetics = false) => /* wgsl */ `
 ${COMMON3}
 @group(0) @binding(0) var<uniform> P: Params3D;
 @group(0) @binding(1) var state: texture_3d<f32>;
@@ -552,7 +552,7 @@ ${PHASE_ANISO3_CORE}
   var phiNew = phi;
   var dPhi = 0.0;
   if (P.solver == 1u) {
-${QUANT_PHASE3(alloy)}
+${QUANT_PHASE3(alloy, latticeKinetics)}
   } else {
 ${KOB_PHASE3(alloy).replace("let phiNew =", "phiNew =").replace("let dPhi =", "dPhi =")}
   }

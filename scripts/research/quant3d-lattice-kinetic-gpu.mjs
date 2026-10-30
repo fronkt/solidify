@@ -168,6 +168,7 @@ export function latticeFinalAcceptance(result){
   const negativeEarlyOnly=!!negativeControlValid&&!negativeLateTargetRejected;
   const accepted=!result.exception&&result.errors.length===0&&result.deviceErrorLedgerRead===true
     &&result.sourceStable===true&&result.inputsStable===true&&result.nativeEquivalent===true
+    &&(!result.contract?.experimentalLatticeKinetics||result.candidateSafety?.passed===true)
     &&positive.length===6&&positive.every(row=>row.completed&&row.assessment?.backendValid&&row.assessment.targetMatched)
     &&negative?.completed===true&&negativeControlValid;
   return {accepted,positiveArms:positive.length,positiveMatched:positive.filter(row=>row.assessment?.targetMatched).length,
@@ -230,7 +231,7 @@ export function selfTestLattice(targets){
 async function main(){
   const args=process.argv.slice(2),pos=[],options={};
   for(const arg of args){
-    if(arg==="--run"||arg==="--self-test")options[arg.slice(2)]=true;
+    if(arg==="--run"||arg==="--self-test"||arg==="--lattice-kinetics")options[arg.slice(2)]=true;
     else if(arg.startsWith("--targets="))options.targets=arg.slice(10);
     else if(arg.startsWith("--"))throw new Error(`unknown option ${arg}`);
     else pos.push(arg);
@@ -253,16 +254,19 @@ async function main(){
   writeFileSync(resolve(out,"inputs","target-manifest.json"),manifestBytes);
   for(const [path,checksum] of Object.entries(manifest.sourceHashes??{}))assert.equal(sha(readFileSync(resolve(ROOT,path))),checksum,`CPU input source changed: ${path}`);
   const arms=latticeArms(targets),cpu=selfTestLattice(targets);
+  const latticeKinetics=options["lattice-kinetics"]===true;
+  if(latticeKinetics)for(const arm of arms)arm.tauScale=arm.negativeControl?1/ANALYTIC_TAU_SCALE:1;
   const contract={format:"solidify-lattice-kinetic-contract-v1",purpose:"frozen analytic-only finite-speed production-WGSL recovery experiment",
     physical:{normal:"100",lambda:LAMBDA,epsilon:EPSILON,dx:DX,D,analyticTauScale:ANALYTIC_TAU_SCALE,
       formula:"tauScale=(47/75)*lambda/D*[1-(1321/9870)*dx_physical^2/a100^2]",noise:0,externalProgram:0,alloy:0},
-    tolerances:LATTICE_TOLERANCES,arms,
+    tolerances:LATTICE_TOLERANCES,arms,experimentalLatticeKinetics:latticeKinetics,
     perturbations:{phaseWidth:"psi target evaluated at x/1.1; temperature unchanged",temperature:"add .002*exp[-x^2/(2*4^2)] to Ttilde only"},
     clock:"exact substeps times Float32 uniform dt; terminal rounded upward beyond 5D/V^2",
     metrology:"late free-intercept mass-position regression; observed-position aligned phase/T windows; all raw profiles retained",
-    negativeControl:"same corrected target, tau=1; require valid backend, actual target rejection and >=3% initial-response contrast to corrected .125 arm",
+    negativeControl:`same corrected target, ${latticeKinetics?"P.tau=1/analyticTauScale cancels the candidate for [100]":"P.tau=1 is the uncorrected model"}; require valid backend, actual target rejection and >=3% initial-response contrast to corrected .125 arm`,
     nativePrecondition:"nine exact production/specialized state/grain/age hashes at steps1/17/64 and nonzero state evolution",
-    sourceScope:"unchanged production WGSL; rectangular integer geometry only; declared uniform tau input",
+    sourceScope:latticeKinetics?"explicit opt-in additive local-tau research candidate; P.tau=1 positive arms; unchanged default and alloy models"
+      :"unchanged default production WGSL; rectangular integer geometry only; declared uniform tau input",
     limitations:"formal principal-plane leading correction; coarse-grid pinning, all-angle kinetics and Q3 needle acceptance remain unproved"};
   const contractBytes=Buffer.from(JSON.stringify({contract,targetChecks,cpu},null,2));
   writeFileSync(resolve(out,"lattice-kinetic-contract.json"),contractBytes);
@@ -306,7 +310,7 @@ async function main(){
     page.on("console",message=>{if(message.type()==="error")evidenceError("console",message.text());});
     await page.goto(`http://localhost:${port}/app/`,{waitUntil:"networkidle0"});
     await page.waitForFunction(()=>!!window.__solidify,{timeout:60_000});
-    await page.evaluate(installQuant3LatticeKineticDriver,targets);
+    await page.evaluate(installQuant3LatticeKineticDriver,targets,{latticeKinetics});
     result.metadata=await page.evaluate(()=>window.__q3lattice.metadata());
     if(result.metadata.hardware.isFallbackAdapter!==false)throw new Error("actual application hardware adapter was not admitted");
     result.equivalence=await page.evaluate(()=>window.__q3lattice.equivalence());
@@ -314,6 +318,8 @@ async function main(){
     result.nativeEquivalent=pairs.length===9&&pairs.every(pair=>pair.mismatches===0&&pair.productionHash===pair.specializedHash)
       &&result.equivalence.stateByteChanges>0;
     if(!result.nativeEquivalent)throw new Error("native production hash equivalence or evolution failed");
+    if(latticeKinetics){result.candidateSafety=await page.evaluate(()=>window.__q3lattice.safety());
+      if(!result.candidateSafety.passed)throw new Error("candidate safety controls failed");}
     console.log("QPF3-LATTICE-NATIVE OK",JSON.stringify({pairs:pairs.length,stateByteChanges:result.equivalence.stateByteChanges}));save();
     for(const config of arms){
       const row={config,samples:[],completed:false};result.arms.push(row);save();

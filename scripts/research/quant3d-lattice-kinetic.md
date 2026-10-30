@@ -263,3 +263,26 @@ node scripts/research/quant3d-lattice-kinetic-gpu.mjs verify-out/q3-lattice-stud
 `CHROME_PATH` and a JSON string array in `CHROME_ARGS` select the browser/backend.
 A scientific discrepancy is retained and exits nonzero. It is not repaired by
 changing a coefficient, tolerance or velocity window after seeing the data.
+
+## Separate opt-in candidate
+
+The original frozen study at `b24f3f2` completed but was refused: the positive
+heat-pulse arm failed its temperature-RMS clause. Its source and 497 raw profiles
+are preserved. Independent Float64 transient evolution reproduces that failure;
+see `quant3d-lattice-transient.md`. This does not retrospectively pass recovery.
+
+The native shader factory and Sim3D now offer an explicit `latticeKinetics`
+research option, default false. Only the pure phase branch changes when enabled;
+default pure, alloy, flux and transport WGSL remain byte-identical. The additive
+formula uses local a(n), finite-positive relaxation refusal and the actual local
+CFL. Native admission also uses a conservative corrected minimum. App creation
+does not enable the option.
+
+`--lattice-kinetics` on this runner selects that option and sets positive-arm
+P.tau to 1; the reciprocal negative input restores the uncorrected 100 relaxation.
+The original recovery criteria remain active, including the known heat-pulse
+limitation. Additional CPU/GPU positivity and timestep controls are required.
+The full tip runner accepts the same explicit flag and records it in the
+contract. Its five arms, fixed endpoints, metrology and reference bands remain
+unchanged. A successful literature comparison is a separate result from kinetic
+scope and overall Q3 acceptance.

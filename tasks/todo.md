@@ -5395,3 +5395,24 @@ Float32 numerical detuning with an independent coupled CPU march and raw replay.
 Only a separately specified experiment may address a demonstrated protocol
 limitation. The cloud equilibrium matrix continues on its original immutable
 source; it is not affected by local diagnostic changes.
+
+Independent Float64 evolution now reproduces the failed positive heat-pulse
+temperature clause with energy conserved to about 8e-11. The measured speed
+change predicts the altered liquid diffusion tail. Both baseline and corrected
+finite-speed branches have a negative outer undercooling slope; a claimed
+asymptotic recovery is therefore not an established prerequisite for either.
+This does not revise the original refusal or prove a finite-width instability.
+
+Prospective experimental candidate specification:
+- Add an explicit, immutable research option to the native 3D shader factory
+  and Sim3D allocation, default false. Prove default and alloy WGSL bytes match
+  the frozen baseline; the app does not enable this option.
+- Only the opted-in pure phase branch uses the derived additive local tau.
+  Refuse non-positive/nonfinite relaxation and retain CFL using actual local
+  tau. Add conservative host positivity/CFL admission for that option.
+- Give both planar and full-reference harnesses an explicit recorded option,
+  preserving native equivalence, clocks, physical coefficients and bands.
+- Verify candidate native/rectangular equality, finite-speed profiles and signed
+  response before the separate fixed-terminal five-arm candidate experiment.
+  Preserve the known heat-pulse recovery failure and independent CPU transient
+  evidence. Candidate results cannot by themselves erase open calibration scope.

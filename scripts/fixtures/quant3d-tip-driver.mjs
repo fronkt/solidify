@@ -1,7 +1,9 @@
 // Browser fixture for a single pure dendrite. The three production shader
 // sources are reused verbatim except integer bounds and coordinate clamping.
+// The explicit latticeKinetics option uses the matching native shader option.
 // No alternate phase, heat or anisotropy equation is implemented here.
-export async function installQuant3TipDriver() {
+export async function installQuant3TipDriver(options = {}) {
+  const latticeKinetics = options.latticeKinetics === true;
   const { Sim3D, DEFAULTS3D } = await import("/src/sim3d.ts");
   const { FLUX3D_WGSL, phi3dWgsl, transport3dWgsl, P3, MAX_GRAINS3 } = await import("/src/shaders3d.ts");
   const { rect3dSpecialize } = await import("/scripts/fixtures/rect3d-specialize.mjs");
@@ -26,7 +28,7 @@ export async function installQuant3TipDriver() {
   device.addEventListener("uncapturederror", e => window.__solidifyTipDeviceErrors.push(String(e.error?.message ?? e.error)));
   device.lost.then(info => { if (info.reason !== "destroyed") window.__solidifyTipDeviceErrors.push(`Device lost: ${info.message}`); });
   let active = null;
-  const sources = [FLUX3D_WGSL, phi3dWgsl(false), transport3dWgsl(false)];
+  const sources = [FLUX3D_WGSL, phi3dWgsl(false, latticeKinetics), transport3dWgsl(false)];
   const shaderErrors = [];
   const digest = async bytes => [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(x => x.toString(16).padStart(2, "0")).join("");
 
@@ -226,7 +228,7 @@ export async function installQuant3TipDriver() {
     async destroy() { if (active) await active.destroy(); active = null; },
     async equivalence(config) {
       const n = 32, c = { ...config, dims: [n, n, n], radius: 5, center: [n * config.dx / 2, n * config.dx / 2, n * config.dx / 2] };
-      const rect = await create(c), sim = new Sim3D(device, n); sim.build();
+      const rect = await create(c), sim = new Sim3D(device, n, { latticeKinetics }); sim.build();
       try {
         if (!await sim.enableQuant()) throw new Error("cube quantitative allocation failed");
         Object.assign(sim.params, parameters(c)); sim.reset(1 - c.undercooling);
