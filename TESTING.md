@@ -1,5 +1,14 @@
 # Testing
 
+Final reviewed regression, 2026-10-30: all 35 registered scripts passed across
+the full run and corrective continuation. The first 22 passed in
+`verify-out/ordered-final-reviewed-suite.log`; an unmodified rail retry passed
+all 11 gates in `rail-original-retry.log`; the remaining 12 passed in
+`ordered-reviewed-continuation.log`, with unchanged source/test-input hashes.
+The first rail attempt had an unreproduced CDP timeout. No assertion or timeout
+was relaxed. The separate five-arm literature campaign **failed** its reference
+comparison; these regression passes do not complete Q3 acceptance.
+
 Q3 adds three GPU verification scripts, also registered in `npm test`. The
 Wulff geometry/verdict self-test also runs without a browser in CI, bringing
 that set to eighteen scripts:

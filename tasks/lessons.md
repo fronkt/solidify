@@ -687,3 +687,11 @@ pixels, and prove the read on a planted defect.
 A3D calibration fixture seeded nucleation positions but inherited a random page seed for grain orientations. Armed animation frames could also consume queued quench stamps between manual growth batches. The same source therefore produced different specimens and coarsening fits.
 
 **Rule.** For a deterministic GPU fixture, control every named random stream and separate manual physics submission from animation submissions. Verify actual field bytes and delivered steps/frame/time before fitting a physical constant. Preserve stopping rules and scientific tolerances; reproducibility is a precondition, not a reason to widen acceptance.
+
+## Async setup owns its publication, not merely its allocation
+
+A shared 3D setup wrote calibrated dials before allocation, then resumed after the operator left the mode. A completed allocation does not authorize publishing into a different mode, solver instance or user-edited setup. Preserve the qualitative baseline until preparation succeeds, check ownership after every await, and keep composed kPart/dSol canonical before taking a restoration snapshot. Publish a dormant volume's scale only into that volume; an explicit reset must permit retry after a visible runtime refusal.
+
+## Separate a compound gate from its component results
+
+The five-arm reference runner's final convergence assertion included every arm's literature acceptance. That assertion failed even though all pointwise domain/grid/time/width differences were within their comparison band. Report the condition that actually failed. A fixed maximum horizon also does not make a first-qualifying endpoint a fixed terminal observation; predeclare paired physical endpoints when the convergence comparison requires them.
