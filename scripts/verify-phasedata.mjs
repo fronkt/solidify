@@ -603,7 +603,8 @@ for (const [baseKey, byEl] of Object.entries(PD.BINARY)) {
     "seventeen", "eighteen", "nineteen", "twenty"];
   const ci = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
   const testing = readFileSync(new URL("../TESTING.md", import.meta.url), "utf8");
-  const runs = [...ci.matchAll(/^[ \t]*-[ \t]*run:[ \t]*node[ \t]+scripts\/(verify-[a-z0-9-]+\.mjs)[ \t]*\r?$/gm)]
+  // Include browser-free modes such as --self-test; they are CI run entries too.
+  const runs = [...ci.matchAll(/^[ \t]*-[ \t]*run:[ \t]*node[ \t]+scripts\/(verify-[a-z0-9-]+\.mjs)(?:[ \t]+[^\r\n]+)?[ \t]*\r?$/gm)]
     .map(m => m[1]);
   const word = NUM[runs.length];
   // NUMBER WORDS ONLY. A bare /([a-z]+) browser-free scripts/ also matches the

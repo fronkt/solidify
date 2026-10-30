@@ -695,3 +695,10 @@ A shared 3D setup wrote calibrated dials before allocation, then resumed after t
 ## Separate a compound gate from its component results
 
 The five-arm reference runner's final convergence assertion included every arm's literature acceptance. That assertion failed even though all pointwise domain/grid/time/width differences were within their comparison band. Report the condition that actually failed. A fixed maximum horizon also does not make a first-qualifying endpoint a fixed terminal observation; predeclare paired physical endpoints when the convergence comparison requires them.
+
+## A CI inventory includes argument-bearing test modes
+
+Adding a browser-free lifecycle check also changes the documented CI inventory.
+Count workflow invocations with modes such as --self-test, update TESTING.md in
+the same phase, and run verify-phasedata before pushing workflow additions.
+Passing only the new test misses the existing cross-document count contract.

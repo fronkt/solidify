@@ -5305,3 +5305,8 @@ unpublished calibration draft; both server digests match local files. Archive
 SHA256 e2cffee98543a2d3c965d4940085ac5b4731ee1aed2b213125501c8eaff61c28.
 Public result summary: docs/validation/quant3d-continuation-2026-10-30.json.
 Q3c remains open; reviews do not supply missing kinetic/metrology calibration.
+
+CI initially caught a stale documented script count after the new lifecycle step.
+The inventory now counts argument-bearing self-test entries as well and documents
+all20 browser-free CI scripts. No physical gate was relaxed; the original count
+guard remains active, and its actual workflow/documentation check is rerun.

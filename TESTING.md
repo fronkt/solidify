@@ -10,8 +10,8 @@ was relaxed. The separate five-arm literature campaign **failed** its reference
 comparison; these regression passes do not complete Q3 acceptance.
 
 Q3 adds three GPU verification scripts, also registered in `npm test`. The
-Wulff geometry/verdict self-test also runs without a browser in CI, bringing
-that set to eighteen scripts:
+Wulff and tip geometry/protocol self-tests and the runner-lifecycle controls
+also run without a browser in CI, bringing that set to twenty scripts:
 
 - `verify-passsplit3d.mjs` compares preserved fused and diagnostic split Kobayashi
   paths with the untouched `d59471e` volume snapshots. Eight fixed manufactured
@@ -124,8 +124,9 @@ fade and Sievert gas porosity — bringing the CI-runnable set to five at the ti
 `verify-phasediagram.mjs` ten, v7.1 P3's `verify-regimes.mjs` eleven, v7.1 P4's
 `verify-elements.mjs` twelve and v7.1 P5's `verify-composer-grid.mjs` thirteen, where v7.1 P6
 left it, v8's `verify-hero-manifest.mjs` fourteen and v8 U2's `verify-plot.mjs` fifteen.
-The v8 completion adds process-plot and run-export coverage, bringing the set to
-**seventeen browser-free scripts**, and
+The v8 completion adds process-plot and run-export coverage. Q3 adds the Wulff
+and tip self-tests plus runner-lifecycle controls, bringing the set to
+**twenty browser-free scripts**, and
 `CI-SCRIPT-COUNT` derives that number from `ci.yml`'s own run lines and fails if any place this
 document states it disagrees). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
@@ -146,11 +147,12 @@ except `verify-hero.mjs`, which runs with WebGPU removed and needs no GPU; it st
 hardcoded Chrome path and the 5199 server, so it is not in CI either.
 **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
-only the OS-agnostic steps — typecheck, build, and the seventeen browser-free scripts
+only the OS-agnostic steps — typecheck, build, and the twenty browser-free scripts
 (`verify-units.mjs`, `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
 `verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
 `verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
-`verify-composer-grid.mjs`, `verify-hero-manifest.mjs`, `verify-plot.mjs`, `verify-process-plots.mjs`, `verify-run-export.mjs`; see
+`verify-composer-grid.mjs`, `verify-hero-manifest.mjs`, `verify-plot.mjs`, `verify-process-plots.mjs`, `verify-run-export.mjs`,
+`verify-quant3d-wulff.mjs --self-test`, `verify-quant3d-tip.mjs --self-test`, `verify-quant3d-tip-lifecycle.mjs`; see
 `.github/workflows/ci.yml`) — rather than
 this suite. If you want to run the physics/UI verification yourself, do it locally.
 
@@ -1470,7 +1472,7 @@ rebuilt to make that relationship emergent:
 **Physics-behaviour tests (v5.0).**
 
 - **`UNITS-*`** (`verify-units.mjs`) — the scaling layer, checked without a browser, so it is
-  the first of the seventeen browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0, the v7.1 arc added six more and v8 added `verify-hero-manifest.mjs` and `verify-plot.mjs`). Ten checks: that kelvin-per-unit really is the heat
+  the first of the twenty browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0, the v7.1 arc added six more, v8 added figure/export checks, and Q3 added its self-tests and runner-lifecycle controls). Ten checks: that kelvin-per-unit really is the heat
   equation's own `(L/c_p)/K` for four materials computed independently in the test; that the
   time factor is forced by whichever diffusivity is anchoring; that every converter round-trips;
   that an abstract material reads as *unknown* rather than as zero; that the undercooling dial's
@@ -1969,10 +1971,11 @@ spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 
 that evidence recorded in the constant's own docblock. The drift prints on every run, and
 `HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
-`npm run build` (Vite + `tsc`) plus the seventeen browser-free scripts — `verify-units.mjs`,
+`npm run typecheck` and `npm run build` plus the twenty browser-free scripts — `verify-units.mjs`,
 `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
 `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
 `verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
 `verify-composer-grid.mjs`, `verify-hero-manifest.mjs`, `verify-plot.mjs`,
-`verify-process-plots.mjs` and `verify-run-export.mjs` — are the checks anyone on any OS can run
+`verify-process-plots.mjs`, `verify-run-export.mjs`, `verify-quant3d-wulff.mjs --self-test`,
+`verify-quant3d-tip.mjs --self-test` and `verify-quant3d-tip-lifecycle.mjs` — are the checks anyone on any OS can run
 without a GPU, and are what CI actually gates on (`.github/workflows/ci.yml`).
