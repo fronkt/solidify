@@ -61,6 +61,18 @@ export function ticks(start: number, stop: number, count: number): number[] {
   return out;
 }
 
+/** Whole-number ticks for count axes, without changing their data or domain.
+ * The requested density is capped by the number of integer intervals, so a
+ * 0..1 count axis labels 0 and 1 rather than half a grain or casting. */
+export function integerTicks(start: number, stop: number, count: number): number[] {
+  if (!(count > 0) || !Number.isFinite(start) || !Number.isFinite(stop)) return [];
+  const reverse = stop < start;
+  const lo = Math.ceil(reverse ? stop : start), hi = Math.floor(reverse ? start : stop);
+  if (hi < lo) return [];
+  const out = ticks(lo, hi, Math.min(count, Math.max(1, hi - lo)));
+  return reverse ? out.reverse() : out;
+}
+
 /** d3's tickIncrement: the step as an integer, or its negative reciprocal */
 export function tickIncrement(start: number, stop: number, count: number): number {
   return tickSpec(start, stop, count)[2];

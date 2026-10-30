@@ -5110,3 +5110,26 @@ All five near-term targets are complete. Typecheck, production build, and all 32
 Independent Python zipfile CRC validation and Pillow decoding passed for the exported 2D, furnace, edited-composition, and 3D archives. Representative source/export and responsive screenshots were inspected. The archive documents its setup/observation scope and approximate perspective scale; furnace predictions remain distinct from measured endpoints; illustrative steel is refused for unsupported calibration without changing its qualitative morphology. New classroom modules, the calibrated 3D port, recrystallization, convection, and hero rerenders remain outside this completed batch.
 
 Preview: https://solidify-git-v7-experiments-frankyc11223-1729s-projects.vercel.app . Production remains the previously approved release until a separate deployment instruction.
+
+## Ordered release and quantitative 3D work - 2026-10-29
+
+Approved scope: release the completed v8 batch, finish dimensionless readouts and integer count ticks, reconcile phase-data discrepancies, then implement and verify the quantitative 3D port. Recrystallization, convection, classroom trials/modules, precipitation aging and hero changes remain separate.
+
+Plan and acceptance criteria (checked in before implementation):
+- [x] R0 Release: merge PR1 at its verified head, observe successful production deployment, verify public routes/assets and a real GPU/export smoke flow; record release and rollback identifiers.
+- [x] R1 Small polish: abstract-material readouts show finite dimensionless values with explicit units, missing values remain distinct, all grain/casting count axes use integer ticks; retain real SI behavior. Verify pure and browser behavior, commit and push.
+- [ ] R2 Phase reconciliation: trace Ni-Nb, Mg-Zr, Fe-Ni, Mg-Al and Fe-Si issues to primary assessments/database scope and reaction definitions. Record evidence and uncertainty, correct data/claims where supported, reproduce affected computations, and run chemistry/calibration gates. Freeze the accepted data before taking 3D baselines.
+- [ ] Q3a Design and baseline: document governing 3D discretization, fields/units/bindings, memory/refusal policy and independent benchmark criteria; measure untouched Kobayashi baselines before refactoring.
+- [ ] Q3b Split: separate 3D phase/transport passes while retaining bit-exact Kobayashi trajectories, mass, IDs, pore/feed and existing 3D features. Runtime allocation failure must leave a usable solver and explain refusal.
+- [ ] Q3c Pure calibrated volume: implement 3D thin-interface phase/thermal equations, proper cubic anisotropy, calibration and units; verify equilibrium, curvature/critical radius, orientation symmetry and convergence against appropriate independent 3D references (not 2D tip constants).
+- [ ] Q3d Alloy calibrated volume: implement conservative face-flux solute transport and anti-trapping; independently verify partition, interface-width sensitivity and conservation under matched physics, with AT-off controls and measured tolerances.
+- [ ] Q3e Integrate: active-mode calibration, parameter/units ownership, chemistry changes, share links, exports, controls, documentation and honest material/symmetry/refusal paths. No enabled control may silently do nothing.
+- [ ] Final verification/review: source freeze for browser tests, appropriate pure/GPU/visual checks and full regression coverage; independently review scientific claims and implementation, fix surviving findings, commit and push each completed phase. Release only verified phases, with rollback metadata.
+
+Verification discipline: no source or app HTML edits during browser gates; use one scoped Vite instance per verification port; stages depend on the preceding acceptance criteria, and unverified physics is not advertised as calibrated.
+
+### Release and readout review
+
+- PR1 merged at 069abab7b9b551c751bd50e9362676d0a745efad. Main CI passed (run 40991240801); production deployment 7429099595 succeeded at solidify.frankcai.dev. Route checks and a real WebGPU run/archive export passed with no page errors. Rollback source: e3ee7c08aaada6e25e1c95264ad46a4f5edb9e2f (deployment 6670837827).
+- R1: dimensionless temperature/time/difference formatters preserve finite zero and negative values, and use a missing-value dash. Legacy SI-only formatters retain their contracts. Both instrument headers use the new formatters. Count axes request integer ticks without rounding observations; fractional continuous ticks remain.
+- R1 validation: TypeScript, units 10/10, plots 13/13, production build and a real WebGPU browser check passed. Browser covered both dimension modes and the return to an SI material; zero page errors. Screenshot checked for readable wrapping. Logs: verify-out/r1-{units,plot}.log and r1-browser.json.
