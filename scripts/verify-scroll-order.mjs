@@ -1,3 +1,4 @@
+import { closeBrowser } from "./browser-cleanup.mjs";
 // Asserts the pinned acts never overlap: hero → lens → materials, each pin's
 // range ENDING before the next one begins, and all three pins present. Exits 1
 // on a missing pin, a wrong order or an overlap. Pins created out of order
@@ -23,7 +24,7 @@ async function attempt(headless) {
   await page.goto(URL, { waitUntil: "networkidle0", timeout: 30000 });
   // wait for boot to finish (sims + triggers)
   const gotSims = await page.waitForFunction("!!window.__landing", { timeout: 12000 }).then(() => true).catch(() => false);
-  if (!gotSims) { await browser.close(); return null; }
+  if (!gotSims) { await closeBrowser(browser); return null; }
 
   const report = await page.evaluate(() => {
     const w = window;
@@ -37,7 +38,7 @@ async function attempt(headless) {
     return { pins, overlaps };
   });
 
-  await browser.close();
+  await closeBrowser(browser);
   return report;
 }
 

@@ -33,7 +33,13 @@ import {
   INCIPIENT_FRAC, K_MC, M_MODEL, K_MC_3D, M_MODEL_3D, ROOM_C,
   type HeatSchedule, type TreatContext, type Integrals,
 } from "./heattreat";
-import { K0, type MaterialSI } from "./units";
+import { K0, type MaterialSI, type Units } from "./units";
+import { bridgeOf, type Bridge } from "./plot/quantity";
+import type { Figure } from "./plot/figures";
+import type { PlotMeta, Prov } from "./plot/csv";
+import { PlotView } from "./plot/view";
+import { openFigure, type FigureHandle } from "./plot/modal";
+import { heatTrajectory, heatProcessFigure, equivalentHeatTime, type HeatPoint, type HeatMeasurement } from "./plot/process";
 import { HOMOG_D2 } from "./shaders";
 import { HOMOG_D3 } from "./shaders3d";
 import { range } from "./formbits";
@@ -90,6 +96,8 @@ export function regionCensus(
 }
 
 export interface HeatHost {
+  units(): Units;
+  meta(): PlotMeta;
   getMode(): "2d" | "3d";
   materialKey(): string;
   materialLabel(): string;
@@ -313,6 +321,36 @@ export class HeatPanel {
   /** learn mode's "i" and hints (rebuilt with the panel); the note's and the
    *  report's learn sentences are slots in their HTML (learnSlot) */
   private learn = new LearnLayer(() => this.applyLearn());
+  private processPlot: PlotView | null = null;
+  private processModal: FigureHandle | null = null;
+  private processFigure: Figure | null = null;
+  private recordedProcessFigure: Figure | null = null;
+  private showRunProcess = false;
+
+  /** The most recent treatment keeps its original material and furnace clock. */
+  exportFigures(): Figure[] {
+    const figure = this.recordedProcessFigure ?? this.processFigure;
+    return figure ? [figure] : [];
+  }
+
+  private paintProcess(f: Figure) {
+    this.processFigure = f;
+    if (this.processPlot?.root.parentElement) this.processPlot.root.parentElement.hidden = false;
+    this.processPlot?.set(f.fig);
+    this.processModal?.update();
+  }
+
+  private previewProcess() {
+    if (this.showRunProcess) return;
+    const si = this.host.si(), c = this.census;
+    if (!si || !c || !(this.dBar(c) > 0)) return;
+    const prov = this.host.meta();
+    this.paintProcess(heatProcessFigure({
+      points: heatTrajectory(this.schedule(), si, this.dBar(c)), measured: [],
+      bridge: bridgeOf(this.host.units(), prov.material), prov,
+      lawAvailable: !(this.pinF > 0 || this.workJb > 0), planned: true,
+    }));
+  }
 
   constructor(host: HeatHost) {
     this.host = host;
@@ -355,6 +393,9 @@ export class HeatPanel {
     // mid-run the exit is an abort request; the run loop closes up afterwards
     if (this.busy) { this.abortReq = true; this.closeReq = true; return; }
     this.active = false;
+    this.processModal?.close();
+    this.processPlot?.destroy();
+    this.processPlot = null;
     this.panel?.remove();
     this.panel = null;
     // the cache dies with the panel: a census outliving a close can belong to
@@ -490,6 +531,9 @@ export class HeatPanel {
   // -------------------------------------------------------------- the panel
 
   private buildPanel() {
+    this.processModal?.close();
+    this.processPlot?.destroy();
+    this.showRunProcess = false;
     this.panel?.remove();
     const si = this.host.si();
     const tmC = si ? si.Tm - K0 : 1000;
@@ -649,7 +693,17 @@ export class HeatPanel {
     caveat.className = "pnote warnline";
     caveat.style.display = "none";
 
-    p.append(head, ex.body, form, caveat, note, row, report);
+    const chart = document.createElement("div");
+    chart.className = "processplot";
+    chart.hidden = true;
+    chart.style.cssText = "width:100%;height:300px;min-width:0";
+    this.processPlot = new PlotView(chart, { id: "htProcessPlot", label: "Heat-treatment schedule and grain size; open figure and data", onOpen: () => {
+      if (!this.processFigure) return;
+      this.processModal?.close();
+      this.processModal = openFigure(() => this.processFigure!);
+    } });
+    form.addEventListener("input", () => { if (!this.busy) { this.showRunProcess = false; this.previewProcess(); } });
+    p.append(head, ex.body, form, caveat, note, row, chart, report);
     document.getElementById("app")!.append(p);
     this.panel = p;
     this.noteEl = note;
@@ -675,6 +729,7 @@ export class HeatPanel {
     if (this.busy) return; // the run loop owns the status line
     // every branch below writes the note, then fills its learn slots
     this.writeNote();
+    this.previewProcess();
     fillLearnSlots(this.noteEl);
     this.learn.apply();
   }
@@ -895,6 +950,30 @@ export class HeatPanel {
     this.refresh();
 
     const total = Math.min(plan.sweeps, this.consts().cap);
+    const processSI = this.host.si()!;
+    const processProv: Prov = { ...this.host.meta(), extra: [`Schedule: ${JSON.stringify(plan.sch)}`, `Material grain-growth law: n = ${processSI.ggN}; A0 = ${processSI.ggA0}; Q = ${processSI.ggQ} J/mol.`] };
+    const processBridge: Bridge = bridgeOf(this.host.units(), processProv.material);
+    const processPoints: HeatPoint[] = heatTrajectory(plan.sch, processSI, plan.d0Um);
+    const processMeasured: HeatMeasurement[] = [{ seconds: 0, diameterUm: plan.d0Um }];
+    const processConstants = this.consts(), processPitch = this.host.umPerCell();
+    this.showRunProcess = true;
+    const progressTime = (done: number) => {
+      if (!(plan.sweeps > 0)) return 0;
+      if (done >= plan.sweeps) return plan.ints.seconds;
+      const d = Math.pow(Math.pow(plan.d0Um / processPitch, processConstants.mModel) + processConstants.kMC * done,
+        1 / processConstants.mModel) * processPitch;
+      return equivalentHeatTime(processPoints, d);
+    };
+    const updateProcess = (done: number, finished = false) => {
+      const f = heatProcessFigure({ points: processPoints, measured: processMeasured,
+        bridge: processBridge, prov: { ...processProv, extra: [...(processProv.extra ?? []),
+          `Delivered ${done} of ${plan.sweeps} requested Monte Carlo sweeps.${finished ? " Treatment ended." : " Treatment in progress."}`] },
+        lawAvailable: !(plan.pin || plan.work), progressSeconds: finished && total === 0 && !this.abortReq ? plan.ints.seconds : progressTime(done),
+      });
+      this.recordedProcessFigure = f;
+      this.paintProcess(f);
+    };
+    updateProcess(0);
     const setStatus = (s: string) => { if (this.statusEl) this.statusEl.textContent = s; };
     // annealing twins are not a dial: the environment decides. Boundaries are
     // about to migrate; on a low-SFE cubic lattice in the volume they deposit
@@ -944,6 +1023,7 @@ export class HeatPanel {
     try {
       if (total > 0) {
         const onProg = (done: number) => {
+          updateProcess(done);
           setStatus(`sweep ${done.toLocaleString()} / ${total.toLocaleString()} · isothermal hold`);
           return !this.abortReq;
         };
@@ -994,6 +1074,8 @@ export class HeatPanel {
     }
     const after = await this.host.measure();
     if (after) this.census = after;
+    if (after) processMeasured.push({ seconds: total === 0 && !this.abortReq ? plan.ints.seconds : progressTime(delivered), diameterUm: this.dBar(after) });
+    updateProcess(delivered, true);
     setStatus("");
     this.host.syncUI();
     if (this.closeReq) { this.closeReq = false; this.close(); return; }

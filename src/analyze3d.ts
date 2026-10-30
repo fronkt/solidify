@@ -79,6 +79,8 @@ export class Analyze3D {
    *  at most (plot/figures.ts TimedRecord) */
   private curve = new ProbeRecord();
   private scheil = new ScheilRecord();
+  private curveMeta: PlotMeta | null = null;
+  private scheilMeta: PlotMeta | null = null;
 
   /** learn mode's "i" on each panel's title bar; one explanation open at a
    *  time, so the column cannot climb under the top bar */
@@ -194,19 +196,19 @@ export class Analyze3D {
   onStats3(s: StatsResult3D, simTime: number) {
     const b = this.bridgeNow(), chem = this.host.chem();
     const pr = this.probeOn ? probeSample(simTime, s.probeT, s.probePhi) : null;
-    if (pr) this.curve.push(pr, b, chem);
+    if (pr && this.curve.push(pr, b, chem) && this.curve.recorded === 1) this.curveMeta = this.host.meta();
     if (this.scheilOn) {
       // presence is the reduction's own count of interface cells (a mean
       // interface temperature at or under T̃ = 0 is a real one, and was
       // dropped as "no interface" when presence was inferred from it)
       const q = scheilSample(simTime, s.fracSolid, s.interfaceT, s.interfaceCells > 0);
-      if (q) this.scheil.push(q, b, chem);
+      if (q && this.scheil.push(q, b, chem) && this.scheil.recorded === 1) this.scheilMeta = this.host.meta();
     }
   }
 
   /** what a figure's provenance names, plus what this panel adds */
-  private prov(recorded: number | undefined, extra: string[] = []): Prov {
-    return { ...this.host.meta(), recorded, extra };
+  private prov(recorded: number | undefined, extra: string[] = [], meta: PlotMeta | null = null): Prov {
+    return { ...(meta ?? this.host.meta()), recorded, extra };
   }
 
   /** a panel's figure (plot/analysis.ts) */
@@ -222,13 +224,13 @@ export class Analyze3D {
       return probeFigure({
         samples: this.curve.samples, bridge: this.curve.bridge ?? this.bridgeNow(),
         chem: this.curve.chem ?? this.host.chem(), three: true,
-        prov: this.prov(this.curve.recorded, pr ? [`probe at voxel (${Math.round(pr.x)}, ${Math.round(pr.y)}, ${Math.round(pr.z)})`] : []),
+        prov: this.prov(this.curve.recorded, pr ? [`probe at voxel (${Math.round(pr.x)}, ${Math.round(pr.y)}, ${Math.round(pr.z)})`] : [], this.curve.recorded ? this.curveMeta : null),
       });
     }
     if (which === "scheil") {
       return scheilFigure({
         samples: this.scheil.samples, bridge: this.scheil.bridge ?? this.bridgeNow(),
-        chem: this.scheil.chem ?? this.host.chem(), three: true, prov: this.prov(this.scheil.recorded),
+        chem: this.scheil.chem ?? this.host.chem(), three: true, prov: this.prov(this.scheil.recorded, [], this.scheil.recorded ? this.scheilMeta : null),
       });
     }
     const fam = which === "ipf" ? { family: "[001]", axes: [[0, 0, 1]] as [number, number, number][] } : poleFamily(p?.aniMode3 ?? 1);

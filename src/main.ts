@@ -1,4 +1,4 @@
-import { Simulation, type StatsResult } from "./sim";
+import { Simulation, DEFAULTS, type StatsResult } from "./sim";
 import { MATERIALS, to3D } from "./materials";
 import { Renderer, type ViewMode } from "./render";
 import {
@@ -23,12 +23,14 @@ import { Lab, type LabHost, type LabSetup } from "./lab";
 import { HeatPanel, type HeatHost, type Census, regionCensus } from "./heatpanel";
 import { Units, scaleOf, DEFAULT_UM_PER_CELL, K0 } from "./units";
 import { stream, getSeed, setSeed, reseed, seedHex } from "./rng";
-import { SOLVER } from "./shaders";
+import { SOLVER, LENS_NAMES } from "./shaders";
 import { calibrate, defaultLambda, pouredMixSource, A_T, A1, type QuantSetup } from "./quant";
+import { materialCalibrationIssue } from "./calibration-admission";
 import * as experiment from "./experiment";
 import { WT_PER_C0 } from "./alloy";
 import { STATUS_LEARN } from "./learn/panels";
 import { chargeLiquidus, chemOf, type Chem } from "./plot/figures";
+import { runEntries, zipStore, micrographPNG, downloadRun, type RunSnapshot } from "./run-export";
 
 /** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
 const SPEED_MULTS = [1, 2, 4] as const;
@@ -251,12 +253,12 @@ async function boot() {
    * material (the stamp check calibrateNow has always made), else null; and
    * whether a mix was poured but the dials have moved off it since.
    */
-  const pouredLive = (): { d: AlloyDerived | null; stale: boolean } => {
+  const pouredLive = (p: Pick<Simulation["params"], "alloyOn" | "c0" | "mLiq" | "kPart"> = sim.params): { d: AlloyDerived | null; stale: boolean } => {
     const stale = !!pouredMix && !(
-      sim.params.alloyOn === pouredMix.stamp.alloyOn
-      && sim.params.c0 === pouredMix.stamp.c0
-      && sim.params.mLiq === pouredMix.stamp.mLiq
-      && sim.params.kPart === pouredMix.stamp.kPart);
+      p.alloyOn === pouredMix.stamp.alloyOn
+      && p.c0 === pouredMix.stamp.c0
+      && p.mLiq === pouredMix.stamp.mLiq
+      && p.kPart === pouredMix.stamp.kPart);
     const d = pouredMix && pouredMix.materialKey === material && !stale ? pouredMix.derived : null;
     return { d, stale };
   };
@@ -276,7 +278,7 @@ async function boot() {
     let liqC: number | null = null, liqSource = "";
     if (si) {
       const TmC = si.Tm - K0;
-      const d = alloy ? pouredLive().d : null;
+      const d = alloy ? pouredLive({ ...p, alloyOn: Number(alloy) }).d : null;
       if (!alloy) { liqC = TmC; liqSource = "T_m: a pure melt"; }
       else if (d) { liqC = TmC + d.dTL; liqSource = `${d.name}: T_m + ΔT_L, ΔT_L ${d.dTL.toFixed(2)} K (the composer's superposed shift)`; }
       else { liqC = TmC + si.mL * c0wt!; liqSource = `T_m + m_L·c₀, m_L ${si.mL} K/wt%, c₀ ${c0wt!.toFixed(2)} wt% (${si.source.split(" · ")[0]})`; }
@@ -312,6 +314,7 @@ async function boot() {
     // a composition the kernel is no longer integrating is exactly the defect
     // this milestone removed one level up. (pouredLive is that check.)
     const { d, stale } = pouredLive();
+    if (materialCalibrationIssue(material, alloy, sim.params.c0 * WT_PER_C0, d != null)) return null;
     return calibrate({
       si, alloy, c0wt: sim.params.c0 * WT_PER_C0, lambda,
       dT0Override: alloy ? d?.dT0 ?? null : null,
@@ -334,6 +337,9 @@ async function boot() {
    * discarded a user's ε̄ would be a worse surprise than a greyed-out slider.
    */
   let kobSnapshot: Record<string, number> | null = null;
+  let quantStamp = "";
+  const calibrationStamp = () => [material, sim.params.alloyOn, sim.params.c0, sim.params.mLiq,
+    sim.params.kPart, sim.params.lambda, pouredLive().d?.dT0, pouredLive().d?.dTL].join("|");
   const KOB_OWNED = ["dx", "dt", "epsBar", "tau", "latent", "delta", "dTherm", "dSol", "lambda", "atCoef"] as const;
 
   /**
@@ -352,7 +358,19 @@ async function boot() {
       // passes it explicitly and this default steps aside
       const want = lambda ?? (kobSnapshot ? sim.params.lambda : defaultLambda(sim.params.alloyOn === 1));
       const q = calibrateNow(want);
-      if (!q) return null;
+      if (!q) {
+        // A composition change or old share link must not retain the QUANT
+        // flag with parameters calibrated for a charge we can no longer use.
+        if (!kobSnapshot && sim.params.solver === SOLVER.QUANT) {
+          // A pre-fix shared link has no local Kobayashi snapshot. Its
+          // calibrated eps/tau/diffusivity cannot be used by that kernel.
+          const fallback = { ...DEFAULTS, ...(MATERIALS[material] ?? MATERIALS.generic).params };
+          for (const k of KOB_OWNED) P[k] = fallback[k];
+          app.setUmPerCell(DEFAULT_UM_PER_CELL);
+        }
+        setSolver(SOLVER.KOB);
+        return null;
+      }
       const si = MATERIALS[material].si!;
       if (!kobSnapshot) {
         kobSnapshot = { umPerCell };
@@ -372,9 +390,11 @@ async function boot() {
         atCoef: A_T,
       });
       app.setUmPerCell(q.umPerCell);
+      quantStamp = calibrationStamp();
       return q;
     }
     sim.params.solver = SOLVER.KOB;
+    quantStamp = "";
     if (kobSnapshot) {
       const { umPerCell: um, ...dials } = kobSnapshot;
       Object.assign(sim.params, dials);
@@ -669,7 +689,11 @@ async function boot() {
     // ---- calibrated mode (Phase Q). 2D only for now: the volume still runs
     // the Kobayashi solver, and offering a switch that silently did nothing
     // there would be exactly the dead-knob class U0 spent a milestone removing.
-    canCalibrate: () => mode === "2d" && !!(MATERIALS[material] ?? {}).si,
+    canCalibrate: () => mode === "2d" && !!(MATERIALS[material] ?? {}).si
+      && !materialCalibrationIssue(material, sim.params.alloyOn === 1, sim.params.c0 * WT_PER_C0, pouredLive().d != null),
+    calibrationIssue: () => mode === "2d"
+      ? materialCalibrationIssue(material, sim.params.alloyOn === 1, sim.params.c0 * WT_PER_C0, pouredLive().d != null)
+      : null,
     isCalibrated: () => sim.params.solver === SOLVER.QUANT,
     setCalibrated(on) {
       if (on && !app.canCalibrate()) return;
@@ -959,6 +983,7 @@ async function boot() {
       turntable = { t0: performance.now(), az0: renderer3d.cam().az };
     },
     // ---- OptHost
+    meta: () => plotMeta(),
     swapSim(n) {
       const params = { ...sim.params };
       sim = new Simulation(device, n);
@@ -995,13 +1020,13 @@ async function boot() {
           p: p3, u: undercool, v: view3d, m: material,
           n: alloyName, mx: pouredShare(), nuc: [nuc3.p.nmax, nuc3.p.dTN, nuc3.p.dTsig], lab: labShare(), ht: heatShare(), d: 1, g3: sim3d.n,
           sl: [slice.axis, +slice.off.toFixed(3), Math.round(slice.tilt), Math.round(slice.turn), slice.style],
-          seed: getSeed(),
+          seed: getSeed(), um: umPerCell,
         });
       }
       return location.origin + location.pathname + packShare({
         p: { ...sim.params }, u: undercool, v: view, m: material,
         n: alloyName, nuc: [nuc.p.nmax, nuc.p.dTN, nuc.p.dTsig], lab: labShare(), ht: heatShare(),
-        sched: recipeSchedule, seed: getSeed(), mx: pouredShare(),
+        sched: recipeSchedule, seed: getSeed(), mx: pouredShare(), g2: sim.n, um: umPerCell,
       });
     },
     shareRecipeLink(r: Recipe) {
@@ -1253,6 +1278,8 @@ async function boot() {
     meanAreaPx: 0, meanVolVox: s.meanVolVox, astm: null,
   });
   const heatHost: HeatHost = {
+    units: () => unitsNow(),
+    meta: () => plotMeta(),
     getMode: () => mode,
     materialKey: () => material,
     materialLabel: () => alloyName,
@@ -1375,6 +1402,71 @@ async function boot() {
   };
   heat = new HeatPanel(heatHost);
 
+  /** Archive owners' actual observations, each with its own latched clock.
+   * The GPU fields are not a restart checkpoint; the setup link reopens the
+   * seeded initial state. Capturing never pauses or changes the experiment. */
+  let exportBusy = false;
+  async function exportRun(download = true): Promise<Uint8Array<ArrayBuffer>> {
+    if (exportBusy) throw new Error("A run export is already being prepared.");
+    exportBusy = true;
+    const button = document.getElementById("exportRun") as HTMLButtonElement | null;
+    const status = document.getElementById("exportRunStatus");
+    if (button) button.disabled = true;
+    if (status) status.textContent = "Preparing run archive…";
+    try {
+      await device.queue.onSubmittedWorkDone();
+      const three = mode === "3d" && sim3d != null;
+      const active = three ? sim3d! : sim;
+      const u = unitsNow();
+      const mixState = pouredLive({ ...active.params, alloyOn: three ? Number(sim3d!.alloyActive) : sim.params.alloyOn });
+      // Render first so a just-resized viewport has its final backing size
+      // before the image's µm-per-pixel scale is computed.
+      if (three) renderer3d!.render(sim3d!, view3d, performance.now() / 1000, slicePlane(slice, sim3d!.n), slice.style);
+      else renderer.render(sim, view, performance.now() / 1000);
+      const snapshot: RunSnapshot = {
+        exportedAt: new Date().toISOString(), build: BUILD, solver: plotMeta().solver, mode: three ? "3d" : "2d",
+        material: {
+          key: material, name: alloyName, constants: MATERIALS[material] ?? MATERIALS.generic,
+          mix: mixState.d ? pouredMix!.mix : null,
+          sourceMix: pouredMix?.mix ?? null, compositionEdited: mixState.stale,
+          caveats: alloyCaveats.slice(),
+        },
+        seed: getSeed(), grid: active.n, simulationTime: active.simTime,
+        parameters: { ...active.params }, setupLink: app.shareLink(),
+        units: { known: u.known, scale: u.scale, properties: u.props },
+        camera: three ? { ...renderer3d!.cam(), slice: { ...slice } }
+          : { zoom: renderer.zoom, cx: renderer.cx, cy: renderer.cy, tilt: renderer.tiltOn },
+        image: { lens: three ? view3d : view, lensName: (three ? LENS3_NAMES[view3d] : LENS_NAMES[view]), perspective: three,
+          umPerPixel: active.umPerCell / (three ? renderer3d!.cssPerVoxel() : renderer.cssPxPerCell(sim.n))
+            * canvas.clientWidth / canvas.width },
+        statistics: three ? lastStats3 : lastStats, lab: lab.exportState(),
+      };
+      const figures = [
+        ...(["fs", three ? "pore" : "dt", "grains", "hist"] as const).map(k => hud.figure(k)),
+        ...(three ? [an3.figure("probe"), an3.figure("scheil"), an3.figure("ipf"), an3.figure("pole")]
+          : [analyze.figure("probe"), analyze.figure("scheil"), analyze.figure("tex")]),
+        ...lab.exportFigures(), ...(heat?.exportFigures() ?? []), ...opt.exportFigures(),
+      ];
+      const entries = runEntries(snapshot, figures);
+      // Copy the freshly presented frame before yielding: a WebGPU canvas
+      // otherwise discards its drawing buffer between tasks.
+      entries.push({ name: "micrograph.png", data: await micrographPNG(canvas, snapshot) });
+      const bytes = zipStore(entries);
+      if (download) downloadRun(`solidify-run-${seedHex()}-${snapshot.exportedAt.replace(/[:.]/g, "-")}.zip`, bytes);
+      if (status) status.textContent = "Run archive ready. Setup, recorded data, and image included.";
+      return bytes;
+    } catch (err) {
+      if (status) status.textContent = err instanceof Error ? err.message : "Could not export this run. Try again.";
+      throw err;
+    } finally {
+      exportBusy = false;
+      if (button) button.disabled = false;
+    }
+  }
+  document.getElementById("exportRun")?.addEventListener("click", () => {
+    void exportRun().catch(err => console.error("[solidify] run export:", err));
+  });
+
   (window as unknown as Record<string, unknown>).__solidify = {
     app, opt, tour, ui, challenge, composer, analyze, lab, heat, hud,
     // the composer's chemistry, for headless physics checks that need to set
@@ -1387,6 +1479,7 @@ async function boot() {
     vc: () => viewcube,
     fps: () => fps,
     stl: () => exportSTL(false),
+    exportRun: () => exportRun(false),
     tick(k: number) { for (let i = 0; i < k; i++) frameBody(last + 1000 / 60); },
     units: () => unitsNow(),
     calibrate: (lambda: number) => calibrateNow(lambda),
@@ -1750,6 +1843,14 @@ async function boot() {
   const coolProxy3 = () => Math.max(0, sim3d?.params.coolRate ?? 0);
 
   function frameBody(t: number) {
+    // Composition sliders also write params directly. Recalibrate before
+    // stepping after any input change, or withdraw an unsupported charge,
+    // rather than running old calibrated dials under a new chemistry label.
+    if (!benchHold && sim.params.solver === SOLVER.QUANT && quantStamp && quantStamp !== calibrationStamp()) {
+      setSolver(SOLVER.QUANT, sim.params.lambda);
+      app.resetArmed();
+      ui.sync();
+    }
     const dt = Math.min(0.1, Math.max(0, (t - last) / 1000));
     last = Math.max(last, t);
     if (dt > 0) fps = fps * 0.95 + (1 / dt) * 0.05;
@@ -2046,6 +2147,14 @@ async function boot() {
     // scen numbers mean different things per mode — never cross-assign a 3D
     // link's params into the 2D solver
     if (shared.d !== 1) {
+      if (typeof shared.g2 === "number" && [256, 512, 1024, 2048].includes(shared.g2)) app.setGrid(shared.g2);
+      // Save the material's qualitative baseline BEFORE a link assigns its
+      // quantitative dials. Leaving calibration must never restore eps=tau=1
+      // into the Kobayashi kernel, including for links made before this fix.
+      if (shared.p.solver === SOLVER.QUANT && !kobSnapshot) {
+        kobSnapshot = { umPerCell };
+        for (const k of KOB_OWNED) kobSnapshot[k] = sim.params[k];
+      }
       Object.assign(sim.params, shared.p);
       // ...and the clamped chemistry wins over the link's own, when the mix it
       // describes is one this build refuses. Order matters: this must land
@@ -2058,6 +2167,8 @@ async function boot() {
       // that cannot restore a solver flag onto a Kobayashi timestep.
       if (sim.params.solver === SOLVER.QUANT) setSolver(SOLVER.QUANT, sim.params.lambda);
     }
+    if (typeof shared.um === "number" && Number.isFinite(shared.um) && shared.um >= 0.01 && shared.um <= 10000
+      && (shared.d === 1 || shared.p.solver !== SOLVER.QUANT)) app.setUmPerCell(shared.um);
     undercool = shared.u;
     view = Math.max(0, Math.min(9, Math.round(shared.v))) as ViewMode;
     applyNucShare(nuc, shared);
@@ -2108,7 +2219,7 @@ async function boot() {
     // a TRUE-3D setup link re-enters the 3D mode at its grid, staged ARMED
     if (shared.d === 1 && caps3d.supported) {
       const g = Math.round(shared.g3 ?? 0);
-      if ([128, 160, 192].includes(g) && g <= caps3d.maxN) grid3 = g;
+      if (GRID3_LADDER.includes(g) && g <= caps3d.maxN) grid3 = g;
       view3d = Math.max(0, Math.min(LENS3_NAMES.length - 1, Math.round(shared.v)));
       applyNucShare(nuc3, shared);
       if (shared.sl) {

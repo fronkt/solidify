@@ -5059,3 +5059,43 @@ frames only. Recommendation: B staged, A first.
 - [ ] **B (if chosen):** finer branching with faster tips in a colder melt, coarsening +
       pinch-off, honest remelt, new melts: ice (hexagonal) and the app's icosahedral model,
       lineup; copy says the [111] view is three-fold.
+
+## Solidify restart audit - 2026-10-29
+
+Scope: reconstruct the last development and submission checkpoints, verify current repository state, and rank actionable open items. No feature implementation or deployment in this audit.
+
+- [x] Review project memory, lessons, recent Git history, and recorded production release.
+- [x] Verify remote branch state and reconcile current open tasks with shipped changes.
+- [x] Separate near-term fixes from larger science/product opportunities and explicitly deferred work.
+- [x] Record findings and present recommended next targets with evidence.
+
+### Review
+
+- Confirmed GitHub branch heads with `git ls-remote --heads origin`: main remains e3ee7c0 (September 25 production release), v7-experiments remains 679fa75 (release log). The local main pointer is older; do not mistake it for current production. Working source is on v7-experiments.
+- September 25 shipped D0/D1/D2, migrated plots and exports, and the 778-frame v4 hero. The recorded full suite then passed 29/29. Older open parent checkboxes for U0/U4/hero A4/A6/quick wins are not a reliable current backlog. HUD backing and automatic HUD folding already landed in D2.
+- October 26 work was CAC presentation/application: final 179.25-second video completed and project survey answers saved. CAC application notes still leave final submission unverified, personal survey answers reserved for Frank, and vector cover selection pending. These are last recorded states, not a fresh portal check.
+- Recommended restart order: (1) reproduce and repair thermal record validity (lab.ts maps absent liquid to zero; thermal.ts treats positive T as valid, incompatible with legitimate negative calibrated T), and review the recorded steel calibration issue; (2) U3 remaining phone collisions (mode panel/tour and analysis column/legend); (3) U2 new plots (live pour, heat-treatment schedule + grain size over time, optimizer convergence); (4) complete run export; (5) U1d/U1e tour/copy/spelling. Verify first-run behavior before deciding it needs implementation.
+- Larger science backlog: Q3 calibrated 3D port, primary recrystallization beyond C3a stored energy/recovery, and convection/freckles after Q3. Classroom experiment guides and teacher/student trials are a suggested product direction, not an existing completed feature or demonstrated learning outcome.
+- Hero right-edge cut/small initial seed re-render was explicitly declined on September 25. Hero stage B remains optional; do not silently revive the declined render work.
+- Current verification: `npm.cmd run typecheck` and `npm.cmd run build` pass. Home, /app/, /science/, and /contact/ each returned HTTP 200. The full GPU suite was not rerun; current HTTP checks do not verify GPU functionality. No source, application, or production changes made.
+
+## v8 completion - 2026-10-29
+
+Scope approved: finish the five near-term targets from the restart audit. Larger 3D calibration, convection, recrystallization, classroom modules, and hero rerenders are separate future work. Continue on v7-experiments, preserve existing untracked directories, push significant verified batches to this branch. Production promotion is outside this implementation scope.
+
+Acceptance plan (reviewed before implementation):
+- [x] Correctness: explicit validity for absent liquid samples; negative and zero calibrated temperatures remain analyzable/exportable; inspect steel preset composition and make quantitative calibration physically consistent or explicitly unavailable with a useful explanation. Regression checks cover real failure cases.
+- [ ] Mobile: at 390x844 and narrow/landscape layouts, mode panels do not cover tour and analysis columns do not collide with legend; retain accessible controls, desktop behavior, and the existing dark design.
+- [x] Plots: add live pour temperature, heat-treatment schedule + grain size vs time, optimizer convergence using the shared plot framework with hover, enlargement, provenance, CSV and PNG. Bound records, latch units, stop collecting when paused/reset correctly.
+- [x] Run export: one downloadable archive containing versioned JSON (parameters, seed, material/constants, units, solver and reproducibility link), all available recorded time series as CSV, and a micrograph PNG with scale/provenance. Include meaningful empty-state/errors and 2D/3D support.
+- [ ] Tour/copy: shorten instructional copy without losing scientific limitations; align labels and American spelling; replace prose em dashes while keeping mathematical minus signs and names intact.
+- [ ] Verification: targeted regression checks, typecheck/build, browser-free CI scripts, visual/download checks, then full browser/GPU suite with no concurrent source edits. Resolve failures and record evidence.
+- [ ] Review final diff, record results, commit with specific paths, and push the verified development branch.
+
+### Implementation and acceptance evidence
+
+- Thermal samples now carry `number | null`; valid zero/negative temperatures survive analysis, retention, plots, JSON and CSV. Unsupported illustrative steel composition is refused using the existing Fe–C phase bound, with an explicit composer route. Managed calibration input changes are reconciled before stepping; accepted and rejected old QUANT links restore a real Kobayashi baseline.
+- Live Lab, furnace, and optimizer figures use shared hover/dialog/table/export behavior, bounded records and original run provenance. Furnace schedule time stays separate from the solidification clock; measured endpoints and material-law predictions are distinguished.
+- Complete-run ZIP adds versioned metadata, per-dataset CSVs, raw series, material constants, unit bridges, Lab setup/status, seed, setup link, and scaled rendered PNG. Perspective scales explicitly apply at the camera target. The archive is an observation/setup package, not a serialized GPU-field restart.
+- `verify-completion-gpu.mjs`: all six checks passed on real WebGPU (calibration/old links, 512² and 1.7 µm sharing, live-pour pause and real download, optimizer observations, delivered furnace endpoints, 96³ archive). Python zipfile CRC validation and Pillow PNG decoding independently passed for 2D, furnace and 3D packages. Source remained frozen during browser runs.
+- Seventeen browser-free scripts are now registered in CI and the local suite. The full suite is running; responsive rail evidence and final review remain pending. Chrome cleanup is bounded per owned browser; each verification process has a ten-minute timeout.

@@ -1,3 +1,4 @@
+import { closeBrowser } from "./browser-cleanup.mjs";
 // HERO-* (browser) — the landing hero driven the way a visitor drives it: by
 // scrolling. puppeteer-core against the vite server (port 5199 unless given),
 // like the rest of the suite; run by scripts/run-tests.mjs.
@@ -1774,7 +1775,7 @@ await desk.close();
 ran.add("HERO-NO-ERRORS");
 check("HERO-NO-ERRORS", errors.length === 0, { errors: errors.slice(0, 12), count: errors.length });
 
-await browser.close();
+await closeBrowser(browser);
 const partial = ran.size < CHECKS.length;
 if (partial) console.log(`PARTIAL: ${ran.size} of ${CHECKS.length} checks run${process.env.HERO_ONLY_OK === "1" ? " (HERO_ONLY_OK=1)" : "; set HERO_ONLY_OK=1 for a subset on purpose"}`);
 console.log(failures ? `done — ${failures} FAILED` : partial ? "done — the checks run passed" : "done — all hero checks passed");

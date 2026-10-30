@@ -1,4 +1,5 @@
-﻿// Verifies the TRUE-3D mode end-to-end on real headless WebGPU:
+import { closeBrowser } from "./browser-cleanup.mjs";
+// Verifies the TRUE-3D mode end-to-end on real headless WebGPU:
 // mode entry, growth, grain claiming, all four lenses, orbit + ViewCube snap,
 // tap-at-depth seeding, and fps probes at both grid sizes.
 //   node scripts/verify-3d.mjs [outDir] [port]
@@ -746,7 +747,7 @@ console.log("VC-ZONES", kinds.has(1) && kinds.has(3) ? "OK" : FAIL(), JSON.strin
 console.log("PARAM-WARN", bindWarnings.length === 0 ? "OK" : FAIL(), JSON.stringify(bindWarnings.slice(0, 4)));
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 6) : "none");
 if (errors.length) failures++;
-await browser.close();
+await closeBrowser(browser);
 await viteServer.close();
 console.log(failures ? `done — ${failures} FAILED` : "done");
 if (failures) process.exitCode = 1;

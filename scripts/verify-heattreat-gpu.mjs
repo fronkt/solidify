@@ -1,3 +1,4 @@
+import { closeBrowser } from "./browser-cleanup.mjs";
 // HT GPU gates — grain-boundary migration, measured rather than assumed.
 //
 // The arithmetic half of Phase H is checked without a browser in
@@ -2132,7 +2133,7 @@ let immobileTop = null;
 
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 5) : "none");
 if (errors.length) failures++;
-await browser.close();
+await closeBrowser(browser);
 await viteServer.close();
 console.log(failures ? `done — ${failures} FAILED` : "done");
 if (failures) process.exitCode = 1;

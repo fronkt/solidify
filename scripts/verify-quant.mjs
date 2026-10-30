@@ -1,3 +1,4 @@
+import { closeBrowser } from "./browser-cleanup.mjs";
 // QPF-* — the quantitative (Karma–Rappel) solver, checked against physics it
 // did not get to choose.
 //
@@ -876,6 +877,6 @@ await page.evaluate(() => {
 
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 5) : "none");
 if (errors.length) failures++;
-await browser.close();
+await closeBrowser(browser);
 console.log(failures ? `done — ${failures} FAILED` : "done");
 if (failures) process.exitCode = 1;

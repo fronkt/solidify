@@ -44,6 +44,8 @@ jobs:
       # (PLOT-WIRING) the call sites in the lab, the HUD and main.ts by source;
       # the running app's half is verify-tools LAB-CURVE / HUD-LIVE (local)
       - run: node scripts/verify-plot.mjs
+      - run: node scripts/verify-process-plots.mjs
+      - run: node scripts/verify-run-export.mjs
 
 # The rest of the headless verify-*.mjs suite (npm test) needs a WebGPU-capable
 # Chrome at a hardcoded local path and is not portable to this runner — see

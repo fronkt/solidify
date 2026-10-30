@@ -1,4 +1,5 @@
-﻿// Verifies "Engineer it" enters ML mode PAUSED, that the transport run/pause
+import { closeBrowser } from "./browser-cleanup.mjs";
+// Verifies "Engineer it" enters ML mode PAUSED, that the transport run/pause
 // gates the optimization loop, and that exit restores. Drives the exposed
 // __solidify hooks under headless Chrome + WebGPU.
 //
@@ -122,4 +123,4 @@ if (conv.shown) {
 }
 
 console.log("ERRORS:", errs.length ? errs.join(" | ") : "none");
-await browser.close();
+await closeBrowser(browser);

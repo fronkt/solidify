@@ -40,6 +40,8 @@ export interface UIHost extends AppControl {
   getUmPerCell(): number;
   /** calibrated (Karma–Rappel) mode: available, on, and its one knob */
   canCalibrate(): boolean;
+  /** a scientific reason this composition cannot use the calibrated solver */
+  calibrationIssue?(): string | null;
   isCalibrated(): boolean;
   setCalibrated(on: boolean): void;
   getLambda(): number;
@@ -226,6 +228,15 @@ export class UI {
     const rail = document.getElementById("rail")!;
     this.setRailHidden(innerWidth - rail.offsetWidth < RAIL_ROOM);
     addEventListener("resize", () => this.railRoom());
+    document.getElementById("readoutsToggle")!.addEventListener("click", () => {
+      document.body.classList.toggle("readoutsOpen");
+      this.readingsState();
+      this.placeAnalysis();
+    });
+    // Reserve the real legend slot before placing a narrow analysis column.
+    const chromeSize = new ResizeObserver(() => this.placeAnalysis());
+    for (const id of ["head", "views", "scalebar", "thermbar", "sembar"])
+      chromeSize.observe(document.getElementById(id)!);
     // and a mode panel opened on such a window takes the screen from the
     // drawer: the panel needs 300px the rail does not leave. The panels are
     // built in script, each appended to #app as a .modepanel
@@ -255,6 +266,26 @@ export class UI {
     document.body.classList.toggle("narrow", free < RAIL_ROOM);
     document.body.classList.toggle("railCramped", open && free < RAIL_ROOM);
     document.body.classList.toggle("railPhone", open && free < RAIL_ROOM_PHONE);
+    this.readingsState();
+    this.placeAnalysis();
+  }
+
+  private readingsState() {
+    const compact = innerHeight <= 600 || (innerWidth <= 380 && innerHeight <= 740);
+    document.getElementById("readoutsToggle")!.setAttribute("aria-expanded",
+      String(!compact || document.body.classList.contains("readoutsOpen")));
+  }
+
+  private placeAnalysis() {
+    if (!document.body.classList.contains("narrow")) return;
+    let bottom = 0;
+    for (const id of ["head", "views", "scalebar", "thermbar", "sembar"]) {
+      const el = document.getElementById(id)!;
+      const style = getComputedStyle(el);
+      if (style.display !== "none" && style.visibility !== "hidden")
+        bottom = Math.max(bottom, el.getBoundingClientRect().bottom);
+    }
+    document.body.style.setProperty("--analysis-top", `${Math.ceil(bottom + 8)}px`);
   }
 
   private buildViews() {
@@ -936,6 +967,19 @@ export class UI {
       });
     });
     this.hintFor(shareB.parentElement as HTMLElement, SHARE);
+    const exportB = document.createElement("button");
+    exportB.type = "button";
+    exportB.id = "exportRun";
+    exportB.textContent = "export run";
+    exportB.setAttribute("aria-label", "export run");
+    exportB.title = "Download setup, recorded data and a scaled micrograph";
+    this.btnRow(adv).append(exportB);
+    const exportStatus = document.createElement("div");
+    exportStatus.id = "exportRunStatus";
+    exportStatus.className = "matnote";
+    exportStatus.setAttribute("role", "status");
+    exportStatus.setAttribute("aria-live", "polite");
+    adv.append(exportStatus);
 
     // ---- scale
     // The whole dimensionless<->SI map, with its provenance and its mismatches,
@@ -995,7 +1039,11 @@ export class UI {
     // ---- calibrated mode: what it takes over, and what it now knows
     const cal = host.calibration();
     const on = !!cal;
-    this.calSwitch.style.display = host.canCalibrate() || on ? "" : "none";
+    const calIssue = host.calibrationIssue?.() ?? null;
+    this.calSwitch.style.display = host.canCalibrate() || on || calIssue ? "" : "none";
+    this.calSwitch.classList.toggle("disabled", !!calIssue && !on);
+    this.calSwitch.setAttribute("aria-disabled", String(!!calIssue && !on));
+    this.calSwitch.title = calIssue ?? "";
     this.lamRow.style.display = on ? "" : "none";
     for (const el of this.derived) {
       el.style.opacity = on ? "0.42" : "";
@@ -1022,7 +1070,7 @@ export class UI {
         + `<br><span class="calsrc">${esc(cal.coefficientSource)}</span>`
         // the locked-dials line in --fg: it is the state, brightness says so
         + `<br><span class="calok">${esc(calCav.line)}</span>${lrn(calCav.learn)}`
-      : `${esc(calCav.line)}${lrn(calCav.learn)}`;
+      : calIssue ? `<span class="calok">${esc(calIssue)}</span>` : `${esc(calCav.line)}${lrn(calCav.learn)}`;
 
     // mode gating: 2D-only vs 3D-only rows, sections and buttons
     for (const el of this.only2d) el.style.display = m3 ? "none" : "";
@@ -1144,6 +1192,7 @@ export class UI {
     // and every slider on the page, the panels' included, fills to the value
     // script may have just set
     paintRanges();
+    this.placeAnalysis();
   }
 
   /**

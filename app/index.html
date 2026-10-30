@@ -147,6 +147,7 @@
     #matline { margin-top: var(--s-2); color: var(--fg-2); overflow-wrap: anywhere; }
     #matcaveat { display: none; margin-top: var(--s-1); font-size: var(--t-ui-min); line-height: 1.4; overflow-wrap: anywhere; }
     #readouts { margin-top: var(--s-3); }
+    #readoutsToggle { display: none; pointer-events: auto; margin-top: var(--s-2); }
 
     /* ---- the rail */
     /* overflow-wrap: anywhere lets no word, value or source string set a
@@ -306,6 +307,13 @@
          top would slide it after a longer name or a caveat has already
          grown the plate over it (Chrome transitions the resolved anchor) */
       body.narrow #views { transition: left 0.25s ease; }
+      /* In the volume a short head plate can end above the ViewCube. The
+         lens row must clear both columns, with the same 8px top-band gap. */
+      body.mode3d.narrow #views { top: max(calc(anchor(--head bottom) + 8px), var(--top-band)); }
+    }
+    @media (max-width: 343px) {
+      body.narrow #views { left: 50%; width: calc(100vw - 32px); }
+      body.narrow #views .tabs__tab { padding-left: 4px; padding-right: 4px; }
     }
 
     /* 2D-only chrome folds away in TRUE-3D mode (the HUD, tour, overlay and
@@ -351,7 +359,7 @@
        it had just opened. #app is position:absolute with z-index:auto and no
        transform, so it creates no stacking context and this value is compared
        against #composer's directly. */
-    #tour { position: absolute; z-index: 31; left: var(--tool-edge); bottom: 62px; width: 330px; padding: var(--s-4); display: none; }
+    #tour { position: absolute; z-index: 31; left: var(--tool-edge); bottom: 62px; width: min(330px, calc(100vw - 32px)); max-height: calc(100dvh - 124px); overflow-y: auto; padding: var(--s-4); display: none; }
     #tour.show { display: block; }
     /* the header row (the panel spec): the chapter counter in the nav style
        over a 1 px rule */
@@ -408,7 +416,7 @@
     #scalebar { position: absolute; left: var(--tool-edge); top: 288px; top: calc(max(anchor(--head bottom), anchor(--views bottom)) + 8px); display: none; align-items: center; gap: var(--s-2);
       padding: 5px var(--s-3); font: 400 var(--t-value-tool)/1.35 var(--font-mono); color: var(--fg); anchor-name: --scalebar; }
     #scalebar .bar { width: 80px; height: 4px; background: var(--fg); }
-    #thermbar { position: absolute; left: var(--tool-edge); top: 288px; top: calc(max(anchor(--head bottom), anchor(--views bottom)) + 8px); display: none; width: 64px; height: 176px; }
+    #thermbar { position: absolute; left: var(--tool-edge); top: 288px; top: calc(max(anchor(--head bottom), anchor(--views bottom)) + 8px); display: none; width: 64px; height: 176px; anchor-name: --thermbar; }
     #thermbar::before { content: ""; position: absolute; left: var(--s-2); top: var(--s-2); bottom: var(--s-2); width: 12px; background: var(--legend-therm); }
     #thermbar .hi, #thermbar .lo { position: absolute; left: 28px; font-size: var(--t-ui-min); line-height: 1; color: var(--fg-2); }
     #thermbar .hi { top: var(--s-2); } #thermbar .lo { bottom: var(--s-2); }
@@ -421,7 +429,7 @@
     /* no wider than the transport bar (right edge 282): the mode panels'
        band starts 16px past that, and a panel may be open over the SEM lens */
     #sembar { position: absolute; left: var(--tool-edge); top: 288px; top: calc(max(anchor(--head bottom), anchor(--views bottom)) + 8px); max-width: min(266px, calc(100% - 32px));
-      display: none; padding: 5px var(--s-3); font-size: var(--t-ui-min); line-height: 1.5; color: var(--fg-2); }
+      display: none; padding: 5px var(--s-3); font-size: var(--t-ui-min); line-height: 1.5; color: var(--fg-2); anchor-name: --sembar; }
     #sembar .nw { white-space: nowrap; }
     #semhfw, #semscale { font: 400 var(--t-value-tool)/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg); }
     #sembar .bar { display: inline-block; vertical-align: middle; height: 4px; width: 40px; margin-left: 2px; background: var(--fg); }
@@ -460,8 +468,8 @@
        cap where anchors are not supported), so learn mode's explanation,
        hint and Niyama sentence make it scroll rather than climb over the
        head plate and the scale bar */
-    #slicePop { position: absolute; left: var(--tool-edge); bottom: 62px; width: 252px; display: none; z-index: 6;
-      max-height: calc(100% - 62px - 330px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent;
+    #slicePop { position: absolute; left: var(--tool-edge); bottom: 98px; width: 252px; display: none; z-index: 6;
+      max-height: calc(100% - 98px - 330px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent;
       padding: var(--s-2) var(--s-3);
       /* its three rows (depth, tilt, turn) print at most "360°" */
       --row-lab: 44px; --row-val: 5ch; }
@@ -494,14 +502,26 @@
        view cube and the lens bar, headers and "i" buttons out of reach */
     #apanels, #apanels3 { max-height: calc(100% - 96px - var(--top-band)); overflow-y: auto; overflow-x: hidden;
       scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent; }
-    /* On a narrow canvas (ui.ts .narrow) the lens bar is under the head plate,
-       not in the top band, so the columns stop 8px under the lens bar
-       instead: both insets set, the box its content's height capped at the
-       space between (the #slicePop idiom), the auto top margin keeping it on
-       the bottom inset */
+    /* Narrow columns start below the entire visible legend slot, not just
+       the lens bar. ui.ts measures that slot when its contents resize or the
+       lens changes; the same placement works without CSS anchor support. */
+    body.narrow #apanels, body.narrow #apanels3 {
+      top: var(--analysis-top, 288px); height: fit-content; margin-top: auto;
+      max-height: max(0px, calc(100% - 96px - var(--analysis-top, 288px)));
+    }
     @supports (top: anchor(--head bottom)) {
-      body.narrow #apanels, body.narrow #apanels3 { top: calc(anchor(--views bottom) + 8px); height: fit-content; margin-top: auto;
-        max-height: -webkit-fill-available; max-height: stretch; }
+      body.narrow #apanels, body.narrow #apanels3 {
+        top: calc(max(anchor(--views bottom, 0px), anchor(--scalebar bottom, 0px),
+          anchor(--thermbar bottom, 0px), anchor(--sembar bottom, 0px)) + 8px);
+        max-height: stretch;
+      }
+    }
+    @media (max-height: 600px), (max-width: 380px) and (max-height: 740px) {
+      #thermbar { height: 72px; }
+      /* The live readings remain one click away on a short screen. Folding
+         them frees room for the measurement columns and their legends. */
+      #readoutsToggle { display: block; }
+      body:not(.readoutsOpen) #readouts { display: none; }
     }
     /* the container passes clicks through to the melt; the panels themselves
        are interactive (the ⤢ enlarge button must win over tap-to-seed) */
@@ -588,7 +608,7 @@
        and the rail (298px to the rail's edge less 16: the clamp on left).
        Once it no longer fits in that band (--over, a 0/1px step like the
        ones on body) it lifts clear of the bar instead (--lift: its bottom to
-       62px, the bar's top at 54 plus 8) and may use the width under it, down
+       98px, above the tour pill as well as the transport) and may use the width under it, down
        to 16px from the window's edge. Upward it stops at the top band and
        scrolls past it: learn mode's hints and explanations, or a long heat
        treat report, would otherwise carry it over the top chrome (it paints
@@ -604,7 +624,7 @@
     .modepanel {
       --pw: max(min(var(--cap), calc(100vw - 2 * var(--center-inset) - 32px)), min(300px, calc(100vw - 32px)));
       --over: clamp(0px, (var(--pw) + var(--rail-inset) + 314px - 100vw) * 1000, 1px);
-      --lift: calc(46 * var(--over));
+      --lift: calc(82 * var(--over));
       position: absolute; bottom: calc(16px + var(--lift)); width: var(--pw);
       left: clamp(calc(16px + 282 * (1px - var(--over)) + var(--pw) / 2), 50%,
                   calc(100% - var(--rail-inset) - 16px - var(--pw) / 2));
@@ -862,6 +882,7 @@
       <div class="sub t-nav-tool">phase-field solidification · live</div>
       <div id="matline"></div>
       <div id="matcaveat" class="status--warn"></div>
+      <button id="readoutsToggle" type="button" aria-controls="readouts" aria-expanded="false">live readings</button>
       <!-- the live readouts: a spec rail on the same plate (ui.ts setReadouts) -->
       <div id="readouts" class="spec spec--tool"></div>
     </div>
@@ -876,9 +897,7 @@
     <div id="rail"></div>
     <div id="dimSwitch"></div>
     <canvas id="viewcube" width="184" height="184"></canvas>
-    <div id="apanels3"></div>
     <div id="hud"></div>
-    <div id="apanels"></div>
     <svg id="overlay"></svg>
     <div id="scalebar" class="plate"><div class="bar"></div><span id="scalelabel">100 µm</span></div>
     <div id="thermbar" class="plate"><span class="hi">T<sub>m</sub></span><span class="lo">cold</span></div>
@@ -891,6 +910,9 @@
          field width, in plain words) and a scale bar. Each value keeps its
          unit on its line (.nw) -->
     <div id="sembar" class="plate">SEM-style · <span class="nw"><span id="semhfw">—</span> wide</span> · <span class="nw"><span class="bar"></span> <span id="semscale">—</span></span></div>
+    <!-- Anchor users follow every possible legend in DOM order. -->
+    <div id="apanels3"></div>
+    <div id="apanels"></div>
     <button id="tourBtn" class="backed" type="button">▸ tour</button>
     <div id="tour" class="plate"></div>
     <div id="hint" class="plate"><span class="nw">tap: seed</span> · <span class="nw">shift-tap: twin</span> · <span class="nw">scroll or pinch: zoom</span> · <span class="nw">right-drag: pan</span></div>

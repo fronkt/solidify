@@ -49,9 +49,9 @@
 
 export interface TASample {
   t: number;
-  /** mean liquid temperature, dimensionless (T = 1 is the equilibrium liquidus).
-   *  A non-positive value is the "no liquid left" sentinel the lab already stores. */
-  T: number;
+  /** Mean liquid temperature, dimensionless. Zero and negative values are
+   *  real temperatures under the calibrated solver; null means no liquid. */
+  T: number | null;
   /** solid fraction measured by the solver, 0..1 */
   fs: number;
 }
@@ -166,7 +166,7 @@ export const THERMAL_LEARN: Readonly<Record<string, string>> = {
 
 /**
  * Analyse a cooling curve. `s` is the raw lab series; only the leading run of
- * samples with a valid (positive) liquid temperature is used for the temperature
+ * samples with a finite liquid temperature is used for the temperature
  * landmarks, and the solidus is where that run ends.
  */
 export function analyseCurve(s: TASample[], opt: AnalyseOpt = {}): ThermalAnalysis {
@@ -180,7 +180,7 @@ export function analyseCurve(s: TASample[], opt: AnalyseOpt = {}): ThermalAnalys
 
   // the valid (liquid present) prefix — the temperature record proper
   let end = 0;
-  while (end < s.length && s[end].T > 0) end++;
+  while (end < s.length && s[end].T != null && Number.isFinite(s[end].T)) end++;
   const v = s.slice(0, end);
   if (v.length < 8) {
     notes.push("curve too short to analyze: fewer than 8 liquid samples");
@@ -188,7 +188,7 @@ export function analyseCurve(s: TASample[], opt: AnalyseOpt = {}): ThermalAnalys
   }
 
   const t = v.map(p => p.t);
-  const T = v.map(p => p.T);
+  const T = v.map(p => p.T!);
   const span = t[t.length - 1] - t[0];
   if (span <= 0) { notes.push("zero time span across the recorded samples"); return empty; }
 
@@ -198,7 +198,7 @@ export function analyseCurve(s: TASample[], opt: AnalyseOpt = {}): ThermalAnalys
   // solidus: the last liquid the probe saw. If the series was cut off with liquid
   // still present (fs never reached ~1), say so rather than calling the cutoff a
   // solidus.
-  const solidReached = end < s.length || v[v.length - 1].fs > 0.97;
+  const solidReached = (end < s.length && s[end].T === null) || v[v.length - 1].fs > 0.97;
   const solidus: Landmark | null = solidReached
     ? { t: t[v.length - 1], T: Ts[v.length - 1] }
     : null;
@@ -326,7 +326,10 @@ export function retain<S extends TASample>(s: S[], cap: number): S[] {
   if (s.length <= cap) return s;
   const stride = Math.ceil(s.length / Math.max(1, Math.floor(cap * 0.6)));
   let iMin = 0;
-  for (let i = 1; i < s.length; i++) if (s[i].T > 0 && (s[iMin].T <= 0 || s[i].T < s[iMin].T)) iMin = i;
+  for (let i = 1; i < s.length; i++) {
+    const T = s[i].T, minT = s[iMin].T;
+    if (T != null && Number.isFinite(T) && (minT == null || !Number.isFinite(minT) || T < minT)) iMin = i;
+  }
   const keep = new Set<number>([0, s.length - 1, iMin]);
   for (let i = 0; i < s.length; i += stride) keep.add(i);
   const out: S[] = [];

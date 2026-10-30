@@ -182,7 +182,10 @@ const mk = (key, over = {}) => {
   let ok = true;
   for (const key of ["al", "steel"]) {
     const mat = M.MATERIALS[key], si = mat.si;
-    const c0wt = mat.params.c0 * WT;
+    // The illustrative steel preset's mapped 5.25 wt% C is outside the
+    // primary δ branch. Exercise the conversion on an admitted lean charge,
+    // then prove below that the default cannot enter calibrated mode.
+    const c0wt = key === "steel" ? 0.05 : mat.params.c0 * WT;
     const q = Q.calibrate({ si, alloy: true, c0wt, lambda: 30 });
     const u = new U.Units(U.scaleOf({
       si, n: 1024, dx: q.dx, latent: q.latent, dSol: q.dTilde, alloy: true, umPerCell: q.umPerCell,
@@ -202,6 +205,20 @@ const mk = (key, over = {}) => {
   const qi = Q.calibrate({ si: ice, alloy: false, c0wt: 0, lambda: 3 });
   const ui = new U.Units(U.scaleOf({ si: ice, n: 1024, dx: qi.dx, latent: qi.latent, dSol: qi.dTilde, alloy: false, umPerCell: qi.umPerCell, dTherm: qi.dTilde, lambda: 3, oneShiftK: qi.liquidusShiftK }), ice);
   ok = ok && qi.liquidusShiftK === 0 && close(ui.celsius(1), ice.Tm - U.K0, 1e-12);
+  const P = await server.ssrLoadModule("/src/phasedata.ts");
+  const admission = await server.ssrLoadModule("/src/calibration-admission.ts");
+  const limit = P.BINARY.fe.C.Cinv;
+  const steelWt = M.MATERIALS.steel.params.c0 * WT;
+  const refusal = admission.materialCalibrationIssue("steel", true, steelWt);
+  ok = ok && steelWt > limit && typeof refusal === "string" && refusal.includes(`${limit.toFixed(2)} wt%`)
+    && refusal.includes("alloy composer")
+    && admission.materialCalibrationIssue("steel", true, limit) === null
+    && admission.materialCalibrationIssue("steel", true, limit + 0.001) !== null
+    && admission.materialCalibrationIssue("steel", false, steelWt) === null
+    && admission.materialCalibrationIssue("steel", true, steelWt, true) === null
+    && admission.materialCalibrationIssue("al", true, 4.5) === null
+    && admission.materialCalibrationIssue("steel", true, NaN) !== null;
+  rows.push({ steelPresetWt: steelWt, primaryLimitWt: limit, refusal });
   check("UNITS-QUANT-ANCHOR", ok, rows);
 }
 

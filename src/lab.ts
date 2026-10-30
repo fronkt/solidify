@@ -30,6 +30,7 @@ import { THERMAL_LEARN } from "./thermal";
 import { kv, num, panelHead, pill, quiet, warnWord } from "./design/panel";
 import { bridgeOf, type Bridge } from "./plot/quantity";
 import { coolingFigure, type Chem, type Figure } from "./plot/figures";
+import { livePourFigure } from "./plot/process";
 import { SOLVER } from "./shaders";
 import { PlotView } from "./plot/view";
 import { openFigure, type FigureHandle } from "./plot/modal";
@@ -107,7 +108,7 @@ export const LAB_DEFAULT: LabSetup = {
   specMPa: 0,
 };
 
-interface Sample { t: number; T: number; fs: number; fired: number }
+interface Sample { t: number; T: number | null; fs: number; fired: number }
 
 /** `three` gates the porosity clause: porosity is a 3D field only */
 const atmoNote = (atmo: string, three: boolean): string => {
@@ -166,12 +167,16 @@ export class Lab {
   /** the charge's chemistry: the figure draws chargeLiquidus of it */
   private chemAtPour: Chem | null = null;
   private metaAtPour: PlotMeta | null = null;
+  private setupAtPour: LabSetup | null = null;
+  private runState: "not started" | "running" | "aborted" | "finished" = "not started";
   /** samples recorded this pour (the series keeps at most 1200: decimated) */
   private recorded = 0;
   /** the finished run's record and analysis, which the figure is drawn from */
   private report: { series: Sample[]; ta: ThermalAnalysis } | null = null;
   private curveView: PlotView | null = null;
   private curveModal: FigureHandle | null = null;
+  private liveView: PlotView | null = null;
+  private liveModal: FigureHandle | null = null;
   /** the material identity the panel's dial ranges were derived from — a swap
    *  while the panel is open rebuilds it, so the spec ceiling is never another
    *  material's (the H7 buildPanel doctrine) */
@@ -256,11 +261,16 @@ export class Lab {
   }
 
   close() {
+    if (this.running) this.runState = "aborted";
     this.active = false;
     this.running = false;
     this.run.stop();
     this.panel?.remove();
     this.panel = null;
+    this.liveView?.destroy();
+    this.liveView = null;
+    this.liveModal?.close();
+    this.liveModal = null;
     this.curveModal?.close();
     this.curveView?.destroy();
     this.curveView = null;
@@ -324,6 +334,7 @@ export class Lab {
     // for a Kobayashi alloy, T̃ = 1 under the calibrated solver (its reference
     // state is the nominal alloy's liquidus), T_m = 1 for a pure melt
     this.metaAtPour = this.host.plotMeta();
+    this.setupAtPour = { ...this.setup };
     this.bridgeAtPour = bridgeOf(u0, this.metaAtPour.material);
     this.chemAtPour = this.host.chem();
     this.recorded = 0;
@@ -337,6 +348,8 @@ export class Lab {
     this.host.setView(3);        // FIELD: watch the heat leave
     this.host.setView3d(3);
     this.series = [];
+    this.report = null;
+    this.liveModal?.close();
     this.envPrev = null;
     p.envRate = 0;
     this.lastFs = 0;
@@ -344,6 +357,7 @@ export class Lab {
     this.intervened = false;
     this.fingerprint = this.snapshot();
     this.running = true;
+    this.runState = "running";
     this.host.setRun(true);
     this.host.syncUI();
     this.refresh();
@@ -352,6 +366,7 @@ export class Lab {
   abort() {
     if (!this.running) return;
     this.running = false;
+    this.runState = "aborted";
     this.run.stop();
     this.host.setRun(false);
     this.refresh();
@@ -388,7 +403,10 @@ export class Lab {
   onStats(meanLiqT: number | null, fracSolid: number) {
     if (!this.running) return;
     const t = this.host.simTimeNow() - this.t0;
-    this.series.push({ t, T: meanLiqT ?? 0, fs: fracSolid, fired: this.host.nucFired() });
+    // Readbacks may finish while paused. Only advancing simulation time adds
+    // a sample; a paused view must not fill the record with duplicate times.
+    if (this.series.length && t <= this.series[this.series.length - 1].t) return;
+    this.series.push({ t, T: meanLiqT != null && Number.isFinite(meanLiqT) ? meanLiqT : null, fs: fracSolid, fired: this.host.nucFired() });
     this.recorded++;
     // keep the record within a cap by DECIMATING the whole span, never dropping
     // its head — the old splice threw away the oldest samples, which on a long
@@ -405,6 +423,7 @@ export class Lab {
 
   private finish() {
     this.running = false;
+    this.runState = "finished";
     this.host.setRun(false);
     this.refresh();
     // measured now, once, while the sim is paused — never auto-shown; see
@@ -414,6 +433,7 @@ export class Lab {
 
   // ------------------------------------------------------------------ panel
   private buildPanel() {
+    this.liveView?.destroy();
     this.panel?.remove();
     const p = document.createElement("div");
     p.id = "foundry";
@@ -493,7 +513,15 @@ export class Lab {
     status.id = "foundryStatus";
     status.className = "pstatus q";
 
-    p.append(head, ex.body, form, note, row, status);
+    const live = document.createElement("div");
+    live.className = "rplot";
+    live.style.height = "250px";
+    this.liveView = new PlotView(live, {
+      id: "foundryLiveCurve",
+      label: "live pour curve: open temperature, solid fraction, data and exports",
+      onOpen: () => this.openLiveCurve(),
+    });
+    p.append(head, ex.body, form, note, row, status, live);
     document.getElementById("app")!.append(p);
     this.panel = p;
     this.statusEl = status;
@@ -511,6 +539,8 @@ export class Lab {
       this.buildPanel();
       return;
     }
+    this.liveView?.set(this.liveFigure().fig);
+    this.liveModal?.update();
     const note = this.panel.querySelector("#foundryNote") as HTMLElement;
     const go = this.panel.querySelector("#foundryRun") as HTMLButtonElement;
     if (this.resultsBtn) this.resultsBtn.disabled = !this.hasResults;
@@ -550,7 +580,7 @@ export class Lab {
       `<b>${this.run.name}</b> · stage ${num(`${this.run.stageIndex + 1}/${this.run.stageCount}`)} ` +
       // the stage's target in the same units as the set-point beside it
       `(${this.run.stageLabel(T)}) · set-point ${num(T(this.run.setpoint))}` +
-      (last ? ` · melt ${num(T(last.T))} · solid ${num(`${(last.fs * 100).toFixed(1)} %`)}` : "") +
+      (last ? ` · melt ${last.T != null ? num(T(last.T)) : "no liquid"} · solid ${num(`${(last.fs * 100).toFixed(1)} %`)}` : "") +
       ` · sites ${num(`${this.host.nucFired()}/${this.host.nucMax().toFixed(0)}`)}` +
       ` · ΔT max ${num(uu.known ? uu.fmtK(this.host.maxUndercool()) : this.host.maxUndercool().toFixed(3))}` +
       (this.intervened ? ` · ${warnWord("operator intervened")}` : "");
@@ -844,7 +874,8 @@ export class Lab {
     const meta = this.metaAtPour ?? this.host.plotMeta();
     const u = b.units;
     const chem = this.chemAtPour ?? this.host.chem();
-    const sh = u.known ? `${u.kelvin(this.setup.superheat).toFixed(0)} K` : `${this.setup.superheat.toFixed(2)} (dimensionless)`;
+    const setup = this.setupAtPour ?? this.setup;
+    const sh = u.known ? `${u.kelvin(setup.superheat).toFixed(0)} K` : `${setup.superheat.toFixed(2)} (dimensionless)`;
     // the pour sits at T̃ = 1 + superheat: over T_m, except under the
     // calibrated alloy solver, whose T̃ = 1 is the nominal alloy's liquidus
     const over = chem.solver === SOLVER.QUANT && chem.alloy ? "T_liq(c0), the calibrated solver's T̃ = 1" : "T_m (T̃ = 1)";
@@ -854,7 +885,7 @@ export class Lab {
         ...meta,
         recorded: this.recorded,
         extra: [
-          `pour: ${this.setup.program} program, ${this.setup.atmosphere}, superheat ${sh} over ${over}`,
+          `pour: ${setup.program} program, ${setup.atmosphere}, superheat ${sh} over ${over}`,
           `T: mean temperature of the remaining liquid (not a fixed thermocouple); the record ends at the solidus`,
         ],
       },
@@ -867,6 +898,39 @@ export class Lab {
     this.curveModal?.close();
     const h = openFigure(() => this.curveFigure(true), () => { if (this.curveModal === h) this.curveModal = null; });
     this.curveModal = h;
+  }
+
+  /** The current pour, including incomplete/aborted runs, with its original
+   *  units and identity. This is also what the complete-run export carries. */
+  private liveFigure(): Figure {
+    const meta = this.metaAtPour ?? this.host.plotMeta();
+    const setup = this.setupAtPour ?? this.setup;
+    return livePourFigure({
+      series: this.series,
+      bridge: this.bridgeAtPour ?? bridgeOf(this.host.units(), meta.material),
+      chem: this.chemAtPour ?? this.host.chem(),
+      prov: { ...meta, recorded: this.recorded, extra: [
+        `pour: ${setup.program} program, ${setup.atmosphere}; ${this.runState}`,
+        "Temperature is the mean of remaining liquid; null means no liquid remains.",
+        ...(this.intervened ? ["The operator changed the conditions during this pour."] : []),
+      ] },
+    });
+  }
+
+  private openLiveCurve() {
+    this.liveModal?.close();
+    const h = openFigure(() => this.liveFigure(), () => { if (this.liveModal === h) this.liveModal = null; });
+    this.liveModal = h;
+  }
+
+  exportFigures(): Figure[] {
+    if (!this.series.length) return [];
+    return [this.liveFigure(), ...(this.hasResults && this.report ? [this.curveFigure(true)] : [])];
+  }
+
+  exportState() {
+    return { status: this.runState, setupAtPour: this.setupAtPour ? { ...this.setupAtPour } : null,
+      operatorIntervened: this.intervened, recorded: this.recorded, retained: this.series.length };
   }
 
 }

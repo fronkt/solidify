@@ -1,3 +1,4 @@
+import { closeBrowser } from "./browser-cleanup.mjs";
 // verify-rail.mjs (v8 U0): the control rail never scrolls sideways, every
 // slider's value is on screen, and nothing sits under the rail.
 //
@@ -25,7 +26,7 @@
 // top of the window and the lab panel, the columns and the popup climb over
 // the learn toggle, CONTROLS, the TRUE 3D switch and the readouts.
 //
-// Ten checks:
+// Eleven checks:
 //   RAIL-NO-HSCROLL     rail.scrollWidth <= rail.clientWidth, every sample,
 //                       the phone's 270px rail included (v8 D2 review)
 //   RAIL-ROWS-INSIDE    every slider row is a grid, and its label, slider and
@@ -288,6 +289,26 @@ const PROBE = LONG => {
 
   window.__railProbe = {
     vis, proseDash,
+    /** Actual visible control, tour and panel copy, including tooltips. */
+    uiCopy() {
+      const roots = [...document.querySelectorAll("#rail, #tour, #app > .modepanel, #slicePop, #apanels, #apanels3")].filter(vis);
+      const bad = [], seen = [];
+      let chars = 0;
+      for (const root of roots) {
+        const name = root.id || "challenge";
+        seen.push(name);
+        const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        for (let t = walk.nextNode(); t; t = walk.nextNode()) {
+          if (!vis(t.parentElement)) continue;
+          const text = t.textContent.trim();
+          chars += text.length;
+          if (proseDash(text)) bad.push({ root: name, text: text.slice(0, 100) });
+        }
+        for (const el of root.querySelectorAll("[title]"))
+          if (vis(el) && proseDash(el.title.trim())) bad.push({ root: name, title: el.title });
+      }
+      return { seen, chars, bad };
+    },
     /** learn mode on or off through the top bar's toggle, as a visitor turns
      *  it; on, every section's explanation is expanded too */
     learnSet(on) {
@@ -501,7 +522,7 @@ const PROBE = LONG => {
       // head plate itself and the two legends that share the scale bar's
       // slot (v8 D2) are held to the same rule. A found item counts as seen
       const byId = el => { const b = el.getBoundingClientRect(); return b.width >= 1 && b.height >= 1 ? [r1(b.left), r1(b.top), r1(b.right), r1(b.bottom)] : null; };
-      for (const n of ["head", "views", "readouts", "learnToggle", "railToggle", "dimSwitch", "viewcube", "scalebar", "sembar", "thermbar"]) {
+      for (const n of ["head", "views", "readouts", "learnToggle", "railToggle", "dimSwitch", "viewcube", "scalebar", "sembar", "thermbar", "tourBtn"]) {
         const el = document.getElementById(n);
         if (!vis(el) || !byId(el)) continue;
         top[n] = byId(el);
@@ -840,6 +861,7 @@ async function sampleState(mode, state, setup, { real = false, shots: shotsAs = 
 
 // --------------------------------------------------------------- the chrome
 const chromeSamples = [];
+const uiCopySamples = [];
 const seenChrome = new Set();
 const panelOpened = [];
 // Sized against the transport bar, so they get the transport-bar clause: the
@@ -857,6 +879,7 @@ async function sampleChrome(mode, what, { learn = false, opened = 0 } = {}) {
   await achroma(mode, `${what} · rail ${rail}`);
   for (const [w, h] of VIEWPORTS) {
     await setVP(w, h);
+    uiCopySamples.push({ mode, what, vp: `${w}x${h}`, ...await S(() => window.__railProbe.uiCopy()) });
     const c = await S(() => window.__railProbe.chrome());
     const panels = await S(() => window.__railProbe.panels());
     c.seen.forEach(n => seenChrome.add(n));
@@ -981,10 +1004,11 @@ async function sampleHide(mode) {
 // over the plate's subtitle; now what shows must clear the rail and each
 // other. Then lab mode opened from that state: the rail gives way (hidden),
 // and the panel clears the controls that must stay reachable. The analysis
-// columns are closed for these, as a new page has them (with a column open a
-// phone's legend slot and the column can meet: U3, tasks/todo.md)
+// columns are also opened against each legend, in tall and short portrait
+// layouts and landscape. The mode panel must clear the tour pill too.
 const phoneSamples = [];
-const MUST_REACH = new Set(["learnToggle", "railToggle", "views", "dimSwitch"]);
+const phoneDisclosures = [];
+const MUST_REACH = new Set(["learnToggle", "railToggle", "views", "dimSwitch", "tourBtn"]);
 async function samplePhone(mode, columns) {
   await setVP(...PHONE);
   await page.evaluate(columns, false);
@@ -1004,6 +1028,40 @@ async function samplePhone(mode, columns) {
     panel: c2.bottom.some(n => n.startsWith("panel ")) });
   await S(() => window.__solidify.lab.close());
   await sleep(300);
+  await page.evaluate(columns, true);
+  for (const vp of [PHONE, [390, 540], [844, 390], [360, 640], [320, 568]]) {
+    await setVP(...vp);
+    if (vp[1] <= 600 || (vp[0] <= 380 && vp[1] <= 740)) {
+      const before = await S(() => {
+        const b = document.getElementById("readoutsToggle"), r = b.getBoundingClientRect();
+        const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return { reachable: at === b || b.contains(at), expanded: b.getAttribute("aria-expanded"),
+          target: b.getAttribute("aria-controls"), readings: window.__railProbe.vis(document.getElementById("readouts")) };
+      });
+      await page.click("#readoutsToggle");
+      await settle();
+      const expanded = await S(() => ({ aria: document.getElementById("readoutsToggle").getAttribute("aria-expanded"),
+        readings: window.__railProbe.vis(document.getElementById("readouts")), text: document.getElementById("readouts").textContent.length }));
+      await page.screenshot({ path: `${OUT}/phone-${mode}-${vp.join("x")}-readings-expanded.png` });
+      await page.click("#readoutsToggle");
+      await settle();
+      phoneDisclosures.push({ mode, vp: vp.join("x"), before, expanded });
+    }
+    for (const [lens, legend] of [[2, "scalebar"], [mode === "3d" ? 6 : 5, "thermbar"], [mode === "3d" ? 4 : 6, "sembar"]]) {
+      await page.evaluate(v => {
+        const s = window.__solidify;
+        if (s.app.getMode() === "3d") s.app.setView3d(v); else s.app.setView(v);
+        s.ui.sync();
+      }, lens);
+      await settle();
+      const c3 = await S(() => window.__railProbe.chrome());
+      const column = mode === "3d" ? "apanels3" : "apanels";
+      phoneSamples.push({ mode, what: "analysis + legend", vp: vp.join("x"), legend, column, rail: await railState(),
+        hits: c3.hits, clash: c3.clash, top: c3.top, columnBox: c3.boxes[column] });
+      await page.screenshot({ path: `${OUT}/phone-${mode}-${vp.join("x")}-${legend}.png` });
+    }
+  }
+  await setVP(...PHONE);
   if (await railState() === "hidden") await toggleRail();
   await page.evaluate(columns, true);
   await sleep(200);
@@ -1623,7 +1681,7 @@ const tourHl = await S(async () => {
   const i = T.CHAPTERS.findIndex(c => c.title === "Material");
   if (i < 0) return { i, hl: 0 };
   await window.__solidify.tour.goto(i);
-  return { i, shown: document.getElementById("tour").classList.contains("show"),
+  return { i, shown: document.getElementById("tour").classList.contains("show"), copy: window.__railProbe.uiCopy(),
     hl: [...document.querySelectorAll(".hl")].filter(e => window.__railProbe.vis(e)).length };
 });
 await sleep(300);
@@ -1646,7 +1704,9 @@ const sources = await S(async () => {
   const U = await import("/src/units.ts");
   const A = await import("/src/alloy.ts");
   const Q = await import("/src/quant.ts");
+  const T = await import("/src/tour.ts");
   const out = [];   // [kind, where, text]; kind: learn | line | hint
+  for (const c of T.CHAPTERS) out.push(["tour", c.title, `${c.body} ${c.watch}`]);
   // the calibration readout's line for every famous preset poured onto its
   // own base (only one can be on screen at a time; pourRun reads one live)
   for (const p of A.FAMOUS) {
@@ -1831,9 +1891,13 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   const phoneLive = s => s.what === "rail hidden"
     ? s.rail === "hidden" && FIRST.every(n => s.top.includes(n)) && (s.mode !== "3d" || s.top.includes("viewcube"))
     : s.what === "rail open" ? s.rail === "shown" && s.top.includes("learnToggle") && s.top.includes("railToggle")
-      : s.rail === "hidden" && s.panel;
+      : s.what === "analysis + legend" ? s.rail === "hidden" && s.top.includes(s.legend) && s.top.includes(s.column)
+        && s.columnBox?.[3] > s.columnBox?.[1]
+      : s.rail === "hidden" && s.panel && s.top.includes("tourBtn");
   const phoneBad = phoneSamples.filter(s => s.hits.length || s.clash.length || !phoneLive(s))
-    .map(s => ({ mode: s.mode, what: s.what, rail: s.rail, panel: s.panel, hits: s.hits.slice(0, 3), clash: s.clash.slice(0, 3), top: s.top }));
+    .map(s => ({ mode: s.mode, what: s.what, vp: s.vp, rail: s.rail, panel: s.panel, hits: s.hits.slice(0, 3), clash: s.clash.slice(0, 3), top: s.top }));
+  const disclosureBad = phoneDisclosures.filter(s => !s.before.reachable || s.before.target !== "readouts"
+    || s.before.expanded !== "false" || s.before.readings || s.expanded.aria !== "true" || !s.expanded.readings || s.expanded.text < 10);
   const slidersMeasured = audits.reduce((n, p) => n + p.sliders.length, 0);
   // Liveness for the learn-on half (v8 U1b review): every mode panel opened
   // (13, the treated heat treat included) was sampled with learn off and on
@@ -1857,10 +1921,12 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
     && audits.filter(p => p.learn).length === 13 * VIEWPORTS.length && learnUnopened.length === 0
     && uncapped.length === 0 && panelCapped && treatedOk
     && topMissing.length === 0 && topSomewhere.length === 0 && chromeSamples.every(s => s.transportSeen)
-    && hintUnder.length === 0 && phoneSamples.length === 6 && phoneBad.length === 0;
+    && hintUnder.length === 0 && phoneSamples.length === 36 && phoneBad.length === 0
+    && phoneDisclosures.length === 8 && disclosureBad.length === 0;
   check("RAIL-CLEAR", ok, {
     samples: chromeSamples.length, learnSamples: learnSamples.length, hiddenSamples, panelAudits: audits.length, slidersMeasured,
     phone: phoneSamples.map(s => `${s.mode} ${s.what}: rail ${s.rail}, top ${s.top.join(" ")}`), phoneBad, hintUnder: hintUnder.slice(0, 4),
+    disclosures: phoneDisclosures.length, disclosureBad,
     panels: panelOpened.map(p => `${p.mode} ${p.what}: ${p.names.join(", ")}`),
     treated: treated?.ret ?? null, cappedInLearn: { uncapped, panelCapped }, learnUnopened: learnUnopened.slice(0, 4),
     missing, notOpened, topMissing, topSomewhere, underRail: bad.slice(0, 8), overTransport: overTransport.slice(0, 8),
@@ -2010,6 +2076,10 @@ const proseDash = s => typeof s === "string" && s.includes("—") && s !== "—"
   const dom = railSamples.filter(s => s.nDashes).map(s => ({ ...brief(s), learn: s.learn, first: s.dashes.slice(0, 3) }))
     .concat(pourRun.samples.filter(s => s.nDashes).map(s => ({ state: "poured mix, calibrated", learn: s.learn, first: s.dashes.slice(0, 3) })));
   const src = sources.filter(([, , t]) => proseDash(t)).map(([k, w, t]) => ({ kind: k, where: w, text: t.slice(0, 70) }));
+  const tour = sources.filter(([k]) => k === "tour");
+  const tourBad = tour.filter(([, , t]) => t.trim().split(/\s+/).length > 40
+    || /\b(aluminium|mould\w*|programme\w*|colours?|grey|artefacts?|behaviour|centre)\b/i.test(t))
+    .map(([, title, text]) => ({ title, words: text.trim().split(/\s+/).length, text }));
   // liveness: the rendered text read, learn text included, and the strings
   // read; the poured state really reached the rail (the pour took, and its
   // source line is in the rail's text), and every famous preset's line was read
@@ -2019,11 +2089,24 @@ const proseDash = s => typeof s === "string" && s.includes("—") && s !== "—"
   const pourLive = pourRun.poured === true && pourRun.inRail && pourRun.samples.length === 2;
   const pourLines = sources.filter(([, w]) => w.startsWith("pour ")).length;
   const ok = fixture && dom.length === 0 && src.length === 0 && learnChars > 0 && sources.length >= 150
-    && pourLive && pourLines >= 9;
+    && pourLive && pourLines >= 9 && tour.length >= 30 && tourBad.length === 0;
   check("RAIL-NO-EMDASH", ok, {
     fixtureCaught: { node: fixtureNode, dom: fixtureDom }, charsRead: chars, extraLearnChars: learnChars,
     stringsRead: sources.length, pourLines, poured: { live: pourLive, name: pourRun.name, line: pourRun.src },
-    rendered: dom.slice(0, 6), strings: src.slice(0, 8),
+    rendered: dom.slice(0, 6), strings: src.slice(0, 8), tourSteps: tour.length, tourBad,
+  });
+}
+
+{
+  const bad = uiCopySamples.filter(s => s.bad.length).map(s => ({ mode: s.mode, what: s.what, bad: s.bad.slice(0, 3) }));
+  const seen = new Set(uiCopySamples.flatMap(s => s.seen));
+  const required = ["rail", "foundry", "lab", "heattreat", "challenge"];
+  const missing = required.filter(n => !seen.has(n));
+  const tourCopy = tourHl.copy;
+  const tourLive = tourHl.shown && tourCopy?.seen.includes("tour") && tourCopy.chars > 50;
+  check("UI-NO-EMDASH", bad.length === 0 && missing.length === 0 && tourLive && tourCopy.bad.length === 0
+    && uiCopySamples.length >= 50, {
+    samples: uiCopySamples.length, seen: [...seen], missing, bad: bad.slice(0, 6), tourLive, tourBad: tourCopy?.bad,
   });
 }
 
@@ -2105,6 +2188,6 @@ if (errors.length) {
   console.log("PAGE ERRORS", JSON.stringify(errors.slice(0, 6)));
 }
 
-await browser.close();
+await closeBrowser(browser);
 console.log(failures ? `done: ${failures} FAILED` : "done: all rail checks passed");
 if (failures) process.exitCode = 1;

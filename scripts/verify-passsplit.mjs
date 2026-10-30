@@ -1,3 +1,4 @@
+import { closeBrowser } from "./browser-cleanup.mjs";
 // PASSSPLIT — the fused and split solidification steps must be the same solver.
 //
 // v5.0 splits FLUX -> UPDATE into FLUX -> PHI -> TRANSPORT, because the
@@ -115,6 +116,6 @@ for (const alloyOn of [0, 1]) {
 
 console.log("PAGE ERRORS:", errors.length ? errors.slice(0, 5) : "none");
 if (errors.length) failures++;
-await browser.close();
+await closeBrowser(browser);
 console.log(failures ? `done — ${failures} FAILED` : "done");
 if (failures) process.exitCode = 1;

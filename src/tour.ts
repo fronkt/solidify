@@ -220,8 +220,8 @@ interface Chapter {
 export const CHAPTERS: Chapter[] = [
   {
     title: "The unstable front",
-    body: "A flat solidification front in an undercooled melt cannot stay flat. Any bump reaches deeper into cold liquid, rejects its latent heat faster, and grows faster still — the Mullins–Sekerka instability.",
-    watch: "Watch the flat front from the wall break into fingers on its own.",
+    body: "A bump on a freezing front reaches colder liquid and loses heat faster. It grows into a finger: the Mullins–Sekerka instability.",
+    watch: "Watch the flat front break into fingers.",
     apply(a) {
       a.setParams({ scen: 0, delta: 0.008, aniMode: 4, noiseAmp: 0.022, latent: 1.7, coolRate: 0, alloyOn: 0, heatIn: 0 });
       a.setInoculant(0); a.setWeldAuto(false);
@@ -231,26 +231,26 @@ export const CHAPTERS: Chapter[] = [
   },
   {
     title: "Why arms?",
-    body: "Crystals are not round because surface energy depends on direction. A cubic metal grows fastest along its three ⟨100⟩ axes — six directions in all — so a free crystal sharpens into a six-armed dendrite. This is a 2D section, and it cuts the plane holding four of them; part III restores the missing pair. It is the same physics that shapes every cast metal part.",
-    watch: "Four arms lock onto the ⟨100⟩ directions lying in this plane; the glowing halo is latent heat escaping.",
+    body: "Surface energy depends on direction. Cubic crystals favor three ⟨100⟩ axes, giving six arms in 3D. This plane contains four.",
+    watch: "The glowing halo shows latent heat leaving the growing solid.",
     apply: SCENES.dendrite,
   },
   {
     title: "Snow",
-    body: "Change the symmetry of that surface energy from four-fold to six-fold and the same equations grow a snowflake. Ice is hexagonal; that single fact is why no snowflake has four arms.",
-    watch: "Side branches appear where random noise disturbs the growing tip. (Try the SEAWEED preset for what happens with almost no anisotropy.)",
+    body: "Hexagonal symmetry gives ice six preferred growth directions. The same phase-field equations now grow a snowflake.",
+    watch: "Noise seeds side branches. Try seaweed for nearly isotropic growth.",
     apply: SCENES.snow,
   },
   {
     title: "Forbidden symmetry",
-    body: "A periodic lattice can only repeat with 2-, 3-, 4- or 6-fold rotational symmetry — the crystallographic restriction theorem. So when Dan Shechtman measured a sharp 10-fold diffraction pattern in 1982, his lab asked him to leave. He had found quasicrystals: ordered, never repeating. It took the field years to believe him and won the 2011 Nobel Prize.",
-    watch: "Five arms — the symmetry no ordinary crystal is allowed to have. Honesty note: we give the interface energy 5-fold symmetry; the aperiodic lattice itself is beyond this model. Try ×10 in CRYSTAL for the decagonal look, or the Al–Co–Ni quasicrystal in MATERIAL.",
+    body: "Periodic lattices allow 2-, 3-, 4- or 6-fold symmetry. Quasicrystals can have five-fold order without repeating.",
+    watch: "This models five-fold interface energy, not an aperiodic atomic lattice. Try ×10 in CRYSTAL.",
     apply: SCENES.quasi,
   },
   {
     title: "The twin",
-    body: "Sometimes a growing crystal makes a perfect mistake: a second lattice forms on it in mirror registry — a twin. Aluminum castings grow whole feathery grains this way, and two ice crystals locked at 30° grow the rarest snowflake of all: twelve branches.",
-    watch: "One seed, two orientations. Count the arms — twelve. The two twin domains show as two colours split by a faint boundary; real twin boundaries etch faint too. Raise TWIN RATE in CRYSTAL to let twins fire mid-growth.",
+    body: "Two crystal orientations can grow together as a twin. These six-fold domains are offset by 30°.",
+    watch: "Count twelve arms. ORIENT shows the two domains; twin rate in CRYSTAL lets new twins appear during growth.",
     apply(a) {
       a.setParams({ scen: 0, heatIn: 0, delta: 0.042, aniMode: 6, noiseAmp: 0.012, latent: 1.8, coolRate: 0, alloyOn: 0, twinProb: 0 });
       a.setInoculant(0); a.setWeldAuto(false);
@@ -260,58 +260,58 @@ export const CHAPTERS: Chapter[] = [
   },
   {
     title: "Many grains",
-    body: "Real melts nucleate everywhere at once. Each nucleus is a crystal with its own random orientation; where they collide, growth stops and a grain boundary is frozen in. This is why metal is made of grains. What you set is the INOCULANT — how many potential nuclei the melt carries. How many of them actually fire is decided by how deeply the melt undercools, which is why there is no nucleation-rate slider anywhere in this instrument.",
-    watch: "Each colour is one crystal orientation. Watch the SITES readout: it climbs while the melt is still getting colder, then stops dead once the latent heat of the growing grains warms it back up. Nucleation shuts itself off. Now raise the COOLING RATE and re-pour — the melt gets deeper before that happens, more of the same inoculant fires, and the casting comes out finer.",
+    body: "Each nucleus carries its own orientation. Growing crystals meet at grain boundaries. Inoculant sites activate only when the melt undercools enough.",
+    watch: "Increase cooling rate and reset. More sites can activate before latent heat warms the melt.",
     apply: SCENES.rain,
     hl: ["sec:MELT · PROCESS"],
   },
   {
     title: "The casting",
-    body: "Pour metal against a cold mould wall and columnar grains race inward, feeding on the heat gradient. Ahead of them the melt undercools until new equiaxed grains nucleate and block the columns — the columnar-to-equiaxed transition every foundry fights over.",
-    watch: "Long columns from the wall, then a sudden switch to round grains mid-domain.",
+    body: "A cold mold grows columns inward. New grains ahead of them can block the columns: the columnar-to-equiaxed transition.",
+    watch: "Watch columns give way to roughly equiaxed grains.",
     apply: SCENES.casting,
   },
   {
     title: "One direction",
-    body: "In directional solidification the sample is pulled through a fixed temperature gradient — the Bridgman furnace, how turbine-blade alloys and semiconductor crystals are grown. The front can only follow the moving isotherms.",
-    watch: "An aligned columnar array marches with the gradient. Raise PULL SPEED and the front destabilises into finer cells and dendrites.",
+    body: "Bridgman growth pulls a sample through a temperature gradient. Crystals compete while following the moving isotherms.",
+    watch: "Raise pull speed in SCENARIO and compare the front.",
     apply: SCENES.bridgman,
   },
   {
     title: "The weld",
-    body: "A weld is solidification in motion: a travelling heat source melts a pool and the structure refreezes epitaxially behind it, growing off the grains it just melted. Every weld bead carries this signature microstructure.",
-    watch: "Steer the laser with your pointer (or let it raster). Then switch to RINGS — the growth history of every pass is written in the bands.",
+    body: "A moving heat source melts a pool. Existing grains grow into the liquid as the pool refreezes.",
+    watch: "Steer the laser with your pointer. Switch to RINGS to see the passes.",
     apply: SCENES.weld,
   },
   {
     title: "The alloy",
-    body: "Real metals are alloys. The growing solid rejects solute, which piles up ahead of the front and lowers the local melting point — constitutional undercooling, the engine of most real dendrites. The rejected solute freezes into the last liquid between the arms.",
-    watch: "Blue-green halos hug the interface. Switch to XRAY — the segregation shows up exactly the way it does in synchrotron radiographs of real solidifying alloys. Then open ALLOY COMPOSER and mix your own: it reports the growth restriction factor Q that foundries use to predict grain refinement. Whether Q refines the grains in THIS instrument is a separate question, and one this project has answered wrong twice — the science page walks through both mistakes and the controlled comparison that settled it.",
+    body: "Growing solid rejects solute. Enrichment ahead of the front lowers the local melting point and changes growth.",
+    watch: "XRAY shows segregation. The alloy composer reports chemistry; its growth restriction Q does not independently predict grain refinement in this solver.",
     apply: SCENES.alloy,
   },
   {
     title: "The line you can cross",
-    body: "A composition is a point on a phase diagram, and the diagram decides what the casting is made of. ALLOY COMPOSER draws the binary your mix is nearest — the assessed system of whichever solute carries the most weight — as straight chords between cited invariant points, with your pour marked on it. Aluminium dissolves 1.65 wt% silicon and no more. Past that line the equilibrium casting is (Al) + (Si), and this solver has exactly one solid phase.",
-    watch: "Tap A356 in the quick-fill row. The pour lands at 7 wt% Si, well right of the 1.65 wt% line, and the shaded band names what equilibrium leaves there: (Al) + (Si). Drag SI below 1.65 and the band jumps to the lean side of the diagram and the readout goes single-phase. Drag it back and the app names the phase it will not grow: the (Si) of the 577 °C eutectic. That eutectic constituent — (Al) and (Si) together — is about half the casting by the lever rule, and none of it is simulated. That refusal is the whole point: the diagram is cited data, the solver has one solid phase, and the app would rather say so than draw you a picture of both.",
+    body: "The alloy composer draws cited phase data; the solver grows one solid phase. Aluminum holds up to 1.65 wt% Si.",
+    watch: "Choose A356: the 577 °C eutectic constituent, (Al) + (Si), is about half the equilibrium casting. It is not simulated.",
     apply(a) { SCENES.alloy(a); a.openComposer(); },
   },
   {
     title: "Engineer it",
-    body: "Grain size sets strength — finer is stronger (Hall–Petch). A process engineer tunes cooling and inoculation to hit a target grain size. This opens the OPTIMIZER panel, where a CMA-ES search does that job: it runs one casting after another, measures the ASTM grain number, and learns the recipe. It starts paused — press ▶ RUN to set it going, PAUSE to freeze any casting and inspect it.",
-    watch: "Once running it replays dozens of fast castings back to back. Early ones nucleate heavily and look like a chaotic blizzard of grains — that is the optimizer exploring, not a glitch. Its genes are the initial melt undercooling, the inoculant charge and a three-stage cooling schedule, and the last two are coupled: the schedule decides how much of the charge ever fires, so it cannot tune one without disturbing the other. Watch |ΔG| shrink as it converges; drag the target toward G 1 and the grains thin out, toward G 5 and they multiply. Or fight it yourself with CHALLENGE.",
+    body: "The optimizer searches cooling schedules and inoculant charges to reach a target ASTM grain number. It starts paused.",
+    watch: "Press ▶ run. Watch measured error fall on the convergence plot, or try challenge.",
     apply(a) { a.startOptimizer(); },
   },
   {
     title: "Run it like a lab",
-    body: "Everything so far has been a sandbox: you drag a slider and the melt answers. That is a fine way to learn the terms and a poor model of how the measurement is made. LAB MODE inverts it. You specify the experiment first — the charge and its inoculant, how long it waits above the liquidus (the refiner settles out while it does), the atmosphere (a clean cover gas or the hydrogen a dirty melt drinks), the pour superheat, the mould temperature, a cooling programme, and if you like a strength spec the casting must make — then you pour it and you get what you get.",
-    watch: "Pick a programme and press POUR AND RUN. The melt is poured above its liquidus, so nothing can freeze until the programme takes it down. When the casting is solid you get a report card read the way a foundry reads a cast cup: liquidus arrest, nucleation nadir, recalescence and solidus extracted off the cooling curve, the dissolved-hydrogen ledger, how much of the inoculant survived the hold and fired — and the as-cast census with its Hall–Petch strength, judged against your spec if you set one. Touch a physics dial while it is pouring and the card will say so.",
+    body: "Lab mode fixes the charge, atmosphere, hold, superheat, mold and cooling program before pouring. Results come from the recorded run.",
+    watch: "Press pour and run. Watch the live curve, then open results. Changing physics dials marks the run as intervened.",
     apply(a) { a.startLab(); },
     hl: ["sec:MODES"],
   },
   {
     title: "Heat treat it",
-    body: "The casting is not the end of the story — most metal that matters goes back into a furnace. HEAT TREAT is the instrument's second clock: solidification runs in fractions of a millisecond, a heat treatment in real hours, and no solver can be integrated through both. So the temperature and the hold time you dial are integrated through every Arrhenius law the material shipped with, and a measured Monte Carlo model spends that budget on the frozen grain field — judged against a strength spec if you set one, and stopped early if you dial in the panel's Zener dispersion, a particle volume fraction and radius that pin the boundaries at a limit measured on this lattice rather than integrated by any rate law. φ never moves; that is what solid state means.",
-    watch: "Pour a fine casting first (add inoculant), close the lab, then run the default anneal and read the card: grains coarsen toward the law's own endpoint, ASTM G falls, and σ_y falls with it — Hall–Petch pricing the trade. Dial a spec above the as-cast strength and the panel says no schedule can meet it before you waste the furnace time: an anneal only softens. On copper in TRUE 3D, Σ3 annealing twins appear on the migrating boundaries; on aluminium the card prints the stacking-fault number that says why they cannot.",
+    body: "Heat treat uses a separate furnace clock. Supported rate laws budget grain-boundary migration; the solid fraction stays fixed.",
+    watch: "Annealing coarsens grains and can reduce Hall–Petch strength. Particle pinning changes the endpoint; primary recrystallization is not modeled.",
     apply(a) { a.startHeat(); },
     hl: ["sec:MODES"],
   },
@@ -320,92 +320,92 @@ export const CHAPTERS: Chapter[] = [
   {
     part: "THE INSTRUMENT",
     title: "Part II: the instrument",
-    body: "The rest of the tour walks every control on the instrument, dropdown by dropdown. Nothing in part II touches your melt — whatever you have growing keeps growing. Close anytime.",
-    watch: "The transport (bottom left): reset arms a fresh melt so you can stage seeds while paused, ▶ run / ❚❚ pause is the space bar, ×1 cycles to ×2 and ×4 to fast-forward (crank the speed slider first, then stack the multiplier), and rec saves a .webm clip of the canvas.",
+    body: "This part explains controls without changing your melt. Close the tour anytime.",
+    watch: "Reset stages a paused melt. Space runs or pauses; ×1 cycles speed multipliers; rec records the canvas.",
     hl: ["#transport"],
   },
   {
     part: "THE INSTRUMENT",
     title: "The lenses",
-    body: "Ten ways to look at the same physics: incandescent MELT, ORIENT colours, the ETCH micrograph, raw FIELD, growth RINGS, a THERM camera, SEM, NEON contours, XRAY segregation, and CURV curvature.",
-    watch: "Keys 1–9 and 0 switch lenses instantly — the crystal never notices.",
+    body: "Ten views share one simulation: MELT, ORIENT, ETCH, FIELD, RINGS, THERM, SEM, NEON, XRAY and CURV.",
+    watch: "Keys 1–9 and 0 change lenses without changing the physics.",
     hl: ["#views"],
   },
   {
     part: "THE INSTRUMENT",
     title: "Presets",
-    body: "Nine one-tap situations: dendrite, snow, seaweed, the forbidden five-fold quasicrystal, nucleation rain, a chilled casting, Bridgman directional growth, a raster weld, and a solutal alloy — plus a tenth that exists only in TRUE 3D, the single-crystal selector. Each stages the physics and hands the controls straight back to you.",
-    watch: "They are starting points, not demos — everything stays fully adjustable afterwards.",
+    body: "Nine one-tap situations stage different growth conditions. TRUE 3D also offers a single-crystal selector.",
+    watch: "Every preset stays adjustable. Compare dendrite, snow, seaweed, rain, casting, Bridgman, weld, alloy and quasi.",
     hl: ["sec:PRESETS"],
   },
   {
     part: "THE INSTRUMENT",
     title: "Material",
-    body: "Eleven material identities. Crystal structure picks the dendrite symmetry — FCC and BCC metals grow 4-fold, HCP metals 6-fold, and cobalt surprises everyone by freezing FCC. Each also sets how brightly its melt genuinely glows: steel white-hot, zinc not at all.",
-    watch: "The name on the head plate, under PHASE-FIELD SOLIDIFICATION · LIVE, always states exactly what is in the melt.",
+    body: "Eleven material identities set symmetry, model parameters and display appearance. Cobalt freezes FCC despite its familiar room-temperature HCP structure.",
+    watch: "The name on the head plate states what is in the melt.",
     hl: ["sec:MATERIAL", "#head"],
   },
   {
     part: "THE INSTRUMENT",
     title: "Melt · process",
-    body: "The foundry dials: UNDERCOOLING is how cold the melt starts, COOLING RATE keeps pulling heat out, and INOCULANT is how many potential nuclei the charge carries — a site population with a spread of activation undercoolings, set in ADVANCED. There is deliberately no nucleation-rate control: the rate is what those three produce between them.",
-    watch: "The buttons: seed and twin seed drop nuclei, chill wall lines an edge, quench plunges the whole melt colder, and holding reheat pours heat back in and melts solid back to liquid: a brush, not a heat treatment. The real furnace is heat treat, under MODES.",
+    body: "Undercooling sets the initial temperature. Cooling rate removes heat; inoculant sites supply potential nuclei, not a prescribed nucleation rate.",
+    watch: "Seed, twin seed and chill wall add nuclei. Quench cools; hold reheat remelts. The furnace is heat treat.",
     hl: ["sec:MELT · PROCESS"],
   },
   {
     part: "THE INSTRUMENT",
     title: "Scenario",
-    body: "FREE is an open melt. BRIDGMAN pulls the sample through a fixed thermal gradient — set the gradient and pull speed — the way turbine blades are grown. WELD drives a moving laser pool with power, spot size, and an auto-raster.",
-    watch: "In weld mode your pointer steers the laser directly.",
+    body: "FREE is an open melt. BRIDGMAN imposes a moving thermal gradient. WELD adds a traveling heat source.",
+    watch: "Adjust gradient and pull speed, or steer the weld laser with your pointer.",
     hl: ["sec:SCENARIO"],
   },
   {
     part: "THE INSTRUMENT",
     title: "Alloy",
-    body: "The dilute-solute field: composition, liquidus slope, and diffusivity sliders, plus partition k in ADVANCED. The alloy composer… button goes further. Pick a base metal, add elements in wt%, and read the real chemistry: the liquidus shift and the growth restriction factor Q that foundries use to predict grain refinement.",
-    watch: "Pour A356 + TiB against Al–1Zn on the same charge and cooling and the two castings do come out different — but not because Q refined one of them. An alloy's liquidus is depressed, so at a common bath temperature the two charges are not equally undercooled and have not reached the same solid fraction when you compare them. Control both and they agree to within noise. The science page works through that in full, and through the inverted answer that was also an artefact. Compositions are shareable as #alloy links.",
+    body: "The alloy composer accepts elements in wt% and reports liquidus shift, growth restriction Q and model limits.",
+    watch: "Compare alloys at matched undercooling and solid fraction. Q alone does not refine grains in this solver; the science page explains the comparison.",
     hl: ["sec:ALLOY"],
   },
   {
     part: "THE INSTRUMENT",
     title: "Crystal",
-    body: "The crystallography: ANISOTROPY δ sharpens arms (near zero grows seaweed), the symmetry row sets the rotational order — ×2, ×3, cubic ×4 for metals, hex ×6 for ice, and the forbidden ×5 and ×10 of quasicrystal territory, with a genuine icosahedral one in TRUE 3D — FACETED (CUSPED ε) cusps the interface energy until flat facets pin, TIP NOISE seeds side-branches, LATENT HEAT K feeds recalescence, and TWIN RATE lets growth twins nucleate at the front.",
-    watch: "Twins must out-grow their parent to survive — the winners widen into feathery grains.",
+    body: "Anisotropy selects growth directions. Noise seeds branches; latent heat warms the melt; facets change interface energy; twin rate creates competing domains.",
+    watch: "Twins must outgrow their parent to survive. Five-fold settings model interface symmetry, not atomic structure.",
     hl: ["sec:CRYSTAL"],
   },
   {
     part: "THE INSTRUMENT",
     title: "Analyze",
-    body: "Foundry instruments: the COOLING PROBE plots T(t) at one cell — watch the recalescence arrest — and ctrl-tap moves it. SCHEIL overlays the predicted solidification path against what the sim measures. The TEXTURE ROSE histograms grain orientations. The SDAS RULER measures arm spacing by dragging a line, metallographer-style.",
-    watch: "Grow a Bridgman casting with the rose open: columnar competition visibly sharpens the texture.",
+    body: "Cooling probe records one cell; Scheil compares an analytic segregation path with measurements. Texture rose shows orientations; SDAS ruler measures arm spacing.",
+    watch: "Ctrl-tap moves the probe. Open a plot for its data table and exports.",
     hl: ["sec:ANALYZE"],
   },
   {
     part: "THE INSTRUMENT",
     title: "Look",
-    body: "PIXEL MODE and the 8-BIT palette are the retro looks. The STAIN select tints the ETCH micrograph like real reagents — Klemm's browns and blues, Beraha's violets, or anodize under crossed polars. EBSD MAP (ORIENT) turns that lens into a microscope-style IPF orientation map.",
-    watch: "RESET VIEW undoes any zoom and pan.",
+    body: "Pixel mode and 8-bit palette change appearance. Stain tints ETCH; EBSD map changes ORIENT to a crystallographic orientation map.",
+    watch: "Reset view clears zoom and pan. These choices do not change growth.",
     hl: ["sec:LOOK"],
   },
   {
     part: "THE INSTRUMENT",
     title: "Engine · advanced · modes",
-    body: "ENGINE sets simulation speed, brush size, and the grid (512² to 2048²). ADVANCED exposes the raw model dials (interface width ε̄, kinetics γ, driving α, relaxation τ, partition k), clamped to the numerically stable envelope. MODES holds the four run modes: lab mode and heat treat, which run in both dimensions, and the CMA-ES optimizer and the challenge, which are 2D only.",
-    watch: "Instability is unreachable from the sliders on purpose: every range was mapped before shipping.",
+    body: "ENGINE sets speed and grid. ADVANCED exposes model dials. MODES opens lab mode, heat treat, optimizer or challenge.",
+    watch: "Lab mode and heat treat work in both dimensions. Optimizer and challenge are 2D only. Export run saves your recorded data.",
     hl: ["sec:ENGINE", "sec:ADVANCED", "sec:MODES"],
   },
   {
     part: "THE INSTRUMENT",
     title: "Calibrate it",
-    body: "SCALE holds the map from the solver's dimensionless numbers to real SI, with a provenance badge on every factor — and a switch. Turn on the calibrated solver and the interface width and relaxation time stop being dials: they are derived from Γ and D, this material's own Gibbs–Thomson coefficient and diffusivity, over a reference interval the panel names for you: the poured mix's own freezing range when the mix has one, this material's coefficients when the mix declines to supply one or you poured nothing, and the pure-melt L/c_p when the solute field is off — which the panel refuses to call a freezing range at all. That is what turns tip radius and arm spacing from shapes into predictions. Seven sliders grey out because they are no longer choices.",
-    watch: "The one control left is λ, and it is a convergence knob: it sets how many capillary lengths wide the interface is, and the answer has to not depend on it. The app prints W₀/d₀ beside it so you can check.",
+    body: "SCALE names the unit bridge and its sources. The calibrated 2D solver derives interface and kinetic parameters from material data.",
+    watch: "The reference interval follows the poured alloy when supported. Coupling λ tests convergence; unsupported compositions and TRUE 3D are refused.",
     hl: ["sec:SCALE"],
   },
   {
     part: "THE INSTRUMENT",
     title: "Your hands",
-    body: "On the canvas itself: tap to nucleate a crystal, shift-tap for a twinned pair, scroll or pinch to zoom, right-drag (or two fingers) to pan, and ctrl-tap to move the cooling probe.",
-    watch: "That is the whole instrument. Go freeze something.",
+    body: "Tap to seed, shift-tap for a twin, scroll or pinch to zoom, right-drag or two-finger drag to pan.",
+    watch: "Ctrl-tap moves the cooling probe. Open ADVANCED and choose export run to save the setup, data and micrograph.",
     hl: [],
   },
 
@@ -414,8 +414,8 @@ export const CHAPTERS: Chapter[] = [
     part: "THE THIRD DIMENSION",
     dim: "3d",
     title: "Part III: out of the plane",
-    body: "Everything so far was a 2D section of a 3D event. A real cubic dendrite grows six primary arms — one pair per crystal axis — and a real grain is a polyhedron you can only understand by walking around it. This flips the instrument into TRUE 3D: up to seven million voxels — 192³ where the GPU has room, stepping down through 160³, 128³ and 96³ where it does not — solving the same phase-field equations, drawn by marching rays through the volume.",
-    watch: "One seed, six arms, locked to ⟨100⟩. The glow is the same latent heat as chapter two — now escaping in three dimensions, which is exactly why 3D tips grow sharper than 2D theory predicts.",
+    body: "TRUE 3D evolves a volume rather than a section, with six ⟨100⟩ arms for cubic crystals. Grid size follows GPU capacity.",
+    watch: "The volumetric solver remains qualitative Kobayashi; calibrated quantitative growth is currently 2D only.",
     apply(a) {
       a.setInoculant(0);
       a.setSym3(4);
@@ -429,16 +429,16 @@ export const CHAPTERS: Chapter[] = [
     part: "THE THIRD DIMENSION",
     dim: "3d",
     title: "Orbit it",
-    body: "The camera is an instrument now. Drag to orbit, wheel to dolly, right-drag to pan. Or use the cube, exactly as in a CAD package: faces snap to engineering views, edges and corners to isometrics, and dragging the cube spins the crystal in your hand.",
-    watch: "Hover the ViewCube — faces, edges and corners all light up. Tap the melt to nucleate at depth; shift-tap drops a Σ3 twin pair, two crystals locked at 60° about a shared ⟨111⟩ axis.",
+    body: "Drag to orbit, wheel to dolly and right-drag to pan. ViewCube faces, edges and corners select standard views.",
+    watch: "Tap to seed at depth. Shift-tap creates a Σ3 pair: 60° about a shared ⟨111⟩ axis.",
     hl: ["#viewcube"],
   },
   {
     part: "THE THIRD DIMENSION",
     dim: "3d",
     title: "Section it",
-    body: "A metallurgist cannot see inside an opaque solid either. The lab answer is serial sectioning: grind, polish, image, repeat, and rebuild the volume from slices. The SLICE lens is that section plane — free to move, tilt and turn — and CT SWEEP drives it through the volume like a tomography scan. The cut face renders as etched metal or as an EBSD orientation map. The lab's step-block mould applies the same measurement to a whole casting at once: one pour, four section thicknesses, a per-section census read the same way, side by side on the report card.",
-    watch: "The plane is sweeping a many-grain casting on the EBSD style. Open STEREOLOGY in VOLUME · 3D: the grain size measured on the section runs smaller than the true 3D size, because a random plane almost never cuts a grain through its equator. Sections lie small — that correction is a century of stereology.",
+    body: "SLICE cuts the volume. Move, tilt or sweep the plane to inspect grains and pores; choose etched or EBSD-style sections.",
+    watch: "Stereology compares section measurements with the true 3D census. Random sections usually underestimate grain size.",
     apply(a) {
       a.setSym3(4);
       a.setParams({ delta: 0.045, noiseAmp: 0.012, latent: 1.5, coolRate: 0.1, heatIn: 0 });
@@ -457,8 +457,8 @@ export const CHAPTERS: Chapter[] = [
     part: "THE THIRD DIMENSION",
     dim: "3d",
     title: "Inspect it",
-    body: "Now the defect that makes inspection an industry. A casting freezes from the walls inward; liquid pockets that lose their feed path to the riser shrink into voids as they solidify — shrinkage porosity. The FIELD lens is the x-ray radiograph NDT uses to find it: pores read as dark specks in the transmission image. The section plane's Niyama style maps |∇T|/√Ṫ, the foundry criterion that flags starved regions before they turn into pores.",
-    watch: "A chill floor, nucleation rain, and hard cooling — a real casting recipe. Watch POROSITY climb in the HUD as unfed pockets freeze. Then open the SECTION PLANE and switch the cut style to the Niyama map: the risk lights up ahead of the defects. Read the legend under it — on steel the map is judged in K·s^½·mm⁻¹ against Niyama's own radiographic criterion, and on every other metal it says plainly that it is a relative map, because that threshold was measured on steel radiographs and this instrument's aluminium porosity is dissolved hydrogen, not shrinkage. Cold blue also means \"never measured\" — a seed core the front never swept has no Niyama, and the map refuses to colour one in.",
+    body: "Disconnected liquid can shrink into pores. FIELD reveals them; the section plane offers a Niyama risk map.",
+    watch: "Only steel uses the cited 0.775 K·s^½·mm⁻¹ threshold. Other metals show relative values. Unmeasured seed cores stay unclassified.",
     apply(a) {
       a.setSym3(4);
       a.setParams({ delta: 0.045, noiseAmp: 0.014, latent: 1.85, coolRate: 0.28, heatIn: 0 });
@@ -476,8 +476,8 @@ export const CHAPTERS: Chapter[] = [
     part: "THE THIRD DIMENSION",
     dim: "3d",
     title: "Take it home",
-    body: "Everything you grow is yours to keep. STL meshes the crystal into a watertight, printable surface straight from the φ field — closed pore shells included. 360° records a six-second orbit to webm while the physics keeps running. And the share link carries the entire setup, section plane and all, to anyone with a browser.",
-    watch: "The whole instrument lives here now: every preset, Bridgman growth, the surface weld, the alloy field and composer, growth twins, facets, the icosahedral quasicrystal — and the SELECTOR preset, which races sixty-four chill-floor grains through a helical channel until a single crystal survives, the way real turbine blades are made. Go fill the volume.",
+    body: "STL saves a printable crystal. 360° records an orbit. Copy setup link reproduces the seeded setup, including the section plane.",
+    watch: "Export run bundles settings, measured series and a scaled micrograph. Try the selector preset to watch grain competition.",
     hl: ["sec:VOLUME · 3D"],
   },
 ];
@@ -520,9 +520,9 @@ export class Tour {
       ch.hl?.forEach(t => this.app.reveal(t));
     } else this.app.syncUI();
     const body = blocked
-      ? "The volume mode isn't available right now — it needs an idle instrument (no optimizer or challenge running) and a WebGPU device with room for the 3D field. The story anyway: " + ch.body
+      ? "TRUE 3D needs an idle instrument and enough GPU memory. " + ch.body
       : ch.body;
-    const watch = blocked ? "Part III is best experienced live — try a desktop with WebGPU." : ch.watch;
+    const watch = blocked ? "Try a desktop with WebGPU to explore part III live." : ch.watch;
     this.el.innerHTML = `
       <div class="ch">TOUR · ${i + 1} / ${CHAPTERS.length}${ch.part ? " · " + ch.part : ""}</div>
       <h3>${ch.title}</h3>
