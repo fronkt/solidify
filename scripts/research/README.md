@@ -34,3 +34,11 @@ The first local baseline pair reached the fixed 1000 tau0 horizon with no device
 errors: raw epsilon 0 measured -0.0001011133, while raw epsilon 0.0171 measured
 0.0166019492. Both met the original equilibrium checks. These two observations do
 not resolve the mesh/radius limit or justify a needle calibration coefficient.
+
+## Finite-speed planar cross-check
+
+See [quant3d-kinetic.md](quant3d-kinetic.md) for the independent coupled CPU
+traveling profile, its exporter and physical-lattice controls, and the production
+WebGPU comparison. The default command runs only a CPU metrology self-test;
+`--run` explicitly starts the ten-arm GPU diagnostic. Its finite-speed comparison
+does not establish a zero-speed kinetic coefficient or needle acceptance.
