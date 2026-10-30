@@ -1,13 +1,14 @@
 # Testing
 
-Final reviewed regression, 2026-10-30: all 35 registered scripts passed across
-the full run and corrective continuation. The first 22 passed in
-`verify-out/ordered-final-reviewed-suite.log`; an unmodified rail retry passed
-all 11 gates in `rail-original-retry.log`; the remaining 12 passed in
-`ordered-reviewed-continuation.log`, with unchanged source/test-input hashes.
-The first rail attempt had an unreproduced CDP timeout. No assertion or timeout
-was relaxed. The separate five-arm literature campaign **failed** its reference
-comparison; these regression passes do not complete Q3 acceptance.
+Final reviewed optimizer regression, 2026-10-30: all 37 registered scripts
+passed in one full run on `9d5fa9a`, recorded in
+`verify-out/optimizer3d-full-suite.log`. All 151 files under `src`, `scripts`
+and `app` retained their source-freeze hashes. The dedicated 3D optimizer
+passed all fifteen real-WebGPU gates with a readable device-error ledger and
+zero errors. GitHub CI also passed all twenty-one browser-free scripts plus
+typecheck/build. Public evidence: `docs/validation/optimizer3d-2026-10-30.json`.
+The separate five-arm literature campaign **failed** its reference comparison;
+these regression passes do not complete Q3 acceptance.
 
 The 3D optimizer adds `verify-optimizer3d.mjs` to the local GPU suite. Its fifteen
 checks exercise real current-grid casts and an independent raw-voxel census,

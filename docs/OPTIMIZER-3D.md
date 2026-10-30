@@ -11,7 +11,7 @@ cooling schedule may remain unfinished within that fixed resource limit.
 
 The objective is the diameter of a sphere with the mean censused grain volume:
 `d = cbrt(6 meanVolumeVoxels / pi)`. Known material scales display micrometres;
-the unscaled model displays cells. The census excludes grains below the native
+the unscaled model displays cells. The census excludes grains at or below the native
 volume threshold `max(64, n^3 * 1e-5)`. The target refers to these censused grains.
 
 The search varies early, middle and late cooling rates, inoculant site count,
@@ -48,7 +48,14 @@ WebGPU acceptance flow. It independently recounts volume voxels and grain IDs,
 checks pause hashes, invalid casts and late-census cancellation, applies and
 shares the winner, replays it twice, inspects phone controls and exercises the
 legacy 2D path. Source files must remain frozen throughout the browser run.
-GPU acceptance evidence is recorded separately after execution.
+On `9d5fa9a`, all fifteen gates passed on a real Intel Xe2 GPU with zero device
+errors. The two completed 96-cube aluminum trials reached the fixed .92 solid fraction
+at 41,776 and 51,936 steps. The shared winner reproduced its diameter, step count
+and exact state/grain hashes after fresh-page restoration and at both speed
+settings. The full 37-script local suite and 21-script browser-free CI also
+passed; all 151 application/test source files stayed unchanged during the run.
+See the [public evidence](validation/optimizer3d-2026-10-30.json) and
+[independent review](reviews/2026-10-30-optimizer3d.md).
 
 `node scripts/verify-optimizer3d-model.mjs` also runs seven browser-free model
 checks in CI, including finite-score ordering, overflow refusal, charged

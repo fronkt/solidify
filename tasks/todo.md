@@ -5347,8 +5347,8 @@ Plan:
 - [x] Inspect existing optimizer/3D interfaces and review the design/measurement hazards in parallel.
 - [x] Implement the3D casting/search module and a shared clock for applying the same measured schedule.
 - [x] Integrate transport, controls/interlocks, recipe application/sharing, figures/export and copy.
-- [ ] Verify genuine3D episodes, independently recounted volume metrics, pause/invalid/stale-work paths and apply/share replay on real WebGPU under a source freeze; verify legacy2D behavior.
-- [ ] Independent review, required regression/type/build/CI checks, explicit-path commits/push, and an evidence-based completion summary.
+- [x] Verify genuine3D episodes, independently recounted volume metrics, pause/invalid/stale-work paths and apply/share replay on real WebGPU under a source freeze; verify legacy2D behavior.
+- [x] Independent review, required regression/type/build/CI checks, explicit-path commits/push, and an evidence-based completion summary.
 
 Work allocation: optimizer3d_engine owns new optimizer3d module, minimal shared
 CMA export/RNG injection and optional Nucleation injection; optimizer3d_tests owns
@@ -5380,3 +5380,27 @@ Invalid scores reserve the finite worst sentinel and nonfinite errors refuse;
 reset preserves the current clock's owned parameter writes before dropping it.
 The phone resize guard also preserves transport access while allowing deliberate
 drawer reopening. Final GPU/regression verification remains pending.
+
+### Final review and verification
+
+All 37 registered scripts passed in one full npm test run on 9d5fa9a, with
+all 151 source files under src/scripts/app unchanged. The corrected fifteen-gate
+3D acceptance passed with zero page/device errors and a readable error ledger.
+The real volume census agrees with independently recounted voxels and grain IDs.
+Cold sharing proves a new document and empty optimizer history before admitting
+the exact recipe. The winner replayed at 51,936 steps with 18.6379694049 um diameter;
+state/grain SHA256 match exactly at speed 1 and 4. Nine actual one-step invalid
+castings span a CMA generation and never supply a winner. At a real .330226 solid
+fraction transition, target change plus Exit restores cooling .123 after the
+awaited batch wrote .331247; stale results do not publish.
+
+The actual 1,191,801-byte ZIP passed independent header/name/CRC validation, its
+two-row convergence CSV matches recorded measurements, and its 758 x 614 PNG decodes
+with a nonblank physics area. Python zipfile/Pillow independently confirm it.
+ZIP SHA256: 9b1a7d03a5a923d03e351e3f3b80184732ce507908c3f4e55e947cde3c8694d7.
+Typecheck/build and all 21 browser-free CI scripts pass (run 41072120918).
+Independent engine, test and visual reviews have no remaining blocker. The
+original solver/default 2D arithmetic identity check passes, and owned Vite/Chrome
+helpers are closed. Evidence and review are committed under docs/validation and
+docs/reviews. The optimizer is complete for the qualitative Kobayashi model;
+quantitative 3D literature acceptance remains open. PR 4 is separate from PR 2.
