@@ -5378,3 +5378,20 @@ The three generated targets exactly reproduce the independently derived CPU
 profiles. The seven arms, fixed five-thermal-time durations, tolerances and
 negative-control interpretation are specified in
 scripts/research/quant3d-lattice-kinetic.md. No production equation is changed.
+
+First GPU kinetic run at b24f3f2 completed with valid Intel hardware, nine exact
+native/specialized hash pairs, stable sources/inputs, all declared clocks/raw
+samples, a readable device ledger and zero errors. It is scientifically refused:
+five of six positive recovery arms pass; the added-heat arm fails its frozen
+temperature-RMS clause. The wrong-tau control rejects the late target and differs
+in early response by 7.8739%. No band, window or coefficient is changed.
+All 497 raw checkpoints and 557 archive members are verified and durably backed
+up, including the exact pre-correction source. Public result:
+docs/validation/quant3d-lattice-kinetic-2026-10-30.json.
+
+Re-plan after the failed recovery clause: pause production adoption, retain the
+original refusal, and separate conserved added heat/slow planar dynamics from
+Float32 numerical detuning with an independent coupled CPU march and raw replay.
+Only a separately specified experiment may address a demonstrated protocol
+limitation. The cloud equilibrium matrix continues on its original immutable
+source; it is not affected by local diagnostic changes.
