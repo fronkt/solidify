@@ -139,9 +139,10 @@ export function operatingState(samples, { D, d0, dims, dx, relativeTarget }) {
   const velocityVariation = Math.max(Math.abs(velocityTrend.slope * timeSpan),
     Math.max(...windows.map(w => w.velocity)) - Math.min(...windows.map(w => w.velocity))) / velocity;
   // A wide geometric uncertainty is never permission for a transient. Allocate
-  // one quarter of the existing comparison target to EACH input's full-window
-  // variation: sigma depends on rho^-2 V^-1. This budget is independent of the
-  // confidence test above and includes oscillations as well as linear trends.
+  // one quarter of the comparison target to retained-sample rho variation and
+  // variation/trend among the three four-sample fitted velocities. This budget
+  // is independent of the confidence test, but does not bound every interval
+  // speed or oscillations below the observation cadence.
   const driftBudget = relativeTarget / 4;
   const stationary = statisticallyConsistent && rhoVariation <= driftBudget && velocityVariation <= driftBudget;
   const eR = rhoError / rho, eV = velocityError / velocity;

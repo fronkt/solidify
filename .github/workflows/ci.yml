@@ -51,6 +51,7 @@ jobs:
       - run: node scripts/verify-quant3d-wulff.mjs --self-test
       # Tip geometry and fixed-terminal protocol controls also run without a GPU.
       - run: node scripts/verify-quant3d-tip.mjs --self-test
+      - run: node scripts/verify-quant3d-tip-lifecycle.mjs
 
 # The rest of the headless verify-*.mjs suite (npm test) needs a WebGPU-capable
 # Chrome at a hardcoded local path and is not portable to this runner — see

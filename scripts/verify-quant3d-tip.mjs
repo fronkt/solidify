@@ -75,7 +75,7 @@ const contract = {
     caveat: "a fixed endpoint prevents outcome-selected observation timing; it does not establish asymptotic convergence or repair failed stationarity, boundary, metrology, or reference checks",
     armSchedules: [...observationPlans].map(([name, plan]) => ({ name, ...plan })) },
   metrology: "quintic roots in the monotone atanh(1-2psi) ordinate checked against cubic roots in the same ordinate; raw-phase quintic sensitivity reported separately; even quadratic and quartic local surfaces over .25-.5 rho, extrapolated against window^4",
-  stationarity: "last three four-sample windows overlap within independently estimated geometry/linear-fit uncertainty; full retained-window rho and velocity variation each <=one quarter of the reference target, independently of geometric uncertainty; propagated P and sigma uncertainty below the target",
+  stationarity: "last three four-sample windows overlap within independently estimated geometry/linear-fit uncertainty; retained-sample rho variation and variation/trend among the three fitted four-sample velocities each <=one quarter of the reference target, independently of geometric uncertainty; propagated P and sigma uncertainty below the target; this does not bound every adjacent-interval or sub-cadence velocity",
   note: "Raw cubic epsilon4 is refined with dx; no unpublished grid-anisotropy correction is inserted to match the paper.",
   widthMatching: "W0 scales with lambda; tau0 scales with lambda^3. Extents and initial radius/d0 match; compare P, sigma, rho/d0 and Vd0/D, never unscaled solver rho or velocity across lambda.",
   boundaryAssessment: "D/V is a startup diagnostic, not an early contamination verdict. Final clearance must exceed eight conservative D/V lengths at every sample of the retained stationary window; conservative speed is min(V-error) over its fitted windows and geometry uses upper uncertainty bounds.",
@@ -170,22 +170,32 @@ console.log("QPF3-TIP-TERMINAL-PROTOCOL OK", JSON.stringify(terminalControls));
 console.log("QPF3-TIP-EXECUTION-MODE", JSON.stringify({ diagnostic: selection.diagnostic, selectedArms: selection.names }));
 if (selfOnly) process.exit(0);
 
-const extraChromeArgs = process.env.CHROME_ARGS ? JSON.parse(process.env.CHROME_ARGS) : [];
-if (!Array.isArray(extraChromeArgs) || extraChromeArgs.some(v => typeof v !== "string")) throw new Error("CHROME_ARGS must be a JSON string array");
-const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH ?? "C:/Program Files/Google/Chrome/Application/chrome.exe", headless: true,
-  protocolTimeout: 3_600_000, args: ["--enable-unsafe-webgpu", "--enable-gpu", ...extraChromeArgs], defaultViewport: { width: 800, height: 700 } });
-const page = await browser.newPage(), errors = [], result = { reference, contract,
+const sourcePaths = ["src/sim3d.ts", "src/shaders3d.ts", "src/shaders3d-quant.ts",
+  "scripts/verify-quant3d-tip.mjs", "scripts/fixtures/quant3d-tip-reference.json",
+  "scripts/fixtures/quant3d-tip-driver.mjs", "scripts/fixtures/quant3d-tip-analysis.mjs", "scripts/fixtures/rect3d-specialize.mjs",
+  "scripts/fixtures/quant3d-tip-protocol.mjs", "scripts/fixtures/quant3d-tip-protocol-controls.mjs", "scripts/browser-cleanup.mjs"];
+const sourceHashes = () => Object.fromEntries(sourcePaths.map(path =>
+  [path, createHash("sha256").update(readFileSync(path)).digest("hex")]));
+const errors = [], result = { reference, contract, started: new Date().toISOString(),
   execution: { mode: selection.diagnostic ? "diagnostic subset" : "full five-arm study", selectedArms: selection.names,
     requested: selection.requested, fullRegistrationPreserved: true },
-  metadata: null, equivalence: null, throughput: [], arms: [], errors, accepted: false };
-let failures = 0;
+  metadata: null, equivalence: null, throughput: [], arms: [], errors, accepted: false,
+  deviceErrorLedgerRead: false, sourceStable: false, status: "initializing" };
+let browser = null, page = null, failures = 0;
 const save = () => writeFileSync(resolve(OUT, "quant3d-tip-result.json"), JSON.stringify(result, null, 2));
 const report = (name, ok, data) => { if (!ok) failures++; console.log(name, ok ? "OK" : "FAIL", JSON.stringify(data)); };
-page.on("pageerror", e => errors.push(e.message));
-page.on("console", msg => {
-  if (msg.type() === "error" || /binding size|minimum.*binding size/.test(msg.text())) errors.push(msg.text());
-});
+save();
 try {
+  result.sourceHashes = sourceHashes();
+  const extraChromeArgs = process.env.CHROME_ARGS ? JSON.parse(process.env.CHROME_ARGS) : [];
+  if (!Array.isArray(extraChromeArgs) || extraChromeArgs.some(v => typeof v !== "string")) throw new Error("CHROME_ARGS must be a JSON string array");
+  browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH ?? "C:/Program Files/Google/Chrome/Application/chrome.exe", headless: true,
+    protocolTimeout: 3_600_000, args: ["--enable-unsafe-webgpu", "--enable-gpu", ...extraChromeArgs], defaultViewport: { width: 800, height: 700 } });
+  page = await browser.newPage();
+  page.on("pageerror", e => errors.push(e.message));
+  page.on("console", msg => {
+    if (msg.type() === "error" || /binding size|minimum.*binding size/.test(msg.text())) errors.push(msg.text());
+  });
   await page.goto(`http://localhost:${PORT}/app/`, { waitUntil: "networkidle0" });
   await page.waitForFunction(() => !!window.__solidify);
   await page.evaluate(installQuant3TipDriver);
@@ -201,11 +211,7 @@ try {
       boundary: "cell-centered first octant; even scalar and odd normal correction-flux reflection; distant faces tested by enlargement" };
   });
   result.metadata.equationUnits = { length: "W0", time: "tau0", thermalDiffusivity: D, capillaryLength: d0 };
-  result.metadata.sourceHashes = Object.fromEntries(["src/sim3d.ts", "src/shaders3d.ts", "src/shaders3d-quant.ts",
-    "scripts/verify-quant3d-tip.mjs", "scripts/fixtures/quant3d-tip-reference.json",
-    "scripts/fixtures/quant3d-tip-driver.mjs", "scripts/fixtures/quant3d-tip-analysis.mjs", "scripts/fixtures/rect3d-specialize.mjs",
-    "scripts/fixtures/quant3d-tip-protocol.mjs", "scripts/fixtures/quant3d-tip-protocol-controls.mjs"].map(path =>
-    [path, createHash("sha256").update(readFileSync(path)).digest("hex")]));
+  result.metadata.sourceHashes = result.sourceHashes;
   result.equivalence = await page.evaluate(c => window.__q3tip.equivalence(c), arms[0]);
   const compared = result.equivalence.checkpoints.flatMap(p => p.comparisons);
   const identical = compared.length === 9 && compared.every(c => c.mismatches === 0 && c.productionHash === c.specializedHash);
@@ -301,29 +307,55 @@ try {
     const converged = selection.diagnostic ? null : result.convergence.length === 4
       && result.convergence.every(r => Object.values(r.changes).every(v => v != null && v <= contract.relativeTarget));
     result.controlsConverged = converged;
-    result.accepted = result.arms.length === 5 && result.arms.every(a => a.accepted) && converged && errors.length === 0;
     if (selection.diagnostic) console.log("QPF3-TIP-CONVERGENCE NOT-EVALUATED", JSON.stringify({ reason: "diagnostic subset; full control matrix not run", comparisons: result.convergence }));
     else report("QPF3-TIP-CONVERGENCE", converged, { converged, comparisons: result.convergence });
-    result.status = selection.diagnostic ? "diagnostic subset complete; full Q3 acceptance not evaluated"
-      : result.accepted ? "long 3D tip accepted" : "long 3D tip not accepted"; save();
+    result.status = "terminal results collected; checking final execution evidence"; save();
   }
 } catch (error) {
   failures++; result.exception = error.stack ?? String(error); result.status = "refused or failed";
   console.error(result.exception);
 } finally {
-  await page.evaluate(async () => { await window.__q3tip?.destroy(); }).catch(() => {});
-  const deviceErrors = await page.evaluate(() => window.__solidifyTipDeviceErrors ?? []).catch(() => []);
-  errors.push(...deviceErrors);
-  if (deviceErrors.length) { result.accepted = false; result.status = "device validation failed"; }
-  await page.evaluate(() => { window.__solidifyTipDevice?.destroy(); }).catch(() => {});
+  const failedEvidence = (label, error) => errors.push(`${label}: ${error?.message ?? String(error)}`);
+  if (page) {
+    try { await page.evaluate(async () => { await window.__q3tip?.destroy(); }); }
+    catch (error) { failedEvidence("fixture cleanup failed", error); }
+    try {
+      const deviceErrors = await page.evaluate(() => {
+        if (!Array.isArray(window.__solidifyTipDeviceErrors)) throw new Error("GPU error ledger is unavailable");
+        return [...window.__solidifyTipDeviceErrors];
+      });
+      if (!Array.isArray(deviceErrors)) throw new Error("GPU error ledger did not return an array");
+      errors.push(...deviceErrors); result.deviceErrorLedgerRead = true;
+    } catch (error) { failedEvidence("GPU error ledger read failed", error); }
+    try { await page.evaluate(() => { window.__solidifyTipDevice?.destroy(); }); }
+    catch (error) { failedEvidence("device cleanup failed", error); }
+  }
+  if (browser) {
+    try { await closeBrowser(browser); }
+    catch (error) { failedEvidence("browser cleanup failed", error); }
+  }
+  if (result.sourceHashes) {
+    try {
+      result.finalHashes = sourceHashes();
+      result.sourceStable = JSON.stringify(result.sourceHashes) === JSON.stringify(result.finalHashes);
+      if (!result.sourceStable) errors.push("benchmark source changed during execution");
+    } catch (error) { failedEvidence("final source verification failed", error); }
+  }
   if (runLong) {
     result.overallAcceptance = tipOverallAcceptance({ arms: result.arms, controlsConverged: result.controlsConverged,
       errors, executionFailed: result.exception != null });
-    result.accepted = result.overallAcceptance.accepted;
+    result.overallAcceptance.deviceErrorLedgerRead = result.deviceErrorLedgerRead;
+    result.overallAcceptance.sourceStable = result.sourceStable;
+    result.accepted = result.overallAcceptance.accepted && result.deviceErrorLedgerRead && result.sourceStable;
+    result.overallAcceptance.accepted = result.accepted;
     if (selection.diagnostic) console.log("QPF3-TIP-ACCEPTANCE NOT-EVALUATED", JSON.stringify(result.overallAcceptance));
     else report("QPF3-TIP-ACCEPTANCE", result.accepted, result.overallAcceptance);
   }
+  result.status = result.exception ? "refused or failed" : errors.length ? "execution evidence failed"
+    : !runLong ? "throughput-only; long operating-state acceptance not run"
+    : selection.diagnostic ? "diagnostic subset complete; full Q3 acceptance not evaluated"
+    : result.accepted ? "long 3D tip accepted" : "long 3D tip not accepted";
+  result.finished = new Date().toISOString();
   result.errors = errors; result.failures = failures; save();
-  await closeBrowser(browser);
 }
 if (errors.length || failures) process.exitCode = 1;

@@ -5254,3 +5254,54 @@ The committed CPU metrology reproducer measures150 phase-sampled known-truth sur
 The cloud continuation owns only instance58362896, created06:40:11UTC, with a105-minute science cutoff and120-minute destroy watchdog. It runs frozen2bd7893, BASE-only fixed-terminal diagnostic then the14-case equilibrium matrix. Full-study acceptance is not evaluated for that subset. Preexisting stopped instances remain untouched. Collection, checksum verification and destruction remain outstanding until independently confirmed.
 
 Local scientific evidence is now independently backed up in unpublished draft q3-calibration-2026-10-30, targeting2f2f8fa. Archive size69,137,619 bytes;224 members and every hash verified; SHA256 d4b39a1da16adc73d7b5f6196402c2348ab990b2bf78da36ee42c6bbd7faf0ec. GitHub's digests match archive and sidecar. Explicit output/source whitelist excludes account/auth/bootstrap data. The original equilibrium runner is reconstructed by removing only subsequent selection preflight and required to match its recorded exact SHA before archival. Independent kinetic audit verifies all90 raw checkpoints and documents outer-fit ill-conditioning and finite-precision limits.
+
+## Independent parallel review - 2026-10-30
+
+User explicitly asked the coordinator to launch the extra sessions. Use fresh
+review agents with isolated detached worktrees at2bd7893, the same frozen
+equation/protocol checkpoint as the handoff briefs. Later9e30318 diagnostic
+evidence may be read as supplemental context; keep findings revision-specific.
+
+- [x] Prepare the two isolated review worktrees and start independent equation/discretization and adversarial-protocol reviews. Findings only; no GPU/cloud jobs, shared source edits, coefficient fitting or acceptance-band changes.
+- [x] Verify actionable findings independently, distinguish known limits from newly reproduced defects, and record reports plus the next concrete fixes.
+- [x] Reconcile the completed cloud continuation, verify durable artifact backup/owned cleanup, and preserve failed matrix cases before any separately pinned repair/rerun.
+
+Review deliverables: severity, exact file:line, primary-source equations for
+physics claims, reproducible counterexamples for protocol defects, and the
+smallest experiment that can falsify a plausible cause. Root owns integration.
+
+Both fresh reviewers finished on unchanged2bd7893 worktrees. The equation audit
+finds no demonstrated pure-material equation error; it confirms separate discrete
+capillary/kinetic calibration and asymptotic-convergence evidence remain open.
+It also finds a reversed energy-extremum comment (positive cubic delta gives an
+energy maximum along100), corrected without changing any expression.
+
+Root independently reproduced the protocol review's missing-ledger defect:
+an injected final GPU-error read failure still wrote accepted=true/exit0. The
+runner now persists a fresh unaccepted artifact before launch, records completion
+and cleanup errors, requires a readable error ledger and stable source hashes,
+and computes final acceptance/status after all execution evidence. Thirteen
+CPU-only real-CLI cases plus passing-subset and stale-retry checks pass; these
+controls now run in CI. Scientific coefficients, numerical expressions and bands
+are unchanged. The velocity-variation claim now explicitly names the three
+four-sample fitted speeds; it does not claim to bound every interval speed.
+
+Cloud continuation is finished: BASE reached its fixed108282-step endpoint and
+still fails the sigma reference (P=.3268402242, sigma=.0514161522). The matrix
+attempted14 cases:12 completed stationary/resolved; both n144 radius cases
+refused initial readback before evolution, with four matching bytesPerRow1152
+layout diagnostics. Overall matrix remains refused; these cases are not physical
+failures. The owned rental58362896 was destroyed07:22:00UTC, API absence verified,
+watchdog stopped, preexisting instances untouched. Compute estimate$.35031,
+excluding transfer. All676 raw checkpoints and source hashes were verified.
+Research readback repair and a separately pinned rerun remain open.
+
+Review phase verification: root typecheck/build and tip self-test pass. The
+independent protocol reviewer reran all13 lifecycle cases, passing-subset refusal
+and stale-result replacement on the root patch, and found no blocking defect.
+Reports and follow-up are preserved under docs/reviews. The1,303,512,131-byte
+cloud archive and distinct checksum sidecar are durably uploaded to the existing
+unpublished calibration draft; both server digests match local files. Archive
+SHA256 e2cffee98543a2d3c965d4940085ac5b4731ee1aed2b213125501c8eaff61c28.
+Public result summary: docs/validation/quant3d-continuation-2026-10-30.json.
+Q3c remains open; reviews do not supply missing kinetic/metrology calibration.

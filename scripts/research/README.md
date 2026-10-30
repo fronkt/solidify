@@ -50,3 +50,10 @@ CPU-only experiment that challenges the unchanged estimator with independently
 known curvatures. Its report preserves uncertainty undercoverage, including a
 smooth falsely resolved example. Diagnostic completion is distinct from accuracy
 acceptance; no estimator or threshold is changed by these controls.
+
+## Runner lifecycle controls
+
+`node scripts/verify-quant3d-tip-lifecycle.mjs` runs the real benchmark CLI with a
+synthetic CPU browser. It tests missing GPU error evidence, cleanup failures,
+initialization and retry artifacts, late page errors, source changes, and subset
+verdicts. These checks run in CI and never launch Chrome or execute GPU physics.

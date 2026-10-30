@@ -149,7 +149,7 @@ fn aniso3(np: vec3f, P: Params3D) -> Ani {
       r.a = 1.0 + 2.0 * P.delta * (q.x + q.y + q.z - 1.4);
       r.g = 2.0 * P.delta * np / q;
     } else {
-      // cubic harmonic: minima along <100> — six dendrite arms
+      // cubic harmonic: for positive delta, energy is largest along <100>
       let n3 = np * np * np;
       r.a = 1.0 + P.delta * (4.0 * (n3.x * np.x + n3.y * np.y + n3.z * np.z) - 3.0);
       r.g = 16.0 * P.delta * n3;

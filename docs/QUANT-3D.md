@@ -298,3 +298,40 @@ backed up in an [unpublished draft](https://github.com/fronkt/solidify/releases/
 `d4b39a1da16adc73d7b5f6196402c2348ab990b2bf78da36ee42c6bbd7faf0ec`.
 Both uploaded asset digests match locally verified files. Authentication/account
 and cloud bootstrap data are excluded. This backup is not a production release.
+
+### Independent reviews and execution-evidence repair
+
+Two fresh, isolated reviews examined frozen2bd7893. The
+[equation audit](reviews/2026-10-30-quant3d-equations.md) found no demonstrated
+pure-material equation error and retained the missing discrete capillary/kinetic
+calibration and asymptotic-error qualifications. A reversed source comment about
+the cubic-energy maximum is corrected; the polynomial is unchanged.
+
+The [protocol audit](reviews/2026-10-30-quant3d-protocol.md) reproduced missing
+GPU-error evidence being treated as a clean ledger, suppressed completion
+failure, setup failures preserving a stale accepted artifact, and contradictory
+final status. The runner now writes a fresh unaccepted result before launch,
+retains execution/cleanup failures, requires a readable ledger and stable source
+hashes, and computes acceptance/status after final evidence. Thirteen real-CLI
+CPU cases plus subset/retry checks pass and run in CI. The reviewer independently
+[verified the repair](reviews/2026-10-30-quant3d-lifecycle-followup.md).
+
+Temporal wording now explicitly limits the velocity-variation claim to three
+four-sample fitted velocities; it does not bound every interval or sub-cadence
+motion. A synthetic counterexample and the archived BASE check are preserved in
+the protocol report. No numerical expression, physical coefficient or acceptance
+band changed in these repairs.
+
+The [cloud continuation record](validation/quant3d-continuation-2026-10-30.json)
+preserves the fixed-terminal BASE miss: P=.3268402242 and sigma*=.0514161522.
+All14 equilibrium cases were attempted;12 completed stationary/resolved. Both
+n144 radius cases refused initial readback because1152-byte rows were not padded
+to the required256-byte copy alignment. They supply no evolved radius evidence;
+the full matrix remains refused. A research-readback repair and separately pinned
+rerun are open. The cloud archive retains676 verified raw checkpoints and all
+original refusals; SHA256
+`e2cffee98543a2d3c965d4940085ac5b4731ee1aed2b213125501c8eaff61c28`.
+It and its checksum sidecar are backed up in the existing unpublished calibration
+draft with matching server digests. The owned instance/watchdog were removed,
+preexisting resources were untouched, and estimated compute was$0.35031 excluding
+transfer extras. No Q3 promotion follows from these reviews or diagnostics.
