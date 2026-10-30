@@ -42,3 +42,11 @@ traveling profile, its exporter and physical-lattice controls, and the productio
 WebGPU comparison. The default command runs only a CPU metrology self-test;
 `--run` explicitly starts the ten-arm GPU diagnostic. Its finite-speed comparison
 does not establish a zero-speed kinetic coefficient or needle acceptance.
+
+## Known-truth metrology controls
+
+[quant3d-metrology-controls.md](quant3d-metrology-controls.md) describes a small
+CPU-only experiment that challenges the unchanged estimator with independently
+known curvatures. Its report preserves uncertainty undercoverage, including a
+smooth falsely resolved example. Diagnostic completion is distinct from accuracy
+acceptance; no estimator or threshold is changed by these controls.

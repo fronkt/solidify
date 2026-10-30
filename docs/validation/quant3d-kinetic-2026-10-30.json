@@ -1,0 +1,1047 @@
+{
+    "purpose":  "Finite-speed coupled planar diagnostic; no zero-speed beta or needle acceptance",
+    "source":  "eaed58c467410c36e814389bdcbe94384f08c82d",
+    "started":  "2026-10-30T06:38:05.538Z",
+    "finished":  "2026-10-30T06:38:27.411Z",
+    "hardware":  {
+                     "vendor":  "intel",
+                     "architecture":  "xe-2lpg",
+                     "device":  "",
+                     "description":  "",
+                     "isFallbackAdapter":  false
+                 },
+    "sourceHashes":  {
+                         "src/sim3d.ts":  "fe23fa813c8e78cdf4a38851149f7c11a3501c6e04760e0b3b85d5b967759e69",
+                         "src/shaders3d.ts":  "5ad4aac6883e0b0b00086c746f067f39842cad41c85a28b9229580535890cee3",
+                         "src/shaders3d-quant.ts":  "3704128f1a5751af427ef7b1115d3bc7a635bcd4793be654a240b892df9f9c08",
+                         "src/quant.ts":  "c719935da39536d3a88b718f2acd34c5077fdd64dca647896fd2606be7702bd4",
+                         "scripts/fixtures/rect3d-specialize.mjs":  "b8fe39178d149f9ef62ebf4d8b38d7256084bae48d28398c0adfa5b9c4ea5e73",
+                         "scripts/browser-cleanup.mjs":  "af3c57e0d09047d4212ce702f9d7e8eaf3f95074812339ac5f33936c1b5e4323",
+                         "scripts/research/quant3d-kinetic-driver.mjs":  "e3c7b1aa9777e9daf863d42e61e14ad4968ffd8528a9dc0ffe3976f99b35bf40",
+                         "scripts/research/quant3d-kinetic-check.mjs":  "c1b9a0ea5982fbbb98210829888f3a5656594537472f4b8b40c67f4c44da0941",
+                         "scripts/research/quant3d-kinetic-profile.mjs":  "e3c1dc9c5d450e25cc06fdc4d40a26d47ed344c0256c3897fdd4bb596bdf594b",
+                         "scripts/research/quant3d-kinetic-target.json":  "58a565c6279a52007a5af5e410abd095b73f0ad7562bd29d3403e65a903e8f16",
+                         "scripts/research/quant3d-kinetic-reference.py":  "53f9fad85173f18be0683fdeb465b16c501e49a6b038bc2c4ac4e6cff62bd0b4",
+                         "scripts/research/quant3d-kinetic-cpu.py":  "57efb13dc7160ef929b6f886aa68e32ae1133066cd5d8497eb68a3dfbb61b011"
+                     },
+    "targetSha256":  "58a565c6279a52007a5af5e410abd095b73f0ad7562bd29d3403e65a903e8f16",
+    "contract":  {
+                     "purpose":  "finite-speed coupled production-WGSL cross-check against independent CPU profile",
+                     "physical":  {
+                                      "normal":  "100",
+                                      "lambda":  4,
+                                      "epsilon":  0.0171,
+                                      "tau":  1,
+                                      "D":  2.5068,
+                                      "noise":  0,
+                                      "externalProgram":  0,
+                                      "frozenT":  0,
+                                      "alloy":  0
+                                  },
+                     "duration":  160,
+                     "cellPeriods":  8,
+                     "expectedMeanVelocity":  0.04,
+                     "arms":  [
+                                  {
+                                      "name":  "dt-0.016-phase-0",
+                                      "dims":  [
+                                                   1536,
+                                                   8,
+                                                   8
+                                               ],
+                                      "dx":  0.8,
+                                      "dt":  0.016,
+                                      "offset":  0
+                                  },
+                                  {
+                                      "name":  "dt-0.016-phase-0.2",
+                                      "dims":  [
+                                                   1536,
+                                                   8,
+                                                   8
+                                               ],
+                                      "dx":  0.8,
+                                      "dt":  0.016,
+                                      "offset":  0.2
+                                  },
+                                  {
+                                      "name":  "dt-0.016-phase-0.4",
+                                      "dims":  [
+                                                   1536,
+                                                   8,
+                                                   8
+                                               ],
+                                      "dx":  0.8,
+                                      "dt":  0.016,
+                                      "offset":  0.4
+                                  },
+                                  {
+                                      "name":  "dt-0.016-phase-0.6",
+                                      "dims":  [
+                                                   1536,
+                                                   8,
+                                                   8
+                                               ],
+                                      "dx":  0.8,
+                                      "dt":  0.016,
+                                      "offset":  0.6
+                                  },
+                                  {
+                                      "name":  "dt-0.008-phase-0",
+                                      "dims":  [
+                                                   1536,
+                                                   8,
+                                                   8
+                                               ],
+                                      "dx":  0.8,
+                                      "dt":  0.008,
+                                      "offset":  0
+                                  },
+                                  {
+                                      "name":  "dt-0.008-phase-0.2",
+                                      "dims":  [
+                                                   1536,
+                                                   8,
+                                                   8
+                                               ],
+                                      "dx":  0.8,
+                                      "dt":  0.008,
+                                      "offset":  0.2
+                                  },
+                                  {
+                                      "name":  "dt-0.008-phase-0.4",
+                                      "dims":  [
+                                                   1536,
+                                                   8,
+                                                   8
+                                               ],
+                                      "dx":  0.8,
+                                      "dt":  0.008,
+                                      "offset":  0.4
+                                  },
+                                  {
+                                      "name":  "dt-0.008-phase-0.6",
+                                      "dims":  [
+                                                   1536,
+                                                   8,
+                                                   8
+                                               ],
+                                      "dx":  0.8,
+                                      "dt":  0.008,
+                                      "offset":  0.6
+                                  },
+                                  {
+                                      "name":  "domain-dt-0.016",
+                                      "dims":  [
+                                                   2048,
+                                                   8,
+                                                   8
+                                               ],
+                                      "dx":  0.8,
+                                      "dt":  0.016,
+                                      "offset":  0
+                                  },
+                                  {
+                                      "name":  "domain-dt-0.008",
+                                      "dims":  [
+                                                   2048,
+                                                   8,
+                                                   8
+                                               ],
+                                      "dx":  0.8,
+                                      "dt":  0.008,
+                                      "offset":  0
+                                  }
+                              ],
+                     "shaderScope":  "FLUX3D_WGSL,phi3dWgsl(false),transport3dWgsl(false); unchanged equations, rect3dSpecialize integer geometry only",
+                     "precondition":  "9 native cube byte/hash pairs at1/17/64 steps plus nonzero state evolution before any long domain",
+                     "clock":  "physical time = exact step count * Float32 uniform dt; nominal declared time reported separately",
+                     "comparison":  "record mean mass advance and independent-frame phase/T residuals; separate modal bulk temperatures; raw profiles retained",
+                     "verdict":  "hard failures cover device errors, native-cube mismatch, nonfinite/unbounded fields, loss of plane symmetry or absent motion. Scientific discrepancies are reported without an invented pass band; no zero-beta inference."
+                 },
+    "equivalence":  {
+                        "comparisons":  [
+                                            {
+                                                "target":  1,
+                                                "field":  "state",
+                                                "mismatches":  0,
+                                                "productionHash":  "b3b9ee05b740d88b1b1de61f96eb9ae9e3838e931dba97941c5324733d0f344c",
+                                                "specializedHash":  "b3b9ee05b740d88b1b1de61f96eb9ae9e3838e931dba97941c5324733d0f344c"
+                                            },
+                                            {
+                                                "target":  1,
+                                                "field":  "grain",
+                                                "mismatches":  0,
+                                                "productionHash":  "1286d60a97a9560e720b7d26eb3ad99ff19830b7d98472ffa3a551149f1a7afc",
+                                                "specializedHash":  "1286d60a97a9560e720b7d26eb3ad99ff19830b7d98472ffa3a551149f1a7afc"
+                                            },
+                                            {
+                                                "target":  1,
+                                                "field":  "age",
+                                                "mismatches":  0,
+                                                "productionHash":  "8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+                                                "specializedHash":  "8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90"
+                                            },
+                                            {
+                                                "target":  17,
+                                                "field":  "state",
+                                                "mismatches":  0,
+                                                "productionHash":  "6194dbad3e7b0e0c56b822815acfc11ae3751e5e0cb7ae55bde1149a9aab9f1a",
+                                                "specializedHash":  "6194dbad3e7b0e0c56b822815acfc11ae3751e5e0cb7ae55bde1149a9aab9f1a"
+                                            },
+                                            {
+                                                "target":  17,
+                                                "field":  "grain",
+                                                "mismatches":  0,
+                                                "productionHash":  "9f97fedf98bcd6af390f075ee2ef518221ec5b0cdce906708ee2cdc8d207cc44",
+                                                "specializedHash":  "9f97fedf98bcd6af390f075ee2ef518221ec5b0cdce906708ee2cdc8d207cc44"
+                                            },
+                                            {
+                                                "target":  17,
+                                                "field":  "age",
+                                                "mismatches":  0,
+                                                "productionHash":  "8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+                                                "specializedHash":  "8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90"
+                                            },
+                                            {
+                                                "target":  64,
+                                                "field":  "state",
+                                                "mismatches":  0,
+                                                "productionHash":  "059f620ecb3c6804eba78979b1402f21821d32d8c31cb2676a5067a6147cc575",
+                                                "specializedHash":  "059f620ecb3c6804eba78979b1402f21821d32d8c31cb2676a5067a6147cc575"
+                                            },
+                                            {
+                                                "target":  64,
+                                                "field":  "grain",
+                                                "mismatches":  0,
+                                                "productionHash":  "3012cb55030a6d21acc2b1822baf9ce4fa4dfe739519c495c8d23597ea04515b",
+                                                "specializedHash":  "3012cb55030a6d21acc2b1822baf9ce4fa4dfe739519c495c8d23597ea04515b"
+                                            },
+                                            {
+                                                "target":  64,
+                                                "field":  "age",
+                                                "mismatches":  0,
+                                                "productionHash":  "8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90",
+                                                "specializedHash":  "8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90"
+                                            }
+                                        ],
+                        "stateByteChanges":  132096,
+                        "errors":  [
+
+                                   ]
+                    },
+    "arms":  [
+                 {
+                     "config":  {
+                                    "name":  "dt-0.016-phase-0",
+                                    "dims":  [
+                                                 1536,
+                                                 8,
+                                                 8
+                                             ],
+                                    "dx":  0.8,
+                                    "dt":  0.016,
+                                    "offset":  0
+                                },
+                     "completed":  true,
+                     "census":  {
+                                    "nonFinite":  0,
+                                    "outOfRange":  0,
+                                    "transverseError":  0,
+                                    "count":  98304
+                                },
+                     "terminal":  {
+                                      "time":  160.0000075995922,
+                                      "declaredTime":  160,
+                                      "steps":  10000,
+                                      "uniformDt":  0.01600000075995922,
+                                      "massDisplacement":  6.399898884524919,
+                                      "expectedDisplacement":  6.400000303983688,
+                                      "meanVelocity":  0.0399993661284128,
+                                      "relativeVelocityDifference":  -0.000015846789679918594,
+                                      "profileResidual":  {
+                                                              "frame":  "independent CPU mean-velocity frame",
+                                                              "phaseRms":  0.000006570334656026661,
+                                                              "temperatureRms":  0.000003065575723907921,
+                                                              "phaseMax":  0.000032442037326663176,
+                                                              "temperatureMax":  0.000007539857434846198
+                                                          },
+                                      "energyChange":  0.000694522426238109,
+                                      "outerTemperature":  {
+                                                               "windowW0":  [
+                                                                                40,
+                                                                                56
+                                                                            ],
+                                                               "solidMean":  0.9993510931730271,
+                                                               "liquidMean":  0.4655915081501007,
+                                                               "solidFit":  {
+                                                                                "coefficients":  [
+                                                                                                     -0.0006489248439937721,
+                                                                                                     -0.004898050450271997,
+                                                                                                     -0.0016545998548601131,
+                                                                                                     -0.1400038720398338,
+                                                                                                     0.4286084174396728
+                                                                                                 ],
+                                                                                "rms":  7.6631796810207312E-09,
+                                                                                "points":  20
+                                                                            },
+                                                               "liquidFit":  {
+                                                                                 "coefficients":  [
+                                                                                                      -1.000643271706179,
+                                                                                                      1.0001324136023795,
+                                                                                                      -0.26045803038029586,
+                                                                                                      0.06293949050740966,
+                                                                                                      -4.017641679146329,
+                                                                                                      18.10881714994026
+                                                                                                  ],
+                                                                                 "rms":  3.8366442759258493E-08,
+                                                                                 "points":  20
+                                                                             },
+                                                               "uSolidExtrapolated":  -0.0006489248439937721,
+                                                               "uLiquidExtrapolated":  -0.000510858103799583,
+                                                               "jump":  0.0001380667401941891,
+                                                               "latentJump":  0.9999943468621852,
+                                                               "note":  "separate free bulk fits with independent CPU characteristic exponents; residuals retained; no zero-beta inference"
+                                                           },
+                                      "raw":  {
+                                                  "path":  "samples/dt-0.016-phase-0-010000.json.gz",
+                                                  "sha256":  "af6fe580e27412ea140a247dc0ff3541d121324039338a14b1ad9c2ed531806a"
+                                              }
+                                  }
+                 },
+                 {
+                     "config":  {
+                                    "name":  "dt-0.016-phase-0.2",
+                                    "dims":  [
+                                                 1536,
+                                                 8,
+                                                 8
+                                             ],
+                                    "dx":  0.8,
+                                    "dt":  0.016,
+                                    "offset":  0.2
+                                },
+                     "completed":  true,
+                     "census":  {
+                                    "nonFinite":  0,
+                                    "outOfRange":  0,
+                                    "transverseError":  0,
+                                    "count":  98304
+                                },
+                     "terminal":  {
+                                      "time":  160.0000075995922,
+                                      "declaredTime":  160,
+                                      "steps":  10000,
+                                      "uniformDt":  0.01600000075995922,
+                                      "massDisplacement":  6.399771222552409,
+                                      "expectedDisplacement":  6.400000303983688,
+                                      "meanVelocity":  0.03999856824112251,
+                                      "relativeVelocityDifference":  -0.000035793971937314595,
+                                      "profileResidual":  {
+                                                              "frame":  "independent CPU mean-velocity frame",
+                                                              "phaseRms":  0.00001548157275955672,
+                                                              "temperatureRms":  0.0000029955600504698537,
+                                                              "phaseMax":  0.00007913722789554267,
+                                                              "temperatureMax":  0.000007459041425406099
+                                                          },
+                                      "energyChange":  0.0008125883802676981,
+                                      "outerTemperature":  {
+                                                               "windowW0":  [
+                                                                                40,
+                                                                                56
+                                                                            ],
+                                                               "solidMean":  0.9993511080741883,
+                                                               "liquidMean":  0.4670818030834198,
+                                                               "solidFit":  {
+                                                                                "coefficients":  [
+                                                                                                     -0.0006488991868697536,
+                                                                                                     0.005245441790983161,
+                                                                                                     -0.0076614209762381974,
+                                                                                                     -0.21749297125186187,
+                                                                                                     0.575027977000376
+                                                                                                 ],
+                                                                                "rms":  9.411015608698551E-09,
+                                                                                "points":  20
+                                                                            },
+                                                               "liquidFit":  {
+                                                                                 "coefficients":  [
+                                                                                                      -1.0006488485592349,
+                                                                                                      1.00014785846891,
+                                                                                                      -0.05609929949302669,
+                                                                                                      -0.06705609478192981,
+                                                                                                      12.078117736749114,
+                                                                                                      -1.0151754596041924
+                                                                                                  ],
+                                                                                 "rms":  6.73715835773443E-08,
+                                                                                 "points":  20
+                                                                             },
+                                                               "uSolidExtrapolated":  -0.0006488991868697536,
+                                                               "uLiquidExtrapolated":  -0.0005009900903247821,
+                                                               "jump":  0.00014790909654497145,
+                                                               "latentJump":  0.9999999493723651,
+                                                               "note":  "separate free bulk fits with independent CPU characteristic exponents; residuals retained; no zero-beta inference"
+                                                           },
+                                      "raw":  {
+                                                  "path":  "samples/dt-0.016-phase-0.2-010000.json.gz",
+                                                  "sha256":  "aa48d44949712f5f20c84cb93b927d59c56df89153fd13345d789930457ed38f"
+                                              }
+                                  }
+                 },
+                 {
+                     "config":  {
+                                    "name":  "dt-0.016-phase-0.4",
+                                    "dims":  [
+                                                 1536,
+                                                 8,
+                                                 8
+                                             ],
+                                    "dx":  0.8,
+                                    "dt":  0.016,
+                                    "offset":  0.4
+                                },
+                     "completed":  true,
+                     "census":  {
+                                    "nonFinite":  0,
+                                    "outOfRange":  0,
+                                    "transverseError":  0,
+                                    "count":  98304
+                                },
+                     "terminal":  {
+                                      "time":  160.0000075995922,
+                                      "declaredTime":  160,
+                                      "steps":  10000,
+                                      "uniformDt":  0.01600000075995922,
+                                      "massDisplacement":  6.399910411378824,
+                                      "expectedDisplacement":  6.400000303983688,
+                                      "meanVelocity":  0.03999943817124628,
+                                      "relativeVelocityDifference":  -0.000014045718843003208,
+                                      "profileResidual":  {
+                                                              "frame":  "independent CPU mean-velocity frame",
+                                                              "phaseRms":  0.000005769595604914427,
+                                                              "temperatureRms":  0.00000334784966402446,
+                                                              "phaseMax":  0.000029704417003340033,
+                                                              "temperatureMax":  0.000008763403167466599
+                                                          },
+                                      "energyChange":  0.0006987627421040088,
+                                      "outerTemperature":  {
+                                                               "windowW0":  [
+                                                                                40,
+                                                                                56
+                                                                            ],
+                                                               "solidMean":  0.9993510961532592,
+                                                               "liquidMean":  0.46857686191797254,
+                                                               "solidFit":  {
+                                                                                "coefficients":  [
+                                                                                                     -0.0006489072102543452,
+                                                                                                     -0.0031545605395957113,
+                                                                                                     -0.008559702223469292,
+                                                                                                     0.7473522836413976,
+                                                                                                     -0.44378885561005466
+                                                                                                 ],
+                                                                                "rms":  1.5603565135555449E-08,
+                                                                                "points":  20
+                                                                            },
+                                                               "liquidFit":  {
+                                                                                 "coefficients":  [
+                                                                                                      -1.0006460852212933,
+                                                                                                      1.000139969373081,
+                                                                                                      -0.4408376110926535,
+                                                                                                      -0.19190276771700968,
+                                                                                                      5.498830326239496,
+                                                                                                      -28.437210110662416
+                                                                                                  ],
+                                                                                 "rms":  5.8500675514805477E-08,
+                                                                                 "points":  20
+                                                                             },
+                                                               "uSolidExtrapolated":  -0.0006489072102543452,
+                                                               "uLiquidExtrapolated":  -0.0005061158482122519,
+                                                               "jump":  0.00014279136204209332,
+                                                               "latentJump":  0.9999971780110389,
+                                                               "note":  "separate free bulk fits with independent CPU characteristic exponents; residuals retained; no zero-beta inference"
+                                                           },
+                                      "raw":  {
+                                                  "path":  "samples/dt-0.016-phase-0.4-010000.json.gz",
+                                                  "sha256":  "fed3652ae3825e64956b73d38dd30161cd7801f00dd8ef7f2c06dfbe1b8f2ab5"
+                                              }
+                                  }
+                 },
+                 {
+                     "config":  {
+                                    "name":  "dt-0.016-phase-0.6",
+                                    "dims":  [
+                                                 1536,
+                                                 8,
+                                                 8
+                                             ],
+                                    "dx":  0.8,
+                                    "dt":  0.016,
+                                    "offset":  0.6
+                                },
+                     "completed":  true,
+                     "census":  {
+                                    "nonFinite":  0,
+                                    "outOfRange":  0,
+                                    "transverseError":  0,
+                                    "count":  98304
+                                },
+                     "terminal":  {
+                                      "time":  160.0000075995922,
+                                      "declaredTime":  160,
+                                      "steps":  10000,
+                                      "uniformDt":  0.01600000075995922,
+                                      "massDisplacement":  6.3999680524385445,
+                                      "expectedDisplacement":  6.400000303983688,
+                                      "meanVelocity":  0.03999979842785242,
+                                      "relativeVelocityDifference":  -0.000005039303689335917,
+                                      "profileResidual":  {
+                                                              "frame":  "independent CPU mean-velocity frame",
+                                                              "phaseRms":  0.0000018013622163847014,
+                                                              "temperatureRms":  0.000003906856539222336,
+                                                              "phaseMax":  0.000009146482144728463,
+                                                              "temperatureMax":  0.000007783483044532247
+                                                          },
+                                      "energyChange":  0.0006368533683598799,
+                                      "outerTemperature":  {
+                                                               "windowW0":  [
+                                                                                40,
+                                                                                56
+                                                                            ],
+                                                               "solidMean":  0.9993510842323303,
+                                                               "liquidMean":  0.4641058787703514,
+                                                               "solidFit":  {
+                                                                                "coefficients":  [
+                                                                                                     -0.0006489157676696776,
+                                                                                                     4.4153299942231628E-15,
+                                                                                                     1.9852415184235491E-14,
+                                                                                                     4.17728650603756E-13,
+                                                                                                     1.0972485151905424E-12
+                                                                                                 ],
+                                                                                "rms":  8.7411173658433794E-20,
+                                                                                "points":  20
+                                                                            },
+                                                               "liquidFit":  {
+                                                                                 "coefficients":  [
+                                                                                                      -1.0006417342318057,
+                                                                                                      1.0001259998948377,
+                                                                                                      -0.024888597091047196,
+                                                                                                      -1.1625338128002276,
+                                                                                                      0.05398137936984547,
+                                                                                                      -71.91994157227062
+                                                                                                  ],
+                                                                                 "rms":  9.4321858019005411E-08,
+                                                                                 "points":  20
+                                                                             },
+                                                               "uSolidExtrapolated":  -0.0006489157676696776,
+                                                               "uLiquidExtrapolated":  -0.0005157343369679435,
+                                                               "jump":  0.00013318143070173416,
+                                                               "latentJump":  0.999992818464136,
+                                                               "note":  "separate free bulk fits with independent CPU characteristic exponents; residuals retained; no zero-beta inference"
+                                                           },
+                                      "raw":  {
+                                                  "path":  "samples/dt-0.016-phase-0.6-010000.json.gz",
+                                                  "sha256":  "7c9a11ee96b95b4098e73bf69e12b89dafd0f915a67e376039219aaa45e1bc31"
+                                              }
+                                  }
+                 },
+                 {
+                     "config":  {
+                                    "name":  "dt-0.008-phase-0",
+                                    "dims":  [
+                                                 1536,
+                                                 8,
+                                                 8
+                                             ],
+                                    "dx":  0.8,
+                                    "dt":  0.008,
+                                    "offset":  0
+                                },
+                     "completed":  true,
+                     "census":  {
+                                    "nonFinite":  0,
+                                    "outOfRange":  0,
+                                    "transverseError":  0,
+                                    "count":  98304
+                                },
+                     "terminal":  {
+                                      "time":  160.0000075995922,
+                                      "declaredTime":  160,
+                                      "steps":  20000,
+                                      "uniformDt":  0.00800000037997961,
+                                      "massDisplacement":  6.398948862362158,
+                                      "expectedDisplacement":  6.400000303983688,
+                                      "meanVelocity":  0.03999342849017757,
+                                      "relativeVelocityDifference":  -0.00016428774556076498,
+                                      "profileResidual":  {
+                                                              "frame":  "independent CPU mean-velocity frame",
+                                                              "phaseRms":  0.00007257188816125608,
+                                                              "temperatureRms":  0.000018568526897859394,
+                                                              "phaseMax":  0.00034363788769897763,
+                                                              "temperatureMax":  0.00003586709357650264
+                                                          },
+                                      "energyChange":  0.005399741951987381,
+                                      "outerTemperature":  {
+                                                               "windowW0":  [
+                                                                                40,
+                                                                                56
+                                                                            ],
+                                                               "solidMean":  0.9993510931730271,
+                                                               "liquidMean":  0.46563169956207273,
+                                                               "solidFit":  {
+                                                                                "coefficients":  [
+                                                                                                     -0.0006489248439937722,
+                                                                                                     -0.004884840315537071,
+                                                                                                     -0.0016895514208919988,
+                                                                                                     -0.14619320725881205,
+                                                                                                     0.4263792516705613
+                                                                                                 ],
+                                                                                "rms":  7.6631796810052728E-09,
+                                                                                "points":  20
+                                                                            },
+                                                               "liquidFit":  {
+                                                                                 "coefficients":  [
+                                                                                                      -1.0006074178369748,
+                                                                                                      1.0001539830072332,
+                                                                                                      -2.572764098495052,
+                                                                                                      -0.20894619195171638,
+                                                                                                      -2.480887893049951,
+                                                                                                      151.05245173277655
+                                                                                                  ],
+                                                                                 "rms":  2.1715547477417751E-07,
+                                                                                 "points":  20
+                                                                             },
+                                                               "uSolidExtrapolated":  -0.0006489248439937722,
+                                                               "uLiquidExtrapolated":  -0.00045343482974158356,
+                                                               "jump":  0.0001954900142521886,
+                                                               "latentJump":  0.999958492992981,
+                                                               "note":  "separate free bulk fits with independent CPU characteristic exponents; residuals retained; no zero-beta inference"
+                                                           },
+                                      "raw":  {
+                                                  "path":  "samples/dt-0.008-phase-0-020000.json.gz",
+                                                  "sha256":  "1d2af2231d87631beaab1a1be7dc2098150a69ad58539bc994e9792205e4fa45"
+                                              }
+                                  }
+                 },
+                 {
+                     "config":  {
+                                    "name":  "dt-0.008-phase-0.2",
+                                    "dims":  [
+                                                 1536,
+                                                 8,
+                                                 8
+                                             ],
+                                    "dx":  0.8,
+                                    "dt":  0.008,
+                                    "offset":  0.2
+                                },
+                     "completed":  true,
+                     "census":  {
+                                    "nonFinite":  0,
+                                    "outOfRange":  0,
+                                    "transverseError":  0,
+                                    "count":  98304
+                                },
+                     "terminal":  {
+                                      "time":  160.0000075995922,
+                                      "declaredTime":  160,
+                                      "steps":  20000,
+                                      "uniformDt":  0.00800000037997961,
+                                      "massDisplacement":  6.3988509615569455,
+                                      "expectedDisplacement":  6.400000303983688,
+                                      "meanVelocity":  0.03999281661017405,
+                                      "relativeVelocityDifference":  -0.00017958474564871985,
+                                      "profileResidual":  {
+                                                              "frame":  "independent CPU mean-velocity frame",
+                                                              "phaseRms":  0.00007946291272350819,
+                                                              "temperatureRms":  0.00001809542826082375,
+                                                              "phaseMax":  0.00040290965831546455,
+                                                              "temperatureMax":  0.000035843607816277157
+                                                          },
+                                      "energyChange":  0.005492572687671782,
+                                      "outerTemperature":  {
+                                                               "windowW0":  [
+                                                                                40,
+                                                                                56
+                                                                            ],
+                                                               "solidMean":  0.9993511080741883,
+                                                               "liquidMean":  0.46712059527635574,
+                                                               "solidFit":  {
+                                                                                "coefficients":  [
+                                                                                                     -0.0006488991868697536,
+                                                                                                     0.005297742250515937,
+                                                                                                     -0.007622819113520621,
+                                                                                                     -0.22552479300983114,
+                                                                                                     0.5717137825386794
+                                                                                                 ],
+                                                                                "rms":  9.4110156086832084E-09,
+                                                                                "points":  20
+                                                                            },
+                                                               "liquidFit":  {
+                                                                                 "coefficients":  [
+                                                                                                      -1.000628410519293,
+                                                                                                      1.0002088436070715,
+                                                                                                      -0.5608409810646853,
+                                                                                                      -0.9529168486706477,
+                                                                                                      27.844956423101273,
+                                                                                                      49.37350516891773
+                                                                                                  ],
+                                                                                 "rms":  1.0129190477404065E-07,
+                                                                                 "points":  20
+                                                                             },
+                                                               "uSolidExtrapolated":  -0.0006488991868697536,
+                                                               "uLiquidExtrapolated":  -0.0004195669122215584,
+                                                               "jump":  0.0002293322746481952,
+                                                               "latentJump":  0.9999795113324234,
+                                                               "note":  "separate free bulk fits with independent CPU characteristic exponents; residuals retained; no zero-beta inference"
+                                                           },
+                                      "raw":  {
+                                                  "path":  "samples/dt-0.008-phase-0.2-020000.json.gz",
+                                                  "sha256":  "a6f6592a902a9772cc82f35f1dd0961a90bee7dacafead4c8c7cc388747390b3"
+                                              }
+                                  }
+                 },
+                 {
+                     "config":  {
+                                    "name":  "dt-0.008-phase-0.4",
+                                    "dims":  [
+                                                 1536,
+                                                 8,
+                                                 8
+                                             ],
+                                    "dx":  0.8,
+                                    "dt":  0.008,
+                                    "offset":  0.4
+                                },
+                     "completed":  true,
+                     "census":  {
+                                    "nonFinite":  0,
+                                    "outOfRange":  0,
+                                    "transverseError":  0,
+                                    "count":  98304
+                                },
+                     "terminal":  {
+                                      "time":  160.0000075995922,
+                                      "declaredTime":  160,
+                                      "steps":  20000,
+                                      "uniformDt":  0.00800000037997961,
+                                      "massDisplacement":  6.399004115116895,
+                                      "expectedDisplacement":  6.400000303983688,
+                                      "meanVelocity":  0.03999377381987827,
+                                      "relativeVelocityDifference":  -0.00015565450304322326,
+                                      "profileResidual":  {
+                                                              "frame":  "independent CPU mean-velocity frame",
+                                                              "phaseRms":  0.00006868780681993495,
+                                                              "temperatureRms":  0.000018060875326721916,
+                                                              "phaseMax":  0.00035586103321427753,
+                                                              "temperatureMax":  0.000035817653762815205
+                                                          },
+                                      "energyChange":  0.0053404344735099585,
+                                      "outerTemperature":  {
+                                                               "windowW0":  [
+                                                                                40,
+                                                                                56
+                                                                            ],
+                                                               "solidMean":  0.9993510961532592,
+                                                               "liquidMean":  0.4686168432235718,
+                                                               "solidFit":  {
+                                                                                "coefficients":  [
+                                                                                                     -0.0006489072102543456,
+                                                                                                     -0.0030948112016282708,
+                                                                                                     -0.008579348202985284,
+                                                                                                     0.7532181652951013,
+                                                                                                     -0.43320830483474215
+                                                                                                 ],
+                                                                                "rms":  1.5603565135565488E-08,
+                                                                                "points":  20
+                                                                            },
+                                                               "liquidFit":  {
+                                                                                 "coefficients":  [
+                                                                                                      -1.0006727154853496,
+                                                                                                      1.0003114220034262,
+                                                                                                      -1.0498142500864398,
+                                                                                                      1.2463993062682526,
+                                                                                                      -36.65730066981442,
+                                                                                                      -54.21267904539917
+                                                                                                  ],
+                                                                                 "rms":  1.6212584914365958E-07,
+                                                                                 "points":  20
+                                                                             },
+                                                               "uSolidExtrapolated":  -0.0006489072102543456,
+                                                               "uLiquidExtrapolated":  -0.00036129348192348587,
+                                                               "jump":  0.00028761372833085975,
+                                                               "latentJump":  1.0000238082750954,
+                                                               "note":  "separate free bulk fits with independent CPU characteristic exponents; residuals retained; no zero-beta inference"
+                                                           },
+                                      "raw":  {
+                                                  "path":  "samples/dt-0.008-phase-0.4-020000.json.gz",
+                                                  "sha256":  "f983f60a844271525e8dd5a1301e7250837410bf0d94623859065c50f26f5a71"
+                                              }
+                                  }
+                 },
+                 {
+                     "config":  {
+                                    "name":  "dt-0.008-phase-0.6",
+                                    "dims":  [
+                                                 1536,
+                                                 8,
+                                                 8
+                                             ],
+                                    "dx":  0.8,
+                                    "dt":  0.008,
+                                    "offset":  0.6
+                                },
+                     "completed":  true,
+                     "census":  {
+                                    "nonFinite":  0,
+                                    "outOfRange":  0,
+                                    "transverseError":  0,
+                                    "count":  98304
+                                },
+                     "terminal":  {
+                                      "time":  160.0000075995922,
+                                      "declaredTime":  160,
+                                      "steps":  20000,
+                                      "uniformDt":  0.00800000037997961,
+                                      "massDisplacement":  6.399123037615027,
+                                      "expectedDisplacement":  6.400000303983688,
+                                      "meanVelocity":  0.03999451708545629,
+                                      "relativeVelocityDifference":  -0.0001370728635927687,
+                                      "profileResidual":  {
+                                                              "frame":  "independent CPU mean-velocity frame",
+                                                              "phaseRms":  0.0000602227921735768,
+                                                              "temperatureRms":  0.000019250873413797887,
+                                                              "phaseMax":  0.00030367620899096615,
+                                                              "temperatureMax":  0.00003693928336767627
+                                                          },
+                                      "energyChange":  0.005246988597900782,
+                                      "outerTemperature":  {
+                                                               "windowW0":  [
+                                                                                40,
+                                                                                56
+                                                                            ],
+                                                               "solidMean":  0.9993510842323303,
+                                                               "liquidMean":  0.46414685547351836,
+                                                               "solidFit":  {
+                                                                                "coefficients":  [
+                                                                                                     -0.0006489157676696776,
+                                                                                                     6.7716441875470888E-15,
+                                                                                                     -1.5517893621279126E-14,
+                                                                                                     7.13409597490138E-13,
+                                                                                                     -1.0926000966189197E-12
+                                                                                                 ],
+                                                                                "rms":  1.5711582150524511E-19,
+                                                                                "points":  20
+                                                                            },
+                                                               "liquidFit":  {
+                                                                                 "coefficients":  [
+                                                                                                      -1.0006481718378188,
+                                                                                                      1.0002469175678137,
+                                                                                                      0.973299517958127,
+                                                                                                      -2.4568929009593283,
+                                                                                                      22.53359892958759,
+                                                                                                      -151.2338529884389
+                                                                                                  ],
+                                                                                 "rms":  1.4891807118787419E-07,
+                                                                                 "points":  20
+                                                                             },
+                                                               "uSolidExtrapolated":  -0.0006489157676696776,
+                                                               "uLiquidExtrapolated":  -0.0004012542700051469,
+                                                               "jump":  0.0002476614976645307,
+                                                               "latentJump":  0.9999992560701492,
+                                                               "note":  "separate free bulk fits with independent CPU characteristic exponents; residuals retained; no zero-beta inference"
+                                                           },
+                                      "raw":  {
+                                                  "path":  "samples/dt-0.008-phase-0.6-020000.json.gz",
+                                                  "sha256":  "66503435f8c3eee88e17d4a2d3234eee6787e0bcd1af65f7f96867a55489b756"
+                                              }
+                                  }
+                 },
+                 {
+                     "config":  {
+                                    "name":  "domain-dt-0.016",
+                                    "dims":  [
+                                                 2048,
+                                                 8,
+                                                 8
+                                             ],
+                                    "dx":  0.8,
+                                    "dt":  0.016,
+                                    "offset":  0
+                                },
+                     "completed":  true,
+                     "census":  {
+                                    "nonFinite":  0,
+                                    "outOfRange":  0,
+                                    "transverseError":  0,
+                                    "count":  131072
+                                },
+                     "terminal":  {
+                                      "time":  160.0000075995922,
+                                      "declaredTime":  160,
+                                      "steps":  10000,
+                                      "uniformDt":  0.01600000075995922,
+                                      "massDisplacement":  6.399898884524737,
+                                      "expectedDisplacement":  6.400000303983688,
+                                      "meanVelocity":  0.039999366128411665,
+                                      "relativeVelocityDifference":  -0.000015846789708451325,
+                                      "profileResidual":  {
+                                                              "frame":  "independent CPU mean-velocity frame",
+                                                              "phaseRms":  0.000006570334656026661,
+                                                              "temperatureRms":  0.000003065575723907921,
+                                                              "phaseMax":  0.000032442037326663176,
+                                                              "temperatureMax":  0.000007539857434846198
+                                                          },
+                                      "energyChange":  0.0006998525135713863,
+                                      "outerTemperature":  {
+                                                               "windowW0":  [
+                                                                                40,
+                                                                                56
+                                                                            ],
+                                                               "solidMean":  0.9993510931730271,
+                                                               "liquidMean":  0.4655915081501007,
+                                                               "solidFit":  {
+                                                                                "coefficients":  [
+                                                                                                     -0.0006489248439937723,
+                                                                                                     -0.00489805045036541,
+                                                                                                     -0.001654599854902521,
+                                                                                                     -0.14000387204412185,
+                                                                                                     0.4286084174460478
+                                                                                                 ],
+                                                                                "rms":  7.663179681014878E-09,
+                                                                                "points":  20
+                                                                            },
+                                                               "liquidFit":  {
+                                                                                 "coefficients":  [
+                                                                                                      -1.0006432717061902,
+                                                                                                      1.0001324136024092,
+                                                                                                      -0.26045803000204815,
+                                                                                                      0.06293949031412034,
+                                                                                                      -4.017641683949469,
+                                                                                                      18.10881713048816
+                                                                                                  ],
+                                                                                 "rms":  3.8366442761609737E-08,
+                                                                                 "points":  20
+                                                                             },
+                                                               "uSolidExtrapolated":  -0.0006489248439937723,
+                                                               "uLiquidExtrapolated":  -0.0005108581037809312,
+                                                               "jump":  0.00013806674021284106,
+                                                               "latentJump":  0.9999943468621963,
+                                                               "note":  "separate free bulk fits with independent CPU characteristic exponents; residuals retained; no zero-beta inference"
+                                                           },
+                                      "raw":  {
+                                                  "path":  "samples/domain-dt-0.016-010000.json.gz",
+                                                  "sha256":  "74ccc6ad5d52caf26593489756e40c3da154a66123bfbbbc41cea42427921eb0"
+                                              }
+                                  }
+                 },
+                 {
+                     "config":  {
+                                    "name":  "domain-dt-0.008",
+                                    "dims":  [
+                                                 2048,
+                                                 8,
+                                                 8
+                                             ],
+                                    "dx":  0.8,
+                                    "dt":  0.008,
+                                    "offset":  0
+                                },
+                     "completed":  true,
+                     "census":  {
+                                    "nonFinite":  0,
+                                    "outOfRange":  0,
+                                    "transverseError":  0,
+                                    "count":  131072
+                                },
+                     "terminal":  {
+                                      "time":  160.0000075995922,
+                                      "declaredTime":  160,
+                                      "steps":  20000,
+                                      "uniformDt":  0.00800000037997961,
+                                      "massDisplacement":  6.398948862360704,
+                                      "expectedDisplacement":  6.400000303983688,
+                                      "meanVelocity":  0.03999342849016847,
+                                      "relativeVelocityDifference":  -0.00016428774578813865,
+                                      "profileResidual":  {
+                                                              "frame":  "independent CPU mean-velocity frame",
+                                                              "phaseRms":  0.00007257188816125608,
+                                                              "temperatureRms":  0.000018568526897859394,
+                                                              "phaseMax":  0.00034363788769897763,
+                                                              "temperatureMax":  0.00003586709357650264
+                                                          },
+                                      "energyChange":  0.005424237627812545,
+                                      "outerTemperature":  {
+                                                               "windowW0":  [
+                                                                                40,
+                                                                                56
+                                                                            ],
+                                                               "solidMean":  0.9993510931730271,
+                                                               "liquidMean":  0.46563169956207273,
+                                                               "solidFit":  {
+                                                                                "coefficients":  [
+                                                                                                     -0.0006489248439937721,
+                                                                                                     -0.0048848403154964195,
+                                                                                                     -0.0016895514209304175,
+                                                                                                     -0.14619320726644863,
+                                                                                                     0.42637925166549123
+                                                                                                 ],
+                                                                                "rms":  7.6631796810102177E-09,
+                                                                                "points":  20
+                                                                            },
+                                                               "liquidFit":  {
+                                                                                 "coefficients":  [
+                                                                                                      -1.0006074178369784,
+                                                                                                      1.0001539830072652,
+                                                                                                      -2.572764098503178,
+                                                                                                      -0.20894619213839727,
+                                                                                                      -2.4808879056632573,
+                                                                                                      151.05245173676275
+                                                                                                  ],
+                                                                                 "rms":  2.1715547478255837E-07,
+                                                                                 "points":  20
+                                                                             },
+                                                               "uSolidExtrapolated":  -0.0006489248439937721,
+                                                               "uLiquidExtrapolated":  -0.00045343482971316185,
+                                                               "jump":  0.0001954900142806102,
+                                                               "latentJump":  0.9999584929929846,
+                                                               "note":  "separate free bulk fits with independent CPU characteristic exponents; residuals retained; no zero-beta inference"
+                                                           },
+                                      "raw":  {
+                                                  "path":  "samples/domain-dt-0.008-020000.json.gz",
+                                                  "sha256":  "a8e2eb79d9590520548d4d2e5cc24c21ee38742d1cbb71cf36e5cf189079272c"
+                                              }
+                                  }
+                 }
+             ],
+    "completed":  true,
+    "sourceStable":  true,
+    "errors":  [
+
+               ],
+    "rawResultSha256":  "5ebbb99ce2b43b8b3bf23ea5611275d1748cc4c41b5992b23db59f5b82856ab3",
+    "limitations":  [
+                        "Finite velocity .04 only; no zero-speed extrapolation or coefficient fitting.",
+                        "GPU roundoff/compiler behavior is not assumed identical to independent CPU arithmetic.",
+                        "Outer thermal modal coefficients are diagnostic; small least-squares residuals do not establish identifiability.",
+                        "All physical/reference bands and production coefficients remain unchanged.",
+                        "The local Vite process retained UI build label 38d8e17+local. All src files are unchanged between that revision and eaed58c; runtime shader hashes and native equivalence identify the executed equations."
+                    ],
+    "runtimeMetadata":  {
+                            "hardware":  {
+                                             "vendor":  "intel",
+                                             "architecture":  "xe-2lpg",
+                                             "device":  "",
+                                             "description":  "",
+                                             "isFallbackAdapter":  false
+                                         },
+                            "limits":  {
+                                           "maxBufferSize":  268435456,
+                                           "maxTextureDimension3D":  2048
+                                       },
+                            "build":  "38d8e17+local",
+                            "productionShaderHashes":  [
+                                                           "9ca204624ea608235bbd4e0a26c57325fd39c093038b60ae7aef0255a11ffbb3",
+                                                           "49604e74a3fef6b94ab04f34c0a852477f87afdbef0fff159aa2a1062ba4ee0a",
+                                                           "5e87d16c4d211c45246f6c10ba386d5625fe131839925885b6ff2cf26a93a391"
+                                                       ]
+                        }
+}

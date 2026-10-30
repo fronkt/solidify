@@ -269,3 +269,22 @@ and agreement between a few compact fits do not certify a universal radius-error
 bound. The current point estimates and reference bands are retained while
 known-truth controls and a justified model-form refusal rule are investigated.
 Neither this protocol checkpoint nor these diagnostics resolve Q3c.
+
+The [known-truth CPU reproducer](../scripts/research/quant3d-metrology-controls.md)
+now retains150 phase-sampled controls and two motion sequences without changing
+the estimator. Each published-style fourfold family covers30/30 known radii. An
+independent smooth stress surface covers0/30 and is marked resolved despite a
+15.31% selection-parameter error versus7.90% advertised uncertainty. Its
+sub-width crossover has not been demonstrated in evolved phase fields. This is
+an uncertainty counterexample, not a correction of the archived tip values.
+
+The independent coupled planar profile also has a
+[recorded production-WGSL comparison](validation/quant3d-kinetic-2026-10-30.json).
+All10 finite-speed/time-step/cell-phase/domain cases reached their exact terminal
+step counts on actual Intel hardware. Nine native-cube field pairs were byte
+identical; source hashes stayed fixed and no device errors occurred. Measured
+mean speeds differ from the independent finite-speed target by .0005-.0180%.
+The smaller time step has larger floating-point discrepancies, so this is not
+evidence of monotonic time convergence. Bulk modal fits and their identifiability
+remain diagnostic. No zero-speed beta, fitted coefficient, or needle acceptance
+is established by this comparison.
