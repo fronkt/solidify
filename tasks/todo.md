@@ -5339,7 +5339,7 @@ Plan before implementation:
 - [x] Review recorded failures, independent audits and project lessons; isolate the research worktree.
 - [x] Repair and independently verify padded research volume readback and execution evidence.
 - [ ] Finish the declared radius cases on frozen source and reconcile all fourteen matrix cases.
-- [ ] Complete parallel capillary, kinetic-identifiability and metrology investigations; choose the smallest justified next experiment.
+- [x] Complete parallel capillary, kinetic-identifiability and metrology investigations; choose the smallest justified next experiment.
 - [ ] Implement a correction or refinement only if independent evidence supports it; run affected pure/GPU regressions.
 - [ ] Run the complete prospectively fixed reference campaign when its prerequisites are met, retaining all verdicts and raw data.
 - [ ] Record evidence/limitations, verify artifact backup and owned cleanup, commit/push completed phases, and leave Q3 open unless all required gates pass.
@@ -5358,3 +5358,15 @@ checks, including nonfinite/stalled/overshooting clocks. Independent read-only
 review found no blocking defect. Typecheck/build and the22-script CI inventory
 check pass. Production source and physical coefficients remain unchanged.
 Public proof: docs/validation/quant3d-calibration-readback-2026-10-30.json.
+
+Independent diagnostic checkpoint: all three audits are complete. Existing tip
+curvature alternatives change sigma by less than one percent on the measured
+fields; capillary mesh errors are small and converge. Exact independent algebra
+and prospective CPU refinement support a principal-plane lattice kinetic
+candidate, without using the needle reference. A separate production-WGSL
+finite-speed recovery study with two perturbations, a half-dt control and an
+actual wrong-relaxation negative control is being frozen before its first GPU
+run. No production correction is adopted yet. Full reports, raw CPU solves and
+hash manifests are backed up in the unpublished calibration evidence draft;
+all208 archive members and the server digest are verified. Review and limits:
+docs/reviews/quant3d-independent-diagnostics-2026-10-30.md.
