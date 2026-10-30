@@ -83,6 +83,8 @@ export interface RunSnapshot {
   image: { lens: number; lensName?: string; umPerPixel: number; perspective: boolean };
   statistics: unknown;
   lab?: unknown;
+  /** Recorded search/replay metadata, with its own latched objective and setup. */
+  optimizer3d?: unknown;
 }
 
 export function hasFigureData(f: Figure): boolean {

@@ -12,6 +12,8 @@ import { UI, type UIHost } from "./ui";
 import { Hud, type PlotMeta } from "./hud";
 import { Tour, SCENES, type TourHost } from "./tour";
 import { Optimizer, type OptHost, type Recipe } from "./optimizer";
+import { Optimizer3D, Casting3DClock, type Recipe3D } from "./optimizer3d";
+import { copyRecipe3 } from "./optimizer3d-model";
 import { packShare, unpackShare, type ShareState } from "./share";
 import { Challenge, type ChallengeHost } from "./challenge";
 import { Composer } from "./composer";
@@ -158,6 +160,74 @@ async function boot() {
   // and the cut-face style (the etch cabinet)
   const slice = { axis: 0, off: 0.5, tilt: 0, turn: 0, sweep: false, sweepDir: 1, style: 0 };
   let lastStats3: StatsResult3D | null = null;
+  let opt3: Optimizer3D | null = null;
+  let opt3WasActive = false;
+  let recipeSchedule3: [number, number, number] | null = null;
+  let appliedRecipe3: Recipe3D | null = null;
+  let recipeClock3: Casting3DClock | null = null;
+  let recipeTask3: Promise<void> | null = null;
+  let recipeVersion3 = 0;
+  let modeSwitchRequest = 0;
+  let recipeIssue3: string | null = null;
+  let alloyPreparing3 = false, alloyChange3 = 0, sharedRestore3Pending = false;
+  const contextKey3 = () => JSON.stringify([mode, material, pouredShare(), getSeed(),
+    sim3d?.n, sim3d?.umPerCell, sim3d?.params.solver]);
+  const cancelRecipe3 = (clearSchedule = true) => {
+    recipeVersion3++;
+    recipeClock3?.cancel(); recipeClock3 = null; appliedRecipe3 = null;
+    if (clearSchedule) { recipeSchedule3 = null; recipeIssue3 = null; }
+  };
+  const recipeLink3 = (recipe: Recipe3D) => location.origin + location.pathname + packShare({
+    p: { ...recipe.params, coolRate: recipe.cool[0], solver: SOLVER.KOB, scen: 0, twinProb: 0 },
+    u: recipe.undercool, v: view3d, m: material, n: alloyName, mx: pouredShare(),
+    nuc: [recipe.nmax, recipe.nuc.dTN, recipe.nuc.dTsig], sched: recipe.cool,
+    d: 1, g3: recipe.grid, um: recipe.pitch, seed: recipe.seed,
+    opt3: { version: 1, maxSteps: recipe.maxSteps, target: recipe.target,
+      diameter: recipe.diameter, unit: recipe.unit, params: { ...recipe.params } },
+  });
+  const stageRecipe3 = (recipe: Recipe3D) => {
+    const volume = sim3d;
+    if (!volume || mode !== "3d" || opt3?.active || volume.n !== recipe.grid
+        || volume.umPerCell !== recipe.pitch || getSeed() !== recipe.seed
+        || recipe.params.solver !== SOLVER.KOB || recipe.undercool < .01 || recipe.undercool > .95
+        || !Number.isFinite(recipe.undercool) || recipe.cool.some(v => !Number.isFinite(v) || v < 0))
+      throw new Error("The 3D recipe requires its original grid, pitch, seed and Kobayashi setup");
+    cancelRecipe3();
+    Object.assign(volume.params, recipe.params, { solver: SOLVER.KOB, scen: 0, twinProb: 0, coolRate: recipe.cool[0] });
+    Object.assign(nuc3.p, recipe.nuc, { nmax: recipe.nmax }); nuc3.setFilm(0);
+    undercool = recipe.undercool;
+    app.resetArmed();
+    appliedRecipe3 = copyRecipe3(recipe); recipeSchedule3 = [...recipe.cool];
+    const version = recipeVersion3, key = contextKey3();
+    recipeClock3 = new Casting3DClock(volume, nuc3, recipe,
+      () => recipeVersion3 === version && sim3d === volume && mode === "3d" && contextKey3() === key && !opt3?.active);
+    running3d = false; ui.sync();
+  };
+  const tickRecipe3 = () => {
+    if (!running3d || !recipeClock3 || recipeTask3 || !sim3d) return;
+    const clock = recipeClock3, volume = sim3d, version = recipeVersion3;
+    const current = () => recipeClock3 === clock && sim3d === volume && mode === "3d" && recipeVersion3 === version;
+    const task: Promise<void> = (async () => {
+      if (!clock.snapshot().stats) { await clock.stage(); if (!current()) return; }
+      for (let batch = 0; batch < speedMult && running3d && current(); batch++) {
+        const stats = await clock.advance();
+        if (!current()) return;
+        if (stats) { lastStats3 = stats; hud.push3(stats, volume.umPerCell, volume.simTime); an3.onStats3(stats, volume.simTime); }
+        const state = clock.snapshot();
+        if (state.completed || state.exhausted || state.invalid) {
+          running3d = false;
+          if (!state.completed) recipeIssue3 = state.invalid ?? "The applied recipe reached its step budget before completing the casting.";
+          ui.sync(); break;
+        }
+      }
+    })().catch(error => {
+      if (!current()) return;
+      running3d = false; appliedRecipe3 = null; recipeSchedule3 = null;
+      recipeIssue3 = error instanceof Error ? error.message : "The 3D recipe could not be replayed.";
+      ui.sync();
+    }).finally(() => { if (recipeTask3 === task) recipeTask3 = null; });
+    recipeTask3 = task;
+  };
   let turntable: { t0: number; az0: number } | null = null;
 
   /** φ volume → surface-nets worker → binary STL download (or test readout) */
@@ -477,6 +547,7 @@ async function boot() {
     p.solver = SOLVER.KOB;
   };
   const setSolver3 = async (kind: number, lambda?: number): Promise<QuantSetup | null> => {
+    if (opt3?.active) return null;
     if (kind === SOLVER.QUANT && mode !== "3d") return null;
     if (mode3dPending && kind === SOLVER.QUANT) return null;
     if (kind === SOLVER.QUANT && quantPending3) {
@@ -727,9 +798,10 @@ async function boot() {
   const app: UIHost & OptHost & TourHost = {
     // ---- AppControl (scenes / tour)
     clearMelt(u) {
-      if (heat?.busy) return;   // a treatment owns the field until it finishes
+      if (heat?.busy || opt3?.active) return;
       undercool = u;
-      recipeSchedule = null;   // a new scene retires any applied recipe
+      if (mode === "3d") cancelRecipe3();
+      else recipeSchedule = null;
       if (mode === "3d" && sim3d) {
         sim3d.reset(1 - u);
         hud.reset();
@@ -751,22 +823,30 @@ async function boot() {
       weldDir = 1;
     },
     seedCenter() {
+      if (opt3?.active) return;
+      if (mode === "3d") cancelRecipe3();
       if (mode === "3d" && sim3d) sim3d.addSeed3D(sim3d.n / 2, sim3d.n / 2, sim3d.n / 2, brush + 1);
       else sim.addSeed(sim.n / 2, sim.n / 2, brush + 1);
       hideHint();
     },
     twinSeedCenter() {
+      if (opt3?.active) return;
+      if (mode === "3d") cancelRecipe3();
       if (mode === "3d" && sim3d) sim3d.addTwinSeed3D(sim3d.n / 2, sim3d.n / 2, sim3d.n / 2, brush + 1.5);
       else sim.addTwinSeed(sim.n / 2, sim.n / 2, brush + 1.5);
       hideHint();
     },
     chillWall(edge = "auto") {
+      if (opt3?.active) return;
+      if (mode === "3d") cancelRecipe3();
       if (mode === "3d" && sim3d) { sim3d.chillFloor(); hideHint(); return; }
       const e = edge === "auto" ? (canvas.width >= canvas.height ? "left" : "bottom") : edge;
       sim.chillWall(e);
       hideHint();
     },
     scatterSeeds(count) {
+      if (opt3?.active) return;
+      if (mode === "3d") cancelRecipe3();
       // the host's own stream: scattering is an operator action, so it must not
       // consume draws from the solver's sequence and shift the cast underneath it
       const r = stream("scatter");
@@ -781,7 +861,9 @@ async function boot() {
     // in 3D only the dials both solvers share land on the 3D params — a tour
     // chapter passing 2D-only fields (scen, alloyOn…) must not pollute them
     setParams(p) {
+      if (opt3?.active) return;
       if (mode === "3d" && sim3d) {
+        cancelRecipe3();
         // Presets describe qualitative morphologies and own these dials.
         // Leaving calibration makes the requested preset take effect.
         if (sim3d.params.solver === SOLVER.QUANT || quantPending3) restoreSolver3();
@@ -794,7 +876,7 @@ async function boot() {
     },
     // the inoculant addition: how many potential nuclei the charge carries.
     // Changing it re-draws the site population, keeping already-swept sites spent.
-    setInoculant(v) { restageNuc(N => { N.p.nmax = v; }); },
+    setInoculant(v) { if (opt3?.active) return; if (mode === "3d") cancelRecipe3(); restageNuc(N => { N.p.nmax = v; }); },
     setView(v) { view = v as ViewMode; },
     setSpeed(v) {
       if (mode === "3d") substeps3d = Math.min(22, v);
@@ -807,22 +889,31 @@ async function boot() {
       // the solidification loop until the sweeps are spent
       if (on && heat?.busy) return;
       if (opt.active) opt.setRunning(on);
-      else if (mode === "3d") running3d = on;
+      else if (mode === "3d" && opt3?.active) opt3.setRunning(on);
+      else if (mode === "3d") {
+        const state = recipeClock3?.snapshot();
+        if (on && (state?.completed || state?.exhausted || state?.invalid)) cancelRecipe3(false);
+        running3d = on;
+      }
       else running = on;
     },
     setWeldAuto(on) { weldAuto = on; },
-    // Both are 2D-only: the frame loop's 3D branch returns before opt.tick()
-    // and challenge.onStats(), so starting either from the volume would leave a
-    // mode that never advances. The buttons are already only2d and the tour
-    // forces 2D first, but a share link, the console or a future caller can
-    // reach these — guard at the host rather than rely on the UI.
-    startOptimizer() { if (mode === "2d" && !challenge.active && !lab.active && !heat?.active) opt.start(sim.n); },
-    startChallenge() { if (mode === "2d" && !opt.active && !lab.active && !heat?.active) challenge.start(); },
+    startOptimizer() {
+      if (challenge.active || lab.active || heat?.active || mode3dPending || quantPending3 || alloyPreparing3 || sharedRestore3Pending) return;
+      if (mode === "3d") {
+        if (opt.active || !sim3d || opt3?.active) return;
+        composer.close();
+        cancelRecipe3(); running3d = false; hud.reset(); an3.reset();
+        opt3?.start();
+      } else if (!opt3?.active) opt.start(sim.n);
+      ui.sync();
+    },
+    startChallenge() { if (mode === "2d" && !opt.active && !opt3?.active && !lab.active && !heat?.active) challenge.start(); },
     // lab and heat treat share the bottom-centre panel slot — one at a time
-    startLab() { if (!opt.active && !challenge.active && !heat?.active) lab.open(); },
+    startLab() { if (!opt.active && !opt3?.active && !challenge.active && !heat?.active) { void opt3?.stop(); if (mode === "3d") cancelRecipe3(); lab.open(); } },
     isLabOpen: () => lab.active,
     // both dimensions since H2b — the volume runs the 26-neighbour Potts pass
-    startHeat() { if (!opt.active && !challenge.active && !lab.active) heat?.open(); },
+    startHeat() { if (!opt.active && !opt3?.active && !challenge.active && !lab.active) { void opt3?.stop(); if (mode === "3d") cancelRecipe3(); heat?.open(); } },
     syncUI() { ui.sync(); },
     reveal(target) {
       if (target.startsWith("sec:")) ui.reveal(target.slice(4));
@@ -863,7 +954,8 @@ async function boot() {
     seedHex: () => seedHex(),
     // a new seed re-draws every stream, so the next pour is a genuinely new cast
     // rather than the same one with the dials nudged
-    reseed: () => { reseed(); },
+    reseed: () => { if (opt3?.active) return; if (mode === "3d") cancelRecipe3(); reseed(); },
+    optimizerIssue: () => recipeIssue3 ?? (alloyPreparing3 || sharedRestore3Pending ? "The 3D setup is still being prepared. Optimization is available after it finishes." : null),
     // ---- calibrated mode: each dimension owns its parameters and resources.
     canCalibrate: () => mode === "3d" ? !calibrationIssue3() : !!(MATERIALS[material] ?? {}).si
       && !materialCalibrationIssue(material, sim.params.alloyOn === 1, sim.params.c0 * WT_PER_C0, pouredLive().d != null),
@@ -873,6 +965,8 @@ async function boot() {
     isCalibrated: () => activeParams().solver === SOLVER.QUANT,
     calibrationBusy: () => mode === "3d" && (!!heat?.busy || lab.running),
     setCalibrated(on) {
+      if (opt3?.active) return;
+      if (mode === "3d") cancelRecipe3();
       if (on && !app.canCalibrate()) return;
       if (mode === "3d") {
         if (heat?.busy || lab.running) return;
@@ -889,6 +983,8 @@ async function boot() {
     },
     getLambda: () => activeParams().lambda,
     setLambda(v) {
+      if (opt3?.active) return;
+      if (mode === "3d") cancelRecipe3();
       if (mode === "3d" && sim3d) {
         if (heat?.busy || lab.running) return;
         if (quantPending3 || sim3d.params.solver === SOLVER.QUANT) void setSolver3(SOLVER.QUANT, v);
@@ -902,25 +998,29 @@ async function boot() {
     calibration: () => activeParams().solver === SOLVER.QUANT ? calibrationFor(activeParams().lambda, mode === "3d") : null,
     getUmPerCell: () => umPerCell,
     setUmPerCell(v) {
+      if (opt3?.active) return;
+      if (mode === "3d") cancelRecipe3();
       setPitch(mode, Math.max(0.01, v));
     },
-    getUndercool: () => undercool,
-    setUndercool(v) { undercool = v; },
+    getUndercool: () => mode === "3d" && opt3?.active ? opt3.snapshot().currentRecipe?.undercool ?? undercool : undercool,
+    setUndercool(v) { if (opt3?.active) return; if (mode === "3d") cancelRecipe3(); undercool = v; },
     getInoculant: () => (mode === "3d" ? nuc3 : nuc).p.nmax,
     getNucPotency: () => (mode === "3d" ? nuc3 : nuc).p.dTN,
-    setNucPotency(v) { restageNuc(N => { N.p.dTN = v; }); },
+    setNucPotency(v) { if (opt3?.active) return; if (mode === "3d") cancelRecipe3(); restageNuc(N => { N.p.dTN = v; }); },
     getNucSpread: () => (mode === "3d" ? nuc3 : nuc).p.dTsig,
-    setNucSpread(v) { restageNuc(N => { N.p.dTsig = v; }); },
+    setNucSpread(v) { if (opt3?.active) return; if (mode === "3d") cancelRecipe3(); restageNuc(N => { N.p.dTsig = v; }); },
     getNucFired: () => (mode === "3d" ? nuc3 : nuc).fired,
     getSubsteps: () => substeps,
-    isRunning: () => (opt.active ? opt.isRunning() : mode === "3d" ? running3d : running),
-    isEngineering: () => opt.active,
+    isRunning: () => (opt.active ? opt.isRunning() : mode === "3d" ? opt3?.active ? opt3.isRunning() : running3d : running),
+    isEngineering: () => opt.active || !!opt3?.active,
     getSpeedMult: () => speedMult,
     cycleSpeedMult() {
       speedMult = SPEED_MULTS[(SPEED_MULTS.indexOf(speedMult as 1 | 2 | 4) + 1) % SPEED_MULTS.length];
     },
     getMaterial: () => material,
     setMaterial(k) {
+      if (opt3?.active) return false;
+      if (mode === "3d") cancelRecipe3();
       const m = MATERIALS[k];
       if (!m) {
         // Was a bare `return`. It is reachable from a share link and from
@@ -959,7 +1059,7 @@ async function boot() {
       if (mode === "3d") apply3DMaterial();
       return true;
     },
-    openComposer() { if (!opt.active && !challenge.active) composer.open(); },
+    openComposer() { if (!opt.active && !opt3?.active && !challenge.active) { if (mode === "3d") cancelRecipe3(); composer.open(); } },
     // v7.1 P6: the tour calls this on leaving every chapter, so the one chapter
     // that opens the modal cannot leave it sitting over the next chapter's melt.
     // Unconditional on purpose — closing something already closed is a no-op,
@@ -990,19 +1090,25 @@ async function boot() {
       ui.sync();
     },
     getGrid: () => sim.n,
-    setGrid(n) { if (n !== sim.n && !opt.active && !challenge.active && !heat?.busy) app.swapSim(n); },
+    setGrid(n) { if (n !== sim.n && !opt.active && !opt3?.active && !challenge.active && !heat?.busy) app.swapSim(n); },
     getView: () => view,
     // a uniform volumetric heat source held while the button is down: it warms
     // the melt and remelts what has frozen. Named `anneal` until v6.0, which was
     // the wrong word for it — see the button in ui.ts.
     reheat(on) {
+      if (opt3?.active) return;
+      if (mode === "3d") cancelRecipe3();
       if (mode === "3d" && sim3d) sim3d.params.heatIn = on ? 1.1 : 0;
       else sim.params.heatIn = on ? 1.1 : 0;
     },
-    quench() { if (mode === "3d" && sim3d) sim3d.quench(0.25); else sim.quench(0.25); },
+    quench() { if (opt3?.active) return; if (mode === "3d" && sim3d) { cancelRecipe3(); sim3d.quench(0.25); } else sim.quench(0.25); },
     resetArmed() {
-      if (heat?.busy) return;  // a treatment owns the field until it finishes
+      if (heat?.busy || opt3?.active) return;
       if (mode === "3d" && sim3d) {
+        if (appliedRecipe3) { stageRecipe3(copyRecipe3(appliedRecipe3)); return; }
+        cancelRecipe3(false);
+        recipeIssue3 = null;
+        if (recipeSchedule3) sim3d.params.coolRate = recipeSchedule3[0];
         quantError3 = null;
         sim3d.reset(1 - undercool);
         lastStats3 = null;
@@ -1051,19 +1157,24 @@ async function boot() {
     getMode: () => mode,
     // returns the enter promise so the tour can await the switch before staging
     setMode(m) {
+      const request = ++modeSwitchRequest;
       if (m === mode) return;
-      // the panel treats the specimen ON STAGE — a dimension switch swaps the
-      // specimen, its census and its model constants, so close rather than
-      // leave a run button aimed at a solver that is no longer there
-      if (heat?.active) heat.close();
-      if (m === "3d") return enter3D();
-      exit3D();
+      const change = () => {
+        if (request !== modeSwitchRequest) return;
+        if (mode === "3d") cancelRecipe3(false);
+        if (heat?.active) heat.close();
+        if (m === "3d") return enter3D();
+        exit3D();
+      };
+      if (opt3?.active) return opt3.stop().then(change);
+      void opt3?.stop(); // close an inactive refusal panel without delaying mode entry
+      return change();
     },
     closeTour() { tour.close(); },
     // a running experiment owns the solver — switching dimension mid-pour would
     // silently discard the run the report card is about to describe
-    canSwitchMode: () => caps3d.supported && !opt.active && !challenge.active
-      && !mode3dPending && !lab.running && !heat?.busy,
+    canSwitchMode: () => caps3d.supported && !opt.active && !opt3?.active && !challenge.active
+      && !mode3dPending && !alloyPreparing3 && !sharedRestore3Pending && !lab.running && !heat?.busy,
     // ascending, and always including whatever rung the OOM ladder actually
     // landed on — otherwise a GPU that fell back shows an empty selection
     caps3dSizes: () => {
@@ -1073,7 +1184,8 @@ async function boot() {
     },
     getGrid3: () => grid3,
     setGrid3(n) {
-      if (n === grid3 || !caps3d.supported || heat?.busy) return;
+      if (n === grid3 || !caps3d.supported || heat?.busy || opt3?.active) return;
+      cancelRecipe3();
       grid3 = n;
       if (mode === "3d") void swapSim3D(n);
     },
@@ -1122,24 +1234,29 @@ async function boot() {
     },
     getSym3: () => (sim3d?.params.aniMode3 === 2 ? 6 : sim3d?.params.aniMode3 === 3 ? 5 : 4),
     setSym3(j) {
-      if (!sim3d) return;
+      if (!sim3d || opt3?.active) return;
+      cancelRecipe3();
       sim3d.params.aniMode3 = j === 6 ? 2 : j === 5 ? 3 : 1;
       sim3d.params.deltaZ = j === 6 ? 0.03 : 0;
       // icosahedral convexity edge sits lower than the cubic δ range
       if (j === 5) sim3d.params.delta = Math.min(sim3d.params.delta, ICOSA_DELTA_MAX);
     },
     getHabit: () => sim3d ? sim3d.params.deltaZ : NaN,
-    setHabit(v) { if (sim3d) sim3d.params.deltaZ = v; },
+    setHabit(v) { if (opt3?.active) return; if (sim3d) { cancelRecipe3(); sim3d.params.deltaZ = v; } },
     // alloy is a texture allocation in 3D, not just a param — route via the sim
     getAlloyOn: () => (mode === "3d" && sim3d ? sim3d.alloyActive : sim.params.alloyOn === 1),
     setAlloyOn(b) {
+      if (opt3?.active) return;
       if (mode === "3d" && sim3d) {
+        cancelRecipe3();
+        const observed = sim3d, request = ++alloyChange3;
         if (b) {
-          return sim3d.enableAlloy().then(ok => {
-            if (ok && sim3d && renderer3d) renderer3d.rebindBGs(sim3d);
-            ui.sync();
-          });
+          alloyPreparing3 = true;
+          return observed.enableAlloy().then(ok => {
+            if (ok && sim3d === observed && request === alloyChange3 && renderer3d) renderer3d.rebindBGs(observed);
+          }).finally(() => { if (request === alloyChange3) alloyPreparing3 = false; ui.sync(); });
         } else {
+          alloyPreparing3 = false;
           // order matters: clear the sim's references, swap the renderer to the
           // dummy, THEN the deferred destroy inside disableAlloy fires
           sim3d.disableAlloy();
@@ -1201,6 +1318,8 @@ async function boot() {
     onOptimizerDone() { ui.sync(); },
     shareLink() {
       if (mode === "3d" && sim3d) {
+        const episode = opt3?.active ? opt3.snapshot().currentRecipe : null;
+        if (episode) return recipeLink3(episode);
         // pack the 3D solver's own dials (packing sim.params here was a bug —
         // scen/alloy/twin/facet state never travelled)
         const p3 = { ...sim3d.params } as unknown as Record<string, number>;
@@ -1209,7 +1328,10 @@ async function boot() {
           p: p3, u: undercool, v: view3d, m: material,
           n: alloyName, mx: pouredShare(), nuc: [nuc3.p.nmax, nuc3.p.dTN, nuc3.p.dTsig], lab: labShare(), ht: heatShare(), d: 1, g3: sim3d.n,
           sl: [slice.axis, +slice.off.toFixed(3), Math.round(slice.tilt), Math.round(slice.turn), slice.style],
-          seed: getSeed(), um: umPerCell,
+          seed: getSeed(), um: umPerCell, sched: recipeSchedule3,
+          ...(appliedRecipe3 ? { opt3: { version: 1 as const, maxSteps: appliedRecipe3.maxSteps,
+            target: appliedRecipe3.target, diameter: appliedRecipe3.diameter, unit: appliedRecipe3.unit,
+            params: { ...appliedRecipe3.params } } } : {}),
         });
       }
       return location.origin + location.pathname + packShare({
@@ -1290,6 +1412,27 @@ async function boot() {
   slicePanelUI.addStyle("Niyama map · porosity risk");
   const tour = new Tour(app);
   const opt = new Optimizer(app);
+  opt3 = new Optimizer3D({
+    sim: () => mode === "3d" && !mode3dPending && !quantPending3 && !alloyPreparing3 && !sharedRestore3Pending
+      && !opt.active && !challenge.active && !lab.active && !heat?.active ? sim3d : null,
+    nuc: () => nuc3, units: unitsNow, meta: plotMeta, contextKey: contextKey3,
+    renderOnce() {
+      if (!sim3d || !renderer3d || mode !== "3d") return;
+      const stats = opt3?.snapshot().clock?.stats;
+      if (stats) lastStats3 = stats;
+      renderer3d.render(sim3d, view3d, performance.now() / 1000, slicePlane(slice, sim3d.n), slice.style);
+    },
+    captureThumb: () => app.captureThumb(),
+    onChange() {
+      const active = !!opt3?.active;
+      if (active && !opt3WasActive) {
+        quantRequest3++; // retire any awaited shared-setup publication
+        cancelRecipe3(); running3d = false; hud.reset(); an3.reset();
+      }
+      opt3WasActive = active; ui.sync();
+    },
+    restoreArmed: () => app.resetArmed(), applyRecipe: stageRecipe3, shareRecipeLink: recipeLink3,
+  });
   const composer = new Composer({
     reportLinkRefusals(refusals) {
       alloyCaveats = refusals.slice();
@@ -1634,12 +1777,14 @@ async function boot() {
           umPerPixel: active.umPerCell / (three ? renderer3d!.cssPerVoxel() : renderer.cssPxPerCell(sim.n))
             * canvas.clientWidth / canvas.width },
         statistics: three ? lastStats3 : lastStats, lab: lab.exportState(),
+        optimizer3d: three ? { search: opt3?.snapshot() ?? null,
+          appliedRecipe: appliedRecipe3, replay: recipeClock3?.snapshot() ?? null } : undefined,
       };
       const figures = [
         ...(["fs", three ? "pore" : "dt", "grains", "hist"] as const).map(k => hud.figure(k)),
         ...(three ? [an3.figure("probe"), an3.figure("scheil"), an3.figure("ipf"), an3.figure("pole")]
           : [analyze.figure("probe"), analyze.figure("scheil"), analyze.figure("tex")]),
-        ...lab.exportFigures(), ...(heat?.exportFigures() ?? []), ...opt.exportFigures(),
+        ...lab.exportFigures(), ...(heat?.exportFigures() ?? []), ...opt.exportFigures(), ...(opt3?.exportFigures() ?? []),
       ];
       const entries = runEntries(snapshot, figures);
       // Copy the freshly presented frame before yielding: a WebGPU canvas
@@ -1662,7 +1807,8 @@ async function boot() {
   });
 
   (window as unknown as Record<string, unknown>).__solidify = {
-    app, opt, tour, ui, challenge, composer, analyze, lab, heat, hud,
+    app, opt, opt3, tour, ui, challenge, composer, analyze, lab, heat, hud,
+    recipe3dState: () => ({ schedule: recipeSchedule3, recipe: appliedRecipe3, clock: recipeClock3?.snapshot() ?? null }),
     // the composer's chemistry, for headless physics checks that need to set
     // up a named alloy exactly as the UI would
     alloy: (mix: Mix) => deriveAlloy(mix),
@@ -1679,7 +1825,7 @@ async function boot() {
     calibrate: (lambda: number) => calibrationFor(lambda, mode === "3d"),
     setSolver: (kind: number, lambda?: number) => mode === "3d" ? setSolver3(kind, lambda) : setSolver(kind, lambda),
     seed: () => getSeed(),
-    setSeed: (s: number) => { setSeed(s); ui.sync(); },
+    setSeed: (s: number) => { if (opt3?.active) return; if (mode === "3d") cancelRecipe3(); setSeed(s); ui.sync(); },
     // the controlled-experiment layer (v7.0 C1). The cast wrappers hold the
     // frame loop's async nuc.observe off for their duration — a bench that
     // shares the ratchet with a wall-clock poll is not a controlled bench —
@@ -1793,6 +1939,8 @@ async function boot() {
       this.drag = null;
       if (!isUp || !d || d.moved || d.btn !== 0) return;
       if (performance.now() - d.t > 350) return;
+      if (opt3?.active) return;
+      cancelRecipe3();
       // ctrl-tap relocates the cooling probe (2D grammar port) — checked first
       if (e.ctrlKey && an3.probeOn && sim3d) {
         const g = renderer3d?.pickSeedPoint(
@@ -2065,7 +2213,9 @@ async function boot() {
     // ------------------------------------------------------- TRUE-3D branch
     if (mode === "3d") {
       if (sim3d && renderer3d) {
-        if (running3d && !quantPending3 && !mode3dPending) {
+        if (opt3?.active) opt3.tick(speedMult);
+        else if (recipeClock3) tickRecipe3();
+        else if (running3d && !quantPending3 && !mode3dPending) {
           if (lab.running) lab.tick(substeps3d * speedMult * sim3d.params.dt);
           nuc3.update(sim3d.simTime, coolProxy3(), (x, y, z, d) =>
             sim3d!.addSeed3D(x, y, z, 3.0, undefined, d));
@@ -2082,7 +2232,7 @@ async function boot() {
             }
           }
           sim3d.step(substeps3d * speedMult);
-        } else if (!heat?.busy && !quantPending3 && !mode3dPending) {
+        } else if (!opt3?.active && !recipeClock3 && !heat?.busy && !quantPending3 && !mode3dPending) {
           // stamp queued taps so staging is visible while armed — but never
           // during a treatment: a stamp writes φ, and solid state means it can't
           sim3d.step(0);
@@ -2126,11 +2276,16 @@ async function boot() {
         const wantFast3 = running3d && nuc3.p.nmax > 0 && nuc3.fired < nuc3.p.nmax && nucClock > 0.05;
         if (forPanels3) statsClock = 0;
         if (wantFast3) nucClock = 0;
-        if (forPanels3 || wantFast3) {
+        if (!opt3?.active && !recipeClock3 && (forPanels3 || wantFast3)) {
           syncNyCrit();   // material/anchor changes land within one poll
-          void sim3d.readStats().then(s => {
-            if (!s || !sim3d) return;
+          const observed = sim3d, ownerVersion = recipeVersion3;
+          void observed.readStats().then(s => {
+            if (!s || mode !== "3d" || sim3d !== observed || recipeVersion3 !== ownerVersion
+                || opt3?.active || recipeClock3) return;
             nuc3.observe(sim3d.simTime, s.meanLiqT, tEq3());
+            if (recipeSchedule3 && running3d) {
+              sim3d.params.coolRate = s.fracSolid < .33 ? recipeSchedule3[0] : s.fracSolid < .66 ? recipeSchedule3[1] : recipeSchedule3[2];
+            }
             // the lab reads the OPEN-volume fraction: with a mould shell the
             // whole-domain fs asymptotes at the open fraction (~0.85), which
             // is why the fs > 0.995 finish could never fire with walls on
@@ -2409,7 +2564,7 @@ async function boot() {
       };
       lab.open();
     }
-    recipeSchedule = shared.sched ?? null;
+    if (shared.d !== 1) recipeSchedule = shared.sched ?? null;
     // Second instance of the same shape applyAlloy carries, and it is not in
     // the milestone plan: a link whose `m` is a material this build does not
     // have restored its alloy NAME anyway, over a material that never changed.
@@ -2447,11 +2602,12 @@ async function boot() {
         app.setSliceTilt(shared.sl[2]); app.setSliceTurn(shared.sl[3]);
         app.setCutStyle(shared.sl[4]);
       }
+      sharedRestore3Pending = true;
       void enter3D(true).then(async () => {
         const s3 = sim3d;
         if (!s3 || mode !== "3d") return;
         const request = quantRequest3;
-        const ownsRestore = () => mode === "3d" && sim3d === s3 && quantRequest3 === request;
+        const ownsRestore = () => mode === "3d" && sim3d === s3 && quantRequest3 === request && !opt3?.active;
         // Allocation may finish after the operator changes mode, material or
         // dials. Allocate before publishing packed parameters, and leave the
         // existing qualitative baseline intact when that restore is canceled.
@@ -2497,11 +2653,54 @@ async function boot() {
           else if (typeof shared.um === "number" && Number.isFinite(shared.um)
               && shared.um >= 0.01 && shared.um <= 10000) setPitch("3d", shared.um);
           app.resetArmed();
+          if (!quant && Array.isArray(shared.sched) && shared.sched.length === 3
+              && shared.sched.every(v => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= .6)) {
+            recipeSchedule3 = [...shared.sched];
+            s3.params.coolRate = recipeSchedule3[0];
+          }
+          if (shared.opt3) {
+            try {
+              const info = shared.opt3, known = unitsNow().known;
+              if (quant || !sharedMaterialTook || info.version !== 1 || s3.n !== shared.g3
+                  || !Number.isFinite(shared.um) || s3.umPerCell !== shared.um || !recipeSchedule3
+                  || !Number.isSafeInteger(shared.seed) || shared.seed! < 0 || shared.seed! > 0xffffffff
+                  || !Number.isFinite(shared.u) || shared.u < .01 || shared.u > .95
+                  || !Array.isArray(shared.nuc) || shared.nuc.length !== 3 || !shared.nuc.every(Number.isFinite)
+                  || !Number.isSafeInteger(shared.nuc[0]) || shared.nuc[0] < 1 || shared.nuc[0] > 2000
+                  || shared.nuc[1] < 0 || shared.nuc[2] < 0
+                  || !Number.isSafeInteger(info.maxSteps) || info.maxSteps < 1 || info.maxSteps > 100_000
+                  || !Number.isFinite(info.target) || info.target <= 0
+                  || !(info.diameter === null || Number.isFinite(info.diameter) && info.diameter > 0)
+                  || info.unit !== (known ? "µm" : "cells") || !info.params || typeof info.params !== "object")
+                throw new Error("The 3D optimizer recipe requires its original accepted material, grid, pitch and model.");
+              const exact = { ...s3.params };
+              for (const key of Object.keys(exact) as (keyof typeof exact)[]) {
+                if (!Number.isFinite(info.params[key])) throw new Error("The 3D recipe has incomplete model parameters.");
+                exact[key] = info.params[key];
+              }
+              if (exact.solver !== SOLVER.KOB || exact.scen !== 0 || exact.twinProb !== 0
+                  || exact.dx <= 0 || exact.dt <= 0 || exact.tau <= 0 || exact.epsBar <= 0
+                  || (exact.alloyOn === 1 && !s3.alloyActive))
+                throw new Error("The shared 3D recipe model is not supported by this volume.");
+              if (clampedChem && Object.entries(clampedChem).some(([key, value]) =>
+                typeof value === "number" && Math.abs(exact[key as keyof typeof exact] - value) > 1e-8))
+                throw new Error("The recipe chemistry changed during admission; its measured result cannot be replayed.");
+              stageRecipe3({ dimension: "3d", grid: s3.n, pitch: s3.umPerCell, seed: getSeed(),
+                known, unit: info.unit, params: exact, nuc: { ...nuc3.p },
+                undercool: shared.u, nmax: nuc3.p.nmax, cool: [...recipeSchedule3],
+                target: info.target, diameter: info.diameter, maxSteps: info.maxSteps });
+            } catch (error) {
+              cancelRecipe3(); running3d = false;
+              recipeIssue3 = error instanceof Error ? error.message : "The 3D optimizer recipe could not be restored.";
+            }
+          }
           app.setView3d(view3d);
           openHeat();
           ui.sync();
         }
-      });
+      }).catch(error => {
+        if (mode === "3d") { recipeIssue3 = error instanceof Error ? error.message : "The shared 3D setup could not be restored."; running3d = false; }
+      }).finally(() => { sharedRestore3Pending = false; ui.sync(); });
     }
   }
   ui.sync();

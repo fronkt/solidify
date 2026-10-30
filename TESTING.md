@@ -9,6 +9,13 @@ The first rail attempt had an unreproduced CDP timeout. No assertion or timeout
 was relaxed. The separate five-arm literature campaign **failed** its reference
 comparison; these regression passes do not complete Q3 acceptance.
 
+The 3D optimizer adds `verify-optimizer3d.mjs` to the local GPU suite. Its fifteen
+checks exercise real current-grid casts and an independent raw-voxel census,
+paused entry and transport, invalid trials, target/stop races, controls on a
+phone, recipe application/sharing and repeatable winning replay, calibrated-mode
+refusal, and legacy 2D compatibility. It needs the same real WebGPU server and
+source freeze as the other browser tests. See `docs/OPTIMIZER-3D.md`.
+
 Q3 adds three GPU verification scripts, also registered in `npm test`. The
 Wulff and tip geometry/protocol self-tests and the runner-lifecycle controls
 also run without a browser in CI, bringing that set to twenty scripts:

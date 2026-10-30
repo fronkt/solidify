@@ -41,6 +41,7 @@ const SUITE = [
   // the landing hero driven by scroll (no WebGPU needed; the script removes it)
   ["scripts/verify-hero.mjs"],
   ["scripts/verify-optimizer.mjs"],
+  ["scripts/verify-optimizer3d.mjs", String(PORT)],
   ["scripts/verify-tools.mjs"],
   // v8 U0: the control rail never scrolls sideways and nothing sits under it
   // or on the chrome beside it, at five viewports, in 2D and TRUE 3D, with

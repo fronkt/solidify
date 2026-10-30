@@ -405,6 +405,9 @@ export class Sim3D {
   /** true when the GPU is >= 2 submitted frames behind — callers should skip stepping */
   get busy() { return this.inFlight >= 2; }
 
+  /** Fixed-clock casting runners drain every queued nucleus before physics. */
+  get pendingSeedCount() { return this.pendingSeeds.length; }
+
   private constructor(device: GPUDevice, n: number) {
     this.device = device;
     this.n = n;

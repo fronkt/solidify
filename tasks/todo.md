@@ -5310,3 +5310,46 @@ CI initially caught a stale documented script count after the new lifecycle step
 The inventory now counts argument-bearing self-test entries as well and documents
 all20 browser-free CI scripts. No physical gate was relaxed; the original count
 guard remains active, and its actual workflow/documentation check is rerun.
+
+## Build the 3D optimizer - 2026-10-30
+
+User explicitly requested the 3D parameter-search optimizer. Implement the full
+selected-volume workflow on the development branch; scientific acceptance of
+the separate quantitative3D solver remains open. Existing user .claude/ and
+dist-embed/ files stay untouched. Root owns main.ts integration and GPU timing;
+delegated module/tests/UI work has disjoint file ownership.
+
+Acceptance specification before implementation:
+- Real casting episodes run on the selected Sim3D grid and native volume census,
+  with no hidden2D or lower-resolution proxy. Optimize mean-volume-equivalent
+  sphere diameter, shown in micrometres for known SI or cells otherwise. Identify
+  the census minimum-grain-volume threshold; do not call this an ASTM2D result.
+- Search three solid-fraction cooling stages, inoculant count and initial
+  undercooling with the existing CMA-ES algorithm and an independent random
+  stream. Preserve material/chemistry, grid, seed and pitch. Use free casting and
+  no stochastic twins explicitly in both the measured recipe and its replay.
+- Enter paused. A bounded casting budget, progress, pause/resume, exit, target
+  changes, invalid trials, best-so-far report and convergence figure/export work.
+  Only a completed finite nonzero-grain census can win; a step-budget timeout
+  never supplies an applicable recipe. Refuse calibrated3D with a visible reason.
+- Give the episode sole ownership of the GPU clock: fixed fence-paced delivered
+  substeps, initial and per-batch temperature observations, and complete seed
+  burst draining before physics. Pause cannot start another batch; stale awaited
+  work cannot publish after exit, objective/context change or solver replacement.
+- Apply the best recipe ARMED on the same3D grid, with the three-stage schedule
+  retained. A3D recipe link restores dimension, schedule, seed, pitch, material
+  and inoculant. Keep2D/3D schedules independent and leave2D optimizer behavior
+  and the challenge unchanged. The restored object is a setup, not a field save.
+- Expose the optimizer in3D controls with accurate learn text, guard incompatible
+  modes/settings and interactive seed mutations, and retain camera interaction.
+
+Plan:
+- [x] Inspect existing optimizer/3D interfaces and review the design/measurement hazards in parallel.
+- [x] Implement the3D casting/search module and a shared clock for applying the same measured schedule.
+- [x] Integrate transport, controls/interlocks, recipe application/sharing, figures/export and copy.
+- [ ] Verify genuine3D episodes, independently recounted volume metrics, pause/invalid/stale-work paths and apply/share replay on real WebGPU under a source freeze; verify legacy2D behavior.
+- [ ] Independent review, required regression/type/build/CI checks, explicit-path commits/push, and an evidence-based completion summary.
+
+Work allocation: optimizer3d_engine owns new optimizer3d module, minimal shared
+CMA export/RNG injection and optional Nucleation injection; optimizer3d_tests owns
+new3D GPU acceptance fixtures; root owns main/sim3d/share and final verification.
