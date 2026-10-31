@@ -12,6 +12,8 @@ import {installQuant3WulffCalibrationDriver,equilibriumFrame,equilibriumInitialF
   equilibriumCentroid,equilibriumFramePoints} from './quant3d-equilibrium-driver.mjs';
 import {equilibriumTranslationPoints} from './quant3d-equilibrium-driver.mjs';
 import {equilibriumState,selfTestWulff,surfacePoints} from '../fixtures/quant3d-wulff-analysis.mjs';
+import {CAPILLARY_GRIDS,capillaryGridArms,gridPairKey,canonicalPhysicalPhaseVolume,
+  physicalTargetMatches,selfTestGridVolumes} from './quant3d-capillary-grid.mjs';
 
 const ROOT=fileURLToPath(new URL('../../',import.meta.url));
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -57,17 +59,31 @@ export function translationInitialLiveness(c,setup,measurement,baseline=null){
     const b=baseline?.translation;
     checks.baselinePresent=!!b&&valid(b.centroidLab);
     checks.hashChanged=typeof b?.phaseSha256==='string'&&b.phaseSha256!==t?.phaseSha256;
+    const minimumShift=c.gridRefinement?c.dx/4:TRANSLATION_TOLERANCE.minimumShift;
     checks.translationLive=valid(t?.centroidLab)&&valid(b?.centroidLab)&&t.centroidLab.every((v,i)=>
-      Math.abs(v-b.centroidLab[i])>TRANSLATION_TOLERANCE.minimumShift
+      Math.abs(v-b.centroidLab[i])>minimumShift
       &&Math.abs(v-b.centroidLab[i]-offset[i])<=TRANSLATION_TOLERANCE.centroid);
+    if(c.gridRefinement)checks.sameMeshBaseline=baseline?.gridPairKey===gridPairKey(c);
+  }
+  if(c.gridRefinement){
+    checks.meshSetup=setup.config?.dx===c.dx&&setup.config?.n===c.n&&setup.config?.epsilon===c.epsilon;
+    checks.physicalVolumeTarget=physicalTargetMatches(c,setup.targetVolume,c.targetPhysicalVolume);
   }
   return {passed:Object.values(checks).every(Boolean),checks};
 }
 
 export function translationVerdict(result){
-  const arms=translationArms(),names=result.cases.map(c=>c.config.name);
+  const grid=result.studyMode==='grid-refinement',arms=grid?capillaryGridArms():translationArms(),names=result.cases.map(c=>c.config.name);
+  const physical=grid?result.physicalVolumeTarget?.physicalVolume:null;
+  const gridIdentity=!grid||result.cases.every(row=>{
+    const expected=arms.find(c=>c.name===row.config.name);
+    return !!expected&&['dx','n','epsilon','radius','lambda','maximumTime','measurementPeriod','controlPeriod']
+      .every(k=>row.config[k]===expected[k])&&JSON.stringify(row.config.centerOffset)===JSON.stringify(expected.centerOffset)
+      &&row.config.gridRefinement===true&&row.config.targetPhysicalVolume===physical
+      &&physicalTargetMatches(row.config,row.config.targetVolume,physical);
+  });
   const backend=!result.exception&&result.errors.length===0&&result.deviceErrorLedgerRead===true
-    &&result.sourceStable===true&&names.length===4&&new Set(names).size===4
+    &&result.sourceStable===true&&gridIdentity&&names.length===arms.length&&new Set(names).size===arms.length
     &&arms.every(c=>names.includes(c.name))&&result.cases.every(c=>c.completed===true&&c.fieldEvolved===true
       &&c.initialLiveness?.passed===true&&c.measurements?.length===51
       &&c.controls?.length===c.clockPlan?.controls?.length
@@ -75,7 +91,53 @@ export function translationVerdict(result){
   return {executionCompleted:backend,diagnosticPassed:backend&&result.cases.every(c=>c.equilibrium?.stationary===true
     &&c.equilibrium?.resolved===true&&c.centroidStable===true),
     fullMatrixCompleted:false,q3Accepted:false,
-    scope:'four paired equilibrium translation arms only; no full14, capillary calibration, moving kinetics or Q3 acceptance'};
+    scope:grid?'twelve paired capillary grid-refinement arms only; no full14, calibrated correction, moving kinetics or Q3 acceptance'
+      :'four paired equilibrium translation arms only; no full14, capillary calibration, moving kinetics or Q3 acceptance'};
+}
+
+export function selfTestGridRefinement(target=canonicalPhysicalPhaseVolume()){
+  const volumes=selfTestGridVolumes(target),knownTruth=[],plans=[];
+  const snapshots=new Map();
+  for(const evidence of volumes.meshes){
+    const c={...evidence.config,targetPhysicalVolume:target.physicalVolume,targetVolume:evidence.targetVolume};
+    const fields=equilibriumInitialFields(c),points=equilibriumFramePoints(equilibriumTranslationPoints(fields.phi,c.n,c.dx),fields.frame);
+    const sphereError=Math.max(...points.map(p=>Math.abs(Math.hypot(...p.xyz)-c.radius)));
+    assert.ok(sphereError<1e-4,'known grid sphere must use the declared coordinate adapter');
+    const snapshot={gridPairKey:gridPairKey(c),translation:{declaredOffset:c.centerOffset,appliedOffset:c.centerOffset,
+      phaseSha256:evidence.phaseSha256,volume:evidence.volume,centroidLab:evidence.centroidLab,centroidFrame:evidence.centroidFrame}};
+    const baseline=c.centerOffset[0]===0?null:snapshots.get(gridPairKey(c));
+    const setup={config:c,targetVolume:evidence.targetVolume,translation:{uploadedPhaseSha256:evidence.phaseSha256}};
+    assert.equal(translationInitialLiveness(c,setup,snapshot,baseline).passed,true);
+    if(baseline){
+      assert.equal(translationInitialLiveness(c,setup,snapshot,{...baseline,gridPairKey:'different mesh'}).passed,false);
+      const omitted={...snapshot,translation:{...snapshot.translation,centroidFrame:snapshot.translation.centroidLab}};
+      assert.equal(translationInitialLiveness(c,setup,omitted,baseline).passed,false);
+      assert.equal(translationInitialLiveness(c,setup,baseline,baseline).passed,false);
+    }else snapshots.set(gridPairKey(c),snapshot);
+    knownTruth.push({dx:c.dx,n:c.n,offset:c.centerOffset[0],sphereError,points:points.length});
+  }
+  const rows=capillaryGridArms().map(c=>{
+    const config={...c,targetPhysicalVolume:target.physicalVolume,targetVolume:target.physicalVolume/c.dx**3};
+    const plan=translationClockPlan(config);plans.push({name:config.name,dt:plan.dt,terminalSteps:plan.terminalSteps,
+      terminalTime:plan.terminalTime,terminalUniformTime:plan.terminalUniformTime,samples:plan.samples.length});
+    assert.equal(plan.samples.length,51);
+    const last=plan.samples.at(-1),clock={steps:last.steps,simTime:last.time,dt:plan.dt,uniformDt:plan.uniformDt,
+      declaredTime:last.steps*plan.dt,uniformTime:last.steps*plan.uniformDt};
+    assert.equal(translationClockMatches(clock,last,plan.dt),true);
+    assert.equal(translationClockMatches({...clock,steps:clock.steps-1},last,plan.dt),false);
+    return {config,completed:true,fieldEvolved:true,initialLiveness:{passed:true},measurements:Array(51).fill({}),
+      controls:plan.controls,clockPlan:plan,missingRecenteringControl:{passed:true},centroidStable:true,equilibrium:{stationary:true,resolved:true}};
+  });
+  const result={studyMode:'grid-refinement',physicalVolumeTarget:target,cases:rows,errors:[],deviceErrorLedgerRead:true,sourceStable:true};
+  assert.equal(translationVerdict(result).diagnosticPassed,true);
+  assert.equal(translationVerdict({...result,cases:rows.slice(0,4)}).diagnosticPassed,false);
+  assert.equal(translationVerdict({...result,cases:[...rows.slice(0,11),rows[0]]}).diagnosticPassed,false);
+  assert.equal(translationVerdict({...result,cases:rows.map((r,i)=>i===4?{...r,config:{...r.config,targetVolume:rows[0].config.targetVolume}}:r)}).diagnosticPassed,false);
+  assert.equal(translationVerdict({...result,errors:['late cleanup failure']}).diagnosticPassed,false);
+  assert.equal(translationVerdict({...result,deviceErrorLedgerRead:false}).diagnosticPassed,false);
+  assert.equal(translationVerdict({...result,sourceStable:false}).diagnosticPassed,false);
+  return {volumeControls:volumes,knownTruth,plans,strictTwelveCases:true,wrongMeshBaselineRefused:true,
+    wrongMeshCellTargetRefused:true,missingOffsetAndAdapterRefused:true,clockAndLifecycleControls:true};
 }
 
 export function selfTestTranslation(){
@@ -134,34 +196,48 @@ export function selfTestTranslation(){
 
 async function main(out){
   const args=process.argv.slice(2),pos=args.filter(a=>!a.startsWith('--'));
-  for(const arg of args.filter(a=>a.startsWith('--')))if(!['--run','--self-test'].includes(arg))throw new Error(`unknown option ${arg}`);
-  if(pos.length>2)throw new Error('usage: node scripts/research/quant3d-equilibrium-translation.mjs <out> <port> [--run|--self-test]');
+  for(const arg of args.filter(a=>a.startsWith('--')))if(!['--run','--self-test','--grid-refinement'].includes(arg))throw new Error(`unknown option ${arg}`);
+  if(pos.length>2)throw new Error('usage: node scripts/research/quant3d-equilibrium-translation.mjs <out> <port> [--run|--self-test] [--grid-refinement]');
   const port=pos[1]??'5201',run=args.includes('--run')&&!args.includes('--self-test');
+  const grid=args.includes('--grid-refinement'),arms=grid?capillaryGridArms():translationArms();
+  const label=grid?'twelve-arm capillary grid-refinement':'four-arm translation';
   const paths=['src/sim3d.ts','src/shaders3d.ts','src/shaders3d-quant.ts','scripts/fixtures/quant3d-wulff-analysis.mjs',
     'scripts/fixtures/quant3d-tip-analysis.mjs','scripts/research/quant3d-equilibrium-driver.mjs',
     'scripts/research/quant3d-equilibrium-translation.mjs','scripts/research/quant3d-equilibrium-translation.md',
-    'scripts/research/quant3d-readback.mjs','scripts/browser-cleanup.mjs'];
+    'scripts/research/quant3d-readback.mjs','scripts/browser-cleanup.mjs','scripts/research/quant3d-capillary-grid.mjs',
+    ...(grid?['scripts/research/quant3d-capillary-grid.md','scripts/research/quant3d-capillary-grid-known-truth.mjs',
+      'scripts/research/quant3d-capillary-grid-replay.py']:[])];
   const hashes=()=>Object.fromEntries(paths.map(path=>[path,sha(readFileSync(resolve(ROOT,path)))]));
-  const result={format:'solidify-equilibrium-translation-diagnostic-v1',started:new Date().toISOString(),
+  const result={format:grid?'solidify-equilibrium-capillary-grid-diagnostic-v1':'solidify-equilibrium-translation-diagnostic-v1',started:new Date().toISOString(),
     completed:false,diagnosticPassed:false,accepted:false,fullMatrixCompleted:false,q3Accepted:false,
     cases:[],errors:[],deviceErrorLedgerRead:false,sourceStable:false,status:'CPU preflight',
-    contract:{arms:translationArms(),tolerances:TRANSLATION_TOLERANCE,physics:'unchanged default pure3D; latticeKinetics=false',
+    contract:{arms,tolerances:grid?{centroid:TRANSLATION_TOLERANCE.centroid,minimumShiftFractionDx:.25,
+      initialRelativeVolume:TRANSLATION_TOLERANCE.initialRelativeVolume}:TRANSLATION_TOLERANCE,physics:'unchanged default pure3D; latticeKinetics=false',
       coordinates:'shared actual adapter: (cell+.5-n/2)*dx-declaredCenterOffset; observed centroid never changes origin',
       volume:'translated arm shares its baseline phase-volume target; unchanged radius',
       clock:'original controlPeriod4; original integer step cap and JS horizon/count; 50 requested periods,51 observed checkpoints; exact Float32 uniform time reported separately',
       negativeControl:'actual translated GPU field, unchanged declaration, bypass fit/centroid adapter at t0; must refuse',
       scope:'four-arm diagnostic only; never full14/Q3 acceptance'}};
-  const save=()=>writeFileSync(resolve(out,'translation-result.json'),JSON.stringify(result,null,2));
+  if(grid){result.studyMode='grid-refinement';result.contract.scope='twelve-arm grid diagnostic only; never full14/Q3 acceptance';
+    result.contract.volume='one independently checked finest-grid canonical physical phase-volume target for all meshes/epsilons; cell target=physical/dx^3';
+    result.contract.pairing='same dx+n+epsilon only; no baseline pairing across meshes';}
+  const save=()=>writeFileSync(resolve(out,grid?'capillary-grid-result.json':'translation-result.json'),JSON.stringify(result,null,2));
   save();result.source=execFileSync('git',['rev-parse','HEAD'],{cwd:ROOT,encoding:'utf8'}).trim();
-  result.sourceHashes=hashes();result.cpuControls=selfTestTranslation();result.wulffControls=selfTestWulff();save();
+  result.sourceHashes=hashes();result.cpuControls=selfTestTranslation();result.wulffControls=selfTestWulff();
+  if(grid){result.physicalVolumeTarget=canonicalPhysicalPhaseVolume();result.gridControls=selfTestGridRefinement(result.physicalVolumeTarget);}
+  save();
   console.log('Q3-TRANSLATION-CPU OK',JSON.stringify(result.cpuControls));
+  if(grid)console.log('Q3-CAPILLARY-GRID-CPU OK',JSON.stringify({arms:arms.length,
+    physicalVolume:result.physicalVolumeTarget.physicalVolume,knownTruthCases:result.gridControls.knownTruth.length,
+    strictTwelveCases:result.gridControls.strictTwelveCases,wrongMeshBaselineRefused:result.gridControls.wrongMeshBaselineRefused}));
   if(!run){result.cpuOnly=true;result.status='CPU controls complete; GPU diagnostic not run';result.finished=new Date().toISOString();save();return;}
   let browser,page,warm;
   const fail=(kind,error)=>result.errors.push({kind,message:error?.message??String(error)});
   mkdirSync(resolve(out,'samples'),{recursive:true});
   const retain=(label,measurement,config)=>{const {raw,...m}=measurement,bytes=Buffer.from(JSON.stringify({config,...raw})),compressed=gzipSync(bytes);
     const path=`samples/${label}.json.gz`;writeFileSync(resolve(out,path),compressed);
-    return {...m,raw:{path,sha256:sha(compressed),uncompressedSha256:sha(bytes),points:raw.points.length}};};
+    return {...m,...(config.gridRefinement?{gridPairKey:gridPairKey(config)}:{}),
+      raw:{path,sha256:sha(compressed),uncompressedSha256:sha(bytes),points:raw.points.length}};};
   try{
     const extra=process.env.CHROME_ARGS?JSON.parse(process.env.CHROME_ARGS):[];
     if(!Array.isArray(extra)||extra.some(a=>typeof a!=='string'))throw new Error('CHROME_ARGS must be a string array');
@@ -176,25 +252,30 @@ async function main(out){
     await page.goto(`http://localhost:${port}/app/`,{waitUntil:'networkidle0'});await page.waitForFunction(()=>!!window.__solidify,{timeout:60000});
     await page.evaluate(installQuant3WulffCalibrationDriver);result.metadata=await page.evaluate(()=>window.__q3wulffCalib.metadata());
     if(result.metadata.hardware?.isFallbackAdapter!==false)throw new Error('actual application hardware admission failed');
-    for(const declared of translationArms()){
+    for(const declared of arms){
       const row={config:{...declared},measurements:[],controls:[],completed:false};result.cases.push(row);save();
-      const baseline=result.cases.find(r=>r.config.epsilon===declared.epsilon&&r.config.centerOffset.every(v=>v===0));
+      const baseline=result.cases.find(r=>r.config.epsilon===declared.epsilon&&r.config.dx===declared.dx
+        &&r.config.n===declared.n&&r.config.centerOffset.every(v=>v===0));
+      if(grid){row.config.targetPhysicalVolume=result.physicalVolumeTarget.physicalVolume;
+        row.config.targetVolume=result.physicalVolumeTarget.physicalVolume/declared.dx**3;}
       if(declared.centerOffset.some(v=>v!==0)){
         if(!baseline?.completed)throw new Error('translated arm requires its completed same-invocation baseline');
-        row.config.targetVolume=baseline.setup.targetVolume;
+        if(grid)assert.equal(row.config.targetVolume,baseline.setup.targetVolume);
+        else row.config.targetVolume=baseline.setup.targetVolume;
       }
       const plan=translationClockPlan(declared);row.clockPlan=plan;
       try{
         row.setup=await page.evaluate(c=>window.__q3wulffCalib.stage(c),row.config);
         assert.equal(row.setup.params.dt,plan.dt);assert.equal(row.setup.params.tau,1);assert.equal(row.setup.params.frozenT,1);
+        if(grid)assert.ok(physicalTargetMatches(declared,row.setup.targetVolume,result.physicalVolumeTarget.physicalVolume));
         const initial=await page.evaluate(()=>window.__q3wulffCalib.measure());
         assert.ok(translationClockMatches(initial.clock,plan.samples[0],plan.dt));
-        row.initialLiveness=translationInitialLiveness(declared,row.setup,initial,baseline?.measurements[0]);
+        row.initialLiveness=translationInitialLiveness(row.config,row.setup,initial,baseline?.measurements[0]);
         row.measurements.push(retain(`${declared.name}-000`,initial,row.config));
         if(!row.initialLiveness.passed)throw new Error('actual initial hash/centroid/volume/adapter liveness failed');
         if(declared.centerOffset.some(v=>v!==0)){
           const bad=await page.evaluate(()=>window.__q3wulffCalib.measure({omitRecentering:true}));
-          const rejection=translationInitialLiveness(declared,row.setup,bad,baseline.measurements[0]);
+          const rejection=translationInitialLiveness(row.config,row.setup,bad,baseline.measurements[0]);
           row.missingRecenteringControl={measurement:retain(`${declared.name}-missing-recentering`,bad,row.config),rejection,
             passed:!rejection.passed&&rejection.checks.adapter===false&&rejection.checks.centered===false
               &&bad.translation.phaseSha256===initial.translation.phaseSha256&&bad.clock.steps===0
@@ -227,11 +308,12 @@ async function main(out){
       finally{try{await page.evaluate(()=>window.__q3wulffCalib.destroy());}catch(error){row.completed=false;fail('arm cleanup',error);}save();}
       console.log('Q3-TRANSLATION-ARM',JSON.stringify({config:row.config,completed:row.completed,equilibrium:row.equilibrium,centroidStable:row.centroidStable}));
     }
-    result.comparisons=[0,.0171].map(epsilon=>{const a=result.cases.find(c=>c.config.epsilon===epsilon&&c.config.centerOffset[0]===0).measurements.at(-1);
-      const b=result.cases.find(c=>c.config.epsilon===epsilon&&c.config.centerOffset[0]===.4).measurements.at(-1);
-      return {epsilon,epsilonEffectiveDifference:b.epsilon-a.epsilon,temperatureDifference:b.temperature-a.temperature,
+    result.comparisons=(grid?CAPILLARY_GRIDS:[{dx:.8,n:96}]).flatMap(({dx,n})=>[0,.0171].map(epsilon=>{
+      const a=result.cases.find(c=>c.config.dx===dx&&c.config.epsilon===epsilon&&c.config.centerOffset[0]===0).measurements.at(-1);
+      const b=result.cases.find(c=>c.config.dx===dx&&c.config.epsilon===epsilon&&c.config.centerOffset[0]===dx/2).measurements.at(-1);
+      return {...(grid?{dx,n}:{}),epsilon,epsilonEffectiveDifference:b.epsilon-a.epsilon,temperatureDifference:b.temperature-a.temperature,
         relativeD0Difference:b.d0Effective/a.d0Effective-1,relativeSupport100Difference:b.h100/a.h100-1,
-        relativeSupport110Difference:b.h110/a.h110-1,note:'paired diagnostic differences, no new fitted coefficient or acceptance band'};});
+        relativeSupport110Difference:b.h110/a.h110-1,note:'paired diagnostic differences, no new fitted coefficient or acceptance band'};}));
   }catch(error){result.exception=error.stack??String(error);}
   finally{
     if(page){
@@ -245,8 +327,8 @@ async function main(out){
     try{result.finalHashes=hashes();result.sourceStable=JSON.stringify(result.sourceHashes)===JSON.stringify(result.finalHashes);
       if(!result.sourceStable)fail('source stability','source changed during diagnostic');}catch(error){fail('source stability',error);}
     Object.assign(result,translationVerdict(result));result.completed=result.executionCompleted;
-    result.status=!result.completed?'four-arm execution evidence failed':result.diagnosticPassed
-      ?'four-arm translation diagnostic complete':'four arms completed with equilibrium or centroid discrepancy';
+    result.status=!result.completed?(grid?'twelve-arm execution evidence failed':'four-arm execution evidence failed'):result.diagnosticPassed
+      ?`${label} diagnostic complete`:(grid?'twelve arms completed with equilibrium or centroid discrepancy':'four arms completed with equilibrium or centroid discrepancy');
     result.finished=new Date().toISOString();save();
   }
   console.log('Q3-TRANSLATION-FINAL',JSON.stringify({completed:result.completed,diagnosticPassed:result.diagnosticPassed,
@@ -255,8 +337,9 @@ async function main(out){
 }
 
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
-  const pos=process.argv.slice(2).filter(a=>!a.startsWith('--')),out=resolve(pos[0]??'verify-out/q3-equilibrium-translation');
-  const path=resolve(out,'translation-result.json');
+  const grid=process.argv.includes('--grid-refinement');
+  const pos=process.argv.slice(2).filter(a=>!a.startsWith('--')),out=resolve(pos[0]??(grid?'verify-out/q3-capillary-grid-refinement':'verify-out/q3-equilibrium-translation'));
+  const path=resolve(out,grid?'capillary-grid-result.json':'translation-result.json');
   try{mkdirSync(out,{recursive:true});writeFileSync(path,JSON.stringify({completed:false,accepted:false,diagnosticPassed:false,
     fullMatrixCompleted:false,q3Accepted:false,status:'preflight pending'},null,2));await main(out);}
   catch(error){let result={};try{result=JSON.parse(readFileSync(path,'utf8'));}catch{}

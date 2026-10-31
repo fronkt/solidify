@@ -5480,3 +5480,38 @@ Q3c remains OPEN. Next independent targets are local-stiffness grid refinement
 with paired lattice phases, and moving-interface kinetic calibration away from
 principal planes (including finite-speed stability). The complete literature
 reference must pass before any quantitative 3D promotion or candidate adoption.
+
+## Capillary grid refinement and oblique kinetics — 2026-10-31
+
+User explicitly requested continuing both remaining investigations. Existing
+reference failures, physical coefficients and ten-percent bands stay preserved;
+the application leaves the lattice-kinetic candidate disabled.
+
+Prospective scope:
+- Capillarity: cross dx/W0 0.8/0.6/0.4 with epsilon 0/0.0171 and offsets
+  0/dx/2 in all axes (12 cases), R20 and physical box76.8 cubed unchanged.
+  Use n96/128/192, fixed horizon1000 and cadence20 with the existing declared
+  step schedule and exact Float32 clock evidence. Hold one prospectively defined
+  physical phase-volume target across meshes and phases. Preserve the unchanged
+  local-curvature estimator, orders/windows, raw data and centroid guards.
+- Kinetics: derive the full rational-plane reduction of the actual 19-point
+  scalar operator, centered gradient, anisotropic correction flux and local tau.
+  Do not substitute a principal-plane constant-a equation at oblique normals.
+  Control100/110/111 and investigate210/211, with321 held out. Independently
+  verify any formal expansion before using it in a correction. Fixed coefficients
+  and signed/default-versus-candidate controls cannot be selected from needle P
+  or sigma. Separate finite-speed dynamics from asymptotic stability.
+- Root owns GPU execution/source freeze and cloud lifecycle. Delegates use CPU
+  only until explicitly assigned otherwise. Cloud work must use existing credit,
+  a bounded owned rental, immutable pushed source, exact-source/raw backup and
+  verified destruction; no credit purchase or pre-existing-instance mutation.
+
+- [x] Review prior evidence, worktree state and relevant lessons; specify the next studies before results.
+- [ ] Implement and independently verify the capillary refinement protocol and unchanged estimator replay.
+- [ ] Derive and independently verify the full oblique operator/formal kinetics; run controlled CPU evidence.
+- [ ] Freeze/push source and run the capillary GPU refinement with strict execution and raw-data evidence.
+- [ ] Verify oblique production-WGSL operator geometry against native 3D; run justified finite-speed controls.
+- [ ] Preserve outcomes/limits and exact sources, verify backup/owned cleanup, update PR and push completed phases.
+
+Review/remaining scientific items will be recorded here after the new evidence;
+neither diagnostic completion nor a formal expansion alone closes Q3.

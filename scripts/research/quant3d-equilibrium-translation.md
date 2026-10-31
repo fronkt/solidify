@@ -78,3 +78,13 @@ support, temperature, epsilon and d0 differences are descriptive; no new physica
 coefficient or accuracy band is inferred. The prior manufactured control covered
 smooth known-geometry normal-distance profiles, and does not bound error for
 evolved lattice-distorted profiles or selected needle sigma.
+
+## Explicit grid-refinement extension
+
+The opt-in `--grid-refinement` mode declares twelve dx/epsilon/half-cell cases
+and one independently checked common physical phase-volume target. It writes
+`capillary-grid-result.json`; the four-arm mode above remains the default.
+See [the prospective grid protocol](./quant3d-capillary-grid.md) for the exact
+geometry, shared target, scaled initialization no-op guard, CPU controls,
+source-contained frozen stiffness replay, and run commands. Neither mode
+changes the original fourteen-case study or establishes Q3 acceptance.
