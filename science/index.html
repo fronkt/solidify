@@ -933,11 +933,16 @@
     the two halves of "the pre-v7 furnace, unchanged"), and the pinned arm must sit on the
     measured law, not merely stop (<code>GG-PIN-LIMIT</code>).
 
-    <b>Cold work drives, but nothing recrystallizes</b> — the sweep budget is bought by the
-    grain-growth law's Arrhenius integral, so this furnace cannot yet price a recrystallization
-    anneal below the grain-growth window: such a schedule buys nearly zero sweeps and nothing
-    happens. Nor is a strain-free nucleus ever planted — stored energy moves the boundaries that
-    already exist, and new grains are not in this milestone. And while the dial is up the Σ3
+    <b>Cold work drives; recrystallization is site-saturated, on the sweep clock</b>. The sweep
+    budget is bought by the grain-growth law's Arrhenius integral, so this furnace cannot yet price
+    a recrystallization anneal below the grain-growth window: such a schedule buys nearly zero
+    sweeps and nothing happens. In the volume, the nuclei dial plants strain-free nuclei after the
+    deposit, all at once, at uniformly random sites, radius 2 cells, stored energy 0; the stored-energy
+    difference alone grows them. A lone nucleus grows only above a bond-count threshold
+    (a radius-2 nucleus first grows at about 12 J_b on this 26-neighbour lattice), so an isolated
+    nucleus can consume only grains deformed past it. The Avrami exponent on the card is fitted on the
+    Monte Carlo sweep clock and is not a real-time exponent. Constant-rate nucleation,
+    boundary-only sites and particle effects on recrystallization are not modeled. And while the dial is up the Σ3
     annealing-twin pass is held back, because a plate allocated GPU-side mid-anneal would inherit
     a work-fabric value belonging to an id nobody had used.
     <b>The hold is isothermal by construction</b>: the solver's temperature field is the as-cast

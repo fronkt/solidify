@@ -478,6 +478,86 @@ try {
     check("RX3-CAST-SELECTION", ok, { per, births: all.length, survivors: surv.length,
       boundaryShare: { allPlaced: +fracAll.toFixed(3), survivors: +fracSurv.toFixed(3) } });
   }
+  // -------------------------------------------------------------------------
+  // RX3-PANEL — the nuclei dial end to end, through the heat treatment panel
+  // on a copper cast (so Sigma-3 twinning exists to be held back): seven
+  // dials; the card's X row and its Avrami n, which must equal avramiFit of
+  // the EXPORTED kinetics columns (the value the reader sees, re-derived from
+  // the figure's own data); both plots shown; the share tuple 7 long with
+  // nuclei and 6 without; and nuclei back at 0 really leaves no event on the
+  // solver after a second run (checked on the sim, not the note).
+  {
+    const out = await page.evaluate(async () => {
+      const S = window.__solidify, R = window.__rx;
+      S.app.setMaterial("cu");
+      await R.cast(0xd1);
+      S.app.startHeat();
+      const panel = document.getElementById("heattreat");
+      if (!panel) return { opened: false };
+      const btn = document.getElementById("htRun");
+      const note = () => document.getElementById("htNote").textContent;
+      for (let i = 0; i < 40 && /waiting/.test(note()); i++) await new Promise(r => setTimeout(r, 100));
+      const dials = panel.querySelectorAll('input[type="range"]');
+      const set = (i, v) => { dials[i].value = String(v); dials[i].dispatchEvent(new Event("input", { bubbles: true })); };
+      const sweepsOf = s => parseInt((s.match(/([\d,]+) MC sweeps/) ?? [])[1]?.replace(/,/g, "") ?? "0", 10);
+      set(5, 8);                       // cold work, 8 J_b mean (0-16 across grains)
+      set(6, 200);                     // nuclei
+      // a hold long enough for a few dozen sweeps
+      for (const m of [30, 60, 120, 240, 480]) {
+        set(1, m);
+        for (let i = 0; i < 30 && btn.disabled; i++) await new Promise(r => setTimeout(r, 100));
+        if (sweepsOf(note()) >= 40) break;
+      }
+      const setupWith = S.heat.setup();
+      const cardAt = () => document.getElementById("htReport").innerHTML;
+      const runOnce = async () => {
+        const was = cardAt();
+        btn.click();
+        for (let i = 0; i < 100 && !S.heat.busy; i++) await new Promise(r => setTimeout(r, 50));
+        for (let i = 0; i < 1500 && S.heat.busy; i++) await new Promise(r => setTimeout(r, 100));
+        for (let i = 0; i < 100 && cardAt() === was; i++) await new Promise(r => setTimeout(r, 100));
+        return document.getElementById("htReport").textContent.replace(/\s+/g, " ");
+      };
+      const report = await runOnce();
+      const figs = S.heat.exportFigures();
+      const kin = figs.find(f => f.title === "Recrystallization kinetics");
+      const av = figs.find(f => f.title === "Avrami plot");
+      const col = (f, k) => f?.columns.find(c => c.key === k)?.values ?? [];
+      const plotsShown = getComputedStyle(panel.querySelector(".rxplots")).display !== "none";
+      const rangeAfter = S.sim3d().rxRange;
+      // nuclei back to 0, run again
+      set(6, 0);
+      const setupWithout = S.heat.setup();
+      for (let i = 0; i < 30 && btn.disabled; i++) await new Promise(r => setTimeout(r, 100));
+      const report2 = await runOnce();
+      const out = {
+        opened: true, dialCount: dials.length, sweeps: sweepsOf(note()), report: report.slice(0, 900),
+        S: col(kin, "sweeps"), X: col(kin, "recrystallized_fraction"), avPoints: col(av, "ln_sweeps").length,
+        plotsShown, rangeAfter, setupWithLen: setupWith.length, setupWithoutLen: setupWithout.length,
+        rangeAfterZero: S.sim3d().rxRange, rowGone: !/recrystallized X/.test(report2),
+        plotsHiddenAfter: getComputedStyle(panel.querySelector(".rxplots")).display === "none",
+        figsAfter: S.heat.exportFigures().map(f => f.title),
+      };
+      S.heat.close();
+      return out;
+    });
+    let cardN = null, refitN = null, refused = null;
+    if (out.opened) {
+      const m = out.report.match(/Avrami n\s+([\d.]+)/);
+      cardN = m ? Number(m[1]) : null;
+      const x0 = out.X[0] ?? 0;
+      const fit = RX.avramiFit(out.S.slice(1), out.X.slice(1), RX.AVRAMI_WINDOW, x0);
+      refitN = "why" in fit ? null : Number(fit.n.toFixed(2));
+      refused = "why" in fit;
+    }
+    const xRow = /recrystallized X \d\.\d\d after [\d,]+ MC sweeps/.test(out.report ?? "");
+    const nAgrees = refused ? cardN === null : cardN !== null && cardN === refitN;
+    const ok = out.opened && out.dialCount === 7 && xRow && nAgrees && out.plotsShown && out.avPoints >= (refused ? 0 : 4)
+      && out.rangeAfter && out.setupWithLen === 7 && out.setupWithoutLen === 6 && out.rangeAfterZero === null
+      && out.rowGone && out.plotsHiddenAfter && !out.figsAfter.includes("Recrystallization kinetics")
+      && /held back/.test(out.report ?? "");
+    check("RX3-PANEL", ok, { ...out, report: (out.report ?? "").slice(0, 300), S: out.S?.length, X: undefined, cardN, refitN, refused, xRow });
+  }
 } catch (e) {
   console.log("RX3 harness error", String(e?.stack ?? e));
   FAIL();

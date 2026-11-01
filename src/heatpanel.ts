@@ -39,7 +39,7 @@ import type { Figure } from "./plot/figures";
 import type { PlotMeta, Prov } from "./plot/csv";
 import { PlotView } from "./plot/view";
 import { openFigure, type FigureHandle } from "./plot/modal";
-import { heatTrajectory, heatProcessFigure, equivalentHeatTime, type HeatPoint, type HeatMeasurement } from "./plot/process";
+import { heatTrajectory, heatProcessFigure, equivalentHeatTime, recrystallizationFigure, avramiFigure, type HeatPoint, type HeatMeasurement } from "./plot/process";
 import { HOMOG_D2 } from "./shaders";
 import { HOMOG_D3, NUCLEUS_R_3D } from "./shaders3d";
 import { avramiFit, sweepSchedule, AVRAMI_WINDOW } from "./recrystallize";
@@ -337,13 +337,18 @@ export class HeatPanel {
   private processPlot: PlotView | null = null;
   private processModal: FigureHandle | null = null;
   private processFigure: Figure | null = null;
+  // C3b: the last treatment's recrystallization kinetics and Avrami plot
+  private rxPlots: PlotView[] = [];
+  private rxBox: HTMLElement | null = null;
+  private rxFigures: Figure[] = [];
+  private rxModal: FigureHandle | null = null;
   private recordedProcessFigure: Figure | null = null;
   private showRunProcess = false;
 
   /** The most recent treatment keeps its original material and furnace clock. */
   exportFigures(): Figure[] {
     const figure = this.recordedProcessFigure ?? this.processFigure;
-    return figure ? [figure] : [];
+    return [...(figure ? [figure] : []), ...this.rxFigures];
   }
 
   private paintProcess(f: Figure) {
@@ -731,7 +736,23 @@ export class HeatPanel {
       this.processModal = openFigure(() => this.processFigure!);
     } });
     form.addEventListener("input", () => { if (!this.busy) { this.showRunProcess = false; this.previewProcess(); } });
-    p.append(head, ex.body, form, caveat, note, row, chart, report);
+    // C3b: two compact plots, shown only after a treatment with nuclei
+    const rxBox = document.createElement("div");
+    rxBox.className = "rxplots";
+    rxBox.style.cssText = "display:none;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;width:100%;min-width:0";
+    this.rxPlots = ["Recrystallization kinetics", "Avrami plot"].map((label, i) => {
+      const c = document.createElement("div");
+      c.style.cssText = "width:100%;height:220px;min-width:0";
+      rxBox.append(c);
+      return new PlotView(c, { id: `htRxPlot${i}`, label: `${label}; open figure and data`, onOpen: () => {
+        const f = this.rxFigures[i];
+        if (!f) return;
+        this.rxModal?.close();
+        this.rxModal = openFigure(() => this.rxFigures[i] ?? f);
+      } });
+    });
+    this.rxBox = rxBox;
+    p.append(head, ex.body, form, caveat, note, row, chart, rxBox, report);
     document.getElementById("app")!.append(p);
     this.panel = p;
     this.noteEl = note;
@@ -1251,6 +1272,8 @@ export class HeatPanel {
     // C3b's rows, after the cold work's, so a card without nuclei is byte-what
     // it was. X is a raw voxel ratio over the event's ids; n is fitted on the
     // MONTE CARLO SWEEP clock and is never a real-time exponent.
+    // a treatment without nuclei leaves no recrystallization plots behind
+    if (!(plan.rx && rx && !("why" in rx.event))) { this.rxFigures = []; if (this.rxBox) this.rxBox.style.display = "none"; }
     if (plan.rx && rx) {
       const rxEvent = rx.event, rxS = rx.S, rxX = rx.X, rxX0 = rx.x0;
       if ("why" in rxEvent) rows.push(kv("recrystallized", warnLine(rxEvent.why)));
@@ -1259,6 +1282,10 @@ export class HeatPanel {
         rows.push(kv("recrystallized", `X ${strong(xEnd.toFixed(2))} after ${delivered.toLocaleString()} MC sweeps `
           + dim(`· ${rxEvent.placed} of ${rxEvent.requested} nuclei placed (ids ${rxEvent.lo}–${rxEvent.hi}), r ${NUCLEUS_R_3D} cells, 0 J_b`)));
         const fit = avramiFit(rxS, rxX, AVRAMI_WINDOW, rxX0);
+        const prov = this.host.meta(), b = bridgeOf(this.host.units(), prov.material);
+        this.rxFigures = [recrystallizationFigure(rxS, rxX, rxX0, b, prov), avramiFigure(rxS, rxX, "why" in fit ? null : fit, b, prov)];
+        this.rxFigures.forEach((f, i) => this.rxPlots[i]?.set(f.fig));
+        if (this.rxBox) this.rxBox.style.display = "grid";
         rows.push("why" in fit
           ? kv("Avrami n", dim(fit.why))
           : kv("Avrami n", `${strong(fit.n.toFixed(2))} `
