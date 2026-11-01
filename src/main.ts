@@ -1919,7 +1919,17 @@ async function boot() {
     fps: () => fps,
     stl: () => exportSTL(false),
     exportRun: () => exportRun(false),
-    tick(k: number) { for (let i = 0; i < k; i++) frameBody(last + 1000 / 60); },
+    // k frames in one task (so only the first two may step: the solvers skip
+    // while two submits are in flight), then wait for the GPU to drain what
+    // they submitted, so the next call steps again. Callers used to sleep a
+    // fixed time instead, which made the physics delivered per call depend on
+    // how fast the GPU cleared the frames' renders.
+    async tick(k: number) {
+      for (let i = 0; i < k; i++) frameBody(last + 1000 / 60);
+      const dev = mode === "3d" && sim3d ? sim3d.device : sim.device;
+      await dev.queue.onSubmittedWorkDone();
+      await new Promise(r => setTimeout(r, 0));
+    },
     units: () => unitsNow(),
     calibrate: (lambda: number) => calibrationFor(lambda, mode === "3d"),
     setSolver: (kind: number, lambda?: number) => mode === "3d" ? setSolver3(kind, lambda) : setSolver(kind, lambda),
