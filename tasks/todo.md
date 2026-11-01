@@ -5593,9 +5593,9 @@ carries the unreleased Q3 integration, so shipping it is a separate decision.
 One GPU owner at a time: no browser/GPU checks here while the merge suite runs.
 
 Plan and acceptance:
-- [ ] P0 Merge PR4: full 39-script suite passes on frozen 1a988f6, push the
+- [x] P0 Merge PR4: full 39-script suite passes on frozen 1a988f6, push the
       merge, CI green, merge PR4 into v7-experiments.
-- [ ] V1 Studio lighting (render-only; no solver file changes): ambient
+- [x] V1 Studio lighting (render-only; no solver file changes): ambient
       occlusion from phi along the normal, procedural studio environment with
       Fresnel reflection for the default steel surface, soft-clipped highlights,
       and a clearer melt (glow concentrated in the thermal halo, lower
@@ -5608,10 +5608,10 @@ Plan and acceptance:
       within 15% of the pre-change build at the same camera/state; photo mode
       converges and resets correctly; every lens screenshot inspected; export
       PNG and webm recording still work.
-- [ ] V2 3D first view: within 5 s of entering 3D the seed reads as a lit metal
+- [x] V2 3D first view: within 5 s of entering 3D the seed reads as a lit metal
       crystal against the melt (measured luminance contrast between crystal and
       surrounding melt pixels, before vs after), no camera auto-motion.
-- [ ] V3 Time scrubber (2D first, then 3D): rebuild the solid at an earlier time
+- [x] V3 Time scrubber (2D first, then 3D): rebuild the solid at an earlier time
       t from each cell's stored freeze time; transport timeline control; hover
       on time-axis plots sets t. Scope: solid footprint and grains only.
       Refused (visible reason) after remelt, reheat, heat treatment or anneal.
@@ -5619,7 +5619,7 @@ Plan and acceptance:
       (IoU >= 0.99); scrub at earlier times matches masks captured live at those
       times in a deterministic run (IoU >= 0.97); scrubbing never mutates the
       field (state hash unchanged); refusal path exercised.
-- [ ] V4 Grain isolate (3D): a modifier-click picks the grain under the cursor;
+- [x] V4 Grain isolate (3D): a modifier-click picks the grain under the cursor;
       other grains ghost; readout of voxel volume (um^3 when SI), equivalent
       sphere diameter and orientation. Accept: picked id equals an independent
       CPU raycast over read-back fields; volume equals the census count.
@@ -5631,3 +5631,48 @@ Plan and acceptance:
       flow-off identity; honest scope (no freckles in slice 1).
 - [ ] Final: full suite from a frozen source, independent review, explicit-path
       commits, push each phase.
+
+### Progress and evidence (2026-11-01)
+
+- P0: merge 1a988f6 passed all 39 registered scripts in one run with a frozen
+  checkout (`verify-out/merge-full-suite-1a988f6.log`, SUITE EXIT=0; a first
+  attempt in a worktree whose node_modules was a junction stopped at the hero
+  test on Vite's fs.allow 403 for fonts: environment, not code). Pushed; PR4 CI
+  green; PR4 merged into v7-experiments as e97129c. Production untouched.
+- V1-V4 (`verify-visual-gpu.mjs`, all 7 gates): every 3D lens with the studio
+  look on and off and every 2D lens while replaying compile and render with zero
+  console errors; photo mode reaches its 48-sample cap and restarts on a camera
+  move; render-only cost 6.6 -> 7.8 ms (one run) and 8.3 -> 11.3 ms (another) at
+  128^3, running fps unchanged but at the 60 Hz cap, so not discriminating;
+  2D replay masks equal masks captured live at three times (IoU 1.0, after the
+  f32 test fix in lessons.md); replay never changes the field; the reheat
+  refusal disables the strip with its reason; the 3D replay renders and never
+  changes the field; 26/26 GPU picks equal an independent Amanatides-Woo
+  traversal; alt-tap isolation's volume equals a raw recount (56022 voxels).
+- V2 contrast, default 3D entry at 9 s, same frame: crystal-to-melt luminance
+  ratio 11.2 with the studio look vs 4.3 without (crystal 52 vs 27 of 255).
+  Auto-orbit stays off per Frank's v3.0 decision.
+- Look tuning after screenshots: melt emission now scales with the lowered
+  absorption (a uniformly hot melt saturates no brighter than the original),
+  and studio reflections fade on incandescent metal (hot castings no longer
+  blow out to white).
+- C3b-0 (`verify-recrystallize-gpu.mjs`, all 6 gates; `verify-recrystallize.mjs`
+  4 CPU gates): the bond counter reproduces the cited triangular thresholds
+  4/2/2 and the 26-neighbour flat front 8; the GPU ladder puts the r = 2
+  nucleus's first growth at H = 12 (the bond count's grow threshold), r = 3 at 8,
+  r = 1 at 20; uniform stored energy is bit-identical to none; the census X
+  equals an independent recount (44037 voxels); sampling inside a treatment is
+  bit-identical to none. NUCLEUS_R_3D = 2 stands as measured.
+- C3b-2 (minimal): a "nuclei" dial (7th, 3D) nucleates after the deposit, X(S)
+  is sampled on a log schedule inside one treatment, the card reports X and the
+  sweep-clock Avrami n or its refusal; share links carry a 7th element only when
+  dialled. GPU acceptance of the panel path (G8) and the pre-registered G5/G7
+  remain OPEN; figures and the "not modeled" copy updates wait for them.
+- D3.0 (`verify-flow.mjs`, 4 gates): the drag constant derived from the planar
+  shear ODE on this repo's profile is 2.7571 (Tong et al. 2.757), h = 2 misses
+  by -0.164 W; the 2D Ivantsov limit gives P = 0.2569 at Delta 0.55.
+- D3.1 (`verify-flow-gpu.mjs`, 3 gates): standalone D2Q9 TRT solver. Shear-wave
+  viscosity 0.0999885 vs 0.1; drag profile vs an independent CPU solve within
+  0.05 % of peak at tau 10.4 (no-drag arm off by 35x); free stream uniform to
+  1.5e-5. Coupling into transport (D3.2, the Tong benchmark) and the FLOW lens
+  and UI (D3.3) remain OPEN.

@@ -747,3 +747,29 @@ verified LF/CRLF representation; no result or scientific source was altered.
 commit archive. If reconstruction is necessary, verify the reconstructed bytes
 against every original hash and label the representation. Keep generated shader
 hashes as a separate model-provenance check.
+
+## Compare in the precision the GPU stored
+
+The 2D replay gate first failed (IoU 0.966 against a pre-registered 0.97). The
+first hypothesis, interface flicker re-stamping the freeze time, was wrong:
+classifying the disagreeing cells showed every one was an EXTRA replay cell, the
+same count with noise off, about one batch of growth. The CPU check compared the
+f32 age against the double capture time; f32(0.144) sits below the double, so
+the batch that starts exactly at the capture passed `age < t`. The GPU compares
+f32 to f32 and was right all along; with `Math.fround(t)` the IoU is 1.0.
+
+**Rule.** A CPU reference for a GPU float rule compares in the GPU's stored
+precision (Math.fround the threshold). Before explaining a mismatch, classify
+it (missing vs extra, near what, with which control off) and let the counts
+pick the hypothesis.
+
+## A centroid is not the centre of a clipped shape
+
+The nucleus-stamp gate bounded every nucleus's voxels within r of their
+centroid; a sphere clipped by the liquid slab or a domain face has its centroid
+pulled away from the clip, so a correct stamp read 2.06 > 2. The property meant
+was containment in the digital sphere about the GENERATING centre.
+
+**Rule.** Check geometric containment against the known generator (place
+fixtures at explicit centres when the production path draws them at random),
+and include clipped cases on purpose so the check sees the edge it is about.
