@@ -990,7 +990,16 @@ async function boot() {
     syncUI() { ui.sync(); },
     reveal(target) {
       if (target.startsWith("sec:")) ui.reveal(target.slice(4));
-      else document.querySelectorAll(target).forEach(el => el.classList.add("hl"));
+      else {
+        // the head plate and the plots fold by default: a tour step that
+        // points at one opens it through its own button, so the step shows
+        // what its sentence names (and the button's state stays true)
+        if (target === "#head" && !document.body.classList.contains("headOpen"))
+          document.getElementById("headToggle")?.click();
+        if (target === "#hud" && !document.body.classList.contains("plotsOpen"))
+          document.getElementById("plotsToggle")?.click();
+        document.querySelectorAll(target).forEach(el => el.classList.add("hl"));
+      }
     },
     clearReveals() {
       document.querySelectorAll(".hl").forEach(el => el.classList.remove("hl"));

@@ -236,8 +236,13 @@ export class UI {
     const rail = document.getElementById("rail")!;
     this.setRailHidden(innerWidth - rail.offsetWidth < RAIL_ROOM);
     addEventListener("resize", () => this.railRoom(true));
-    document.getElementById("readoutsToggle")!.addEventListener("click", () => {
-      document.body.classList.toggle("readoutsOpen");
+    // the head plate folds to its wordmark and chevron by default, on every
+    // screen; the viewer's choice is remembered (a per-viewer convenience)
+    document.body.classList.toggle("headOpen", storeGet("sol.head") === "1");
+    document.getElementById("headToggle")!.addEventListener("click", () => {
+      const open = !document.body.classList.contains("headOpen");
+      document.body.classList.toggle("headOpen", open);
+      storeSet("sol.head", open ? "1" : "0");
       this.readingsState();
       this.placeAnalysis();
     });
@@ -285,10 +290,16 @@ export class UI {
     this.placeAnalysis();
   }
 
+  /** the chevron's state: expanded or not, and marked while the melt
+   *  carries a caveat the folded plate would otherwise hide */
   private readingsState() {
-    const compact = innerHeight <= 600 || (innerWidth <= 380 && innerHeight <= 740);
-    document.getElementById("readoutsToggle")!.setAttribute("aria-expanded",
-      String(!compact || document.body.classList.contains("readoutsOpen")));
+    const open = document.body.classList.contains("headOpen");
+    const t = document.getElementById("headToggle")!;
+    const warn = (document.getElementById("matcaveat")!.textContent ?? "").trim().length > 0;
+    t.setAttribute("aria-expanded", String(open));
+    t.setAttribute("aria-label", (open ? "hide the live readings" : "show the live readings")
+      + (warn && !open ? " (the melt has a caveat)" : ""));
+    t.classList.toggle("warn", warn && !open);
   }
 
   private placeAnalysis() {
@@ -1188,6 +1199,7 @@ export class UI {
     const cav = document.getElementById("matcaveat")!;
     cav.textContent = caveats.join(" · ");
     cav.style.display = caveats.length ? "block" : "none";
+    this.readingsState();
     const grids = [512, 1024, 2048];
     this.gridBtns.forEach((b, i) => setPressed(b, grids[i] === host.getGrid()));
 

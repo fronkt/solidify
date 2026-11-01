@@ -193,6 +193,13 @@ const page = await browser.newPage();
 const errors = [];
 page.on("pageerror", e => errors.push(String(e)));
 page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
+// The head plate and the plots fold by default (ui.ts headState, hud.ts
+// mkBar). This page opens both before boot, so every layout gate below
+// measures the MOST crowded chrome: the full plate, its readouts, and the
+// cards. The folded defaults are VIS-DECLUTTER's (verify-visual-gpu.mjs).
+await page.evaluateOnNewDocument(() => {
+  try { localStorage.setItem("sol.head", "1"); localStorage.setItem("sol.plots", "1"); } catch { /* no storage */ }
+});
 
 await page.goto(`http://localhost:${PORT}/app/`, { waitUntil: "networkidle0", timeout: 30000 });
 try { await page.waitForFunction("!!window.__solidify", { timeout: 15000 }); }
@@ -1032,19 +1039,22 @@ async function samplePhone(mode, columns) {
   for (const vp of [PHONE, [390, 540], [844, 390], [360, 640], [320, 568]]) {
     await setVP(...vp);
     if (vp[1] <= 600 || (vp[0] <= 380 && vp[1] <= 740)) {
+      // this page boots with the plate open: fold it, then the gate is the one
+      // it always was: a folded plate offers a reachable chevron that opens
+      // the readings (and the page is left open for the gates after this)
+      await page.click("#headToggle");
+      await settle();
       const before = await S(() => {
-        const b = document.getElementById("readoutsToggle"), r = b.getBoundingClientRect();
+        const b = document.getElementById("headToggle"), r = b.getBoundingClientRect();
         const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
         return { reachable: at === b || b.contains(at), expanded: b.getAttribute("aria-expanded"),
           target: b.getAttribute("aria-controls"), readings: window.__railProbe.vis(document.getElementById("readouts")) };
       });
-      await page.click("#readoutsToggle");
+      await page.click("#headToggle");
       await settle();
-      const expanded = await S(() => ({ aria: document.getElementById("readoutsToggle").getAttribute("aria-expanded"),
+      const expanded = await S(() => ({ aria: document.getElementById("headToggle").getAttribute("aria-expanded"),
         readings: window.__railProbe.vis(document.getElementById("readouts")), text: document.getElementById("readouts").textContent.length }));
       await page.screenshot({ path: `${OUT}/phone-${mode}-${vp.join("x")}-readings-expanded.png` });
-      await page.click("#readoutsToggle");
-      await settle();
       phoneDisclosures.push({ mode, vp: vp.join("x"), before, expanded });
     }
     for (const [lens, legend] of [[2, "scalebar"], [mode === "3d" ? 6 : 5, "thermbar"], [mode === "3d" ? 4 : 6, "sembar"]]) {
@@ -1896,7 +1906,7 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
       : s.rail === "hidden" && s.panel && s.top.includes("tourBtn");
   const phoneBad = phoneSamples.filter(s => s.hits.length || s.clash.length || !phoneLive(s))
     .map(s => ({ mode: s.mode, what: s.what, vp: s.vp, rail: s.rail, panel: s.panel, hits: s.hits.slice(0, 3), clash: s.clash.slice(0, 3), top: s.top }));
-  const disclosureBad = phoneDisclosures.filter(s => !s.before.reachable || s.before.target !== "readouts"
+  const disclosureBad = phoneDisclosures.filter(s => !s.before.reachable || s.before.target !== "headBody"
     || s.before.expanded !== "false" || s.before.readings || s.expanded.aria !== "true" || !s.expanded.readings || s.expanded.text < 10);
   const slidersMeasured = audits.reduce((n, p) => n + p.sliders.length, 0);
   // Liveness for the learn-on half (v8 U1b review): every mode panel opened

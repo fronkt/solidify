@@ -10,6 +10,7 @@ import {
 } from "./plot/figures";
 import { openFigure, type FigureHandle } from "./plot/modal";
 import { paintRange } from "./design/tool";
+import { storeGet, storeSet } from "./learn";
 import type { PlotMeta, Prov } from "./plot/csv";
 
 /** what a figure's provenance names (plot/csv.ts; re-exported for the hosts) */
@@ -100,6 +101,10 @@ export class Hud {
   private rpKey = "";
 
   constructor(private root: HTMLElement, private host: HudHost) {
+    // FIRST child: #hud wraps in reverse, so the first item is the BOTTOM
+    // row. The plots pill opens the cards (and, paused, the replay) above it;
+    // folded by default so the plots do not frame the specimen
+    this.mkBar();
     this.cards = {
       fs: this.mkCard("fs"), dt: this.mkCard("dt"), grains: this.mkCard("grains"), hist: this.mkCard("hist"),
     } as Record<CardKey, Card>;
@@ -167,21 +172,44 @@ export class Hud {
     return card;
   }
 
-  /** the replay strip: a plate across the top of the card row */
+  /** the plots pill: the row under the cards that opens and folds them */
+  private mkBar() {
+    const bar = document.createElement("div");
+    bar.className = "hudbar";
+    const b = document.createElement("button");
+    b.id = "plotsToggle";
+    b.type = "button";
+    b.className = "backed";
+    b.innerHTML = `plots <span aria-hidden="true">▴</span>`;
+    const apply = (open: boolean) => {
+      document.body.classList.toggle("plotsOpen", open);
+      b.setAttribute("aria-expanded", String(open));
+      b.setAttribute("aria-label", open ? "hide the plots" : "show the plots");
+    };
+    apply(storeGet("sol.plots") === "1");
+    b.addEventListener("click", () => {
+      const open = !document.body.classList.contains("plotsOpen");
+      storeSet("sol.plots", open ? "1" : "0");
+      apply(open);
+    });
+    bar.append(b);
+    this.root.append(bar);
+  }
+
+  /** the replay strip: one line across the top of the card row */
   private mkReplay() {
     const box = document.createElement("div");
     box.className = "replay plate";
     box.setAttribute("role", "group");
     box.setAttribute("aria-label", "replay the solid");
     box.hidden = true;
-    const head = document.createElement("div");
-    head.className = "t";
+    const row = document.createElement("div");
+    row.className = "replay__row";
     const name = document.createElement("span");
     name.className = "t__name";
     name.textContent = "REPLAY";
     const val = document.createElement("span");
     val.className = "t__val";
-    head.append(name, val);
     const input = document.createElement("input");
     input.type = "range";
     input.min = "0";
@@ -189,22 +217,24 @@ export class Hud {
     input.step = "1";
     input.value = String(REPLAY_STEPS);
     input.setAttribute("aria-label", "replay time");
+    input.title = "Rewind the solid from each cell's stored freeze time. Temperature and solute "
+      + "were never stored, so the melt shows its far-field values.";
     input.addEventListener("input", () => {
       const s = this.host.replay?.();
       if (!s || !this.host.scrub) return;
       this.host.scrub((Number(input.value) / REPLAY_STEPS) * s.now);
     });
-    const foot = document.createElement("div");
-    foot.className = "r";
-    const note = document.createElement("span");
-    note.className = "r__range";
     const live = document.createElement("button");
     live.type = "button";
     live.className = "replay__live";
     live.textContent = "live";
     live.addEventListener("click", () => this.host.scrub?.(null));
-    foot.append(note, live);
-    box.append(head, input, foot);
+    row.append(name, input, val, live);
+    // a second line only when there is something to say: why the history
+    // cannot be replayed, or that nothing has frozen yet
+    const note = document.createElement("div");
+    note.className = "replay__why";
+    box.append(row, note);
     this.root.append(box);
     return { box, val, input, note, live };
   }
@@ -225,9 +255,7 @@ export class Hud {
     paintRange(r.input);   // a value set from script repaints its own fill
     r.val.textContent = t == null ? "now" : s.label(t);
     r.live.hidden = t == null;
-    r.note.textContent = s.reason ?? (s.now > 0
-      ? (t == null ? "drag to rewind the solid" : "solid and grains then; melt shown at far-field values")
-      : "nothing has frozen yet");
+    r.note.textContent = s.reason ?? (s.now > 0 ? "" : "nothing has frozen yet");
     r.input.setAttribute("aria-valuetext", t == null ? "now" : s.label(t));
     const was = this.playhead;
     this.playhead = s.paused ? t : null;

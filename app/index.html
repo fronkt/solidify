@@ -147,7 +147,19 @@
     #matline { margin-top: var(--s-2); color: var(--fg-2); overflow-wrap: anywhere; }
     #matcaveat { display: none; margin-top: var(--s-1); font-size: var(--t-ui-min); line-height: 1.4; overflow-wrap: anywhere; }
     #readouts { margin-top: var(--s-3); }
-    #readoutsToggle { display: none; pointer-events: auto; margin-top: var(--s-2); }
+    /* folded (the default, every screen): only the wordmark and its chevron,
+       on a plate that shrinks to them. Open (body.headOpen): the plate as it
+       was. A caveat on the melt marks the chevron, so folding never hides a
+       warning without a trace (ui.ts headState) */
+    .headbar { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
+    #headToggle { pointer-events: auto; position: relative; flex: none; width: 28px; height: 24px; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+    #headToggle span { display: inline-block; transition: transform 0.2s ease; }
+    body.headOpen #headToggle span { transform: rotate(180deg); }
+    #headToggle.warn::after { content: ""; position: absolute; top: 2px; right: 2px; width: 6px; height: 6px;
+      border-radius: 50%; background: var(--fg); }
+    body:not(.headOpen) #head { width: auto; padding: var(--s-2) var(--s-2) var(--s-2) var(--s-3); }
+    body:not(.headOpen) #headBody { display: none; }
 
     /* ---- the rail */
     /* overflow-wrap: anywhere lets no word, value or source string set a
@@ -410,16 +422,23 @@
        last item of #hud, which wraps in reverse, so it is the TOP row, over
        the sparklines it scrubs. Shown only while paused; it folds and hides
        with the cards (same container), so it adds no new layout band */
-    .replay { flex: 0 0 100%; box-sizing: border-box; padding: var(--s-2) var(--s-2) 6px; pointer-events: auto; }
+    .replay { flex: 0 0 100%; box-sizing: border-box; padding: 6px var(--s-2); pointer-events: auto; }
     .replay[hidden] { display: none; }
-    .replay .t { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2); height: 12px; margin-bottom: 4px; white-space: nowrap; }
-    .replay .t__name { font: 400 var(--t-nav-tool)/12px var(--font-display); letter-spacing: var(--track-nav); color: var(--fg-3); }
-    .replay .t__val { font: 400 var(--t-value-tool)/12px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg); }
-    .replay input[type="range"] { display: block; width: 100%; min-width: 0; margin: 0; }
-    .replay .r { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2); margin-top: 4px;
-      font: 400 var(--t-tick)/14px var(--font-body); color: var(--fg-3); }
-    .replay .r__range { min-width: 0; }
+    .replay__row { display: flex; align-items: center; gap: var(--s-2); white-space: nowrap; }
+    .replay .t__name { flex: none; font: 400 var(--t-nav-tool)/12px var(--font-display); letter-spacing: var(--track-nav); color: var(--fg-3); }
+    .replay .t__val { flex: none; font: 400 var(--t-value-tool)/12px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg); }
+    .replay input[type="range"] { flex: 1 1 auto; width: auto; min-width: 0; margin: 0; }
+    .replay__why { margin-top: 4px; font: 400 var(--t-tick)/14px var(--font-body); color: var(--fg-3); }
+    .replay__why:empty { display: none; }
     .replay__live { flex: none; padding: 0 var(--s-2); height: 20px; }
+    /* the plots pill (src/hud.ts mkBar): the FIRST child of #hud, so wrap-
+       reverse puts it on the bottom row; the cards and the replay show above
+       it only while body.plotsOpen */
+    .hudbar { flex: 0 0 100%; display: flex; justify-content: flex-end; pointer-events: none; }
+    #plotsToggle { pointer-events: auto; display: inline-flex; align-items: center; gap: 6px; }
+    #plotsToggle span { display: inline-block; transition: transform 0.2s ease; }
+    body.plotsOpen #plotsToggle span { transform: rotate(180deg); }
+    body:not(.plotsOpen) #hud > .spark, body:not(.plotsOpen) #hud > .replay { display: none; }
     /* the global button rule sets display, which beats the UA [hidden] rule */
     .replay__live[hidden] { display: none; }
 
@@ -535,10 +554,6 @@
     }
     @media (max-height: 600px), (max-width: 380px) and (max-height: 740px) {
       #thermbar { height: 72px; }
-      /* The live readings remain one click away on a short screen. Folding
-         them frees room for the measurement columns and their legends. */
-      #readoutsToggle { display: block; }
-      body:not(.readoutsOpen) #readouts { display: none; }
     }
     /* the container passes clicks through to the melt; the panels themselves
        are interactive (the ⤢ enlarge button must win over tap-to-seed) */
@@ -895,13 +910,19 @@
   <div id="app">
     <canvas id="canvas"></canvas>
     <div id="head" class="plate">
-      <h1><a href="../">SOLIDIFY</a></h1>
-      <div class="sub t-nav-tool">phase-field solidification · live</div>
-      <div id="matline"></div>
-      <div id="matcaveat" class="status--warn"></div>
-      <button id="readoutsToggle" type="button" aria-controls="readouts" aria-expanded="false">live readings</button>
-      <!-- the live readouts: a spec rail on the same plate (ui.ts setReadouts) -->
-      <div id="readouts" class="spec spec--tool"></div>
+      <!-- the wordmark (home) and the chevron that opens the plate; folded by
+           default so the plate does not cover the specimen (ui.ts headState) -->
+      <div class="headbar">
+        <h1><a href="../">SOLIDIFY</a></h1>
+        <button id="headToggle" type="button" aria-controls="headBody" aria-expanded="false" aria-label="show the live readings"><span aria-hidden="true">▾</span></button>
+      </div>
+      <div id="headBody">
+        <div class="sub t-nav-tool">phase-field solidification · live</div>
+        <div id="matline"></div>
+        <div id="matcaveat" class="status--warn"></div>
+        <!-- the live readouts: a spec rail on the same plate (ui.ts setReadouts) -->
+        <div id="readouts" class="spec spec--tool"></div>
+      </div>
     </div>
     <div id="views" class="plate tabs tabs--pill tabs--tool" role="group" aria-label="lens"></div>
     <div id="transport" class="plate plate--pill"></div>

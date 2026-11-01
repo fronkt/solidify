@@ -18,6 +18,11 @@ import { closeBrowser } from "./browser-cleanup.mjs";
 //                      reason, and a replay request is refused.
 //   VIS-REPLAY-3D      the 3D replay renders, never changes the field, and a
 //                      replay frame differs from live at an early time.
+//   VIS-DECLUTTER      on a fresh page the head plate and the plots are folded
+//                      (only the wordmark, its chevron and the plots pill);
+//                      each opens and folds from its own button, the choice
+//                      survives a reload, and a caveat on the melt marks the
+//                      folded chevron so a warning is never hidden silently.
 //   VIS-PICK           GPU picks equal an independent CPU voxel traversal of the
 //                      same camera ray (>= 90 % of solid-hitting pixels: the GPU
 //                      samples at half-voxel steps and can skip a voxel a ray
@@ -54,8 +59,48 @@ page.on("console", m => {
 });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const shot = async name => page.screenshot({ path: `${OUT}/visual-${name}.png` });
+// this page measures the open chrome (the strip lives in the plots, the
+// isolation rows in the head plate); the folded defaults are VIS-DECLUTTER's
+await page.evaluateOnNewDocument(() => {
+  try { localStorage.setItem("sol.head", "1"); localStorage.setItem("sol.plots", "1"); } catch { /* no storage */ }
+});
 
 try {
+  // -------------------------------------------------------------------------
+  // VIS-DECLUTTER, on its own fresh page (no stored choices)
+  {
+    const p2 = await browser.newPage();
+    await p2.setViewport({ width: 1440, height: 900 });
+    await p2.goto(`http://localhost:${PORT}/app/`, { waitUntil: "networkidle0", timeout: 30000 });
+    await p2.waitForFunction("!!window.__solidify", { timeout: 20000 });
+    await sleep(500);
+    const vis = sel => p2.evaluate(q => { const e = document.querySelector(q); if (!e) return null; const r = e.getBoundingClientRect(); return getComputedStyle(e).display !== "none" && r.width > 0 && r.height > 0; }, sel);
+    const fresh = { headBody: await vis("#headBody"), chevron: await vis("#headToggle"), cards: await vis("#hud .spark"), pill: await vis("#plotsToggle"),
+      headW: await p2.evaluate(() => Math.round(document.getElementById("head").getBoundingClientRect().width)) };
+    await p2.click("#headToggle"); await sleep(150);
+    await p2.click("#plotsToggle"); await sleep(150);
+    const opened = { headBody: await vis("#headBody"), cards: await vis("#hud .spark"),
+      aria: await p2.evaluate(() => [document.getElementById("headToggle").getAttribute("aria-expanded"), document.getElementById("plotsToggle").getAttribute("aria-expanded")]) };
+    await p2.reload({ waitUntil: "networkidle0" });
+    await p2.waitForFunction("!!window.__solidify", { timeout: 20000 });
+    await sleep(400);
+    const persisted = { headBody: await vis("#headBody"), cards: await vis("#hud .spark") };
+    await p2.click("#headToggle"); await p2.click("#plotsToggle"); await sleep(150);
+    const folded = { headBody: await vis("#headBody"), cards: await vis("#hud .spark") };
+    // a caveat on the melt marks the folded chevron
+    await p2.evaluate(() => { window.__solidify.app.setMaterial("no-such-metal"); window.__solidify.ui.sync(); });
+    await sleep(150);
+    const marked = await p2.evaluate(() => ({ warn: document.getElementById("headToggle").classList.contains("warn"),
+      label: document.getElementById("headToggle").getAttribute("aria-label") }));
+    await p2.screenshot({ path: `${OUT}/visual-declutter-folded.png` });
+    await p2.close();
+    const ok = fresh.headBody === false && fresh.chevron && fresh.cards === false && fresh.pill && fresh.headW < 200
+      && opened.headBody && opened.cards && opened.aria[0] === "true" && opened.aria[1] === "true"
+      && persisted.headBody && persisted.cards && folded.headBody === false && folded.cards === false
+      && marked.warn && /caveat/.test(marked.label);
+    check("VIS-DECLUTTER", ok, { fresh, opened, persisted, folded, marked });
+  }
+
   await page.goto(`http://localhost:${PORT}/app/`, { waitUntil: "networkidle0", timeout: 30000 });
   await page.waitForFunction("!!window.__solidify", { timeout: 20000 });
   await page.evaluate(() => {
@@ -168,7 +213,7 @@ try {
       const box = document.querySelector("#hud .replay"), input = box?.querySelector("input");
       input.value = "200"; input.dispatchEvent(new Event("input"));
       await new Promise(r => setTimeout(r, 200));
-      return { reason: st.reason2, disabled: input.disabled, note: box.querySelector(".r__range")?.textContent, scrub2: S.replayState().scrub2 };
+      return { reason: st.reason2, disabled: input.disabled, note: box.querySelector(".replay__why")?.textContent, scrub2: S.replayState().scrub2 };
     });
     check("VIS-REPLAY-REFUSAL", !!out.reason && /Reheat/.test(out.reason) && out.disabled && out.note === out.reason && out.scrub2 === null, out);
   }
