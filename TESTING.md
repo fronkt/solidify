@@ -26,12 +26,24 @@ browser-free scripts.
   independent voxel traversal, and alt-tap isolation through the UI.
 - `verify-recrystallize-gpu.mjs` (GPU): C3b-0's stamp coherence, undriven and
   uniform-drive controls, the single-nucleus ladder, and off-identity with
-  in-treatment sampling.
+  in-treatment sampling; then the pre-registered RX3-JMAK (Avrami kinetics
+  against one nucleus's volume, three seeds) and RX3-CAST-SELECTION (the most
+  deformed grains recrystallize first, against a uniform-drive control), and
+  RX3-PANEL (the nuclei dial end to end, the card's n against the exported
+  columns). Protocols: tasks/todo.md, "Declutter, then finish C3b and D3".
 - `verify-flow-gpu.mjs` (GPU): D3.1's standalone lattice Boltzmann solver,
   fluid only. A free-slip shear wave recovers the set viscosity within 1 %;
   body-force flow over this repo's diffuse solid matches an independent CPU
   solve of the same continuum equation within 2 % of the peak (an h = 0 arm
-  must miss by more than 20 %); a uniform inlet stream stays uniform.
+  must miss by more than 20 %); a uniform inlet stream stays uniform. D3.2/D3.3
+  add FLOW-OFF-IDENTITY (seven 2D cases hash as at the pre-advection commit,
+  `scripts/fixtures/flow-off-baseline.json`, captured with
+  `scripts/capture-flow-baseline.mjs`), FLOW-INERT-ARMS (zero speed and zero
+  coupling reproduce the flow-off split pass bit for bit), FLOW-UNIFORM-MELT,
+  FLOW-DIRECTION (upstream faster, downstream slower, reversed coupling the
+  other way), FLOW-UI (the rail control, an inert overlay, the scenario
+  refusal, share-link restore) and the pre-registered FLOW-TIP-TONG (Tong et
+  al. 2001's upstream speed-up, protocol in tasks/todo.md).
 
 Merged regression inventory, 2026-11-01: the 3D optimizer branch (PR 4) and
 the quantitative-calibration continuation (PR 5) each registered two scripts on
