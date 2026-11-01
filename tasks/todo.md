@@ -5676,3 +5676,46 @@ Plan and acceptance:
   0.05 % of peak at tau 10.4 (no-drag arm off by 35x); free stream uniform to
   1.5e-5. Coupling into transport (D3.2, the Tong benchmark) and the FLOW lens
   and UI (D3.3) remain OPEN.
+
+## Declutter, then finish C3b and D3 - 2026-11-01
+
+Frank (after the preview): fold the head plate to "SOLIDIFY" + a chevron, and
+put the plots and the replay behind one control. Done on feature/ui-declutter
+(9ac6a93): VIS-DECLUTTER and all rail gates pass; full suite running. Then
+Frank: "Yes, do them all": merge, finish C3b, then D3.2 and D3.3, in that order.
+Production stays a7584a6 until Frank says ship.
+
+- [ ] M: full suite on 9ac6a93 passes -> fast-forward feature/visual, open a
+      draft PR feature/visual -> v7-experiments.
+- [ ] C3b-1 G5 RX3-JMAK, PRE-REGISTERED here before any run: painted single
+      crystal at 96^3, matrix H0 = 20 J_b, 150 nuclei at random sites from the
+      recrystallization stream (r = 2), three seeds (0xa1, 0xa2, 0xa3).
+      X(S) is measured over the INTERIOR box [16, 80)^3 only (a point there
+      sees the full sphere of reachable nuclei up to R = 16, so the bounded,
+      non-periodic domain does not bias it). V1(S) is the volume of ONE
+      centred nucleus grown alone on the same matrix and seed, same sweeps.
+      Verdict per seed: slope of ln(-ln(1-X)) against ln V1 over X in
+      [0.05, 0.95] within 1 +- 0.15 (the design's band), with >= 5 points;
+      liveness: interior X_end >= 0.95. n against S reported only.
+- [ ] C3b-1 G7 RX3-CAST-SELECTION, PRE-REGISTERED: three seeded casts at
+      96^3 (500 seeds), deposit(10), 200 nuclei at explicit centres drawn from
+      a seeded LCG, 60 sweeps. Statistic D = mean X over top-quartile-H grains
+      minus mean X over bottom-quartile grains (X per grain = fraction of its
+      pre-nucleation voxels now carrying a nucleus id). Control: the same with
+      every grain's H set to 10. Pass: D > 0 and D >= 3 |D_control| on every
+      cast; and the fraction of surviving nuclei (more voxels at the end than
+      at birth) whose birth sphere touched >= 2 matrix ids exceeds that
+      fraction among all placed nuclei (direction only).
+- [ ] C3b-2 figures: X vs Monte Carlo sweeps and the Avrami plot in the heat
+      treatment report, exportable; G8 RX3-PANEL drives the dial end to end and
+      checks the card's n against avramiFit of the exported columns, the dial
+      count, the share tuple (7 with nuclei, 6 without) and that nuclei = 0
+      leaves rxRange null on the sim.
+- [ ] C3b copy: learn/panels.ts, tour.ts, README.md, science/index.html stop
+      saying recrystallization is not modeled; say what is (site-saturated
+      random nuclei, sweep clock, J_b) and what is not.
+- [ ] D3.2 coupling per docs/D3-CONVECTION-DESIGN.md: flow-off identity
+      fixtures captured FIRST at the base commit; conservative advection of T
+      and c in transport; Tong et al. 2001 upstream ratio [1.26, 1.54]
+      pre-registered; mass box; mirror; falsification arms.
+- [ ] D3.3: FLOW lens, tracer particles, controls, share link, export, copy.
