@@ -5516,10 +5516,11 @@ Prospective scope:
 Review/remaining scientific items will be recorded here after the new evidence;
 neither diagnostic completion nor a formal expansion alone closes Q3.
 
-The capillary twelve-case protocol is refrozen and CPU-verified. Actual GPU
-execution awaits the user's cloud-credit versus local-run choice: available
-Vast.ai credit is below $0.02, and no new rental was created. The proposed
-cloud budget is $0.30; no credit purchase is authorized.
+The capillary twelve-case protocol is refrozen and CPU-verified. The user chose
+entirely local execution. The sole GPU campaign started at pushed 10fb837 on
+2026-11-01T00:18:22Z, with exact source copies and raw checkpoints retained under
+verify-out/q3-capillary-grid-gpu. No cloud rental or credit purchase was made.
+The fine-grid cases may take several hours; endpoints and inputs stay frozen.
 
 The full coupled oblique study executed all 96 registered requests: 95 converge,
 including all 48 oblique physical cases; the literal-cutoff [100] candidate
