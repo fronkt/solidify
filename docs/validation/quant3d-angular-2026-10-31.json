@@ -1,0 +1,2405 @@
+{
+  "format": "solidify-angular-kinetic-evidence-v1",
+  "scope": "Research-only unit-width, identity-cubic, tauInput1 finite-range kinetic cancellation; no temporal stability, adoption or Q3 acceptance",
+  "q3Accepted": false,
+  "adopted": false,
+  "productionApplicationChanged": false,
+  "derivation": {
+    "principalCoefficient": "1321/9870",
+    "angularFactor": "1084/1645",
+    "tau": "P.tau*(47/75)*lambda/D*[aFD^2-(1321/9870+(1084/1645)*gammaFD)*(dx/epsBar)^2]",
+    "identityGamma": "16*epsilon*(S6FD-S4FD^2)/(3*aFD)",
+    "rotatedFluxGamma": "dot(Apsi,nFD_lab^3)/(3*w*norm(grad_psi))",
+    "cutoff": "gamma=0 on the literal production small-gradient branch",
+    "independentCompensationProofArchive": "q3-rotated-compensation-independent-2026-10-31.zip",
+    "independentCompensationProofSha256": "0cc934d9a682ec1baaa177caf7c5fc70c91bd7a169c2db6efe7a24f693ef057f",
+    "independentResidualProofArchive": "q3-oblique-independent-proof-2026-10-31.zip",
+    "independentResidualProofSha256": "4640611714cd9d5cd57fe3c9d3a6629b3046c72e4ff6028f6a0e0e85e0aaf362",
+    "coefficientsFitToObliqueOrNeedleData": false,
+    "limits": [
+      "Zero-beta cancellation targets registered epsBar1 and P.tau1",
+      "Multiplying full corrected tau by t changes continuum beta and leaves an angular term proportional to1-t",
+      "Flux recovery and rotated algebra do not establish rotated finite-speed or arbitrary-width calibration"
+    ]
+  },
+  "preOutputSeals": [
+    {
+      "attempt": "q3-oblique-angular-study",
+      "canonicalSealSha256": "e820f93871d4eadab7c9b6e1d94bd7ca8825371c0b3025adb86688e1fc977410",
+      "sealFileSha256": "c94e7ab677fcf517320b66089f3e5d3791f4b88480af78bb2f520a176dc40842",
+      "sources": {
+        "scripts/research/quant3d-oblique-kinetic.py": "2b3514ec2484e78211c979540c935716489074704b5d408cbe98d6825d6beda8",
+        "scripts/research/quant3d-oblique-kinetic-reference.py": "a8bb1b0e490d250574f7e823564b7a25ff303ea1588a95fe3af90c18b9a9d22a",
+        "scripts/research/quant3d-kinetic-reference.py": "b354940f0ac902553fdd0a68f0727d5d13db4c0e85c13d37e56b187fc64c203b",
+        "scripts/research/quant3d-oblique-kinetic-angular.py": "ec169d468f723f1a68456e42c344aa85fed153e770bb6f98bc190bfcb3b1770b",
+        "scripts/research/quant3d-oblique-kinetic-angular-controls.py": "3408fd69f058db0489615df7c7ddc91faf9fe5a206535d4a9e298f2e00281ab8",
+        "scripts/research/quant3d-oblique-kinetic-angular-fixtures.py": "dc7c4637ff0f80918065134d146076cbc8d3109f70ea46827a23d187186c48bb",
+        "scripts/research/quant3d-oblique-kinetic-angular-study.py": "23d6c3782ced34871e81cb3281c58e2a38bc31526019204cf3c999f37642a10d",
+        "scripts/research/quant3d-oblique-kinetic-angular-summary.py": "42a3ed5b05a379bf38b991765b7a9b9bb4f6ce4c89c2cafa574cae5ea0535624",
+        "scripts/research/quant3d-oblique-kinetic-angular.md": "f9171678960e97eedbabc00ff8e2e4e3eee9e7eb28218c708bde7036ee86b5e3"
+      }
+    },
+    {
+      "attempt": "q3-oblique-angular-study-v2",
+      "canonicalSealSha256": "1145cc49cb8a73ab7b3c57fb5bbb8fd12c8224a34447441f05081921444628eb",
+      "sealFileSha256": "84f248539ec9773f525dd6599ecae2da93fc362c9c385572a972ea565d23d35e",
+      "sources": {
+        "scripts/research/quant3d-oblique-kinetic.py": "2b3514ec2484e78211c979540c935716489074704b5d408cbe98d6825d6beda8",
+        "scripts/research/quant3d-oblique-kinetic-reference.py": "a8bb1b0e490d250574f7e823564b7a25ff303ea1588a95fe3af90c18b9a9d22a",
+        "scripts/research/quant3d-kinetic-reference.py": "b354940f0ac902553fdd0a68f0727d5d13db4c0e85c13d37e56b187fc64c203b",
+        "scripts/research/quant3d-oblique-kinetic-angular.py": "ec169d468f723f1a68456e42c344aa85fed153e770bb6f98bc190bfcb3b1770b",
+        "scripts/research/quant3d-oblique-kinetic-angular-controls.py": "ed9e45bd7ddd3e9d1ded5b29c0668f871191b10a930dcd34e9f2098a6b604a79",
+        "scripts/research/quant3d-oblique-kinetic-angular-fixtures.py": "dc7c4637ff0f80918065134d146076cbc8d3109f70ea46827a23d187186c48bb",
+        "scripts/research/quant3d-oblique-kinetic-angular-study.py": "23d6c3782ced34871e81cb3281c58e2a38bc31526019204cf3c999f37642a10d",
+        "scripts/research/quant3d-oblique-kinetic-angular-summary.py": "42a3ed5b05a379bf38b991765b7a9b9bb4f6ce4c89c2cafa574cae5ea0535624",
+        "scripts/research/quant3d-oblique-kinetic-angular.md": "f9171678960e97eedbabc00ff8e2e4e3eee9e7eb28218c708bde7036ee86b5e3"
+      }
+    }
+  ],
+  "initialAttempt": {
+    "completed": false,
+    "freshProfilesAttempted": 0,
+    "refusal": "NumPy booleans could not be serialized in the prerequisite report",
+    "amendment": "Two explicit native-boolean casts; separate v2 seal; numerical gates, coefficients and protocol unchanged",
+    "preservedInArchive": true
+  },
+  "cpu": {
+    "completed": true,
+    "sourceHashes": {
+      "scripts/research/quant3d-oblique-kinetic.py": "2b3514ec2484e78211c979540c935716489074704b5d408cbe98d6825d6beda8",
+      "scripts/research/quant3d-oblique-kinetic-reference.py": "a8bb1b0e490d250574f7e823564b7a25ff303ea1588a95fe3af90c18b9a9d22a",
+      "scripts/research/quant3d-kinetic-reference.py": "b354940f0ac902553fdd0a68f0727d5d13db4c0e85c13d37e56b187fc64c203b",
+      "scripts/research/quant3d-oblique-kinetic-angular.py": "ec169d468f723f1a68456e42c344aa85fed153e770bb6f98bc190bfcb3b1770b",
+      "scripts/research/quant3d-oblique-kinetic-angular-controls.py": "ed9e45bd7ddd3e9d1ded5b29c0668f871191b10a930dcd34e9f2098a6b604a79",
+      "scripts/research/quant3d-oblique-kinetic-angular-fixtures.py": "dc7c4637ff0f80918065134d146076cbc8d3109f70ea46827a23d187186c48bb",
+      "scripts/research/quant3d-oblique-kinetic-angular-study.py": "23d6c3782ced34871e81cb3281c58e2a38bc31526019204cf3c999f37642a10d",
+      "scripts/research/quant3d-oblique-kinetic-angular-summary.py": "42a3ed5b05a379bf38b991765b7a9b9bb4f6ce4c89c2cafa574cae5ea0535624",
+      "scripts/research/quant3d-oblique-kinetic-angular.md": "f9171678960e97eedbabc00ff8e2e4e3eee9e7eb28218c708bde7036ee86b5e3"
+    },
+    "sourceStable": true,
+    "inputsStable": true,
+    "prerequisites": {
+      "purpose": "controls only; no traveling-profile or stability acceptance",
+      "local": {
+        "relativeFiniteDifferenceError": 7.559323443370548e-11,
+        "ambientProjectedMaxError": 3.0357660829594124e-17,
+        "passed": true
+      },
+      "periodic": [
+        {
+          "normal": [
+            1,
+            0,
+            0
+          ],
+          "sourceFluxMaxError": 0.0,
+          "gammaDirectionalError": 0.0,
+          "primaryDerivativeReference": "independent rational complex continuation; fixed active set; no conjugation",
+          "float64SubtractionProbeSensitivity": [
+            {
+              "step": 0.001,
+              "absoluteError": 0.0,
+              "relativeError": null
+            },
+            {
+              "step": 0.0001,
+              "absoluteError": 0.0,
+              "relativeError": null
+            },
+            {
+              "step": 1e-05,
+              "absoluteError": 0.0,
+              "relativeError": null
+            },
+            {
+              "step": 1e-06,
+              "absoluteError": 0.0,
+              "relativeError": null
+            }
+          ],
+          "omittedAngularTauMaxContrast": 0.0,
+          "declaredNormalGammaNegativeMaxContrast": 0.0,
+          "passed": true
+        },
+        {
+          "normal": [
+            1,
+            1,
+            0
+          ],
+          "sourceFluxMaxError": 3.642090717663553e-18,
+          "gammaDirectionalError": 0.0,
+          "primaryDerivativeReference": "independent rational complex continuation; fixed active set; no conjugation",
+          "float64SubtractionProbeSensitivity": [
+            {
+              "step": 0.001,
+              "absoluteError": 0.0,
+              "relativeError": null
+            },
+            {
+              "step": 0.0001,
+              "absoluteError": 0.0,
+              "relativeError": null
+            },
+            {
+              "step": 1e-05,
+              "absoluteError": 0.0,
+              "relativeError": null
+            },
+            {
+              "step": 1e-06,
+              "absoluteError": 0.0,
+              "relativeError": null
+            }
+          ],
+          "omittedAngularTauMaxContrast": 0.0,
+          "declaredNormalGammaNegativeMaxContrast": 0.0,
+          "passed": true
+        },
+        {
+          "normal": [
+            1,
+            1,
+            1
+          ],
+          "sourceFluxMaxError": 3.0086499392330447e-18,
+          "gammaDirectionalError": 0.0,
+          "primaryDerivativeReference": "independent rational complex continuation; fixed active set; no conjugation",
+          "float64SubtractionProbeSensitivity": [
+            {
+              "step": 0.001,
+              "absoluteError": 0.0,
+              "relativeError": null
+            },
+            {
+              "step": 0.0001,
+              "absoluteError": 0.0,
+              "relativeError": null
+            },
+            {
+              "step": 1e-05,
+              "absoluteError": 0.0,
+              "relativeError": null
+            },
+            {
+              "step": 1e-06,
+              "absoluteError": 0.0,
+              "relativeError": null
+            }
+          ],
+          "omittedAngularTauMaxContrast": 0.0,
+          "declaredNormalGammaNegativeMaxContrast": 0.0,
+          "passed": true
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "sourceFluxMaxError": 2.2551405187698492e-17,
+          "gammaDirectionalError": 4.2989957332420565e-10,
+          "primaryDerivativeReference": "independent rational complex continuation; fixed active set; no conjugation",
+          "float64SubtractionProbeSensitivity": [
+            {
+              "step": 0.001,
+              "absoluteError": 4.415804874535745e-11,
+              "relativeError": 2.995031053341046e-06
+            },
+            {
+              "step": 0.0001,
+              "absoluteError": 2.5030304565132333e-10,
+              "relativeError": 1.8325624896709785e-05
+            },
+            {
+              "step": 1e-05,
+              "absoluteError": 7.41596142828099e-09,
+              "relativeError": 0.0005380000089309165
+            },
+            {
+              "step": 1e-06,
+              "absoluteError": 1.0568933986321305e-07,
+              "relativeError": 0.006032340163276717
+            }
+          ],
+          "omittedAngularTauMaxContrast": 0.0023505063023103734,
+          "declaredNormalGammaNegativeMaxContrast": 0.001972801450779225,
+          "passed": true
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "sourceFluxMaxError": 1.3010426069826053e-17,
+          "gammaDirectionalError": 2.399165381557952e-10,
+          "primaryDerivativeReference": "independent rational complex continuation; fixed active set; no conjugation",
+          "float64SubtractionProbeSensitivity": [
+            {
+              "step": 0.001,
+              "absoluteError": 6.03508146235221e-11,
+              "relativeError": 1.6295939725733703e-06
+            },
+            {
+              "step": 0.0001,
+              "absoluteError": 2.416845334973772e-10,
+              "relativeError": 8.421205177191417e-06
+            },
+            {
+              "step": 1e-05,
+              "absoluteError": 1.4914544640976074e-08,
+              "relativeError": 0.0004186825237656637
+            },
+            {
+              "step": 1e-06,
+              "absoluteError": 5.090628504844652e-08,
+              "relativeError": 0.0014502097015464672
+            }
+          ],
+          "omittedAngularTauMaxContrast": 0.002492028110746003,
+          "declaredNormalGammaNegativeMaxContrast": 0.004686838032975965,
+          "passed": true
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "sourceFluxMaxError": 9.540979117872439e-18,
+          "gammaDirectionalError": 1.3050234211223446e-10,
+          "primaryDerivativeReference": "independent rational complex continuation; fixed active set; no conjugation",
+          "float64SubtractionProbeSensitivity": [
+            {
+              "step": 0.001,
+              "absoluteError": 1.925234277555532e-11,
+              "relativeError": 3.2232127570900126e-07
+            },
+            {
+              "step": 0.0001,
+              "absoluteError": 5.645214677663102e-10,
+              "relativeError": 8.983166609248057e-06
+            },
+            {
+              "step": 1e-05,
+              "absoluteError": 3.76799594997701e-09,
+              "relativeError": 6.027101907435242e-05
+            },
+            {
+              "step": 1e-06,
+              "absoluteError": 7.485819381036762e-08,
+              "relativeError": 0.0011954782152769669
+            }
+          ],
+          "omittedAngularTauMaxContrast": 0.0023568090602291702,
+          "declaredNormalGammaNegativeMaxContrast": 0.0019366613023135523,
+          "passed": true
+        }
+      ],
+      "coupled": [
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "literalCutoff": true,
+          "relativeError": 4.552376731934737e-09,
+          "passed": true
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "literalCutoff": false,
+          "relativeError": 4.562999523784394e-09,
+          "passed": true
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "literalCutoff": true,
+          "relativeError": 4.76504756684063e-09,
+          "passed": true
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "literalCutoff": false,
+          "relativeError": 4.730110222707122e-09,
+          "passed": true
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "literalCutoff": true,
+          "relativeError": 5.252204800676819e-09,
+          "passed": true
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "literalCutoff": false,
+          "relativeError": 5.214626047808469e-09,
+          "passed": true
+        }
+      ],
+      "principal": [
+        {
+          "normal": [
+            1,
+            0,
+            0
+          ],
+          "h": 0.8,
+          "literalCutoff": true,
+          "residualDifference": 0.0,
+          "jacobianDifference": 0.0,
+          "passed": true
+        },
+        {
+          "normal": [
+            1,
+            0,
+            0
+          ],
+          "h": 0.8,
+          "literalCutoff": false,
+          "residualDifference": 0.0,
+          "jacobianDifference": 0.0,
+          "passed": true
+        },
+        {
+          "normal": [
+            1,
+            0,
+            0
+          ],
+          "h": 0.4,
+          "literalCutoff": true,
+          "residualDifference": 0.0,
+          "jacobianDifference": 0.0,
+          "passed": true
+        },
+        {
+          "normal": [
+            1,
+            0,
+            0
+          ],
+          "h": 0.4,
+          "literalCutoff": false,
+          "residualDifference": 0.0,
+          "jacobianDifference": 0.0,
+          "passed": true
+        },
+        {
+          "normal": [
+            1,
+            1,
+            0
+          ],
+          "h": 0.8,
+          "literalCutoff": true,
+          "residualDifference": 0.0,
+          "jacobianDifference": 0.0,
+          "passed": true
+        },
+        {
+          "normal": [
+            1,
+            1,
+            0
+          ],
+          "h": 0.8,
+          "literalCutoff": false,
+          "residualDifference": 0.0,
+          "jacobianDifference": 0.0,
+          "passed": true
+        },
+        {
+          "normal": [
+            1,
+            1,
+            0
+          ],
+          "h": 0.4,
+          "literalCutoff": true,
+          "residualDifference": 0.0,
+          "jacobianDifference": 0.0,
+          "passed": true
+        },
+        {
+          "normal": [
+            1,
+            1,
+            0
+          ],
+          "h": 0.4,
+          "literalCutoff": false,
+          "residualDifference": 0.0,
+          "jacobianDifference": 0.0,
+          "passed": true
+        },
+        {
+          "normal": [
+            1,
+            1,
+            1
+          ],
+          "h": 0.8,
+          "literalCutoff": true,
+          "residualDifference": 0.0,
+          "jacobianDifference": 0.0,
+          "passed": true
+        },
+        {
+          "normal": [
+            1,
+            1,
+            1
+          ],
+          "h": 0.8,
+          "literalCutoff": false,
+          "residualDifference": 0.0,
+          "jacobianDifference": 0.0,
+          "passed": true
+        },
+        {
+          "normal": [
+            1,
+            1,
+            1
+          ],
+          "h": 0.4,
+          "literalCutoff": true,
+          "residualDifference": 0.0,
+          "jacobianDifference": 0.0,
+          "passed": true
+        },
+        {
+          "normal": [
+            1,
+            1,
+            1
+          ],
+          "h": 0.4,
+          "literalCutoff": false,
+          "residualDifference": 0.0,
+          "jacobianDifference": 0.0,
+          "passed": true
+        }
+      ],
+      "storedPrincipal": [
+        {
+          "normal": [
+            1,
+            0,
+            0
+          ],
+          "residual": 4.166805789296291e-15,
+          "passed": true
+        },
+        {
+          "normal": [
+            1,
+            1,
+            0
+          ],
+          "residual": 3.658531810835086e-15,
+          "passed": true
+        },
+        {
+          "normal": [
+            1,
+            1,
+            1
+          ],
+          "residual": 5.181619022742723e-15,
+          "passed": true
+        }
+      ],
+      "passed": true,
+      "oldFailure": {
+        "angularResidual": 2.8642701849972338e-08,
+        "principalResidual": 2.8642701849972338e-08,
+        "difference": 0.0,
+        "preserved": true
+      }
+    },
+    "summary": {
+      "scope": "finite-range width1/identity angular candidate; no temporal stability/adoption/Q3 acceptance",
+      "studySha256": "8c6551259c7b849a564a97910d43576f535bfc5714e3fa5dbe75d5812fc84415",
+      "sealSha256": "1145cc49cb8a73ab7b3c57fb5bbb8fd12c8224a34447441f05081921444628eb",
+      "summarySourceSha256": "42a3ed5b05a379bf38b991765b7a9b9bb4f6ce4c89c2cafa574cae5ea0535624",
+      "freshRegistered": 87,
+      "freshConverged": 87,
+      "reused": 48,
+      "profileHashesVerified": 135,
+      "original96Outcome": {
+        "converged": 95,
+        "registered": 96,
+        "completed": false,
+        "failurePreserved": true
+      },
+      "cpuSourceStable": true,
+      "inputsStable": true,
+      "newStudyCompleted": true,
+      "prerequisitesPassed": true,
+      "failures": [],
+      "groups": [
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "h": 0.8,
+          "tauModel": "default",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              0.02061826352092454,
+              0.020098030886571732,
+              0.01906065145564656,
+              0.01699903515098838
+            ],
+            "primaryQuadraticIntercept": 0.021139524767870854,
+            "linearQuadraticSpread": 2.5715314837179704e-06,
+            "secondaryQuadraticIntercept": 0.021139791169894326,
+            "secondaryPrimarySpread": 2.6640202347230635e-07,
+            "cubicIntercept": 0.02113948671043899,
+            "cubicPrimarySpread": 3.805743186216515e-08,
+            "heldoutV004Error": 7.992060702712023e-07,
+            "primaryBetaOverH2": 0.0330305074497982,
+            "primaryBetaOverH4": 0.05161016789030969
+          },
+          "Liquid": {
+            "values": [
+              0.0202471761352907,
+              0.019354402360227674,
+              0.017567615669533687,
+              0.013990281786441239
+            ],
+            "primaryQuadraticIntercept": 0.021139536863497753,
+            "linearQuadraticSpread": 1.0326171399413497e-06,
+            "secondaryQuadraticIntercept": 0.021139935550353525,
+            "secondaryPrimarySpread": 3.986868557723233e-07,
+            "cubicIntercept": 0.02113947990823273,
+            "cubicPrimarySpread": 5.695526502161319e-08,
+            "heldoutV004Error": 1.1960605672128866e-06,
+            "primaryBetaOverH2": 0.03303052634921523,
+            "primaryBetaOverH4": 0.051610197420648804
+          },
+          "solidLiquidPrimaryDifference": 1.209562689938326e-08
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "h": 0.8,
+          "tauModel": "principal",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              0.0008986478650929094,
+              0.0004241521778642985,
+              -0.0005231036189927762,
+              -0.0024101186354572373
+            ],
+            "primaryQuadraticIntercept": 0.001373722078188237,
+            "linearQuadraticSpread": 1.4463146667898028e-06,
+            "secondaryQuadraticIntercept": 0.0013739068338046024,
+            "secondaryPrimarySpread": 1.847556163653459e-07,
+            "cubicIntercept": 0.0013736956845287706,
+            "cubicPrimarySpread": 2.6393659466545163e-08,
+            "heldoutV004Error": 5.54266849094303e-07,
+            "primaryBetaOverH2": 0.00214644074716912,
+            "primaryBetaOverH4": 0.0033538136674517503
+          },
+          "Liquid": {
+            "values": [
+              0.0005000860827664155,
+              -0.0003746781385816078,
+              -0.002127578372235206,
+              -0.005646083799074053
+            ],
+            "primaryQuadraticIntercept": 0.0013737263737952543,
+            "linearQuadraticSpread": 2.80982579796093e-06,
+            "secondaryQuadraticIntercept": 0.0013739871085614375,
+            "secondaryPrimarySpread": 2.6073476618320053e-07,
+            "cubicIntercept": 0.0013736891259715385,
+            "cubicPrimarySpread": 3.7247823715799364e-08,
+            "heldoutV004Error": 7.822042985567573e-07,
+            "primaryBetaOverH2": 0.0021464474590550844,
+            "primaryBetaOverH4": 0.0033538241547735694
+          },
+          "solidLiquidPrimaryDifference": 4.295607017226061e-09
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "h": 0.8,
+          "tauModel": "angular",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              0.0004045748665753364,
+              -6.885452348583056e-05,
+              -0.0010140092559285047,
+              -0.0028969537650436264
+            ],
+            "primaryQuadraticIntercept": 0.0008785722725297231,
+            "linearQuadraticSpread": 1.420039733049448e-06,
+            "secondaryQuadraticIntercept": 0.0008787551942135853,
+            "secondaryPrimarySpread": 1.8292168386219946e-07,
+            "cubicIntercept": 0.0008785461408606127,
+            "cubicPrimarySpread": 2.6131669110377766e-08,
+            "heldoutV004Error": 5.487650515867068e-07,
+            "primaryBetaOverH2": 0.001372769175827692,
+            "primaryBetaOverH4": 0.0021449518372307686
+          },
+          "Liquid": {
+            "values": [
+              5.2058574340208e-06,
+              -0.0008693052742758667,
+              -0.0026217494299485278,
+              -0.006139553139938858
+            ],
+            "primaryQuadraticIntercept": 0.0008785763583929442,
+            "linearQuadraticSpread": 2.851576877407067e-06,
+            "secondaryQuadraticIntercept": 0.0008788337485151235,
+            "secondaryPrimarySpread": 2.573901221792794e-07,
+            "cubicIntercept": 0.0008785395883755159,
+            "cubicPrimarySpread": 3.677001742831681e-08,
+            "heldoutV004Error": 7.721703665425003e-07,
+            "primaryBetaOverH2": 0.001372775559988975,
+            "primaryBetaOverH4": 0.0021449618124827733
+          },
+          "solidLiquidPrimaryDifference": 4.08586322111007e-09
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "h": 0.4,
+          "tauModel": "default",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              0.004537667010873004,
+              0.0040956348720090855,
+              0.0032142503463148,
+              0.0014628240659133626
+            ],
+            "primaryQuadraticIntercept": 0.00498059240041478,
+            "linearQuadraticSpread": 2.233126694631271e-06,
+            "secondaryQuadraticIntercept": 0.004980800321365753,
+            "secondaryPrimarySpread": 2.0792095097293267e-07,
+            "cubicIntercept": 0.004980562697421802,
+            "cubicPrimarySpread": 2.9702992978414278e-08,
+            "heldoutV004Error": 6.237628529070886e-07,
+            "primaryBetaOverH2": 0.03112870250259237,
+            "primaryBetaOverH4": 0.1945543906412023
+          },
+          "Liquid": {
+            "values": [
+              0.004098110308570213,
+              0.0032147112078551032,
+              0.0014451954380767518,
+              -0.0021038212374535625
+            ],
+            "primaryQuadraticIntercept": 0.004980603553169284,
+            "linearQuadraticSpread": 2.264640290107478e-06,
+            "secondaryQuadraticIntercept": 0.004980898598975586,
+            "secondaryPrimarySpread": 2.9504580630231036e-07,
+            "cubicIntercept": 0.004980561403768412,
+            "cubicPrimarySpread": 4.214940087232666e-08,
+            "heldoutV004Error": 8.851374188921859e-07,
+            "primaryBetaOverH2": 0.031128772207308017,
+            "primaryBetaOverH4": 0.1945548262956751
+          },
+          "solidLiquidPrimaryDifference": 1.1152754503772344e-08
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "h": 0.4,
+          "tauModel": "principal",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              -0.0002596914915911235,
+              -0.0006909250606416383,
+              -0.0015510339771424326,
+              -0.003261249848958951
+            ],
+            "primaryQuadraticIntercept": 0.00017232815132613564,
+            "linearQuadraticSpread": 1.965184666862164e-06,
+            "secondaryQuadraticIntercept": 0.00017251784292084352,
+            "secondaryPrimarySpread": 1.896915947078746e-07,
+            "cubicIntercept": 0.00017230105252690058,
+            "cubicPrimarySpread": 2.709879923506065e-08,
+            "heldoutV004Error": 5.690747841313216e-07,
+            "primaryBetaOverH2": 0.0010770509457883476,
+            "primaryBetaOverH4": 0.0067315684111771724
+          },
+          "Liquid": {
+            "values": [
+              -0.0007059147621335526,
+              -0.0015852401990312792,
+              -0.0033471107164229075,
+              -0.006882939921146192
+            ],
+            "primaryQuadraticIntercept": 0.00017233746023211354,
+            "linearQuadraticSpread": 2.683036330147808e-06,
+            "secondaryQuadraticIntercept": 0.00017260092838033625,
+            "secondaryPrimarySpread": 2.634681482227097e-07,
+            "cubicIntercept": 0.0001722998219252497,
+            "cubicPrimarySpread": 3.763830686383989e-08,
+            "heldoutV004Error": 7.904044446770467e-07,
+            "primaryBetaOverH2": 0.0010771091264507094,
+            "primaryBetaOverH4": 0.006731932040316934
+          },
+          "solidLiquidPrimaryDifference": 9.308905977897493e-09
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "h": 0.4,
+          "tauModel": "angular",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              -0.00038325401652475376,
+              -0.0008142112528257693,
+              -0.0016737757252000985,
+              -0.0033829369700047775
+            ],
+            "primaryQuadraticIntercept": 4.8486553185494716e-05,
+            "linearQuadraticSpread": 1.958333523084046e-06,
+            "secondaryQuadraticIntercept": 4.86757861965511e-05,
+            "secondaryPrimarySpread": 1.8923301105638722e-07,
+            "cubicIntercept": 4.84595198982128e-05,
+            "cubicPrimarySpread": 2.7033287281918886e-08,
+            "heldoutV004Error": 5.676990331732884e-07,
+            "primaryBetaOverH2": 0.00030304095740934194,
+            "primaryBetaOverH4": 0.001894005983808387
+          },
+          "Liquid": {
+            "values": [
+              -0.0008296551520459161,
+              -0.0017088836196665902,
+              -0.0034705730594664086,
+              -0.00700609397646379
+            ],
+            "primaryQuadraticIntercept": 4.849581405526719e-05,
+            "linearQuadraticSpread": 2.693753798726329e-06,
+            "secondaryQuadraticIntercept": 4.87584743339747e-05,
+            "secondaryPrimarySpread": 2.626602787075149e-07,
+            "cubicIntercept": 4.8458291158331503e-05,
+            "cubicPrimarySpread": 3.752289693568437e-08,
+            "heldoutV004Error": 7.879808361374932e-07,
+            "primaryBetaOverH2": 0.00030309883784541985,
+            "primaryBetaOverH4": 0.0018943677365338741
+          },
+          "solidLiquidPrimaryDifference": 9.260869772472337e-09
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "h": 0.2,
+          "tauModel": "default",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              0.0008116735344008976,
+              0.0003874035204085641,
+              -0.0004585752129601244,
+              -0.002139694012994285
+            ],
+            "primaryQuadraticIntercept": 0.0012367973132652245,
+            "linearQuadraticSpread": 2.1344121799826265e-06,
+            "secondaryQuadraticIntercept": 0.0012369951426783243,
+            "secondaryPrimarySpread": 1.9782941309979055e-07,
+            "cubicIntercept": 0.0012367690519205076,
+            "cubicPrimarySpread": 2.8261344716925055e-08,
+            "heldoutV004Error": 5.934882392967696e-07,
+            "primaryBetaOverH2": 0.030919932831630605,
+            "primaryBetaOverH4": 0.7729983207907651
+          },
+          "Liquid": {
+            "values": [
+              0.0003539703490318402,
+              -0.0005298780776596956,
+              -0.002300610408972892,
+              -0.0058533974724050974
+            ],
+            "primaryQuadraticIntercept": 0.0012368069497466678,
+            "linearQuadraticSpread": 2.5295649417704773e-06,
+            "secondaryQuadraticIntercept": 0.0012370801200515594,
+            "secondaryPrimarySpread": 2.7317030489157e-07,
+            "cubicIntercept": 0.0012367679254174223,
+            "cubicPrimarySpread": 3.9024329245504474e-08,
+            "heldoutV004Error": 8.195109146777457e-07,
+            "primaryBetaOverH2": 0.03092017374366669,
+            "primaryBetaOverH4": 0.7730043435916673
+          },
+          "solidLiquidPrimaryDifference": 9.63648144332134e-09
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "h": 0.2,
+          "tauModel": "principal",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              -0.00038852324904718093,
+              -0.0008101078891500395,
+              -0.0016507958741174967,
+              -0.0033216666466659
+            ],
+            "primaryQuadraticIntercept": 3.3888489468430723e-05,
+            "linearQuadraticSpread": 2.067746031882977e-06,
+            "secondaryQuadraticIntercept": 3.408182827958664e-05,
+            "secondaryPrimarySpread": 1.9333881115591906e-07,
+            "cubicIntercept": 3.3860869638277295e-05,
+            "cubicPrimarySpread": 2.7619830153428687e-08,
+            "heldoutV004Error": 5.800164334704948e-07,
+            "primaryBetaOverH2": 0.0008472122367107679,
+            "primaryBetaOverH4": 0.021180305917769197
+          },
+          "Liquid": {
+            "values": [
+              -0.0008478921714738519,
+              -0.0017307354327478208,
+              -0.003499582228216891,
+              -0.007049120768437556
+            ],
+            "primaryQuadraticIntercept": 3.389766549307091e-05,
+            "linearQuadraticSpread": 2.633560767611647e-06,
+            "secondaryQuadraticIntercept": 3.41630462937351e-05,
+            "secondaryPrimarySpread": 2.6538080066418633e-07,
+            "cubicIntercept": 3.385975395014277e-05,
+            "cubicPrimarySpread": 3.791154292814126e-08,
+            "heldoutV004Error": 7.961424020042074e-07,
+            "primaryBetaOverH2": 0.0008474416373267726,
+            "primaryBetaOverH4": 0.021186040933169316
+          },
+          "solidLiquidPrimaryDifference": 9.176024640189311e-09
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "h": 0.2,
+          "tauModel": "angular",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              -0.00041936412672711256,
+              -0.0008408798369887974,
+              -0.0016814320153308074,
+              -0.003352039731714508
+            ],
+            "primaryQuadraticIntercept": 2.9779975950251433e-06,
+            "linearQuadraticSpread": 2.06603515113259e-06,
+            "secondaryQuadraticIntercept": 3.171221453317568e-06,
+            "secondaryPrimarySpread": 1.9322385829242462e-07,
+            "cubicIntercept": 2.9503941867091403e-06,
+            "cubicPrimarySpread": 2.760340831600304e-08,
+            "heldoutV004Error": 5.79671574883929e-07,
+            "primaryBetaOverH2": 7.444993987562857e-05,
+            "primaryBetaOverH4": 0.0018612484968907141
+          },
+          "Liquid": {
+            "values": [
+              -0.000878776228829814,
+              -0.0017615941137250068,
+              -0.0035303933523800346,
+              -0.007079850201915927
+            ],
+            "primaryQuadraticIntercept": 2.9871664438286704e-06,
+            "linearQuadraticSpread": 2.6362240538708203e-06,
+            "secondaryQuadraticIntercept": 3.252334188074205e-06,
+            "secondaryPrimarySpread": 2.651677442455344e-07,
+            "cubicIntercept": 2.949285337532828e-06,
+            "cubicPrimarySpread": 3.7881106295842305e-08,
+            "heldoutV004Error": 7.95503232736347e-07,
+            "primaryBetaOverH2": 7.467916109571674e-05,
+            "primaryBetaOverH4": 0.0018669790273929186
+          },
+          "solidLiquidPrimaryDifference": 9.168848803527137e-09
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "h": 0.8,
+          "tauModel": "default",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              0.02101071620180517,
+              0.020499572104642736,
+              0.019480274187148636,
+              0.01745440951094733
+            ],
+            "primaryQuadraticIntercept": 0.021522857057911217,
+            "linearQuadraticSpread": 2.491897358992967e-06,
+            "secondaryQuadraticIntercept": 0.021523113741732495,
+            "secondaryPrimarySpread": 2.566838212779421e-07,
+            "cubicIntercept": 0.021522820388793933,
+            "cubicPrimarySpread": 3.666911728428257e-08,
+            "heldoutV004Error": 7.700514637332123e-07,
+            "primaryBetaOverH2": 0.03362946415298627,
+            "primaryBetaOverH4": 0.05254603773904105
+          },
+          "Liquid": {
+            "values": [
+              0.020650836634805714,
+              0.0197784228978648,
+              0.01803246369244116,
+              0.014537171215944777
+            ],
+            "primaryQuadraticIntercept": 0.021522873127899377,
+            "linearQuadraticSpread": 9.431096181650167e-07,
+            "secondaryQuadraticIntercept": 0.021523257414738765,
+            "secondaryPrimarySpread": 3.842868393881538e-07,
+            "cubicIntercept": 0.021522818229779524,
+            "cubicPrimarySpread": 5.489811985212589e-08,
+            "heldoutV004Error": 1.1528605180673168e-06,
+            "primaryBetaOverH2": 0.03362948926234277,
+            "primaryBetaOverH4": 0.05254607697241058
+          },
+          "solidLiquidPrimaryDifference": 1.6069988159617132e-08
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "h": 0.8,
+          "tauModel": "principal",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              0.0010213479463650644,
+              0.0005560861591253963,
+              -0.0003727842127419576,
+              -0.0022233824572507194
+            ],
+            "primaryQuadraticIntercept": 0.0014871608011420606,
+            "linearQuadraticSpread": 1.377668843318509e-06,
+            "secondaryQuadraticIntercept": 0.001487337364068065,
+            "secondaryPrimarySpread": 1.7656292600437377e-07,
+            "cubicIntercept": 0.0014871355778669308,
+            "cubicPrimarySpread": 2.5223275129790043e-08,
+            "heldoutV004Error": 5.296887780111698e-07,
+            "primaryBetaOverH2": 0.0023236887517844693,
+            "primaryBetaOverH4": 0.0036307636746632332
+          },
+          "Liquid": {
+            "values": [
+              0.0006339616341222154,
+              -0.00022032783810743695,
+              -0.001932152394773512,
+              -0.0053680366953412495
+            ],
+            "primaryQuadraticIntercept": 0.0014871692356162776,
+            "linearQuadraticSpread": 2.704676838975132e-06,
+            "secondaryQuadraticIntercept": 0.0014874183228134386,
+            "secondaryPrimarySpread": 2.4908719716107593e-07,
+            "cubicIntercept": 0.0014871336517309932,
+            "cubicPrimarySpread": 3.5583885284315095e-08,
+            "heldoutV004Error": 7.472615914999245e-07,
+            "primaryBetaOverH2": 0.002323701930650433,
+            "primaryBetaOverH4": 0.003630784266641302
+          },
+          "solidLiquidPrimaryDifference": 8.434474216929486e-09
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "h": 0.8,
+          "tauModel": "angular",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              0.0005420652190298639,
+              7.781865170618104e-05,
+              -0.0008490540253995925,
+              -0.0026957928434635215
+            ],
+            "primaryQuadraticIntercept": 0.001006851938867411,
+            "linearQuadraticSpread": 1.3503812846601005e-06,
+            "secondaryQuadraticIntercept": 0.001007026840861159,
+            "secondaryPrimarySpread": 1.749019937480594e-07,
+            "cubicIntercept": 0.0010068269528683191,
+            "cubicPrimarySpread": 2.498599909177973e-08,
+            "heldoutV004Error": 5.247059812500329e-07,
+            "primaryBetaOverH2": 0.0015732061544803293,
+            "primaryBetaOverH4": 0.0024581346163755143
+          },
+          "Liquid": {
+            "values": [
+              0.00015380289188904328,
+              -0.0007003528030180561,
+              -0.0024119594449478754,
+              -0.005847615901655168
+            ],
+            "primaryQuadraticIntercept": 0.001006860169424269,
+            "linearQuadraticSpread": 2.7460434296837626e-06,
+            "secondaryQuadraticIntercept": 0.0010071061146292083,
+            "secondaryPrimarySpread": 2.459452049393372e-07,
+            "cubicIntercept": 0.0010068250343950166,
+            "cubicPrimarySpread": 3.5135029252328365e-08,
+            "heldoutV004Error": 7.378356148245169e-07,
+            "primaryBetaOverH2": 0.00157321901472542,
+            "primaryBetaOverH4": 0.0024581547105084686
+          },
+          "solidLiquidPrimaryDifference": 8.230556858019461e-09
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "h": 0.4,
+          "tauModel": "default",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              0.004613335810049281,
+              0.004181524240901287,
+              0.0033204850512021326,
+              0.0016093362438207054
+            ],
+            "primaryQuadraticIntercept": 0.005046008695396226,
+            "linearQuadraticSpread": 2.153290497365276e-06,
+            "secondaryQuadraticIntercept": 0.005046206621272738,
+            "secondaryPrimarySpread": 1.9792587651213528e-07,
+            "cubicIntercept": 0.0050459804202710274,
+            "cubicPrimarySpread": 2.827512519867209e-08,
+            "heldoutV004Error": 5.937776295205765e-07,
+            "primaryBetaOverH2": 0.031537554346226404,
+            "primaryBetaOverH4": 0.19710971466391505
+          },
+          "Liquid": {
+            "values": [
+              0.004185177166027287,
+              0.00332346494540392,
+              0.001597431073796507,
+              -0.001864232135667665
+            ],
+            "primaryQuadraticIntercept": 0.005046019576530431,
+            "linearQuadraticSpread": 2.174525300564084e-06,
+            "secondaryQuadraticIntercept": 0.005046300328261553,
+            "secondaryPrimarySpread": 2.8075173112186713e-07,
+            "cubicIntercept": 0.005045979469140304,
+            "cubicPrimarySpread": 4.010739012693526e-08,
+            "heldoutV004Error": 8.422551933586625e-07,
+            "primaryBetaOverH2": 0.031537622353315184,
+            "primaryBetaOverH4": 0.19711013970821992
+          },
+          "solidLiquidPrimaryDifference": 1.0881134204603071e-08
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "h": 0.4,
+          "tauModel": "principal",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              -0.00024501263889212976,
+              -0.0006660194324732182,
+              -0.001505766587131857,
+              -0.0031756547209078607
+            ],
+            "primaryQuadraticIntercept": 0.0001767496321901364,
+            "linearQuadraticSpread": 1.8886937529473348e-06,
+            "secondaryQuadraticIntercept": 0.00017692978069917784,
+            "secondaryPrimarySpread": 1.8014850904145112e-07,
+            "cubicIntercept": 0.00017672389668885625,
+            "cubicPrimarySpread": 2.5735501280147203e-08,
+            "heldoutV004Error": 5.404455271280396e-07,
+            "primaryBetaOverH2": 0.0011046852011883522,
+            "primaryBetaOverH4": 0.006904282507427201
+          },
+          "Liquid": {
+            "values": [
+              -0.0006798391099183121,
+              -0.0015374720102268036,
+              -0.0032558430303641916,
+              -0.00670425608889913
+            ],
+            "primaryQuadraticIntercept": 0.0001767587172167093,
+            "linearQuadraticSpread": 2.587682933672769e-06,
+            "secondaryQuadraticIntercept": 0.0001770086704905293,
+            "secondaryPrimarySpread": 2.499532738199791e-07,
+            "cubicIntercept": 0.00017672300960618767,
+            "cubicPrimarySpread": 3.570761052164588e-08,
+            "heldoutV004Error": 7.498598214644367e-07,
+            "primaryBetaOverH2": 0.001104741982604433,
+            "primaryBetaOverH4": 0.006904637391277706
+          },
+          "solidLiquidPrimaryDifference": 9.085026572919685e-09
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "h": 0.4,
+          "tauModel": "angular",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              -0.00036661227676880996,
+              -0.0007873512014716699,
+              -0.001626570631581253,
+              -0.0032954366671303654
+            ],
+            "primaryQuadraticIntercept": 5.4879454366094365e-05,
+            "linearQuadraticSpread": 1.8820160801129017e-06,
+            "secondaryQuadraticIntercept": 5.505917019459646e-05,
+            "secondaryPrimarySpread": 1.7971582850209782e-07,
+            "cubicIntercept": 5.4853780676320286e-05,
+            "cubicPrimarySpread": 2.5673689774079037e-08,
+            "heldoutV004Error": 5.391474855085364e-07,
+            "primaryBetaOverH2": 0.0003429965897880897,
+            "primaryBetaOverH4": 0.002143728686175561
+          },
+          "Liquid": {
+            "values": [
+              -0.0008016169222191394,
+              -0.001659161559308675,
+              -0.003377368504808853,
+              -0.00682550552772998
+            ],
+            "primaryQuadraticIntercept": 5.488849109669367e-05,
+            "linearQuadraticSpread": 2.598059434256627e-06,
+            "secondaryQuadraticIntercept": 5.513767555124133e-05,
+            "secondaryPrimarySpread": 2.491844545476549e-07,
+            "cubicIntercept": 5.485289331749245e-05,
+            "cubicPrimarySpread": 3.559777920122265e-08,
+            "heldoutV004Error": 7.475533636549722e-07,
+            "primaryBetaOverH2": 0.0003430530693543354,
+            "primaryBetaOverH4": 0.002144081683464596
+          },
+          "solidLiquidPrimaryDifference": 9.036730599308292e-09
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "h": 0.2,
+          "tauModel": "default",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              0.000836808781637883,
+              0.0004228118580176882,
+              -0.0004027153800829769,
+              -0.002043339091233342
+            ],
+            "primaryQuadraticIntercept": 0.0012516279083046528,
+            "linearQuadraticSpread": 2.055507616437321e-06,
+            "secondaryQuadraticIntercept": 0.0012518160178020081,
+            "secondaryPrimarySpread": 1.8810949735533454e-07,
+            "cubicIntercept": 0.0012516010355193299,
+            "cubicPrimarySpread": 2.6872785322939324e-08,
+            "heldoutV004Error": 5.64328492062751e-07,
+            "primaryBetaOverH2": 0.03129069770761631,
+            "primaryBetaOverH4": 0.7822674426904078
+          },
+          "Liquid": {
+            "values": [
+              0.0003905175255169979,
+              -0.00047157685225673873,
+              -0.002198690024418637,
+              -0.005663833372238081
+            ],
+            "primaryQuadraticIntercept": 0.0012516370977525922,
+            "linearQuadraticSpread": 2.437013845355083e-06,
+            "secondaryQuadraticIntercept": 0.0012518973187399414,
+            "secondaryPrimarySpread": 2.602209873492703e-07,
+            "cubicIntercept": 0.0012515999233258493,
+            "cubicPrimarySpread": 3.7174426742838176e-08,
+            "heldoutV004Error": 7.806629620538824e-07,
+            "primaryBetaOverH2": 0.0312909274438148,
+            "primaryBetaOverH4": 0.78227318609537
+          },
+          "solidLiquidPrimaryDifference": 9.189447939357206e-09
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "h": 0.2,
+          "tauModel": "principal",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              -0.00037822734309069113,
+              -0.0007895387805327186,
+              -0.0016097740040224577,
+              -0.003240142645459668
+            ],
+            "primaryQuadraticIntercept": 3.3879978149440045e-05,
+            "linearQuadraticSpread": 1.9897094952620246e-06,
+            "secondaryQuadraticIntercept": 3.406371147110963e-05,
+            "secondaryPrimarySpread": 1.837333216695843e-07,
+            "cubicIntercept": 3.385373053207037e-05,
+            "cubicPrimarySpread": 2.6247617369672387e-08,
+            "heldoutV004Error": 5.511999650086377e-07,
+            "primaryBetaOverH2": 0.000846999453736001,
+            "primaryBetaOverH4": 0.021174986343400024
+          },
+          "Liquid": {
+            "values": [
+              -0.0008261839550938177,
+              -0.0016872724949101858,
+              -0.00341249713780023,
+              -0.006874378877902432
+            ],
+            "primaryQuadraticIntercept": 3.3888730303447136e-05,
+            "linearQuadraticSpread": 2.539636047757429e-06,
+            "secondaryQuadraticIntercept": 3.414132987248581e-05,
+            "secondaryPrimarySpread": 2.525995690386742e-07,
+            "cubicIntercept": 3.385264465074552e-05,
+            "cubicPrimarySpread": 3.60856527016173e-08,
+            "heldoutV004Error": 7.577987071166054e-07,
+            "primaryBetaOverH2": 0.0008472182575861782,
+            "primaryBetaOverH4": 0.021180456439654455
+          },
+          "solidLiquidPrimaryDifference": 8.752154007091043e-09
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "h": 0.2,
+          "tauModel": "angular",
+          "heldOutNormal": false,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              -0.00040868772273221465,
+              -0.0008199319646466001,
+              -0.0016400347810481106,
+              -0.003270146871368383
+            ],
+            "primaryQuadraticIntercept": 3.351741657923058e-06,
+            "linearQuadraticSpread": 1.98805618938278e-06,
+            "secondaryQuadraticIntercept": 3.5353659158251056e-06,
+            "secondaryPrimarySpread": 1.8362425790204777e-07,
+            "cubicIntercept": 3.3255096210926402e-06,
+            "cubicPrimarySpread": 2.6232036830417567e-08,
+            "heldoutV004Error": 5.508727737098436e-07,
+            "primaryBetaOverH2": 8.379354144807643e-05,
+            "primaryBetaOverH4": 0.002094838536201911
+          },
+          "Liquid": {
+            "values": [
+              -0.0008566867690351643,
+              -0.0017177509013088788,
+              -0.0034429298283400467,
+              -0.006904733065973834
+            ],
+            "primaryQuadraticIntercept": 3.360475743967806e-06,
+            "linearQuadraticSpread": 2.5422187364514328e-06,
+            "secondaryQuadraticIntercept": 3.6128978651363807e-06,
+            "secondaryPrimarySpread": 2.524221211685748e-07,
+            "cubicIntercept": 3.3244154409674162e-06,
+            "cubicPrimarySpread": 3.6060303000389695e-08,
+            "heldoutV004Error": 7.572663635194501e-07,
+            "primaryBetaOverH2": 8.401189359919513e-05,
+            "primaryBetaOverH4": 0.002100297339979878
+          },
+          "solidLiquidPrimaryDifference": 8.734086044748114e-09
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "h": 0.8,
+          "tauModel": "default",
+          "heldOutNormal": true,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              0.02079549317822194,
+              0.02028504119621175,
+              0.019267107948081525,
+              0.017243890493680393
+            ],
+            "primaryQuadraticIntercept": 0.021306935398862196,
+            "linearQuadraticSpread": 2.4755965751452336e-06,
+            "secondaryQuadraticIntercept": 0.021307190791628423,
+            "secondaryPrimarySpread": 2.553927662268807e-07,
+            "cubicIntercept": 0.021306898914181364,
+            "cubicPrimarySpread": 3.648468083206069e-08,
+            "heldoutV004Error": 7.661782986632948e-07,
+            "primaryBetaOverH2": 0.033292086560722176,
+            "primaryBetaOverH4": 0.0520188852511284
+          },
+          "Liquid": {
+            "values": [
+              0.020434993436513338,
+              0.019562639345527266,
+              0.01781674525344057,
+              0.014321357092433873
+            ],
+            "primaryQuadraticIntercept": 0.021306952224127897,
+            "linearQuadraticSpread": 9.882584287856933e-07,
+            "secondaryQuadraticIntercept": 0.021307333445336214,
+            "secondaryPrimarySpread": 3.812212083162403e-07,
+            "cubicIntercept": 0.021306897763955356,
+            "cubicPrimarySpread": 5.446017254176483e-08,
+            "heldoutV004Error": 1.1436636248550458e-06,
+            "primaryBetaOverH2": 0.03329211285019983,
+            "primaryBetaOverH4": 0.05201892632843724
+          },
+          "solidLiquidPrimaryDifference": 1.6825265701514436e-08
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "h": 0.8,
+          "tauModel": "principal",
+          "heldOutNormal": true,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              0.0008232870042297881,
+              0.00035863516054016894,
+              -0.0005690306804540194,
+              -0.0024172842538066025
+            ],
+            "primaryQuadraticIntercept": 0.0012884847967144237,
+            "linearQuadraticSpread": 1.3648719875412104e-06,
+            "secondaryQuadraticIntercept": 0.001288660371079621,
+            "secondaryPrimarySpread": 1.7557436519737533e-07,
+            "cubicIntercept": 0.0012884597146622678,
+            "cubicPrimarySpread": 2.5082052155936743e-08,
+            "heldoutV004Error": 5.267230955906081e-07,
+            "primaryBetaOverH2": 0.0020132574948662865,
+            "primaryBetaOverH4": 0.003145714835728573
+          },
+          "Liquid": {
+            "values": [
+              0.0004353015298885765,
+              -0.000418988430661571,
+              -0.002130860785420907,
+              -0.005567036219480959
+            ],
+            "primaryQuadraticIntercept": 0.0012884940125523763,
+            "linearQuadraticSpread": 2.7436947158680954e-06,
+            "secondaryQuadraticIntercept": 0.0012887403492506367,
+            "secondaryPrimarySpread": 2.463366982603885e-07,
+            "cubicIntercept": 0.0012884588215955073,
+            "cubicPrimarySpread": 3.519095686903284e-08,
+            "heldoutV004Error": 7.390100947891887e-07,
+            "primaryBetaOverH2": 0.0020132718946130877,
+            "primaryBetaOverH4": 0.0031457373353329494
+          },
+          "solidLiquidPrimaryDifference": 9.21583795257877e-09
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "h": 0.8,
+          "tauModel": "angular",
+          "heldOutNormal": true,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              0.00048298440435463587,
+              1.9064729435939713e-05,
+              -0.000907160376605255,
+              -0.002752630428866748
+            ],
+            "primaryQuadraticIntercept": 0.0009474421605387312,
+            "linearQuadraticSpread": 1.3452031634975624e-06,
+            "secondaryQuadraticIntercept": 0.0009476165554174319,
+            "secondaryPrimarySpread": 1.7439487870062227e-07,
+            "cubicIntercept": 0.0009474172469846438,
+            "cubicPrimarySpread": 2.4913554087465685e-08,
+            "heldoutV004Error": 5.231846361059868e-07,
+            "primaryBetaOverH2": 0.0014803783758417673,
+            "primaryBetaOverH4": 0.0023130912122527616
+          },
+          "Liquid": {
+            "values": [
+              9.43805294362221e-05,
+              -0.0007597995834940363,
+              -0.0024714880451970345,
+              -0.005907445587446936
+            ],
+            "primaryQuadraticIntercept": 0.0009474512304189862,
+            "linearQuadraticSpread": 2.7735298687350113e-06,
+            "secondaryQuadraticIntercept": 0.000947695338594323,
+            "secondaryPrimarySpread": 2.441081753367909e-07,
+            "cubicIntercept": 0.0009474163578225361,
+            "cubicPrimarySpread": 3.487259645005951e-08,
+            "heldoutV004Error": 7.323245260126496e-07,
+            "primaryBetaOverH2": 0.0014803925475296656,
+            "primaryBetaOverH4": 0.0023131133555151025
+          },
+          "solidLiquidPrimaryDifference": 9.06988025493622e-09
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "h": 0.4,
+          "tauModel": "default",
+          "heldOutNormal": true,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              0.004574086456429469,
+              0.0041423756514244745,
+              0.0032815336948463242,
+              0.0015707619221692819
+            ],
+            "primaryQuadraticIntercept": 0.005006657145911745,
+            "linearQuadraticSpread": 2.149711193200586e-06,
+            "secondaryQuadraticIntercept": 0.005006854988162381,
+            "secondaryPrimarySpread": 1.9784225063594618e-07,
+            "cubicIntercept": 0.0050066288827331044,
+            "cubicPrimarySpread": 2.8263178640346165e-08,
+            "heldoutV004Error": 5.935267518930934e-07,
+            "primaryBetaOverH2": 0.0312916071619484,
+            "primaryBetaOverH4": 0.1955725447621775
+          },
+          "Liquid": {
+            "values": [
+              0.00414572125797541,
+              0.0032839020061903312,
+              0.001557645536132135,
+              -0.0019044973747162075
+            ],
+            "primaryQuadraticIntercept": 0.005006667854264477,
+            "linearQuadraticSpread": 2.1816387400317577e-06,
+            "secondaryQuadraticIntercept": 0.0050069484860045445,
+            "secondaryPrimarySpread": 2.8063174006744823e-07,
+            "cubicIntercept": 0.00500662776401593,
+            "cubicPrimarySpread": 4.0090248547113017e-08,
+            "heldoutV004Error": 8.418952201884669e-07,
+            "primaryBetaOverH2": 0.031291674089152975,
+            "primaryBetaOverH4": 0.1955729630572061
+          },
+          "solidLiquidPrimaryDifference": 1.0708352732313742e-08
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "h": 0.4,
+          "tauModel": "principal",
+          "heldOutNormal": true,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              -0.00028346857453986294,
+              -0.0007043779282008694,
+              -0.0015439342850937208,
+              -0.0032134573749130727
+            ],
+            "primaryQuadraticIntercept": 0.00013819489593086345,
+            "linearQuadraticSpread": 1.885292024300791e-06,
+            "secondaryQuadraticIntercept": 0.00013837497001409728,
+            "secondaryPrimarySpread": 1.80074083233839e-07,
+            "cubicIntercept": 0.00013816917106184253,
+            "cubicPrimarySpread": 2.5724869020914013e-08,
+            "heldoutV004Error": 5.402222497054472e-07,
+            "primaryBetaOverH2": 0.0008637180995678963,
+            "primaryBetaOverH4": 0.005398238122299353
+          },
+          "Liquid": {
+            "values": [
+              -0.0007185002376619565,
+              -0.0015762421077369915,
+              -0.003294839326040133,
+              -0.00674373812623863
+            ],
+            "primaryQuadraticIntercept": 0.0001382038063620517,
+            "linearQuadraticSpread": 2.5945651275615235e-06,
+            "secondaryQuadraticIntercept": 0.0001384536560354113,
+            "secondaryPrimarySpread": 2.498496733596017e-07,
+            "cubicIntercept": 0.00013816811355159476,
+            "cubicPrimarySpread": 3.569281045693478e-08,
+            "heldoutV004Error": 7.495490200789406e-07,
+            "primaryBetaOverH2": 0.0008637737897628229,
+            "primaryBetaOverH4": 0.0053985861860176435
+          },
+          "solidLiquidPrimaryDifference": 8.910431188247428e-09
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "h": 0.4,
+          "tauModel": "angular",
+          "heldOutNormal": true,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              -0.0003696119311053046,
+              -0.0007903314150216773,
+              -0.0016295137135786408,
+              -0.0032983123307215255
+            ],
+            "primaryQuadraticIntercept": 5.1859775902993974e-05,
+            "linearQuadraticSpread": 1.880557729817356e-06,
+            "secondaryQuadraticIntercept": 5.2039543525631086e-05,
+            "secondaryPrimarySpread": 1.7976762263711196e-07,
+            "cubicIntercept": 5.1834094814057564e-05,
+            "cubicPrimarySpread": 2.5681088936409778e-08,
+            "heldoutV004Error": 5.393028679186e-07,
+            "primaryBetaOverH2": 0.0003241235993937123,
+            "primaryBetaOverH4": 0.0020257724962107018
+          },
+          "Liquid": {
+            "values": [
+              -0.0008047698332180886,
+              -0.0016624490892014343,
+              -0.0033809299010645333,
+              -0.00682963282381821
+            ],
+            "primaryQuadraticIntercept": 5.1868656133119684e-05,
+            "linearQuadraticSpread": 2.601916580341056e-06,
+            "secondaryQuadraticIntercept": 5.2117956319168816e-05,
+            "secondaryPrimarySpread": 2.493001860491312e-07,
+            "cubicIntercept": 5.183304182085042e-05,
+            "cubicPrimarySpread": 3.561431226926199e-08,
+            "heldoutV004Error": 7.479005581598891e-07,
+            "primaryBetaOverH2": 0.000324179100831998,
+            "primaryBetaOverH4": 0.002026119380199987
+          },
+          "solidLiquidPrimaryDifference": 8.880230125710381e-09
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "h": 0.2,
+          "tauModel": "default",
+          "heldOutNormal": true,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              0.000827703096685489,
+              0.000413729085823914,
+              -0.0004117533489960054,
+              -0.0020522916387670223
+            ],
+            "primaryQuadraticIntercept": 0.0012424989698481411,
+            "linearQuadraticSpread": 2.0546557526924126e-06,
+            "secondaryQuadraticIntercept": 0.0012426870472667733,
+            "secondaryPrimarySpread": 1.8807741863219318e-07,
+            "cubicIntercept": 0.0012424721016454925,
+            "cubicPrimarySpread": 2.6868202648638526e-08,
+            "heldoutV004Error": 5.642322558974469e-07,
+            "primaryBetaOverH2": 0.031062474246203522,
+            "primaryBetaOverH4": 0.7765618561550881
+          },
+          "Liquid": {
+            "values": [
+              0.0003813592616808137,
+              -0.0004807648285032329,
+              -0.002207939369924805,
+              -0.0056732139283838245
+            ],
+            "primaryQuadraticIntercept": 0.0012425078981803661,
+            "linearQuadraticSpread": 2.4386342112341e-06,
+            "secondaryQuadraticIntercept": 0.0012427678877130449,
+            "secondaryPrimarySpread": 2.599895326787366e-07,
+            "cubicIntercept": 0.0012424707568185808,
+            "cubicPrimarySpread": 3.714136178538212e-08,
+            "heldoutV004Error": 7.799685980457507e-07,
+            "primaryBetaOverH2": 0.031062697454509146,
+            "primaryBetaOverH4": 0.7765674363627287
+          },
+          "solidLiquidPrimaryDifference": 8.928332225020125e-09
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "h": 0.2,
+          "tauModel": "principal",
+          "heldOutNormal": true,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              -0.0003872869684760385,
+              -0.0007985756816582775,
+              -0.0016187664665620453,
+              -0.003249050364479884
+            ],
+            "primaryQuadraticIntercept": 2.479729185976982e-05,
+            "linearQuadraticSpread": 1.988867883924373e-06,
+            "secondaryQuadraticIntercept": 2.4980993875387566e-05,
+            "secondaryPrimarySpread": 1.8370201561774435e-07,
+            "cubicIntercept": 2.477104871469207e-05,
+            "cubicPrimarySpread": 2.6243145077750824e-08,
+            "heldoutV004Error": 5.511060468593384e-07,
+            "primaryBetaOverH2": 0.0006199322964942454,
+            "primaryBetaOverH4": 0.015498307412356136
+          },
+          "Liquid": {
+            "values": [
+              -0.000835296081413972,
+              -0.0016964144356479416,
+              -0.0034217006547987427,
+              -0.006883713934860425
+            ],
+            "primaryQuadraticIntercept": 2.480576925904147e-05,
+            "linearQuadraticSpread": 2.5412589023869847e-06,
+            "secondaryQuadraticIntercept": 2.5058169582828543e-05,
+            "secondaryPrimarySpread": 2.524003237870731e-07,
+            "cubicIntercept": 2.4769712069953745e-05,
+            "cubicPrimarySpread": 3.6057189087725496e-08,
+            "heldoutV004Error": 7.572009713763608e-07,
+            "primaryBetaOverH2": 0.0006201442314760367,
+            "primaryBetaOverH4": 0.015503605786900916
+          },
+          "solidLiquidPrimaryDifference": 8.477399271648411e-09
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "h": 0.2,
+          "tauModel": "angular",
+          "heldOutNormal": true,
+          "speeds": [
+            0.005,
+            0.01,
+            0.02,
+            0.04
+          ],
+          "Solid": {
+            "values": [
+              -0.00040886588620758557,
+              -0.000820106996282954,
+              -0.0016402039804444654,
+              -0.003270306130578141
+            ],
+            "primaryQuadraticIntercept": 3.170302530857008e-06,
+            "linearQuadraticSpread": 1.98769665768686e-06,
+            "secondaryQuadraticIntercept": 3.3539272750056846e-06,
+            "secondaryPrimarySpread": 1.8362474414867652e-07,
+            "cubicIntercept": 3.1440704245613317e-06,
+            "cubicPrimarySpread": 2.6232106295676392e-08,
+            "heldoutV004Error": 5.508742324509576e-07,
+            "primaryBetaOverH2": 7.925756327142518e-05,
+            "primaryBetaOverH4": 0.0019814390817856297
+          },
+          "Liquid": {
+            "values": [
+              -0.0008569050592877048,
+              -0.0017180061307131567,
+              -0.003443259963520351,
+              -0.006905217639724404
+            ],
+            "primaryQuadraticIntercept": 3.178782152315545e-06,
+            "linearQuadraticSpread": 2.5430749635770257e-06,
+            "secondaryQuadraticIntercept": 3.431031897478132e-06,
+            "secondaryPrimarySpread": 2.5224974516258694e-07,
+            "cubicIntercept": 3.14274647445581e-06,
+            "cubicPrimarySpread": 3.6035677859735357e-08,
+            "heldoutV004Error": 7.567492355036939e-07,
+            "primaryBetaOverH2": 7.946955380788862e-05,
+            "primaryBetaOverH4": 0.001986738845197215
+          },
+          "solidLiquidPrimaryDifference": 8.479621458537139e-09
+        }
+      ],
+      "controls": [
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "label": "domain",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": 1.4688593765778413e-12,
+            "Liquid": -1.7894574710908273e-10
+          }
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "label": "eta",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": -2.122181255595837e-11,
+            "Liquid": -3.383959779057477e-11
+          }
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "label": "modes",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": -2.1181841003414803e-14,
+            "Liquid": 1.3322676295501878e-12
+          }
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "label": "tail-width",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": 7.356637000965893e-15,
+            "Liquid": 8.43769498715119e-13
+          }
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "h": 0.8,
+          "label": "cutoff-smooth",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": -1.1918683612754596e-10,
+            "Liquid": -1.4290790772975015e-10
+          }
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "h": 0.4,
+          "label": "cutoff-smooth",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": -6.886349590605814e-11,
+            "Liquid": -7.254197242900773e-11
+          }
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "h": 0.2,
+          "label": "cutoff-smooth",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": -1.8197426746892342e-11,
+            "Liquid": -2.879918525877656e-11
+          }
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "label": "domain",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": -4.463419488610204e-12,
+            "Liquid": 3.3653080322437745e-10
+          }
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "label": "eta",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": -3.675537142439761e-12,
+            "Liquid": 4.092282068768327e-11
+          }
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "label": "modes",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": 3.658423390617838e-15,
+            "Liquid": -2.220446049250313e-13
+          }
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "label": "tail-width",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": -1.0389692578494092e-14,
+            "Liquid": -1.2434497875801753e-12
+          }
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "h": 0.8,
+          "label": "cutoff-smooth",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": -5.81266585645418e-10,
+            "Liquid": -5.568434602309935e-10
+          }
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "h": 0.4,
+          "label": "cutoff-smooth",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": -1.8246392938237044e-10,
+            "Liquid": -2.4300561562995426e-10
+          }
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "h": 0.2,
+          "label": "cutoff-smooth",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": -5.309277404655019e-11,
+            "Liquid": -7.382983113757291e-11
+          }
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "label": "domain",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": -2.8128280683391987e-11,
+            "Liquid": -2.657873920952625e-10
+          }
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "label": "eta",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": -4.055364605324435e-12,
+            "Liquid": 1.1159961843532074e-10
+          }
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "label": "modes",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": 2.0715850909680533e-15,
+            "Liquid": -3.597122599785507e-12
+          }
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "label": "tail-width",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": 4.194756521302967e-14,
+            "Liquid": -1.9539925233402755e-12
+          }
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "h": 0.8,
+          "label": "cutoff-smooth",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": -6.19541295219031e-10,
+            "Liquid": -7.356781850376137e-10
+          }
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "h": 0.4,
+          "label": "cutoff-smooth",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": -1.8396219671288488e-10,
+            "Liquid": -2.255751141433393e-10
+          }
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "h": 0.2,
+          "label": "cutoff-smooth",
+          "bothConverged": true,
+          "betaDifference": {
+            "Solid": -4.7595755895551983e-11,
+            "Liquid": -7.862599460395359e-11
+          }
+        }
+      ],
+      "signedTau": [
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "tauInputs": [
+            0.9,
+            1.1
+          ],
+          "betaSolid": [
+            -0.02240071907302564,
+            0.02077246669665492
+          ],
+          "nominal": -0.0008142112528257693,
+          "responseSignsPassed": true,
+          "scope": "whole-tau response only; t!=1 has nonzero continuum beta and residual angular h\u00b2 coefficient"
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "tauInputs": [
+            0.9,
+            1.1
+          ],
+          "betaSolid": [
+            -0.02210081921736967,
+            0.020526280634750836
+          ],
+          "nominal": -0.0007873512014716699,
+          "responseSignsPassed": true,
+          "scope": "whole-tau response only; t!=1 has nonzero continuum beta and residual angular h\u00b2 coefficient"
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "tauInputs": [
+            0.9,
+            1.1
+          ],
+          "betaSolid": [
+            -0.02210609240490341,
+            0.02052559335161138
+          ],
+          "nominal": -0.0007903314150216773,
+          "responseSignsPassed": true,
+          "scope": "whole-tau response only; t!=1 has nonzero continuum beta and residual angular h\u00b2 coefficient"
+        }
+      ],
+      "angularRefinement": [
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "h": [
+            0.8,
+            0.4,
+            0.2
+          ],
+          "solidIntercepts": [
+            0.0008785722725297231,
+            4.8486553185494716e-05,
+            2.9779975950251433e-06
+          ],
+          "coarseMediumRatio": 18.1199160346287,
+          "mediumFineRatio": 16.281595816764032,
+          "orders": [
+            4.179504365022866,
+            4.025170205062825
+          ],
+          "target": "h\u00b2 cancellation at t1,width1; compare O(h4) trend and fit uncertainties, not a retrospective pass band"
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "h": [
+            0.8,
+            0.4,
+            0.2
+          ],
+          "solidIntercepts": [
+            0.001006851938867411,
+            5.4879454366094365e-05,
+            3.351741657923058e-06
+          ],
+          "coarseMediumRatio": 18.34660986515683,
+          "mediumFineRatio": 16.373414173006697,
+          "orders": [
+            4.197441597597383,
+            4.03328327784099
+          ],
+          "target": "h\u00b2 cancellation at t1,width1; compare O(h4) trend and fit uncertainties, not a retrospective pass band"
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "h": [
+            0.8,
+            0.4,
+            0.2
+          ],
+          "solidIntercepts": [
+            0.0009474421605387312,
+            5.1859775902993974e-05,
+            3.170302530857008e-06
+          ],
+          "coarseMediumRatio": 18.269306876893648,
+          "mediumFineRatio": 16.35798962346191,
+          "orders": [
+            4.191349995178053,
+            4.0319235486389156
+          ],
+          "target": "h\u00b2 cancellation at t1,width1; compare O(h4) trend and fit uncertainties, not a retrospective pass band"
+        }
+      ],
+      "physicalDiagnostics": {
+        "minQ": -1.000000000000007,
+        "maxQ": 1.0000000000000069,
+        "maxMonotonicityViolation": 6.879591341046876e-10,
+        "maxLatentJumpError": 2.0615842366566994e-11,
+        "maxProjectedResidual": 1.517449360610712e-14,
+        "minimumLocalTau": 0.8489266720551888
+      }
+    },
+    "summarySha256": "89575bdf8040402669b4517d7ec0b831a1ccb319a2b7e4044b8fe3b781a068e2"
+  },
+  "independentAudit": {
+    "allProfilesAndBulkFitsReconstructed": 135,
+    "fixedFitsAndControlsAgree": true,
+    "auditSha256": "24a7c3721daff6270f2eaa7396b13d82cee8f4985ad171f4531cfd48b21e721a",
+    "secondArchiveVerificationSha256": "4567aa710489fb87c7e7a9adc59f453c13bc8334d8104fbba3e872c5bf9f40cc",
+    "archive": "solidify-q3-oblique-angular-cpu-2026-10-31.zip",
+    "archiveBytes": 55195113,
+    "archiveSha256": "6047c3288d18817a84431eb8e1e199dbf560e2026d73d6b14cd9a3fa8addb042",
+    "allEntriesShaVerified": true,
+    "zipCrcVerified": true,
+    "serverDigestMatches": true,
+    "serverVerifiedAt": "2026-11-01T00:46:23.911273+00:00"
+  },
+  "interpretation": {
+    "leadingAngularH2CancellationSupported": true,
+    "observedPrimaryQuadraticRefinement": "Orders4.18-4.20 from h.8 to.4 and4.025-4.033 from h.4 to.2, including heldout321",
+    "finestSolidInterceptRange": [
+      2.9779975950251433e-06,
+      3.351741657923058e-06
+    ],
+    "finestLinearQuadraticSpreadRange": [
+      1.98769665768686e-06,
+      2.06603515113259e-06
+    ],
+    "uncertainty": "The linear/quadratic spread is material relative to the finest residual; all fit sensitivities and heldout errors remain in the full summary",
+    "universalErrorBoundEstablished": false,
+    "original95Of96FailurePreserved": true,
+    "oldThermalRecoveryRefusalPreserved": true,
+    "oldLiteratureRefusalsPreserved": true
+  },
+  "gpu": {
+    "executed": false,
+    "status": "Research-only local-tau capture and Euler response queued after the sole local capillary GPU campaign",
+    "protocol": "scripts/research/quant3d-angular-gpu.md",
+    "temporalStabilityAccepted": false
+  }
+}

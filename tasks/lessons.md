@@ -731,3 +731,15 @@ verified LF/CRLF representation; no result or scientific source was altered.
 commit archive. If reconstruction is necessary, verify the reconstructed bytes
 against every original hash and label the representation. Keep generated shader
 hashes as a separate model-provenance check.
+
+## A passing numerical control still needs a working evidence writer
+
+The angular prerequisites passed numerically, but two NumPy booleans prevented
+JSON serialization before any new profile was solved. The first refused CLI
+attempt, exact sources and seal were preserved; native-boolean casts and a
+separate pre-run seal allowed the same unchanged numerical gates to execute.
+
+**Rule.** Exercise the complete prerequisite report through its actual artifact
+writer before a long study. Convert library scalar verdicts explicitly, keep
+scientific values and criteria unchanged, and preserve any failed attempt before
+freezing a corrected implementation.

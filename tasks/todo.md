@@ -5542,6 +5542,31 @@ gradient/anisotropic flux. Preserve the previous operator, reference, 96-case
 study and immutable proof. Do not fit any coefficient to oblique or needle data.
 
 - [x] Prove the compensation and rotated-grain form independently, including a rigorous signed bound.
-- [ ] Freeze a separate CPU protocol; test principal parity, tau/coupled Jacobians, h=.8/.4/.2, held-out321, signed tau and cutoff sensitivity.
+- [x] Freeze a separate CPU protocol; test principal parity, tau/coupled Jacobians, h=.8/.4/.2, held-out321, signed tau and cutoff sensitivity.
 - [ ] If the independent CPU controls justify it, verify a research-only WGSL adapter and its actual response; keep application defaults and production equations unchanged.
 - [ ] Archive both original and new outcomes with exact source bytes; document remaining finite-speed/stability and literature failures separately.
+
+### Bounded oblique temporal pilot during local GPU execution
+
+Root reviewed verify-out/q3-oblique-temporal-plan/plan.md before implementation.
+Use the sealed full 210 operator at dx=.8, V=.04, width1/tau1, physical sub1,
+and actual pre-existing principal/angular BVP inputs. No altered capillary
+source or second GPU owner is permitted.
+
+Before trajectories, benchmark 100 RHS evaluations without advancing a state.
+Run the paired fourteen-trajectory option only if its projected CPU time is
+at most 45 minutes; otherwise use the seven-trajectory angular option if within
+that limit, or stop at the non-trajectory control option. Freeze sources,
+inputs, clocks, conservative arithmetic budget and metrology, then push before
+evolution. Domain/timestep choices and all failures remain preserved.
+
+The pilot uses baseline and signed zero-discrete-integral heat, two timesteps
+and a doubled-domain baseline, at a fixed eight-cell-period horizon with 65 probes.
+Its symmetric heat-graph ends are an explicit artificial boundary model. Actual
+finite enthalpy and its arithmetic budget are separate from the continuous
+traveling identity D/V. No recovery, target-speed, RMS or asymptotic-stability
+acceptance band is introduced. The earlier added-heat refusal remains intact.
+
+- [x] Review the prospective temporal scope and cost/fallback rule before implementation.
+- [ ] Verify prerequisites and exact conservation/clock/metrology controls; freeze/push the selected batch.
+- [ ] Execute the selected CPU batch, preserve all outcomes and assess timestep/domain sensitivity without a new scientific pass band.

@@ -2116,7 +2116,7 @@
     "finished": "2026-10-31T23:59:10.201Z"
   },
   "capillaryRefinement": {
-    "status": "Twelve-case protocol refrozen and CPU-verified; actual GPU run pending compute choice",
+    "status": "Local GPU campaign running with frozen sources/endpoints",
     "registeredCases": 12,
     "physicalDx": [
       0.8,
@@ -2145,13 +2145,109 @@
     "controlPeriod": 4,
     "protocolFreezeSha256": "3a8ec99c315e9b505f69b1965577b0b2c59f894fe903323688112f9faa155bf8",
     "estimator": "Unchanged local-curvature crossing, sextic/octic fits, orders and windows",
-    "gpuExecuted": false,
-    "q3Accepted": false
+    "gpuExecuted": true,
+    "q3Accepted": false,
+    "executionCompleted": false,
+    "source": "10fb837912870ff0af60d69cf7868c186ae1fa0e",
+    "completeCases": 8
   },
   "remaining": [
     "Execute and replay all twelve capillary grid/phase cases",
     "Independently test any derived angular candidate before considering adoption",
     "Establish finite-speed temporal behavior with conserved-quantity-aware controls",
     "Pass the full unchanged published reference before quantitative3D promotion"
-  ]
+  ],
+  "backup": {
+    "archives": [
+      {
+        "name": "solidify-q3-oblique-cpu-2026-10-31.zip",
+        "bytes": 20358915,
+        "sha256": "a8a99b94df329fcd5db72976cdc395d005ddf0aabaed81260dea762a02a2c6f4",
+        "independentManifestReadback": true
+      },
+      {
+        "name": "solidify-q3-oblique-gpu-2026-10-31.zip",
+        "bytes": 950216,
+        "sha256": "d5d8e21833496f062ed74d77faf98140e1ec39cdb6817faf9ce1bd68c7cc4482",
+        "independentManifestReadback": true
+      }
+    ],
+    "report": {
+      "path": "verify-out\\q3-oblique-archive-audit\\report.md",
+      "sha256": "260c9d9d447004c2549f771c7cd811146eca97f778beb7d1a6fa08d241a92565"
+    },
+    "audit": {
+      "path": "verify-out\\q3-oblique-archive-audit\\verification-audit.json",
+      "sha256": "f709ae6ef5b30d677283ec89d21b719e80660f1868ddf6279318cb350f1e1aad"
+    },
+    "allWritesFinished": true,
+    "noKineticOrQ3Acceptance": true
+  },
+  "serverBackupVerification": {
+    "allDigestsMatch": true,
+    "releaseDraft": "https://github.com/fronkt/solidify/releases/tag/untagged-4ff2f3cab68d844e3925",
+    "assets": [
+      {
+        "name": "q3-oblique-independent-proof-2026-10-31.zip",
+        "bytes": 22206,
+        "sha256": "4640611714cd9d5cd57fe3c9d3a6629b3046c72e4ff6028f6a0e0e85e0aaf362",
+        "serverDigestMatches": true
+      },
+      {
+        "name": "q3-oblique-independent-proof-2026-10-31.zip.sha256",
+        "bytes": 111,
+        "sha256": "c1739ba3183b27de87f813d83ca46c8b743c22bba0bd6c9d87a94bad26b5e27d",
+        "serverDigestMatches": true
+      },
+      {
+        "name": "q3-rotated-compensation-independent-2026-10-31.zip",
+        "bytes": 24205,
+        "sha256": "0cc934d9a682ec1baaa177caf7c5fc70c91bd7a169c2db6efe7a24f693ef057f",
+        "serverDigestMatches": true
+      },
+      {
+        "name": "q3-rotated-compensation-independent-2026-10-31.zip.sha256",
+        "bytes": 118,
+        "sha256": "6b356f8d15cd39ddfd9b741a8a0637cde7898d0d08bffafaf841fb0c10b8a1df",
+        "serverDigestMatches": true
+      },
+      {
+        "name": "solidify-q3-oblique-angular-cpu-2026-10-31.zip",
+        "bytes": 55195113,
+        "sha256": "6047c3288d18817a84431eb8e1e199dbf560e2026d73d6b14cd9a3fa8addb042",
+        "serverDigestMatches": true
+      },
+      {
+        "name": "solidify-q3-oblique-angular-cpu-2026-10-31.zip.sha256",
+        "bytes": 114,
+        "sha256": "1895c570a49bb269355f4977db3ef436b2eaaeb9798721a6bb39ac17d9e3f8f7",
+        "serverDigestMatches": true
+      },
+      {
+        "name": "solidify-q3-oblique-cpu-2026-10-31.zip",
+        "bytes": 20358915,
+        "sha256": "a8a99b94df329fcd5db72976cdc395d005ddf0aabaed81260dea762a02a2c6f4",
+        "serverDigestMatches": true
+      },
+      {
+        "name": "solidify-q3-oblique-cpu-2026-10-31.zip.sha256",
+        "bytes": 106,
+        "sha256": "af5f878ffeb0ac901437e043b006902cc44a68a302f142a8121e9aa8e7fed796",
+        "serverDigestMatches": true
+      },
+      {
+        "name": "solidify-q3-oblique-gpu-2026-10-31.zip",
+        "bytes": 950216,
+        "sha256": "d5d8e21833496f062ed74d77faf98140e1ec39cdb6817faf9ce1bd68c7cc4482",
+        "serverDigestMatches": true
+      },
+      {
+        "name": "solidify-q3-oblique-gpu-2026-10-31.zip.sha256",
+        "bytes": 106,
+        "sha256": "27bdd94d41f0f35b08ae338e5c4b13d5fcea9b0b613ff9391c674ceee71e313c",
+        "serverDigestMatches": true
+      }
+    ],
+    "verifiedAt": "2026-11-01T00:46:23.911273+00:00"
+  }
 }

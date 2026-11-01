@@ -452,6 +452,21 @@ and the [full operator protocol](../scripts/research/quant3d-oblique-kinetic.md)
 The next capillary protocol pairs lattice phases at dx/W0=.8/.6/.4, with grids
 96/128/192, radius20, a fixed physical box and one common physical phase-volume
 target. All twelve cases keep the previous horizon, cadence and curvature
-estimator. CPU geometry, pairing and lifecycle controls pass; actual GPU
-execution and response-grid conclusions remain pending. These investigations
+estimator. CPU geometry, pairing and lifecycle controls pass; the full local GPU
+campaign is running and response-grid conclusions remain pending. These investigations
 do not close Q3 or change the published ten-percent reference bands.
+
+The separately sealed nodewise angular candidate converges in all 87 new CPU
+profiles and reuses 48 unchanged baselines. All 135 raw-profile hashes, source
+copies and fixed bulk fits verify independently. The primary quadratic
+finite-range intercepts show a fourth-order mesh trend across 210/211 and
+held-out 321 after the predicted h-squared term is removed. At dx=.2, solid-side
+intercepts are 2.98-3.35e-6; linear-versus-quadratic spread is about 2e-6 and remains
+material. This is not a universal error bound or a literal zero-speed result.
+The serialization-only initial refusal and the original 95/96 outcome remain
+preserved. The independent source/fit audit and archive have matching server
+digests. Actual research-only GPU tau/gamma capture and Euler response are
+queued after the sole capillary job; application defaults remain unchanged.
+See [angular evidence](validation/quant3d-angular-2026-10-31.json).
+The [separate assessment](../scripts/research/quant3d-oblique-kinetic-angular-assessment.md)
+retains solid/liquid fit sensitivity, numerical controls and reproduction details.
