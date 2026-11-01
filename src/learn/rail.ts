@@ -30,7 +30,7 @@ export const RAIL_LEARN: readonly LearnEntry[] = [
     id: "sec:MODES",
     text: "In lab mode you pour a planned experiment (mold, superheat, cooling program) and get its cooling "
       + "curve and grains; heat treat anneals the frozen casting in real hours. The optimizer searches for "
-      + "a process that hits a target grain size, and challenge pits you against it (both 2D only).",
+      + "a process that hits a target grain size in 2D or 3D; challenge pits you against it in 2D only.",
   },
   {
     id: "sec:MELT · PROCESS",

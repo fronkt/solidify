@@ -63,6 +63,12 @@ export const PANEL_LEARN: readonly LearnEntry[] = [
       + "grain size. Each tile is one full casting; |ΔG|, the distance from the target, shrinks as it learns.",
   },
   {
+    id: "panel:optimizer3d",
+    text: "The 3D optimizer searches cooling schedules and refiner charges using the selected volume and seed. "
+      + "Its target is a volume-equivalent grain diameter, shown in microns when the scale is known or cells otherwise; "
+      + "the Kobayashi model is qualitative.",
+  },
+  {
     id: "panel:challenge",
     text: "Cast one specimen yourself, steering cooling rate and inoculant n_max while it freezes; then the "
       + "optimizer gets ten castings at the same target. The grain size closer to the target (smaller |ΔG|) wins.",
@@ -395,6 +401,24 @@ export const OPT_CAVEATS = {
     line: "",
     learn: "The search stopped improving before it reached the target: this is the best recipe it found, not "
       + "a converged one. Keep searching or move the target.",
+  },
+} as const satisfies Record<string, Caveat>;
+
+export const OPT3_CAVEATS = {
+  intro: {
+    line: "CMA-ES · 1 tile = 1 volume casting · current grid and seed",
+    learn: "Each trial evolves the selected 3D grid with the same seed. "
+      + "Apply stages the winning settings as a fresh melt, ready for run.",
+  },
+  metric: {
+    line: "target: volume-equivalent grain diameter",
+    learn: "The diameter is that of a sphere with the mean volume of the censused grains, not a 2D ASTM grain number. "
+      + "The census keeps grains larger than 64 voxels or 0.001% of the volume, whichever is larger.",
+  },
+  model: {
+    line: "qualitative Kobayashi casting model",
+    learn: "Cooling, undercooling and inoculant charge are compared within the same model, grid and seed. "
+      + "The result is the best casting measured under those settings.",
   },
 } as const satisfies Record<string, Caveat>;
 

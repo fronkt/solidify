@@ -1,5 +1,33 @@
 # Testing
 
+Merged regression inventory, 2026-11-01: the 3D optimizer branch (PR 4) and
+the quantitative-calibration continuation (PR 5) each registered two scripts on
+top of the shared 35, so the merged local suite contains 39 registered scripts
+and CI gates twenty-three browser-free scripts. Each branch's own full run is
+recorded below; the merged suite is re-run before this merge is accepted.
+
+Final reviewed optimizer regression, 2026-10-30: all 37 registered scripts
+passed in one full run on `9d5fa9a`, recorded in
+`verify-out/optimizer3d-full-suite.log`. All 151 files under `src`, `scripts`
+and `app` retained their source-freeze hashes. The dedicated 3D optimizer
+passed all fifteen real-WebGPU gates with a readable device-error ledger and
+zero errors. GitHub CI also passed its whole browser-free set (21 entries at
+that commit) plus typecheck/build. Public evidence: `docs/validation/optimizer3d-2026-10-30.json`.
+The separate five-arm literature campaign **failed** its reference comparison;
+these regression passes do not complete Q3 acceptance.
+
+The 3D optimizer adds `verify-optimizer3d.mjs` to the local GPU suite. Its fifteen
+checks exercise real current-grid casts and an independent raw-voxel census,
+paused entry and transport, invalid trials, target/stop races, controls on a
+phone, recipe application/sharing and repeatable winning replay, calibrated-mode
+refusal, and legacy 2D compatibility. It needs the same real WebGPU server and
+source freeze as the other browser tests. See `docs/OPTIMIZER-3D.md`.
+The browser-free `verify-optimizer3d-model.mjs` adds seven arithmetic checks to
+both CI and the local suite. These
+cover independent sphere-volume inversion, known/unknown unit objectives,
+invalid/nonfinite census refusal, finite-score ordering and overflow, charged
+liquidus genome bounds, exact cooling-stage boundaries and deep-copy isolation.
+
 The quantitative-calibration continuation registers two additional scripts,
 bringing this branch's local suite to 37. `verify-quant3d-readback.mjs` checks
 coordinate-exact padded row/slice unpacking on the CPU; `--gpu` additionally
@@ -36,7 +64,7 @@ comparison; these regression passes do not complete Q3 acceptance.
 
 Q3 adds three GPU verification scripts, also registered in `npm test`. The
 Wulff and tip geometry/protocol self-tests and the runner-lifecycle controls
-also run without a browser in CI, bringing that set to twenty-two scripts:
+also run without a browser in CI, bringing that set to twenty-three scripts:
 
 - `verify-passsplit3d.mjs` compares preserved fused and diagnostic split Kobayashi
   paths with the untouched `d59471e` volume snapshots. Eight fixed manufactured
@@ -151,7 +179,7 @@ fade and Sievert gas porosity — bringing the CI-runnable set to five at the ti
 left it, v8's `verify-hero-manifest.mjs` fourteen and v8 U2's `verify-plot.mjs` fifteen.
 The v8 completion adds process-plot and run-export coverage. Q3 adds the Wulff
 and tip self-tests plus runner-lifecycle controls, bringing the set to
-**twenty-two browser-free scripts**, and
+**twenty-three browser-free scripts**, and
 `CI-SCRIPT-COUNT` derives that number from `ci.yml`'s own run lines and fails if any place this
 document states it disagrees). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
@@ -172,8 +200,8 @@ except `verify-hero.mjs`, which runs with WebGPU removed and needs no GPU; it st
 hardcoded Chrome path and the 5199 server, so it is not in CI either.
 **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
-only the OS-agnostic steps — typecheck, build, and the twenty-two browser-free scripts
-(`verify-units.mjs`, `verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
+only the OS-agnostic steps — typecheck, build, and the twenty-three browser-free scripts
+(`verify-units.mjs`, `verify-rng.mjs`, `verify-optimizer3d-model.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
 `verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
 `verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
 `verify-composer-grid.mjs`, `verify-hero-manifest.mjs`, `verify-plot.mjs`, `verify-process-plots.mjs`, `verify-run-export.mjs`,
@@ -1497,7 +1525,7 @@ rebuilt to make that relationship emergent:
 **Physics-behaviour tests (v5.0).**
 
 - **`UNITS-*`** (`verify-units.mjs`) — the scaling layer, checked without a browser, so it is
-  the first of the twenty-two browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0, the v7.1 arc added six more, v8 added figure/export checks, and Q3 added its self-tests and runner-lifecycle controls). Ten checks: that kelvin-per-unit really is the heat
+  the first of the twenty-three browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0, the v7.1 arc added six more, v8 added figure/export checks, and Q3 added its self-tests and runner-lifecycle controls). Ten checks: that kelvin-per-unit really is the heat
   equation's own `(L/c_p)/K` for four materials computed independently in the test; that the
   time factor is forced by whichever diffusivity is anchoring; that every converter round-trips;
   that an abstract material reads as *unknown* rather than as zero; that the undercooling dial's
@@ -1996,8 +2024,8 @@ spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 
 that evidence recorded in the constant's own docblock. The drift prints on every run, and
 `HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
-`npm run typecheck` and `npm run build` plus the twenty-two browser-free scripts — `verify-units.mjs`,
-`verify-rng.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
+`npm run typecheck` and `npm run build` plus the twenty-three browser-free scripts — `verify-units.mjs`,
+`verify-rng.mjs`, `verify-optimizer3d-model.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
 `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
 `verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
 `verify-composer-grid.mjs`, `verify-hero-manifest.mjs`, `verify-plot.mjs`,

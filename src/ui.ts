@@ -66,6 +66,8 @@ export interface UIHost extends AppControl {
   getSubsteps(): number;
   isRunning(): boolean;
   isEngineering(): boolean;
+  /** A visible refusal from the 3D search or an applied/shared recipe. */
+  optimizerIssue?(): string | null;
   shareLink(): string;
   getSpeedMult(): number;
   cycleSpeedMult(): void;
@@ -169,6 +171,8 @@ export interface UIHost extends AppControl {
 }
 
 interface SliderBind { update(): void }
+type OptimizerControl = HTMLButtonElement | HTMLInputElement | HTMLSelectElement;
+interface OptimizerControlState { disabled: boolean; title: string; ariaDisabled: string | null }
 
 export class UI {
   private derived3: HTMLElement[] = [];
@@ -177,6 +181,7 @@ export class UI {
   private viewBtns: HTMLButtonElement[] = [];
   private viewBtns3: HTMLButtonElement[] = [];
   private runBtn!: HTMLButtonElement;
+  private resetBtn!: HTMLButtonElement;
   private multBtn!: HTMLButtonElement;
   private recBtn!: HTMLButtonElement;
   private symBtns: HTMLButtonElement[] = [];
@@ -204,6 +209,7 @@ export class UI {
   private derived: HTMLElement[] = [];
   private only2d: HTMLElement[] = [];
   private only3d: HTMLElement[] = [];
+  private optimizerLocks = new Map<OptimizerControl, OptimizerControlState>();
   private readouts = document.getElementById("readouts")!;
   private lastPixel = 6;
   /** learn mode's explanations and hints in the rail (src/learn) */
@@ -229,7 +235,7 @@ export class UI {
     // CONTROLS brings it in as a drawer (app/index.html .railCramped)
     const rail = document.getElementById("rail")!;
     this.setRailHidden(innerWidth - rail.offsetWidth < RAIL_ROOM);
-    addEventListener("resize", () => this.railRoom());
+    addEventListener("resize", () => this.railRoom(true));
     document.getElementById("readoutsToggle")!.addEventListener("click", () => {
       document.body.classList.toggle("readoutsOpen");
       this.readingsState();
@@ -262,9 +268,16 @@ export class UI {
    *  app/index.html .narrow, the CSS's --lens-under-head), and whether the
    *  open rail leaves the chrome beside it too little room (.railCramped,
    *  .railPhone) */
-  private railRoom() {
+  private railRoom(afterResize = false) {
     const open = !document.body.classList.contains("railHidden");
     const free = innerWidth - (open ? document.getElementById("rail")!.offsetWidth : 0);
+    // A panel already on screen needs the same room after a resize as one
+    // opened on a phone. Keep its transport reachable when the rail becomes
+    // a drawer; setRailHidden re-enters once with open=false.
+    if (afterResize && open && free < RAIL_ROOM && document.querySelector("#app > .modepanel")) {
+      this.setRailHidden(true);
+      return;
+    }
     document.body.classList.toggle("narrow", free < RAIL_ROOM);
     document.body.classList.toggle("railCramped", open && free < RAIL_ROOM);
     document.body.classList.toggle("railPhone", open && free < RAIL_ROOM_PHONE);
@@ -329,12 +342,14 @@ export class UI {
       });
     this.binds.push({
       update: () => {
-        const ok = this.host.canSwitchMode() || this.host.getMode() === "3d";
+        const search3 = this.host.getMode() === "3d" && this.host.isEngineering();
+        const ok = !search3 && (this.host.canSwitchMode() || this.host.getMode() === "3d");
         row.classList.toggle("disabled", !ok);
         row.setAttribute("aria-disabled", String(!ok));
         // canSwitchMode: a capable GPU, and no pour, treatment, optimizer or
         // challenge in progress
-        row.title = ok
+        row.title = search3 ? "Exit the optimizer before changing dimension"
+          : ok
           ? "3D phase-field volume · orbit camera · heavier GPU load"
           : "unavailable: needs a capable GPU, and no pour, treatment, optimizer or challenge running";
       },
@@ -347,7 +362,7 @@ export class UI {
    *  fill stays run/pause's alone (DESIGN.md 5, buttons; app/index.html) */
   private buildTransport() {
     const el = document.getElementById("transport")!;
-    this.button(el, "reset", () => { this.host.resetArmed(); this.sync(); }, "reset");
+    this.resetBtn = this.button(el, "reset", () => { this.host.resetArmed(); this.sync(); }, "reset");
     this.runBtn = this.button(el, "▶ run", () => { this.host.setRun(!this.host.isRunning()); this.sync(); }, "run accent");
     this.multBtn = this.button(el, "×1", () => { this.host.cycleSpeedMult(); this.sync(); }, "mult");
     this.recBtn = this.button(el, "rec", () => this.host.toggleRec(), "recbtn");
@@ -454,7 +469,7 @@ export class UI {
       paintRange(inp);
       val.textContent = Number.isFinite(v) ? fmt(vc) : "—";
     };
-    inp.addEventListener("input", () => { set(parseFloat(inp.value)); update(); });
+    inp.addEventListener("input", () => { if (!inp.disabled) { set(parseFloat(inp.value)); update(); } });
     row.append(lab, inp, val);
     parent.append(row);
     update();
@@ -500,7 +515,7 @@ export class UI {
     const inp = document.createElement("input");
     inp.type = "checkbox";
     inp.checked = get();
-    inp.addEventListener("change", () => { set(inp.checked); this.sync(); });
+    inp.addEventListener("change", () => { if (!inp.disabled) { set(inp.checked); this.sync(); } });
     const span = document.createElement("span");
     span.textContent = label;
     row.append(inp, span);
@@ -531,7 +546,7 @@ export class UI {
       row.setAttribute("aria-checked", String(on));
     };
     row.addEventListener("click", () => {
-      if (row.classList.contains("disabled")) return;
+      if (row.disabled || row.classList.contains("disabled")) return;
       set(!get()); apply(); this.sync();
     });
     parent.append(row);
@@ -545,7 +560,7 @@ export class UI {
     b.type = "button";
     b.textContent = label;
     if (cls) b.className = cls;
-    b.addEventListener("click", fn);
+    b.addEventListener("click", () => { if (!b.disabled) fn(); });
     parent.append(b);
     return b;
   }
@@ -591,7 +606,7 @@ export class UI {
     // the material's spec line, and its learn-mode sentence under it
     const matNote = document.createElement("div");
     matNote.className = "matnote";
-    sel.addEventListener("change", () => { host.setMaterial(sel.value); this.sync(); });
+    sel.addEventListener("change", () => { if (!sel.disabled) { host.setMaterial(sel.value); this.sync(); } });
     mat.append(sel, matNote);
     const matLearn = this.learn.para(matNote, "", { needsAnchorText: true });
     this.binds.push({
@@ -617,13 +632,33 @@ export class UI {
     // ---- modes (what each one does is the section's learn text)
     const modes = this.section(rail, "MODES");
     const mrow0 = this.btnRow(modes, 2);
-    // the lab and (since H2b) the heat-treat panel run in both dimensions;
-    // the ML modes are 2D-only. Plain names, no glyph icons (DESIGN.md)
+    // Lab, heat treat and the optimizer run in both dimensions. Challenge
+    // keeps its 2D ASTM objective. Plain names, no glyph icons (DESIGN.md)
     this.button(mrow0, "lab mode", () => { host.startLab(); this.sync(); });
     const heatBtn = this.button(mrow0, "heat treat", () => { host.startHeat(); this.sync(); });
     heatBtn.title = "solid-state heat treatment · real-hours clock · Arrhenius grain growth";
-    this.only2d.push(this.button(mrow0, "optimizer", () => { host.startOptimizer(); this.sync(); }));
+    const optimizerBtn = this.button(mrow0, "optimizer", () => { host.startOptimizer(); this.sync(); });
     this.only2d.push(this.button(mrow0, "challenge", () => host.startChallenge()));
+    const optimizerNote = document.createElement("div");
+    optimizerNote.id = "optimizerModeNote";
+    optimizerNote.className = "matnote";
+    modes.append(optimizerNote);
+    this.binds.push({
+      update: () => {
+        const three = host.getMode() === "3d";
+        const unit = host.units().known ? "µm" : "cells";
+        const issue = three ? host.optimizerIssue?.() : null;
+        optimizerBtn.title = three
+          ? `3D optimizer · ${host.getGrid3()}³ · equivalent grain diameter (${unit}) · Kobayashi model`
+          : "Search cooling schedules and inoculant charges for a target ASTM grain number";
+        optimizerNote.style.display = three ? "" : "none";
+        optimizerNote.textContent = !three ? "" : issue ? issue : host.isCalibrated()
+          ? "3D optimization uses the Kobayashi model. Turn the calibrated solver off to search."
+          : host.isEngineering()
+            ? `3D search · ${host.getGrid3()}³ · settings held until exit; camera and run/pause stay available`
+            : `3D search · ${host.getGrid3()}³ · equivalent grain diameter (${unit}) · qualitative model`;
+      },
+    });
 
     // ---- melt / process
     const melt = this.section(rail, "MELT · PROCESS", true);
@@ -634,7 +669,8 @@ export class UI {
     const uK = (v: number) => { const u = host.units(); return u.known ? u.fmtK(v) : v.toFixed(2); };
     const uRate = (v: number) => { const u = host.units(); return u.known ? u.fmtRate(v) : v.toFixed(3); };
     this.undercoolRow = this.slider(melt, "undercooling", 0.3, 1.0, 0.01,
-      () => host.getUndercool(), v => host.setUndercool(v), uK);
+      () => host.getUndercool(), v => host.setUndercool(v), uK,
+      () => [host.getMode() === "3d" ? 0.01 : 0.3, 1]);
     // the value leads with "!" past anything a real melt reaches, and this
     // line says why (empty and hidden otherwise), with its learn half under it
     this.unrealNote = document.createElement("div");
@@ -681,9 +717,9 @@ export class UI {
     const reheatBtn = this.button(mrow, "reheat", () => {}, "span2");
     reheatBtn.title = RAIL_CAVEATS.reheat.line;
     this.learn.para(mrow, RAIL_CAVEATS.reheat.learn);
-    reheatBtn.addEventListener("pointerdown", () => host.reheat(true));
+    reheatBtn.addEventListener("pointerdown", () => { if (!reheatBtn.disabled) host.reheat(true); });
     for (const ev of ["pointerup", "pointerleave", "pointercancel"])
-      reheatBtn.addEventListener(ev, () => host.reheat(false));
+      reheatBtn.addEventListener(ev, () => { if (!reheatBtn.disabled) host.reheat(false); });
 
     // ---- scenario
     const scen = this.section(rail, "SCENARIO");
@@ -1033,6 +1069,9 @@ export class UI {
 
   /** refresh all controls + conditional panels from state */
   sync() {
+    // Release our last overlay before ordinary bindings recompute their own
+    // disabled states. Leaving a search must not unlock a derived parameter.
+    this.releaseOptimizerLocks();
     for (const b of this.binds) b.update();
     const host = this.host;
     const p = host.simParams();
@@ -1203,10 +1242,48 @@ export class UI {
 
     // last: every hint follows its control's display, set above
     this.learn.apply(learnOn);
+    this.applyOptimizerLocks(m3 && host.isEngineering());
     // and every slider on the page, the panels' included, fills to the value
     // script may have just set
     paintRanges();
     this.placeAnalysis();
+  }
+
+  private releaseOptimizerLocks() {
+    for (const [control, state] of this.optimizerLocks) {
+      control.disabled = state.disabled;
+      control.title = state.title;
+      if (state.ariaDisabled == null) control.removeAttribute("aria-disabled");
+      else control.setAttribute("aria-disabled", state.ariaDisabled);
+      delete control.dataset.optimizerLock;
+    }
+    this.optimizerLocks.clear();
+  }
+
+  /** A 3D search owns the casting clock and the settings used to rank trials.
+   * Camera/lens controls, transport run/pause, and data inspection stay live. */
+  private applyOptimizerLocks(search3: boolean) {
+    if (!search3) return;
+    const controls = new Set<OptimizerControl>();
+    for (const name of ["PRESETS", "MATERIAL", "MODES", "MELT · PROCESS", "SCENARIO", "ALLOY", "CRYSTAL", "ENGINE"]) {
+      this.sections[name]?.root.querySelectorAll<OptimizerControl>(".secbody button, .secbody input, .secbody select")
+        .forEach(control => controls.add(control));
+    }
+    // Sharing/exporting is read-only; only physical inputs are held here.
+    for (const name of ["ADVANCED", "SCALE"]) {
+      this.sections[name]?.root.querySelectorAll<OptimizerControl>(".secbody input, .secbody select")
+        .forEach(control => controls.add(control));
+    }
+    if (this.calSwitch instanceof HTMLButtonElement) controls.add(this.calSwitch);
+    controls.add(this.resetBtn);
+    for (const control of controls) {
+      this.optimizerLocks.set(control, { disabled: control.disabled, title: control.title,
+        ariaDisabled: control.getAttribute("aria-disabled") });
+      control.disabled = true;
+      control.title = "Fixed during the 3D search; exit the optimizer to edit";
+      control.setAttribute("aria-disabled", "true");
+      control.dataset.optimizerLock = "true";
+    }
   }
 
   /**
