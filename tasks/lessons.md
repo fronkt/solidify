@@ -755,3 +755,15 @@ recovery must not be described as copying at startup.
 and verify its bytes against the startup hashes. Test actual file creation and
 writer refusals. If recovery is needed, record when and how matching bytes were
 obtained, preserve that ledger and require the original end-of-run hash check.
+
+## Hash-linked exports must preserve their Git bytes
+
+The scientific plot exports and their recorded hashes agreed in the Windows
+working tree, but Git normalized their CRLF text when staging. The earlier
+angular CSV therefore had different repository bytes from its provenance.
+Scoped `-text` attributes now preserve the exact original CSV, caption, SVG and
+provenance files; the numerical output and recorded hashes remain unchanged.
+
+**Rule.** For an export whose exact SHA is part of the published evidence, verify
+the staged Git blob as well as the working file. Define its byte-preservation
+attribute before staging, and check every hash-linked export in the commit.

@@ -5509,28 +5509,29 @@ Prospective scope:
 - [x] Review prior evidence, worktree state and relevant lessons; specify the next studies before results.
 - [x] Implement and independently verify the capillary refinement protocol and unchanged estimator replay.
 - [x] Derive and independently verify the full oblique operator/formal kinetics; run controlled CPU evidence.
-- [ ] Freeze/push source and run the capillary GPU refinement with strict execution and raw-data evidence.
+- [x] Freeze/push source and run the capillary GPU refinement with strict execution and raw-data evidence.
 - [x] Verify oblique production-WGSL operator geometry against native 3D; run justified finite-speed controls.
-- [ ] Preserve outcomes/limits and exact sources, verify backup/owned cleanup, update PR and push completed phases.
+- [x] Preserve outcomes/limits and exact sources, verify backup/owned cleanup, update PR and push completed phases.
 
 Review/remaining scientific items will be recorded here after the new evidence;
 neither diagnostic completion nor a formal expansion alone closes Q3.
 
 The capillary twelve-case protocol is refrozen and CPU-verified. The user chose
 entirely local execution. The sole GPU campaign started at pushed 10fb837 on
-2026-11-01T00:18:22Z, with exact source copies and raw checkpoints retained under
-verify-out/q3-capillary-grid-gpu. No cloud rental or credit purchase was made.
-The fine-grid cases may take several hours; endpoints and inputs stay frozen.
+2026-11-01T00:18:22Z, with startup hashes and raw checkpoints retained under
+verify-out/q3-capillary-grid-gpu. Exact source copies were captured later as
+described below. No cloud rental or credit purchase was made. All twelve cases
+finished around 02:37 UTC under the original endpoints and inputs.
 
 The runner recorded startup hashes but omitted the source-file copies. During
 the still-running source freeze, all 14 current files matched those startup
 hashes and were copied without altering inputs. The separate source-capture
 ledger records capturedAtStartup=false and its actual capture timestamp. The
-final hash check and ledger inclusion remain required. After this campaign and
-its frozen replay/archives, fix the CLI to copy and verify exact source bytes
-before future GPU execution; do not modify the active imported runner now.
+final hash check passes and the shared final archive includes that ledger.
+After preserving the campaign and frozen replay/archives, the CLI was fixed to
+copy and verify exact source bytes before future GPU execution.
 
-- [ ] After the frozen campaign is preserved, fix startup source-byte capture and verify real CLI writer/refusal paths.
+- [x] After the frozen campaign is preserved, fix startup source-byte capture and verify real CLI writer/refusal paths.
 
 ### Isolated startup source-capture fix
 
@@ -5550,6 +5551,11 @@ over stale positive artifacts. The scientific/clock functions, measured path
 lists and entire GPU/cleanup block match base6d40978 exactly. No browser, GPU,
 production source or validation-checkout changes are part of this fix. Root's
 review and later application remain separate from the active frozen campaign.
+After the twelve-case replay and four final ZIPs were preserved, root applied
+the reviewed fix as cfc9af2 and pushed. All fourteen fresh root controls pass,
+including the unchanged scientific/clock and GPU/cleanup block checks. Type
+checking, production build and CI pass. Historical source hashes continue to
+refer to the original packet; the later runner is not substituted into it.
 
 The full coupled oblique study executed all 96 registered requests: 95 converge,
 including all 48 oblique physical cases; the literal-cutoff [100] candidate
@@ -5572,8 +5578,8 @@ study and immutable proof. Do not fit any coefficient to oblique or needle data.
 
 - [x] Prove the compensation and rotated-grain form independently, including a rigorous signed bound.
 - [x] Freeze a separate CPU protocol; test principal parity, tau/coupled Jacobians, h=.8/.4/.2, held-out321, signed tau and cutoff sensitivity.
-- [ ] If the independent CPU controls justify it, verify a research-only WGSL adapter and its actual response; keep application defaults and production equations unchanged.
-- [ ] Archive both original and new outcomes with exact source bytes; document remaining finite-speed/stability and literature failures separately.
+- [x] If the independent CPU controls justify it, verify a research-only WGSL adapter and its actual response; keep application defaults and production equations unchanged.
+- [x] Archive both original and new outcomes with exact source bytes; document remaining finite-speed/stability and literature failures separately.
 
 ### Bounded oblique temporal pilot during local GPU execution
 
@@ -5624,4 +5630,44 @@ panels, both lattice phases, primary sextic/octic extrapolations and all four
 same-degree crossing-policy sensitivities. Degree 4 controls remain in the
 144-row CSV. Plot-plan canonical SHA 59c5bb5cc770018f5d9f5841b0aaa5c05f0aa8595871e3e6a4a80272b6fabb3a;
 new script SHA 9e0564527e301176881cf716945cf1c5434c551421fd4094bcc7da5717bb96f1.
-Actual rendering and image inspection wait for all 12 and the frozen replay.
+All twelve cases and the frozen replay are now complete. The prepared plot
+renders all twelve cases and 144 CSV rows with no missing/quality flags, and
+root visually inspected the PNG. Exact exports are retained in docs/validation.
+
+Review: the repeated production GPU study at 6190fd5 passes 234 exact native
+field comparisons and twelve CPU comparisons. Independent comparison to the
+old 90f packet finds exact native and periodic field-hash equality. All six
+actual angular GPU captures/Euler responses pass, with three live omission
+negatives. Maximum tau/gamma errors are 1.635e-7/1.954e-8, and response/flux
+errors are at most 1.463e-7. Both runs have stable sources/inputs, readable empty
+device ledgers and successful cleanup. The 4,073,035-byte combined archive has
+169 verified entries and a matching GitHub server digest. The owned Vite server
+is closed; all new compute ran locally.
+
+The four final capillary ZIPs total 1,073,679,393 bytes. Two independent SHA/CRC
+passes verify 612 raw checkpoints, six missing-recentering negatives, six known
+fixtures, twelve terminal copies and fourteen exact original sources. Finest
+octic translation differences are -0.02458/+0.01321 percentage points for
+epsilon 0/.0171; absolute capillary bias remains and coarse values are not
+uniformly monotone. Coefficients, estimators and published bands stay frozen.
+Git byte-preservation attributes and staged-blob checks cover both sets of
+scientific exports so their published hashes remain valid across checkouts.
+
+- [x] Finish final capillary server-digest verification, independent scientific review, public evidence/PR update and results push.
+
+Final review: all thirty Oct31 backup assets have matching GitHub server digests.
+The independent capillary review authenticates every summary, all 3,000 control
+clocks, 612 checkpoint clocks/raw hashes, 24 initial/terminal frames and six
+adapter negatives. Its two audit-only assumptions and prior helpers remain
+preserved; no scientific criterion changed. The separate 686,540-byte report
+ZIP retains its thirteen-file manifest, frozen plot plan, exact exports and
+post-run source-copy controls. All 49 ZIP entries pass a second readback.
+Public capillary, oblique and angular summaries, figures, protocols and PR6
+describe the completed diagnostics and remaining limitations.
+
+Remaining scientific targets are residual capillary bias versus finite width,
+time discretization and metrology; finite-speed kinetics at common undercooling;
+longer-time temporal behavior; and further parameters/grain rotations before
+angular-candidate adoption. The unchanged full published-reference sigma gate
+still fails and Q3 remains open. No new cloud resources or application default
+changes are part of this phase.

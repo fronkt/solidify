@@ -415,15 +415,15 @@ epsilon 0.0171. The manufactured smooth-sphere errors are much smaller, but do
 not bound interpolation error in evolved profiles. This demonstrates sensitivity
 of inferred local capillary response to lattice position; it supplies no scalar
 correction or bound on needle sigma. Global support fits alone remain insufficient
-to calibrate local stiffness. Grid refinement and moving oblique-interface
-calibration remain open. No physical coefficient or accuracy band was retuned.
+to calibrate local stiffness. The follow-up below tests grid refinement and
+moving oblique interfaces. No physical coefficient or accuracy band was retuned.
 
 Commit archives accompany the data. An additional exact-source ZIP reproduces
 all 34 recorded local source hashes across the three studies, including Windows
 line-ending representations; Git's normalized source bytes alone differ for 25
 of those files. Source and result data were not changed to obtain that agreement.
 
-### Oblique interface operator and grid-refinement protocol
+### Oblique interface kinetics and capillary refinement
 
 The full rational-plane reduction retains laboratory centered gradients,
 nodewise anisotropy, grad-w terms, tangential flux divergence and the literal
@@ -449,12 +449,29 @@ remains a research candidate. No coefficient is fitted to needle data, and no
 application default changes. See [oblique evidence](validation/quant3d-oblique-2026-10-31.json)
 and the [full operator protocol](../scripts/research/quant3d-oblique-kinetic.md).
 
-The next capillary protocol pairs lattice phases at dx/W0=.8/.6/.4, with grids
+The completed capillary protocol pairs lattice phases at dx/W0=.8/.6/.4, with grids
 96/128/192, radius20, a fixed physical box and one common physical phase-volume
 target. All twelve cases keep the previous horizon, cadence and curvature
-estimator. CPU geometry, pairing and lifecycle controls pass; the full local GPU
-campaign is running and response-grid conclusions remain pending. These investigations
-do not close Q3 or change the published ten-percent reference bands.
+estimator. All twelve local GPU cases are stationary, resolved and centered;
+startup/final source hashes match and the readable device ledger is empty.
+The frozen replay retains all 612 checkpoints, six missing-recentering controls
+and every registered estimator. Half-cell translation changes octic C100 error
+by -2.37254/-0.41104 percentage points at h=.8 (isotropic/anisotropic),
++0.17028/+0.21920 at h=.6, and -0.02458/+0.01321 at h=.4.
+The finest octic absolute errors remain 0.330--0.354% and 0.634--0.647%.
+The coarse centered isotropic estimate is nonmonotone across meshes; its small
+error does not demonstrate calibration. No continuum fit or coefficient change
+is inferred. See [capillary evidence](validation/quant3d-capillary-grid-2026-10-31.json),
+the [response figure](validation/quant3d-capillary-grid-c100-2026-10-31.png)
+and its [caption and complete CSV](validation/quant3d-capillary-grid-c100-2026-10-31.md).
+These investigations do not close Q3 or change the published ten-percent bands.
+
+The original runner recorded startup hashes but omitted source-byte copies.
+All fourteen files were captured later while they still matched those hashes;
+the separate ledger records the actual time and capturedAtStartup=false.
+The final hash check also passes. The subsequent runner fix copies and verifies
+every measured source before browser admission, with actual writer/refusal
+controls; the historical packet retains its original provenance.
 
 The separately sealed nodewise angular candidate converges in all 87 new CPU
 profiles and reuses 48 unchanged baselines. All 135 raw-profile hashes, source
@@ -465,8 +482,14 @@ intercepts are 2.98-3.35e-6; linear-versus-quadratic spread is about 2e-6 and re
 material. This is not a universal error bound or a literal zero-speed result.
 The serialization-only initial refusal and the original 95/96 outcome remain
 preserved. The independent source/fit audit and archive have matching server
-digests. Actual research-only GPU tau/gamma capture and Euler response are
-queued after the sole capillary job; application defaults remain unchanged.
+digests. Actual research-only GPU tau/gamma capture and Euler response pass
+for all six registered normals, including three live angular-omission negatives.
+Maximum tau/gamma errors are 1.64e-7/1.96e-8; phase, temperature and flux errors
+are at most 1.47e-7. The repeated production operator checks retain all 234 exact
+field comparisons and twelve CPU comparisons; native and periodic fields match
+the original GPU packet byte for byte. Independent raw/source/clock checks pass
+with a clean readable ledger and successful cleanup. This establishes the
+registered operator comparisons; application defaults remain unchanged.
 See [angular evidence](validation/quant3d-angular-2026-10-31.json).
 The [separate assessment](../scripts/research/quant3d-oblique-kinetic-angular-assessment.md)
 retains solid/liquid fit sensitivity, numerical controls and reproduction details.

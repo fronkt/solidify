@@ -2377,7 +2377,7 @@
     "allEntriesShaVerified": true,
     "zipCrcVerified": true,
     "serverDigestMatches": true,
-    "serverVerifiedAt": "2026-11-01T01:04:10.803481+00:00"
+    "serverVerifiedAt": "2026-11-01T02:55:17.135226+00:00"
   },
   "interpretation": {
     "leadingAngularH2CancellationSupported": true,
@@ -2397,10 +2397,289 @@
     "oldLiteratureRefusalsPreserved": true
   },
   "gpu": {
-    "executed": false,
-    "status": "Research-only local-tau capture and Euler response queued after the sole local capillary GPU campaign",
+    "executed": true,
+    "completed": true,
+    "result": {
+      "purpose": "research-only angular local-tau capture and actual response; no adoption or kinetic/Q3 acceptance",
+      "source": "6190fd5309a1cd6feee83d580764c907f15faa7f",
+      "started": "2026-11-01T02:42:40.376Z",
+      "completed": true,
+      "accepted": false,
+      "q3Accepted": false,
+      "sourceStable": true,
+      "inputsStable": true,
+      "deviceErrorLedgerRead": true,
+      "sourceHashes": {
+        "src/sim3d.ts": "6351143948ebebd018733ca124e5b3e5d478de2e7599e39e2e8131ec196170ba",
+        "src/shaders3d.ts": "f4f1fac066c0b59043f23f550433a8210e5e24cf3f79198b4cab3cf90919f0f4",
+        "src/shaders3d-quant.ts": "65c5eed498314967e9e151025598f8cf77963a89fc7204d243a0c58a86cd66b8",
+        "scripts/browser-cleanup.mjs": "0b2e5b6790d0c63d5271b51c14509507910f69c2924f7334589e63fa8e82b5b1",
+        "scripts/fixtures/rect3d-specialize.mjs": "624959d81b8e317ef65325829704c60e0924aee430105bcc1febd6f981e9ab35",
+        "scripts/fixtures/plane3d-specialize.mjs": "92b0519416edbd41b17ea90ae9b215d5b7fb550f9586ecd4d63780f266a37dd7",
+        "scripts/research/quant3d-oblique-gpu-driver.mjs": "b293e76a6883b372945e9701461f7ca954fc22f948b2210053a7f05a8f1ae64a",
+        "scripts/research/quant3d-angular-shader.mjs": "ea5ff57d0d9eca0447658e813852d846399fffe1a0c09f2a509ac0ae83a289bc",
+        "scripts/research/quant3d-angular-gpu-driver.mjs": "15e499c6bf5bf05abca0efd09100a5c9d512d74709065c2f774e7d3bb741e83b",
+        "scripts/research/quant3d-angular-gpu.mjs": "f3ae119ccb0e1a8d367d1c30faf742f34292941a6952071b532eaf85f5b98cbc",
+        "scripts/research/quant3d-angular-gpu.md": "d8afe5c95ed500ad26c11c339d8b99cafa91bdee59dbf0f0eb6fcedec7c72540",
+        "scripts/research/quant3d-oblique-kinetic.py": "2b3514ec2484e78211c979540c935716489074704b5d408cbe98d6825d6beda8",
+        "scripts/research/quant3d-kinetic-reference.py": "b354940f0ac902553fdd0a68f0727d5d13db4c0e85c13d37e56b187fc64c203b",
+        "scripts/research/quant3d-oblique-kinetic-fp32-fixtures.py": "29c0e69428d47935f22d9da0ae1687fae38cdd7ca2aa37c8ef455420c54fc806",
+        "scripts/research/quant3d-oblique-kinetic-angular.py": "ec169d468f723f1a68456e42c344aa85fed153e770bb6f98bc190bfcb3b1770b",
+        "scripts/research/quant3d-oblique-kinetic-angular-fixtures.py": "dc7c4637ff0f80918065134d146076cbc8d3109f70ea46827a23d187186c48bb",
+        "scripts/research/quant3d-oblique-kinetic-reference.py": "a8bb1b0e490d250574f7e823564b7a25ff303ea1588a95fe3af90c18b9a9d22a"
+      },
+      "inputSha256": "75321b3f26491d1ac0f611ebc5228d3c0d346ad7af6458b3bcda89735b8d5a4c",
+      "cpu": {
+        "localTauOnlyRoundtrip": true,
+        "captureOnlyRoundtrips": 2,
+        "geometryRoundtrips": 36,
+        "invalidSourceRefused": true,
+        "shaderHashes": [
+          "bc97fef713990649101cef7d745af607c52333e0c27bb7754496ffb904b8f87f",
+          "6f3fe1b9fa9d7e55bd05e1c735f99d07f2deead9961b4742786c4f63077bf050",
+          "e01ddce80c7a06d986fc05534b83d8ce8c9efb8ba72b98ef9ed1c10a29ebbf33"
+        ],
+        "productionPrincipalSha256": "2b6fc125d1713c7c7de176a6cabd7b72ad7f366ee07c6aa69f3498909f817cf4"
+      },
+      "cases": [
+        {
+          "normal": [
+            1,
+            0,
+            0
+          ],
+          "raw": {
+            "path": "raw/case-0.json.gz",
+            "sha256": "273b9a24a9c18e0f2319f01a174c2fc3ebbc685bb3b3d793ea83f8f578ba841f",
+            "uncompressedSha256": "d0d7228349f039af5f98ca77e7568ce8b4e4bb51f540bae0f869afdefc6bb700"
+          },
+          "passed": true,
+          "tauError": 6.758366644099567e-09,
+          "gammaError": 1.9534180495384135e-08,
+          "omissionTauError": 6.758366644099567e-09,
+          "phaseError": 3.0264153405568095e-08,
+          "temperatureError": 1.3389122432982958e-07,
+          "fluxError": 3.8067292651433604e-08,
+          "omissionRejected": null
+        },
+        {
+          "normal": [
+            1,
+            1,
+            0
+          ],
+          "raw": {
+            "path": "raw/case-1.json.gz",
+            "sha256": "3954ae145b2ef2414a5eb195dfc7a07f11fea2dce11e9e7a1cae6457e8fd854b",
+            "uncompressedSha256": "6c825c154642c5d4eb4262d62d11101e2e3fc423bddb30af62f753869d6fa1a0"
+          },
+          "passed": true,
+          "tauError": 8.961615638458653e-08,
+          "gammaError": 5.360011545718635e-09,
+          "omissionTauError": 8.961615638458653e-08,
+          "phaseError": 3.0648262483445876e-08,
+          "temperatureError": 1.41832310340817e-07,
+          "fluxError": 6.041903433118279e-08,
+          "omissionRejected": null
+        },
+        {
+          "normal": [
+            1,
+            1,
+            1
+          ],
+          "raw": {
+            "path": "raw/case-2.json.gz",
+            "sha256": "acef0eff655306b374760779a98c31c59097fd63b035495e0e41a8ff36b8bb6b",
+            "uncompressedSha256": "ee903f5b7a640d36dc6e8cf4b1e285bee366311118743e3730bd82a50f86c94e"
+          },
+          "passed": true,
+          "tauError": 1.763887824690613e-08,
+          "gammaError": 2.2138928468251606e-09,
+          "omissionTauError": 1.763887824690613e-08,
+          "phaseError": 2.930573761439348e-08,
+          "temperatureError": 1.233848574422325e-07,
+          "fluxError": 5.607194197843057e-08,
+          "omissionRejected": null
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "raw": {
+            "path": "raw/case-3.json.gz",
+            "sha256": "4ae857c3b7301c2246f03f1abe446449eae96e5cd5b0a1e6274e6dd4a6abaa6d",
+            "uncompressedSha256": "585b2395df724eb955f2b72f0d977fdcd40bba0753b358e4802197150cbf2dd7"
+          },
+          "passed": true,
+          "tauError": 1.6348284392897483e-07,
+          "gammaError": 7.794353194985615e-09,
+          "omissionTauError": 0.0023505637694913872,
+          "phaseError": 3.155540528876344e-08,
+          "temperatureError": 1.3165589018981905e-07,
+          "fluxError": 1.462546437291934e-07,
+          "omissionRejected": true
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "raw": {
+            "path": "raw/case-4.json.gz",
+            "sha256": "35d706d880f2859028470eccacb569010beec93f6e27dfd2495728341a9e29a4",
+            "uncompressedSha256": "b4513e6a0b9751207116608d8343f6e0117504584030b50e469909a0a42b9f0c"
+          },
+          "passed": true,
+          "tauError": 1.1892800211299459e-07,
+          "gammaError": 5.0224893020575645e-09,
+          "omissionTauError": 0.002492011186437937,
+          "phaseError": 2.992965697501404e-08,
+          "temperatureError": 1.1573951042009867e-07,
+          "fluxError": 1.0186369514553206e-07,
+          "omissionRejected": true
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "raw": {
+            "path": "raw/case-5.json.gz",
+            "sha256": "46814852b8dba45dfda2bae0fa0ca6f1f14747da949a45304e01c8f0fdff0984",
+            "uncompressedSha256": "feb1285e98cb6d60c8571657cdf34ca1c08fe65a3c2f27a1710a63f0fe4bcad7"
+          },
+          "passed": true,
+          "tauError": 1.430731373375238e-07,
+          "gammaError": 5.002825609942002e-09,
+          "omissionTauError": 0.002356815828386649,
+          "phaseError": 3.1068983608051326e-08,
+          "temperatureError": 1.1936759514163953e-07,
+          "fluxError": 1.064359785862834e-07,
+          "omissionRejected": true
+        }
+      ],
+      "errors": [],
+      "contract": {
+        "normals": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            0
+          ],
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            2,
+            1,
+            0
+          ],
+          [
+            2,
+            1,
+            1
+          ],
+          [
+            3,
+            2,
+            1
+          ]
+        ],
+        "responseAbsoluteTolerance": 2e-06,
+        "tauAbsoluteTolerance": 2e-06,
+        "gammaAbsoluteTolerance": 2e-07,
+        "omissionMinimumTauError": 2e-05,
+        "storedInputExact": true,
+        "diagnosticCaptureDoesNotAdvance": true
+      },
+      "metadata": {
+        "hardware": {
+          "vendor": "intel",
+          "architecture": "xe-2lpg",
+          "isFallbackAdapter": false
+        },
+        "build": "6190fd5",
+        "shaderHashes": [
+          "daeb196529bea5f11dd3fb4a2c62325104061e1b56b6bc6a81ecb149d0694efc",
+          "4e60cc421b0723f77c5802f172d6e8f9e8f2dab78363e8051801007573154976",
+          "c6065681d943ec6e47e98abb05d0a2507b112b737518b1e45481f9d1ba4ffc6c",
+          "2b6fc125d1713c7c7de176a6cabd7b72ad7f366ee07c6aa69f3498909f817cf4"
+        ],
+        "angular": {
+          "shaderHashes": [
+            "bc97fef713990649101cef7d745af607c52333e0c27bb7754496ffb904b8f87f",
+            "6f3fe1b9fa9d7e55bd05e1c735f99d07f2deead9961b4742786c4f63077bf050",
+            "e01ddce80c7a06d986fc05534b83d8ce8c9efb8ba72b98ef9ed1c10a29ebbf33"
+          ],
+          "localTauOnlyRoundtrip": true,
+          "captureOnlyRoundtrips": [
+            true,
+            true
+          ]
+        }
+      },
+      "finalHashes": {
+        "src/sim3d.ts": "6351143948ebebd018733ca124e5b3e5d478de2e7599e39e2e8131ec196170ba",
+        "src/shaders3d.ts": "f4f1fac066c0b59043f23f550433a8210e5e24cf3f79198b4cab3cf90919f0f4",
+        "src/shaders3d-quant.ts": "65c5eed498314967e9e151025598f8cf77963a89fc7204d243a0c58a86cd66b8",
+        "scripts/browser-cleanup.mjs": "0b2e5b6790d0c63d5271b51c14509507910f69c2924f7334589e63fa8e82b5b1",
+        "scripts/fixtures/rect3d-specialize.mjs": "624959d81b8e317ef65325829704c60e0924aee430105bcc1febd6f981e9ab35",
+        "scripts/fixtures/plane3d-specialize.mjs": "92b0519416edbd41b17ea90ae9b215d5b7fb550f9586ecd4d63780f266a37dd7",
+        "scripts/research/quant3d-oblique-gpu-driver.mjs": "b293e76a6883b372945e9701461f7ca954fc22f948b2210053a7f05a8f1ae64a",
+        "scripts/research/quant3d-angular-shader.mjs": "ea5ff57d0d9eca0447658e813852d846399fffe1a0c09f2a509ac0ae83a289bc",
+        "scripts/research/quant3d-angular-gpu-driver.mjs": "15e499c6bf5bf05abca0efd09100a5c9d512d74709065c2f774e7d3bb741e83b",
+        "scripts/research/quant3d-angular-gpu.mjs": "f3ae119ccb0e1a8d367d1c30faf742f34292941a6952071b532eaf85f5b98cbc",
+        "scripts/research/quant3d-angular-gpu.md": "d8afe5c95ed500ad26c11c339d8b99cafa91bdee59dbf0f0eb6fcedec7c72540",
+        "scripts/research/quant3d-oblique-kinetic.py": "2b3514ec2484e78211c979540c935716489074704b5d408cbe98d6825d6beda8",
+        "scripts/research/quant3d-kinetic-reference.py": "b354940f0ac902553fdd0a68f0727d5d13db4c0e85c13d37e56b187fc64c203b",
+        "scripts/research/quant3d-oblique-kinetic-fp32-fixtures.py": "29c0e69428d47935f22d9da0ae1687fae38cdd7ca2aa37c8ef455420c54fc806",
+        "scripts/research/quant3d-oblique-kinetic-angular.py": "ec169d468f723f1a68456e42c344aa85fed153e770bb6f98bc190bfcb3b1770b",
+        "scripts/research/quant3d-oblique-kinetic-angular-fixtures.py": "dc7c4637ff0f80918065134d146076cbc8d3109f70ea46827a23d187186c48bb",
+        "scripts/research/quant3d-oblique-kinetic-reference.py": "a8bb1b0e490d250574f7e823564b7a25ff303ea1588a95fe3af90c18b9a9d22a"
+      },
+      "finished": "2026-11-01T02:42:53.785Z",
+      "status": "research angular capture and Euler controls complete; scientific acceptance not evaluated"
+    },
+    "resultSha256": "98c64b9754669435d7f364e764f3fa0bff1c44c6fb0923dad9519f461e8938d3",
+    "independentAuditSha256": "26e8b0028bb6cf4dacb541bcd624a09c82be29ff225d247d30f49c0903967b5c",
+    "actualCaptureAndResponseCases": 6,
+    "liveAngularOmissionNegatives": 3,
+    "maximumErrors": {
+      "tauError": 1.6348284392897483e-07,
+      "gammaError": 1.9534180495384135e-08,
+      "phaseError": 3.155540528876344e-08,
+      "temperatureError": 1.41832310340817e-07,
+      "fluxError": 1.462546437291934e-07
+    },
+    "regression": {
+      "nativePairsCompared": 234,
+      "nativeFieldHashEquality": true,
+      "nativeMismatches": [],
+      "periodicFullFieldHashEquality": true,
+      "periodicMismatches": [],
+      "scope": "field bytes/digests compared; raw JSON/gzip may differ after helper source refactor"
+    },
+    "archive": "solidify-q3-oblique-angular-gpu-combined.zip",
+    "archiveSha256": "0d59b72e3ed3c11fae25395871d29f93bd901e1af2901d03612f6931f4219249",
+    "allEntryHashesVerified": true,
+    "zipCrcVerified": true,
+    "serverDigestMatches": true,
+    "serverVerifiedAt": "2026-11-01T02:55:17.135226+00:00",
     "protocol": "scripts/research/quant3d-angular-gpu.md",
-    "temporalStabilityAccepted": false
+    "temporalStabilityAccepted": false,
+    "q3Accepted": false
   },
   "figure": {
     "provenance": "docs/validation/quant3d-angular-kinetic-fit-sensitivity-2026-10-31.json",
@@ -2413,6 +2692,8 @@
       "quant3d-angular-kinetic-fit-sensitivity-2026-10-31.png": "2fefc56c2a9933bea6d9d866892d5e63d235c2dc21c13d347d8e5efecddefced",
       "quant3d-angular-kinetic-fit-sensitivity-2026-10-31.svg": "4fd1d23c40c4687288cac28851eb64b56f5bcaa31ee6ee7b170bdcc7484c0110"
     },
-    "visuallyInspected": true
+    "visuallyInspected": true,
+    "exportBytesPreservedInGit": true,
+    "stagedGitReviewSha256": "8c77d54f45de18e205183a254501fe85e91f3370d68554a6958d7158af23da86"
   }
 }
