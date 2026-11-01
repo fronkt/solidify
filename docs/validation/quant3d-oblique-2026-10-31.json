@@ -2149,7 +2149,16 @@
     "q3Accepted": false,
     "executionCompleted": false,
     "source": "10fb837912870ff0af60d69cf7868c186ae1fa0e",
-    "completeCases": 8
+    "completeCases": 8,
+    "sourceCapture": {
+      "capturedAtStartup": false,
+      "capturedAt": "2026-11-01T00:55:04.039643+00:00",
+      "allStartupHashesMatched": true,
+      "files": 14,
+      "ledgerSha256": "0348e94b159567d90a941be2263381d16b11eee695e3717d9da06a432e6093a8",
+      "scope": "Exact bytes captured during the still-running source-frozen campaign, after every file matched its original startup SHA256; no source, model, input or verdict modified",
+      "endOfRunHashCheckStillRequired": true
+    }
   },
   "remaining": [
     "Execute and replay all twelve capillary grid/phase cases",
@@ -2224,6 +2233,30 @@
         "serverDigestMatches": true
       },
       {
+        "name": "solidify-q3-capillary-incomplete-checkpoint-dx-0p8-2026-10-31.zip",
+        "bytes": 139820513,
+        "sha256": "3d5c4814b2ebb553e8d3b42eeed7c005caa79256f9815657055cca61c03d3407",
+        "serverDigestMatches": true
+      },
+      {
+        "name": "solidify-q3-capillary-incomplete-checkpoint-dx-0p8-2026-10-31.zip.sha256",
+        "bytes": 133,
+        "sha256": "b836df489fefe09e7edebab6233d85a3a494798c9cead05c197f254dd062e4e7",
+        "serverDigestMatches": true
+      },
+      {
+        "name": "solidify-q3-capillary-incomplete-checkpoint-dx-0p6-2026-10-31.zip",
+        "bytes": 264914715,
+        "sha256": "fe7011362612581d71dcc23c77d0f96eeb2297a4fcdf67209f0c25eb9fb9f29f",
+        "serverDigestMatches": true
+      },
+      {
+        "name": "solidify-q3-capillary-incomplete-checkpoint-dx-0p6-2026-10-31.zip.sha256",
+        "bytes": 133,
+        "sha256": "0506f1c868b282b9d426ecc151fa34659315a078391d29dfeb8f54eebaed7d4b",
+        "serverDigestMatches": true
+      },
+      {
         "name": "solidify-q3-oblique-cpu-2026-10-31.zip",
         "bytes": 20358915,
         "sha256": "a8a99b94df329fcd5db72976cdc395d005ddf0aabaed81260dea762a02a2c6f4",
@@ -2248,6 +2281,6 @@
         "serverDigestMatches": true
       }
     ],
-    "verifiedAt": "2026-11-01T00:46:23.911273+00:00"
+    "verifiedAt": "2026-11-01T01:04:10.803481+00:00"
   }
 }

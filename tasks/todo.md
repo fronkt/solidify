@@ -5522,6 +5522,16 @@ entirely local execution. The sole GPU campaign started at pushed 10fb837 on
 verify-out/q3-capillary-grid-gpu. No cloud rental or credit purchase was made.
 The fine-grid cases may take several hours; endpoints and inputs stay frozen.
 
+The runner recorded startup hashes but omitted the source-file copies. During
+the still-running source freeze, all 14 current files matched those startup
+hashes and were copied without altering inputs. The separate source-capture
+ledger records capturedAtStartup=false and its actual capture timestamp. The
+final hash check and ledger inclusion remain required. After this campaign and
+its frozen replay/archives, fix the CLI to copy and verify exact source bytes
+before future GPU execution; do not modify the active imported runner now.
+
+- [ ] After the frozen campaign is preserved, fix startup source-byte capture and verify real CLI writer/refusal paths.
+
 The full coupled oblique study executed all 96 registered requests: 95 converge,
 including all 48 oblique physical cases; the literal-cutoff [100] candidate
 failure remains recorded. Six separately registered cutoff comparisons converge.

@@ -743,3 +743,15 @@ separate pre-run seal allowed the same unchanged numerical gates to execute.
 writer before a long study. Convert library scalar verdicts explicitly, keep
 scientific values and criteria unchanged, and preserve any failed attempt before
 freezing a corrected implementation.
+
+## A startup hash does not create a source archive
+
+The capillary runner saved 14 startup hashes but omitted the exact source copies.
+All files still matched under the active source freeze, so a separate capture
+preserved those exact bytes and explicitly recorded its later timestamp. That
+recovery must not be described as copying at startup.
+
+**Rule.** Before GPU admission, write every measured source file into the packet
+and verify its bytes against the startup hashes. Test actual file creation and
+writer refusals. If recovery is needed, record when and how matching bytes were
+obtained, preserve that ledger and require the original end-of-run hash check.

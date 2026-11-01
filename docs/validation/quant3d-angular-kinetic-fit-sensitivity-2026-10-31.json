@@ -1,0 +1,57 @@
+{
+  "format": "solidify-angular-kinetic-fit-sensitivity-figure-v1",
+  "sourceSummary": "verify-out/q3-oblique-angular-study-v2/summary.json",
+  "summarySha256": "89575bdf8040402669b4517d7ec0b831a1ccb319a2b7e4044b8fe3b781a068e2",
+  "summarySourceSha256": "42a3ed5b05a379bf38b991765b7a9b9bb4f6ce4c89c2cafa574cae5ea0535624",
+  "studySha256": "8c6551259c7b849a564a97910d43576f535bfc5714e3fa5dbe75d5812fc84415",
+  "frozenCpuSourceHashes": {
+    "scripts/research/quant3d-oblique-kinetic.py": "2b3514ec2484e78211c979540c935716489074704b5d408cbe98d6825d6beda8",
+    "scripts/research/quant3d-oblique-kinetic-reference.py": "a8bb1b0e490d250574f7e823564b7a25ff303ea1588a95fe3af90c18b9a9d22a",
+    "scripts/research/quant3d-kinetic-reference.py": "b354940f0ac902553fdd0a68f0727d5d13db4c0e85c13d37e56b187fc64c203b",
+    "scripts/research/quant3d-oblique-kinetic-angular.py": "ec169d468f723f1a68456e42c344aa85fed153e770bb6f98bc190bfcb3b1770b",
+    "scripts/research/quant3d-oblique-kinetic-angular-controls.py": "ed9e45bd7ddd3e9d1ded5b29c0668f871191b10a930dcd34e9f2098a6b604a79",
+    "scripts/research/quant3d-oblique-kinetic-angular-fixtures.py": "dc7c4637ff0f80918065134d146076cbc8d3109f70ea46827a23d187186c48bb",
+    "scripts/research/quant3d-oblique-kinetic-angular-study.py": "23d6c3782ced34871e81cb3281c58e2a38bc31526019204cf3c999f37642a10d",
+    "scripts/research/quant3d-oblique-kinetic-angular-summary.py": "42a3ed5b05a379bf38b991765b7a9b9bb4f6ce4c89c2cafa574cae5ea0535624",
+    "scripts/research/quant3d-oblique-kinetic-angular.md": "f9171678960e97eedbabc00ff8e2e4e3eee9e7eb28218c708bde7036ee86b5e3"
+  },
+  "sealSha256": "1145cc49cb8a73ab7b3c57fb5bbb8fd12c8224a34447441f05081921444628eb",
+  "plotSourceSha256": "4f7474f6c167daed063d2bf3028dcea4cb647dc6c7a7a14bdad3cc0210bba71e",
+  "registeredFitMethods": {
+    "linear": "degree1, V=.005/.01/.02; exact sealed summary expression reconstructed",
+    "primaryQuadratic": "degree2, V=.005/.01/.02; copied from frozen summary",
+    "secondaryQuadratic": "degree2, V=.01/.02/.04; copied from frozen summary",
+    "cubic": "degree3, V=.005/.01/.02/.04; copied from frozen summary"
+  },
+  "fitRangeMeaning": "full registered-method range; deterministic sensitivity, not statistical confidence interval",
+  "newFitsOrPhysicalCoefficientSelection": false,
+  "plottedRows": 27,
+  "plot": {
+    "xscale": "log base2",
+    "yscale": "log",
+    "symlogLinearThresholdIfNeeded": 1e-06,
+    "minimumRegisteredIntercept": 9.119624438925533e-07,
+    "maximumRegisteredIntercept": 0.021523113741732495,
+    "rangeCrossingZeroCount": 0,
+    "theoreticalOrFittedGuides": "none"
+  },
+  "caption": "Solid-side finite-range kinetic intercepts on the physical lattice; markers use the registered quadratic fit at V = 0.005, 0.01, 0.02. Bars show the full intercept range across the registered linear, primary quadratic, secondary quadratic and cubic methods; they are fit sensitivity, not statistical confidence intervals. V = 0.04 is held out from the primary fit and enters only the registered secondary/cubic sensitivity fits. Unit width, P.tau = 1, identity grain; [321] is the held-out orientation. These finite-range diagnostics establish no exact zero-speed coefficient, temporal stability, production adoption or Q3 acceptance.",
+  "environment": {
+    "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+    "implementation": "CPython",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "numpy": "2.3.5",
+    "matplotlib": "3.10.8",
+    "backend": "Agg",
+    "freetype": "2.6.1",
+    "font": "DejaVuSans.ttf",
+    "fontSha256": "3fdf69cabf06049ea70a00b5919340e2ce1e6d02b0cc3c4b44fb6801bd1e0d22"
+  },
+  "canonicalEnvironmentSha256": "58221fb8e44f6917f2d2b36d39694f2c61d2ed4c52cd14bd06513f2600504174",
+  "outputs": {
+    "quant3d-angular-kinetic-fit-sensitivity-2026-10-31.csv": "19c523d83bb64528b84bd5ad7dd9fbad59cb371a5923cfff95ae1201f70e2072",
+    "quant3d-angular-kinetic-fit-sensitivity-2026-10-31.md": "99ec2debe56ef7617b6207a84c079371900637a4555211c85890848cf53c1157",
+    "quant3d-angular-kinetic-fit-sensitivity-2026-10-31.png": "2fefc56c2a9933bea6d9d866892d5e63d235c2dc21c13d347d8e5efecddefced",
+    "quant3d-angular-kinetic-fit-sensitivity-2026-10-31.svg": "4fd1d23c40c4687288cac28851eb64b56f5bcaa31ee6ee7b170bdcc7484c0110"
+  }
+}

@@ -470,3 +470,7 @@ queued after the sole capillary job; application defaults remain unchanged.
 See [angular evidence](validation/quant3d-angular-2026-10-31.json).
 The [separate assessment](../scripts/research/quant3d-oblique-kinetic-angular-assessment.md)
 retains solid/liquid fit sensitivity, numerical controls and reproduction details.
+The [diagnostic figure](validation/quant3d-angular-kinetic-fit-sensitivity-2026-10-31.png)
+shows all 27 comparison groups and the full registered fit-method ranges; its
+[caption and reproduction details](validation/quant3d-angular-kinetic-fit-sensitivity-2026-10-31.md)
+distinguish sensitivity ranges from statistical confidence intervals.

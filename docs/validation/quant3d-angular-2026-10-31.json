@@ -2377,7 +2377,7 @@
     "allEntriesShaVerified": true,
     "zipCrcVerified": true,
     "serverDigestMatches": true,
-    "serverVerifiedAt": "2026-11-01T00:46:23.911273+00:00"
+    "serverVerifiedAt": "2026-11-01T01:04:10.803481+00:00"
   },
   "interpretation": {
     "leadingAngularH2CancellationSupported": true,
@@ -2401,5 +2401,18 @@
     "status": "Research-only local-tau capture and Euler response queued after the sole local capillary GPU campaign",
     "protocol": "scripts/research/quant3d-angular-gpu.md",
     "temporalStabilityAccepted": false
+  },
+  "figure": {
+    "provenance": "docs/validation/quant3d-angular-kinetic-fit-sensitivity-2026-10-31.json",
+    "provenanceSha256": "eb14cf5fefcc808654451d97f12934d270b68881eec74c554a6e1b349051c71c",
+    "rows": 27,
+    "fitRangeMeaning": "full registered-method range; deterministic sensitivity, not statistical confidence interval",
+    "outputs": {
+      "quant3d-angular-kinetic-fit-sensitivity-2026-10-31.csv": "19c523d83bb64528b84bd5ad7dd9fbad59cb371a5923cfff95ae1201f70e2072",
+      "quant3d-angular-kinetic-fit-sensitivity-2026-10-31.md": "99ec2debe56ef7617b6207a84c079371900637a4555211c85890848cf53c1157",
+      "quant3d-angular-kinetic-fit-sensitivity-2026-10-31.png": "2fefc56c2a9933bea6d9d866892d5e63d235c2dc21c13d347d8e5efecddefced",
+      "quant3d-angular-kinetic-fit-sensitivity-2026-10-31.svg": "4fd1d23c40c4687288cac28851eb64b56f5bcaa31ee6ee7b170bdcc7484c0110"
+    },
+    "visuallyInspected": true
   }
 }
