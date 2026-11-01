@@ -5532,6 +5532,25 @@ before future GPU execution; do not modify the active imported runner now.
 
 - [ ] After the frozen campaign is preserved, fix startup source-byte capture and verify real CLI writer/refusal paths.
 
+### Isolated startup source-capture fix
+
+Prepared separately at base6d40978 on research/q3-startup-source-capture while
+the validation checkout and live studies remain read-only. Root will review
+and apply this branch after preserving the active campaign and frozen replay.
+
+- [x] Copy all measured source bytes and read them back before browser/GPU admission; retain explicit capture metadata.
+- [x] Refuse changed sources, mismatched existing copies and source/metadata writer failures with fresh false CLI artifacts.
+- [x] Verify actual filesystem copies, both CLI modes, and unchanged four/twelve-case physics, clocks and cleanup gates without browser/GPU execution.
+- [x] Review the isolated diff, commit specific files and push only the fix branch; record the exact commit and checks.
+
+Review: node syntax checks and all14 CPU/filesystem control records pass,
+including both complete CPU modes, 11/14 byte-for-byte source copies, changed
+source/mismatched-copy refusals, real writer failures and six actual CLI retries
+over stale positive artifacts. The scientific/clock functions, measured path
+lists and entire GPU/cleanup block match base6d40978 exactly. No browser, GPU,
+production source or validation-checkout changes are part of this fix. Root's
+review and later application remain separate from the active frozen campaign.
+
 The full coupled oblique study executed all 96 registered requests: 95 converge,
 including all 48 oblique physical cases; the literal-cutoff [100] candidate
 failure remains recorded. Six separately registered cutoff comparisons converge.

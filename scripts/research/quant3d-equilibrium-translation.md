@@ -53,6 +53,16 @@ and all device/browser/resource cleanup checks participate in the final verdict.
 Fresh refused evidence replaces old verdicts before option or source validation.
 No later cleanup error may leave a positive diagnostic verdict.
 
+Before CPU controls or browser admission, both modes copy every measured source
+file into `exact-source/` and verify the readback against its startup hash.
+`source-capture.json` records the capture time, run start, source commit and each
+file's byte count/hash. It explicitly reports `capturedAtStartup=true` and
+`verifiedBeforeBrowserAdmission=true` only after verification completes. A
+matching existing copy is recorded as reused; a mismatched copy is refused
+without overwriting it. Source or capture-ledger writer failures leave the fresh
+CLI result refused. Original end-of-run source, device-ledger and cleanup gates
+remain required.
+
 CPU controls verify original versus refactored full Float32 state/grain bytes,
 explicit-zero parity, a known translated sphere through the actual adapter,
 centroid and hash liveness, missing-offset and missing-recentering refusals,
@@ -62,6 +72,14 @@ Run CPU controls:
 
 ```text
 node scripts/research/quant3d-equilibrium-translation.mjs verify-out/q3-translation-cpu 5201 --self-test
+```
+
+Exercise actual source-copy/readback, refused writers, mismatched existing
+copies, stale-positive CLI retries and unchanged four/twelve-case source/clock
+controls without starting a browser or GPU:
+
+```text
+node scripts/research/quant3d-startup-source-capture-controls.mjs verify-out/q3-startup-source-capture-controls
 ```
 
 With a separately running local Vite server on port5201, run the four GPU arms:
