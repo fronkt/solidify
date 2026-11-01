@@ -2,6 +2,7 @@
 // production specialization check, then throughput only. --run executes all
 // pre-registered arms; --arms=base (or named subsets) is diagnostic only.
 // Throughput is never reported as tip acceptance.
+// --lattice-kinetics explicitly tests the opt-in research correction.
 import puppeteer from "puppeteer-core";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -14,9 +15,11 @@ import { fixedTerminalSchedule, terminalOperatingState, terminalReferenceAssessm
   TIP_SAMPLE_PERIOD_PHYSICAL, TIP_TERMINAL_SAMPLE_COUNT } from "./fixtures/quant3d-tip-protocol.mjs";
 import { selfTestTipTerminalProtocol } from "./fixtures/quant3d-tip-protocol-controls.mjs";
 
+async function main() {
 const args = process.argv.slice(2), positional = args.filter(s => !s.startsWith("--"));
 const OUT = resolve(positional[0] ?? "verify-out/q3-tip"), PORT = positional[1] ?? "5199";
 const runLong = args.includes("--run"), selfOnly = args.includes("--self-test");
+const latticeKinetics = args.includes("--lattice-kinetics");
 const reference = JSON.parse(readFileSync(new URL("./fixtures/quant3d-tip-reference.json", import.meta.url), "utf8"));
 const target = reference.rows.find(r => r.epsilon4 === .0171), A1 = .8839, A2 = .6267, lambda = 4;
 const D = A2 * lambda, d0 = A1 / lambda, rhoExpected = d0 / (target.full3D.P * target.full3D.sigmaStar);
@@ -50,6 +53,10 @@ const observationPlans = new Map(arms.map(arm => [arm.name, fixedTerminalSchedul
   physicalTimeScale: arm.physicalTimeScale })]));
 const contract = {
   protocolVersion: 4,
+  experimentalLatticeKinetics: latticeKinetics,
+  phaseRelaxation: latticeKinetics
+    ? "experimental pure3D: tau=P.tau*(47/75)*lambda/D*[a(n)^2-(1321/9870)*(dx/epsBar)^2]; analytic coefficients, no needle fit"
+    : "default continuum calibration: tau=P.tau*a(n)^2",
   previousStudy: { pin: "ad96166", artifact: "verify-out/q3-cloud-full-progress.json",
     outcome: "all five arms stopped during startup on D/V side-clearance proxy; no steady operating state accepted",
     change: "reference-band-derived geometry/time, no startup proxy abort, conservative retained-steady-window clearance and direct far-field patches; no physical parameter or accuracy threshold changed" },
@@ -168,7 +175,11 @@ console.log("QPF3-TIP-METROLOGY OK", JSON.stringify({ rho: geometry.measured.rho
 console.log("QPF3-TIP-BOUNDARY-PROTOCOL OK", JSON.stringify(boundaryControls));
 console.log("QPF3-TIP-TERMINAL-PROTOCOL OK", JSON.stringify(terminalControls));
 console.log("QPF3-TIP-EXECUTION-MODE", JSON.stringify({ diagnostic: selection.diagnostic, selectedArms: selection.names }));
-if (selfOnly) process.exit(0);
+if (selfOnly) {
+  writeFileSync(resolve(OUT, "quant3d-tip-result.json"), JSON.stringify({contract,
+    accepted:false,completed:true,cpuOnly:true,status:"CPU protocol controls complete; GPU acceptance not run"}, null, 2));
+  return;
+}
 
 const sourcePaths = ["src/sim3d.ts", "src/shaders3d.ts", "src/shaders3d-quant.ts",
   "scripts/verify-quant3d-tip.mjs", "scripts/fixtures/quant3d-tip-reference.json",
@@ -198,7 +209,7 @@ try {
   });
   await page.goto(`http://localhost:${PORT}/app/`, { waitUntil: "networkidle0" });
   await page.waitForFunction(() => !!window.__solidify);
-  await page.evaluate(installQuant3TipDriver);
+  await page.evaluate(installQuant3TipDriver, { latticeKinetics });
   result.metadata = await page.evaluate(async () => {
     const adapter = window.__solidifyTipAdapter;
     const { PHASE_TABLE_VERSION } = await import("/src/phasedata.ts");
@@ -359,3 +370,21 @@ try {
   result.errors = errors; result.failures = failures; save();
 }
 if (errors.length || failures) process.exitCode = 1;
+}
+
+// A malformed or CPU-only retry must replace any older scientific verdict.
+const earlyPositional=process.argv.slice(2).filter(arg=>!arg.startsWith("--"));
+const earlyOut=resolve(earlyPositional[0]??"verify-out/q3-tip");
+const earlyResult=resolve(earlyOut,"quant3d-tip-result.json");
+try {
+  mkdirSync(earlyOut,{recursive:true});
+  writeFileSync(earlyResult,JSON.stringify({accepted:false,completed:false,
+    status:"preflight pending",started:new Date().toISOString()},null,2));
+  await main();
+} catch(error) {
+  let result={};try{result=JSON.parse(readFileSync(earlyResult,"utf8"));}catch{}
+  Object.assign(result,{accepted:false,completed:false,status:"preflight or artifact failure",
+    exception:error.stack??String(error),finished:new Date().toISOString()});
+  try{writeFileSync(earlyResult,JSON.stringify(result,null,2));}catch(writeError){console.error(writeError);}
+  console.error(result.exception);process.exitCode=1;
+}
