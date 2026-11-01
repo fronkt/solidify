@@ -60,11 +60,13 @@ const check = (name, ok, detail) => {
     scenario: F.flowRefusal({ ...base, scenario: 2 }),
     frozenPure: F.flowRefusal({ ...base, frozenTemperature: true }),
     frozenAlloy: F.flowRefusal({ ...base, frozenTemperature: true, alloy: true }),
+    calibratedAlloy: F.flowRefusal({ ...base, calibrated: true, alloy: true }),
+    calibratedPure: F.flowRefusal({ ...base, calibrated: true }),
     big: F.flowRefusal({ ...base, grid: 2048 }),
     busy: F.flowRefusal({ ...base, busyMode: "heat treatment" }),
   };
-  const ok = cases.allowed === null && cases.frozenAlloy === null
-    && [cases.dim3, cases.scenario, cases.frozenPure, cases.big, cases.busy].every(s => typeof s === "string" && s.length > 20);
+  const ok = cases.allowed === null && cases.frozenAlloy === null && cases.calibratedPure === null
+    && [cases.dim3, cases.scenario, cases.frozenPure, cases.big, cases.busy, cases.calibratedAlloy].every(s => typeof s === "string" && s.length > 20);
   check("FLOW-REFUSAL", ok, Object.fromEntries(Object.entries(cases).map(([k, v]) => [k, v === null ? "allowed" : "refused"])));
 }
 

@@ -88,6 +88,8 @@ export interface FlowContext {
   scenario: number;          // 0 = free growth; others impose temperature
   frozenTemperature: boolean;
   alloy: boolean;
+  /** the calibrated (quantitative) solver is active */
+  calibrated?: boolean;
   grid: number;
   busyMode: string | null;   // "heat treatment" | "optimizer" | "challenge" | null
 }
@@ -101,6 +103,7 @@ export function flowRefusal(c: FlowContext): string | null {
   if (c.busyMode) return `Melt flow is off while the ${c.busyMode} owns the melt; its model assumes still liquid.`;
   if (c.scenario !== 0) return "This scenario imposes its own temperature field, so there is nothing for the flow to carry. Use free growth.";
   if (c.frozenTemperature && !c.alloy) return "With the temperature field frozen, a pure melt has nothing for the flow to transport.";
+  if (c.calibrated && c.alloy) return "Melt flow does not yet carry the calibrated alloy's solute; use the pure melt or the Kobayashi alloy.";
   if (c.grid > 1024) return "At 2048² the flow's populations exceed the GPU's default storage-buffer limit. Use 1024² or smaller.";
   return null;
 }
