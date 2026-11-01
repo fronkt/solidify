@@ -23,8 +23,24 @@ import { closeBrowser } from "./browser-cleanup.mjs";
 //                        either; 200 nuclei change it. Sampling is read-only, and
 //                        X from the raw census equals X from a full readback.
 //
+//   RX3-JMAK             (pre-registered in tasks/todo.md before its first run)
+//                        site-saturated kinetics on a single crystal: the slope
+//                        of ln(-ln(1-X)) against ln V1, X measured over the
+//                        interior box and V1 from one nucleus grown alone on
+//                        the same matrix, is 1 +- 0.15 on each of three seeds.
+//   RX3-CAST-SELECTION   (pre-registered) on real casts, nuclei consume the
+//                        more deformed grains first, by at least 3x a
+//                        uniform-drive control; surviving nuclei were born on
+//                        boundaries more often than nuclei in general (pooled).
+//
 //   node scripts/verify-recrystallize-gpu.mjs [outDir] [port]
 import puppeteer from "puppeteer-core";
+import { createServer } from "vite";
+
+// the Avrami fit the card prints, loaded rather than retyped
+const vite = await createServer({ server: { middlewareMode: true }, appType: "custom", logLevel: "error" });
+const RX = await vite.ssrLoadModule("/src/recrystallize.ts");
+await vite.close();
 
 const PORT = process.argv[3] ?? "5199";
 let failures = 0;
@@ -344,6 +360,123 @@ try {
       { identical: ident, nucleiDiffer: differs, sampledEverySweep: out.zero.samples });
     const c = out.nuclei.census;
     check("RX3-SAMPLING-INERT", !!c && c.statsRx === c.readRx && c.statsGrain === c.readGrain && c.readRx > 0, c);
+  }
+  // -------------------------------------------------------------------------
+  // RX3-JMAK (protocol: tasks/todo.md, "Declutter, then finish C3b and D3")
+  {
+    const SWEEPS = 70, EVERY = 2, LO = 16, HI = 80;
+    const runs = [];
+    for (const seed of [0xa1, 0xa2, 0xa3]) {
+      const out = await page.evaluate(async (seed, SWEEPS, EVERY, LO, HI) => {
+        const R = window.__rx;
+        const series = async (mode) => {
+          const s3 = await R.crystal(seed, 20);
+          const n = s3.n, c = n / 2;
+          const ev = mode === "one" ? await s3.nucleate(1, 2, [[c, c, c]]) : await s3.nucleate(150);
+          if ("why" in ev) return { why: ev.why };
+          const S = [], Y = [];
+          const read = async d => {
+            const g = await s3.readGrainVolume();
+            if (mode === "one") { let v = 0; for (let i = 0; i < g.length; i++) if (g[i] === ev.lo) v++; S.push(d); Y.push(v); return; }
+            let inn = 0, tot = 0;
+            for (let z = LO; z < HI; z++) for (let y = LO; y < HI; y++) for (let x = LO; x < HI; x++) {
+              const id = g[(z * n + y) * n + x]; tot++; if (id >= ev.lo && id <= ev.hi) inn++;
+            }
+            S.push(d); Y.push(inn / tot);
+          };
+          await read(0);
+          await s3.anneal(SWEEPS, undefined, undefined, undefined, { at: d => d % EVERY === 0, read });
+          return { S, Y, placed: ev.placed };
+        };
+        const one = await series("one"), many = await series("many");
+        return { seed, one, many };
+      }, seed, SWEEPS, EVERY, LO, HI);
+      if (out.one.why || out.many.why) { runs.push({ seed, why: out.one.why ?? out.many.why }); continue; }
+      // pair the samples by sweep: V1 from the lone nucleus, X from the interior
+      const V1 = [], Xi = [];
+      out.many.S.forEach((d, k) => { const j = out.one.S.indexOf(d); if (j >= 0 && out.one.Y[j] > 0) { V1.push(out.one.Y[j]); Xi.push(out.many.Y[k]); } });
+      const fit = RX.avramiFit(V1, Xi, [0.05, 0.95], 0);
+      const fitS = RX.avramiFit(out.many.S.filter(d => d > 0), out.many.Y.filter((_, k) => out.many.S[k] > 0), [0.05, 0.95], 0);
+      runs.push({ seed, placed: out.many.placed, slopeV1: "why" in fit ? null : +fit.n.toFixed(4), points: "why" in fit ? 0 : fit.used,
+        why: "why" in fit ? fit.why : undefined, xEnd: +out.many.Y[out.many.Y.length - 1].toFixed(4),
+        nVsSweeps: "why" in fitS ? null : +fitS.n.toFixed(3), v1End: out.one.Y[out.one.Y.length - 1] });
+    }
+    const ok = runs.length === 3 && runs.every(r => r.slopeV1 != null && Math.abs(r.slopeV1 - 1) <= 0.15 && r.points >= 5 && r.xEnd >= 0.95);
+    check("RX3-JMAK", ok, { band: "slope vs ln V1 within 1 +- 0.15, >= 5 points, interior X_end >= 0.95", runs });
+  }
+
+  // -------------------------------------------------------------------------
+  // RX3-CAST-SELECTION (protocol: tasks/todo.md)
+  {
+    const casts = [];
+    for (const seed of [0xc1, 0xc2, 0xc3]) {
+      const out = await page.evaluate(async (seed) => {
+        const R = window.__rx;
+        const arm = async (uniform) => {
+          const s3 = await R.cast(seed);
+          const n = s3.n;
+          s3.deposit(10);
+          const Hlabel = Float32Array.from(s3.storedCPU());   // the fabric's H: the quartile key in both arms
+          if (uniform) for (let id = 1; id < 4095; id++) s3.setStored(id, 10);
+          const g0 = await s3.readGrainVolume(), p0 = await s3.readPhiVolume();
+          let rs = Math.imul(seed, 2654435761) >>> 0;
+          const rnd = () => { rs = (Math.imul(rs, 1664525) + 1013904223) >>> 0; return rs / 4294967296; };
+          const centres = Array.from({ length: 200 }, () => [Math.floor(rnd() * n), Math.floor(rnd() * n), Math.floor(rnd() * n)]);
+          const ev = await s3.nucleate(200, 2, centres);
+          if ("why" in ev) return { why: ev.why };
+          const g1 = await s3.readGrainVolume();
+          await s3.anneal(60);
+          const g2 = await s3.readGrainVolume();
+          // per matrix grain: X = share of its pre-nucleation voxels now in a nucleus
+          const N = new Map(), Rn = new Map();
+          for (let i = 0; i < g0.length; i++) {
+            const id = g0[i];
+            if (id === 0 || id === 4095 || p0[i] < 0.5) continue;
+            N.set(id, (N.get(id) ?? 0) + 1);
+            if (g2[i] >= ev.lo && g2[i] <= ev.hi) Rn.set(id, (Rn.get(id) ?? 0) + 1);
+          }
+          const grains = [...N.entries()].filter(([, c]) => c >= 64).map(([id, c]) => ({ H: Hlabel[id], X: (Rn.get(id) ?? 0) / c }));
+          grains.sort((a, b) => a.H - b.H);
+          const q = Math.floor(grains.length / 4);
+          const mean = a => a.reduce((s, g) => s + g.X, 0) / Math.max(1, a.length);
+          const D = mean(grains.slice(grains.length - q)) - mean(grains.slice(0, q));
+          // births: did the sphere touch >= 2 matrix ids; survival: grew past birth
+          const v0 = new Map(), v2 = new Map();
+          for (let i = 0; i < g1.length; i++) {
+            if (g1[i] >= ev.lo && g1[i] <= ev.hi) v0.set(g1[i], (v0.get(g1[i]) ?? 0) + 1);
+            if (g2[i] >= ev.lo && g2[i] <= ev.hi) v2.set(g2[i], (v2.get(g2[i]) ?? 0) + 1);
+          }
+          const birth = [];
+          for (let k = 0; k < centres.length; k++) {
+            const [cx, cy, cz] = centres[k], id = ev.lo + k, ids = new Set();
+            for (let dz = -2; dz <= 2; dz++) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+              if (dx * dx + dy * dy + dz * dz > 4) continue;
+              const x = cx + dx, y = cy + dy, z = cz + dz;
+              if (x < 0 || y < 0 || z < 0 || x >= n || y >= n || z >= n) continue;
+              const j = (z * n + y) * n + x, m = g0[j];
+              if (m !== 0 && m !== 4095 && p0[j] >= 0.5) ids.add(m);
+            }
+            const b0 = v0.get(id) ?? 0;
+            if (b0 > 0) birth.push({ boundary: ids.size >= 2, survived: (v2.get(id) ?? 0) > b0 });
+          }
+          return { D, grains: grains.length, birth };
+        };
+        const worked = await arm(false), control = await arm(true);
+        return { seed, worked, control };
+      }, seed);
+      casts.push(out);
+    }
+    const per = casts.map(c => c.worked.why || c.control.why ? { seed: c.seed, why: c.worked.why ?? c.control.why }
+      : { seed: c.seed, D: +c.worked.D.toFixed(4), Dcontrol: +c.control.D.toFixed(4), grains: c.worked.grains,
+          pass: c.worked.D > 0 && c.worked.D >= 3 * Math.abs(c.control.D) });
+    // pooled over the three worked casts (direction only)
+    const all = casts.flatMap(c => c.worked.birth ?? []);
+    const surv = all.filter(b => b.survived);
+    const fracAll = all.filter(b => b.boundary).length / Math.max(1, all.length);
+    const fracSurv = surv.filter(b => b.boundary).length / Math.max(1, surv.length);
+    const ok = per.every(p => p.pass) && surv.length > 0 && fracSurv > fracAll;
+    check("RX3-CAST-SELECTION", ok, { per, births: all.length, survivors: surv.length,
+      boundaryShare: { allPlaced: +fracAll.toFixed(3), survivors: +fracSurv.toFixed(3) } });
   }
 } catch (e) {
   console.log("RX3 harness error", String(e?.stack ?? e));
