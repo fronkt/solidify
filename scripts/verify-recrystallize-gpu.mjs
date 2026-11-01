@@ -494,20 +494,31 @@ try {
       S.app.startHeat();
       const panel = document.getElementById("heattreat");
       if (!panel) return { opened: false };
-      const btn = document.getElementById("htRun");
+      let btn = document.getElementById("htRun");
       const note = () => document.getElementById("htNote").textContent;
       for (let i = 0; i < 40 && /waiting/.test(note()); i++) await new Promise(r => setTimeout(r, 100));
-      const dials = panel.querySelectorAll('input[type="range"]');
+      let dials = panel.querySelectorAll('input[type="range"]');
       const set = (i, v) => { dials[i].value = String(v); dials[i].dispatchEvent(new Event("input", { bubbles: true })); };
       const sweepsOf = s => parseInt((s.match(/([\d,]+) MC sweeps/) ?? [])[1]?.replace(/,/g, "") ?? "0", 10);
       set(5, 8);                       // cold work, 8 J_b mean (0-16 across grains)
       set(6, 200);                     // nuclei
-      // a hold long enough for a few dozen sweeps
-      for (const m of [30, 60, 120, 240, 480]) {
-        set(1, m);
-        for (let i = 0; i < 30 && btn.disabled; i++) await new Promise(r => setTimeout(r, 100));
-        if (sweepsOf(note()) >= 40) break;
-      }
+      // HT3-SE-PANEL's search: the panel refuses a plan whose law endpoint
+      // outgrows this small specimen, so step the temperature and the hold
+      // DOWN until it arms with a few dozen sweeps
+      const T0 = Number(dials[0].value), Tmin = Number(dials[0].min);
+      const arm = async (minSweeps) => {
+        for (const drop of [0, 100, 200, 300, 400, 500, 600]) {
+          if (T0 - drop < Tmin) break;
+          set(0, T0 - drop);
+          for (const m of [60, 30, 15, 8, 4, 2]) {
+            set(1, m);
+            for (let i = 0; i < 20 && btn.disabled; i++) await new Promise(r => setTimeout(r, 100));
+            if (!btn.disabled && sweepsOf(note()) >= minSweeps) return true;
+          }
+        }
+        return false;
+      };
+      if (!(await arm(20))) return { opened: true, armed: false, note: note().slice(0, 240) };
       const setupWith = S.heat.setup();
       const cardAt = () => document.getElementById("htReport").innerHTML;
       const runOnce = async () => {
@@ -525,17 +536,28 @@ try {
       const col = (f, k) => f?.columns.find(c => c.key === k)?.values ?? [];
       const plotsShown = getComputedStyle(panel.querySelector(".rxplots")).display !== "none";
       const rangeAfter = S.sim3d().rxRange;
-      // nuclei back to 0, run again
+      // nuclei back to 0 (the share tuple drops its 7th element) ...
       set(6, 0);
       const setupWithout = S.heat.setup();
-      for (let i = 0; i < 30 && btn.disabled; i++) await new Promise(r => setTimeout(r, 100));
-      const report2 = await runOnce();
+      // ... then a second run on a FRESH pour: the first treatment grew the
+      // grains past this specimen's statistics limit, so the panel rightly
+      // refuses any further treatment on it. Reopening resets the dials.
+      S.heat.close();
+      await R.cast(0xd1);
+      S.app.startHeat();
+      for (let i = 0; i < 40 && /waiting/.test(note()); i++) await new Promise(r => setTimeout(r, 100));
+      dials = document.getElementById("heattreat").querySelectorAll('input[type="range"]');
+      btn = document.getElementById("htRun");
+      set(5, 8);
+      set(6, 0);
+      const rearmed = await arm(1), noteBefore2 = note().slice(0, 200);
+      const report2 = rearmed ? await runOnce() : "";
       const out = {
-        opened: true, dialCount: dials.length, sweeps: sweepsOf(note()), report: report.slice(0, 900),
+        opened: true, dialCount: dials.length, sweeps: sweepsOf(note()), report, rearmed, noteBefore2,
         S: col(kin, "sweeps"), X: col(kin, "recrystallized_fraction"), avPoints: col(av, "ln_sweeps").length,
         plotsShown, rangeAfter, setupWithLen: setupWith.length, setupWithoutLen: setupWithout.length,
         rangeAfterZero: S.sim3d().rxRange, rowGone: !/recrystallized X/.test(report2),
-        plotsHiddenAfter: getComputedStyle(panel.querySelector(".rxplots")).display === "none",
+        plotsHiddenAfter: getComputedStyle(document.getElementById("heattreat").querySelector(".rxplots")).display === "none",
         figsAfter: S.heat.exportFigures().map(f => f.title),
       };
       S.heat.close();
@@ -543,20 +565,21 @@ try {
     });
     let cardN = null, refitN = null, refused = null;
     if (out.opened) {
-      const m = out.report.match(/Avrami n\s+([\d.]+)/);
+      const m = out.report.match(/Avrami n\s*([\d.]+)/);
       cardN = m ? Number(m[1]) : null;
       const x0 = out.X[0] ?? 0;
       const fit = RX.avramiFit(out.S.slice(1), out.X.slice(1), RX.AVRAMI_WINDOW, x0);
       refitN = "why" in fit ? null : Number(fit.n.toFixed(2));
       refused = "why" in fit;
     }
-    const xRow = /recrystallized X \d\.\d\d after [\d,]+ MC sweeps/.test(out.report ?? "");
+    const xRow = /recrystallized\s*X \d\.\d\d after [\d,]+ MC sweeps/.test(out.report ?? "");
     const nAgrees = refused ? cardN === null : cardN !== null && cardN === refitN;
     const ok = out.opened && out.dialCount === 7 && xRow && nAgrees && out.plotsShown && out.avPoints >= (refused ? 0 : 4)
       && out.rangeAfter && out.setupWithLen === 7 && out.setupWithoutLen === 6 && out.rangeAfterZero === null
-      && out.rowGone && out.plotsHiddenAfter && !out.figsAfter.includes("Recrystallization kinetics")
+      && out.rearmed && out.rowGone && out.plotsHiddenAfter && !out.figsAfter.includes("Recrystallization kinetics")
       && /held back/.test(out.report ?? "");
-    check("RX3-PANEL", ok, { ...out, report: (out.report ?? "").slice(0, 300), S: out.S?.length, X: undefined, cardN, refitN, refused, xRow });
+    const rxRows = (out.report ?? "").match(/recrystallized[\s\S]{0,260}/)?.[0] ?? "";
+    check("RX3-PANEL", ok, { ...out, report: rxRows, S: out.S?.length, X: undefined, cardN, refitN, refused, xRow });
   }
 } catch (e) {
   console.log("RX3 harness error", String(e?.stack ?? e));
