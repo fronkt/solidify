@@ -1188,7 +1188,7 @@ struct RParams {
   lookFlags: u32,   // low bits: stain (0 none, 1 Klemm, 2 Beraha, 3 anodize); bit 8: EBSD map
   scrubT: f32,      // replay time (sim units) when scrubOn
   scrubOn: u32,     // 1: draw the solid as it stood at scrubT
-  _r0: f32,
+  flowRef: f32,     // D3.3: inlet speed, the streak overlay's brightness reference
   _r1: f32,
 }
 const PI = 3.14159265359;
@@ -1196,6 +1196,7 @@ const PI = 3.14159265359;
 @group(0) @binding(1) var state: texture_2d<f32>;
 @group(0) @binding(2) var grain: texture_2d<u32>;
 @group(0) @binding(3) var<storage, read> theta0: array<f32>;
+@group(0) @binding(4) var vel: texture_2d<f32>;   // D3.3: LBM velocity (a 1x1 zero texture when no flow)
 
 struct VOut { @builtin(position) pos: vec4f, @location(0) uv: vec2f }
 
@@ -1461,6 +1462,29 @@ fn fmain(in: VOut) -> @location(0) vec4f {
     let nrm = normalize(vec3f((hC - hR) * 22.0, (hU - hC) * 22.0, 1.0));
     let lit = clamp(dot(nrm, normalize(vec3f(-0.45, 0.7, 0.6))), 0.0, 1.0);
     col *= 0.38 + 0.9 * lit;
+  }
+
+  // D3.3 melt flow: streaks laid along the local velocity, their phase moving
+  // downstream at a rate set by the local speed, brightness by speed over the
+  // inlet speed. A picture of direction and relative speed, not of particle
+  // paths (it is not a time-integrated advection), and drawn only in liquid.
+  if ((R.lookFlags & 1024u) != 0u && inDomain && R.flowRef > 0.0) {
+    let v = textureLoad(vel, ci, 0).xy;
+    let sp = length(v);
+    if (sp > 1e-6) {
+      let dir = v / sp;
+      let along = dot(p, dir);
+      let across = dot(p, vec2f(-dir.y, dir.x));
+      let laneW = 7.0;
+      let lane = floor(across / laneW);
+      let lanePos = abs(fract(across / laneW) - 0.5) * 2.0;
+      let laneMask = 1.0 - smoothstep(0.12, 0.4, lanePos);
+      let rel = clamp(sp / R.flowRef, 0.0, 1.5);
+      let offset = hashf(u32(i32(lane) + 100000), 13u, 7u) * 48.0;
+      let ph = fract((along - offset) / 48.0 - R.time * 0.9 * rel);
+      let streak = smoothstep(0.0, 0.06, ph) * (1.0 - smoothstep(0.06, 0.45, ph));
+      col = mix(col, vec3f(0.80, 0.90, 1.0), streak * laneMask * min(rel, 1.0) * 0.6 * (1.0 - solidness));
+    }
   }
 
   // vignette + film grain (skip grain on ETCH and in pixel mode)

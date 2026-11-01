@@ -30,6 +30,15 @@ const RAIL_ROOM = 596;
 const RAIL_ROOM_PHONE = 298;
 
 export interface UIHost extends AppControl {
+  /** D3.2/D3.3 melt flow (2D): on/off, inlet speed (cells per substep), the
+   *  streak overlay, and why it is refused or was switched off (null = fine) */
+  getFlowOn(): boolean;
+  setFlowOn(on: boolean): void;
+  getFlowU(): number;
+  setFlowU(v: number): void;
+  getFlowView(): boolean;
+  setFlowView(on: boolean): void;
+  flowIssue(): string | null;
   simParams(): PhysParams;
   /** the live dimensionless<->SI scaling (units.ts) */
   units(): Units;
@@ -761,6 +770,20 @@ export class UI {
     this.slider(this.weldPanel, "spot size", 2, 9, 0.5, () => p().weldSig, v => { p().weldSig = v; }, v => v.toFixed(1));
     this.check(this.weldPanel, "auto raster", () => host.getWeldAuto(), b => host.setWeldAuto(b));
     this.slider(this.weldPanel, "sweep speed", 10, 140, 2, () => host.getWeldSweep(), v => host.setWeldSweep(v), v => v.toFixed(0));
+    // D3.2/D3.3 melt flow: a forced stream from the left edge, 2D free growth
+    // only; the host refuses (with a sentence) anywhere the model cannot run it
+    const flowPanel = document.createElement("div");
+    flowPanel.className = "subpanel";
+    scen.append(flowPanel);
+    this.only2d.push(flowPanel);
+    this.check(flowPanel, "melt flow", () => host.getFlowOn(), b => host.setFlowOn(b));
+    this.slider(flowPanel, "flow speed", 0.005, 0.05, 0.0025, () => host.getFlowU(), v => host.setFlowU(v),
+      v => `${v.toFixed(4)} cells/step`);
+    this.check(flowPanel, "show flow", () => host.getFlowView(), b => host.setFlowView(b));
+    const flowWhy = document.createElement("div");
+    flowWhy.className = "hint";
+    flowPanel.append(flowWhy);
+    this.binds.push({ update: () => { const w = host.flowIssue(); flowWhy.textContent = w ?? ""; flowWhy.style.display = w ? "" : "none"; } });
 
     // ---- alloy
     const alloy = this.section(rail, "ALLOY");

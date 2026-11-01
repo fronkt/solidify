@@ -34,6 +34,7 @@ import { STATUS_LEARN } from "./learn/panels";
 import { chargeLiquidus, chemOf, type Chem } from "./plot/figures";
 import { runEntries, zipStore, micrographPNG, downloadRun, type RunSnapshot } from "./run-export";
 import { ReplayLedger, REASON as REPLAY } from "./replay";
+import { flowRefusal } from "./flow";
 
 /** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
 const SPEED_MULTS = [1, 2, 4] as const;
@@ -75,6 +76,14 @@ async function boot() {
   // scrub2/scrub3 are the replay times being shown (null = live); the frame
   // loop clears them whenever the melt runs or the ledger is marked.
   const replay2 = new ReplayLedger(), replay3 = new ReplayLedger();
+  // D3.3: why melt flow is refused or was switched off (null = fine), and the
+  // one predicate (flow.ts) every flow surface asks
+  let flowIssue: string | null = null;
+  const flowWhyNot = (): string | null => flowRefusal({
+    dim3: mode === "3d", scenario: sim.params.scen, frozenTemperature: sim.params.frozenT === 1,
+    alloy: sim.params.alloyOn === 1, calibrated: sim.params.solver === 1, grid: sim.n,
+    busyMode: heat?.active ? "heat treatment" : opt.active ? "optimizer" : challenge.active ? "challenge" : lab.active ? "lab mode" : null,
+  });
   let scrub2: number | null = null, scrub3: number | null = null;
   // Grain isolation (3D): alt-tap or a long press picks the grain under the
   // pointer along the camera's own ray; the renderer ghosts every other grain.
@@ -971,6 +980,24 @@ async function boot() {
       else running = on;
     },
     setWeldAuto(on) { weldAuto = on; },
+    // ---- D3.2/D3.3 melt flow (2D)
+    getFlowOn: () => sim.flowOn,
+    setFlowOn(on) {
+      flowIssue = null;
+      if (!on) { sim.setFlow(false); renderer.rebind(sim); return; }
+      const why = flowWhyNot();
+      if (why) { flowIssue = why; return; }
+      flowIssue = sim.setFlow(true);
+      renderer.rebind(sim);
+    },
+    getFlowU: () => sim.flowCfg.u,
+    setFlowU(v) {
+      sim.flowCfg.u = Math.min(0.05, Math.max(0.005, v));
+      if (sim.flowOn) { flowIssue = sim.setFlow(true); if (flowIssue) { sim.setFlow(false); renderer.rebind(sim); } }
+    },
+    getFlowView: () => renderer.flowView,
+    setFlowView(on) { renderer.flowView = on; },
+    flowIssue: () => flowIssue,
     startOptimizer() {
       if (challenge.active || lab.active || heat?.active || mode3dPending || quantPending3 || alloyPreparing3 || sharedRestore3Pending) return;
       if (mode === "3d") {
@@ -1419,6 +1446,7 @@ async function boot() {
       return location.origin + location.pathname + packShare({
         p: { ...sim.params }, u: undercool, v: view, m: material,
         n: alloyName, nuc: [nuc.p.nmax, nuc.p.dTN, nuc.p.dTsig], lab: labShare(), ht: heatShare(),
+        fl: sim.flowOn ? sim.flowCfg.u : undefined,
         sched: recipeSchedule, seed: getSeed(), mx: pouredShare(), g2: sim.n, um: umPerCell,
       });
     },
@@ -2485,6 +2513,9 @@ async function boot() {
       }
       // the replay ledger: a reset runs the clock back; reheat, a weld pass
       // and a heat treatment are marked as they happen (src/replay.ts)
+      // D3.3: a scenario, solver or mode change that the flow cannot run under
+      // switches it off with the reason, rather than leaving it running wrong
+      if (sim.flowOn) { const why = flowWhyNot(); if (why) { sim.setFlow(false); renderer.rebind(sim); flowIssue = why; ui.sync(); } }
       replay2.clock(sim.simTime);
       if (sim.params.scen === 2 && running) replay2.mark(REPLAY.weld);
       if (sim.params.heatIn > 0) replay2.mark(REPLAY.reheat);
@@ -2718,6 +2749,13 @@ async function boot() {
       // with the cold work behind it): every element PRESENT must be a finite
       // number — the whole-rejection stance stays, only the accepted shapes
       // grew (a 4-element hand-build is still malformed, and so is a 7).
+      // D3.3: a flowing link restarts the flow at its (clamped) inlet speed;
+      // the same refusal predicate decides, so a link cannot force flow where
+      // the model cannot run it
+      if (typeof shared.fl === "number" && Number.isFinite(shared.fl) && mode === "2d") {
+        app.setFlowU(shared.fl);
+        app.setFlowOn(true);
+      }
       if (Array.isArray(shared.ht) && [3, 5, 6, 7].includes(shared.ht.length)
         && shared.ht.every(Number.isFinite) && !lab.active) heat?.open(shared.ht);
     };
