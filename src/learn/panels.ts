@@ -55,7 +55,7 @@ export const PANEL_LEARN: readonly LearnEntry[] = [
       "dispersion": "particle volume that pins boundaries",
       "particle radius": "particle size, in grid cells",
       "cold work": "stored deformation energy (bond energies)",
-      "nuclei": "strain-free grains seeded into the cold-worked metal",
+      "nuclei": "strain-free grains in the worked metal",
     },
   },
   {
