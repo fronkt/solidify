@@ -5579,7 +5579,7 @@ acceptance band is introduced. The earlier added-heat refusal remains intact.
 
 - [x] Review the prospective temporal scope and cost/fallback rule before implementation.
 - [x] Verify prerequisites and exact conservation/clock/metrology controls; freeze/push the selected batch.
-- [ ] Execute the selected CPU batch, preserve all outcomes and assess timestep/domain sensitivity without a new scientific pass band.
+- [x] Execute the selected CPU batch, preserve all outcomes and assess timestep/domain sensitivity without a new scientific pass band.
 
 The active temporal v4 preparation selects both candidates/all14 trajectories
 by the predeclared cost rule (estimated1121 seconds). Independent review clears
@@ -5588,3 +5588,21 @@ negatives, tails, metrology and all65 matched integer clocks. Earlier preparatio
 versions are retained. The source-admission amendment explicitly reconstructs
 the old sealed CRLF file from its canonical Git blob, with every other transform
 refused. Full pushed-commit admission remains mandatory before any trajectory.
+
+Review: temporal B14 completes at 6d409780 with all 910 states and 780 fixed
+comparisons independently verified. All exact-energy budgets pass, no clamps
+occur, and the limited 280-step replay is byte-identical. Wide-domain core
+differences are zero; timestep RMS maxima are 2.39e-7 phase/1.64e-7 temperature.
+Every preparation version, source-byte mapping and refusal is preserved in the
+28,581,607-byte archive with matching GitHub server digest. This is short-time
+Float64/closed-graph evidence on 210, with each model's own initial thermal
+constant. Signed phase offsets/temperature residuals remain; no stability,
+adoption or Q3 claim follows. Public summary:
+docs/validation/quant3d-oblique-temporal-2026-10-31.json.
+
+The capillary figure choices were prepared before full-grid replay: two epsilon
+panels, both lattice phases, primary sextic/octic extrapolations and all four
+same-degree crossing-policy sensitivities. Degree 4 controls remain in the
+144-row CSV. Plot-plan canonical SHA 59c5bb5cc770018f5d9f5841b0aaa5c05f0aa8595871e3e6a4a80272b6fabb3a;
+new script SHA 9e0564527e301176881cf716945cf1c5434c551421fd4094bcc7da5717bb96f1.
+Actual rendering and image inspection wait for all 12 and the frozen replay.

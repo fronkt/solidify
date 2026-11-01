@@ -1,0 +1,1351 @@
+{
+  "format": "solidify-oblique-temporal-evidence-v1",
+  "scope": "Short-time Float64 CPU evolution on one rational plane with artificial closed heat-graph ends; no stability, zero-speed calibration, adoption or Q3 acceptance",
+  "executionCompleted": true,
+  "accepted": false,
+  "adopted": false,
+  "q3Accepted": false,
+  "sourceCommit": "6d409780576a937af64e6817199fb6341f9088c3",
+  "resultSha256": "2baaf74f0ac992bf982928836987373c024b81e1c9bcb69a1938ff0196268f0a",
+  "prepareSealSha256": "2eeee5df0f4f36765f83c35ed5b6b91fe8645dbd4218cfb441ef73f3f9aa3bcc",
+  "sourceAdmission": {
+    "commit": "6d409780576a937af64e6817199fb6341f9088c3",
+    "allSourcesAdmitted": true,
+    "allowedTransformations": [
+      "exact",
+      "LF-to-CRLF"
+    ],
+    "sources": {
+      "scripts/research/quant3d-oblique-temporal.py": {
+        "runtimeSha256": "edaf7ccd7449bff5c3b6c9d02c1d578961e9adf6f82d1eca5ad3954a1854dc9f",
+        "runtimeBytes": 41610,
+        "runtimeCrlfCount": 0,
+        "runtimeLfCount": 613,
+        "gitBlobSha256": "edaf7ccd7449bff5c3b6c9d02c1d578961e9adf6f82d1eca5ad3954a1854dc9f",
+        "gitBlobObjectId": "5e3e815d89b27a417c3dc375ef23687ac660c784",
+        "gitBlobBytes": 41610,
+        "representation": "exact",
+        "actualGitBlobSha256": "edaf7ccd7449bff5c3b6c9d02c1d578961e9adf6f82d1eca5ad3954a1854dc9f",
+        "actualGitBlobObjectId": "5e3e815d89b27a417c3dc375ef23687ac660c784",
+        "runtimeReconstructedExactly": true
+      },
+      "scripts/research/quant3d-oblique-temporal.md": {
+        "runtimeSha256": "f5d3c82d6504ec2fd1fe229290c2f7b4d2920fb89e02c145381dda308ffbb121",
+        "runtimeBytes": 8731,
+        "runtimeCrlfCount": 0,
+        "runtimeLfCount": 141,
+        "gitBlobSha256": "f5d3c82d6504ec2fd1fe229290c2f7b4d2920fb89e02c145381dda308ffbb121",
+        "gitBlobObjectId": "365ba9a6cd0838b355134d85ee9d8d8224c2c233",
+        "gitBlobBytes": 8731,
+        "representation": "exact",
+        "actualGitBlobSha256": "f5d3c82d6504ec2fd1fe229290c2f7b4d2920fb89e02c145381dda308ffbb121",
+        "actualGitBlobObjectId": "365ba9a6cd0838b355134d85ee9d8d8224c2c233",
+        "runtimeReconstructedExactly": true
+      },
+      "scripts/research/quant3d-oblique-kinetic.py": {
+        "runtimeSha256": "2b3514ec2484e78211c979540c935716489074704b5d408cbe98d6825d6beda8",
+        "runtimeBytes": 10150,
+        "runtimeCrlfCount": 0,
+        "runtimeLfCount": 205,
+        "gitBlobSha256": "2b3514ec2484e78211c979540c935716489074704b5d408cbe98d6825d6beda8",
+        "gitBlobObjectId": "e44c554f67cc9441985861299032c47c5304d4e4",
+        "gitBlobBytes": 10150,
+        "representation": "exact",
+        "actualGitBlobSha256": "2b3514ec2484e78211c979540c935716489074704b5d408cbe98d6825d6beda8",
+        "actualGitBlobObjectId": "e44c554f67cc9441985861299032c47c5304d4e4",
+        "runtimeReconstructedExactly": true
+      },
+      "scripts/research/quant3d-oblique-kinetic-reference.py": {
+        "runtimeSha256": "a8bb1b0e490d250574f7e823564b7a25ff303ea1588a95fe3af90c18b9a9d22a",
+        "runtimeBytes": 12817,
+        "runtimeCrlfCount": 0,
+        "runtimeLfCount": 196,
+        "gitBlobSha256": "a8bb1b0e490d250574f7e823564b7a25ff303ea1588a95fe3af90c18b9a9d22a",
+        "gitBlobObjectId": "5a2c52c6260b0c9203603a98825fcc54e041e7d6",
+        "gitBlobBytes": 12817,
+        "representation": "exact",
+        "actualGitBlobSha256": "a8bb1b0e490d250574f7e823564b7a25ff303ea1588a95fe3af90c18b9a9d22a",
+        "actualGitBlobObjectId": "5a2c52c6260b0c9203603a98825fcc54e041e7d6",
+        "runtimeReconstructedExactly": true
+      },
+      "scripts/research/quant3d-oblique-kinetic-angular.py": {
+        "runtimeSha256": "ec169d468f723f1a68456e42c344aa85fed153e770bb6f98bc190bfcb3b1770b",
+        "runtimeBytes": 6816,
+        "runtimeCrlfCount": 0,
+        "runtimeLfCount": 120,
+        "gitBlobSha256": "ec169d468f723f1a68456e42c344aa85fed153e770bb6f98bc190bfcb3b1770b",
+        "gitBlobObjectId": "f78843564fc19822a8e2d079e2b6332090c72f17",
+        "gitBlobBytes": 6816,
+        "representation": "exact",
+        "actualGitBlobSha256": "ec169d468f723f1a68456e42c344aa85fed153e770bb6f98bc190bfcb3b1770b",
+        "actualGitBlobObjectId": "f78843564fc19822a8e2d079e2b6332090c72f17",
+        "runtimeReconstructedExactly": true
+      },
+      "scripts/research/quant3d-kinetic-reference.py": {
+        "runtimeSha256": "b354940f0ac902553fdd0a68f0727d5d13db4c0e85c13d37e56b187fc64c203b",
+        "runtimeBytes": 17022,
+        "runtimeCrlfCount": 311,
+        "runtimeLfCount": 311,
+        "gitBlobSha256": "53f9fad85173f18be0683fdeb465b16c501e49a6b038bc2c4ac4e6cff62bd0b4",
+        "gitBlobObjectId": "50a66a5f0468c263e8a3674955ffedf435af3573",
+        "gitBlobBytes": 16711,
+        "representation": "LF-to-CRLF",
+        "actualGitBlobSha256": "53f9fad85173f18be0683fdeb465b16c501e49a6b038bc2c4ac4e6cff62bd0b4",
+        "actualGitBlobObjectId": "50a66a5f0468c263e8a3674955ffedf435af3573",
+        "runtimeReconstructedExactly": true
+      }
+    }
+  },
+  "contract": {
+    "normal": [
+      2,
+      1,
+      0
+    ],
+    "dx": 0.8,
+    "normalPlaneSpacing": 0.35777087639996635,
+    "velocityReference": 0.04,
+    "lambda": 4.0,
+    "D": 2.5068,
+    "epsilon": 0.0171,
+    "epsBar": 1,
+    "tauInput": 1,
+    "physicalSub": 1,
+    "amplitude": 0.001,
+    "pulseWidths": [
+      4,
+      8
+    ],
+    "coarseDt": 0.004,
+    "fineDt": 0.002,
+    "requestedHorizon": 71.55417527999327,
+    "coarseSteps": 17889,
+    "fineSteps": 35778,
+    "actualHorizon": 71.556,
+    "coarseProbeSteps": [
+      0,
+      280,
+      560,
+      839,
+      1119,
+      1398,
+      1678,
+      1957,
+      2237,
+      2516,
+      2796,
+      3075,
+      3355,
+      3634,
+      3914,
+      4193,
+      4473,
+      4752,
+      5032,
+      5311,
+      5591,
+      5870,
+      6150,
+      6429,
+      6709,
+      6988,
+      7268,
+      7547,
+      7827,
+      8106,
+      8386,
+      8665,
+      8945,
+      9224,
+      9504,
+      9783,
+      10063,
+      10342,
+      10622,
+      10901,
+      11181,
+      11460,
+      11740,
+      12019,
+      12299,
+      12578,
+      12858,
+      13137,
+      13417,
+      13696,
+      13976,
+      14255,
+      14535,
+      14814,
+      15094,
+      15373,
+      15653,
+      15932,
+      16212,
+      16492,
+      16771,
+      17051,
+      17330,
+      17610,
+      17889
+    ],
+    "fineProbeSteps": [
+      0,
+      560,
+      1120,
+      1678,
+      2238,
+      2796,
+      3356,
+      3914,
+      4474,
+      5032,
+      5592,
+      6150,
+      6710,
+      7268,
+      7828,
+      8386,
+      8946,
+      9504,
+      10064,
+      10622,
+      11182,
+      11740,
+      12300,
+      12858,
+      13418,
+      13976,
+      14536,
+      15094,
+      15654,
+      16212,
+      16772,
+      17330,
+      17890,
+      18448,
+      19008,
+      19566,
+      20126,
+      20684,
+      21244,
+      21802,
+      22362,
+      22920,
+      23480,
+      24038,
+      24598,
+      25156,
+      25716,
+      26274,
+      26834,
+      27392,
+      27952,
+      28510,
+      29070,
+      29628,
+      30188,
+      30746,
+      31306,
+      31864,
+      32424,
+      32984,
+      33542,
+      34102,
+      34660,
+      35220,
+      35778
+    ],
+    "primaryIndices": [
+      -358,
+      1432
+    ],
+    "wideIndices": [
+      -716,
+      2864
+    ],
+    "primaryN": 1791,
+    "wideN": 3581,
+    "phaseBoundary": "sealed constant q ghosts; not a physical tilted wall",
+    "heatBoundary": "symmetric truncated L19 graph; identical computed bond transfer with both signs",
+    "targetFrame": "raw imposed-V and one shared phase-derived shift; no temperature-only alignment",
+    "tailPrimaryWindow": [
+      40,
+      56
+    ],
+    "tailAlternativeWindow": [
+      32,
+      48
+    ],
+    "tailValueAndDerivativeNumericalLimit": 1e-08,
+    "pulsePolicy": "2*A*(G4-c*G8), c=exact represented Gaussian sum ratio, signs separate; actual injected E retained",
+    "budgetPolicy": "exact Fraction enthalpy at probes; outward gamma6/gamma2 latent/heat update bound; no projection",
+    "sourceAdmission": "exact sealed runtime/snapshot bytes; committed canonical LF blob with declared exact or LF-to-CRLF reconstruction only",
+    "numericalMetrologyControls": {
+      "shiftAbsolute": 3.577708763999663e-07,
+      "alignedTemperatureRms": 1e-08,
+      "wrongTemperatureRmsMinimum": 0.0001
+    },
+    "coreEvolutionLiveness": 1e-06,
+    "costRule": {
+      "cpuMinutes": 45,
+      "rhsEvaluationsPerBenchmark": 100,
+      "estimateMultiplier": 3,
+      "fixedOverheadSeconds": 120,
+      "choice": "B if estimatedB<=2700s, else A if estimatedA<=2700s, else C"
+    },
+    "scientificAcceptanceBand": null,
+    "recoveryPredicate": null,
+    "adopted": false,
+    "q3Accepted": false
+  },
+  "outcome": {
+    "trajectories": 14,
+    "savedStates": 910,
+    "fixedComparisonRows": 780,
+    "sourceStable": true,
+    "inputStable": true,
+    "maximumAbsoluteExactEnergyDrift": 1.7898670304782066e-11,
+    "allExactEnergyChecksWithinArithmeticBudget": true,
+    "clampedNodeSteps": 0,
+    "minimumTauAtProbes": 0.8988941415283891,
+    "limitedReplay": {
+      "case": "principal-baseline-dt",
+      "replayedSteps": 280,
+      "time": 1.12,
+      "phaseByteIdentical": true,
+      "temperatureByteIdentical": true,
+      "phaseMaxDifference": 0.0,
+      "temperatureMaxDifference": 0.0,
+      "arithmeticBudgetIdentical": true,
+      "clampedNodeSteps": 0,
+      "recordedClampSteps": 0,
+      "syntheticClampedLatentNegativeRejected": true,
+      "syntheticCorrectEnergyResidual": 3.941992708183658e-18,
+      "syntheticWrongLatentDrift": -0.0035777087639996628
+    },
+    "comparisonSummary": [
+      {
+        "model": "principal",
+        "kind": "domain-difference",
+        "rows": 65,
+        "maximumRms": {
+          "phaseRms": 0.0,
+          "temperatureRms": 0.0
+        }
+      },
+      {
+        "model": "principal",
+        "kind": "signed-response",
+        "rows": 130,
+        "maximumRms": {
+          "phaseEvenRms": 5.016252998460875e-07,
+          "phaseOddRms": 0.0003278687663266775,
+          "temperatureEvenRms": 9.447953689635829e-08,
+          "temperatureOddRms": 0.00037152251791537806
+        }
+      },
+      {
+        "model": "principal",
+        "kind": "timestep-difference",
+        "rows": 195,
+        "maximumRms": {
+          "phaseRms": 2.392578369548594e-07,
+          "temperatureRms": 1.6420223301226462e-07
+        }
+      },
+      {
+        "model": "angular",
+        "kind": "domain-difference",
+        "rows": 65,
+        "maximumRms": {
+          "phaseRms": 0.0,
+          "temperatureRms": 0.0
+        }
+      },
+      {
+        "model": "angular",
+        "kind": "signed-response",
+        "rows": 130,
+        "maximumRms": {
+          "phaseEvenRms": 5.020174019348506e-07,
+          "phaseOddRms": 0.0003279976958762074,
+          "temperatureEvenRms": 9.462147509149146e-08,
+          "temperatureOddRms": 0.0003715225179153766
+        }
+      },
+      {
+        "model": "angular",
+        "kind": "timestep-difference",
+        "rows": 195,
+        "maximumRms": {
+          "phaseRms": 2.391441420478235e-07,
+          "temperatureRms": 1.642016356780526e-07
+        }
+      }
+    ],
+    "cases": [
+      {
+        "case": {
+          "name": "principal-baseline-dt",
+          "model": "principal",
+          "pulse": "baseline",
+          "halfDt": false,
+          "wide": false
+        },
+        "seconds": 38.9701364999637,
+        "descriptiveSpeed": {
+          "fullHorizon": 0.03999990987345014,
+          "lastTwoCellPeriods": 0.039999910396576056
+        },
+        "initialInjectedEnergy": 0.0,
+        "terminal": {
+          "step": 17889,
+          "time": 71.556,
+          "energyExact": "732532655275225961630790356587973093138301030003573/11692013098647223345629478661730264157247460343808",
+          "energy": 62.652397760312176,
+          "driftExact": "-78367908431348622620726683944992083083/11692013098647223345629478661730264157247460343808",
+          "energyDrift": -6.702687361889448e-12,
+          "arithmeticBudget": 1.2797566710028181e-09,
+          "budgetPassed": true,
+          "measurement": {
+            "ready": true,
+            "massPosition": 2.8622335521221123,
+            "phaseShift": 2.8622335396806315,
+            "registrationMinusMass": -1.2441480734537436e-08,
+            "searchBoundaryDistance": 0.35777086395848556,
+            "phaseRms": 1.89558301258368e-07,
+            "phaseMax": 5.479488084381146e-07,
+            "temperatureRms": 3.6161645808888567e-07,
+            "temperatureMax": 5.691850735178861e-07
+          },
+          "rawImposedV": {
+            "phaseRms": 6.76550920313334e-07,
+            "temperatureRms": 3.282592739924889e-07
+          },
+          "phaseRange": [
+            0.0,
+            1.0
+          ],
+          "temperatureRange": [
+            0.000460205103891975,
+            1.0000964047454184
+          ],
+          "localTauRange": [
+            0.9009428569227431,
+            0.914293819224408
+          ],
+          "cutoffNodes": 1733,
+          "coreToLeftClearance": 118.94420730331007,
+          "coreToRightClearance": 497.46566145262966,
+          "thermalWindowToLeftClearance": 106.94420730331007,
+          "thermalWindowToRightClearance": 485.46566145262966,
+          "clampedNodeStepsToDate": 0,
+          "raw": "probe-64.npz",
+          "rawSha256": "22d371c07829e5bb9c8855db71817f07e4adf71f584effedb1aa6b670bba5c67",
+          "phaseSha256": "2372f7de9ed7d712461841e60e347a4cd680d533448bdfb07f5a1a5e3ff797cb",
+          "temperatureSha256": "5ee639c5d821768ae3ae00e63c02049bd3eb8d15d91b2d774f8b2c29838aa7b7"
+        },
+        "rawResultSha256": "ce98a64ae02c4ae5b6a161e125d06554acfa82b55c3e701ff3a903206493a0c9"
+      },
+      {
+        "case": {
+          "name": "principal-zero-plus-dt",
+          "model": "principal",
+          "pulse": "zero-plus",
+          "halfDt": false,
+          "wide": false
+        },
+        "seconds": 43.95846920006443,
+        "descriptiveSpeed": {
+          "fullHorizon": 0.040012649792305774,
+          "lastTwoCellPeriods": 0.040013069272899285
+        },
+        "initialInjectedEnergy": -3.574849180676073e-16,
+        "terminal": {
+          "step": 17889,
+          "time": 71.556,
+          "energyExact": "732532655275229540169516819797165181464292585324717/11692013098647223345629478661730264157247460343808",
+          "energy": 62.65239776031249,
+          "driftExact": "-74785189986540798134495678460574613331/11692013098647223345629478661730264157247460343808",
+          "energyDrift": -6.3962629322741275e-12,
+          "arithmeticBudget": 1.2797265122811561e-09,
+          "budgetPassed": true,
+          "measurement": {
+            "ready": true,
+            "massPosition": 2.859012829594828,
+            "phaseShift": 2.8590133710396204,
+            "registrationMinusMass": 5.41444792556689e-07,
+            "searchBoundaryDistance": 0.35777033495517374,
+            "phaseRms": 2.4575794420150057e-07,
+            "phaseMax": 7.583825211432416e-07,
+            "temperatureRms": 2.066483570498429e-05,
+            "temperatureMax": 3.713452302811504e-05
+          },
+          "rawImposedV": {
+            "phaseRms": 0.00032437271692770033,
+            "temperatureRms": 4.171277999819335e-05
+          },
+          "phaseRange": [
+            0.0,
+            1.0
+          ],
+          "temperatureRange": [
+            0.000460205103891975,
+            1.0000964047425835
+          ],
+          "localTauRange": [
+            0.9009428346276168,
+            0.914293819224408
+          ],
+          "cutoffNodes": 1733,
+          "coreToLeftClearance": 118.94098658078278,
+          "coreToRightClearance": 497.468882175157,
+          "thermalWindowToLeftClearance": 106.94098658078278,
+          "thermalWindowToRightClearance": 485.468882175157,
+          "clampedNodeStepsToDate": 0,
+          "raw": "probe-64.npz",
+          "rawSha256": "f308dc721c56045c6cce18e0633a63b9b791bcafc45827de8d94e6914fd36c61",
+          "phaseSha256": "59b7fe6114b71da6bb85b0ed05a0694d1fba4eba6f5de7bb0fe6b2f30d00781d",
+          "temperatureSha256": "017ad8ea8fa2bb0baa9d2d001cb1ec0e4102cf23c15794c7161e53f6d7430297"
+        },
+        "rawResultSha256": "230c623e4eb8f4b1c3422d6d5d78a78e5739620d0d48b317eea4f3919798616e"
+      },
+      {
+        "case": {
+          "name": "principal-zero-minus-dt",
+          "model": "principal",
+          "pulse": "zero-minus",
+          "halfDt": false,
+          "wide": false
+        },
+        "seconds": 38.91957939998247,
+        "descriptiveSpeed": {
+          "fullHorizon": 0.039987170269933064,
+          "lastTwoCellPeriods": 0.03998675236543223
+        },
+        "initialInjectedEnergy": 3.1776437161565095e-16,
+        "terminal": {
+          "step": 17889,
+          "time": 71.556,
+          "energyExact": "732532655275368162495124019051474161726307249121787/11692013098647223345629478661730264157247460343808",
+          "energy": 62.65239776032434,
+          "driftExact": "63829240597118627285548411178682903035/11692013098647223345629478661730264157247460343808",
+          "energyDrift": 5.459217335678809e-12,
+          "arithmeticBudget": 1.2797869296792404e-09,
+          "budgetPassed": true,
+          "measurement": {
+            "ready": true,
+            "massPosition": 2.865454255154631,
+            "phaseShift": 2.8654536889091524,
+            "registrationMinusMass": -5.662454785060334e-07,
+            "searchBoundaryDistance": 0.3577703101544878,
+            "phaseRms": 1.515946800287327e-07,
+            "phaseMax": 4.6533613562438347e-07,
+            "temperatureRms": 2.0444970585855714e-05,
+            "temperatureMax": 3.677848363814462e-05
+          },
+          "rawImposedV": {
+            "phaseRms": 0.00032307169105849707,
+            "temperatureRms": 4.181430385789391e-05
+          },
+          "phaseRange": [
+            0.0,
+            1.0
+          ],
+          "temperatureRange": [
+            0.000460205103891975,
+            1.00013318322863
+          ],
+          "localTauRange": [
+            0.9009430324564232,
+            0.914293819224408
+          ],
+          "cutoffNodes": 1733,
+          "coreToLeftClearance": 118.94742800634258,
+          "coreToRightClearance": 497.46244074959714,
+          "thermalWindowToLeftClearance": 106.94742800634258,
+          "thermalWindowToRightClearance": 485.46244074959714,
+          "clampedNodeStepsToDate": 0,
+          "raw": "probe-64.npz",
+          "rawSha256": "287dcad9eca023f4a57ff7ddb720ab69ff5eb4f424540483140f6cfd202a8eff",
+          "phaseSha256": "99bad770394f0902f5414e3cd31c844a947ee7d6a0d0a7e091cd001cd5b40cb9",
+          "temperatureSha256": "66ef3a8c366efce7386923d8fa89340064d7a0dd2de970796d3b3789ba6ffb25"
+        },
+        "rawResultSha256": "3b0ffca235272fb532a91f2e8ef3a7d3ef0205748151dc31938003e01d6d015a"
+      },
+      {
+        "case": {
+          "name": "principal-baseline-half-dt",
+          "model": "principal",
+          "pulse": "baseline",
+          "halfDt": true,
+          "wide": false
+        },
+        "seconds": 80.73864350002259,
+        "descriptiveSpeed": {
+          "fullHorizon": 0.03999995493256424,
+          "lastTwoCellPeriods": 0.03999995519629249
+        },
+        "initialInjectedEnergy": 0.0,
+        "terminal": {
+          "step": 35778,
+          "time": 71.556,
+          "energyExact": "732532655275095984804855082462215577068464455221417/11692013098647223345629478661730264157247460343808",
+          "energy": 62.652397760301064,
+          "driftExact": "-208344734366622748378242753781566865239/11692013098647223345629478661730264157247460343808",
+          "energyDrift": -1.7819406513556543e-11,
+          "arithmeticBudget": 2.5591557279744827e-09,
+          "budgetPassed": true,
+          "measurement": {
+            "ready": true,
+            "massPosition": 2.862236775765123,
+            "phaseShift": 2.86223676955224,
+            "registrationMinusMass": -6.212883096878841e-09,
+            "searchBoundaryDistance": 0.3577708701870832,
+            "phaseRms": 9.477926174064473e-08,
+            "phaseMax": 2.7397368373982545e-07,
+            "temperatureRms": 1.808088513408975e-07,
+            "temperatureMax": 2.8460040590871927e-07
+          },
+          "rawImposedV": {
+            "phaseRms": 3.383046207581307e-07,
+            "temperatureRms": 1.6412945354611383e-07
+          },
+          "phaseRange": [
+            0.0,
+            1.0
+          ],
+          "temperatureRange": [
+            0.0004602048993045442,
+            1.0000964047454184
+          ],
+          "localTauRange": [
+            0.9009428721660383,
+            0.914293819224408
+          ],
+          "cutoffNodes": 1733,
+          "coreToLeftClearance": 118.94421052695307,
+          "coreToRightClearance": 497.4656582289867,
+          "thermalWindowToLeftClearance": 106.94421052695307,
+          "thermalWindowToRightClearance": 485.4656582289867,
+          "clampedNodeStepsToDate": 0,
+          "raw": "probe-64.npz",
+          "rawSha256": "5937ffcb94ad40bdbfe72f19a4adbb2d36bc05cd9d3e3933523014e0bbe78809",
+          "phaseSha256": "bd7fa60891ef576508b3abe3ef0329a2d20989f0c3411e410d78f42417dae95a",
+          "temperatureSha256": "3b7d4125d6fe4659bf50a5bd8811763a56f4815ddfdd42d3801ad87e55f040f4"
+        },
+        "rawResultSha256": "b1dc748cda410902509d87154eb749f41316ae52d91fe3ab6edbfdb232aec0ad"
+      },
+      {
+        "case": {
+          "name": "principal-zero-plus-half-dt",
+          "model": "principal",
+          "pulse": "zero-plus",
+          "halfDt": true,
+          "wide": false
+        },
+        "seconds": 80.33808240003418,
+        "descriptiveSpeed": {
+          "fullHorizon": 0.040012690202461086,
+          "lastTwoCellPeriods": 0.04001311430255158
+        },
+        "initialInjectedEnergy": -3.574849180676073e-16,
+        "terminal": {
+          "step": 35778,
+          "time": 71.556,
+          "energyExact": "732532655275137670708904204200162599512915277564579/11692013098647223345629478661730264157247460343808",
+          "energy": 62.65239776030463,
+          "driftExact": "-166654650599156395137077629837882373469/11692013098647223345629478661730264157247460343808",
+          "energyDrift": -1.4253717404613453e-11,
+          "arithmeticBudget": 2.5590953690644573e-09,
+          "budgetPassed": true,
+          "measurement": {
+            "ready": true,
+            "massPosition": 2.859016038872118,
+            "phaseShift": 2.8590165865297945,
+            "registrationMinusMass": 5.476576765417462e-07,
+            "searchBoundaryDistance": 0.35777032874228976,
+            "phaseRms": 1.551501622952014e-07,
+            "phaseMax": 4.846152103221701e-07,
+            "temperatureRms": 2.060772793166109e-05,
+            "temperatureMax": 3.704705355045412e-05
+          },
+          "rawImposedV": {
+            "phaseRms": 0.0003240493055946238,
+            "temperatureRms": 4.173786112660581e-05
+          },
+          "phaseRange": [
+            0.0,
+            1.0
+          ],
+          "temperatureRange": [
+            0.0004602048993045442,
+            1.0000964047424492
+          ],
+          "localTauRange": [
+            0.9009428497246124,
+            0.914293819224408
+          ],
+          "cutoffNodes": 1733,
+          "coreToLeftClearance": 118.94098979006006,
+          "coreToRightClearance": 497.46887896587964,
+          "thermalWindowToLeftClearance": 106.94098979006006,
+          "thermalWindowToRightClearance": 485.46887896587964,
+          "clampedNodeStepsToDate": 0,
+          "raw": "probe-64.npz",
+          "rawSha256": "0b33488d63da5a09b0f4a603daef165038219a9a27a105d071397dd2bbfae888",
+          "phaseSha256": "6d4c3638637b80bb822047f3fe09bd66d03712e35e84b5099953574d043b4374",
+          "temperatureSha256": "32b04bd09b9a3a372296af9cd547ad6354786755408bf00752df255410bbc4a2"
+        },
+        "rawResultSha256": "b4b8faf0d463acce84632b616bcef3ef75b54a46ff1ba778b2732eb86018dd8a"
+      },
+      {
+        "case": {
+          "name": "principal-zero-minus-half-dt",
+          "model": "principal",
+          "pulse": "zero-minus",
+          "halfDt": true,
+          "wide": false
+        },
+        "seconds": 81.43821539997589,
+        "descriptiveSpeed": {
+          "fullHorizon": 0.039987219973936526,
+          "lastTwoCellPeriods": 0.03998679693082111
+        },
+        "initialInjectedEnergy": 3.1776437161565095e-16,
+        "terminal": {
+          "step": 35778,
+          "time": 71.556,
+          "energyExact": "732532655275449535976016815326420294865692733455945/11692013098647223345629478661730264157247460343808",
+          "energy": 62.652397760331304,
+          "driftExact": "145202721489914902231681550564167237193/11692013098647223345629478661730264157247460343808",
+          "energyDrift": 1.2418966713842887e-11,
+          "arithmeticBudget": 2.5592161866301456e-09,
+          "budgetPassed": true,
+          "measurement": {
+            "ready": true,
+            "massPosition": 2.8654574932286443,
+            "phaseShift": 2.865456933170625,
+            "registrationMinusMass": -5.600580190723292e-07,
+            "searchBoundaryDistance": 0.3577703163419472,
+            "phaseRms": 7.334136777373473e-08,
+            "phaseMax": 2.2930139886856438e-07,
+            "temperatureRms": 2.049854036753495e-05,
+            "temperatureMax": 3.68668829362484e-05
+          },
+          "rawImposedV": {
+            "phaseRms": 0.00032339770673170344,
+            "temperatureRms": 4.178827382073894e-05
+          },
+          "phaseRange": [
+            0.0,
+            1.0
+          ],
+          "temperatureRange": [
+            0.0004602048993045442,
+            1.000133271627928
+          ],
+          "localTauRange": [
+            0.9009430478458181,
+            0.914293819224408
+          ],
+          "cutoffNodes": 1733,
+          "coreToLeftClearance": 118.94743124441659,
+          "coreToRightClearance": 497.46243751152315,
+          "thermalWindowToLeftClearance": 106.94743124441659,
+          "thermalWindowToRightClearance": 485.46243751152315,
+          "clampedNodeStepsToDate": 0,
+          "raw": "probe-64.npz",
+          "rawSha256": "8ab1ad00839191377c7603ad6288f20adbfafa723b1d9df7db5fbb3dbe7fffd5",
+          "phaseSha256": "56b06b85922b7ccf5f216ba7a25cdd85670adb389a727dc22bd485be27abc00a",
+          "temperatureSha256": "1c9ee5c31cfee76377e0451a7b1883ca46629863e34aac9facdee1a7cad42457"
+        },
+        "rawResultSha256": "aa5f41191538e5fc68a2a2790c2b989a075a392d8ae780eeec63c9950132fce4"
+      },
+      {
+        "case": {
+          "name": "angular-baseline-dt",
+          "model": "angular",
+          "pulse": "baseline",
+          "halfDt": false,
+          "wide": false
+        },
+        "seconds": 49.105053700041026,
+        "descriptiveSpeed": {
+          "fullHorizon": 0.03999990990548068,
+          "lastTwoCellPeriods": 0.03999991042123594
+        },
+        "initialInjectedEnergy": 0.0,
+        "terminal": {
+          "step": 17889,
+          "time": 71.556,
+          "energyExact": "732532655220751388781118345865034154264348420619417/11692013098647223345629478661730264157247460343808",
+          "energy": 62.652397755653055,
+          "driftExact": "-78546181181892325193554700728928944999/11692013098647223345629478661730264157247460343808",
+          "energyDrift": -6.7179347576150245e-12,
+          "arithmeticBudget": 1.2798063672241292e-09,
+          "budgetPassed": true,
+          "measurement": {
+            "ready": true,
+            "massPosition": 2.862233554461616,
+            "phaseShift": 2.8622335421278358,
+            "registrationMinusMass": -1.2333780219364598e-08,
+            "searchBoundaryDistance": 0.3577708640661861,
+            "phaseRms": 1.8922957443473807e-07,
+            "phaseMax": 5.470038673127675e-07,
+            "temperatureRms": 3.616077597814297e-07,
+            "temperatureMax": 5.691280213770966e-07
+          },
+          "rawImposedV": {
+            "phaseRms": 6.76226974102596e-07,
+            "temperatureRms": 3.282580931883843e-07
+          },
+          "phaseRange": [
+            0.0,
+            1.0
+          ],
+          "temperatureRange": [
+            0.00047967860561154256,
+            1.0001158781506017
+          ],
+          "localTauRange": [
+            0.8988941911055612,
+            0.914293819224408
+          ],
+          "cutoffNodes": 1733,
+          "coreToLeftClearance": 118.94420730564956,
+          "coreToRightClearance": 497.46566145029016,
+          "thermalWindowToLeftClearance": 106.94420730564957,
+          "thermalWindowToRightClearance": 485.46566145029016,
+          "clampedNodeStepsToDate": 0,
+          "raw": "probe-64.npz",
+          "rawSha256": "7cce84ef71dbf57321c65c0a868156f70f7c192d435c8c6597074a3e7846f3be",
+          "phaseSha256": "f755eddf282bef18923e786f61537ff1d9ab8406b96ce8a9a7bd55b2cca29ab9",
+          "temperatureSha256": "e2f3b2152dc31e482f8d0431322867be949b71a31d485af10a5ff1f8ec53ed5a"
+        },
+        "rawResultSha256": "ee5415e4ff6c8a98788a9be2f79c59a5957def642dea1c5c1f82f438ff77bb56"
+      },
+      {
+        "case": {
+          "name": "angular-zero-plus-dt",
+          "model": "angular",
+          "pulse": "zero-plus",
+          "halfDt": false,
+          "wide": false
+        },
+        "seconds": 50.94320239999797,
+        "descriptiveSpeed": {
+          "fullHorizon": 0.040012674598826875,
+          "lastTwoCellPeriods": 0.040013073394675774
+        },
+        "initialInjectedEnergy": -4.766465574234764e-16,
+        "terminal": {
+          "step": 17889,
+          "time": 71.556,
+          "energyExact": "732532655220756114591446957999780586028339359593665/11692013098647223345629478661730264157247460343808",
+          "energy": 62.65239775565345,
+          "driftExact": "-73814797895487370054932697414173772607/11692013098647223345629478661730264157247460343808",
+          "energyDrift": -6.313266780724682e-12,
+          "arithmeticBudget": 1.279776201304391e-09,
+          "budgetPassed": true,
+          "measurement": {
+            "ready": true,
+            "massPosition": 2.8590124572002007,
+            "phaseShift": 2.859012996430432,
+            "registrationMinusMass": 5.392302311335584e-07,
+            "searchBoundaryDistance": 0.35777033716973516,
+            "phaseRms": 2.4533071833541605e-07,
+            "phaseMax": 7.568138868097041e-07,
+            "temperatureRms": 2.0666986342936243e-05,
+            "temperatureMax": 3.7140373608357535e-05
+          },
+          "rawImposedV": {
+            "phaseRms": 0.00032441023390244653,
+            "temperatureRms": 4.171709862251263e-05
+          },
+          "phaseRange": [
+            0.0,
+            1.0
+          ],
+          "temperatureRange": [
+            0.00047967860561154256,
+            1.0001158781477668
+          ],
+          "localTauRange": [
+            0.898894172454802,
+            0.914293819224408
+          ],
+          "cutoffNodes": 1733,
+          "coreToLeftClearance": 118.94098620838815,
+          "coreToRightClearance": 497.4688825475516,
+          "thermalWindowToLeftClearance": 106.94098620838815,
+          "thermalWindowToRightClearance": 485.4688825475516,
+          "clampedNodeStepsToDate": 0,
+          "raw": "probe-64.npz",
+          "rawSha256": "c575052a6ae47c86772902003d1fdcb0722a3cc28cf37b2d390a5fbe00a2a3a1",
+          "phaseSha256": "84ea270ca91643b48c18fe67183d0ead962adee0fe164520ed7c0c9da2e6fee0",
+          "temperatureSha256": "3dfd60a8b8d4e13b466c4caa13fbe0fa6cde79e2e6c045aeedfea3151a346142"
+        },
+        "rawResultSha256": "98042a331534f4e7d381d89641f8d120473eada3b7a875d80f5ea8f4e24c17fc"
+      },
+      {
+        "case": {
+          "name": "angular-zero-minus-dt",
+          "model": "angular",
+          "pulse": "zero-minus",
+          "halfDt": false,
+          "wide": false
+        },
+        "seconds": 50.66684780002106,
+        "descriptiveSpeed": {
+          "fullHorizon": 0.03998714552448733,
+          "lastTwoCellPeriods": 0.03998674828910507
+        },
+        "initialInjectedEnergy": 3.1776437161565095e-16,
+        "terminal": {
+          "step": 17889,
+          "time": 71.556,
+          "energyExact": "732532655220893817001326864466890238434184725249533/11692013098647223345629478661730264157247460343808",
+          "energy": 62.652397755665234,
+          "driftExact": "63878323721431063067735976224831553021/11692013098647223345629478661730264157247460343808",
+          "energyDrift": 5.463415340239556e-12,
+          "arithmeticBudget": 1.2798366331036665e-09,
+          "budgetPassed": true,
+          "measurement": {
+            "ready": true,
+            "massPosition": 2.8654546324039396,
+            "phaseShift": 2.8654540684807226,
+            "registrationMinusMass": -5.639232170118191e-07,
+            "searchBoundaryDistance": 0.3577703124767493,
+            "phaseRms": 1.5123348152668134e-07,
+            "phaseMax": 4.640752795381786e-07,
+            "temperatureRms": 2.0447182747696847e-05,
+            "temperatureMax": 3.678436429166432e-05
+          },
+          "rawImposedV": {
+            "phaseRms": 0.0003231097090641536,
+            "temperatureRms": 4.1818719232272235e-05
+          },
+          "phaseRange": [
+            0.0,
+            1.0
+          ],
+          "temperatureRange": [
+            0.00047967860561154256,
+            1.000152662514469
+          ],
+          "localTauRange": [
+            0.8988943546363924,
+            0.914293819224408
+          ],
+          "cutoffNodes": 1733,
+          "coreToLeftClearance": 118.94742838359188,
+          "coreToRightClearance": 497.4624403723478,
+          "thermalWindowToLeftClearance": 106.94742838359188,
+          "thermalWindowToRightClearance": 485.4624403723478,
+          "clampedNodeStepsToDate": 0,
+          "raw": "probe-64.npz",
+          "rawSha256": "221b627ed5214ebde8059f941fd86292c7df990567ab5d23ded34caff6445662",
+          "phaseSha256": "ceee92d922757652883fe25e7edfd8b93167196abdf3499510bacc7ac6622c68",
+          "temperatureSha256": "8faad4fe7b0e2ae54532083ab79f75966a832d836b733cf623d507b1a6330358"
+        },
+        "rawResultSha256": "19c63ab4bdab14df00014a1c55ea24640670824399422a003f5885752e73f03c"
+      },
+      {
+        "case": {
+          "name": "angular-baseline-half-dt",
+          "model": "angular",
+          "pulse": "baseline",
+          "halfDt": true,
+          "wide": false
+        },
+        "seconds": 102.08705430000555,
+        "descriptiveSpeed": {
+          "fullHorizon": 0.03999995494849791,
+          "lastTwoCellPeriods": 0.03999995520765741
+        },
+        "initialInjectedEnergy": 0.0,
+        "terminal": {
+          "step": 35778,
+          "time": 71.556,
+          "energyExact": "732532655220620663474648358193372629912211045635487/11692013098647223345629478661730264157247460343808",
+          "energy": 62.65239775564187,
+          "driftExact": "-209271487651879996855079052866303928929/11692013098647223345629478661730264157247460343808",
+          "energyDrift": -1.7898670304782066e-11,
+          "arithmeticBudget": 2.5592551204074976e-09,
+          "budgetPassed": true,
+          "measurement": {
+            "ready": true,
+            "massPosition": 2.862236776934766,
+            "phaseShift": 2.862236770747307,
+            "registrationMinusMass": -6.1874589896149246e-09,
+            "searchBoundaryDistance": 0.3577708702125073,
+            "phaseRms": 9.461489798731857e-08,
+            "phaseMax": 2.735069662973544e-07,
+            "temperatureRms": 1.8080466268546025e-07,
+            "temperatureMax": 2.845718730659641e-07
+          },
+          "rawImposedV": {
+            "phaseRms": 3.3814264783587927e-07,
+            "temperatureRms": 1.6412886141921892e-07
+          },
+          "phaseRange": [
+            0.0,
+            1.0
+          ],
+          "temperatureRange": [
+            0.0004796784010240571,
+            1.0001158781506017
+          ],
+          "localTauRange": [
+            0.8988942054924484,
+            0.914293819224408
+          ],
+          "cutoffNodes": 1733,
+          "coreToLeftClearance": 118.94421052812271,
+          "coreToRightClearance": 497.465658227817,
+          "thermalWindowToLeftClearance": 106.94421052812271,
+          "thermalWindowToRightClearance": 485.465658227817,
+          "clampedNodeStepsToDate": 0,
+          "raw": "probe-64.npz",
+          "rawSha256": "760ff98afcee6bdc50b8483e5fe0f545f3e229f3bed84ef6e7511b083896c3bb",
+          "phaseSha256": "16e8db3675ae3b68d890dffd28e4dd2bd823b982c0efedbe9d05f8af1499b7de",
+          "temperatureSha256": "45cba6fadb9b82e2a6d9223a2aec376e0d912572e605dda214af9ca6c94a9485"
+        },
+        "rawResultSha256": "95261f82c7221722003e4221cf4405c3844c2b7c27e86968ed58faf92a872479"
+      },
+      {
+        "case": {
+          "name": "angular-zero-plus-half-dt",
+          "model": "angular",
+          "pulse": "zero-plus",
+          "halfDt": true,
+          "wide": false
+        },
+        "seconds": 95.69997439999133,
+        "descriptiveSpeed": {
+          "fullHorizon": 0.04001271499304455,
+          "lastTwoCellPeriods": 0.040013118413361096
+        },
+        "initialInjectedEnergy": -4.766465574234764e-16,
+        "terminal": {
+          "step": 35778,
+          "time": 71.556,
+          "energyExact": "732532655220664440716232592174878691425122038161259/11692013098647223345629478661730264157247460343808",
+          "energy": 62.652397755645616,
+          "driftExact": "-165488673109853194956827300631495205013/11692013098647223345629478661730264157247460343808",
+          "energyDrift": -1.4153993133055965e-11,
+          "arithmeticBudget": 2.559194747108176e-09,
+          "budgetPassed": true,
+          "measurement": {
+            "ready": true,
+            "massPosition": 2.859015665303458,
+            "phaseShift": 2.8590162107465726,
+            "registrationMinusMass": 5.454431146745264e-07,
+            "searchBoundaryDistance": 0.3577703309568516,
+            "phaseRms": 1.548558048728101e-07,
+            "phaseMax": 4.835246713852381e-07,
+            "temperatureRms": 2.060989370529065e-05,
+            "temperatureMax": 3.7052910985879706e-05
+          },
+          "rawImposedV": {
+            "phaseRms": 0.00032408694412746047,
+            "temperatureRms": 4.174220385295557e-05
+          },
+          "phaseRange": [
+            0.0,
+            1.0
+          ],
+          "temperatureRange": [
+            0.0004796784010240571,
+            1.0001158781476325
+          ],
+          "localTauRange": [
+            0.8988941867034235,
+            0.914293819224408
+          ],
+          "cutoffNodes": 1733,
+          "coreToLeftClearance": 118.9409894164914,
+          "coreToRightClearance": 497.46887933944834,
+          "thermalWindowToLeftClearance": 106.9409894164914,
+          "thermalWindowToRightClearance": 485.46887933944834,
+          "clampedNodeStepsToDate": 0,
+          "raw": "probe-64.npz",
+          "rawSha256": "771cb87b8329cc8e6b9652ffa7a6c578c824d0c3aea9cf87686273f0d25f008b",
+          "phaseSha256": "ca92a5317ee05e15cd9c8a287c1cb00af5b149d99fc78ca4c76d72e26df44455",
+          "temperatureSha256": "b8680c5730a893379c1e58fdfe1193d635b2a1ac8a45de65ef48584848ef783e"
+        },
+        "rawResultSha256": "e1c8a3b94f786229e7d618edc6d0964264284deff9378c156597e59d24ad917f"
+      },
+      {
+        "case": {
+          "name": "angular-zero-minus-half-dt",
+          "model": "angular",
+          "pulse": "zero-minus",
+          "halfDt": true,
+          "wide": false
+        },
+        "seconds": 98.64131680002902,
+        "descriptiveSpeed": {
+          "fullHorizon": 0.03998719521334955,
+          "lastTwoCellPeriods": 0.039986792843374565
+        },
+        "initialInjectedEnergy": 3.1776437161565095e-16,
+        "terminal": {
+          "step": 35778,
+          "time": 71.556,
+          "energyExact": "732532655220976422071361410301290303136407561628883/11692013098647223345629478661730264157247460343808",
+          "energy": 62.6523977556723,
+          "driftExact": "146483393755976897467800678447667932371/11692013098647223345629478661730264157247460343808",
+          "energyDrift": 1.2528500654256464e-11,
+          "arithmeticBudget": 2.5593155934593167e-09,
+          "budgetPassed": true,
+          "measurement": {
+            "ready": true,
+            "massPosition": 2.8654578693121158,
+            "phaseShift": 2.86545731153522,
+            "registrationMinusMass": -5.577768957820695e-07,
+            "searchBoundaryDistance": 0.3577703186230705,
+            "phaseRms": 7.30606523679814e-08,
+            "phaseMax": 2.2835618029848348e-07,
+            "temperatureRms": 2.0500738294860652e-05,
+            "temperatureMax": 3.68727570765337e-05
+          },
+          "rawImposedV": {
+            "phaseRms": 0.000323435604643342,
+            "temperatureRms": 4.179266573381549e-05
+          },
+          "phaseRange": [
+            0.0,
+            1.0
+          ],
+          "temperatureRange": [
+            0.0004796784010240571,
+            1.0001527509072539
+          ],
+          "localTauRange": [
+            0.8988943691613679,
+            0.914293819224408
+          ],
+          "cutoffNodes": 1733,
+          "coreToLeftClearance": 118.94743162050005,
+          "coreToRightClearance": 497.46243713543964,
+          "thermalWindowToLeftClearance": 106.94743162050005,
+          "thermalWindowToRightClearance": 485.46243713543964,
+          "clampedNodeStepsToDate": 0,
+          "raw": "probe-64.npz",
+          "rawSha256": "f32b92282f4da99b08560b9a1233bf18e15ea89fa469210ab3103b76b88196ee",
+          "phaseSha256": "b54e0a04ca247b925dc1546a524c8fc75161244f128928c1bc59147fc0709432",
+          "temperatureSha256": "ba7f8f56e8e2f401a37bdec5669ea53a46fd496144ae7eb65942db597cf0c30c"
+        },
+        "rawResultSha256": "8405ee19f44f55c3ee1f7bbaed3bad57f23fb61388330afd15c419f10bb0ce2f"
+      },
+      {
+        "case": {
+          "name": "principal-baseline-wide",
+          "model": "principal",
+          "pulse": "baseline",
+          "halfDt": false,
+          "wide": true
+        },
+        "seconds": 61.02198919991497,
+        "descriptiveSpeed": {
+          "fullHorizon": 0.03999990987345014,
+          "lastTwoCellPeriods": 0.039999910396576056
+        },
+        "initialInjectedEnergy": 0.0,
+        "terminal": {
+          "step": 17889,
+          "time": 71.556,
+          "energyExact": "732738402929082923373223010940752075389877911581557/11692013098647223345629478661730264157247460343808",
+          "energy": 62.6699950425014,
+          "driftExact": "-78363022966019522249045183149413993611/11692013098647223345629478661730264157247460343808",
+          "energyDrift": -6.70226951551108e-12,
+          "arithmeticBudget": 2.2975950690797965e-09,
+          "budgetPassed": true,
+          "measurement": {
+            "ready": true,
+            "massPosition": 2.8622335521221123,
+            "phaseShift": 2.8622335396806315,
+            "registrationMinusMass": -1.2441480734537436e-08,
+            "searchBoundaryDistance": 0.35777086395848556,
+            "phaseRms": 1.89558301258368e-07,
+            "phaseMax": 5.479488084381146e-07,
+            "temperatureRms": 3.6161645808888567e-07,
+            "temperatureMax": 5.691850735178861e-07
+          },
+          "rawImposedV": {
+            "phaseRms": 6.76550920313334e-07,
+            "temperatureRms": 3.282592739924889e-07
+          },
+          "phaseRange": [
+            0.0,
+            1.0
+          ],
+          "temperatureRange": [
+            9.650720432645272e-05,
+            1.0000964047454184
+          ],
+          "localTauRange": [
+            0.9009428569227431,
+            0.914293819224408
+          ],
+          "cutoffNodes": 3523,
+          "coreToLeftClearance": 247.026181054498,
+          "coreToRightClearance": 1009.7935564573814,
+          "thermalWindowToLeftClearance": 235.026181054498,
+          "thermalWindowToRightClearance": 997.7935564573814,
+          "clampedNodeStepsToDate": 0,
+          "raw": "probe-64.npz",
+          "rawSha256": "69af050d7afb77026f6e7cb3602b258d62fcf9b4be015b848e78a8ea60f6d2a7",
+          "phaseSha256": "525fc5f31843d572c16c038b1b44bcc42edde34c81720cde06648ecfd45caf96",
+          "temperatureSha256": "a2cfdfe73575a286e4f00a4a8c72b87b2854c23d522844a70b4398d8fc53b1a8"
+        },
+        "rawResultSha256": "bad89750a3dd6b1dc97a237e36b6705eb7a99868586e308527a3bffdb3b1f7c3"
+      },
+      {
+        "case": {
+          "name": "angular-baseline-wide",
+          "model": "angular",
+          "pulse": "baseline",
+          "halfDt": false,
+          "wide": true
+        },
+        "seconds": 69.27203610003926,
+        "descriptiveSpeed": {
+          "fullHorizon": 0.03999990990548068,
+          "lastTwoCellPeriods": 0.03999991042123594
+        },
+        "initialInjectedEnergy": 0.0,
+        "terminal": {
+          "step": 17889,
+          "time": 71.556,
+          "energyExact": "732738402929338373854956046300782996781680000646297/11692013098647223345629478661730264157247460343808",
+          "energy": 62.66999504252325,
+          "driftExact": "-78540399884460338389608081913789662055/11692013098647223345629478661730264157247460343808",
+          "energyDrift": -6.717440292086872e-12,
+          "arithmeticBudget": 2.297694301920905e-09,
+          "budgetPassed": true,
+          "measurement": {
+            "ready": true,
+            "massPosition": 2.862233554461616,
+            "phaseShift": 2.8622335421278358,
+            "registrationMinusMass": -1.2333780219364598e-08,
+            "searchBoundaryDistance": 0.3577708640661861,
+            "phaseRms": 1.8922957443473807e-07,
+            "phaseMax": 5.470038673127675e-07,
+            "temperatureRms": 3.616077597814297e-07,
+            "temperatureMax": 5.691280213770966e-07
+          },
+          "rawImposedV": {
+            "phaseRms": 6.76226974102596e-07,
+            "temperatureRms": 3.282580931883843e-07
+          },
+          "phaseRange": [
+            0.0,
+            1.0
+          ],
+          "temperatureRange": [
+            0.00011598060954456509,
+            1.0001158781506017
+          ],
+          "localTauRange": [
+            0.8988941911055612,
+            0.914293819224408
+          ],
+          "cutoffNodes": 3523,
+          "coreToLeftClearance": 247.02618105683752,
+          "coreToRightClearance": 1009.793556455042,
+          "thermalWindowToLeftClearance": 235.02618105683752,
+          "thermalWindowToRightClearance": 997.793556455042,
+          "clampedNodeStepsToDate": 0,
+          "raw": "probe-64.npz",
+          "rawSha256": "a7b9e3ffe3e0b4835121190f27cb8b8ed0fd0aab33b3ffc47961898e6cf25807",
+          "phaseSha256": "2c9593be41b2b01e7fa232b4cb2aaa099259a2369817ceb21f42ea44199d3aa4",
+          "temperatureSha256": "7ca37a81fe7a60eda502c0d597c08e586de309710d4903fb8aa6a03a389f6bd5"
+        },
+        "rawResultSha256": "8e0999556d9df41752171453255e052d16d150efbd2c80e9946fc27544426eb0"
+      }
+    ],
+    "comparisonFileSha256": "4161f0098ef15fe6a78241438bc0ed33defe11ade3bed24e6891cc9f14beb8c6"
+  },
+  "independentAudit": {
+    "auditSha256": "2e8a3b403a8abc9fe15cdbbc76205c2138b408e7fb187b076ac5feda61135764",
+    "casesVerified": 14,
+    "rawProfilesVerified": 910,
+    "exactFractionCrosschecks": 28,
+    "probeMeasurementsRecomputed": 910,
+    "fixedComparisonsRecomputed": 780,
+    "auditSourceSha256": "2440812dc2e54ce8eb7dfefd0d2865bf0b71dc7a77f8d004280522cb6c8575f7",
+    "auditPlanSha256": "781230beee488ce3f02c6ed72109009d8bcd603645f2951487588127efc0eb5e",
+    "numericalMetadataAgreementAbsolute": 2e-12
+  },
+  "preservation": {
+    "archive": {
+      "path": "verify-out/solidify-q3-oblique-temporal-2026-10-31.zip",
+      "filename": "solidify-q3-oblique-temporal-2026-10-31.zip",
+      "bytes": 28581607,
+      "sha256": "67a607373415d8da1ac24b0be284651567932b341d4f8436aff909493b489b3e",
+      "sidecar": "verify-out/solidify-q3-oblique-temporal-2026-10-31.zip.sha256",
+      "sidecarSha256": "24e97f022ff418dddf3c3edfd05cb4eb5935a49ebdfdfcb2df1a4faed2e03d84",
+      "members": 1348
+    },
+    "counts": {
+      "preparationVersions": 4,
+      "earlierPreparationTrajectories": 0,
+      "trajectories": 14,
+      "rawTemporalStates": 910,
+      "comparisonRows": 780,
+      "npzMembersIncludingInputFixtureCopies": 956,
+      "manufacturedCorruptInputCopies": 3,
+      "cliRefusalCases": 25
+    },
+    "readbacks": [
+      {
+        "pass": 1,
+        "members": 1348,
+        "uncompressedBytes": 33878285,
+        "allCrcPassed": true,
+        "allSha256Passed": true,
+        "exactInventoryPassed": true,
+        "zipSha256": "67a607373415d8da1ac24b0be284651567932b341d4f8436aff909493b489b3e"
+      },
+      {
+        "pass": 2,
+        "members": 1348,
+        "uncompressedBytes": 33878285,
+        "allCrcPassed": true,
+        "allSha256Passed": true,
+        "exactInventoryPassed": true,
+        "zipSha256": "67a607373415d8da1ac24b0be284651567932b341d4f8436aff909493b489b3e"
+      }
+    ],
+    "allLiveMembersRehashedUnchanged": true,
+    "exactCommittedV4DescriptorSha256": "bbf366d5986848ac7573dd313bcd374d93bbec057081d5a85354fea9df8c8973",
+    "descriptorGitRuntimeMapping": {
+      "commit": "6d409780576a937af64e6817199fb6341f9088c3",
+      "committedCopy": "verify-out/q3-oblique-temporal-preservation/committed-v4-descriptor.json",
+      "gitBlobSha256": "bbf366d5986848ac7573dd313bcd374d93bbec057081d5a85354fea9df8c8973",
+      "workingCopy": "scripts/research/quant3d-oblique-temporal-freeze-v4.json",
+      "workingSha256": "aef524c7545a7447a4518dbbefd9b8f4413764405439dc515dbbffbe76270979",
+      "representation": "LF-to-CRLF",
+      "runtimeCrlfCount": 799,
+      "exactRestorationVerified": true
+    },
+    "serverDigestMatches": true,
+    "serverVerifiedAt": "2026-11-01T01:38:46.772858+00:00"
+  },
+  "interpretation": {
+    "sameUndercoolingComparison": false,
+    "initialization": "Each model starts from its own independently solved V=.04 branch and far thermal constant",
+    "speed": "Free-intercept finite-horizon slopes are descriptive; they are not displacement/time, terminal wave speeds, or zero-speed kinetic estimates",
+    "signedResponse": "Signed pulses leave opposite phase offsets of approximately 0.00322W0 and shared-shift terminal temperature residuals around 2.05e-5",
+    "energy": "Exact finite sampled enthalpy and its rounding bound are separate from the continuous isolated-wave identity D/V",
+    "precision": "Float64 storage/evaluation; WGSL Float32/compiler behavior is not emulated",
+    "boundaries": "Symmetric truncated heat graph and constant phase ghosts are artificial normal ends, not native 3D walls",
+    "horizon": "71.556 is about 0.04567 of D/V^2; no long-time recovery or attraction claim",
+    "priorFailures": "The original 95/96 cutoff failure, earlier positive-heat recovery refusal, and full-literature refusals remain unchanged"
+  },
+  "assessment": "scripts/research/quant3d-oblique-temporal-assessment.md"
+}

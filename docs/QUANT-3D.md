@@ -474,3 +474,24 @@ The [diagnostic figure](validation/quant3d-angular-kinetic-fit-sensitivity-2026-
 shows all 27 comparison groups and the full registered fit-method ranges; its
 [caption and reproduction details](validation/quant3d-angular-kinetic-fit-sensitivity-2026-10-31.md)
 distinguish sensitivity ranges from statistical confidence intervals.
+
+### Conserved-enthalpy oblique temporal pilot
+
+A separately frozen CPU pilot evolves both research candidates on physical
+210 planes at dx=.8, with baseline and signed zero-integral heat, matched
+dt=.004/.002 and doubled-domain baselines. All 14 trajectories and 910 saved
+states complete and verify independently. Every exact-energy check lies within
+its code-derived floating-arithmetic budget; the largest drift is 1.79e-11.
+There are no clamps. Wide-domain core comparisons are exactly equal, while
+maximum timestep RMS differences are 2.39e-7 in phase and 1.64e-7 in temperature.
+An independent 280-step replay matches fields and arithmetic budget byte for byte.
+
+Each model starts from its own imposed-V BVP input and far thermal constant.
+The free-intercept slopes therefore test finite-horizon numerical consistency,
+and do not compare kinetics at common undercooling. Signed perturbations retain
+phase offsets near 0.00322 W0 and shared-shift temperature residuals near 2.05e-5.
+The closed heat graph is an artificial normal-end model, storage is Float64,
+and the horizon 71.556 is only 0.04567 of D/V-squared. No recovery target or
+long-time stability claim is imposed; prior refusals and Q3 remain unchanged.
+See [temporal evidence](validation/quant3d-oblique-temporal-2026-10-31.json) and
+the [separate assessment](../scripts/research/quant3d-oblique-temporal-assessment.md).
