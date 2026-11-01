@@ -1889,6 +1889,12 @@ async function boot() {
     sim: () => sim,
     sim3d: () => sim3d,
     cam3: () => renderer3d?.cam() ?? null,
+    // the visual layer (feature/visual): renderers, the isolated grain and the
+    // replay ledgers, for verify-visual-gpu.mjs
+    r2: () => renderer,
+    r3: () => renderer3d,
+    iso3: () => iso3,
+    replayState: () => ({ reason2: replay2.reason, reason3: replay3.reason, scrub2, scrub3 }),
     vc: () => viewcube,
     fps: () => fps,
     stl: () => exportSTL(false),

@@ -1345,8 +1345,11 @@ export class Sim3D {
    * free. Sites and orientations draw from stream("recrystallization") only.
    * `placed` counts nuclei that claimed at least one voxel (a site in liquid,
    * a pore or mould claims none). Resolves to a sentence on refusal.
+   *
+   * `at` (fixtures only) gives explicit centre voxels instead of random ones;
+   * orientations still come from the stream.
    */
-  async nucleate(count: number, r = NUCLEUS_R_3D):
+  async nucleate(count: number, r = NUCLEUS_R_3D, at?: [number, number, number][]):
     Promise<{ lo: number; hi: number; requested: number; placed: number } | { why: string }> {
     const want = Math.max(0, Math.floor(count));
     if (want === 0) { this.rxRange = null; return { lo: 0, hi: -1, requested: 0, placed: 0 }; }
@@ -1373,9 +1376,10 @@ export class Sim3D {
     const n = this.n;
     const sites = new Uint32Array(k * 4);
     for (let i = 0; i < k; i++) {
-      sites[i * 4] = this.rxRng.int(n);
-      sites[i * 4 + 1] = this.rxRng.int(n);
-      sites[i * 4 + 2] = this.rxRng.int(n);
+      const c = at?.[i];
+      sites[i * 4] = c ? Math.min(n - 1, Math.max(0, Math.round(c[0]))) : this.rxRng.int(n);
+      sites[i * 4 + 1] = c ? Math.min(n - 1, Math.max(0, Math.round(c[1]))) : this.rxRng.int(n);
+      sites[i * 4 + 2] = c ? Math.min(n - 1, Math.max(0, Math.round(c[2]))) : this.rxRng.int(n);
       sites[i * 4 + 3] = lo + i;
     }
     {
