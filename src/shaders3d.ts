@@ -1679,6 +1679,11 @@ fn shadeSurface(p: vec3f, rd: vec3f, lens: u32, x: u32, y: u32, k: u32) -> vec3f
   var steel = F * studioEnv(rdir) * mix(0.6, 1.0, sh)
     + vec3f(0.050, 0.053, 0.060) * (0.30 + 1.1 * diff * sh);
   steel = steel * ao * tint + vec3f(spec * sh) * 0.30;
+  // incandescent metal is lit by its own emission: the studio's reflections
+  // fade as the surface approaches the melting point, so a hot casting glows
+  // instead of reading as chrome under the lights
+  let hot = clamp(dot(ember, vec3f(0.30, 0.55, 0.15)) / 0.35, 0.0, 1.0);
+  steel = steel * mix(1.0, 0.35, hot);
   return steel + ember + vec3f(0.06, 0.065, 0.075) * rim * ao;
 }
 
@@ -1918,8 +1923,12 @@ fn fmain(in: VOut) -> @location(0) vec4f {
             let Tl = stateFine(p).g;
             var glowW = 2.0;
             if (studio) {
+              // emission scaled with the lowered absorption (x0.38), so a
+              // uniformly hot melt saturates no brighter than the original
+              // look (2.0 / 1.0), while melt still at the far-field
+              // temperature emits about a third of it
               let halo = smoothstep(R.tFar, R.tFar + 0.45 * max(1.0 - R.tFar, 0.05), Tl);
-              glowW = 0.55 + 2.4 * halo;
+              glowW = 0.76 * (0.35 + 0.65 * halo);
             }
             acc += trans * heat(Tl * R.meltGlow) * emit * glowW;
             if ((R.flags & 4u) != 0u) {

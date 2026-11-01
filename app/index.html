@@ -420,6 +420,8 @@
       font: 400 var(--t-tick)/14px var(--font-body); color: var(--fg-3); }
     .replay .r__range { min-width: 0; }
     .replay__live { flex: none; padding: 0 var(--s-2); height: 20px; }
+    /* the global button rule sets display, which beats the UA [hidden] rule */
+    .replay__live[hidden] { display: none; }
 
     /* ---- lens legends: the scale bar (ETCH, SLICE), the THERM colormap and
        the SEM data bar share one slot under the head plate, wherever its

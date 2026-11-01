@@ -9,6 +9,7 @@ import {
   type HudKey, type HudSample, type Figure, type Chem,
 } from "./plot/figures";
 import { openFigure, type FigureHandle } from "./plot/modal";
+import { paintRange } from "./design/tool";
 import type { PlotMeta, Prov } from "./plot/csv";
 
 /** what a figure's provenance names (plot/csv.ts; re-exported for the hosts) */
@@ -221,6 +222,7 @@ export class Hud {
     r.box.hidden = !s.paused;
     r.input.disabled = s.reason != null || !(s.now > 0);
     r.input.value = String(t == null || !(s.now > 0) ? REPLAY_STEPS : Math.round((t / s.now) * REPLAY_STEPS));
+    paintRange(r.input);   // a value set from script repaints its own fill
     r.val.textContent = t == null ? "now" : s.label(t);
     r.live.hidden = t == null;
     r.note.textContent = s.reason ?? (s.now > 0
