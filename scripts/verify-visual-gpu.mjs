@@ -109,9 +109,13 @@ try {
         }
         const fin = await sim.readRows(0, n);
         const iou = caps.map(c => {
+          const tF = Math.fround(c.t);
           let inter = 0, uni = 0;
           for (let i = 0; i < n * n; i++) {
-            const re = fin[i * 4] >= 0.5 && fin[i * 4 + 3] >= -0.5 && fin[i * 4 + 3] < c.t ? 1 : 0;
+            // compare in the precision the GPU stored and compares in: age is
+            // f32(batch start), and f32(t) can sit BELOW the double t, which
+            // would let the batch that starts exactly at t pass a double compare
+            const re = fin[i * 4] >= 0.5 && fin[i * 4 + 3] >= -0.5 && fin[i * 4 + 3] < tF ? 1 : 0;
             inter += re & c.m[i]; uni += re | c.m[i];
           }
           return { t: +c.t.toFixed(5), solid: c.m.reduce((a, b) => a + b, 0), iou: uni ? inter / uni : 1 };

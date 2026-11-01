@@ -187,9 +187,30 @@ try {
       for (let i = 0; i < qBefore.length; i++) if (qBefore[i] !== qAfter[i]) qMismatch++;
       const hashA = R.fnv(after);
       const again = await run(0x1111), other = await run(0x2222);
+      // geometry against KNOWN centres (random sites are unknown to the test,
+      // and a centroid is the wrong reference: a sphere clipped by the liquid
+      // slab or a domain face has its centroid pulled away from the clip).
+      // Centres on a lattice, some deliberately clipped by z = 10 and x = 0.
+      const g = await R.crystal(0x9999, 20, 10);
+      const centres = [];
+      for (let i = 0; i < 24; i++) centres.push([(i % 6) * 16, 20 + ((i / 6) | 0) * 18, i % 4 === 0 ? 10 : 30 + (i % 5) * 10]);
+      const ev = await g.nucleate(centres.length, 2, centres);
+      const gv = await g.readGrainVolume();
+      let outsideSphere = 0, perMax = 0;
+      const cnt = new Map();
+      if (!("why" in ev)) for (let i = 0; i < gv.length; i++) {
+        const id = gv[i];
+        if (id < ev.lo || id > ev.hi) continue;
+        const c = centres[id - ev.lo], x = i % n, y = ((i / n) | 0) % n, z = (i / (n * n)) | 0;
+        if ((x - c[0]) ** 2 + (y - c[1]) ** 2 + (z - c[2]) ** 2 > 4) outsideSphere++;
+        cnt.set(id, (cnt.get(id) ?? 0) + 1);
+      }
+      for (const v of cnt.values()) perMax = Math.max(perMax, v);
+      const clipped = [...cnt.values()].filter(v => v < 33).length;
       return {
         k, lo: res.lo, hi: res.hi, placed: res.placed, allocatorMoved: a.ctr0 - a.ctr1,
-        hiIsOldCounter: res.hi === a.ctr0, maxVox, maxSpread: +maxSpread.toFixed(2),
+        hiIsOldCounter: res.hi === a.ctr0, maxVox, centroidSpreadInfo: +maxSpread.toFixed(2),
+        knownCentres: { nuclei: centres.length, placed: cnt.size, outsideSphere, perMax, clipped },
         outside, liquidHit, nonMatrixOverwritten, phiMoved, dirSame: a.dirB === a.dirA,
         hNonzero, hMismatch, qMismatch,
         sameSeedSame: R.fnv(again.after) === hashA, otherSeedDiffers: R.fnv(other.after) !== hashA,
@@ -197,7 +218,9 @@ try {
       };
     });
     const ok = !out.refused && out.allocatorMoved === out.k && out.hiIsOldCounter
-      && out.placed >= Math.ceil(0.95 * out.k * (86 / 96)) && out.maxVox <= 33 && out.maxSpread <= 2.01
+      && out.placed >= Math.ceil(0.95 * out.k * (86 / 96)) && out.maxVox <= 33
+      && out.knownCentres.outsideSphere === 0 && out.knownCentres.perMax <= 33 && out.knownCentres.placed === out.knownCentres.nuclei
+      && out.knownCentres.clipped > 0
       && out.outside === 0 && out.liquidHit === 0 && out.nonMatrixOverwritten === 0
       && out.phiMoved === 0 && out.dirSame && out.hNonzero === 0 && out.hMismatch === 0
       && out.qMismatch === 0 && out.sameSeedSame && out.otherSeedDiffers;
