@@ -1,8 +1,8 @@
 // Four-arm translation diagnostic. CPU controls by default; --run starts WebGPU.
 import assert from 'node:assert/strict';
 import puppeteer from 'puppeteer-core';
-import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
-import {resolve} from 'node:path';
+import {readFileSync,writeFileSync,mkdirSync,existsSync} from 'node:fs';
+import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 import {gzipSync} from 'node:zlib';
@@ -17,6 +17,46 @@ import {CAPILLARY_GRIDS,capillaryGridArms,gridPairKey,canonicalPhysicalPhaseVolu
 
 const ROOT=fileURLToPath(new URL('../../',import.meta.url));
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
+export const translationSourcePaths=grid=>['src/sim3d.ts','src/shaders3d.ts','src/shaders3d-quant.ts',
+  'scripts/fixtures/quant3d-wulff-analysis.mjs','scripts/fixtures/quant3d-tip-analysis.mjs',
+  'scripts/research/quant3d-equilibrium-driver.mjs','scripts/research/quant3d-equilibrium-translation.mjs',
+  'scripts/research/quant3d-equilibrium-translation.md','scripts/research/quant3d-readback.mjs',
+  'scripts/browser-cleanup.mjs','scripts/research/quant3d-capillary-grid.mjs',
+  ...(grid?['scripts/research/quant3d-capillary-grid.md','scripts/research/quant3d-capillary-grid-known-truth.mjs',
+    'scripts/research/quant3d-capillary-grid-replay.py']:[])];
+
+export function captureTranslationSources({root,out,sourceHashes,source,started}){
+  const path=resolve(out,'source-capture.json'),ledger={format:'solidify-capillary-exact-source-capture-v1',
+    capturedAt:new Date().toISOString(),runStarted:started,source,capturedAtStartup:true,completed:false,
+    verifiedBeforeBrowserAdmission:false,allStartupHashesMatched:false,files:[]};
+  const persist=()=>{const bytes=Buffer.from(JSON.stringify(ledger,null,2));writeFileSync(path,bytes);
+    assert.deepEqual(readFileSync(path),bytes,'source capture ledger readback differs');};
+  try{
+    persist(); // Refuse stale positive capture metadata before any source writer.
+    const entries=Object.entries(sourceHashes);assert.ok(entries.length>0,'no measured source bytes');
+    for(const [name,startupSha256] of entries){
+      assert.match(name,/^(src|scripts)\/[A-Za-z0-9_.\/-]+$/);assert.ok(!name.split('/').includes('..'));
+      assert.match(startupSha256,/^[0-9a-f]{64}$/);
+      const bytes=readFileSync(resolve(root,name));
+      assert.equal(sha(bytes),startupSha256,`source changed since startup hash: ${name}`);
+      const copy=resolve(out,'exact-source',name),existingCopyMatched=existsSync(copy);
+      if(existingCopyMatched)assert.equal(sha(readFileSync(copy)),startupSha256,`existing source copy differs: ${name}`);
+      else{mkdirSync(dirname(copy),{recursive:true});writeFileSync(copy,bytes,{flag:'wx'});}
+      const readback=readFileSync(copy);
+      assert.deepEqual(readback,bytes,`source copy readback differs: ${name}`);
+      ledger.files.push({path:name,bytes:bytes.length,startupSha256,copySha256:sha(readback),startupHashMatched:true,
+        existingCopyMatched,writtenAtThisStartup:!existingCopyMatched});
+    }
+    Object.assign(ledger,{completed:true,verifiedBeforeBrowserAdmission:true,allStartupHashesMatched:true,
+      verificationCompletedAt:new Date().toISOString()});persist();
+    return {path:'source-capture.json',sha256:sha(readFileSync(path)),completed:true,capturedAtStartup:true,
+      verifiedBeforeBrowserAdmission:true,files:ledger.files.length};
+  }catch(error){
+    Object.assign(ledger,{completed:false,verifiedBeforeBrowserAdmission:false,allStartupHashesMatched:false,
+      refused:true,error:error.message});try{persist();}catch{}
+    throw error;
+  }
+}
 export const TRANSLATION_TOLERANCE=Object.freeze({centroid:8e-5,minimumShift:.2,initialRelativeVolume:1e-4});
 export const translationArms=()=>[0,.0171].flatMap(epsilon=>[0,.4].map(offset=>({
   name:`epsilon-${epsilon}-offset-${offset}`,n:96,dx:.8,radius:20,lambda:4,epsilon,
@@ -201,15 +241,10 @@ async function main(out){
   const port=pos[1]??'5201',run=args.includes('--run')&&!args.includes('--self-test');
   const grid=args.includes('--grid-refinement'),arms=grid?capillaryGridArms():translationArms();
   const label=grid?'twelve-arm capillary grid-refinement':'four-arm translation';
-  const paths=['src/sim3d.ts','src/shaders3d.ts','src/shaders3d-quant.ts','scripts/fixtures/quant3d-wulff-analysis.mjs',
-    'scripts/fixtures/quant3d-tip-analysis.mjs','scripts/research/quant3d-equilibrium-driver.mjs',
-    'scripts/research/quant3d-equilibrium-translation.mjs','scripts/research/quant3d-equilibrium-translation.md',
-    'scripts/research/quant3d-readback.mjs','scripts/browser-cleanup.mjs','scripts/research/quant3d-capillary-grid.mjs',
-    ...(grid?['scripts/research/quant3d-capillary-grid.md','scripts/research/quant3d-capillary-grid-known-truth.mjs',
-      'scripts/research/quant3d-capillary-grid-replay.py']:[])];
+  const paths=translationSourcePaths(grid);
   const hashes=()=>Object.fromEntries(paths.map(path=>[path,sha(readFileSync(resolve(ROOT,path)))]));
   const result={format:grid?'solidify-equilibrium-capillary-grid-diagnostic-v1':'solidify-equilibrium-translation-diagnostic-v1',started:new Date().toISOString(),
-    completed:false,diagnosticPassed:false,accepted:false,fullMatrixCompleted:false,q3Accepted:false,
+    completed:false,executionCompleted:false,diagnosticPassed:false,accepted:false,fullMatrixCompleted:false,q3Accepted:false,
     cases:[],errors:[],deviceErrorLedgerRead:false,sourceStable:false,status:'CPU preflight',
     contract:{arms,tolerances:grid?{centroid:TRANSLATION_TOLERANCE.centroid,minimumShiftFractionDx:.25,
       initialRelativeVolume:TRANSLATION_TOLERANCE.initialRelativeVolume}:TRANSLATION_TOLERANCE,physics:'unchanged default pure3D; latticeKinetics=false',
@@ -223,7 +258,11 @@ async function main(out){
     result.contract.pairing='same dx+n+epsilon only; no baseline pairing across meshes';}
   const save=()=>writeFileSync(resolve(out,grid?'capillary-grid-result.json':'translation-result.json'),JSON.stringify(result,null,2));
   save();result.source=execFileSync('git',['rev-parse','HEAD'],{cwd:ROOT,encoding:'utf8'}).trim();
-  result.sourceHashes=hashes();result.cpuControls=selfTestTranslation();result.wulffControls=selfTestWulff();
+  result.sourceHashes=hashes();result.sourceCapture={path:'source-capture.json',completed:false,
+    capturedAtStartup:true,verifiedBeforeBrowserAdmission:false};save();
+  result.sourceCapture=captureTranslationSources({root:ROOT,out,sourceHashes:result.sourceHashes,
+    source:result.source,started:result.started});save();
+  result.cpuControls=selfTestTranslation();result.wulffControls=selfTestWulff();
   if(grid){result.physicalVolumeTarget=canonicalPhysicalPhaseVolume();result.gridControls=selfTestGridRefinement(result.physicalVolumeTarget);}
   save();
   console.log('Q3-TRANSLATION-CPU OK',JSON.stringify(result.cpuControls));
@@ -340,10 +379,10 @@ if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
   const grid=process.argv.includes('--grid-refinement');
   const pos=process.argv.slice(2).filter(a=>!a.startsWith('--')),out=resolve(pos[0]??(grid?'verify-out/q3-capillary-grid-refinement':'verify-out/q3-equilibrium-translation'));
   const path=resolve(out,grid?'capillary-grid-result.json':'translation-result.json');
-  try{mkdirSync(out,{recursive:true});writeFileSync(path,JSON.stringify({completed:false,accepted:false,diagnosticPassed:false,
+  try{mkdirSync(out,{recursive:true});writeFileSync(path,JSON.stringify({completed:false,executionCompleted:false,accepted:false,diagnosticPassed:false,
     fullMatrixCompleted:false,q3Accepted:false,status:'preflight pending'},null,2));await main(out);}
   catch(error){let result={};try{result=JSON.parse(readFileSync(path,'utf8'));}catch{}
-    Object.assign(result,{completed:false,accepted:false,diagnosticPassed:false,fullMatrixCompleted:false,q3Accepted:false,
+    Object.assign(result,{completed:false,executionCompleted:false,accepted:false,diagnosticPassed:false,fullMatrixCompleted:false,q3Accepted:false,
       status:'preflight or artifact failure',exception:error.stack??String(error),finished:new Date().toISOString()});
     try{writeFileSync(path,JSON.stringify(result,null,2));}catch(writeError){console.error(writeError.stack??String(writeError));}
     console.error(result.exception);process.exitCode=1;}
