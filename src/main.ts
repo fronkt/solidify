@@ -33,6 +33,7 @@ import { WT_PER_C0 } from "./alloy";
 import { STATUS_LEARN } from "./learn/panels";
 import { chargeLiquidus, chemOf, type Chem } from "./plot/figures";
 import { runEntries, zipStore, micrographPNG, downloadRun, type RunSnapshot } from "./run-export";
+import { ReplayLedger, REASON as REPLAY } from "./replay";
 
 /** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
 const SPEED_MULTS = [1, 2, 4] as const;
@@ -69,10 +70,35 @@ async function boot() {
   const renderer = new Renderer(device, canvas, sim);
   // the HUD's glance plots read the live units, the run's identity and the
   // charge's liquidus through closures: none is called until boot is done
+  // The replay (src/replay.ts): one ledger per dimension, because each solver
+  // keeps its own freeze-time history and a switch leaves the other intact.
+  // scrub2/scrub3 are the replay times being shown (null = live); the frame
+  // loop clears them whenever the melt runs or the ledger is marked.
+  const replay2 = new ReplayLedger(), replay3 = new ReplayLedger();
+  let scrub2: number | null = null, scrub3: number | null = null;
   const hud = new Hud(document.getElementById("hud")!, {
     units: () => unitsNow(),
     meta: () => plotMeta(),
     chem: () => chemNow(),
+    replay: () => {
+      const three = mode === "3d";
+      const ledger = three ? replay3 : replay2;
+      // the plain instrument, paused: a mode panel owns the stage otherwise
+      const plain = !opt.active && !opt3?.active && !lab.active && !heat?.active && !challenge.active;
+      const paused = plain && (three ? sim3d != null && !running3d && !mode3dPending : !running);
+      return {
+        paused, reason: ledger.reason, t: three ? scrub3 : scrub2,
+        now: three ? (sim3d?.simTime ?? 0) : sim.simTime,
+        label: (t: number) => unitsNow().fmtDuration(t),
+      };
+    },
+    scrub: (t: number | null) => {
+      const three = mode === "3d";
+      const ledger = three ? replay3 : replay2;
+      const now = three ? (sim3d?.simTime ?? 0) : sim.simTime;
+      const v = t == null || ledger.reason != null ? null : ledger.clamp(t, now);
+      if (three) scrub3 = v; else scrub2 = v;
+    },
   });
 
   // ------------------------------------------------------------- app state
@@ -212,7 +238,7 @@ async function boot() {
       for (let batch = 0; batch < speedMult && running3d && current(); batch++) {
         const stats = await clock.advance();
         if (!current()) return;
-        if (stats) { lastStats3 = stats; hud.push3(stats, volume.umPerCell, volume.simTime); an3.onStats3(stats, volume.simTime); }
+        if (stats) { lastStats3 = stats; replay3.observe(volume.simTime, stats.fracSolid); hud.push3(stats, volume.umPerCell, volume.simTime); an3.onStats3(stats, volume.simTime); }
         const state = clock.snapshot();
         if (state.completed || state.exhausted || state.invalid) {
           running3d = false;
@@ -2254,7 +2280,21 @@ async function boot() {
           if (slice.off < 0.02) { slice.off = 0.02; slice.sweepDir = 1; }
         }
         renderer3d.tick(dt);
-        renderer3d.render(sim3d, view3d, t / 1000, slicePlane(slice, sim3d.n), slice.style);
+        // photo mode only when nothing can change the field or the frame
+        // under it: paused, no treatment/optimizer/replay batch/allocation in
+        // flight, no queued seeds, not recording or sweeping the section
+        const still3 = !running3d && !heat?.busy && !opt3?.active && !recipeTask3 && !lab.running
+          && !quantPending3 && !mode3dPending && sim3d.pendingSeedCount === 0
+          && !turntable && !recorder && !(slice.sweep && view3d === 2);
+        replay3.clock(sim3d.simTime);
+        if (sim3d.params.scen === 2 && running3d) replay3.mark(REPLAY.weld);
+        if (sim3d.params.heatIn > 0) replay3.mark(REPLAY.reheat);
+        if (heat?.busy) replay3.mark(REPLAY.anneal);
+        if (running3d || replay3.reason != null) scrub3 = null;
+        renderer3d.scrubT = scrub3;
+        renderer3d.render(sim3d, view3d, t / 1000, slicePlane(slice, sim3d.n), slice.style, still3);
+        renderer3d.scrubT = null;
+        hud.syncReplay();
         viewcube?.draw(renderer3d.cam());
         // probe crosshair rides the projection (perspective, so every frame)
         if (an3.probeOn && sim3d.probe) {
@@ -2291,7 +2331,7 @@ async function boot() {
             // is why the fs > 0.995 finish could never fire with walls on
             lab.onStats(s.meanLiqT, s.fracSolidOpen);
             if (forPanels3) {
-              lastStats3 = s; hud.push3(s, sim3d.umPerCell, sim3d.simTime); an3.onStats3(s, sim3d.simTime);
+              lastStats3 = s; replay3.observe(sim3d.simTime, s.fracSolid); hud.push3(s, sim3d.umPerCell, sim3d.simTime); an3.onStats3(s, sim3d.simTime);
               heat?.onCensus(census3(s));
             }
           });
@@ -2363,7 +2403,17 @@ async function boot() {
         // during a treatment: a stamp writes φ, and solid state means it can't
         sim.step(0);
       }
+      // the replay ledger: a reset runs the clock back; reheat, a weld pass
+      // and a heat treatment are marked as they happen (src/replay.ts)
+      replay2.clock(sim.simTime);
+      if (sim.params.scen === 2 && running) replay2.mark(REPLAY.weld);
+      if (sim.params.heatIn > 0) replay2.mark(REPLAY.reheat);
+      if (heat?.busy) replay2.mark(REPLAY.anneal);
+      if (running || replay2.reason != null) scrub2 = null;
+      renderer.scrubT = scrub2;
       renderer.render(sim, view, t / 1000);
+      renderer.scrubT = null;
+      hud.syncReplay();
     }
     analyze.applyProbe();
     analyze.updateOverlay();
@@ -2385,6 +2435,7 @@ async function boot() {
         if (!forPanels) return;
         lastStats = s;
         if (!opt.active) {
+          replay2.observe(sim.simTime, s.fracSolid);
           hud.push(s, sim.simTime);
           analyze.onStats(s, sim.simTime);
           // an applied ML recipe schedules cooling by solid fraction,

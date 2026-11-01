@@ -406,6 +406,21 @@
     .spark .r { display: flex; justify-content: space-between; gap: var(--s-2); height: 12px; margin-top: 4px; white-space: nowrap;
       font: 400 var(--t-tick)/12px var(--font-body); font-variant-numeric: tabular-nums; color: var(--fg-3); }
 
+    /* ---- the replay strip (src/hud.ts mkReplay): a full-width plate as the
+       last item of #hud, which wraps in reverse, so it is the TOP row, over
+       the sparklines it scrubs. Shown only while paused; it folds and hides
+       with the cards (same container), so it adds no new layout band */
+    .replay { flex: 0 0 100%; box-sizing: border-box; padding: var(--s-2) var(--s-2) 6px; pointer-events: auto; }
+    .replay[hidden] { display: none; }
+    .replay .t { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2); height: 12px; margin-bottom: 4px; white-space: nowrap; }
+    .replay .t__name { font: 400 var(--t-nav-tool)/12px var(--font-display); letter-spacing: var(--track-nav); color: var(--fg-3); }
+    .replay .t__val { font: 400 var(--t-value-tool)/12px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg); }
+    .replay input[type="range"] { display: block; width: 100%; min-width: 0; margin: 0; }
+    .replay .r { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2); margin-top: 4px;
+      font: 400 var(--t-tick)/14px var(--font-body); color: var(--fg-3); }
+    .replay .r__range { min-width: 0; }
+    .replay__live { flex: none; padding: 0 var(--s-2); height: 20px; }
+
     /* ---- lens legends: the scale bar (ETCH, SLICE), the THERM colormap and
        the SEM data bar share one slot under the head plate, wherever its
        bottom is (a long alloy name or a caveat moves it): anchored to it,

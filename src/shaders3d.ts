@@ -1289,9 +1289,10 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 // flags bits 4–7 = cut-face style: 0 orientation tint · 1 Nital · 2 Klemm's ·
 // 3 Beraha's · 4 EBSD-style orientation map (sample-frame [001] hue, not an
 // IPF key) · 5 Niyama ramp
+// photo = progressive sample index (0 = live frame); look bit 0 = studio light
 export const R3 = {
   view: 0, n: 1, canvasW: 2, canvasH: 3,
-  time: 4, res0: 5, res1: 6, flags: 7,
+  time: 4, photo: 5, look: 6, flags: 7,
   meltGlow: 8, tFar: 9, stepScale: 10, _padA: 11,
   sliceN: 12,                            // vec4f: unit normal + plane constant c (voxels)
   eye: 16, right: 20, up: 24, fwd: 28,   // vec4 starts (f32 slots)
@@ -1314,14 +1315,14 @@ fn phiAt(p: vec3f) -> f32 {
 fn stateFine(p: vec3f) -> vec2f {
   var q = p;
   if ((R.flags & 1u) != 0u) { q = floor(p) + 0.5; }
-  return textureSampleLevel(state, samp, q / f32(R.n), 0.0).rg;
+  return replayT(textureSampleLevel(state, samp, q / f32(R.n), 0.0).rg);
 }`
     : /* wgsl */ `
 fn phiAt(p: vec3f) -> f32 {
   return textureLoad(state, clampC(vec3i(p)), 0).r;
 }
 fn stateFine(p: vec3f) -> vec2f {
-  return textureLoad(state, clampC(vec3i(p)), 0).rg;
+  return replayT(textureLoad(state, clampC(vec3i(p)), 0).rg);
 }`;
   const sampBinding = filterable ? `@group(0) @binding(4) var samp: sampler;` : "";
 
@@ -1332,8 +1333,8 @@ struct RParams3D {
   canvasW: f32,
   canvasH: f32,
   time: f32,
-  res0: f32,
-  res1: f32,
+  photo: f32,       // progressive sample index while still (0 = live frame)
+  look: f32,        // bit 0: studio lighting (AO, shadows, reflections)
   flags: u32,       // bits 4-7: cut-face style
   meltGlow: f32,
   tFar: f32,
@@ -1370,10 +1371,17 @@ fn vmain(@builtin(vertex_index) vi: u32) -> VOut {
 ${PALETTE_WGSL}
 
 fn clampC(c: vec3i) -> vec3i { return clamp(c, vec3i(0), vec3i(i32(R.n) - 1)); }
+// replaying (look bit 1), the bound phi is the "solid then" volume: an r32float
+// with no temperature channel. Temperature was never stored, so it reads at the
+// far-field value rather than the 0 a missing channel would return.
+fn replayT(s: vec2f) -> vec2f {
+  if ((u32(R.look) & 2u) != 0u) { return vec2f(s.x, R.tFar); }
+  return s;
+}
 ${sampleFine}
 
 fn stateAt(p: vec3f) -> vec2f {
-  return textureLoad(state, clampC(vec3i(p)), 0).rg;
+  return replayT(textureLoad(state, clampC(vec3i(p)), 0).rg);
 }
 fn grainAt(p: vec3f) -> u32 {
   return textureLoad(grain, clampC(vec3i(p)), 0).r;
@@ -1444,22 +1452,126 @@ fn grainCol(id: u32) -> vec3f {
   return polar(hue, hashf(id, 5u, 31u) * 0.6);
 }
 
-// shade a solid surface hit; lens picks the instrument (SLICE ghosts use ORIENT)
-fn shadeSurface(p: vec3f, rd: vec3f, lens: u32) -> vec3f {
+// ---- studio lighting: render-only, never read back by the solver --------
+// The key light keeps the direction the plain diffuse term always used, so a
+// shape shades the same way with the studio look on or off.
+const KEY_L = vec3f(-0.5, -0.62, 0.6);
+
+// three decorrelated uniforms in [0,1) for pixel (x, y), photo sample k
+fn rand3(x: u32, y: u32, k: u32, salt: u32) -> vec3f {
+  return vec3f(hashf(x, y, k * 7u + salt),
+               hashf(y + 17u, x, k * 13u + salt + 1u),
+               hashf(x ^ (y << 3u), k + 101u, salt + 2u));
+}
+
+// a dark product studio, z up: soft overhead gradient, dim floor, a large key
+// softbox on the light's side and a cool rim strip behind. Reflected in the
+// metal these give the satin highlights a single point light cannot.
+fn studioEnv(d: vec3f) -> vec3f {
+  let up = clamp(d.z * 0.5 + 0.5, 0.0, 1.0);
+  var c = mix(vec3f(0.010, 0.010, 0.012), vec3f(0.060, 0.066, 0.078), smoothstep(0.35, 1.0, up));
+  let kd = max(dot(d, normalize(KEY_L)), 0.0);
+  c += vec3f(1.00, 0.97, 0.92) * 1.55 * smoothstep(0.86, 0.975, kd);
+  c += vec3f(0.70, 0.74, 0.82) * 0.22 * pow(kd, 6.0);
+  let rd2 = max(dot(d, normalize(vec3f(0.55, 0.65, 0.35))), 0.0);
+  c += vec3f(0.72, 0.84, 1.00) * 0.85 * smoothstep(0.90, 0.985, rd2);
+  return c;
+}
+
+// ambient occlusion from the phase field itself: solid found a few voxels
+// off the surface means a crevice between arms. Live frames use a fixed
+// five-direction probe; photo samples draw one cosine-weighted direction each
+// and the accumulation integrates the hemisphere.
+fn aoAt(p: vec3f, nrm: vec3f, x: u32, y: u32, k: u32) -> f32 {
+  var a = vec3f(1.0, 0.0, 0.0);
+  if (abs(nrm.x) > 0.8) { a = vec3f(0.0, 1.0, 0.0); }
+  let tu = normalize(cross(nrm, a));
+  let tv = cross(nrm, tu);
+  let o = p + nrm * 0.8;
+  if (k > 0u) {
+    let r = rand3(x, y, k, 41u);
+    let ph = 2.0 * PI * r.x;
+    let sr = sqrt(r.y);
+    let dir = tu * (cos(ph) * sr) + tv * (sin(ph) * sr) + nrm * sqrt(1.0 - r.y);
+    var occ = 0.0;
+    for (var i = 1; i <= 8; i++) {
+      let d = f32(i) * 1.75;
+      if (phiAt(o + dir * d) > 0.5) { occ = 1.0 - d / 16.0; break; }
+    }
+    return 1.0 - 0.85 * occ;
+  }
+  var occ = 0.0;
+  var dirs = array<vec3f, 5>(nrm, normalize(nrm + tu), normalize(nrm - tu),
+                             normalize(nrm + tv), normalize(nrm - tv));
+  for (var j = 0; j < 5; j++) {
+    occ += phiAt(o + dirs[j] * 3.0) * 0.6 + phiAt(o + dirs[j] * 7.0) * 0.4;
+  }
+  return clamp(1.0 - 0.75 * occ / 5.0 * 2.2, 0.3, 1.0);
+}
+
+// key-light visibility: march the phase field toward the light. Live frames
+// look a short way (contact shadows between arms); photo samples jitter the
+// direction over a small cone and run to the box edge for soft full shadows.
+fn shadowAt(p: vec3f, nrm: vec3f, x: u32, y: u32, k: u32) -> f32 {
+  var L = normalize(KEY_L);
+  var maxD = 36.0;
+  var stepD = 2.0;
+  if (k > 0u) {
+    L = normalize(L + (rand3(x, y, k, 97u) - 0.5) * 0.12);
+    maxD = f32(R.n) * 1.8;
+    stepD = 1.5;
+  }
+  if (dot(nrm, L) <= 0.0) { return 1.0; }   // facing away: diffuse is already 0
+  let o = p + nrm * 1.2;
+  let nf = f32(R.n);
+  var t = 1.5;
+  loop {
+    if (t > maxD) { break; }
+    let q = o + L * t;
+    if (any(q < vec3f(0.0)) || any(q > vec3f(nf))) { break; }
+    if (phiAt(q) > 0.5) { return 0.0; }
+    t += stepD;
+  }
+  return 1.0;
+}
+
+// highlights above 0.8 roll off toward 1 instead of clipping (studio MELT only)
+fn softClip(c: vec3f) -> vec3f {
+  let over = max(c - vec3f(0.8), vec3f(0.0));
+  return min(c, vec3f(0.8)) + 0.2 * (vec3f(1.0) - exp(-over / 0.2));
+}
+
+// shade a solid surface hit; lens picks the instrument (SLICE ghosts use ORIENT).
+// With the studio bit off, ao = sh = 1 and every lens reduces exactly to the
+// original single-light shading.
+fn shadeSurface(p: vec3f, rd: vec3f, lens: u32, x: u32, y: u32, k: u32) -> vec3f {
   let nrm = surfNormal(p);
-  let L = normalize(vec3f(-0.5, -0.62, 0.6));
+  let L = normalize(KEY_L);
   let diff = max(dot(nrm, L), 0.0);
   let rim = pow(1.0 - max(dot(nrm, -rd), 0.0), 2.5);
   let spec = pow(max(dot(nrm, normalize(L - rd)), 0.0), 26.0);
   let id = grainAt(p);
   let s = stateFine(p);
+  let studio = (u32(R.look) & 1u) != 0u;
+  var ao = 1.0;
+  var sh = 1.0;
+  if (studio) {
+    ao = aoAt(p, nrm, x, y, k);
+    // shadows only where colour carries no data (MELT steel, ORIENT tint);
+    // the quantitative lenses keep their full value range
+    if (lens == 0u || lens == 1u) { sh = mix(0.25, 1.0, shadowAt(p, nrm, x, y, k)); }
+  }
   if (lens == 1u) {
     let idv = 0.62 + 0.7 * hashf(id, 5u, 31u);
-    return grainCol(id) * idv * (0.30 + 0.85 * diff) + vec3f(spec) * 0.25 + vec3f(0.09, 0.10, 0.12) * rim;
+    return grainCol(id) * idv * (0.30 * ao + 0.85 * diff * sh) + vec3f(spec * sh) * 0.25
+      + vec3f(0.09, 0.10, 0.12) * rim * ao;
   }
+  // the data lenses below take a gentler occlusion floor so no reading darkens
+  // past half its value (ao = 1 with the studio bit off, so aoD = 1 too)
+  let aoD = mix(0.5, 1.0, ao);
   if (lens == 4u) {
     // SEM secondary-electron: edges bright, faces flat gray (scan lines added later)
-    let g = 0.14 + diff * 0.42 + spec * 0.35 + rim * 0.6;
+    let g = (0.14 + diff * 0.42 + spec * 0.35 + rim * 0.6) * aoD;
     return vec3f(g) * vec3f(0.94, 0.97, 1.0);
   }
   if (lens == 5u) {
@@ -1470,11 +1582,11 @@ fn shadeSurface(p: vec3f, rd: vec3f, lens: u32) -> vec3f {
     let band = fract(ageN * 8.0);
     let ring = smoothstep(0.0, 0.3, band) * (1.0 - smoothstep(0.7, 1.0, band));
     let base = mix(vec3f(0.16, 0.34, 0.44), vec3f(0.95, 0.72, 0.28), ageN);
-    return base * (0.34 + 0.42 * ring + 0.38 * diff) + vec3f(spec) * 0.15;
+    return base * (0.34 + 0.42 * ring + 0.38 * diff) * aoD + vec3f(spec) * 0.15;
   }
   if (lens == 6u) {
     // THERM: FLIR ironbow of the surface temperature
-    return ironbow((s.g + 0.25) / 1.35) * (0.55 + 0.5 * diff) + vec3f(spec) * 0.1;
+    return ironbow((s.g + 0.25) / 1.35) * (0.55 + 0.5 * diff) * aoD + vec3f(spec) * 0.1;
   }
   if (lens == 8u) {
     // CURV: Gibbs–Thomson lens — tips vs necks by interface curvature
@@ -1486,11 +1598,27 @@ fn shadeSurface(p: vec3f, rd: vec3f, lens: u32) -> vec3f {
     let gm = length(vec3f(pxp - pxm, pyp - pym, pzp - pzm)) / (2.0 * e);
     let kappa = clamp(lp * 6.0 / max(gm * 4.0, 0.02), -1.2, 1.2);
     let kcol = mix(vec3f(0.2, 0.55, 1.0), vec3f(1.0, 0.35, 0.15), kappa * 0.5 + 0.5);
-    return kcol * (0.35 + 0.55 * diff) + vec3f(spec) * 0.1;
+    return kcol * (0.35 + 0.55 * diff) * aoD + vec3f(spec) * 0.1;
   }
-  let steel = vec3f(0.11, 0.115, 0.13) * (0.42 + 1.0 * diff) + vec3f(spec) * 0.3;
   let ember = heat(s.g * R.meltGlow) * 0.35;
-  return steel * (0.72 + 0.28 * grainCol(id)) + ember + vec3f(0.08, 0.085, 0.1) * rim;
+  if (!studio) {
+    let steel = vec3f(0.11, 0.115, 0.13) * (0.42 + 1.0 * diff) + vec3f(spec) * 0.3;
+    return steel * (0.72 + 0.28 * grainCol(id)) + ember + vec3f(0.08, 0.085, 0.1) * rim;
+  }
+  // MELT, studio: satin steel. Metals have no diffuse body colour, so the
+  // look is Fresnel-weighted reflection of the studio (glossy in photo mode,
+  // where each sample tilts the mirror direction and the average blurs it),
+  // plus a dim key term that keeps the form legible in the dark studio.
+  let nv = max(dot(nrm, -rd), 0.0);
+  let F0 = vec3f(0.56, 0.57, 0.58);
+  let F = F0 + (vec3f(1.0) - F0) * pow(1.0 - nv, 5.0);
+  var rdir = reflect(rd, nrm);
+  if (k > 0u) { rdir = normalize(rdir + (rand3(x, y, k, 151u) - 0.5) * 0.30); }
+  let tint = 0.80 + 0.20 * grainCol(id);
+  var steel = F * studioEnv(rdir) * mix(0.6, 1.0, sh)
+    + vec3f(0.050, 0.053, 0.060) * (0.30 + 1.1 * diff * sh);
+  steel = steel * ao * tint + vec3f(spec * sh) * 0.30;
+  return steel + ember + vec3f(0.06, 0.065, 0.075) * rim * ao;
 }
 
 // orientation hue fraction from the grain's quaternion axis (shared by
@@ -1581,8 +1709,17 @@ fn sliceColor(p: vec3f) -> vec3f {
 fn fmain(in: VOut) -> @location(0) vec4f {
   let tanF = R.eye.w;
   let aspect = R.right.w;
-  let sx = (in.uv.x - 0.5) * 2.0 * tanF * aspect;
-  let sy = (0.5 - in.uv.y) * 2.0 * tanF;
+  let px = u32(in.pos.x);
+  let py = u32(in.pos.y);
+  let k = u32(R.photo);              // photo sample index; 0 = live frame
+  let studio = (u32(R.look) & 1u) != 0u;
+  var uv = in.uv;
+  if (k > 0u) {
+    // sub-pixel jitter per photo sample: the average is an anti-aliased image
+    uv += (vec2f(hashf(k, 3u, 911u), hashf(k, 5u, 977u)) - 0.5) / vec2f(R.canvasW, R.canvasH);
+  }
+  let sx = (uv.x - 0.5) * 2.0 * tanF * aspect;
+  let sy = (0.5 - uv.y) * 2.0 * tanF;
   let rd = normalize(R.fwd.xyz + sx * R.right.xyz + sy * R.up.xyz);
   let ro = R.eye.xyz;
   let nf = f32(R.n);
@@ -1592,13 +1729,19 @@ fn fmain(in: VOut) -> @location(0) vec4f {
 
   if (hit.x < hit.y) {
     // per-pixel start jitter breaks up the coarse-march contour banding
-    var t = hit.x + 0.01 + hashf(u32(in.pos.x), u32(in.pos.y), 7u) * 2.0;
+    // (re-drawn per photo sample, so the accumulation averages it away)
+    var t = hit.x + 0.01 + hashf(px, py, 7u + k * 131u) * 2.0;
     var tMax = hit.y;
     let fine = max(R.stepScale, 0.35);
     var trans = 1.0;
     var acc = vec3f(0.0);
     let emit = 5.2 / nf;
     let absorb = 3.4 / nf;
+    // studio MELT: the liquid is clearer (less absorption) and its glow sits
+    // in the thermal halo the latent heat raises around the crystal, so the
+    // solid reads through the melt instead of behind a uniform red fog
+    var meltAbsorb = absorb;
+    if (studio && R.view == 0u) { meltAbsorb = absorb * 0.38; }
 
     // SLICE lens: the section plane removes the + side of the volume (a fixed
     // cut, like a real sectioned specimen — orbit around it to see the face)
@@ -1711,7 +1854,13 @@ fn fmain(in: VOut) -> @location(0) vec4f {
         if (s.r < 0.5 && (R.view == 0u || R.view == 6u)) {
           if (R.view == 0u) {
             // MELT: emissive incandescent liquid (smooth-sampled T)
-            acc += trans * heat(stateFine(p).g * R.meltGlow) * emit * 2.0;
+            let Tl = stateFine(p).g;
+            var glowW = 2.0;
+            if (studio) {
+              let halo = smoothstep(R.tFar, R.tFar + 0.45 * max(1.0 - R.tFar, 0.05), Tl);
+              glowW = 0.55 + 2.4 * halo;
+            }
+            acc += trans * heat(Tl * R.meltGlow) * emit * glowW;
             if ((R.flags & 4u) != 0u) {
               // rejected solute reads as a cool blue haze against the heat
               acc += trans * vec3f(0.10, 0.16, 0.22) * clamp(soluteAt(p) - R.misc.z, 0.0, 1.0) * emit * 4.0;
@@ -1720,7 +1869,7 @@ fn fmain(in: VOut) -> @location(0) vec4f {
             // THERM: the thermal halo itself, in ironbow
             acc += trans * ironbow(clamp((stateFine(p).g + 0.25) / 1.35, 0.0, 1.0)) * emit * 0.8;
           }
-          trans *= exp(-absorb * 2.0);
+          trans *= exp(-meltAbsorb * 2.0);
           if (trans < 0.012) { break; }
         }
         if (s.r > 0.06) {
@@ -1759,7 +1908,7 @@ fn fmain(in: VOut) -> @location(0) vec4f {
         let p = ro + rd * hitT;
         var lensS = R.view;
         if (R.view == 2u) { lensS = 1u; }        // SLICE ghosts shade like ORIENT
-        var surf = shadeSurface(p, rd, lensS);
+        var surf = shadeSurface(p, rd, lensS, px, py, k);
         if (R.view == 4u) {
           // SEM finish: shot noise + scan lines over the detector signal
           surf += (hashf(u32(in.pos.x), u32(in.pos.y), u32(R.time * 30.0) % 512u) - 0.5) * 0.10;
@@ -1785,6 +1934,8 @@ fn fmain(in: VOut) -> @location(0) vec4f {
     let dith = (f32((u32(in.pos.x) + u32(in.pos.y) * 2u) % 4u) - 1.5) / 48.0;
     col = floor((col + vec3f(dith)) * 7.0 + vec3f(0.5)) / 7.0;
   }
+
+  if (studio && R.view == 0u) { col = softClip(col); }
 
   // vignette + film grain, matching the 2D instrument's finish
   let vuv = in.uv - 0.5;

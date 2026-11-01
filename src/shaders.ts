@@ -1132,6 +1132,10 @@ struct RParams {
   c0: f32,
   meltGlow: f32,    // material incandescence: 1 = steel-bright, 0.3 = zinc (no glow)
   lookFlags: u32,   // low bits: stain (0 none, 1 Klemm, 2 Beraha, 3 anodize); bit 8: EBSD map
+  scrubT: f32,      // replay time (sim units) when scrubOn
+  scrubOn: u32,     // 1: draw the solid as it stood at scrubT
+  _r0: f32,
+  _r1: f32,
 }
 const PI = 3.14159265359;
 @group(0) @binding(0) var<uniform> R: RParams;
@@ -1154,9 +1158,24 @@ ${PALETTE_WGSL}
 
 fn cl(c: vec2i) -> vec2i { return clamp(c, vec2i(0), vec2i(i32(R.n) - 1)); }
 
+// Every state read in this pass goes through here. Live, it is the field.
+// Replaying, it is the field as it stood at R.scrubT, rebuilt from the one
+// piece of history the solver keeps: the time each cell crossed phi = 0.5.
+// A cell was solid then iff it is solid now and froze strictly before
+// scrubT (a whole batch freezes stamped with its START time, so strict is
+// what makes a replay at a frame boundary match that frame's live mask).
+// Temperature and solute were never stored: the melt reads at its far-field
+// values. Mould cells (age -1) are not history and pass through.
+fn loadState(c: vec2i) -> vec4f {
+  let s = textureLoad(state, c, 0);
+  if (R.scrubOn == 0u || s.a < -0.5) { return s; }
+  let wasSolid = s.r >= 0.5 && s.a < R.scrubT;
+  return vec4f(select(0.0, 1.0, wasSolid), R.tFar, R.c0, select(0.0, s.a, wasSolid));
+}
+
 // specimen-tilt relief height: solid stands proud, older solid stands prouder
 fn tiltH(pf: vec2f) -> f32 {
-  let s = textureLoad(state, cl(vec2i(pf)), 0);
+  let s = loadState(cl(vec2i(pf)));
   return s.r * (0.45 + 0.55 * clamp(s.a * 0.12, 0.0, 1.0));
 }
 
@@ -1165,10 +1184,10 @@ fn sampleState(p: vec2f) -> vec4f {
   let q = clamp(p - 0.5, vec2f(0.0), vec2f(f32(R.n) - 1.001));
   let i = vec2i(floor(q));
   let f = q - floor(q);
-  let s00 = textureLoad(state, cl(i), 0);
-  let s10 = textureLoad(state, cl(i + vec2i(1, 0)), 0);
-  let s01 = textureLoad(state, cl(i + vec2i(0, 1)), 0);
-  let s11 = textureLoad(state, cl(i + vec2i(1, 1)), 0);
+  let s00 = loadState(cl(i));
+  let s10 = loadState(cl(i + vec2i(1, 0)));
+  let s01 = loadState(cl(i + vec2i(0, 1)));
+  let s11 = loadState(cl(i + vec2i(1, 1)));
   return mix(mix(s00, s10, f.x), mix(s01, s11, f.x), f.y);
 }
 
@@ -1239,7 +1258,7 @@ fn fmain(in: VOut) -> @location(0) vec4f {
       if (k == 3) { d = vec2i(0, -st); }
       let nc = cl(ci + d);
       let nid = textureLoad(grain, nc, 0).r;
-      if (nid != 0u && nid != id && textureLoad(state, nc, 0).r > 0.5) {
+      if (nid != 0u && nid != id && loadState(nc).r > 0.5) {
         gb = 1.0;
         let dth = theta0[min(nid, ${MAX_GRAINS - 1}u)] - th0;
         let miso = abs(fract(dth / period + 0.5) - 0.5) * period;

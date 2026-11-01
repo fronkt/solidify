@@ -27,7 +27,41 @@ export function slicePlane(s: SliceSpec, n: number): SlicePlane {
 
 const HOME = { az: -0.95, el: 0.42 };
 
+// The replay's volume: 1 where a voxel is solid now AND froze strictly before
+// S.x (age.r is the freeze time; the solver zeroes it on remelt), else 0. The
+// raymarcher binds this in place of the state texture while scrubbing, so the
+// hardware trilinear filter smooths the replayed surface like a live one.
+const SCRUB3_WGSL = /* wgsl */ `
+@group(0) @binding(0) var<uniform> S: vec4f;   // x = replay time, y = n
+@group(0) @binding(1) var state: texture_3d<f32>;
+@group(0) @binding(2) var age: texture_3d<f32>;
+@group(0) @binding(3) var outPhi: texture_storage_3d<r32float, write>;
+@compute @workgroup_size(4, 4, 4)
+fn main(@builtin(global_invocation_id) g: vec3u) {
+  let n = u32(S.y);
+  if (g.x >= n || g.y >= n || g.z >= n) { return; }
+  let c = vec3i(g);
+  let wasSolid = textureLoad(state, c, 0).r >= 0.5 && textureLoad(age, c, 0).r < S.x;
+  textureStore(outPhi, c, vec4f(select(0.0, 1.0, wasSolid), 0.0, 0.0, 0.0));
+}`;
+
+// Copies the photo accumulation to the canvas, pixel for pixel.
+const BLIT_WGSL = /* wgsl */ `
+@group(0) @binding(0) var src: texture_2d<f32>;
+@vertex
+fn vmain(@builtin(vertex_index) vi: u32) -> @builtin(position) vec4f {
+  let xy = vec2f(f32((vi << 1u) & 2u), f32(vi & 2u));
+  return vec4f(xy * 2.0 - 1.0, 0.0, 1.0);
+}
+@fragment
+fn fmain(@builtin(position) pos: vec4f) -> @location(0) vec4f {
+  return vec4f(textureLoad(src, vec2i(pos.xy), 0).rgb, 1.0);
+}`;
+
 export class Renderer3D {
+  /** progressive samples per still view; past this the photo is final */
+  static readonly PHOTO_SAMPLES = 48;
+
   private device: GPUDevice;
   private ctx: GPUCanvasContext;
   private canvas: HTMLCanvasElement;
@@ -37,9 +71,31 @@ export class Renderer3D {
   private rdata = new ArrayBuffer(R3.BYTES);
   private sampler: GPUSampler | null = null;
   private dummyTex!: GPUTexture;
+  // photo mode: while the scene is still, jittered samples (soft shadows,
+  // glossy reflections, sub-pixel offsets) average into a float target
+  private photoPipe!: GPURenderPipeline;
+  private blitPipe!: GPURenderPipeline;
+  private bgPhoto: GPUBindGroup[] = [];
+  private accum: GPUTexture | null = null;
+  private blitBG: GPUBindGroup | null = null;
+  private photoK = 0;
+  private photoKey = "";
+  // replay: the "solid then" volume, rebuilt when the time or the field moves
+  private scrubPipe!: GPUComputePipeline;
+  private scrubUbuf!: GPUBuffer;
+  private scrubTex: GPUTexture | null = null;
+  private scrubBG: GPUBindGroup[] = [];
+  private scrubRenderBG: GPUBindGroup[] = [];
+  private scrubPhotoBG: GPUBindGroup[] = [];
+  private scrubKey = "";
+  private lastSim: Sim3D | null = null;
+  /** replay time (sim units): draw the solid as it stood then; null = live */
+  scrubT: number | null = null;
   // retro looks (flags bits 0/1) — the 2D renderer's pixel/palette identity
   voxelOn = false;
   paletteOn = false;
+  /** studio lighting (look bit 0): AO, shadows, reflections, clearer melt */
+  studioOn = true;
   readonly filterable: boolean;
 
   // orbit camera: targets + eased actuals
@@ -63,14 +119,39 @@ export class Renderer3D {
       this.sampler = device.createSampler({ magFilter: "linear", minFilter: "linear" });
 
     const code = render3dWgsl(this.filterable);
+    const module = device.createShaderModule({ code });
     this.pipe = device.createRenderPipeline({
       layout: "auto",
-      vertex: { module: device.createShaderModule({ code }), entryPoint: "vmain" },
+      vertex: { module, entryPoint: "vmain" },
+      fragment: { module, entryPoint: "fmain", targets: [{ format }] },
+      primitive: { topology: "triangle-list" },
+    });
+    // sample k lands with weight 1/k: dst' = src/k + dst (1 - 1/k), a running mean
+    this.photoPipe = device.createRenderPipeline({
+      layout: "auto",
+      vertex: { module, entryPoint: "vmain" },
       fragment: {
-        module: device.createShaderModule({ code }),
-        entryPoint: "fmain",
-        targets: [{ format }],
+        module, entryPoint: "fmain",
+        targets: [{
+          format: "rgba16float",
+          blend: {
+            color: { srcFactor: "constant", dstFactor: "one-minus-constant", operation: "add" },
+            alpha: { srcFactor: "one", dstFactor: "zero", operation: "add" },
+          },
+        }],
       },
+      primitive: { topology: "triangle-list" },
+    });
+    this.scrubPipe = device.createComputePipeline({
+      layout: "auto",
+      compute: { module: device.createShaderModule({ code: SCRUB3_WGSL }), entryPoint: "main" },
+    });
+    this.scrubUbuf = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    const blit = device.createShaderModule({ code: BLIT_WGSL });
+    this.blitPipe = device.createRenderPipeline({
+      layout: "auto",
+      vertex: { module: blit, entryPoint: "vmain" },
+      fragment: { module: blit, entryPoint: "fmain", targets: [{ format }] },
       primitive: { topology: "triangle-list" },
     });
     this.rbuf = device.createBuffer({ size: R3.BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
@@ -87,25 +168,90 @@ export class Renderer3D {
     this.resetView();
   }
 
+  /** the render pass's resources for ping-pong side `dir`, with `phiTex`
+   *  standing in for the state texture (the replay's "solid then" volume) */
+  private renderEntries(sim3: Sim3D, dir: number, phiTex?: GPUTexture): GPUBindGroupEntry[] {
+    const entries: GPUBindGroupEntry[] = [
+      { binding: 0, resource: { buffer: this.rbuf } },
+      { binding: 1, resource: (phiTex ?? sim3.stateTexture(dir)).createView() },
+      { binding: 2, resource: sim3.grainTexture(dir).createView() },
+      { binding: 3, resource: { buffer: sim3.quatBuffer } },
+      { binding: 5, resource: sim3.ageTexture.createView() },
+      { binding: 6, resource: (sim3.soluteTexture(dir) ?? this.dummyTex).createView() },
+      { binding: 7, resource: sim3.maskTexture.createView() },
+    ];
+    if (this.sampler) entries.push({ binding: 4, resource: this.sampler });
+    return entries;
+  }
+
+  /**
+   * Rebuild the replay volume when the replay time or the field changed.
+   * Its own submit, ahead of the frame's render (queue order holds).
+   */
+  private ensureScrub(sim3: Sim3D, t: number) {
+    const n = sim3.n;
+    if (!this.scrubTex || this.scrubTex.width !== n || this.lastSim !== sim3) {
+      this.scrubTex?.destroy();
+      this.scrubTex = this.device.createTexture({
+        size: [n, n, n], dimension: "3d", format: "r32float",
+        usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING,
+      });
+      this.lastSim = sim3;
+      this.scrubKey = "";
+      for (const dir of [0, 1]) {
+        this.scrubBG[dir] = this.device.createBindGroup({
+          layout: this.scrubPipe.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: this.scrubUbuf } },
+            { binding: 1, resource: sim3.stateTexture(dir).createView() },
+            { binding: 2, resource: sim3.ageTexture.createView() },
+            { binding: 3, resource: this.scrubTex.createView() },
+          ],
+        });
+        const entries = this.renderEntries(sim3, dir, this.scrubTex);
+        this.scrubRenderBG[dir] = this.device.createBindGroup({ layout: this.pipe.getBindGroupLayout(0), entries });
+        this.scrubPhotoBG[dir] = this.device.createBindGroup({ layout: this.photoPipe.getBindGroupLayout(0), entries });
+      }
+    }
+    const key = [t, sim3.frame, sim3.dir, sim3.simTime].join("|");
+    if (key === this.scrubKey) return;
+    this.scrubKey = key;
+    this.device.queue.writeBuffer(this.scrubUbuf, 0, new Float32Array([t, n, 0, 0]));
+    const enc = this.device.createCommandEncoder();
+    const pass = enc.beginComputePass();
+    pass.setPipeline(this.scrubPipe);
+    pass.setBindGroup(0, this.scrubBG[sim3.dir]);
+    const g = Math.ceil(n / 4);
+    pass.dispatchWorkgroups(g, g, g);
+    pass.end();
+    this.device.queue.submit([enc.finish()]);
+  }
+
+  /** free the replay volume (n^3 x 4 B) when replay ends */
+  dropScrub() {
+    this.scrubTex?.destroy();
+    this.scrubTex = null;
+    this.lastSim = null;
+    this.scrubKey = "";
+  }
+
   /** (re)build bind groups WITHOUT touching the camera — alloy toggles use this */
   rebindBGs(sim3: Sim3D) {
     this.n = sim3.n;
+    this.dropScrub();   // its groups reference the old textures
     for (const dir of [0, 1]) {
-      const entries: GPUBindGroupEntry[] = [
-        { binding: 0, resource: { buffer: this.rbuf } },
-        { binding: 1, resource: sim3.stateTexture(dir).createView() },
-        { binding: 2, resource: sim3.grainTexture(dir).createView() },
-        { binding: 3, resource: { buffer: sim3.quatBuffer } },
-        { binding: 5, resource: sim3.ageTexture.createView() },
-        { binding: 6, resource: (sim3.soluteTexture(dir) ?? this.dummyTex).createView() },
-        { binding: 7, resource: sim3.maskTexture.createView() },
-      ];
-      if (this.sampler) entries.push({ binding: 4, resource: this.sampler });
+      const entries = this.renderEntries(sim3, dir);
       this.bg[dir] = this.device.createBindGroup({
         layout: this.pipe.getBindGroupLayout(0),
         entries,
       });
+      // "auto" layouts are per pipeline, so the photo pass needs its own groups
+      this.bgPhoto[dir] = this.device.createBindGroup({
+        layout: this.photoPipe.getBindGroupLayout(0),
+        entries,
+      });
     }
+    this.photoKey = "";   // new textures: any accumulated photo is stale
   }
 
   resetView() {
@@ -266,8 +412,65 @@ export class Renderer3D {
     return [cl(p[0]), cl(p[1]), cl(p[2])];
   }
 
-  render(sim3: Sim3D, view3: number, time: number, plane: SlicePlane, cutStyle = 0) {
+  /**
+   * Everything a still frame depends on. Any change restarts the photo
+   * accumulation: camera (rounded, so easing that has converged counts as
+   * still), lens, cut, look, canvas size, and the field itself through the
+   * solver's frame counter, ping-pong side and clock.
+   */
+  private sceneKey(sim3: Sim3D, view3: number, plane: SlicePlane, cutStyle: number): string {
+    const r = (v: number) => Math.round(v * 1e4);
+    const p = sim3.params;
+    return [
+      r(this.az), r(this.el), r(this.dist), r(this.tgt[0]), r(this.tgt[1]), r(this.tgt[2]),
+      view3, cutStyle, r(plane.n[0]), r(plane.n[1]), r(plane.n[2]), r(plane.c),
+      sim3.n, sim3.dir, sim3.frame, sim3.simTime, sim3.alloyActive ? 1 : 0, p.scen,
+      p.meltGlow, p.tFar, p.nyCrit, p.c0,
+      this.canvas.width, this.canvas.height,
+      this.voxelOn ? 1 : 0, this.paletteOn ? 1 : 0, this.studioOn ? 1 : 0, this.scrubT ?? -1,
+    ].join(",");
+  }
+
+  /** samples accumulated in the current photo (0 while live) */
+  get photoSamples(): number { return this.photoK; }
+
+  private ensureAccum() {
+    const w = this.canvas.width, h = this.canvas.height;
+    if (this.accum && this.accum.width === w && this.accum.height === h) return;
+    this.accum?.destroy();
+    this.accum = this.device.createTexture({
+      size: [w, h], format: "rgba16float",
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+    });
+    this.blitBG = this.device.createBindGroup({
+      layout: this.blitPipe.getBindGroupLayout(0),
+      entries: [{ binding: 0, resource: this.accum.createView() }],
+    });
+    this.photoKey = "";
+  }
+
+  /**
+   * Draw one frame. `still` (the caller's promise that nothing is stepping,
+   * staging seeds, annealing, recording or sweeping) enables photo mode:
+   * up to PHOTO_SAMPLES jittered samples average into a float target, which
+   * is copied to the canvas every frame. Callers that need one deterministic
+   * live frame (exports, optimizer thumbnails) omit it.
+   */
+  render(sim3: Sim3D, view3: number, time: number, plane: SlicePlane, cutStyle = 0, still = false) {
     this.resize3();
+    const scrubbing = this.scrubT != null;
+    if (scrubbing) this.ensureScrub(sim3, this.scrubT!);
+    else if (this.scrubTex) this.dropScrub();
+    let k = 0;
+    if (still) {
+      this.ensureAccum();
+      const key = this.sceneKey(sim3, view3, plane, cutStyle);
+      if (key !== this.photoKey) { this.photoKey = key; this.photoK = 0; }
+      if (this.photoK < Renderer3D.PHOTO_SAMPLES) k = ++this.photoK;
+    } else {
+      this.photoK = 0;
+      this.photoKey = "";
+    }
     const b = this.basis();
     const u = new Uint32Array(this.rdata);
     const f = new Float32Array(this.rdata);
@@ -276,8 +479,12 @@ export class Renderer3D {
     f[R3.canvasW] = this.canvas.width;
     f[R3.canvasH] = this.canvas.height;
     f[R3.time] = time;
+    f[R3.photo] = k;
+    // look bit 1: replaying — the bound phi is the "solid then" volume and
+    // temperature/solute (never stored) read at their far-field values
+    f[R3.look] = (this.studioOn ? 1 : 0) | (scrubbing ? 2 : 0);
     const masked = sim3.params.scen === 3 || sim3.params.scen === 4;   // pigtail / mould shell
-    u[R3.flags] = ((cutStyle & 15) << 4) | (sim3.alloyActive ? 4 : 0) | (masked ? 8 : 0)
+    u[R3.flags] = ((cutStyle & 15) << 4) | (sim3.alloyActive && !scrubbing ? 4 : 0) | (masked ? 8 : 0)
       | (this.voxelOn ? 1 : 0) | (this.paletteOn ? 2 : 0);
     f[R3.meltGlow] = sim3.params.meltGlow;
     f[R3.tFar] = sim3.params.tFar;
@@ -288,7 +495,8 @@ export class Renderer3D {
     // (one owner: sim3d.params.nyCrit, derived in main from the cited steel
     // criterion when units are known, the legacy 8.0 otherwise) — a render
     // thresholded differently from the census would be two verdicts
-    f[R3.misc] = sim3.simTime; f[R3.misc + 1] = sim3.params.nyCrit;
+    // RINGS normalizes freeze time by the clock: the replay's clock is scrubT
+    f[R3.misc] = scrubbing ? this.scrubT! : sim3.simTime; f[R3.misc + 1] = sim3.params.nyCrit;
     f[R3.misc + 2] = sim3.params.c0;   // far-field composition for the solute lenses
     f[R3.eye] = b.eye[0]; f[R3.eye + 1] = b.eye[1]; f[R3.eye + 2] = b.eye[2]; f[R3.eye + 3] = this.tanHalfFov;
     f[R3.right] = b.right[0]; f[R3.right + 1] = b.right[1]; f[R3.right + 2] = b.right[2];
@@ -298,18 +506,50 @@ export class Renderer3D {
     this.device.queue.writeBuffer(this.rbuf, 0, this.rdata);
 
     const enc = this.device.createCommandEncoder();
-    const pass = enc.beginRenderPass({
-      colorAttachments: [{
-        view: this.ctx.getCurrentTexture().createView(),
-        loadOp: "clear",
-        clearValue: { r: 0.04, g: 0.04, b: 0.05, a: 1 },
-        storeOp: "store",
-      }],
-    });
-    pass.setPipeline(this.pipe);
-    pass.setBindGroup(0, this.bg[sim3.dir]);
-    pass.draw(3);
-    pass.end();
+    if (!still) {
+      const pass = enc.beginRenderPass({
+        colorAttachments: [{
+          view: this.ctx.getCurrentTexture().createView(),
+          loadOp: "clear",
+          clearValue: { r: 0.04, g: 0.04, b: 0.05, a: 1 },
+          storeOp: "store",
+        }],
+      });
+      pass.setPipeline(this.pipe);
+      pass.setBindGroup(0, scrubbing ? this.scrubRenderBG[sim3.dir] : this.bg[sim3.dir]);
+      pass.draw(3);
+      pass.end();
+    } else {
+      if (k > 0) {
+        const acc = enc.beginRenderPass({
+          colorAttachments: [{
+            view: this.accum!.createView(),
+            // the first sample replaces whatever an earlier view left behind
+            loadOp: k === 1 ? "clear" : "load",
+            clearValue: { r: 0, g: 0, b: 0, a: 1 },
+            storeOp: "store",
+          }],
+        });
+        acc.setPipeline(this.photoPipe);
+        acc.setBindGroup(0, scrubbing ? this.scrubPhotoBG[sim3.dir] : this.bgPhoto[sim3.dir]);
+        const w = 1 / k;
+        acc.setBlendConstant({ r: w, g: w, b: w, a: w });
+        acc.draw(3);
+        acc.end();
+      }
+      const out = enc.beginRenderPass({
+        colorAttachments: [{
+          view: this.ctx.getCurrentTexture().createView(),
+          loadOp: "clear",
+          clearValue: { r: 0.04, g: 0.04, b: 0.05, a: 1 },
+          storeOp: "store",
+        }],
+      });
+      out.setPipeline(this.blitPipe);
+      out.setBindGroup(0, this.blitBG!);
+      out.draw(3);
+      out.end();
+    }
     this.device.queue.submit([enc.finish()]);
   }
 }

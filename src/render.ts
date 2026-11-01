@@ -10,7 +10,7 @@ export class Renderer {
   private pipe!: GPURenderPipeline;
   private rbuf!: GPUBuffer;
   private bg: GPUBindGroup[] = [];
-  private rdata = new ArrayBuffer(64);
+  private rdata = new ArrayBuffer(80);
 
   // view transform (zoom/pan) + retro toggles
   zoom = 1;
@@ -21,6 +21,8 @@ export class Renderer {
   stainMode = 0;   // ETCH tint etch: 0 none, 1 Klemm's, 2 Beraha's, 3 anodize
   ebsdOn = false;  // ORIENT as flat EBSD/IPF map
   tiltOn = false;  // specimen tilt: oblique 2.5D relief view of the field
+  /** replay time (sim units): draw the solid as it stood then; null = live */
+  scrubT: number | null = null;
 
   constructor(device: GPUDevice, canvas: HTMLCanvasElement, sim: Simulation) {
     this.device = device;
@@ -39,7 +41,7 @@ export class Renderer {
       },
       primitive: { topology: "triangle-list" },
     });
-    this.rbuf = device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.rbuf = device.createBuffer({ size: 80, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.rebind(sim);
   }
 
@@ -159,6 +161,8 @@ export class Renderer {
     f[13] = sim.params.c0;
     f[14] = sim.params.meltGlow;
     u[15] = (this.stainMode & 255) | (this.ebsdOn ? 256 : 0) | (this.tiltOn ? 512 : 0);
+    f[16] = this.scrubT ?? 0;
+    u[17] = this.scrubT == null ? 0 : 1;
     this.device.queue.writeBuffer(this.rbuf, 0, this.rdata);
 
     const enc = this.device.createCommandEncoder();

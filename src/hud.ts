@@ -21,7 +21,28 @@ export interface HudHost {
   /** the chemistry the solver runs now (main.ts chemNow): the ΔT card's
    *  liquidus (plot/figures.ts chargeLiquidus), latched with each series */
   chem(): Chem;
+  /** the replay (time scrubber) for the active dimension; omitted = none */
+  replay?(): ReplayState;
+  /** ask to show the solid at sim time t (clamped to [0, now]); null = live */
+  scrub?(t: number | null): void;
 }
+
+/** what the replay strip shows (main.ts owns the ledger, src/replay.ts) */
+export interface ReplayState {
+  /** the melt is paused on the plain instrument: the strip is offered */
+  paused: boolean;
+  /** why the stored history cannot be replayed, or null when it can */
+  reason: string | null;
+  /** the replay time being shown, or null for live */
+  t: number | null;
+  /** the field's present sim time: the end of the replayable span */
+  now: number;
+  /** a sim time in the live units (units.ts fmtDuration) */
+  label(t: number): string;
+}
+
+/** slider resolution over [0, now] */
+const REPLAY_STEPS = 1000;
 
 type CardKey = HudKey | "hist";
 
@@ -72,11 +93,18 @@ export class Hud {
   private diams: number[] = [];
   private mode3 = false;
   private modal: { key: CardKey; h: FigureHandle } | null = null;
+  /** the replay time drawn as a playhead on the time sparklines */
+  private playhead: number | null = null;
+  private rp: { box: HTMLElement; val: HTMLElement; input: HTMLInputElement; note: HTMLElement; live: HTMLButtonElement } | null = null;
+  private rpKey = "";
 
   constructor(private root: HTMLElement, private host: HudHost) {
     this.cards = {
       fs: this.mkCard("fs"), dt: this.mkCard("dt"), grains: this.mkCard("grains"), hist: this.mkCard("hist"),
     } as Record<CardKey, Card>;
+    // appended after the cards: #hud wraps in reverse, so a full-width last
+    // item is the TOP row, above the sparklines it scrubs
+    if (host.replay) this.rp = this.mkReplay();
     // the 3D porosity strip shares the ΔT card's slot
     this.cards.pore = this.cards.dt;
     // nothing is recorded yet, and the host's units are not built until
@@ -119,12 +147,89 @@ export class Hud {
     box.append(head, c, foot);
     this.root.append(box);
     const card: Card = { key, box, name, val, range, unit, canvas: c };
+    // once a replay is engaged, sweeping the pointer along a time sparkline
+    // moves the replay to the sample under it (the histogram has no time axis)
+    if (key !== "hist") c.addEventListener("pointermove", e => {
+      if (this.playhead == null || !this.host.scrub) return;
+      const xs = this.samples.map(p => p.t).filter(Number.isFinite);
+      if (xs.length < 2) return;
+      const lo = Math.min(...xs), hi = Math.max(...xs);
+      const r = c.getBoundingClientRect();
+      const u = (e.clientX - r.left - 2) / Math.max(r.width - 4, 1);
+      this.host.scrub(lo + Math.min(Math.max(u, 0), 1) * (hi - lo));
+    });
     const open = () => this.open(this.keyOf(card));
     box.addEventListener("click", open);
     box.addEventListener("keydown", e => {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); open(); }
     });
     return card;
+  }
+
+  /** the replay strip: a plate across the top of the card row */
+  private mkReplay() {
+    const box = document.createElement("div");
+    box.className = "replay plate";
+    box.setAttribute("role", "group");
+    box.setAttribute("aria-label", "replay the solid");
+    box.hidden = true;
+    const head = document.createElement("div");
+    head.className = "t";
+    const name = document.createElement("span");
+    name.className = "t__name";
+    name.textContent = "REPLAY";
+    const val = document.createElement("span");
+    val.className = "t__val";
+    head.append(name, val);
+    const input = document.createElement("input");
+    input.type = "range";
+    input.min = "0";
+    input.max = String(REPLAY_STEPS);
+    input.step = "1";
+    input.value = String(REPLAY_STEPS);
+    input.setAttribute("aria-label", "replay time");
+    input.addEventListener("input", () => {
+      const s = this.host.replay?.();
+      if (!s || !this.host.scrub) return;
+      this.host.scrub((Number(input.value) / REPLAY_STEPS) * s.now);
+    });
+    const foot = document.createElement("div");
+    foot.className = "r";
+    const note = document.createElement("span");
+    note.className = "r__range";
+    const live = document.createElement("button");
+    live.type = "button";
+    live.className = "replay__live";
+    live.textContent = "live";
+    live.addEventListener("click", () => this.host.scrub?.(null));
+    foot.append(note, live);
+    box.append(head, input, foot);
+    this.root.append(box);
+    return { box, val, input, note, live };
+  }
+
+  /** match the strip and the playheads to the host's replay state; touches
+   *  the DOM only when something it shows has changed (called every frame) */
+  syncReplay() {
+    const s = this.host.replay?.();
+    if (!s || !this.rp) return;
+    const t = s.reason == null ? s.t : null;
+    const key = [s.paused, s.reason, t, s.now].join("|");
+    if (key === this.rpKey) return;
+    this.rpKey = key;
+    const r = this.rp;
+    r.box.hidden = !s.paused;
+    r.input.disabled = s.reason != null || !(s.now > 0);
+    r.input.value = String(t == null || !(s.now > 0) ? REPLAY_STEPS : Math.round((t / s.now) * REPLAY_STEPS));
+    r.val.textContent = t == null ? "now" : s.label(t);
+    r.live.hidden = t == null;
+    r.note.textContent = s.reason ?? (s.now > 0
+      ? (t == null ? "drag to rewind the solid" : "solid and grains then; melt shown at far-field values")
+      : "nothing has frozen yet");
+    r.input.setAttribute("aria-valuetext", t == null ? "now" : s.label(t));
+    const was = this.playhead;
+    this.playhead = s.paused ? t : null;
+    if (was !== this.playhead) this.drawAll();
   }
 
   /** the ΔT card is porosity in TRUE 3D */
@@ -253,6 +358,18 @@ export class Hud {
       ctx.stroke();
     }
     if (s.last) { ctx.beginPath(); ctx.arc(s.last[0], s.last[1], 2, 0, Math.PI * 2); ctx.fill(); }
+    // the replay playhead, on layoutSpark's own x mapping (inset 2)
+    if (this.playhead != null) {
+      const fx = xs.filter(Number.isFinite);
+      if (fx.length > 1) {
+        const lo = Math.min(...fx), hi = Math.max(...fx);
+        if (hi > lo) {
+          const x = 2 + ((Math.min(Math.max(this.playhead, lo), hi) - lo) / (hi - lo)) * (SPARK_W - 4);
+          ctx.fillStyle = "rgba(255,255,255,0.85)";
+          ctx.fillRect(Math.round(x * dpr) / dpr - 0.5 / dpr, 0, 1, SPARK_H);
+        }
+      }
+    }
   }
 
   /** the census's bins (round edges, plot/layout.ts bins) as bars */
