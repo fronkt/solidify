@@ -1,3 +1,5 @@
+import { FlowSolver } from "./lbm";
+import { flowLimitIssues, latticeOf } from "./flow";
 import {
   FLUX_WGSL, UPDATE_WGSL, PHI_WGSL, TRANSPORT_WGSL, STAMP_WGSL, STATS_WGSL,
   HTMASK_WGSL, ANNEAL_WGSL, HOMOG_WGSL, HOMOG_D2,
@@ -154,7 +156,57 @@ export class Simulation {
   splitPasses = false;
 
   /** the shape this step will actually run — QUANT has no fused variant */
-  private get splitNow() { return this.splitPasses || this.params.solver === SOLVER.QUANT; }
+  private get splitNow() { return this.splitPasses || this.params.solver === SOLVER.QUANT || this.flow != null; }
+
+  /** D3.2: whether melt flow is running */
+  get flowOn(): boolean { return this.flow != null; }
+  /** D3.2: the flow's velocity texture (rgba32float: u.x, u.y, rho, drag), or null */
+  get flowVelocity(): GPUTexture | null { return this.flow?.velTex ?? null; }
+
+  /**
+   * D3.2: start or stop forced melt flow (inlet at x = 0, free-slip y walls).
+   * The lattice viscosity is the thermal diffusion number times the Prandtl
+   * number, the drag width is the interface's (epsBar calibrated, 2 epsBar
+   * Kobayashi, in cells). Resolves to a sentence when the lattice numbers
+   * break the stability envelope (flow.ts), leaving flow off.
+   */
+  setFlow(on: boolean): string | null {
+    if (!on) {
+      if (this.flow) { this.flow.destroy(); this.flow = null; this.rebuildTransportBGs(); }
+      return null;
+    }
+    const p = this.params;
+    const d = p.dTherm * p.dt / (p.dx * p.dx);
+    const issues = flowLimitIssues(latticeOf(d, this.flowCfg.pr, this.flowCfg.u));
+    if (issues.length) return issues.join("; ");
+    const width = (p.solver === SOLVER.QUANT ? p.epsBar : 2 * p.epsBar) / p.dx;
+    const cfg = { nu: d * this.flowCfg.pr, uIn: this.flowCfg.u, channel: true, width };
+    if (this.flow) this.flow.configure(cfg);
+    else { this.flow = new FlowSolver(this.device, this.n, cfg); this.rebuildTransportBGs(); }
+    this.flow.init(() => [this.flowCfg.u, 0]);
+    return null;
+  }
+
+  /** the transport groups again, after the velocity binding changed */
+  private rebuildTransportBGs() {
+    const d = this.device;
+    for (const dir of [0, 1]) {
+      this.transportBG[dir] = d.createBindGroup({
+        layout: this.transportPipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.paramBuf } },
+          { binding: 1, resource: this.stateTex[dir].createView() },
+          { binding: 2, resource: this.grainTex[dir].createView() },
+          { binding: 3, resource: this.phiAuxTex.createView() },
+          { binding: 4, resource: this.stateTex[1 - dir].createView() },
+          { binding: 5, resource: this.grainTex[1 - dir].createView() },
+          { binding: 6, resource: { buffer: this.theta0Buf } },
+          { binding: 7, resource: { buffer: this.twinCtrBuf } },
+          { binding: 8, resource: (this.flow?.velTex ?? this.zeroVel).createView() },
+        ],
+      });
+    }
+  }
 
   private stateTex: GPUTexture[] = [];
   private grainTex: GPUTexture[] = [];
@@ -180,6 +232,14 @@ export class Simulation {
   private updateBG: GPUBindGroup[] = [];
   private phiBG: GPUBindGroup[] = [];
   private transportBG: GPUBindGroup[] = [];
+  // D3.2 melt flow: the lattice Boltzmann solver and the zero velocity the
+  // transport pass binds while it is off. Kept off `params` in this slice:
+  // share links and the run archive gain it with the controls (D3.3).
+  private flow: FlowSolver | null = null;
+  private zeroVel!: GPUTexture;
+  /** forced-flow setting: inlet speed (cells per substep), Prandtl number,
+   *  and the advection coupling (1 physical; 0 / -1 are falsification arms) */
+  flowCfg = { u: 0.02, pr: 23.1, scale: 1 };
   private stampBG: GPUBindGroup[] = [];
   private statsBG: GPUBindGroup[] = [];
 
@@ -254,6 +314,7 @@ export class Simulation {
     this.grainTex = [d.createTexture(texDesc("r32uint")), d.createTexture(texDesc("r32uint"))];
     this.fluxTex = d.createTexture(texDesc("rgba32float"));
     this.phiAuxTex = d.createTexture(texDesc("rg32float"));
+    this.zeroVel = d.createTexture({ size: [1, 1], format: "rgba32float", usage: GPUTextureUsage.TEXTURE_BINDING });
     // always allocated rather than lazily — the 3D grain selector established
     // that paying a few MB to delete a whole class of rebind bugs is the right
     // trade. r32uint, not the r8uint the 3D mould mask uses: that one is only
@@ -335,6 +396,7 @@ export class Simulation {
           { binding: 5, resource: go },
           { binding: 6, resource: { buffer: this.theta0Buf } },
           { binding: 7, resource: { buffer: this.twinCtrBuf } },
+          { binding: 8, resource: (this.flow?.velTex ?? this.zeroVel).createView() },
         ],
       });
       this.stampBG[dir] = d.createBindGroup({
@@ -396,6 +458,8 @@ export class Simulation {
   reset(tFar = this.params.tFar) {
     const n = this.n;
     this.params.tFar = tFar;
+    // D3.2: a fresh pour starts the melt flowing uniformly at the inlet speed
+    this.flow?.init(() => [this.flowCfg.u, 0]);
     const state = new Float32Array(n * n * 4);
     const c0 = this.params.alloyOn ? this.params.c0 : 0;
     for (let i = 0; i < n * n; i++) {
@@ -516,6 +580,9 @@ export class Simulation {
     f[P2.tFar] = p.tFar; f[P2.coolRate] = p.coolRate; f[P2.heatIn] = p.heatIn;
     u[P2.seedCount] = seedCount;
     f[P2.time] = this.simTime;
+    u[P2.flowOn] = this.flow ? 1 : 0;
+    f[P2.flowScale] = this.flowCfg.scale;
+    f[P2.flowUin] = this.flow ? this.flowCfg.u : 0;
     u[P2.scen] = p.scen;
     f[P2.gradG] = p.gradG;
     f[P2.frontX] = this.frontX;
@@ -769,7 +836,11 @@ export class Simulation {
       dir = 1 - dir;
     }
     const split = this.splitNow;
+    this.flow?.prepare();
     for (let i = 0; i < steps; i++) {
+      // D3.2: the flow advances first, so this substep's transport reads the
+      // velocity that this substep's phase field shaped (drag on phi[dir])
+      this.flow?.encodeStep(pass, this.stateTex[dir]);
       pass.setPipeline(this.fluxPipe);
       pass.setBindGroup(0, this.fluxBG[dir]);
       this.dispatch(pass);

@@ -51,7 +51,11 @@ export const P2 = {
   dTherm: 40,     // dimensionless thermal diffusivity (1 under Kobayashi)
   atCoef: 41,     // anti-trapping coefficient (0 = current off)
   frozenT: 42,    // u32: 1 = temperature is imposed, never solved
-  BYTES: 192,     // 48 slots — five spare after the pads below
+  // ---- D3.2: forced melt flow (docs/D3-CONVECTION-DESIGN.md)
+  flowOn: 43,     // u32: 1 = advect T (and Kobayashi c) with the LBM velocity
+  flowScale: 44,  // coupling coefficient: 1 physical; 0 and -1 are falsification arms
+  flowUin: 45,    // inlet speed at x = 0, cells per substep
+  BYTES: 192,     // 48 slots — two spare after the pads below
 } as const;
 
 const COMMON = /* wgsl */ `
@@ -99,9 +103,9 @@ struct Params {
   dTherm: f32,     // dimensionless thermal diffusivity — 1 under Kobayashi
   atCoef: f32,     // anti-trapping coefficient (0 = off)
   frozenT: u32,    // 1 = temperature imposed by the scenario, never solved
-  _pad1: f32,
-  _pad2: f32,
-  _pad3: f32,
+  flowOn: u32,     // D3.2: 1 = melt flow advects T (and Kobayashi c)
+  flowScale: f32,  // D3.2: advection coupling (1 physical)
+  flowUin: f32,    // D3.2: inlet speed at x = 0, cells per substep
   _pad4: f32,
   _pad5: f32,
 }
@@ -390,7 +394,56 @@ const AT_NONE = /* wgsl */ `
       let atDiv = 0.0;
 `;
 
-const TRANSPORT_CORE = (at: string) => /* wgsl */ `
+/**
+ * D3.2 advection by the lattice Boltzmann velocity (lbm.ts), split pass only.
+ *
+ * One LBM step per phase-field substep, velocity in cells per substep, so the
+ * advective change per substep is minus the sum of face fluxes u_face X_face
+ * with dt and dx cancelling. Face velocity and face value are central means of
+ * the two cells: each face is the same arithmetic from both sides (a + b is
+ * commutative in IEEE), so the fluxes telescope and X is conserved exactly
+ * apart from the boundary faces. Those are explicit: the free-slip y walls
+ * carry no normal flux; the inlet face at x = 0 brings u_in X_far in (X_far =
+ * the far-field temperature, or c0); the outlet face at x = n - 1 carries the
+ * cell's own value out (upwind). The velocity is superficial ((1 - phi) V, the
+ * drag holds it near zero in the solid), so the solid is not swept.
+ * Temperature is never advected when it is imposed (frozenT). Solute is
+ * advected only on the Kobayashi path; the calibrated alloy is refused for
+ * flow in this slice (flow.ts flowRefusal).
+ */
+const ADV_FACES = /* wgsl */ `
+  if (P.flowOn == 1u) {
+    let nI = i32(P.n);
+    let vC = textureLoad(vel, c, 0).xy;
+    let vE = textureLoad(vel, cid(P, c + vec2i(1, 0)), 0).xy;
+    let vW = textureLoad(vel, cid(P, c - vec2i(1, 0)), 0).xy;
+    let vN = textureLoad(vel, cid(P, c + vec2i(0, 1)), 0).xy;
+    let vS = textureLoad(vel, cid(P, c - vec2i(0, 1)), 0).xy;
+    var uE = 0.5 * (vC.x + vE.x);
+    var uW = 0.5 * (vC.x + vW.x);
+    var uN = 0.5 * (vC.y + vN.y);
+    var uS = 0.5 * (vC.y + vS.y);
+    if (c.y == nI - 1) { uN = 0.0; }
+    if (c.y == 0) { uS = 0.0; }
+    let k = P.flowScale;
+    if (P.frozenT == 0u) {
+      var fE = uE * 0.5 * (T + sE.g);
+      var fW = uW * 0.5 * (T + sW.g);
+      if (c.x == nI - 1) { fE = vC.x * T; }
+      if (c.x == 0) { fW = P.flowUin * P.tFar; }
+      TNew = TNew - k * (fE - fW + uN * 0.5 * (T + sN.g) - uS * 0.5 * (T + sS.g));
+    }
+    if (P.alloyOn == 1u && P.solver == 0u) {
+      var gE = uE * 0.5 * (conc + sE.b);
+      var gW = uW * 0.5 * (conc + sW.b);
+      if (c.x == nI - 1) { gE = vC.x * conc; }
+      if (c.x == 0) { gW = P.flowUin * P.c0; }
+      cNew = cNew - k * (gE - gW + uN * 0.5 * (conc + sN.b) - uS * 0.5 * (conc + sS.b));
+    }
+  }
+`;
+
+const TRANSPORT_CORE = (at: string, adv = "") => /* wgsl */ `
   let lapT   = (4.0 * (sE.g + sW.g + sN.g + sS.g) + sNE.g + sNW.g + sSE.g + sSW.g - 20.0 * T) * inv6dx2;
   var age = s.a;
   // temperature. dTherm is 1 under Kobayashi (where the heat equation carries a
@@ -513,7 +566,7 @@ ${at}
       }
     }
   }
-
+${adv}
 `;
 
 const STORES = /* wgsl */ `
@@ -575,6 +628,7 @@ ${COMMON}
 @group(0) @binding(5) var grainOut: texture_storage_2d<r32uint, write>;
 @group(0) @binding(6) var<storage, read_write> theta0: array<f32>;
 @group(0) @binding(7) var<storage, read_write> twinCtr: atomic<u32>;
+@group(0) @binding(8) var vel: texture_2d<f32>;   // D3.2: LBM velocity (a 1x1 zero texture when flow is off)
 
 @compute @workgroup_size(8, 8)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -583,7 +637,7 @@ ${LOADS}
   let aux = textureLoad(phiAux, c, 0);
   let phiNew = aux.r;
   let dPhi = aux.g;
-${TRANSPORT_CORE(AT_FACES)}${STORES}}
+${TRANSPORT_CORE(AT_FACES, ADV_FACES)}${STORES}}
 `;
 
 // ------------------------------------------------------------- stamp seeds

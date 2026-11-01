@@ -192,12 +192,50 @@ export class FlowSolver {
     this.steps = 0;
   }
 
-  private writeParams() {
+  /** replace the configuration (viscosity, inlet, drag width); populations kept */
+  configure(cfg: FlowConfig) { this.cfg = cfg; }
+
+  /** write the uniform once before encoding steps into a caller's pass, with
+   *  the drag read from the phase field the caller binds (encodeStep) */
+  prepare() { this.writeParams(true); }
+
+  private bgsByPhi = new WeakMap<GPUTexture, GPUBindGroup[]>();
+
+  /**
+   * One lattice step inside the CALLER's compute pass, the drag reading
+   * `phiTex` (the solver's current state texture, phi in .r). The phase-field
+   * step encodes this before its flux pass each substep (sim.ts submit), so
+   * transport in the same substep reads this step's velocity.
+   */
+  encodeStep(pass: GPUComputePassEncoder, phiTex: GPUTexture) {
+    let groups = this.bgsByPhi.get(phiTex);
+    if (!groups) {
+      groups = [0, 1].map(dir => this.device.createBindGroup({
+        layout: this.pipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.ubuf } },
+          { binding: 1, resource: { buffer: this.f[dir] } },
+          { binding: 2, resource: { buffer: this.f[1 - dir] } },
+          { binding: 3, resource: phiTex.createView() },
+          { binding: 4, resource: this.velTex.createView() },
+        ],
+      }));
+      this.bgsByPhi.set(phiTex, groups);
+    }
+    pass.setPipeline(this.pipe);
+    pass.setBindGroup(0, groups[this.cur]);
+    const g = Math.ceil(this.n / 8);
+    pass.dispatchWorkgroups(g, g);
+    this.cur = 1 - this.cur;
+    this.steps++;
+  }
+
+  private writeParams(phiBound = false) {
     const c = this.cfg, n = this.n;
     const { tauP, tauM } = trtTaus(c.nu);
     const h = c.h ?? (this.hCache ??= deriveDragH());
     const buf = new ArrayBuffer(48), u = new Uint32Array(buf), f = new Float32Array(buf);
-    u[0] = n; u[1] = c.channel ? 1 : 0; u[2] = this.phi && c.width > 0 ? 1 : 0;
+    u[0] = n; u[1] = c.channel ? 1 : 0; u[2] = (phiBound || this.phi) && c.width > 0 ? 1 : 0;
     f[4] = 1 / tauP; f[5] = 1 / tauM; f[6] = c.uIn;
     f[7] = c.width > 0 ? (2 * h * c.nu) / (c.width * c.width) : 0;
     f[8] = c.force?.[0] ?? 0; f[9] = c.force?.[1] ?? 0;
