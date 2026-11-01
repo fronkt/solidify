@@ -240,6 +240,60 @@ try {
     const ok = out.none.west > 20 && out.upstream > 1.05 && out.downstream < 0.95 && out.reversedUpstream < 1;
     check("FLOW-DIRECTION", ok, out);
   }
+
+  // FLOW-UI — the operator surface: the rail's "melt flow" checkbox starts the
+  // flow; the overlay changes pixels but never the field; a refused scenario
+  // (weld) stops it with its sentence on screen; a share link restarts it at
+  // the same inlet speed through the same predicate.
+  {
+    const out = await page.evaluate(async () => {
+      const S = window.__solidify, sim = () => S.sim();
+      S.setSolver(0); sim().params.scen = 0; sim().params.alloyOn = 0;
+      const label = [...document.querySelectorAll("#rail label.checkrow")].find(l => l.textContent.trim() === "melt flow");
+      if (!label) return { found: false };
+      const box = label.querySelector("input");
+      box.click();
+      await new Promise(r => setTimeout(r, 200));
+      const started = sim().flowOn;
+      S.app.setRun(true);
+      await new Promise(r => setTimeout(r, 1500));
+      S.app.setRun(false);
+      await new Promise(r => setTimeout(r, 200));
+      // overlay on vs off: pixels differ, the field does not
+      const grab = () => { const c = document.getElementById("canvas"), o = document.createElement("canvas"); o.width = 200; o.height = 150;
+        const x = o.getContext("2d"); x.drawImage(c, 0, 0, 200, 150); return x.getImageData(0, 0, 200, 150).data; };
+      const fnv = a => { const b = new Uint8Array(a.buffer, a.byteOffset, a.byteLength); let h = 0x811c9dc5; for (let i = 0; i < b.length; i++) { h ^= b[i]; h = Math.imul(h, 0x01000193) >>> 0; } return h; };
+      const n = sim().n, h0 = fnv(await sim().readRows(0, n));
+      const r = S.r2();
+      r.flowView = true; r.render(sim(), 0, 1.0); const on = grab();
+      r.flowView = false; r.render(sim(), 0, 1.0); const off = grab();
+      r.flowView = true;
+      await sim().device.queue.onSubmittedWorkDone();
+      const h1 = fnv(await sim().readRows(0, n));
+      let diff = 0; for (let i = 0; i < on.length; i += 4) diff += Math.abs(on[i] - off[i]) + Math.abs(on[i + 2] - off[i + 2]);
+      // the share link carries the inlet speed
+      const link = S.app.shareLink();
+      const u = sim().flowCfg.u;
+      // a refused scenario stops the flow with its reason
+      sim().params.scen = 2; S.ui.sync();
+      await new Promise(r => setTimeout(r, 300));
+      const stopped = !sim().flowOn, why = S.ui ? document.querySelector("#rail .subpanel .hint:not([style*='none'])")?.textContent ?? "" : "";
+      sim().params.scen = 0;
+      return { found: true, started, overlayPixelDiff: diff / (on.length / 4), fieldUnchanged: h0 === h1, stopped, why, link, u };
+    });
+    let restored = null;
+    if (out.found && out.link) {
+      const p2 = await browser.newPage();
+      await p2.goto(out.link.startsWith("http") ? out.link : `http://localhost:${PORT}/app/${out.link}`, { waitUntil: "networkidle0" });
+      await p2.waitForFunction("!!window.__solidify", { timeout: 20000 });
+      await new Promise(r => setTimeout(r, 800));
+      restored = await p2.evaluate(() => ({ on: window.__solidify.sim().flowOn, u: window.__solidify.sim().flowCfg.u }));
+      await p2.close();
+    }
+    const ok = out.found && out.started && out.overlayPixelDiff > 0.5 && out.fieldUnchanged && out.stopped && /scenario/i.test(out.why)
+      && restored?.on && Math.abs(restored.u - out.u) < 1e-9;
+    check("FLOW-UI", ok, { ...out, link: undefined, restored });
+  }
 } catch (e) {
   console.log("FLOW harness error", String(e?.stack ?? e));
   FAIL();
