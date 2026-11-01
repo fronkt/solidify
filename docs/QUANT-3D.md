@@ -415,10 +415,106 @@ epsilon 0.0171. The manufactured smooth-sphere errors are much smaller, but do
 not bound interpolation error in evolved profiles. This demonstrates sensitivity
 of inferred local capillary response to lattice position; it supplies no scalar
 correction or bound on needle sigma. Global support fits alone remain insufficient
-to calibrate local stiffness. Grid refinement and moving oblique-interface
-calibration remain open. No physical coefficient or accuracy band was retuned.
+to calibrate local stiffness. The follow-up below tests grid refinement and
+moving oblique interfaces. No physical coefficient or accuracy band was retuned.
 
 Commit archives accompany the data. An additional exact-source ZIP reproduces
 all 34 recorded local source hashes across the three studies, including Windows
 line-ending representations; Git's normalized source bytes alone differ for 25
 of those files. Source and result data were not changed to obtain that agreement.
+
+### Oblique interface kinetics and capillary refinement
+
+The full rational-plane reduction retains laboratory centered gradients,
+nodewise anisotropy, grad-w terms, tangential flux divergence and the literal
+small-gradient cutoff. Actual production WGSL matches native 3D interiors in
+234 exact state/grain/age comparisons across principal, oblique and signed
+normals. Twelve separate Float32-input CPU response/flux comparisons pass, and
+an evolving wrong-normal control is rejected. Exact source copies, actual input
+bytes, clocks, raw fields and a clean readable device ledger accompany the run.
+
+The separately registered coupled CPU study converges in 95 of 96 requests,
+including all 48 oblique physical cases. A literal-cutoff principal100 candidate
+stalls above the unchanged Newton criterion; its failed state and trace remain
+preserved. Six additional cutoff comparisons pass without replacing that
+failure. Converged traveling profiles establish neither uniqueness nor temporal
+stability. The earlier thermal-recovery refusal remains unchanged.
+
+An independent proof sealed before the oblique outputs predicts a nonzero
+angular h-squared residual in the existing principal-plane candidate. Measured
+residuals are consistent with that term plus higher-order error. In particular,
+211 and held-out321 share continuum a but have different sixth normal moments
+and kinetic residuals. The next angular correction is derived separately and
+remains a research candidate. No coefficient is fitted to needle data, and no
+application default changes. See [oblique evidence](validation/quant3d-oblique-2026-10-31.json)
+and the [full operator protocol](../scripts/research/quant3d-oblique-kinetic.md).
+
+The completed capillary protocol pairs lattice phases at dx/W0=.8/.6/.4, with grids
+96/128/192, radius20, a fixed physical box and one common physical phase-volume
+target. All twelve cases keep the previous horizon, cadence and curvature
+estimator. All twelve local GPU cases are stationary, resolved and centered;
+startup/final source hashes match and the readable device ledger is empty.
+The frozen replay retains all 612 checkpoints, six missing-recentering controls
+and every registered estimator. Half-cell translation changes octic C100 error
+by -2.37254/-0.41104 percentage points at h=.8 (isotropic/anisotropic),
++0.17028/+0.21920 at h=.6, and -0.02458/+0.01321 at h=.4.
+The finest octic absolute errors remain 0.330--0.354% and 0.634--0.647%.
+The coarse centered isotropic estimate is nonmonotone across meshes; its small
+error does not demonstrate calibration. No continuum fit or coefficient change
+is inferred. See [capillary evidence](validation/quant3d-capillary-grid-2026-10-31.json),
+the [response figure](validation/quant3d-capillary-grid-c100-2026-10-31.png)
+and its [caption and complete CSV](validation/quant3d-capillary-grid-c100-2026-10-31.md).
+These investigations do not close Q3 or change the published ten-percent bands.
+
+The original runner recorded startup hashes but omitted source-byte copies.
+All fourteen files were captured later while they still matched those hashes;
+the separate ledger records the actual time and capturedAtStartup=false.
+The final hash check also passes. The subsequent runner fix copies and verifies
+every measured source before browser admission, with actual writer/refusal
+controls; the historical packet retains its original provenance.
+
+The separately sealed nodewise angular candidate converges in all 87 new CPU
+profiles and reuses 48 unchanged baselines. All 135 raw-profile hashes, source
+copies and fixed bulk fits verify independently. The primary quadratic
+finite-range intercepts show a fourth-order mesh trend across 210/211 and
+held-out 321 after the predicted h-squared term is removed. At dx=.2, solid-side
+intercepts are 2.98-3.35e-6; linear-versus-quadratic spread is about 2e-6 and remains
+material. This is not a universal error bound or a literal zero-speed result.
+The serialization-only initial refusal and the original 95/96 outcome remain
+preserved. The independent source/fit audit and archive have matching server
+digests. Actual research-only GPU tau/gamma capture and Euler response pass
+for all six registered normals, including three live angular-omission negatives.
+Maximum tau/gamma errors are 1.64e-7/1.96e-8; phase, temperature and flux errors
+are at most 1.47e-7. The repeated production operator checks retain all 234 exact
+field comparisons and twelve CPU comparisons; native and periodic fields match
+the original GPU packet byte for byte. Independent raw/source/clock checks pass
+with a clean readable ledger and successful cleanup. This establishes the
+registered operator comparisons; application defaults remain unchanged.
+See [angular evidence](validation/quant3d-angular-2026-10-31.json).
+The [separate assessment](../scripts/research/quant3d-oblique-kinetic-angular-assessment.md)
+retains solid/liquid fit sensitivity, numerical controls and reproduction details.
+The [diagnostic figure](validation/quant3d-angular-kinetic-fit-sensitivity-2026-10-31.png)
+shows all 27 comparison groups and the full registered fit-method ranges; its
+[caption and reproduction details](validation/quant3d-angular-kinetic-fit-sensitivity-2026-10-31.md)
+distinguish sensitivity ranges from statistical confidence intervals.
+
+### Conserved-enthalpy oblique temporal pilot
+
+A separately frozen CPU pilot evolves both research candidates on physical
+210 planes at dx=.8, with baseline and signed zero-integral heat, matched
+dt=.004/.002 and doubled-domain baselines. All 14 trajectories and 910 saved
+states complete and verify independently. Every exact-energy check lies within
+its code-derived floating-arithmetic budget; the largest drift is 1.79e-11.
+There are no clamps. Wide-domain core comparisons are exactly equal, while
+maximum timestep RMS differences are 2.39e-7 in phase and 1.64e-7 in temperature.
+An independent 280-step replay matches fields and arithmetic budget byte for byte.
+
+Each model starts from its own imposed-V BVP input and far thermal constant.
+The free-intercept slopes therefore test finite-horizon numerical consistency,
+and do not compare kinetics at common undercooling. Signed perturbations retain
+phase offsets near 0.00322 W0 and shared-shift temperature residuals near 2.05e-5.
+The closed heat graph is an artificial normal-end model, storage is Float64,
+and the horizon 71.556 is only 0.04567 of D/V-squared. No recovery target or
+long-time stability claim is imposed; prior refusals and Q3 remain unchanged.
+See [temporal evidence](validation/quant3d-oblique-temporal-2026-10-31.json) and
+the [separate assessment](../scripts/research/quant3d-oblique-temporal-assessment.md).

@@ -1,0 +1,413 @@
+{
+  "format": "solidify-capillary-grid-plot-provenance-v1",
+  "createdAt": "2026-11-01T02:42:04.707655+00:00",
+  "sourceCommitDuringGPU": "10fb837912870ff0af60d69cf7868c186ae1fa0e",
+  "plotSourceSha256": "9e0564527e301176881cf716945cf1c5434c551421fd4094bcc7da5717bb96f1",
+  "planSha256": "59c5bb5cc770018f5d9f5841b0aaa5c05f0aa8595871e3e6a4a80272b6fabb3a",
+  "planFileSha256": "90d89a03379aadd6f8491d09a365ce8510aba93af2ab322e9b0a8d3889f50d07",
+  "inputSha256": {
+    "run": "8b550f01fa466ceae2c24c1d79ff62f3181277c079fa4ee43d3df1a4e511d8e6",
+    "audit": "26c0056fb1d32eca123d8c56ad0339393aaf546b8b77ea2fc0cf8e5d8e83f8c7",
+    "plotPlan": "90d89a03379aadd6f8491d09a365ce8510aba93af2ab322e9b0a8d3889f50d07",
+    "replaySource": "d5b9f12bbc8ee613e7c00992aadc58feb2e2da6efa073cfeca2dc5368a878c54",
+    "replayFreeze": "63ba9f2a6aa4ae58ae176112fe793b2a5e59a12279d5b2f718a8d739252d0300",
+    "knownTruthManifest": "8457c3139bb576415a6a823a03c9df245b849cea60be82592215417e50e3835c",
+    "knownTruthReplayAudit": "8463afb5fd7319b643de045fae1b429ec26f437c78ffdeb555715c038f5d0f21",
+    "sourceCaptureLedger": "0348e94b159567d90a941be2263381d16b11eee695e3717d9da06a432e6093a8",
+    "exactSource:src/sim3d.ts": "6351143948ebebd018733ca124e5b3e5d478de2e7599e39e2e8131ec196170ba",
+    "exactSource:src/shaders3d.ts": "f4f1fac066c0b59043f23f550433a8210e5e24cf3f79198b4cab3cf90919f0f4",
+    "exactSource:src/shaders3d-quant.ts": "65c5eed498314967e9e151025598f8cf77963a89fc7204d243a0c58a86cd66b8",
+    "exactSource:scripts/fixtures/quant3d-wulff-analysis.mjs": "7d282d0f8aefa755d743f64d2061554c0674348b3ddbbbe3529f21bfce8282ba",
+    "exactSource:scripts/fixtures/quant3d-tip-analysis.mjs": "cb72a678945f2e426198a5f6a41a748e2257b8cab632f2f2a7c6690b1f4ddb58",
+    "exactSource:scripts/research/quant3d-equilibrium-driver.mjs": "3f13c7bbcbb58a393f9e4665627c7b26556eaf8afabeaf38830ca214f2ab770d",
+    "exactSource:scripts/research/quant3d-equilibrium-translation.mjs": "18fdf1c56697193c11c5c90f68e4d4fbe637e681d21e65f86fc3e6525255e40f",
+    "exactSource:scripts/research/quant3d-equilibrium-translation.md": "2191d44f7075c735ff92f26bd05c500c008e1d9bb4cef1a3b383c2423d60e0ed",
+    "exactSource:scripts/research/quant3d-readback.mjs": "5b0d3ece3239b28275c6773f1324af344ffa065cd729b25fad58c8690e2b74a7",
+    "exactSource:scripts/browser-cleanup.mjs": "0b2e5b6790d0c63d5271b51c14509507910f69c2924f7334589e63fa8e82b5b1",
+    "exactSource:scripts/research/quant3d-capillary-grid.mjs": "5cf3acea7ea6e024d2ea3229b5f2232b013d05f0a9c91634e2c735e7a0981015",
+    "exactSource:scripts/research/quant3d-capillary-grid.md": "46d3a16dd9ac8d53570c31b6983da96215660ddbbbd4d700938bcc9b73910820",
+    "exactSource:scripts/research/quant3d-capillary-grid-known-truth.mjs": "a59ea3284a1330a38dd04e1cb08b1b4b4c06e87e591ec3126cdbcf1118852eb8",
+    "exactSource:scripts/research/quant3d-capillary-grid-replay.py": "d5b9f12bbc8ee613e7c00992aadc58feb2e2da6efa073cfeca2dc5368a878c54"
+  },
+  "environment": {
+    "python": "3.12.10",
+    "implementation": "CPython",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "versions": {
+      "matplotlib": "3.10.8",
+      "numpy": "2.3.5"
+    },
+    "packageAndFontSha256": {
+      "matplotlib/__init__.py": "c6c47d1ecf25d7934f38c8a55c3b8e116d41aa08d8ecfa82f6ae8af589216a3a",
+      "numpy/__init__.py": "a1792c20af1146952a6dfce4c0daeb197b2832b23d27434a97544544c497742d",
+      "matplotlib/mpl-data/fonts/ttf/DejaVuSans.ttf": "3fdf69cabf06049ea70a00b5919340e2ce1e6d02b0cc3c4b44fb6801bd1e0d22"
+    },
+    "backend": "Agg",
+    "font": "DejaVu Sans",
+    "pngDpi": 300,
+    "figureInches": [
+      12.8,
+      5.2
+    ],
+    "sha256": "23c4caf5f2e187785993ca0ba9788dbbf885ed82cdc13b9e3e4a49694915185d"
+  },
+  "environmentSha256": "23c4caf5f2e187785993ca0ba9788dbbf885ed82cdc13b9e3e4a49694915185d",
+  "design": {
+    "panelsEpsilon": [
+      0,
+      0.0171
+    ],
+    "physicalH": [
+      0.4,
+      0.6,
+      0.8
+    ],
+    "phasesFractionH": [
+      0,
+      0.5
+    ],
+    "primarySummaryKeys": [
+      "quintic6",
+      "quintic8"
+    ],
+    "sensitivityPolicies": [
+      "quintic",
+      "cubic",
+      "raw",
+      "quinticAllAxes"
+    ],
+    "whisker": "min/max all four policies at the same degree; incomplete spans not drawn",
+    "csvDegrees": [
+      4,
+      6,
+      8
+    ],
+    "csvExpectedRows": 144,
+    "zeroReference": true,
+    "fitPowerLawOrPhysicalCoefficient": false,
+    "keepEveryCaseAndFlagDiscrepancies": true,
+    "caption": "Inferred C100 = (1 - T) rho100 / 2; signed percent error is 100 [C100 / ((0.8839 / 4)(1 - 15 epsilon)) - 1]. Panels show raw epsilon 0 and 0.0171 at physical h/W0 = 0.4, 0.6, 0.8. Colors/line styles distinguish declared lattice phases 0 and h/2 on all axes; circle/square markers show the fixed primary quintic6/quintic8 estimates. Whiskers span all four registered crossing-policy variants at the SAME geometry degree: quintic, cubic, raw, quinticAllAxes. They are policy sensitivity spans, not confidence intervals or certified error bounds. Connecting segments only join registered samples; no power law or physical coefficient is fitted. Degree4 estimates are retained in the exact CSV as lower-order geometry controls and do not enter the primary markers or whiskers. Every case is retained. Red rings/labels flag S: stationarity, R: resolution, C: centroid discrepancy; M marks missing primary or incomplete four-policy sensitivity. Missing primary values are marked at the axes footer, not at a fabricated data value, and incomplete sensitivity spans are not drawn. Windows, crossing policies, six-face combination and extrapolation remain those of the frozen replay. No capillary calibration or Q3 acceptance follows."
+  },
+  "outputs": {
+    ".png": {
+      "sha256": "0008f68da9cf9a205cdd4cab1d7a5cfcea48ba68499f26199d1c5d8657579fbf",
+      "bytes": 182970
+    },
+    ".svg": {
+      "sha256": "e88f45d22fc5b61ece77f860cb02a00e50d6aa23297f5ae3b140a5cdb7baea2e",
+      "bytes": 50078
+    },
+    ".csv": {
+      "sha256": "27cd9cb30f71ea5e6181db938ff105b2c271cae7ffd00364063a6ba0c35bd1fe",
+      "bytes": 79453
+    },
+    ".md": {
+      "sha256": "0e4a1362da5f37efa47a7838285783c784df6de64a3a39bdaaf312ad2441846d",
+      "bytes": 1892
+    }
+  },
+  "casesRetained": 12,
+  "csvRows": 144,
+  "degree4ControlRows": 48,
+  "points": [
+    {
+      "case": "dx-0.4-epsilon-0-offset-0",
+      "h": 0.4,
+      "epsilon": 0,
+      "phase": 0.0,
+      "degree": 6,
+      "value": -0.3275344154841209,
+      "low": -0.3275599082424141,
+      "high": -0.23884846613376753,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.4-epsilon-0-offset-0",
+      "h": 0.4,
+      "epsilon": 0,
+      "phase": 0.0,
+      "degree": 8,
+      "value": -0.3296604678799997,
+      "low": -0.32983025760016105,
+      "high": -0.256595607893928,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.4-epsilon-0-offset-0.2",
+      "h": 0.4,
+      "epsilon": 0,
+      "phase": 0.5,
+      "degree": 6,
+      "value": -0.3564333133031061,
+      "low": -0.48176001328393836,
+      "high": -0.3564333133031061,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.4-epsilon-0-offset-0.2",
+      "h": 0.4,
+      "epsilon": 0,
+      "phase": 0.5,
+      "degree": 8,
+      "value": -0.35424086547851674,
+      "low": -0.4653898414644364,
+      "high": -0.35406384122160794,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.4-epsilon-0.0171-offset-0",
+      "h": 0.4,
+      "epsilon": 0.0171,
+      "phase": 0.0,
+      "degree": 6,
+      "value": -0.6440358774675858,
+      "low": -0.7215916891217256,
+      "high": -0.6440358774675858,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.4-epsilon-0.0171-offset-0",
+      "h": 0.4,
+      "epsilon": 0.0171,
+      "phase": 0.0,
+      "degree": 8,
+      "value": -0.6470908224450844,
+      "low": -0.7595412384197031,
+      "high": -0.6470908224450844,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.4-epsilon-0.0171-offset-0.2",
+      "h": 0.4,
+      "epsilon": 0.0171,
+      "phase": 0.5,
+      "degree": 6,
+      "value": -0.6311032398263028,
+      "low": -0.6311032398263028,
+      "high": -0.5657020496299903,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.4-epsilon-0.0171-offset-0.2",
+      "h": 0.4,
+      "epsilon": 0.0171,
+      "phase": 0.5,
+      "degree": 8,
+      "value": -0.6338766664281126,
+      "low": -0.6338766664281126,
+      "high": -0.5504080229123298,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.6-epsilon-0-offset-0",
+      "h": 0.6,
+      "epsilon": 0,
+      "phase": 0.0,
+      "degree": 6,
+      "value": -0.7584762708898518,
+      "low": -1.3130484515828322,
+      "high": -0.757823837822269,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.6-epsilon-0-offset-0",
+      "h": 0.6,
+      "epsilon": 0,
+      "phase": 0.0,
+      "degree": 8,
+      "value": -0.7289509016761175,
+      "low": -1.1529920795840143,
+      "high": -0.7269654398349923,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.6-epsilon-0-offset-0.3",
+      "h": 0.6,
+      "epsilon": 0,
+      "phase": 0.5,
+      "degree": 6,
+      "value": -0.5203457547481083,
+      "low": -0.5225008815345156,
+      "high": 0.13473697972090637,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.6-epsilon-0-offset-0.3",
+      "h": 0.6,
+      "epsilon": 0,
+      "phase": 0.5,
+      "degree": 8,
+      "value": -0.5586707259799484,
+      "low": -0.5589430749758595,
+      "high": -0.07511726247458883,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.6-epsilon-0.0171-offset-0",
+      "h": 0.6,
+      "epsilon": 0.0171,
+      "phase": 0.0,
+      "degree": 6,
+      "value": -1.450912857495923,
+      "low": -1.695763516854898,
+      "high": -1.450912857495923,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.6-epsilon-0.0171-offset-0",
+      "h": 0.6,
+      "epsilon": 0.0171,
+      "phase": 0.0,
+      "degree": 8,
+      "value": -1.4842275648301206,
+      "low": -1.9905338125010497,
+      "high": -1.4842275648301206,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.6-epsilon-0.0171-offset-0.3",
+      "h": 0.6,
+      "epsilon": 0.0171,
+      "phase": 0.5,
+      "degree": 6,
+      "value": -1.2622375389063967,
+      "low": -1.2622375389063967,
+      "high": -0.835645040667865,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.6-epsilon-0.0171-offset-0.3",
+      "h": 0.6,
+      "epsilon": 0.0171,
+      "phase": 0.5,
+      "degree": 8,
+      "value": -1.26503109252466,
+      "low": -1.2689765013538468,
+      "high": -0.6941776073199013,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.8-epsilon-0-offset-0",
+      "h": 0.8,
+      "epsilon": 0,
+      "phase": 0.0,
+      "degree": 6,
+      "value": 0.14406668505642095,
+      "low": 0.14406668505642095,
+      "high": 1.9824164337892913,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.8-epsilon-0-offset-0",
+      "h": 0.8,
+      "epsilon": 0,
+      "phase": 0.0,
+      "degree": 8,
+      "value": 0.053481416571798945,
+      "low": 0.053481416571798945,
+      "high": 1.5005649663706544,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.8-epsilon-0-offset-0.4",
+      "h": 0.8,
+      "epsilon": 0,
+      "phase": 0.5,
+      "degree": 6,
+      "value": -2.467985861816291,
+      "low": -5.315285449813068,
+      "high": -2.467985861816291,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.8-epsilon-0-offset-0.4",
+      "h": 0.8,
+      "epsilon": 0,
+      "phase": 0.5,
+      "degree": 8,
+      "value": -2.3190584840042106,
+      "low": -4.924559287140684,
+      "high": -2.2831690125088566,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.8-epsilon-0.0171-offset-0",
+      "h": 0.8,
+      "epsilon": 0.0171,
+      "phase": 0.0,
+      "degree": 6,
+      "value": -2.077405055846715,
+      "low": -2.077405055846715,
+      "high": -0.8690793208375069,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.8-epsilon-0.0171-offset-0",
+      "h": 0.8,
+      "epsilon": 0.0171,
+      "phase": 0.0,
+      "degree": 8,
+      "value": -1.8650934677257647,
+      "low": -2.0941223013788313,
+      "high": 0.16274244720348996,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.8-epsilon-0.0171-offset-0.4",
+      "h": 0.8,
+      "epsilon": 0.0171,
+      "phase": 0.5,
+      "degree": 6,
+      "value": -2.235091736691419,
+      "low": -2.370472050982597,
+      "high": -2.2158028657890627,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    },
+    {
+      "case": "dx-0.8-epsilon-0.0171-offset-0.4",
+      "h": 0.8,
+      "epsilon": 0.0171,
+      "phase": 0.5,
+      "degree": 8,
+      "value": -2.2761295515641766,
+      "low": -2.5234847297564977,
+      "high": -2.2761295515641766,
+      "sensitivityPoliciesPresent": 4,
+      "flags": ""
+    }
+  ],
+  "diagnosticPassedAsOriginallyRecorded": true,
+  "sourceCaptureProvenance": {
+    "capturedAtStartup": false,
+    "capturedAt": "2026-11-01T00:55:04.039643+00:00",
+    "ledgerSha256": "0348e94b159567d90a941be2263381d16b11eee695e3717d9da06a432e6093a8",
+    "originalEndSourceHashesMatched": true
+  },
+  "allInputsUnchanged": true,
+  "powerLawOrPhysicalCoefficientFitted": false,
+  "accepted": false,
+  "q3Accepted": false
+}

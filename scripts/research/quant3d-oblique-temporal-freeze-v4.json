@@ -1,0 +1,799 @@
+{
+  "schema": "solidify-oblique-temporal-prospective-freeze-v4",
+  "scope": "CPU-only pre-output finite-horizon diagnostic, zero trajectories at freeze",
+  "prepareSeal": {
+    "schema": "solidify-oblique-temporal-prepare-v1",
+    "preparedAtUnix": 1793495082.5863407,
+    "sourceHashes": {
+      "scripts/research/quant3d-oblique-temporal.py": "edaf7ccd7449bff5c3b6c9d02c1d578961e9adf6f82d1eca5ad3954a1854dc9f",
+      "scripts/research/quant3d-oblique-temporal.md": "f5d3c82d6504ec2fd1fe229290c2f7b4d2920fb89e02c145381dda308ffbb121",
+      "scripts/research/quant3d-oblique-kinetic.py": "2b3514ec2484e78211c979540c935716489074704b5d408cbe98d6825d6beda8",
+      "scripts/research/quant3d-oblique-kinetic-reference.py": "a8bb1b0e490d250574f7e823564b7a25ff303ea1588a95fe3af90c18b9a9d22a",
+      "scripts/research/quant3d-oblique-kinetic-angular.py": "ec169d468f723f1a68456e42c344aa85fed153e770bb6f98bc190bfcb3b1770b",
+      "scripts/research/quant3d-kinetic-reference.py": "b354940f0ac902553fdd0a68f0727d5d13db4c0e85c13d37e56b187fc64c203b"
+    },
+    "sourceRepresentations": {
+      "scripts/research/quant3d-oblique-temporal.py": {
+        "runtimeSha256": "edaf7ccd7449bff5c3b6c9d02c1d578961e9adf6f82d1eca5ad3954a1854dc9f",
+        "runtimeBytes": 41610,
+        "runtimeCrlfCount": 0,
+        "runtimeLfCount": 613,
+        "gitBlobSha256": "edaf7ccd7449bff5c3b6c9d02c1d578961e9adf6f82d1eca5ad3954a1854dc9f",
+        "gitBlobObjectId": "5e3e815d89b27a417c3dc375ef23687ac660c784",
+        "gitBlobBytes": 41610,
+        "representation": "exact"
+      },
+      "scripts/research/quant3d-oblique-temporal.md": {
+        "runtimeSha256": "f5d3c82d6504ec2fd1fe229290c2f7b4d2920fb89e02c145381dda308ffbb121",
+        "runtimeBytes": 8731,
+        "runtimeCrlfCount": 0,
+        "runtimeLfCount": 141,
+        "gitBlobSha256": "f5d3c82d6504ec2fd1fe229290c2f7b4d2920fb89e02c145381dda308ffbb121",
+        "gitBlobObjectId": "365ba9a6cd0838b355134d85ee9d8d8224c2c233",
+        "gitBlobBytes": 8731,
+        "representation": "exact"
+      },
+      "scripts/research/quant3d-oblique-kinetic.py": {
+        "runtimeSha256": "2b3514ec2484e78211c979540c935716489074704b5d408cbe98d6825d6beda8",
+        "runtimeBytes": 10150,
+        "runtimeCrlfCount": 0,
+        "runtimeLfCount": 205,
+        "gitBlobSha256": "2b3514ec2484e78211c979540c935716489074704b5d408cbe98d6825d6beda8",
+        "gitBlobObjectId": "e44c554f67cc9441985861299032c47c5304d4e4",
+        "gitBlobBytes": 10150,
+        "representation": "exact"
+      },
+      "scripts/research/quant3d-oblique-kinetic-reference.py": {
+        "runtimeSha256": "a8bb1b0e490d250574f7e823564b7a25ff303ea1588a95fe3af90c18b9a9d22a",
+        "runtimeBytes": 12817,
+        "runtimeCrlfCount": 0,
+        "runtimeLfCount": 196,
+        "gitBlobSha256": "a8bb1b0e490d250574f7e823564b7a25ff303ea1588a95fe3af90c18b9a9d22a",
+        "gitBlobObjectId": "5a2c52c6260b0c9203603a98825fcc54e041e7d6",
+        "gitBlobBytes": 12817,
+        "representation": "exact"
+      },
+      "scripts/research/quant3d-oblique-kinetic-angular.py": {
+        "runtimeSha256": "ec169d468f723f1a68456e42c344aa85fed153e770bb6f98bc190bfcb3b1770b",
+        "runtimeBytes": 6816,
+        "runtimeCrlfCount": 0,
+        "runtimeLfCount": 120,
+        "gitBlobSha256": "ec169d468f723f1a68456e42c344aa85fed153e770bb6f98bc190bfcb3b1770b",
+        "gitBlobObjectId": "f78843564fc19822a8e2d079e2b6332090c72f17",
+        "gitBlobBytes": 6816,
+        "representation": "exact"
+      },
+      "scripts/research/quant3d-kinetic-reference.py": {
+        "runtimeSha256": "b354940f0ac902553fdd0a68f0727d5d13db4c0e85c13d37e56b187fc64c203b",
+        "runtimeBytes": 17022,
+        "runtimeCrlfCount": 311,
+        "runtimeLfCount": 311,
+        "gitBlobSha256": "53f9fad85173f18be0683fdeb465b16c501e49a6b038bc2c4ac4e6cff62bd0b4",
+        "gitBlobObjectId": "50a66a5f0468c263e8a3674955ffedf435af3573",
+        "gitBlobBytes": 16711,
+        "representation": "LF-to-CRLF"
+      }
+    },
+    "inputSelectors": {
+      "principal": {
+        "rawSha256": "e56377eee879c1755f86c4b0aca40825aa233f6d83be87c55fffadfa88c5d0fc",
+        "metadataSha256": "8db76eef9276b2a3ef7b27ea04a10f8fa211feed4808c6c346164895b49a6ed9",
+        "original": "verify-out/q3-oblique-coupled-study/case-019"
+      },
+      "angular": {
+        "rawSha256": "f017da2c18659d1ea2ab5ef273c4600a9626a90f3d84e5dac89fc92a8ecf14de",
+        "metadataSha256": "eaa6491514f169966c2dedcec6a5d7ca60e64ec721d911d8041c18e2e5aba470",
+        "original": "verify-out/q3-oblique-angular-study-v2/case-003"
+      }
+    },
+    "files": {
+      "contract.json": "9ec64aeec1579078e91dd6e8f7417ff47f01b9ed29509b9e83b50ac53f320c89",
+      "prerequisites.json": "4051d29ad81d3c88815d5820610d7a873118e1c0b0b78bcdd6076b0bfc484c85",
+      "benchmark.json": "050796937bdd442b667983ac73c391d1f9c45aeb4adc683e8b8218db8302f809",
+      "selection.json": "6563efd5cc67f725cfeb3822be9ed23a87c58b10199a0316b34ddd96575d2fb9",
+      "inputs/principal.json": "8db76eef9276b2a3ef7b27ea04a10f8fa211feed4808c6c346164895b49a6ed9",
+      "inputs/principal.npz": "e56377eee879c1755f86c4b0aca40825aa233f6d83be87c55fffadfa88c5d0fc",
+      "inputs/angular.json": "eaa6491514f169966c2dedcec6a5d7ca60e64ec721d911d8041c18e2e5aba470",
+      "inputs/angular.npz": "f017da2c18659d1ea2ab5ef273c4600a9626a90f3d84e5dac89fc92a8ecf14de",
+      "source-snapshot/scripts/research/quant3d-oblique-temporal.py": "edaf7ccd7449bff5c3b6c9d02c1d578961e9adf6f82d1eca5ad3954a1854dc9f",
+      "source-snapshot/scripts/research/quant3d-oblique-temporal.md": "f5d3c82d6504ec2fd1fe229290c2f7b4d2920fb89e02c145381dda308ffbb121",
+      "source-snapshot/scripts/research/quant3d-oblique-kinetic.py": "2b3514ec2484e78211c979540c935716489074704b5d408cbe98d6825d6beda8",
+      "source-snapshot/scripts/research/quant3d-oblique-kinetic-reference.py": "a8bb1b0e490d250574f7e823564b7a25ff303ea1588a95fe3af90c18b9a9d22a",
+      "source-snapshot/scripts/research/quant3d-oblique-kinetic-angular.py": "ec169d468f723f1a68456e42c344aa85fed153e770bb6f98bc190bfcb3b1770b",
+      "source-snapshot/scripts/research/quant3d-kinetic-reference.py": "b354940f0ac902553fdd0a68f0727d5d13db4c0e85c13d37e56b187fc64c203b"
+    },
+    "selection": "B",
+    "gitHeadAtPreparation": "b8bc800a8786763bdb197a4b44e66689f856b7eb",
+    "environment": {
+      "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+      "numpy": "2.3.5",
+      "scipy": "1.17.1",
+      "platform": "Windows-11-10.0.26200-SP0"
+    },
+    "prerequisitesPassed": true,
+    "trajectoriesEvaluated": 0,
+    "adopted": false,
+    "q3Accepted": false
+  },
+  "prepareSealSha256": "2eeee5df0f4f36765f83c35ed5b6b91fe8645dbd4218cfb441ef73f3f9aa3bcc",
+  "contract": {
+    "normal": [
+      2,
+      1,
+      0
+    ],
+    "dx": 0.8,
+    "normalPlaneSpacing": 0.35777087639996635,
+    "velocityReference": 0.04,
+    "lambda": 4.0,
+    "D": 2.5068,
+    "epsilon": 0.0171,
+    "epsBar": 1,
+    "tauInput": 1,
+    "physicalSub": 1,
+    "amplitude": 0.001,
+    "pulseWidths": [
+      4,
+      8
+    ],
+    "coarseDt": 0.004,
+    "fineDt": 0.002,
+    "requestedHorizon": 71.55417527999327,
+    "coarseSteps": 17889,
+    "fineSteps": 35778,
+    "actualHorizon": 71.556,
+    "coarseProbeSteps": [
+      0,
+      280,
+      560,
+      839,
+      1119,
+      1398,
+      1678,
+      1957,
+      2237,
+      2516,
+      2796,
+      3075,
+      3355,
+      3634,
+      3914,
+      4193,
+      4473,
+      4752,
+      5032,
+      5311,
+      5591,
+      5870,
+      6150,
+      6429,
+      6709,
+      6988,
+      7268,
+      7547,
+      7827,
+      8106,
+      8386,
+      8665,
+      8945,
+      9224,
+      9504,
+      9783,
+      10063,
+      10342,
+      10622,
+      10901,
+      11181,
+      11460,
+      11740,
+      12019,
+      12299,
+      12578,
+      12858,
+      13137,
+      13417,
+      13696,
+      13976,
+      14255,
+      14535,
+      14814,
+      15094,
+      15373,
+      15653,
+      15932,
+      16212,
+      16492,
+      16771,
+      17051,
+      17330,
+      17610,
+      17889
+    ],
+    "fineProbeSteps": [
+      0,
+      560,
+      1120,
+      1678,
+      2238,
+      2796,
+      3356,
+      3914,
+      4474,
+      5032,
+      5592,
+      6150,
+      6710,
+      7268,
+      7828,
+      8386,
+      8946,
+      9504,
+      10064,
+      10622,
+      11182,
+      11740,
+      12300,
+      12858,
+      13418,
+      13976,
+      14536,
+      15094,
+      15654,
+      16212,
+      16772,
+      17330,
+      17890,
+      18448,
+      19008,
+      19566,
+      20126,
+      20684,
+      21244,
+      21802,
+      22362,
+      22920,
+      23480,
+      24038,
+      24598,
+      25156,
+      25716,
+      26274,
+      26834,
+      27392,
+      27952,
+      28510,
+      29070,
+      29628,
+      30188,
+      30746,
+      31306,
+      31864,
+      32424,
+      32984,
+      33542,
+      34102,
+      34660,
+      35220,
+      35778
+    ],
+    "primaryIndices": [
+      -358,
+      1432
+    ],
+    "wideIndices": [
+      -716,
+      2864
+    ],
+    "primaryN": 1791,
+    "wideN": 3581,
+    "phaseBoundary": "sealed constant q ghosts; not a physical tilted wall",
+    "heatBoundary": "symmetric truncated L19 graph; identical computed bond transfer with both signs",
+    "targetFrame": "raw imposed-V and one shared phase-derived shift; no temperature-only alignment",
+    "tailPrimaryWindow": [
+      40,
+      56
+    ],
+    "tailAlternativeWindow": [
+      32,
+      48
+    ],
+    "tailValueAndDerivativeNumericalLimit": 1e-08,
+    "pulsePolicy": "2*A*(G4-c*G8), c=exact represented Gaussian sum ratio, signs separate; actual injected E retained",
+    "budgetPolicy": "exact Fraction enthalpy at probes; outward gamma6/gamma2 latent/heat update bound; no projection",
+    "sourceAdmission": "exact sealed runtime/snapshot bytes; committed canonical LF blob with declared exact or LF-to-CRLF reconstruction only",
+    "numericalMetrologyControls": {
+      "shiftAbsolute": 3.577708763999663e-07,
+      "alignedTemperatureRms": 1e-08,
+      "wrongTemperatureRmsMinimum": 0.0001
+    },
+    "coreEvolutionLiveness": 1e-06,
+    "costRule": {
+      "cpuMinutes": 45,
+      "rhsEvaluationsPerBenchmark": 100,
+      "estimateMultiplier": 3,
+      "fixedOverheadSeconds": 120,
+      "choice": "B if estimatedB<=2700s, else A if estimatedA<=2700s, else C"
+    },
+    "scientificAcceptanceBand": null,
+    "recoveryPredicate": null,
+    "adopted": false,
+    "q3Accepted": false
+  },
+  "prerequisites": {
+    "passed": true,
+    "checks": {
+      "principal": {
+        "tails": {
+          "passed": true,
+          "actualBvpExtent": [
+            -63.996265516043984,
+            63.996265516043984
+          ],
+          "joinValueError": 2.886579864025407e-15,
+          "joinDerivativeError": 6.380659889337892e-14,
+          "fixedAlternativeTailSensitivity": 2.1871393585115584e-14,
+          "freeLatentJumpError": 5.906386491005833e-14,
+          "numericalLimit": 1e-08,
+          "basis": "selected outgoing modes, not exhaustive spectrum"
+        },
+        "metrology": {
+          "passed": true,
+          "knownShift": 0.13237522426798756,
+          "observedShift": {
+            "ready": true,
+            "massPosition": 0.13237522688036255,
+            "phaseShift": 0.13237522427613885,
+            "registrationMinusMass": -2.604223697799668e-09,
+            "searchBoundaryDistance": 0.3577708737957427,
+            "phaseRms": 8.194499375020549e-13,
+            "phaseMax": 3.0033753262159735e-12,
+            "temperatureRms": 7.539879243641154e-14,
+            "temperatureMax": 1.2234657731369225e-13
+          },
+          "wrongTemperatureShift": {
+            "ready": true,
+            "massPosition": 0.0,
+            "phaseShift": 1.6204750966436335e-17,
+            "registrationMinusMass": 1.6204750966436335e-17,
+            "searchBoundaryDistance": 0.35777087639996635,
+            "phaseRms": 0.0,
+            "phaseMax": 0.0,
+            "temperatureRms": 0.0032946691095489455,
+            "temperatureMax": 0.005367415393334296
+          },
+          "changedSpeed": 0.04399999999979979
+        },
+        "rhs": {
+          "passed": true,
+          "phaseFormulaError": 0.0,
+          "independentGraphError": 2.168404344971009e-19,
+          "maximumIncidentBonds": 6,
+          "normalSecondMoment": 1.0,
+          "tauLowerBound": 0.8111400599685525,
+          "phaseTimestepAdmission": 0.03223606795702147,
+          "heatTimestepAdmission": 0.07659167065581618,
+          "finiteStaticRhs": true
+        },
+        "initialArrays": [
+          {
+            "wide": false,
+            "n": 1791,
+            "extent": [
+              -128.08197375118795,
+              512.3278950047518
+            ],
+            "xSha256": "d43155251d917c6262704cfa49b91b407fe349964e199efb232c8fd3bca63168",
+            "phaseSha256": "980345ad2995dcd30528d2326d8d440678ee2bb376f38599e4a6616a82d6495c",
+            "temperatureSha256": "50cf92512229ea4585ebe267f41327465aa60f8566401a51fe9ca2cf304513a9",
+            "finiteBoxEnergyExact": "20331865504411137644514332023809417/324518553658426726783156020576256",
+            "finiteBoxEnergy": 62.652397760318884,
+            "pulses": [
+              {
+                "kind": "baseline",
+                "exactInjectedEnergy": "0",
+                "injectedEnergy": 0.0,
+                "phaseSha256": "980345ad2995dcd30528d2326d8d440678ee2bb376f38599e4a6616a82d6495c",
+                "temperatureSha256": "50cf92512229ea4585ebe267f41327465aa60f8566401a51fe9ca2cf304513a9",
+                "coefficient": 0.0
+              },
+              {
+                "kind": "zero-plus",
+                "exactInjectedEnergy": "-58005244283000553/162259276829213363391578010288128",
+                "injectedEnergy": -3.574849180676073e-16,
+                "phaseSha256": "980345ad2995dcd30528d2326d8d440678ee2bb376f38599e4a6616a82d6495c",
+                "temperatureSha256": "54807dda55f66bc24c805567e4bfe92bf013c74bd70f17576e9c58aec285bcdc",
+                "coefficient": 0.5,
+                "nominalAmplitude": 0.001,
+                "representedPulseIntegral": "16726195979023377673523341454797525784844843122271693055616569154568555221988118134241027679193950308586925998531197012096576221676627362149597575878084279954889861068197132554134702647032393988853129556177532582079080957952874800173682060809054043637910805867317559738996150942523777719443243295160653350065043767165769/3646154850295011369707131011438711095400799139943170490872585628683549034362552065955809589514611470241298944167703929337528884908857116141935206466329731088046102104871310118026124429524895811057809162863601918344981537942578416978660114536064864566618194697491810552574682390899399042017045361314411594716462268422176512674372084045971456"
+              },
+              {
+                "kind": "zero-minus",
+                "exactInjectedEnergy": "6445027142555617/20282409603651670423947251286016",
+                "injectedEnergy": 3.1776437161565095e-16,
+                "phaseSha256": "980345ad2995dcd30528d2326d8d440678ee2bb376f38599e4a6616a82d6495c",
+                "temperatureSha256": "9732da87ca0d91490a16c3b208c07ba3d9a25f1adb167798d85662067741e4be",
+                "coefficient": 0.5,
+                "nominalAmplitude": 0.001,
+                "representedPulseIntegral": "-16726195979023377673523341454797525784844843122271693055616569154568555221988118134241027679193950308586925998531197012096576221676627362149597575878084279954889861068197132554134702647032393988853129556177532582079080957952874800173682060809054043637910805867317559738996150942523777719443243295160653350065043767165769/3646154850295011369707131011438711095400799139943170490872585628683549034362552065955809589514611470241298944167703929337528884908857116141935206466329731088046102104871310118026124429524895811057809162863601918344981537942578416978660114536064864566618194697491810552574682390899399042017045361314411594716462268422176512674372084045971456"
+              }
+            ],
+            "rightEndpointTemperatureGradient": -4.50730756402696e-06
+          },
+          {
+            "wide": true,
+            "n": 3581,
+            "extent": [
+              -256.1639475023759,
+              1024.6557900095036
+            ],
+            "xSha256": "b21296278e17f2db3ade5392c2c9d22b4c5b0c79acb26f45af3b521e66baf0e0",
+            "phaseSha256": "3c5b17c969b164d3033bdd0c75089f02014e4b962fd0e3b7d330092beb3d61c3",
+            "temperatureSha256": "1c534e07f5a2dc1c01da48a48b87d988a18a2457c4964fba7e084c5312433926",
+            "finiteBoxEnergyExact": "20337576148975502654430964357218401/324518553658426726783156020576256",
+            "finiteBoxEnergy": 62.669995042508106,
+            "pulses": [
+              {
+                "kind": "baseline",
+                "exactInjectedEnergy": "0",
+                "injectedEnergy": 0.0,
+                "phaseSha256": "3c5b17c969b164d3033bdd0c75089f02014e4b962fd0e3b7d330092beb3d61c3",
+                "temperatureSha256": "1c534e07f5a2dc1c01da48a48b87d988a18a2457c4964fba7e084c5312433926",
+                "coefficient": 0.0
+              },
+              {
+                "kind": "zero-plus",
+                "exactInjectedEnergy": "-58005244283000553/162259276829213363391578010288128",
+                "injectedEnergy": -3.574849180676073e-16,
+                "phaseSha256": "3c5b17c969b164d3033bdd0c75089f02014e4b962fd0e3b7d330092beb3d61c3",
+                "temperatureSha256": "c9a35c0a0c3c8cfdade7d7054f62227ea11e9c96bf1ff4f7391815689bd079f9",
+                "coefficient": 0.5,
+                "nominalAmplitude": 0.001,
+                "representedPulseIntegral": "16726195979023377673523341454797525784817775970748917662833605474868434101387447108794467102256984973624782085794201323721941599094813657564955872193193889294183910205278073987429439301698601713764167840207023876965853382825837074544102701904280440995491997455210765611194031284666864845707738332481626716170854852068169/3646154850295011369707131011438711095400799139943170490872585628683549034362552065955809589514611470241298944167703929337528884908857116141935206466329731088046102104871310118026124429524895811057809162863601918344981537942578416978660114536064864566618194697491810552574682390899399042017045361314411594716462268422176512674372084045971456"
+              },
+              {
+                "kind": "zero-minus",
+                "exactInjectedEnergy": "6445027142555617/20282409603651670423947251286016",
+                "injectedEnergy": 3.1776437161565095e-16,
+                "phaseSha256": "3c5b17c969b164d3033bdd0c75089f02014e4b962fd0e3b7d330092beb3d61c3",
+                "temperatureSha256": "787554e422507528154977f29c118f7451dc7021e44a2b7a41e80830d3464252",
+                "coefficient": 0.5,
+                "nominalAmplitude": 0.001,
+                "representedPulseIntegral": "-16726195979023377673523341454797525784817775970748917662833605474868434101387447108794467102256984973624782085794201323721941599094813657564955872193193889294183910205278073987429439301698601713764167840207023876965853382825837074544102701904280440995491997455210765611194031284666864845707738332481626716170854852068169/3646154850295011369707131011438711095400799139943170490872585628683549034362552065955809589514611470241298944167703929337528884908857116141935206466329731088046102104871310118026124429524895811057809162863601918344981537942578416978660114536064864566618194697491810552574682390899399042017045361314411594716462268422176512674372084045971456"
+              }
+            ],
+            "rightEndpointTemperatureGradient": -1.2694146694866924e-09
+          }
+        ],
+        "farBackground": 9.640474552985445e-05,
+        "formalContinuousWaveEnergy": 62.67,
+        "finiteBvpQuadrature": 40.09423322054784,
+        "note": "formal infinite continuous-wave identity differs from finite quadrature and sampled box; no D/E speed inference"
+      },
+      "angular": {
+        "tails": {
+          "passed": true,
+          "actualBvpExtent": [
+            -63.996265516043984,
+            63.996265516043984
+          ],
+          "joinValueError": 3.1086244689504383e-15,
+          "joinDerivativeError": 4.369855172159376e-14,
+          "fixedAlternativeTailSensitivity": 1.7319479184152442e-14,
+          "freeLatentJumpError": 6.650235917504688e-14,
+          "numericalLimit": 1e-08,
+          "basis": "selected outgoing modes, not exhaustive spectrum"
+        },
+        "metrology": {
+          "passed": true,
+          "knownShift": 0.13237522426798756,
+          "observedShift": {
+            "ready": true,
+            "massPosition": 0.13237522689921166,
+            "phaseShift": 0.1323752242695634,
+            "registrationMinusMass": -2.629648249152794e-09,
+            "searchBoundaryDistance": 0.35777087377031813,
+            "phaseRms": 1.584178047497519e-13,
+            "phaseMax": 5.806466418789569e-13,
+            "temperatureRms": 1.456714288477542e-14,
+            "temperatureMax": 2.3647750424515834e-14
+          },
+          "wrongTemperatureShift": {
+            "ready": true,
+            "massPosition": 0.0,
+            "phaseShift": 1.5820506624299547e-17,
+            "registrationMinusMass": 1.5820506624299547e-17,
+            "searchBoundaryDistance": 0.35777087639996635,
+            "phaseRms": 0.0,
+            "phaseMax": 0.0,
+            "temperatureRms": 0.0032946682742738833,
+            "temperatureMax": 0.005367409429409276
+          },
+          "changedSpeed": 0.043999999999999054
+        },
+        "rhs": {
+          "passed": true,
+          "phaseFormulaError": 0.0,
+          "independentGraphError": 2.168404344971009e-19,
+          "maximumIncidentBonds": 6,
+          "normalSecondMoment": 1.0,
+          "tauLowerBound": 0.8111400599685525,
+          "phaseTimestepAdmission": 0.03223606795702147,
+          "heatTimestepAdmission": 0.07659167065581618,
+          "finiteStaticRhs": true
+        },
+        "initialArrays": [
+          {
+            "wide": false,
+            "n": 1791,
+            "extent": [
+              -128.08197375118795,
+              512.3278950047518
+            ],
+            "xSha256": "d43155251d917c6262704cfa49b91b407fe349964e199efb232c8fd3bca63168",
+            "phaseSha256": "e06812f31c73c64ae6682d7fab8242289a16dd6c76cb4396a0ed9b0431bd90ad",
+            "temperatureSha256": "c7c3894c80a1b430211a0dbb0f714d81e69e0526de496ff110817a22dc186fe6",
+            "finiteBoxEnergyExact": "20331865502899169466718982629278237/324518553658426726783156020576256",
+            "finiteBoxEnergy": 62.65239775565977,
+            "pulses": [
+              {
+                "kind": "baseline",
+                "exactInjectedEnergy": "0",
+                "injectedEnergy": 0.0,
+                "phaseSha256": "e06812f31c73c64ae6682d7fab8242289a16dd6c76cb4396a0ed9b0431bd90ad",
+                "temperatureSha256": "c7c3894c80a1b430211a0dbb0f714d81e69e0526de496ff110817a22dc186fe6",
+                "coefficient": 0.0
+              },
+              {
+                "kind": "zero-plus",
+                "exactInjectedEnergy": "-19335081427666851/40564819207303340847894502572032",
+                "injectedEnergy": -4.766465574234764e-16,
+                "phaseSha256": "e06812f31c73c64ae6682d7fab8242289a16dd6c76cb4396a0ed9b0431bd90ad",
+                "temperatureSha256": "9e3a8d03c5af1024efd8646b15aeff8fc1fcfd6bc4e092dbdb0df7f8db9a2020",
+                "coefficient": 0.5,
+                "nominalAmplitude": 0.001,
+                "representedPulseIntegral": "16726195979023377673523341454797525784844843122271693055616569154568555221988118134241027679193950308586925998531197012096576221676627362149597575878084279954889861068197132554134702647032393988853129556177532582079080957952874800173682060809054043637910805867317559738996150942523777719443243295160653350065043767165769/3646154850295011369707131011438711095400799139943170490872585628683549034362552065955809589514611470241298944167703929337528884908857116141935206466329731088046102104871310118026124429524895811057809162863601918344981537942578416978660114536064864566618194697491810552574682390899399042017045361314411594716462268422176512674372084045971456"
+              },
+              {
+                "kind": "zero-minus",
+                "exactInjectedEnergy": "6445027142555617/20282409603651670423947251286016",
+                "injectedEnergy": 3.1776437161565095e-16,
+                "phaseSha256": "e06812f31c73c64ae6682d7fab8242289a16dd6c76cb4396a0ed9b0431bd90ad",
+                "temperatureSha256": "59e4cb0bf87892ff72470dedf232b3f125053cd770c10d39c81937897260d897",
+                "coefficient": 0.5,
+                "nominalAmplitude": 0.001,
+                "representedPulseIntegral": "-16726195979023377673523341454797525784844843122271693055616569154568555221988118134241027679193950308586925998531197012096576221676627362149597575878084279954889861068197132554134702647032393988853129556177532582079080957952874800173682060809054043637910805867317559738996150942523777719443243295160653350065043767165769/3646154850295011369707131011438711095400799139943170490872585628683549034362552065955809589514611470241298944167703929337528884908857116141935206466329731088046102104871310118026124429524895811057809162863601918344981537942578416978660114536064864566618194697491810552574682390899399042017045361314411594716462268422176512674372084045971456"
+              }
+            ],
+            "rightEndpointTemperatureGradient": -4.507308759987789e-06
+          },
+          {
+            "wide": true,
+            "n": 3581,
+            "extent": [
+              -256.1639475023759,
+              1024.6557900095036
+            ],
+            "xSha256": "b21296278e17f2db3ade5392c2c9d22b4c5b0c79acb26f45af3b521e66baf0e0",
+            "phaseSha256": "daeb31aa9efa465108b2338b52b0851a629104b7764b86ff788c32ae19ce4c8b",
+            "temperatureSha256": "fd0c8e40919f633bf1c42cab7cfc5ccf6cf31b5b4c757b300dbdfdc37069008a",
+            "finiteBoxEnergyExact": "20337576148982597752791226703971489/324518553658426726783156020576256",
+            "finiteBoxEnergy": 62.66999504252997,
+            "pulses": [
+              {
+                "kind": "baseline",
+                "exactInjectedEnergy": "0",
+                "injectedEnergy": 0.0,
+                "phaseSha256": "daeb31aa9efa465108b2338b52b0851a629104b7764b86ff788c32ae19ce4c8b",
+                "temperatureSha256": "fd0c8e40919f633bf1c42cab7cfc5ccf6cf31b5b4c757b300dbdfdc37069008a",
+                "coefficient": 0.0
+              },
+              {
+                "kind": "zero-plus",
+                "exactInjectedEnergy": "-19335081427666851/40564819207303340847894502572032",
+                "injectedEnergy": -4.766465574234764e-16,
+                "phaseSha256": "daeb31aa9efa465108b2338b52b0851a629104b7764b86ff788c32ae19ce4c8b",
+                "temperatureSha256": "5c0d56d4a22afa0ee3c44cf8750a23d8c1fefcf3809a195ecda500f82b5eecca",
+                "coefficient": 0.5,
+                "nominalAmplitude": 0.001,
+                "representedPulseIntegral": "16726195979023377673523341454797525784817775970748917662833605474868434101387447108794467102256984973624782085794201323721941599094813657564955872193193889294183910205278073987429439301698601713764167840207023876965853382825837074544102701904280440995491997455210765611194031284666864845707738332481626716170854852068169/3646154850295011369707131011438711095400799139943170490872585628683549034362552065955809589514611470241298944167703929337528884908857116141935206466329731088046102104871310118026124429524895811057809162863601918344981537942578416978660114536064864566618194697491810552574682390899399042017045361314411594716462268422176512674372084045971456"
+              },
+              {
+                "kind": "zero-minus",
+                "exactInjectedEnergy": "6445027142555617/20282409603651670423947251286016",
+                "injectedEnergy": 3.1776437161565095e-16,
+                "phaseSha256": "daeb31aa9efa465108b2338b52b0851a629104b7764b86ff788c32ae19ce4c8b",
+                "temperatureSha256": "b2317ce490c8f77ac5d65be64a6694495ef64345076929333284e3a26ee8450b",
+                "coefficient": 0.5,
+                "nominalAmplitude": 0.001,
+                "representedPulseIntegral": "-16726195979023377673523341454797525784817775970748917662833605474868434101387447108794467102256984973624782085794201323721941599094813657564955872193193889294183910205278073987429439301698601713764167840207023876965853382825837074544102701904280440995491997455210765611194031284666864845707738332481626716170854852068169/3646154850295011369707131011438711095400799139943170490872585628683549034362552065955809589514611470241298944167703929337528884908857116141935206466329731088046102104871310118026124429524895811057809162863601918344981537942578416978660114536064864566618194697491810552574682390899399042017045361314411594716462268422176512674372084045971456"
+              }
+            ],
+            "rightEndpointTemperatureGradient": -1.2694152901202308e-09
+          }
+        ],
+        "farBackground": 0.00011587815070079888,
+        "formalContinuousWaveEnergy": 62.67,
+        "finiteBvpQuadrature": 40.094227230428714,
+        "note": "formal infinite continuous-wave identity differs from finite quadrature and sampled box; no D/E speed inference"
+      },
+      "budget": {
+        "passed": true,
+        "correctBudgetResidual": 7.944109290391274e-17,
+        "arithmeticBound": 4.247521425841347e-15,
+        "wrongLatentRejected": 0.02933721186479723,
+        "unclampedLatentRejected": 0.14521919873074662
+      }
+    }
+  },
+  "benchmark": {
+    "rows": [
+      {
+        "model": "principal",
+        "wide": false,
+        "n": 1791,
+        "evaluations": 100,
+        "wallSeconds": 0.07215749996248633,
+        "processSeconds": 0.078125,
+        "perEvaluationSeconds": 0.00078125,
+        "inputUnchanged": true
+      },
+      {
+        "model": "principal",
+        "wide": true,
+        "n": 3581,
+        "evaluations": 100,
+        "wallSeconds": 0.12982989998999983,
+        "processSeconds": 0.140625,
+        "perEvaluationSeconds": 0.00140625,
+        "inputUnchanged": true
+      },
+      {
+        "model": "angular",
+        "wide": false,
+        "n": 1791,
+        "evaluations": 100,
+        "wallSeconds": 0.0944811999797821,
+        "processSeconds": 0.09375,
+        "perEvaluationSeconds": 0.0009448119997978211,
+        "inputUnchanged": true
+      },
+      {
+        "model": "angular",
+        "wide": true,
+        "n": 3581,
+        "evaluations": 100,
+        "wallSeconds": 0.1689699999988079,
+        "processSeconds": 0.171875,
+        "perEvaluationSeconds": 0.00171875,
+        "inputUnchanged": true
+      }
+    ],
+    "estimatedSeconds": {
+      "A": 668.5871865883471,
+      "B": 1121.4024990883468
+    },
+    "selectedOption": "B",
+    "rule": "3 * static-RHS cost over all declared steps +120s; B <=2700 else A <=2700 else C"
+  },
+  "selection": {
+    "option": "B",
+    "cases": [
+      {
+        "name": "principal-baseline-dt",
+        "model": "principal",
+        "pulse": "baseline",
+        "halfDt": false,
+        "wide": false
+      },
+      {
+        "name": "principal-zero-plus-dt",
+        "model": "principal",
+        "pulse": "zero-plus",
+        "halfDt": false,
+        "wide": false
+      },
+      {
+        "name": "principal-zero-minus-dt",
+        "model": "principal",
+        "pulse": "zero-minus",
+        "halfDt": false,
+        "wide": false
+      },
+      {
+        "name": "principal-baseline-half-dt",
+        "model": "principal",
+        "pulse": "baseline",
+        "halfDt": true,
+        "wide": false
+      },
+      {
+        "name": "principal-zero-plus-half-dt",
+        "model": "principal",
+        "pulse": "zero-plus",
+        "halfDt": true,
+        "wide": false
+      },
+      {
+        "name": "principal-zero-minus-half-dt",
+        "model": "principal",
+        "pulse": "zero-minus",
+        "halfDt": true,
+        "wide": false
+      },
+      {
+        "name": "angular-baseline-dt",
+        "model": "angular",
+        "pulse": "baseline",
+        "halfDt": false,
+        "wide": false
+      },
+      {
+        "name": "angular-zero-plus-dt",
+        "model": "angular",
+        "pulse": "zero-plus",
+        "halfDt": false,
+        "wide": false
+      },
+      {
+        "name": "angular-zero-minus-dt",
+        "model": "angular",
+        "pulse": "zero-minus",
+        "halfDt": false,
+        "wide": false
+      },
+      {
+        "name": "angular-baseline-half-dt",
+        "model": "angular",
+        "pulse": "baseline",
+        "halfDt": true,
+        "wide": false
+      },
+      {
+        "name": "angular-zero-plus-half-dt",
+        "model": "angular",
+        "pulse": "zero-plus",
+        "halfDt": true,
+        "wide": false
+      },
+      {
+        "name": "angular-zero-minus-half-dt",
+        "model": "angular",
+        "pulse": "zero-minus",
+        "halfDt": true,
+        "wide": false
+      },
+      {
+        "name": "principal-baseline-wide",
+        "model": "principal",
+        "pulse": "baseline",
+        "halfDt": false,
+        "wide": true
+      },
+      {
+        "name": "angular-baseline-wide",
+        "model": "angular",
+        "pulse": "baseline",
+        "halfDt": false,
+        "wide": true
+      }
+    ],
+    "trajectoriesEvaluated": 0
+  },
+  "budgetDerivation": "# Prospective enthalpy budget for the closed-graph pilot\n\nThis is a mathematical/design specification, not a claim that an unimplemented\nintegrator has passed. Its implementation and source hash must be sealed before\nany trajectory. No running input or sealed reference is modified here.\n\nLet uRound=2^-53 be Float64 unit roundoff and gamma_k=k*uRound/(1-k*uRound).\nAssume finite normal arithmetic with no overflow or underflow in the budgeted\ntemperature operations. Refuse a violation of those assumptions, or explicitly\nadd a separately derived underflow term before sealing implementation.\n\nAt each step compute each retained heat-bond amount F once, add that same\nrepresented number to one endpoint and its negative to the other. Each node\nhas at most six incident bonds for the210 plane. Let H_i be its accumulated\nFloat64 heat increment. Update\n\n    d_i=fl(psiNew_i-psiOld_i)\n    TNew_i=fl(fl(TOld_i+H_i)+d_i).\n\nIn real arithmetic on the represented F numbers, their total is exactly zero.\nThe following conservative one-step bound covers heat accumulation, the two\ntemperature additions, and the rounded latent increment:\n\n    Bstep=delta*{\n       gamma_6 * 2*sum_bonds |F|\n       + gamma_2*sum_i (|TOld_i|+|H_i|+|d_i|)\n       + uRound*sum_i (|psiOld_i|+|psiNew_i|)\n    }.\n\nUse the actual maximum incident-bond count if the implementation changes the\ntopology; do not silently retain6 for another normal. The computation of F\ndoes not itself inject global heat because its rounded value is transferred\nwith both signs. Errors in F still affect evolution accuracy and belong in\ntimestep/operator controls, not an enthalpy repair.\n\nAccumulate nonnegative bound terms conservatively: an ordinary positive\nreduction of M terms is inflated by1/(1-gamma_(M-1)); similarly bound the\npositive per-step total accumulation or use outward-rounded/exact arithmetic.\nDo not compare against a downward-rounded estimate of Bstep. This is a\ncode-derived arithmetic envelope, not an empirically selected drift band.\n\nAt each retained probe evaluate the exact energy of the represented fields:\n\n    Eexact=Fraction(delta)*sum_i[Fraction(T_i)-Fraction(psi_i)-Fraction(b)],\n\nwhere Fraction converts each stored binary Float64 exactly and b is a fixed\nrecorded background. Integer/superaccumulator arithmetic can replace Fraction\nif verified against it. The difference Eexact(t)-Eexact(0) is then exact as a\nrational number before reporting/serialization. The closed-graph predicate is\n\n    |Eexact(t)-Eexact(0)| <= conservativeSum(Bstep through t).\n\nThis avoids conflating measurement subtraction/cancellation with physical\nnonconservation. Compensated sums remain useful descriptive crosschecks.\nNo temperature projection, uniform rescaling or post-step energy correction\nis allowed. A failed envelope is an implementation/numerical evidence failure;\nit is not repaired by changing the perturbation or interpreting a velocity.\n\nFor a later storage-Float32 arm, the signed extra source is explicitly\n\n    Rstep=delta*sum_i[(T32_i-T64_i)-(psi32_i-psi64_i)].\n\nEvaluate it with a declared accurate/exact signed accumulator and include its\nrounding envelope if needed. Test E32(t)-E32(0)-sum(Rstep) against the remaining\nFloat64 arithmetic bound. This describes storage casts only, not GPU fused\narithmetic. Initial casts also receive a separate measured Delta E.\n\nZero-integral initial pulses have their own discrete construction/rounding\nledger. Do not pretend an analytical zero integral guarantees zero after\nsampling, adding to a stored background or a Float32 cast. No initial residual\nis removed after seeing a trajectory.\n",
+  "inputRawFiles": [
+    {
+      "model": "principal",
+      "rawSha256": "e56377eee879c1755f86c4b0aca40825aa233f6d83be87c55fffadfa88c5d0fc",
+      "metadataSha256": "8db76eef9276b2a3ef7b27ea04a10f8fa211feed4808c6c346164895b49a6ed9"
+    },
+    {
+      "model": "angular",
+      "rawSha256": "f017da2c18659d1ea2ab5ef273c4600a9626a90f3d84e5dac89fc92a8ecf14de",
+      "metadataSha256": "eaa6491514f169966c2dedcec6a5d7ca60e64ec721d911d8041c18e2e5aba470"
+    }
+  ],
+  "versionNote": "v3 preserved; only Git/runtime exact reversible LF/CRLF source admission added; equations, time plan, budget, tolerances and selectors unchanged",
+  "adopted": false,
+  "accepted": false,
+  "q3Accepted": false
+}

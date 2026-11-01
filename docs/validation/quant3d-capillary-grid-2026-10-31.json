@@ -1,0 +1,4935 @@
+{
+  "format": "solidify-capillary-response-grid-evidence-v1",
+  "scope": "Completed twelve-case spatial diagnostic; no calibration, kinetic adoption or Q3 acceptance",
+  "completed": true,
+  "diagnosticPassed": true,
+  "accepted": false,
+  "q3Accepted": false,
+  "productionApplicationChanged": false,
+  "cloudUsed": false,
+  "source": "10fb837912870ff0af60d69cf7868c186ae1fa0e",
+  "started": "2026-11-01T00:18:22.959Z",
+  "finished": "2026-11-01T02:37:09.363Z",
+  "metadata": {
+    "hardware": {
+      "vendor": "intel",
+      "architecture": "xe-2lpg",
+      "device": "",
+      "description": "",
+      "isFallbackAdapter": false
+    },
+    "deviceLimits": {
+      "maxBufferSize": 268435456,
+      "maxTextureDimension3D": 2048
+    },
+    "compiledSourceHashes": {
+      "flux": "daeb196529bea5f11dd3fb4a2c62325104061e1b56b6bc6a81ecb149d0694efc",
+      "purePhase": "4e60cc421b0723f77c5802f172d6e8f9e8f2dab78363e8051801007573154976",
+      "pureTransport": "c6065681d943ec6e47e98abb05d0a2507b112b737518b1e45481f9d1ba4ffc6c"
+    },
+    "build": "10fb837"
+  },
+  "contract": {
+    "arms": [
+      {
+        "name": "dx-0.8-epsilon-0-offset-0",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true
+      },
+      {
+        "name": "dx-0.8-epsilon-0-offset-0.4",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true
+      },
+      {
+        "name": "dx-0.8-epsilon-0.0171-offset-0",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0.0171,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true
+      },
+      {
+        "name": "dx-0.8-epsilon-0.0171-offset-0.4",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0.0171,
+        "centerOffset": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true
+      },
+      {
+        "name": "dx-0.6-epsilon-0-offset-0",
+        "n": 128,
+        "dx": 0.6,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true
+      },
+      {
+        "name": "dx-0.6-epsilon-0-offset-0.3",
+        "n": 128,
+        "dx": 0.6,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0.3,
+          0.3,
+          0.3
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true
+      },
+      {
+        "name": "dx-0.6-epsilon-0.0171-offset-0",
+        "n": 128,
+        "dx": 0.6,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0.0171,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true
+      },
+      {
+        "name": "dx-0.6-epsilon-0.0171-offset-0.3",
+        "n": 128,
+        "dx": 0.6,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0.0171,
+        "centerOffset": [
+          0.3,
+          0.3,
+          0.3
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true
+      },
+      {
+        "name": "dx-0.4-epsilon-0-offset-0",
+        "n": 192,
+        "dx": 0.4,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true
+      },
+      {
+        "name": "dx-0.4-epsilon-0-offset-0.2",
+        "n": 192,
+        "dx": 0.4,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0.2,
+          0.2,
+          0.2
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true
+      },
+      {
+        "name": "dx-0.4-epsilon-0.0171-offset-0",
+        "n": 192,
+        "dx": 0.4,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0.0171,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true
+      },
+      {
+        "name": "dx-0.4-epsilon-0.0171-offset-0.2",
+        "n": 192,
+        "dx": 0.4,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0.0171,
+        "centerOffset": [
+          0.2,
+          0.2,
+          0.2
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true
+      }
+    ],
+    "tolerances": {
+      "centroid": 8e-05,
+      "minimumShiftFractionDx": 0.25,
+      "initialRelativeVolume": 0.0001
+    },
+    "physics": "unchanged default pure3D; latticeKinetics=false",
+    "coordinates": "shared actual adapter: (cell+.5-n/2)*dx-declaredCenterOffset; observed centroid never changes origin",
+    "volume": "one independently checked finest-grid canonical physical phase-volume target for all meshes/epsilons; cell target=physical/dx^3",
+    "clock": "original controlPeriod4; original integer step cap and JS horizon/count; 50 requested periods,51 observed checkpoints; exact Float32 uniform time reported separately",
+    "negativeControl": "actual translated GPU field, unchanged declaration, bypass fit/centroid adapter at t0; must refuse",
+    "scope": "twelve-arm grid diagnostic only; never full14/Q3 acceptance",
+    "pairing": "same dx+n+epsilon only; no baseline pairing across meshes"
+  },
+  "physicalVolumeTarget": {
+    "definition": "fixed n192 dx.4 R20 center0 Float32 tanh field; sequential JS Float64 phase sum in z/y/x order; no evolved output",
+    "physicalVolume": 33923.7386779148,
+    "canonicalPhaseSha256": "e792064d5695f1402a661cb48990d441e32eaa53874bfd24a419969cdcffcf6e",
+    "localCanonicalPhaseSha256": "e792064d5695f1402a661cb48990d441e32eaa53874bfd24a419969cdcffcf6e",
+    "localCanonicalPhysicalVolume": 33923.7386779148,
+    "evidence": {
+      "config": {
+        "name": "dx-0.4-epsilon-0-offset-0",
+        "n": 192,
+        "dx": 0.4,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true
+      },
+      "phaseSha256": "e792064d5695f1402a661cb48990d441e32eaa53874bfd24a419969cdcffcf6e",
+      "volume": 530058.4168424186,
+      "centroidLab": [
+        2.6637865851256475e-16,
+        2.6637865851256475e-16,
+        2.6637865851256475e-16
+      ],
+      "centroidFrame": [
+        2.6637865851256475e-16,
+        2.6637865851256475e-16,
+        2.6637865851256475e-16
+      ],
+      "physicalVolume": 33923.7386779148,
+      "independent": {
+        "float64MidpointPhysicalVolume": 33923.73866069142,
+        "infiniteDomainMoment": 33923.738660695126,
+        "originCorrectionBound": 4.623724389080088e-12,
+        "omittedBoxTailBound": 6.797379373268881e-08
+      }
+    }
+  },
+  "sourceHashes": {
+    "src/sim3d.ts": "6351143948ebebd018733ca124e5b3e5d478de2e7599e39e2e8131ec196170ba",
+    "src/shaders3d.ts": "f4f1fac066c0b59043f23f550433a8210e5e24cf3f79198b4cab3cf90919f0f4",
+    "src/shaders3d-quant.ts": "65c5eed498314967e9e151025598f8cf77963a89fc7204d243a0c58a86cd66b8",
+    "scripts/fixtures/quant3d-wulff-analysis.mjs": "7d282d0f8aefa755d743f64d2061554c0674348b3ddbbbe3529f21bfce8282ba",
+    "scripts/fixtures/quant3d-tip-analysis.mjs": "cb72a678945f2e426198a5f6a41a748e2257b8cab632f2f2a7c6690b1f4ddb58",
+    "scripts/research/quant3d-equilibrium-driver.mjs": "3f13c7bbcbb58a393f9e4665627c7b26556eaf8afabeaf38830ca214f2ab770d",
+    "scripts/research/quant3d-equilibrium-translation.mjs": "18fdf1c56697193c11c5c90f68e4d4fbe637e681d21e65f86fc3e6525255e40f",
+    "scripts/research/quant3d-equilibrium-translation.md": "2191d44f7075c735ff92f26bd05c500c008e1d9bb4cef1a3b383c2423d60e0ed",
+    "scripts/research/quant3d-readback.mjs": "5b0d3ece3239b28275c6773f1324af344ffa065cd729b25fad58c8690e2b74a7",
+    "scripts/browser-cleanup.mjs": "0b2e5b6790d0c63d5271b51c14509507910f69c2924f7334589e63fa8e82b5b1",
+    "scripts/research/quant3d-capillary-grid.mjs": "5cf3acea7ea6e024d2ea3229b5f2232b013d05f0a9c91634e2c735e7a0981015",
+    "scripts/research/quant3d-capillary-grid.md": "46d3a16dd9ac8d53570c31b6983da96215660ddbbbd4d700938bcc9b73910820",
+    "scripts/research/quant3d-capillary-grid-known-truth.mjs": "a59ea3284a1330a38dd04e1cb08b1b4b4c06e87e591ec3126cdbcf1118852eb8",
+    "scripts/research/quant3d-capillary-grid-replay.py": "d5b9f12bbc8ee613e7c00992aadc58feb2e2da6efa073cfeca2dc5368a878c54"
+  },
+  "sourceStable": true,
+  "sourceCapture": {
+    "capturedAtStartup": false,
+    "capturedAt": "2026-11-01T00:55:04.039643+00:00",
+    "scope": "Exact bytes captured during the still-running source-frozen campaign, after every file matched its original startup SHA256; no source, model, input or verdict modified",
+    "allStartupHashesMatched": true,
+    "ledgerSha256": "0348e94b159567d90a941be2263381d16b11eee695e3717d9da06a432e6093a8",
+    "originalEndSourceHashesMatched": true,
+    "exactSourceFilesVerified": 14
+  },
+  "sourceCopyFix": {
+    "commit": "cfc9af2bd23be18ad222c3cca014099fa2872879",
+    "rootControlsPassed": true,
+    "controls": 14,
+    "scientificAndClockFunctionsUnchanged": true,
+    "gpuLoopAndCleanupSourceUnchanged": true,
+    "controlReportSha256": "ff09674a0ec3f021569f66e850b9018d7a92fd092e1717f5a0bd192eb868ab0c",
+    "protocol": "scripts/research/quant3d-equilibrium-translation.md"
+  },
+  "deviceErrorLedgerRead": true,
+  "errors": [],
+  "rawVerification": {
+    "measurementRawGzipVerified": 612,
+    "negativeRawGzipVerified": 6,
+    "knownTruthRawGzipVerified": 6,
+    "terminalReplayCopiesVerified": 12,
+    "sameMeshPairsVerified": 6,
+    "meshSequencesVerified": 4
+  },
+  "estimatorFingerprints": {
+    "crossing": "c14ff5136a674e3de38b5700a4df736ed5eea80038b918518724c88ec58a2694",
+    "fit_surface": "9631eb39ab96651d0638aa3b9adff77d7139c81f07cacf6903abef1359ec48a6",
+    "extrapolate": "9e8cc694facf8f5e8125a50e784203bb15161d27d7bcd575fa1394cac7bb5fff",
+    "analyze": "5b7a2729a9c8297c7f2bd467f8c14bc2a86ef707cbf086108154157243e10eec"
+  },
+  "inputHashes": {
+    "run": "8b550f01fa466ceae2c24c1d79ff62f3181277c079fa4ee43d3df1a4e511d8e6",
+    "replay": "26c0056fb1d32eca123d8c56ad0339393aaf546b8b77ea2fc0cf8e5d8e83f8c7",
+    "freeze": "63ba9f2a6aa4ae58ae176112fe793b2a5e59a12279d5b2f718a8d739252d0300",
+    "knownTruthManifest": "8457c3139bb576415a6a823a03c9df245b849cea60be82592215417e50e3835c"
+  },
+  "cases": [
+    {
+      "config": {
+        "name": "dx-0.8-epsilon-0-offset-0",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true,
+        "targetPhysicalVolume": 33923.7386779148,
+        "targetVolume": 66257.30210530233
+      },
+      "terminalClock": {
+        "steps": 50000,
+        "dt": 0.02,
+        "uniformDt": 0.019999999552965164,
+        "declaredTime": 1000,
+        "uniformTime": 999.9999776482582,
+        "simTime": 1000
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 3.0011069207525054e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 0,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 2.478408695420131e-05,
+          "heldOut111Residual": 0.00018708353513083645
+        }
+      },
+      "centroidStable": true,
+      "initialLiveness": {
+        "passed": true,
+        "checks": {
+          "declaration": true,
+          "adapter": true,
+          "uploadedReadbackHash": true,
+          "finiteCentroid": true,
+          "centered": true,
+          "volume": true,
+          "meshSetup": true,
+          "physicalVolumeTarget": true
+        }
+      },
+      "translationEvidence": {
+        "declaredOffset": [
+          0,
+          0,
+          0
+        ],
+        "appliedOffset": [
+          0,
+          0,
+          0
+        ],
+        "uploadedPhaseSha256": "1eb34dce8faf261ebb7c4dadf012ec4b20466556c80985ea43a7ee2f78081977",
+        "phaseSha256": "6e013a58bc767f2f59a88050105b35e3333c7f44fd3dedb214fcacd711aa38c9",
+        "volume": 66257.32198982712,
+        "centroidLab": [
+          -8.492364836570274e-08,
+          1.013493144070828e-07,
+          -1.4369157796311973e-07
+        ],
+        "centroidFrame": [
+          -8.492364836570274e-08,
+          1.013493144070828e-07,
+          -1.4369157796311973e-07
+        ]
+      },
+      "endpointHandling": {
+        "policy": "exact psi=.5 grid node: root0 or root1; original polynomial otherwise",
+        "root0": 0,
+        "root1": 0
+      },
+      "adapter": {
+        "maximumOnceOnlyResidual": 0.0,
+        "float64ArithmeticBound": 3.0995462036028604e-13,
+        "missingOffsetResidual": 0.0,
+        "doubleOffsetResidual": 0.0,
+        "missingAndDoubleOffsetRefused": true,
+        "independentVersusRecordedRootMaxW0": 2.384163195756628e-08,
+        "exactEndpointPoints": 0,
+        "rootDifferenceIsDescriptive": true
+      },
+      "result": {
+        "temperature": 0.9781858325004578,
+        "epsilonEffective": -0.00010111333690210222,
+        "epsilonError": 2.478408695420131e-05,
+        "d0Effective": 0.21837093145232614,
+        "supportHarmonicPredictedRadius100": 20.051384923155013,
+        "summaries": {
+          "quintic4": {
+            "radius": 20.372457878445275,
+            "sixFaceSpan": 7.42660622208291e-05,
+            "relativeToSupportHarmonic": 0.01601250769065299,
+            "capillary100": 0.22220410426888704,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.005562186984441775,
+            "maxCondition": 47.85809113726307
+          },
+          "quintic6": {
+            "radius": 20.288956831558867,
+            "sixFaceSpan": 0.00010204445695194408,
+            "relativeToSupportHarmonic": 0.011848154594524374,
+            "capillary100": 0.22129335135730344,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.0014406668505642095,
+            "maxCondition": 485.672088480834
+          },
+          "quintic8": {
+            "radius": 20.270604465186135,
+            "sixFaceSpan": 0.0001420612325624404,
+            "relativeToSupportHarmonic": 0.01093288782152757,
+            "capillary100": 0.22109318056026955,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.0005348141657179895,
+            "maxCondition": 4634.756897450056
+          },
+          "cubic4": {
+            "radius": 20.39961381268942,
+            "sixFaceSpan": 7.315177066402612e-05,
+            "relativeToSupportHarmonic": 0.017366824828756844,
+            "capillary100": 0.22250029631799123,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.0069025741282553454,
+            "maxCondition": 47.85809113726307
+          },
+          "cubic6": {
+            "radius": 20.29248563683139,
+            "sixFaceSpan": 0.00010351800536767541,
+            "relativeToSupportHarmonic": 0.01202414270138319,
+            "capillary100": 0.22133184033194747,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.0016148448102610846,
+            "maxCondition": 485.672088480834
+          },
+          "cubic8": {
+            "radius": 20.290469139810284,
+            "sixFaceSpan": 0.00014241386588409455,
+            "relativeToSupportHarmonic": 0.011923576230347122,
+            "capillary100": 0.22130984623005712,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.001515312727942586,
+            "maxCondition": 4634.756897450056
+          },
+          "raw4": {
+            "radius": 20.972738359565245,
+            "sixFaceSpan": 7.711595750237166e-05,
+            "relativeToSupportHarmonic": 0.045949615946291544,
+            "capillary100": 0.22875141374981545,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.035191373457700736,
+            "maxCondition": 47.85809113726307
+          },
+          "raw6": {
+            "radius": 20.66140224872619,
+            "sixFaceSpan": 0.00010758796723564501,
+            "relativeToSupportHarmonic": 0.030422702866111706,
+            "capillary100": 0.22535564471456587,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.019824164337892913,
+            "maxCondition": 485.672088480834
+          },
+          "raw8": {
+            "radius": 20.563780253282115,
+            "sixFaceSpan": 0.00014321292831809274,
+            "relativeToSupportHarmonic": 0.025554111703047333,
+            "capillary100": 0.22429087343443757,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.015005649663706544,
+            "maxCondition": 4634.756897450056
+          },
+          "quinticAllAxes4": {
+            "radius": 20.371559111304578,
+            "sixFaceSpan": 7.439710081769135e-05,
+            "relativeToSupportHarmonic": 0.01596768449544017,
+            "capillary100": 0.22219430134041193,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.005517824823676465,
+            "maxCondition": 52.630112467817206
+          },
+          "quinticAllAxes6": {
+            "radius": 20.290335852445832,
+            "sixFaceSpan": 0.00010132165860454734,
+            "relativeToSupportHarmonic": 0.011916928940647997,
+            "capillary100": 0.22130839245361025,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.0015087338097532488,
+            "maxCondition": 485.672088480834
+          },
+          "quinticAllAxes8": {
+            "radius": 20.274323125022452,
+            "sixFaceSpan": 0.00014442641829504055,
+            "relativeToSupportHarmonic": 0.01111834432992187,
+            "capillary100": 0.22113374029454116,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.0007183631385503375,
+            "maxCondition": 5000.969430106385
+          }
+        }
+      }
+    },
+    {
+      "config": {
+        "name": "dx-0.8-epsilon-0-offset-0.4",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true,
+        "targetPhysicalVolume": 33923.7386779148,
+        "targetVolume": 66257.30210530233
+      },
+      "terminalClock": {
+        "steps": 50000,
+        "dt": 0.02,
+        "uniformDt": 0.019999999552965164,
+        "declaredTime": 1000,
+        "uniformTime": 999.9999776482582,
+        "simTime": 1000
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 5.52041578005813e-08,
+          "epsilonSpan": 0,
+          "temperatureSpan": 0,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 2.406072483398935e-05,
+          "heldOut111Residual": 0.00019515448393078171
+        }
+      },
+      "centroidStable": true,
+      "initialLiveness": {
+        "passed": true,
+        "checks": {
+          "declaration": true,
+          "adapter": true,
+          "uploadedReadbackHash": true,
+          "finiteCentroid": true,
+          "centered": true,
+          "volume": true,
+          "baselinePresent": true,
+          "hashChanged": true,
+          "translationLive": true,
+          "sameMeshBaseline": true,
+          "meshSetup": true,
+          "physicalVolumeTarget": true
+        }
+      },
+      "translationEvidence": {
+        "declaredOffset": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "appliedOffset": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "uploadedPhaseSha256": "378f272ea45110dd5e460d9789af609c19fd2280b300a8f311c159d12c2028c7",
+        "phaseSha256": "2dad35f18a6744e334d397ba3592b27ff57de6e3751705e8955b7a5676aa30c3",
+        "volume": 66257.29846177658,
+        "centroidLab": [
+          0.3999999228758511,
+          0.4000001368255505,
+          0.3999998066859536
+        ],
+        "centroidFrame": [
+          -7.712418958189489e-08,
+          1.3682550914101693e-07,
+          -1.9331408766389866e-07
+        ]
+      },
+      "endpointHandling": {
+        "policy": "exact psi=.5 grid node: root0 or root1; original polynomial otherwise",
+        "root0": 0,
+        "root1": 0
+      },
+      "adapter": {
+        "maximumOnceOnlyResidual": 0.0,
+        "float64ArithmeticBound": 3.157416226395741e-13,
+        "missingOffsetResidual": 0.40000000000000036,
+        "doubleOffsetResidual": 0.40000000000000213,
+        "missingAndDoubleOffsetRefused": true,
+        "independentVersusRecordedRootMaxW0": 2.384086457141166e-08,
+        "exactEndpointPoints": 0,
+        "rootDifferenceIsDescriptive": true
+      },
+      "result": {
+        "temperature": 0.9781825542449951,
+        "epsilonEffective": -0.00012827301162263052,
+        "epsilonError": 2.406072483398935e-05,
+        "d0Effective": 0.21840319330105984,
+        "supportHarmonicPredictedRadius100": 20.059490399434395,
+        "summaries": {
+          "quintic4": {
+            "radius": 19.69376465226762,
+            "sixFaceSpan": 5.2040749082493676e-05,
+            "relativeToSupportHarmonic": -0.018232055744401454,
+            "capillary100": 0.2148338210063407,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.027791284053215515,
+            "maxCondition": 48.21628149656832
+          },
+          "quintic6": {
+            "radius": 19.756791941825842,
+            "sixFaceSpan": 0.00010627205446667176,
+            "relativeToSupportHarmonic": -0.015090037263214229,
+            "capillary100": 0.21552136824185145,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.02467985861816291,
+            "maxCondition": 591.1433124288175
+          },
+          "quintic8": {
+            "radius": 19.786959751276658,
+            "sixFaceSpan": 0.00013771210901225572,
+            "relativeToSupportHarmonic": -0.013586120221948494,
+            "capillary100": 0.2158504605149717,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.023190584840042106,
+            "maxCondition": 10661.9878158693
+          },
+          "cubic4": {
+            "radius": 19.61990152823199,
+            "sixFaceSpan": 4.997803146267188e-05,
+            "relativeToSupportHarmonic": -0.02191425915858769,
+            "capillary100": 0.2140280686553694,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.03143763477601802,
+            "maxCondition": 48.21628149656832
+          },
+          "cubic6": {
+            "radius": 19.6987675293789,
+            "sixFaceSpan": 0.00010542305176386435,
+            "relativeToSupportHarmonic": -0.017982653740080234,
+            "capillary100": 0.21488839600633788,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.02754431041367633,
+            "maxCondition": 591.1433124288175
+          },
+          "cubic8": {
+            "radius": 19.73665143997262,
+            "sixFaceSpan": 0.00013597604506188077,
+            "relativeToSupportHarmonic": -0.016094075823126608,
+            "capillary100": 0.2153016610885208,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.02567412110636591,
+            "maxCondition": 10661.9878158693
+          },
+          "raw4": {
+            "radius": 19.01686268434523,
+            "sixFaceSpan": 4.789586060383044e-05,
+            "relativeToSupportHarmonic": -0.05197677978492232,
+            "capillary100": 0.20744968502303932,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.06120744417676516,
+            "maxCondition": 48.21628149656832
+          },
+          "raw6": {
+            "radius": 19.180022292873463,
+            "sixFaceSpan": 0.0001028921788019943,
+            "relativeToSupportHarmonic": -0.04384299346835496,
+            "capillary100": 0.20922954797727558,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.053152854498130675,
+            "maxCondition": 591.1433124288175
+          },
+          "raw8": {
+            "radius": 19.259170617352943,
+            "sixFaceSpan": 0.00013263163922871968,
+            "relativeToSupportHarmonic": -0.03989731374751271,
+            "capillary100": 0.21009295511524087,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.04924559287140684,
+            "maxCondition": 10661.9878158693
+          },
+          "quinticAllAxes4": {
+            "radius": 19.69522060045386,
+            "sixFaceSpan": 4.1189363983562544e-05,
+            "relativeToSupportHarmonic": -0.01815947423025288,
+            "capillary100": 0.2148497035416284,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.02771940924707139,
+            "maxCondition": 47.7532829003246
+          },
+          "quinticAllAxes6": {
+            "radius": 19.755442504538074,
+            "sixFaceSpan": 0.00010317394277592484,
+            "relativeToSupportHarmonic": -0.015157309026399557,
+            "capillary100": 0.2155066476044386,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.02474647537305763,
+            "maxCondition": 632.5781748957945
+          },
+          "quinticAllAxes8": {
+            "radius": 19.79422978284015,
+            "sixFaceSpan": 0.00030138614851793477,
+            "relativeToSupportHarmonic": -0.013223696679838026,
+            "capillary100": 0.21592976727460855,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.022831690125088566,
+            "maxCondition": 195568.77497057724
+          }
+        }
+      }
+    },
+    {
+      "config": {
+        "name": "dx-0.8-epsilon-0.0171-offset-0",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0.0171,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true,
+        "targetPhysicalVolume": 33923.7386779148,
+        "targetVolume": 66257.30210530233
+      },
+      "terminalClock": {
+        "steps": 55554,
+        "dt": 0.0180006338,
+        "uniformDt": 0.018000634387135506,
+        "declaredTime": 1000.0072101251999,
+        "uniformTime": 1000.0072427429259,
+        "simTime": 1000.0072101252032
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 2.6927777097007777e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 1.7881393432617188e-07,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 4.830083734886498e-05,
+          "heldOut111Residual": 0.00047935976830843554
+        }
+      },
+      "centroidStable": true,
+      "initialLiveness": {
+        "passed": true,
+        "checks": {
+          "declaration": true,
+          "adapter": true,
+          "uploadedReadbackHash": true,
+          "finiteCentroid": true,
+          "centered": true,
+          "volume": true,
+          "meshSetup": true,
+          "physicalVolumeTarget": true
+        }
+      },
+      "translationEvidence": {
+        "declaredOffset": [
+          0,
+          0,
+          0
+        ],
+        "appliedOffset": [
+          0,
+          0,
+          0
+        ],
+        "uploadedPhaseSha256": "1eb34dce8faf261ebb7c4dadf012ec4b20466556c80985ea43a7ee2f78081977",
+        "phaseSha256": "4a26a46892a45e9287b73d7b772f5394078f405433ddd0c77d34e423b5518e86",
+        "volume": 66257.31994692095,
+        "centroidLab": [
+          -1.0933334520498193e-07,
+          -5.971570541449575e-08,
+          1.621478580365983e-09
+        ],
+        "centroidFrame": [
+          -1.0933334520498193e-07,
+          -5.971570541449575e-08,
+          1.621478580365983e-09
+        ]
+      },
+      "endpointHandling": {
+        "policy": "exact psi=.5 grid node: root0 or root1; original polynomial otherwise",
+        "root0": 0,
+        "root1": 0
+      },
+      "adapter": {
+        "maximumOnceOnlyResidual": 0.0,
+        "float64ArithmeticBound": 3.1810058364787574e-13,
+        "missingOffsetResidual": 0.0,
+        "doubleOffsetResidual": 0.0,
+        "missingAndDoubleOffsetRefused": true,
+        "independentVersusRecordedRootMaxW0": 2.3841521112899502e-08,
+        "exactEndpointPoints": 0,
+        "rootDifferenceIsDescriptive": true
+      },
+      "result": {
+        "temperature": 0.9784582257270813,
+        "epsilonEffective": 0.016601949245298106,
+        "epsilonError": 4.830083734886498e-05,
+        "d0Effective": 0.21820481756240995,
+        "supportHarmonicPredictedRadius100": 15.213736426033762,
+        "summaries": {
+          "quintic4": {
+            "radius": 14.81572849308533,
+            "sixFaceSpan": 3.29544881676469e-05,
+            "relativeToSupportHarmonic": -0.02616109033329639,
+            "capillary100": 0.15957853944344708,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.028706750469543185,
+            "maxCondition": 47.858091137263095
+          },
+          "quintic6": {
+            "radius": 14.936730804340394,
+            "sixFaceSpan": 5.5705885442236536e-05,
+            "relativeToSupportHarmonic": -0.01820759962814633,
+            "capillary100": 0.16088184168122607,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.02077405055846715,
+            "maxCondition": 485.67208848083413
+          },
+          "quintic8": {
+            "radius": 14.969115986128246,
+            "sixFaceSpan": 8.498286839042635e-05,
+            "relativeToSupportHarmonic": -0.016078919277641823,
+            "capillary100": 0.16123065881915674,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.018650934677257647,
+            "maxCondition": 4634.756897450107
+          },
+          "cubic4": {
+            "radius": 14.833592688880358,
+            "sixFaceSpan": 3.3865849232483924e-05,
+            "relativeToSupportHarmonic": -0.024986875446514345,
+            "capillary100": 0.1597709526801389,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.027535605035007293,
+            "maxCondition": 47.858091137263095
+          },
+          "cubic6": {
+            "radius": 14.9879576859035,
+            "sixFaceSpan": 5.539363660034269e-05,
+            "relativeToSupportHarmonic": -0.014840452983259755,
+            "capillary100": 0.16143360064089507,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.017415705791285152,
+            "maxCondition": 485.67208848083413
+          },
+          "cubic8": {
+            "radius": 15.028289287282838,
+            "sixFaceSpan": 8.516777814726595e-05,
+            "relativeToSupportHarmonic": -0.012189453895992686,
+            "capillary100": 0.16186800776738458,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.014771636538748134,
+            "maxCondition": 4634.756897450107
+          },
+          "raw4": {
+            "radius": 14.711826062557185,
+            "sixFaceSpan": 3.1043730714941375e-05,
+            "relativeToSupportHarmonic": -0.03299060463659065,
+            "capillary100": 0.1584594180910246,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.03551841210527684,
+            "maxCondition": 47.858091137263095
+          },
+          "raw6": {
+            "radius": 15.121044100348149,
+            "sixFaceSpan": 6.100039002632229e-05,
+            "relativeToSupportHarmonic": -0.0060926732979939,
+            "capillary100": 0.16286705939027443,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.00869079320837507,
+            "maxCondition": 485.67208848083413
+          },
+          "raw8": {
+            "radius": 15.278434169474446,
+            "sixFaceSpan": 9.216055369343223e-05,
+            "relativeToSupportHarmonic": 0.00425258737426093,
+            "capillary100": 0.16456229006123332,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": 0.0016274244720348996,
+            "maxCondition": 4634.756897450107
+          },
+          "quinticAllAxes4": {
+            "radius": 14.813843562461605,
+            "sixFaceSpan": 3.191086328868664e-05,
+            "relativeToSupportHarmonic": -0.02628498696006465,
+            "capillary100": 0.15955823706843886,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.02883032322477508,
+            "maxCondition": 49.90271136789408
+          },
+          "quinticAllAxes6": {
+            "radius": 14.941098503354018,
+            "sixFaceSpan": 5.4600258993176e-05,
+            "relativeToSupportHarmonic": -0.017920510454828564,
+            "capillary100": 0.16092888567434785,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.020487711849581203,
+            "maxCondition": 506.64089038989135
+          },
+          "quinticAllAxes8": {
+            "radius": 14.934180820892285,
+            "sixFaceSpan": 0.00010057964844101264,
+            "relativeToSupportHarmonic": -0.01837521022535271,
+            "capillary100": 0.16085437609730666,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.020941223013788313,
+            "maxCondition": 10182.771313094658
+          }
+        }
+      }
+    },
+    {
+      "config": {
+        "name": "dx-0.8-epsilon-0.0171-offset-0.4",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0.0171,
+        "centerOffset": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true,
+        "targetPhysicalVolume": 33923.7386779148,
+        "targetVolume": 66257.30210530233
+      },
+      "terminalClock": {
+        "steps": 55554,
+        "dt": 0.0180006338,
+        "uniformDt": 0.018000634387135506,
+        "declaredTime": 1000.0072101251999,
+        "uniformTime": 1000.0072427429259,
+        "simTime": 1000.0072101252032
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 1.078792326580924e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 5.960464477539063e-08,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 5.107455505560035e-05,
+          "heldOut111Residual": 0.0005788899761373532
+        }
+      },
+      "centroidStable": true,
+      "initialLiveness": {
+        "passed": true,
+        "checks": {
+          "declaration": true,
+          "adapter": true,
+          "uploadedReadbackHash": true,
+          "finiteCentroid": true,
+          "centered": true,
+          "volume": true,
+          "baselinePresent": true,
+          "hashChanged": true,
+          "translationLive": true,
+          "sameMeshBaseline": true,
+          "meshSetup": true,
+          "physicalVolumeTarget": true
+        }
+      },
+      "translationEvidence": {
+        "declaredOffset": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "appliedOffset": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "uploadedPhaseSha256": "378f272ea45110dd5e460d9789af609c19fd2280b300a8f311c159d12c2028c7",
+        "phaseSha256": "463e2cbd66d9f93e86561bd3ab6ea858f505c897d8a994245e81df99b97a9f3d",
+        "volume": 66257.30925308923,
+        "centroidLab": [
+          0.39999982106271953,
+          0.4000000451141947,
+          0.39999985899332297
+        ],
+        "centroidFrame": [
+          -1.7893730394200307e-07,
+          4.511417159175179e-08,
+          -1.4100670061010696e-07
+        ]
+      },
+      "endpointHandling": {
+        "policy": "exact psi=.5 grid node: root0 or root1; original polynomial otherwise",
+        "root0": 0,
+        "root1": 0
+      },
+      "adapter": {
+        "maximumOnceOnlyResidual": 0.0,
+        "float64ArithmeticBound": 3.2386263775754847e-13,
+        "missingOffsetResidual": 0.40000000000000036,
+        "doubleOffsetResidual": 0.40000000000000213,
+        "missingAndDoubleOffsetRefused": true,
+        "independentVersusRecordedRootMaxW0": 2.3841569429805532e-08,
+        "exactEndpointPoints": 0,
+        "rootDifferenceIsDescriptive": true
+      },
+      "result": {
+        "temperature": 0.9784567356109619,
+        "epsilonEffective": 0.0164672063967639,
+        "epsilonError": 5.107455505560035e-05,
+        "d0Effective": 0.21819254419404457,
+        "supportHarmonicPredictedRadius100": 15.252769156513608,
+        "summaries": {
+          "quintic4": {
+            "radius": 15.007779239535623,
+            "sixFaceSpan": 3.151920791921725e-05,
+            "relativeToSupportHarmonic": -0.016061995986700106,
+            "capillary100": 0.16165827802481644,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.016048180890467667,
+            "maxCondition": 48.21628149656832
+          },
+          "quintic6": {
+            "radius": 14.911646404770318,
+            "sixFaceSpan": 5.4349372216933034e-05,
+            "relativeToSupportHarmonic": -0.022364643970082976,
+            "capillary100": 0.1606227704869081,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.02235091736691419,
+            "maxCondition": 591.1433124287977
+          },
+          "quintic8": {
+            "radius": 14.905387089485545,
+            "sixFaceSpan": 6.739728742743978e-05,
+            "relativeToSupportHarmonic": -0.022775016356929245,
+            "capillary100": 0.160555347444871,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.022761295515641766,
+            "maxCondition": 10661.9878158693
+          },
+          "cubic4": {
+            "radius": 15.01040566007032,
+            "sixFaceSpan": 2.965233410279211e-05,
+            "relativeToSupportHarmonic": -0.01588980295684783,
+            "capillary100": 0.16168656886080432,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.015875985442919238,
+            "maxCondition": 48.21628149656832
+          },
+          "cubic6": {
+            "radius": 14.901236473061848,
+            "sixFaceSpan": 5.341442067674507e-05,
+            "relativeToSupportHarmonic": -0.023047138512657495,
+            "capillary100": 0.1605106385313744,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.023033421492132944,
+            "maxCondition": 591.1433124287977
+          },
+          "cubic8": {
+            "radius": 14.903572467945532,
+            "sixFaceSpan": 6.661574533772807e-05,
+            "relativeToSupportHarmonic": -0.02289398633027595,
+            "capillary100": 0.16053580100906972,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.02288026715940017,
+            "maxCondition": 10661.9878158693
+          },
+          "raw4": {
+            "radius": 15.188720559240537,
+            "sixFaceSpan": 3.093698119371879e-05,
+            "relativeToSupportHarmonic": -0.004199145520124792,
+            "capillary100": 0.16360731136946866,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.004185163862157615,
+            "maxCondition": 48.21628149656832
+          },
+          "raw6": {
+            "radius": 14.89099744787221,
+            "sixFaceSpan": 5.180568234486316e-05,
+            "relativeToSupportHarmonic": -0.023718428105030775,
+            "capillary100": 0.1604003475180012,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.02370472050982597,
+            "maxCondition": 591.1433124287977
+          },
+          "raw8": {
+            "radius": 14.867659104883353,
+            "sixFaceSpan": 6.414810496835344e-05,
+            "relativeToSupportHarmonic": -0.0252485334091479,
+            "capillary100": 0.1601489554712957,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.025234847297564977,
+            "maxCondition": 10661.9878158693
+          },
+          "quinticAllAxes4": {
+            "radius": 15.0070675919017,
+            "sixFaceSpan": 3.1633394000252224e-05,
+            "relativeToSupportHarmonic": -0.016108652933161438,
+            "capillary100": 0.1616506124182517,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.016094838492021424,
+            "maxCondition": 50.365381335269454
+          },
+          "quinticAllAxes6": {
+            "radius": 14.914588450413818,
+            "sixFaceSpan": 5.447953815362894e-05,
+            "relativeToSupportHarmonic": -0.022171757969297712,
+            "capillary100": 0.16065446112047937,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.022158028657890627,
+            "maxCondition": 591.1433124287977
+          },
+          "quinticAllAxes8": {
+            "radius": 14.905003845641096,
+            "sixFaceSpan": 6.705110821947358e-05,
+            "relativeToSupportHarmonic": -0.022800142538314194,
+            "capillary100": 0.16055121928313776,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.022786422049813848,
+            "maxCondition": 10661.9878158693
+          }
+        }
+      }
+    },
+    {
+      "config": {
+        "name": "dx-0.6-epsilon-0-offset-0",
+        "n": 128,
+        "dx": 0.6,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true,
+        "targetPhysicalVolume": 33923.7386779148,
+        "targetVolume": 157054.34573108706
+      },
+      "terminalClock": {
+        "steps": 88889,
+        "dt": 0.011249999999999998,
+        "uniformDt": 0.011250000447034836,
+        "declaredTime": 1000.0012499999998,
+        "uniformTime": 1000.0012897364795,
+        "simTime": 1000.0012500000156
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 1.5728406266291017e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 0,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 7.5721475542585875e-06,
+          "heldOut111Residual": 5.506966231301435e-05
+        }
+      },
+      "centroidStable": true,
+      "initialLiveness": {
+        "passed": true,
+        "checks": {
+          "declaration": true,
+          "adapter": true,
+          "uploadedReadbackHash": true,
+          "finiteCentroid": true,
+          "centered": true,
+          "volume": true,
+          "meshSetup": true,
+          "physicalVolumeTarget": true
+        }
+      },
+      "translationEvidence": {
+        "declaredOffset": [
+          0,
+          0,
+          0
+        ],
+        "appliedOffset": [
+          0,
+          0,
+          0
+        ],
+        "uploadedPhaseSha256": "dfeb08e533d37c427710c005e219ba68d5609954bc6b06520542069ed6cca531",
+        "phaseSha256": "ab589a01a00b91bd0c00be1d679cd6a573f6723b1dde9e0a6fead2177d94ed96",
+        "volume": 157054.3704332326,
+        "centroidLab": [
+          -1.9545164958641942e-08,
+          2.4396895369709403e-07,
+          -8.676844646401274e-08
+        ],
+        "centroidFrame": [
+          -1.9545164958641942e-08,
+          2.4396895369709403e-07,
+          -8.676844646401274e-08
+        ]
+      },
+      "endpointHandling": {
+        "policy": "exact psi=.5 grid node: root0 or root1; original polynomial otherwise",
+        "root0": 0,
+        "root1": 0
+      },
+      "adapter": {
+        "maximumOnceOnlyResidual": 0.0,
+        "float64ArithmeticBound": 3.071436518240335e-13,
+        "missingOffsetResidual": 0.0,
+        "doubleOffsetResidual": 0.0,
+        "missingAndDoubleOffsetRefused": true,
+        "independentVersusRecordedRootMaxW0": 1.7881177072354147e-08,
+        "exactEndpointPoints": 0,
+        "rootDifferenceIsDescriptive": true
+      },
+      "result": {
+        "temperature": 0.9780740141868591,
+        "epsilonEffective": -3.261222507601315e-05,
+        "epsilonError": 7.5721475542585875e-06,
+        "d0Effective": 0.2194622783964092,
+        "supportHarmonicPredictedRadius100": 20.02825666001263,
+        "summaries": {
+          "quintic4": {
+            "radius": 20.009466819495092,
+            "sixFaceSpan": 1.546175521482951e-05,
+            "relativeToSupportHarmonic": -0.00093816655321044,
+            "capillary100": 0.21936364280638115,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0072920339116138155,
+            "maxCondition": 47.85809113726307
+          },
+          "quintic6": {
+            "radius": 20.00356644661961,
+            "sixFaceSpan": 6.456101291618666e-05,
+            "relativeToSupportHarmonic": -0.0012327689729637603,
+            "capillary100": 0.21929895706040115,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.007584762708898518,
+            "maxCondition": 485.67208848083345
+          },
+          "quintic8": {
+            "radius": 20.00951771240771,
+            "sixFaceSpan": 8.565321552467253e-05,
+            "relativeToSupportHarmonic": -0.0009356254976666811,
+            "capillary100": 0.2193642007450212,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.007289509016761175,
+            "maxCondition": 4448.604889981424
+          },
+          "cubic4": {
+            "radius": 19.994630811313353,
+            "sixFaceSpan": 1.6742419482795867e-05,
+            "relativeToSupportHarmonic": -0.0016789204008161862,
+            "capillary100": 0.21920099575392293,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.008028076687756847,
+            "maxCondition": 47.85809113726307
+          },
+          "cubic6": {
+            "radius": 19.985754109952932,
+            "sixFaceSpan": 6.275254805387931e-05,
+            "relativeToSupportHarmonic": -0.0021221292886942633,
+            "capillary100": 0.21910368053987492,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.008468466840706346,
+            "maxCondition": 485.67208848083345
+          },
+          "cubic8": {
+            "radius": 19.99725808864322,
+            "sixFaceSpan": 8.605641179215695e-05,
+            "relativeToSupportHarmonic": -0.001547741867683361,
+            "capillary100": 0.21922979857665387,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.007897732428311488,
+            "maxCondition": 4448.604889981424
+          },
+          "raw4": {
+            "radius": 19.950977952719533,
+            "sixFaceSpan": 1.468421576333867e-05,
+            "relativeToSupportHarmonic": -0.0038584839711679475,
+            "capillary100": 0.21872242977480738,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.010193778595735337,
+            "maxCondition": 47.85809113726307
+          },
+          "raw6": {
+            "radius": 19.89178439159777,
+            "sixFaceSpan": 6.084337859491029e-05,
+            "relativeToSupportHarmonic": -0.0068139863958970315,
+            "capillary100": 0.21807349118411484,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.013130484515828322,
+            "maxCondition": 485.67208848083345
+          },
+          "raw8": {
+            "radius": 19.924046071509323,
+            "sixFaceSpan": 8.315626800126097e-05,
+            "relativeToSupportHarmonic": -0.005203178203291525,
+            "capillary100": 0.21842717575213924,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.011529920795840143,
+            "maxCondition": 4448.604889981424
+          },
+          "quinticAllAxes4": {
+            "radius": 20.008971326759184,
+            "sixFaceSpan": 1.577447881473404e-05,
+            "relativeToSupportHarmonic": -0.0009629062369641561,
+            "capillary100": 0.21935821072303216,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.00731661625508695,
+            "maxCondition": 47.85809113726307
+          },
+          "quinticAllAxes6": {
+            "radius": 20.00369795395373,
+            "sixFaceSpan": 6.449137509534353e-05,
+            "relativeToSupportHarmonic": -0.0012262028830464233,
+            "capillary100": 0.21930039877437224,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.00757823837822269,
+            "maxCondition": 485.67208848083345
+          },
+          "quinticAllAxes8": {
+            "radius": 20.009917910997714,
+            "sixFaceSpan": 8.341751490092975e-05,
+            "relativeToSupportHarmonic": -0.0009156437989698007,
+            "capillary100": 0.21936858811932464,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.007269654398349923,
+            "maxCondition": 4448.604889981424
+          }
+        }
+      }
+    },
+    {
+      "config": {
+        "name": "dx-0.6-epsilon-0-offset-0.3",
+        "n": 128,
+        "dx": 0.6,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0.3,
+          0.3,
+          0.3
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true,
+        "targetPhysicalVolume": 33923.7386779148,
+        "targetVolume": 157054.34573108706
+      },
+      "terminalClock": {
+        "steps": 88889,
+        "dt": 0.011249999999999998,
+        "uniformDt": 0.011250000447034836,
+        "declaredTime": 1000.0012499999998,
+        "uniformTime": 1000.0012897364795,
+        "simTime": 1000.0012500000156
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 6.555872111846384e-08,
+          "epsilonSpan": 0,
+          "temperatureSpan": 0,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 6.572985252937633e-06,
+          "heldOut111Residual": 5.352533455238331e-05
+        }
+      },
+      "centroidStable": true,
+      "initialLiveness": {
+        "passed": true,
+        "checks": {
+          "declaration": true,
+          "adapter": true,
+          "uploadedReadbackHash": true,
+          "finiteCentroid": true,
+          "centered": true,
+          "volume": true,
+          "baselinePresent": true,
+          "hashChanged": true,
+          "translationLive": true,
+          "sameMeshBaseline": true,
+          "meshSetup": true,
+          "physicalVolumeTarget": true
+        }
+      },
+      "translationEvidence": {
+        "declaredOffset": [
+          0.3,
+          0.3,
+          0.3
+        ],
+        "appliedOffset": [
+          0.3,
+          0.3,
+          0.3
+        ],
+        "uploadedPhaseSha256": "38cb96d1337f973dd80d044f1e1f219770985d9748c2dd722d6abbe057465e42",
+        "phaseSha256": "e3eab3e7e5683c383fe06422536480130b9e37c9186607b9d4182065affd2001",
+        "volume": 157054.35602736913,
+        "centroidLab": [
+          0.2999997175364842,
+          0.3000007146690916,
+          0.29999962728348695
+        ],
+        "centroidFrame": [
+          -2.8246350714284233e-07,
+          7.146691036238651e-07,
+          -3.7271650219299474e-07
+        ]
+      },
+      "endpointHandling": {
+        "policy": "exact psi=.5 grid node: root0 or root1; original polynomial otherwise",
+        "root0": 0,
+        "root1": 0
+      },
+      "adapter": {
+        "maximumOnceOnlyResidual": 0.0,
+        "float64ArithmeticBound": 3.114721519677959e-13,
+        "missingOffsetResidual": 0.3000000000000007,
+        "doubleOffsetResidual": 0.3000000000000007,
+        "missingAndDoubleOffsetRefused": true,
+        "independentVersusRecordedRootMaxW0": 1.7880162417327482e-08,
+        "exactEndpointPoints": 0,
+        "rootDifferenceIsDescriptive": true
+      },
+      "result": {
+        "temperature": 0.9780745506286621,
+        "epsilonEffective": -3.016455102775213e-05,
+        "epsilonError": 6.572985252937633e-06,
+        "d0Effective": 0.2194573678997671,
+        "supportHarmonicPredictedRadius100": 20.027563556473297,
+        "summaries": {
+          "quintic4": {
+            "radius": 20.04936568445678,
+            "sixFaceSpan": 0.0001249970553374169,
+            "relativeToSupportHarmonic": 0.0010886061063797303,
+            "capillary100": 0.2197956761209982,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.005336910867753342,
+            "maxCondition": 48.21628149656827
+          },
+          "quintic6": {
+            "radius": 20.052055695224425,
+            "sixFaceSpan": 0.0001904890209978305,
+            "relativeToSupportHarmonic": 0.00122292153421788,
+            "capillary100": 0.21982516596844537,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.005203457547481083,
+            "maxCondition": 591.143312428812
+          },
+          "quintic8": {
+            "radius": 20.044330553199263,
+            "sixFaceSpan": 0.00021668689865705915,
+            "relativeToSupportHarmonic": 0.0008371960312938409,
+            "capillary100": 0.21974047736326582,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.005586707259799484,
+            "maxCondition": 10661.987815869305
+          },
+          "cubic4": {
+            "radius": 20.0672098747111,
+            "sixFaceSpan": 0.00012319279329631172,
+            "relativeToSupportHarmonic": 0.001979587688038631,
+            "capillary100": 0.219991297065995,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.004451648077859582,
+            "maxCondition": 48.21628149656827
+          },
+          "cubic6": {
+            "radius": 20.068281785546475,
+            "sixFaceSpan": 0.0001836725968438202,
+            "relativeToSupportHarmonic": 0.0020331094672780825,
+            "capillary100": 0.2200030481293708,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.004398469829750895,
+            "maxCondition": 591.143312428812
+          },
+          "cubic8": {
+            "radius": 20.052916259046494,
+            "sixFaceSpan": 0.0002055210274996,
+            "relativeToSupportHarmonic": 0.0012658905064366621,
+            "capillary100": 0.21983460009270117,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.005160764372887594,
+            "maxCondition": 10661.987815869305
+          },
+          "raw4": {
+            "radius": 20.14081833948676,
+            "sixFaceSpan": 0.00012360521568410832,
+            "relativeToSupportHarmonic": 0.005654945630011898,
+            "capillary100": 0.2207982463998653,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0007998805300811762,
+            "maxCondition": 48.21628149656827
+          },
+          "raw6": {
+            "radius": 20.18410033868658,
+            "sixFaceSpan": 0.00018659450431712798,
+            "relativeToSupportHarmonic": 0.007816067180208108,
+            "capillary100": 0.22127273504093828,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.0013473697972090637,
+            "maxCondition": 591.143312428812
+          },
+          "raw8": {
+            "radius": 20.14180014188444,
+            "sixFaceSpan": 0.00020952720097966449,
+            "relativeToSupportHarmonic": 0.005703968188093267,
+            "capillary100": 0.2208090096292468,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0007511726247458883,
+            "maxCondition": 10661.987815869305
+          },
+          "quinticAllAxes4": {
+            "radius": 20.049728682767093,
+            "sixFaceSpan": 0.0001230875904489892,
+            "relativeToSupportHarmonic": 0.001106731042510356,
+            "capillary100": 0.21979965557153552,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.005318902267064107,
+            "maxCondition": 52.87732606308289
+          },
+          "quinticAllAxes6": {
+            "radius": 20.05162128757917,
+            "sixFaceSpan": 0.0001897535948316431,
+            "relativeToSupportHarmonic": 0.001201231045306006,
+            "capillary100": 0.2198204036770291,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.005225008815345156,
+            "maxCondition": 591.143312428812
+          },
+          "quinticAllAxes8": {
+            "radius": 20.04427565597152,
+            "sixFaceSpan": 0.00022898085762079745,
+            "relativeToSupportHarmonic": 0.000834454947607588,
+            "capillary100": 0.2197398755400721,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.005589430749758595,
+            "maxCondition": 10661.987815869305
+          }
+        }
+      }
+    },
+    {
+      "config": {
+        "name": "dx-0.6-epsilon-0.0171-offset-0",
+        "n": 128,
+        "dx": 0.6,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0.0171,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true,
+        "targetPhysicalVolume": 33923.7386779148,
+        "targetVolume": 157054.34573108706
+      },
+      "terminalClock": {
+        "steps": 98762,
+        "dt": 0.010125356512499998,
+        "uniformDt": 0.0101253567263484,
+        "declaredTime": 1000.0004598875248,
+        "uniformTime": 1000.0004810076207,
+        "simTime": 1000.0004598875469
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 2.6695547883370807e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 5.960464477539063e-08,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 1.2136900932515488e-05,
+          "heldOut111Residual": 0.00023950932015929846
+        }
+      },
+      "centroidStable": true,
+      "initialLiveness": {
+        "passed": true,
+        "checks": {
+          "declaration": true,
+          "adapter": true,
+          "uploadedReadbackHash": true,
+          "finiteCentroid": true,
+          "centered": true,
+          "volume": true,
+          "meshSetup": true,
+          "physicalVolumeTarget": true
+        }
+      },
+      "translationEvidence": {
+        "declaredOffset": [
+          0,
+          0,
+          0
+        ],
+        "appliedOffset": [
+          0,
+          0,
+          0
+        ],
+        "uploadedPhaseSha256": "dfeb08e533d37c427710c005e219ba68d5609954bc6b06520542069ed6cca531",
+        "phaseSha256": "785aba6bc355aca7d30da4c8661f1eeaafb81bbf647ac1e66f7224aed9209810",
+        "volume": 157054.38765760514,
+        "centroidLab": [
+          -1.5258698829979969e-07,
+          -9.624231802803527e-09,
+          -1.3136461470885822e-07
+        ],
+        "centroidFrame": [
+          -1.5258698829979969e-07,
+          -9.624231802803527e-09,
+          -1.3136461470885822e-07
+        ]
+      },
+      "endpointHandling": {
+        "policy": "exact psi=.5 grid node: root0 or root1; original polynomial otherwise",
+        "root0": 0,
+        "root1": 0
+      },
+      "adapter": {
+        "maximumOnceOnlyResidual": 0.0,
+        "float64ArithmeticBound": 3.1531525191902454e-13,
+        "missingOffsetResidual": 0.0,
+        "doubleOffsetResidual": 0.0,
+        "missingAndDoubleOffsetRefused": true,
+        "independentVersusRecordedRootMaxW0": 1.7881059832802746e-08,
+        "exactEndpointPoints": 0,
+        "rootDifferenceIsDescriptive": true
+      },
+      "result": {
+        "temperature": 0.9783397912979126,
+        "epsilonEffective": 0.01680532903042043,
+        "epsilonError": 1.2136900932515488e-05,
+        "d0Effective": 0.2193526930985836,
+        "supportHarmonicPredictedRadius100": 15.148356383502005,
+        "summaries": {
+          "quintic4": {
+            "radius": 14.962462275502764,
+            "sixFaceSpan": 9.752610003310735e-05,
+            "relativeToSupportHarmonic": -0.012271569488667255,
+            "capillary100": 0.16204502779224972,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.013694183669566096,
+            "maxCondition": 47.85809113726307
+          },
+          "quintic6": {
+            "radius": 14.950099393522684,
+            "sixFaceSpan": 0.00014453193493046967,
+            "relativeToSupportHarmonic": -0.013087689843053973,
+            "capillary100": 0.16191113649032582,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.01450912857495923,
+            "maxCondition": 485.67208848083345
+          },
+          "quintic8": {
+            "radius": 14.945045483838141,
+            "sixFaceSpan": 0.00017499972925172358,
+            "relativeToSupportHarmonic": -0.01342131743647701,
+            "capillary100": 0.16185640212106148,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.014842275648301206,
+            "maxCondition": 4448.604889981424
+          },
+          "cubic4": {
+            "radius": 14.958470592065458,
+            "sixFaceSpan": 9.648477394996746e-05,
+            "relativeToSupportHarmonic": -0.01253507553092359,
+            "capillary100": 0.16200179744408738,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.013957310187024952,
+            "maxCondition": 47.85809113726307
+          },
+          "cubic6": {
+            "radius": 14.939778083048003,
+            "sixFaceSpan": 0.00014224103588666992,
+            "relativeToSupportHarmonic": -0.013769038381032828,
+            "capillary100": 0.1617993556208455,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.015189495774280304,
+            "maxCondition": 485.67208848083345
+          },
+          "cubic8": {
+            "radius": 14.932491614835909,
+            "sixFaceSpan": 0.00017144567795845944,
+            "relativeToSupportHarmonic": -0.014250045562777536,
+            "capillary100": 0.16172044240975797,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.01566981016677571,
+            "maxCondition": 4448.604889981424
+          },
+          "raw4": {
+            "radius": 14.978018109803052,
+            "sixFaceSpan": 9.869691215413923e-05,
+            "relativeToSupportHarmonic": -0.01124467033825971,
+            "capillary100": 0.1622134991009894,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.01266876355048796,
+            "maxCondition": 47.85809113726307
+          },
+          "raw6": {
+            "radius": 14.912955044446237,
+            "sixFaceSpan": 0.00014263428201921613,
+            "relativeToSupportHarmonic": -0.015539728079816073,
+            "capillary100": 0.16150885931377632,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.01695763516854898,
+            "maxCondition": 485.67208848083345
+          },
+          "raw8": {
+            "radius": 14.868237783780033,
+            "sixFaceSpan": 0.0001710762267101984,
+            "relativeToSupportHarmonic": -0.018491682703415058,
+            "capillary100": 0.1610245667144685,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.019905338125010497,
+            "maxCondition": 4448.604889981424
+          },
+          "quinticAllAxes4": {
+            "radius": 14.963088112618868,
+            "sixFaceSpan": 9.711892274033573e-05,
+            "relativeToSupportHarmonic": -0.012230255625944486,
+            "capillary100": 0.1620518056735239,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.01365292931073625,
+            "maxCondition": 47.85809113726307
+          },
+          "quinticAllAxes6": {
+            "radius": 14.94972560099144,
+            "sixFaceSpan": 0.00014477723409633825,
+            "relativeToSupportHarmonic": -0.013112365294421835,
+            "capillary100": 0.16190708827820682,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.01453376848655119,
+            "maxCondition": 485.67208848083345
+          },
+          "quinticAllAxes8": {
+            "radius": 14.944990285114457,
+            "sixFaceSpan": 0.00017362801778020298,
+            "relativeToSupportHarmonic": -0.01342496131191051,
+            "capillary100": 0.16185580431312394,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.014845914275501748,
+            "maxCondition": 4556.999046105174
+          }
+        }
+      }
+    },
+    {
+      "config": {
+        "name": "dx-0.6-epsilon-0.0171-offset-0.3",
+        "n": 128,
+        "dx": 0.6,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0.0171,
+        "centerOffset": [
+          0.3,
+          0.3,
+          0.3
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true,
+        "targetPhysicalVolume": 33923.7386779148,
+        "targetVolume": 157054.34573108706
+      },
+      "terminalClock": {
+        "steps": 98762,
+        "dt": 0.010125356512499998,
+        "uniformDt": 0.0101253567263484,
+        "declaredTime": 1000.0004598875248,
+        "uniformTime": 1000.0004810076207,
+        "simTime": 1000.0004598875469
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 1.855908289272179e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 5.960464477539063e-08,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 9.810853885395404e-06,
+          "heldOut111Residual": 0.0002384016978029248
+        }
+      },
+      "centroidStable": true,
+      "initialLiveness": {
+        "passed": true,
+        "checks": {
+          "declaration": true,
+          "adapter": true,
+          "uploadedReadbackHash": true,
+          "finiteCentroid": true,
+          "centered": true,
+          "volume": true,
+          "baselinePresent": true,
+          "hashChanged": true,
+          "translationLive": true,
+          "sameMeshBaseline": true,
+          "meshSetup": true,
+          "physicalVolumeTarget": true
+        }
+      },
+      "translationEvidence": {
+        "declaredOffset": [
+          0.3,
+          0.3,
+          0.3
+        ],
+        "appliedOffset": [
+          0.3,
+          0.3,
+          0.3
+        ],
+        "uploadedPhaseSha256": "38cb96d1337f973dd80d044f1e1f219770985d9748c2dd722d6abbe057465e42",
+        "phaseSha256": "00360ff04fe0d887f8ab04bdca86a9268c193179a20274ea28ae9f2969627de1",
+        "volume": 157054.37487893327,
+        "centroidLab": [
+          0.29999987165058134,
+          0.29999997391335403,
+          0.29999995058885925
+        ],
+        "centroidFrame": [
+          -1.2834936296157713e-07,
+          -2.6086589385048898e-08,
+          -4.941108258637366e-08
+        ]
+      },
+      "endpointHandling": {
+        "policy": "exact psi=.5 grid node: root0 or root1; original polynomial otherwise",
+        "root0": 0,
+        "root1": 0
+      },
+      "adapter": {
+        "maximumOnceOnlyResidual": 0.0,
+        "float64ArithmeticBound": 3.196655252141027e-13,
+        "missingOffsetResidual": 0.3000000000000007,
+        "doubleOffsetResidual": 0.3000000000000007,
+        "missingAndDoubleOffsetRefused": true,
+        "independentVersusRecordedRootMaxW0": 1.787976593448093e-08,
+        "exactEndpointPoints": 0,
+        "rootDifferenceIsDescriptive": true
+      },
+      "result": {
+        "temperature": 0.9783397912979126,
+        "epsilonEffective": 0.016807829767225075,
+        "epsilonError": 9.810853885395404e-06,
+        "d0Effective": 0.2193532485173886,
+        "supportHarmonicPredictedRadius100": 15.147634990429026,
+        "summaries": {
+          "quintic4": {
+            "radius": 14.971885813052369,
+            "sixFaceSpan": 3.381855582418325e-05,
+            "relativeToSupportHarmonic": -0.011602416977152141,
+            "capillary100": 0.16214708568726793,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.013072996479620569,
+            "maxCondition": 48.21628149656827
+          },
+          "quintic6": {
+            "radius": 14.978721827761362,
+            "sixFaceSpan": 8.230034936573816e-05,
+            "relativeToSupportHarmonic": -0.011151124434566229,
+            "capillary100": 0.16222112043991158,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.012622375389063967,
+            "maxCondition": 591.143312428812
+          },
+          "quintic8": {
+            "radius": 14.978298039926637,
+            "sixFaceSpan": 0.00017637422934235758,
+            "relativeToSupportHarmonic": -0.011179101596347163,
+            "capillary100": 0.1622165307734388,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.0126503109252466,
+            "maxCondition": 10661.987815869305
+          },
+          "cubic4": {
+            "radius": 14.980508590068657,
+            "sixFaceSpan": 3.2476283715610066e-05,
+            "relativeToSupportHarmonic": -0.011033167914725084,
+            "capillary100": 0.1622404712621501,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.012504594369895039,
+            "maxCondition": 48.21628149656827
+          },
+          "cubic6": {
+            "radius": 14.993413243866028,
+            "sixFaceSpan": 7.897840673543044e-05,
+            "relativeToSupportHarmonic": -0.010181242594005102,
+            "capillary100": 0.16238023000938973,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.011653936579504753,
+            "maxCondition": 591.143312428812
+          },
+          "cubic8": {
+            "radius": 14.989722963434097,
+            "sixFaceSpan": 0.00016754983947286917,
+            "relativeToSupportHarmonic": -0.010424863491542036,
+            "capillary100": 0.1623402638872273,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.011897195007621986,
+            "maxCondition": 10661.987815869305
+          },
+          "raw4": {
+            "radius": 14.976008404831637,
+            "sixFaceSpan": 3.3325464746880584e-05,
+            "relativeToSupportHarmonic": -0.011330256221900648,
+            "capillary100": 0.16219173378643414,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.012801240656589719,
+            "maxCondition": 48.21628149656827
+          },
+          "raw6": {
+            "radius": 15.043436787931162,
+            "sixFaceSpan": 8.083207303499762e-05,
+            "relativeToSupportHarmonic": -0.0068788429721010624,
+            "capillary100": 0.16292199021162415,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.00835645040667865,
+            "maxCondition": 591.143312428812
+          },
+          "raw8": {
+            "radius": 15.06489768879613,
+            "sixFaceSpan": 0.00017292221749087844,
+            "relativeToSupportHarmonic": -0.005462060690343606,
+            "capillary100": 0.16315441400745917,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006941776073199013,
+            "maxCondition": 10661.987815869305
+          },
+          "quinticAllAxes4": {
+            "radius": 14.972112011405342,
+            "sixFaceSpan": 3.246698738479381e-05,
+            "relativeToSupportHarmonic": -0.011587484061676201,
+            "capillary100": 0.16214953543903465,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.013058085781964435,
+            "maxCondition": 49.41726258066297
+          },
+          "quinticAllAxes6": {
+            "radius": 14.979594588825593,
+            "sixFaceSpan": 8.050051483543541e-05,
+            "relativeToSupportHarmonic": -0.011093507449156825,
+            "capillary100": 0.16223057253331075,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.012564844128629127,
+            "maxCondition": 591.143312428812
+          },
+          "quinticAllAxes8": {
+            "radius": 14.977699513285197,
+            "sixFaceSpan": 0.0001743953659172348,
+            "relativeToSupportHarmonic": -0.011218614473559874,
+            "capillary100": 0.16221004866745514,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.012689765013538468,
+            "maxCondition": 10661.987815869305
+          }
+        }
+      }
+    },
+    {
+      "config": {
+        "name": "dx-0.4-epsilon-0-offset-0",
+        "n": 192,
+        "dx": 0.4,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true,
+        "targetPhysicalVolume": 33923.7386779148,
+        "targetVolume": 530058.4168424186
+      },
+      "terminalClock": {
+        "steps": 200000,
+        "dt": 0.005,
+        "uniformDt": 0.004999999888241291,
+        "declaredTime": 1000,
+        "uniformTime": 999.9999776482582,
+        "simTime": 1000.0000000001031
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 3.272657173036819e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 0,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 1.277710348670565e-06,
+          "heldOut111Residual": 9.82666269873328e-06
+        }
+      },
+      "centroidStable": true,
+      "initialLiveness": {
+        "passed": true,
+        "checks": {
+          "declaration": true,
+          "adapter": true,
+          "uploadedReadbackHash": true,
+          "finiteCentroid": true,
+          "centered": true,
+          "volume": true,
+          "meshSetup": true,
+          "physicalVolumeTarget": true
+        }
+      },
+      "translationEvidence": {
+        "declaredOffset": [
+          0,
+          0,
+          0
+        ],
+        "appliedOffset": [
+          0,
+          0,
+          0
+        ],
+        "uploadedPhaseSha256": "e792064d5695f1402a661cb48990d441e32eaa53874bfd24a419969cdcffcf6e",
+        "phaseSha256": "d1941f42b516ea51e52bffe706acc82c5766e235b80e03bdf65711e5d19dd829",
+        "volume": 530058.2435175473,
+        "centroidLab": [
+          1.4300567547276758e-08,
+          5.435629491189001e-07,
+          -1.44395984387837e-08
+        ],
+        "centroidFrame": [
+          1.4300567547276758e-08,
+          5.435629491189001e-07,
+          -1.44395984387837e-08
+        ]
+      },
+      "endpointHandling": {
+        "policy": "exact psi=.5 grid node: root0 or root1; original polynomial otherwise",
+        "root0": 0,
+        "root1": 0
+      },
+      "adapter": {
+        "maximumOnceOnlyResidual": 0.0,
+        "float64ArithmeticBound": 3.0431858798191233e-13,
+        "missingOffsetResidual": 0.0,
+        "doubleOffsetResidual": 0.0,
+        "missingAndDoubleOffsetRefused": true,
+        "independentVersusRecordedRootMaxW0": 1.1920892717398601e-08,
+        "exactEndpointPoints": 0,
+        "rootDifferenceIsDescriptive": true
+      },
+      "result": {
+        "temperature": 0.9779956936836243,
+        "epsilonEffective": -5.562339460180784e-06,
+        "epsilonError": 1.277710348670565e-06,
+        "d0Effective": 0.22022598348007366,
+        "supportHarmonicPredictedRadius100": 20.018295954309423,
+        "summaries": {
+          "quintic4": {
+            "radius": 20.018921642751465,
+            "sixFaceSpan": 7.709646797238179e-05,
+            "relativeToSupportHarmonic": 3.125582934093707e-05,
+            "capillary100": 0.22025124197531346,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.003275293696963666,
+            "maxCondition": 45.66141374712181
+          },
+          "quintic6": {
+            "radius": 20.018920629319883,
+            "sixFaceSpan": 0.00016847626319815845,
+            "relativeToSupportHarmonic": 3.120520407362548e-05,
+            "capillary100": 0.22025123082538398,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0032753441548412088,
+            "maxCondition": 432.82865268304295
+          },
+          "quintic8": {
+            "radius": 20.01849361796908,
+            "sixFaceSpan": 0.00033150240581036883,
+            "relativeToSupportHarmonic": 9.874150132871407e-06,
+            "capillary100": 0.22024653278110218,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.003296604678799997,
+            "maxCondition": 4544.6829729636365
+          },
+          "cubic4": {
+            "radius": 20.021470636392845,
+            "sixFaceSpan": 7.723043575680322e-05,
+            "relativeToSupportHarmonic": 0.00015858902729126712,
+            "capillary100": 0.22027928639375516,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0031483815193793507,
+            "maxCondition": 45.66141374712181
+          },
+          "cubic6": {
+            "radius": 20.020853484569354,
+            "sixFaceSpan": 0.00016699416880427975,
+            "relativeToSupportHarmonic": 0.00012775963877098562,
+            "capillary100": 0.22027249639487126,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0031791089721857624,
+            "maxCondition": 432.82865268304295
+          },
+          "cubic8": {
+            "radius": 20.018721709481785,
+            "sixFaceSpan": 0.00032284708829521946,
+            "relativeToSupportHarmonic": 2.12683024236604e-05,
+            "capillary100": 0.22024904227885903,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.003285248200660562,
+            "maxCondition": 4544.6829729636365
+          },
+          "raw4": {
+            "radius": 20.032547043890535,
+            "sixFaceSpan": 7.716809765412336e-05,
+            "relativeToSupportHarmonic": 0.0007119032316056373,
+            "capillary100": 0.22040115072548724,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0025968968187023433,
+            "maxCondition": 45.66141374712181
+          },
+          "raw6": {
+            "radius": 20.036732940579256,
+            "sixFaceSpan": 0.00016783711705059545,
+            "relativeToSupportHarmonic": 0.0009210067785947462,
+            "capillary100": 0.2204472046019609,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0023884846613376753,
+            "maxCondition": 432.82865268304295
+          },
+          "raw8": {
+            "radius": 20.03316847951962,
+            "sixFaceSpan": 0.00032837347991687693,
+            "relativeToSupportHarmonic": 0.0007429466146440245,
+            "capillary100": 0.2204079878554564,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.00256595607893928,
+            "maxCondition": 4544.6829729636365
+          },
+          "quinticAllAxes4": {
+            "radius": 20.01894352243046,
+            "sixFaceSpan": 7.613343961665464e-05,
+            "relativeToSupportHarmonic": 3.234881343128215e-05,
+            "capillary100": 0.22025148269889283,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0032742043267662835,
+            "maxCondition": 48.722658846989034
+          },
+          "quinticAllAxes6": {
+            "radius": 20.018915509174594,
+            "sixFaceSpan": 0.00016418321631306299,
+            "relativeToSupportHarmonic": 3.0949430789961596e-05,
+            "capillary100": 0.22025117449276133,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.003275599082424141,
+            "maxCondition": 432.82865268304295
+          },
+          "quinticAllAxes8": {
+            "radius": 20.01845951620475,
+            "sixFaceSpan": 0.0003269514556869524,
+            "relativeToSupportHarmonic": 8.170620301672926e-06,
+            "capillary100": 0.22024615758826804,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0032983025760016105,
+            "maxCondition": 4544.6829729636365
+          }
+        }
+      }
+    },
+    {
+      "config": {
+        "name": "dx-0.4-epsilon-0-offset-0.2",
+        "n": 192,
+        "dx": 0.4,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0.2,
+          0.2,
+          0.2
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true,
+        "targetPhysicalVolume": 33923.7386779148,
+        "targetVolume": 530058.4168424186
+      },
+      "terminalClock": {
+        "steps": 200000,
+        "dt": 0.005,
+        "uniformDt": 0.004999999888241291,
+        "declaredTime": 1000,
+        "uniformTime": 999.9999776482582,
+        "simTime": 1000.0000000001031
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 1.3824768474446358e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 0,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 1.2426150174670712e-06,
+          "heldOut111Residual": 9.718443092266356e-06
+        }
+      },
+      "centroidStable": true,
+      "initialLiveness": {
+        "passed": true,
+        "checks": {
+          "declaration": true,
+          "adapter": true,
+          "uploadedReadbackHash": true,
+          "finiteCentroid": true,
+          "centered": true,
+          "volume": true,
+          "baselinePresent": true,
+          "hashChanged": true,
+          "translationLive": true,
+          "sameMeshBaseline": true,
+          "meshSetup": true,
+          "physicalVolumeTarget": true
+        }
+      },
+      "translationEvidence": {
+        "declaredOffset": [
+          0.2,
+          0.2,
+          0.2
+        ],
+        "appliedOffset": [
+          0.2,
+          0.2,
+          0.2
+        ],
+        "uploadedPhaseSha256": "8fa533b255a924a90a1209a342c880d401716d19a63cb775596e007da342a2c5",
+        "phaseSha256": "62c7c6188c700d74b01696234f7bd85341709c0748aed28fc69c5b3e2f6acdea",
+        "volume": 530058.3437075157,
+        "centroidLab": [
+          0.2000001816120066,
+          0.20000066139177805,
+          0.20000014837630417
+        ],
+        "centroidFrame": [
+          1.8161134762599174e-07,
+          6.613911172920625e-07,
+          1.4837564199462553e-07
+        ]
+      },
+      "endpointHandling": {
+        "policy": "exact psi=.5 grid node: root0 or root1; original polynomial otherwise",
+        "root0": 0,
+        "root1": 0
+      },
+      "adapter": {
+        "maximumOnceOnlyResidual": 0.0,
+        "float64ArithmeticBound": 3.071892029689479e-13,
+        "missingOffsetResidual": 0.20000000000000107,
+        "doubleOffsetResidual": 0.20000000000000107,
+        "missingAndDoubleOffsetRefused": true,
+        "independentVersusRecordedRootMaxW0": 1.1920145226440582e-08,
+        "exactEndpointPoints": 0,
+        "rootDifferenceIsDescriptive": true
+      },
+      "result": {
+        "temperature": 0.9779995679855347,
+        "epsilonEffective": -5.477909161765785e-06,
+        "epsilonError": 1.2426150174670712e-06,
+        "d0Effective": 0.22018723881402522,
+        "supportHarmonicPredictedRadius100": 20.018273382507374,
+        "summaries": {
+          "quintic4": {
+            "radius": 20.016861191268976,
+            "sixFaceSpan": 0.0002086016661735357,
+            "relativeToSupportHarmonic": -7.054510703363714e-05,
+            "capillary100": 0.22018979689075133,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.003553357208954333,
+            "maxCondition": 45.484812060826826
+          },
+          "quintic6": {
+            "radius": 20.016640704251152,
+            "sixFaceSpan": 0.00028120111798202174,
+            "relativeToSupportHarmonic": -8.155939451048866e-05,
+            "capillary100": 0.22018737148592846,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0035643331330310613,
+            "maxCondition": 419.0176827613305
+          },
+          "quintic8": {
+            "radius": 20.017081128473475,
+            "sixFaceSpan": 0.0002995725687995332,
+            "relativeToSupportHarmonic": -5.955828512871353e-05,
+            "capillary100": 0.22019221624750884,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0035424086547851674,
+            "maxCondition": 4050.2088665412807
+          },
+          "cubic4": {
+            "radius": 20.012086285327083,
+            "sixFaceSpan": 0.00020906303374701452,
+            "relativeToSupportHarmonic": -0.0003090724690421043,
+            "capillary100": 0.22013727189397628,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.003791053766370567,
+            "maxCondition": 45.484812060826826
+          },
+          "cubic6": {
+            "radius": 20.0119231033743,
+            "sixFaceSpan": 0.0002786017846112543,
+            "relativeToSupportHarmonic": -0.0003172241187705538,
+            "capillary100": 0.2201354768572472,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.003799177023431688,
+            "maxCondition": 419.0176827613305
+          },
+          "cubic8": {
+            "radius": 20.015266306766403,
+            "sixFaceSpan": 0.0002990410217833528,
+            "relativeToSupportHarmonic": -0.00015021653883484642,
+            "capillary100": 0.22017225281671643,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0036327511405523927,
+            "maxCondition": 4050.2088665412807
+          },
+          "raw4": {
+            "radius": 19.999024430782093,
+            "sixFaceSpan": 0.00020878079958208673,
+            "relativeToSupportHarmonic": -0.0009615690303291791,
+            "capillary100": 0.21999358867252633,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.004441277644410824,
+            "maxCondition": 45.484812060826826
+          },
+          "raw6": {
+            "radius": 19.99146477360574,
+            "sixFaceSpan": 0.00027951447592755585,
+            "relativeToSupportHarmonic": -0.0013392068531276058,
+            "capillary100": 0.21991043081064582,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.004817600132839384,
+            "maxCondition": 419.0176827613305
+          },
+          "raw8": {
+            "radius": 19.994753253318716,
+            "sixFaceSpan": 0.0002989126249097751,
+            "relativeToSupportHarmonic": -0.0011749329594634705,
+            "capillary100": 0.21994660479782396,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.004653898414644364,
+            "maxCondition": 4050.2088665412807
+          },
+          "quinticAllAxes4": {
+            "radius": 20.016784520369665,
+            "sixFaceSpan": 0.0002188494998058843,
+            "relativeToSupportHarmonic": -7.437515260477756e-05,
+            "capillary100": 0.22018895349429743,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0035571739142553627,
+            "maxCondition": 46.773670385022626
+          },
+          "quinticAllAxes6": {
+            "radius": 20.01657530267384,
+            "sixFaceSpan": 0.0002899283048094503,
+            "relativeToSupportHarmonic": -8.482648833330053e-05,
+            "capillary100": 0.22018665205445082,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.00356758884737729,
+            "maxCondition": 415.86646696464936
+          },
+          "quinticAllAxes8": {
+            "radius": 20.017116689534408,
+            "sixFaceSpan": 0.0003014737154032332,
+            "relativeToSupportHarmonic": -5.778185515126211e-05,
+            "capillary100": 0.22019260742686056,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0035406384122160794,
+            "maxCondition": 4178.90928808718
+          }
+        }
+      }
+    },
+    {
+      "config": {
+        "name": "dx-0.4-epsilon-0.0171-offset-0",
+        "n": 192,
+        "dx": 0.4,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0.0171,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true,
+        "targetPhysicalVolume": 33923.7386779148,
+        "targetVolume": 530058.4168424186
+      },
+      "terminalClock": {
+        "steps": 222215,
+        "dt": 0.00450015845,
+        "uniformDt": 0.004500158596783876,
+        "declaredTime": 1000.00270996675,
+        "uniformTime": 1000.0027425843291,
+        "simTime": 1000.0027099666781
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 2.090541983967853e-08,
+          "epsilonSpan": 0,
+          "temperatureSpan": 0,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 4.273891053792334e-06,
+          "heldOut111Residual": 9.634175004282385e-05
+        }
+      },
+      "centroidStable": true,
+      "initialLiveness": {
+        "passed": true,
+        "checks": {
+          "declaration": true,
+          "adapter": true,
+          "uploadedReadbackHash": true,
+          "finiteCentroid": true,
+          "centered": true,
+          "volume": true,
+          "meshSetup": true,
+          "physicalVolumeTarget": true
+        }
+      },
+      "translationEvidence": {
+        "declaredOffset": [
+          0,
+          0,
+          0
+        ],
+        "appliedOffset": [
+          0,
+          0,
+          0
+        ],
+        "uploadedPhaseSha256": "e792064d5695f1402a661cb48990d441e32eaa53874bfd24a419969cdcffcf6e",
+        "phaseSha256": "539145ddc6dc63f72eed3126fb185ceca181d06b70ee754e8405e6f17b72e554",
+        "volume": 530058.4279235123,
+        "centroidLab": [
+          -1.3704015721524706e-07,
+          -3.91288399366934e-08,
+          1.1897857474533469e-07
+        ],
+        "centroidFrame": [
+          -1.3704015721524706e-07,
+          -3.91288399366934e-08,
+          1.1897857474533469e-07
+        ]
+      },
+      "endpointHandling": {
+        "policy": "exact psi=.5 grid node: root0 or root1; original polynomial otherwise",
+        "root0": 0,
+        "root1": 0
+      },
+      "adapter": {
+        "maximumOnceOnlyResidual": 0.0,
+        "float64ArithmeticBound": 3.1252944381884387e-13,
+        "missingOffsetResidual": 0.0,
+        "doubleOffsetResidual": 0.0,
+        "missingAndDoubleOffsetRefused": true,
+        "independentVersusRecordedRootMaxW0": 1.1920450759816959e-08,
+        "exactEndpointPoints": 0,
+        "rootDifferenceIsDescriptive": true
+      },
+      "result": {
+        "temperature": 0.9782578349113464,
+        "epsilonEffective": 0.01696124948641162,
+        "epsilonError": 4.273891053792334e-06,
+        "d0Effective": 0.22015545437187717,
+        "supportHarmonicPredictedRadius100": 15.099120063861704,
+        "summaries": {
+          "quintic4": {
+            "radius": 15.018589642726978,
+            "sixFaceSpan": 5.5241884105328154e-05,
+            "relativeToSupportHarmonic": -0.0053334512735923045,
+            "capillary100": 0.16326832770545624,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006248427166262727,
+            "maxCondition": 45.66141374712181
+          },
+          "quintic6": {
+            "radius": 15.015688976056326,
+            "sixFaceSpan": 6.431855003974363e-05,
+            "relativeToSupportHarmonic": -0.005525559599003582,
+            "capillary100": 0.16323679431864602,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006440358774675858,
+            "maxCondition": 432.82865268304295
+          },
+          "quintic8": {
+            "radius": 15.015227281541797,
+            "sixFaceSpan": 0.0001230272209813421,
+            "relativeToSupportHarmonic": -0.005556137176542908,
+            "capillary100": 0.16323177519946833,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006470908224450844,
+            "maxCondition": 4544.6829729636365
+          },
+          "cubic4": {
+            "radius": 15.016010618008956,
+            "sixFaceSpan": 5.520416695503627e-05,
+            "relativeToSupportHarmonic": -0.005504257566085857,
+            "capillary100": 0.16324029091486278,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006419076337115581,
+            "maxCondition": 45.66141374712181
+          },
+          "cubic6": {
+            "radius": 15.01186422208236,
+            "sixFaceSpan": 6.506952637153063e-05,
+            "relativeToSupportHarmonic": -0.0057788693255166335,
+            "capillary100": 0.1631952151024833,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006693435486121335,
+            "maxCondition": 432.82865268304295
+          },
+          "cubic8": {
+            "radius": 15.010799821135244,
+            "sixFaceSpan": 0.00012291875799341767,
+            "relativeToSupportHarmonic": -0.005849363562440035,
+            "capillary100": 0.16318364391192694,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006763864876662362,
+            "maxCondition": 4544.6829729636365
+          },
+          "raw4": {
+            "radius": 15.012662804480634,
+            "sixFaceSpan": 5.515710726555767e-05,
+            "relativeToSupportHarmonic": -0.005725979991906827,
+            "capillary100": 0.16320389655765338,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006640594804459443,
+            "maxCondition": 45.66141374712181
+          },
+          "raw6": {
+            "radius": 15.003967948975879,
+            "sixFaceSpan": 6.448983536877506e-05,
+            "relativeToSupportHarmonic": -0.006301831794394697,
+            "capillary100": 0.16310937406575018,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.0072159168912172555,
+            "maxCondition": 432.82865268304295
+          },
+          "raw8": {
+            "radius": 14.998232625142302,
+            "sixFaceSpan": 0.0001229940696561016,
+            "relativeToSupportHarmonic": -0.006681676699880512,
+            "capillary100": 0.16304702488693693,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.007595412384197031,
+            "maxCondition": 4544.6829729636365
+          },
+          "quinticAllAxes4": {
+            "radius": 15.019000576861425,
+            "sixFaceSpan": 5.485471375621387e-05,
+            "relativeToSupportHarmonic": -0.005306235506533752,
+            "capillary100": 0.1632727950043521,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006221236434499455,
+            "maxCondition": 47.7961896401562
+          },
+          "quinticAllAxes6": {
+            "radius": 15.015629013077268,
+            "sixFaceSpan": 6.428059754703952e-05,
+            "relativeToSupportHarmonic": -0.0055295308886419425,
+            "capillary100": 0.16323614245615106,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.0064443264111962995,
+            "maxCondition": 432.82865268304295
+          },
+          "quinticAllAxes8": {
+            "radius": 15.015200436637258,
+            "sixFaceSpan": 0.00012307823197410528,
+            "relativeToSupportHarmonic": -0.005557915088396426,
+            "capillary100": 0.16323148336629517,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.0064726845008352685,
+            "maxCondition": 4544.6829729636365
+          }
+        }
+      }
+    },
+    {
+      "config": {
+        "name": "dx-0.4-epsilon-0.0171-offset-0.2",
+        "n": 192,
+        "dx": 0.4,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0.0171,
+        "centerOffset": [
+          0.2,
+          0.2,
+          0.2
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "gridRefinement": true,
+        "targetPhysicalVolume": 33923.7386779148,
+        "targetVolume": 530058.4168424186
+      },
+      "terminalClock": {
+        "steps": 222215,
+        "dt": 0.00450015845,
+        "uniformDt": 0.004500158596783876,
+        "declaredTime": 1000.00270996675,
+        "uniformTime": 1000.0027425843291,
+        "simTime": 1000.0027099666781
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 9.554582680593171e-08,
+          "epsilonSpan": 0,
+          "temperatureSpan": 0,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 3.839522656985672e-06,
+          "heldOut111Residual": 9.634870513026973e-05
+        }
+      },
+      "centroidStable": true,
+      "initialLiveness": {
+        "passed": true,
+        "checks": {
+          "declaration": true,
+          "adapter": true,
+          "uploadedReadbackHash": true,
+          "finiteCentroid": true,
+          "centered": true,
+          "volume": true,
+          "baselinePresent": true,
+          "hashChanged": true,
+          "translationLive": true,
+          "sameMeshBaseline": true,
+          "meshSetup": true,
+          "physicalVolumeTarget": true
+        }
+      },
+      "translationEvidence": {
+        "declaredOffset": [
+          0.2,
+          0.2,
+          0.2
+        ],
+        "appliedOffset": [
+          0.2,
+          0.2,
+          0.2
+        ],
+        "uploadedPhaseSha256": "8fa533b255a924a90a1209a342c880d401716d19a63cb775596e007da342a2c5",
+        "phaseSha256": "f4a90ab9e04f34b50a67075c2efb8dd7f16f1b724d270f2600f9236fb4f3aaee",
+        "volume": 530058.3663612924,
+        "centroidLab": [
+          0.1999998185147894,
+          0.20000000024321055,
+          0.19999992129567176
+        ],
+        "centroidFrame": [
+          -1.81486442114505e-07,
+          2.4197780445101715e-10,
+          -7.870555927936738e-08
+        ]
+      },
+      "endpointHandling": {
+        "policy": "exact psi=.5 grid node: root0 or root1; original polynomial otherwise",
+        "root0": 0,
+        "root1": 0
+      },
+      "adapter": {
+        "maximumOnceOnlyResidual": 0.0,
+        "float64ArithmeticBound": 3.1540959368636004e-13,
+        "missingOffsetResidual": 0.20000000000000107,
+        "doubleOffsetResidual": 0.20000000000000107,
+        "missingAndDoubleOffsetRefused": true,
+        "independentVersusRecordedRootMaxW0": 1.1920749187765978e-08,
+        "exactEndpointPoints": 0,
+        "rootDifferenceIsDescriptive": true
+      },
+      "result": {
+        "temperature": 0.978257954120636,
+        "epsilonEffective": 0.016961666463206678,
+        "epsilonError": 3.839522656985672e-06,
+        "d0Effective": 0.2201542411799067,
+        "supportHarmonicPredictedRadius100": 15.098992978888788,
+        "summaries": {
+          "quintic4": {
+            "radius": 15.020159712111472,
+            "sixFaceSpan": 8.47782009198994e-05,
+            "relativeToSupportHarmonic": -0.005221094339704635,
+            "capillary100": 0.1632845007880513,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006149987827217207,
+            "maxCondition": 45.484812060826826
+          },
+          "quintic6": {
+            "radius": 15.017725828579499,
+            "sixFaceSpan": 0.00011552703138129061,
+            "relativeToSupportHarmonic": -0.005382289429693432,
+            "capillary100": 0.1632580419843427,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006311032398263028,
+            "maxCondition": 419.01768276133015
+          },
+          "quintic8": {
+            "radius": 15.017306677701614,
+            "sixFaceSpan": 8.392451104377585e-05,
+            "relativeToSupportHarmonic": -0.005410049617308066,
+            "capillary100": 0.16325348538553403,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006338766664281126,
+            "maxCondition": 4050.2088665412584
+          },
+          "cubic4": {
+            "radius": 15.021990515275442,
+            "sixFaceSpan": 8.448194821220056e-05,
+            "relativeToSupportHarmonic": -0.005099841010656081,
+            "capillary100": 0.16330440349124486,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006028847720742081,
+            "maxCondition": 45.484812060826826
+          },
+          "cubic6": {
+            "radius": 15.020043222004027,
+            "sixFaceSpan": 0.00011445490440031847,
+            "relativeToSupportHarmonic": -0.005228809430877113,
+            "capillary100": 0.163283234421421,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006157695714278377,
+            "maxCondition": 419.01768276133015
+          },
+          "cubic8": {
+            "radius": 15.019101756474257,
+            "sixFaceSpan": 8.392267530332731e-05,
+            "relativeToSupportHarmonic": -0.005291162299779439,
+            "capillary100": 0.16327299972804996,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.0062199903600183015,
+            "maxCondition": 4050.2088665412584
+          },
+          "raw4": {
+            "radius": 15.025921083727491,
+            "sixFaceSpan": 8.460785626951406e-05,
+            "relativeToSupportHarmonic": -0.004839521103391808,
+            "capillary100": 0.16334713279105306,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.00576877089208061,
+            "maxCondition": 45.484812060826826
+          },
+          "raw6": {
+            "radius": 15.027609979206646,
+            "sixFaceSpan": 0.00011510104028644719,
+            "relativeToSupportHarmonic": -0.004727666261051144,
+            "capillary100": 0.1633654928125497,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.005657020496299903,
+            "maxCondition": 419.01768276133015
+          },
+          "raw8": {
+            "radius": 15.02992138154228,
+            "sixFaceSpan": 8.378833236299954e-05,
+            "relativeToSupportHarmonic": -0.004574583049550607,
+            "capillary100": 0.1633906201203632,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.005504080229123298,
+            "maxCondition": 4050.2088665412584
+          },
+          "quinticAllAxes4": {
+            "radius": 15.018898454743521,
+            "sixFaceSpan": 8.529227257803029e-05,
+            "relativeToSupportHarmonic": -0.005304626888511965,
+            "capillary100": 0.16327078963027147,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006233442375938036,
+            "maxCondition": 51.31537949504463
+          },
+          "quinticAllAxes6": {
+            "radius": 15.01776645442307,
+            "sixFaceSpan": 0.00011518299207402549,
+            "relativeToSupportHarmonic": -0.005379598797038199,
+            "capillary100": 0.16325848362882012,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006308344278036504,
+            "maxCondition": 440.38279524591024
+          },
+          "quinticAllAxes8": {
+            "radius": 15.01733534151736,
+            "sixFaceSpan": 8.30920846990324e-05,
+            "relativeToSupportHarmonic": -0.005408151224760571,
+            "capillary100": 0.16325379699053255,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006336870044393206,
+            "maxCondition": 4030.334119180629
+          }
+        }
+      }
+    }
+  ],
+  "pairedDifferences": [
+    {
+      "dx": 0.8,
+      "n": 96,
+      "epsilon": 0,
+      "quantities": {
+        "quintic4": {
+          "offset0": {
+            "radius": 20.372457878445275,
+            "sixFaceSpan": 7.42660622208291e-05,
+            "relativeToSupportHarmonic": 0.01601250769065299,
+            "capillary100": 0.22220410426888704,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.005562186984441775,
+            "maxCondition": 47.85809113726307
+          },
+          "offsetHalf": {
+            "radius": 19.69376465226762,
+            "sixFaceSpan": 5.2040749082493676e-05,
+            "relativeToSupportHarmonic": -0.018232055744401454,
+            "capillary100": 0.2148338210063407,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.027791284053215515,
+            "maxCondition": 48.21628149656832
+          },
+          "relativeRadiusChange": -0.033314253499855506,
+          "capillaryErrorDifference": -0.03335347103765729
+        },
+        "quintic6": {
+          "offset0": {
+            "radius": 20.288956831558867,
+            "sixFaceSpan": 0.00010204445695194408,
+            "relativeToSupportHarmonic": 0.011848154594524374,
+            "capillary100": 0.22129335135730344,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.0014406668505642095,
+            "maxCondition": 485.672088480834
+          },
+          "offsetHalf": {
+            "radius": 19.756791941825842,
+            "sixFaceSpan": 0.00010627205446667176,
+            "relativeToSupportHarmonic": -0.015090037263214229,
+            "capillary100": 0.21552136824185145,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.02467985861816291,
+            "maxCondition": 591.1433124288175
+          },
+          "relativeRadiusChange": -0.026229287890506936,
+          "capillaryErrorDifference": -0.026120525468727118
+        },
+        "quintic8": {
+          "offset0": {
+            "radius": 20.270604465186135,
+            "sixFaceSpan": 0.0001420612325624404,
+            "relativeToSupportHarmonic": 0.01093288782152757,
+            "capillary100": 0.22109318056026955,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.0005348141657179895,
+            "maxCondition": 4634.756897450056
+          },
+          "offsetHalf": {
+            "radius": 19.786959751276658,
+            "sixFaceSpan": 0.00013771210901225572,
+            "relativeToSupportHarmonic": -0.013586120221948494,
+            "capillary100": 0.2158504605149717,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.023190584840042106,
+            "maxCondition": 10661.9878158693
+          },
+          "relativeRadiusChange": -0.023859412517279188,
+          "capillaryErrorDifference": -0.023725399005760095
+        },
+        "cubic4": {
+          "offset0": {
+            "radius": 20.39961381268942,
+            "sixFaceSpan": 7.315177066402612e-05,
+            "relativeToSupportHarmonic": 0.017366824828756844,
+            "capillary100": 0.22250029631799123,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.0069025741282553454,
+            "maxCondition": 47.85809113726307
+          },
+          "offsetHalf": {
+            "radius": 19.61990152823199,
+            "sixFaceSpan": 4.997803146267188e-05,
+            "relativeToSupportHarmonic": -0.02191425915858769,
+            "capillary100": 0.2140280686553694,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.03143763477601802,
+            "maxCondition": 48.21628149656832
+          },
+          "relativeRadiusChange": -0.03822191398409802,
+          "capillaryErrorDifference": -0.038340208904273365
+        },
+        "cubic6": {
+          "offset0": {
+            "radius": 20.29248563683139,
+            "sixFaceSpan": 0.00010351800536767541,
+            "relativeToSupportHarmonic": 0.01202414270138319,
+            "capillary100": 0.22133184033194747,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.0016148448102610846,
+            "maxCondition": 485.672088480834
+          },
+          "offsetHalf": {
+            "radius": 19.6987675293789,
+            "sixFaceSpan": 0.00010542305176386435,
+            "relativeToSupportHarmonic": -0.017982653740080234,
+            "capillary100": 0.21488839600633788,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.02754431041367633,
+            "maxCondition": 591.1433124288175
+          },
+          "relativeRadiusChange": -0.029258027728987224,
+          "capillaryErrorDifference": -0.029159155223937416
+        },
+        "cubic8": {
+          "offset0": {
+            "radius": 20.290469139810284,
+            "sixFaceSpan": 0.00014241386588409455,
+            "relativeToSupportHarmonic": 0.011923576230347122,
+            "capillary100": 0.22130984623005712,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.001515312727942586,
+            "maxCondition": 4634.756897450056
+          },
+          "offsetHalf": {
+            "radius": 19.73665143997262,
+            "sixFaceSpan": 0.00013597604506188077,
+            "relativeToSupportHarmonic": -0.016094075823126608,
+            "capillary100": 0.2153016610885208,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.02567412110636591,
+            "maxCondition": 10661.9878158693
+          },
+          "relativeRadiusChange": -0.02729447486017289,
+          "capillaryErrorDifference": -0.027189433834308496
+        },
+        "raw4": {
+          "offset0": {
+            "radius": 20.972738359565245,
+            "sixFaceSpan": 7.711595750237166e-05,
+            "relativeToSupportHarmonic": 0.045949615946291544,
+            "capillary100": 0.22875141374981545,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.035191373457700736,
+            "maxCondition": 47.85809113726307
+          },
+          "offsetHalf": {
+            "radius": 19.01686268434523,
+            "sixFaceSpan": 4.789586060383044e-05,
+            "relativeToSupportHarmonic": -0.05197677978492232,
+            "capillary100": 0.20744968502303932,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.06120744417676516,
+            "maxCondition": 48.21628149656832
+          },
+          "relativeRadiusChange": -0.0932580019684448,
+          "capillaryErrorDifference": -0.0963988176344659
+        },
+        "raw6": {
+          "offset0": {
+            "radius": 20.66140224872619,
+            "sixFaceSpan": 0.00010758796723564501,
+            "relativeToSupportHarmonic": 0.030422702866111706,
+            "capillary100": 0.22535564471456587,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.019824164337892913,
+            "maxCondition": 485.672088480834
+          },
+          "offsetHalf": {
+            "radius": 19.180022292873463,
+            "sixFaceSpan": 0.0001028921788019943,
+            "relativeToSupportHarmonic": -0.04384299346835496,
+            "capillary100": 0.20922954797727558,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.053152854498130675,
+            "maxCondition": 591.1433124288175
+          },
+          "relativeRadiusChange": -0.07169793889202547,
+          "capillaryErrorDifference": -0.07297701883602359
+        },
+        "raw8": {
+          "offset0": {
+            "radius": 20.563780253282115,
+            "sixFaceSpan": 0.00014321292831809274,
+            "relativeToSupportHarmonic": 0.025554111703047333,
+            "capillary100": 0.22429087343443757,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.015005649663706544,
+            "maxCondition": 4634.756897450056
+          },
+          "offsetHalf": {
+            "radius": 19.259170617352943,
+            "sixFaceSpan": 0.00013263163922871968,
+            "relativeToSupportHarmonic": -0.03989731374751271,
+            "capillary100": 0.21009295511524087,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.04924559287140684,
+            "maxCondition": 10661.9878158693
+          },
+          "relativeRadiusChange": -0.0634421113171032,
+          "capillaryErrorDifference": -0.06425124253511338
+        },
+        "quinticAllAxes4": {
+          "offset0": {
+            "radius": 20.371559111304578,
+            "sixFaceSpan": 7.439710081769135e-05,
+            "relativeToSupportHarmonic": 0.01596768449544017,
+            "capillary100": 0.22219430134041193,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.005517824823676465,
+            "maxCondition": 52.630112467817206
+          },
+          "offsetHalf": {
+            "radius": 19.69522060045386,
+            "sixFaceSpan": 4.1189363983562544e-05,
+            "relativeToSupportHarmonic": -0.01815947423025288,
+            "capillary100": 0.2148497035416284,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.02771940924707139,
+            "maxCondition": 47.7532829003246
+          },
+          "relativeRadiusChange": -0.03320013491139229,
+          "capillaryErrorDifference": -0.033237234070747856
+        },
+        "quinticAllAxes6": {
+          "offset0": {
+            "radius": 20.290335852445832,
+            "sixFaceSpan": 0.00010132165860454734,
+            "relativeToSupportHarmonic": 0.011916928940647997,
+            "capillary100": 0.22130839245361025,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.0015087338097532488,
+            "maxCondition": 485.672088480834
+          },
+          "offsetHalf": {
+            "radius": 19.755442504538074,
+            "sixFaceSpan": 0.00010317394277592484,
+            "relativeToSupportHarmonic": -0.015157309026399557,
+            "capillary100": 0.2155066476044386,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.02474647537305763,
+            "maxCondition": 632.5781748957945
+          },
+          "relativeRadiusChange": -0.026361976055870984,
+          "capillaryErrorDifference": -0.02625520918281088
+        },
+        "quinticAllAxes8": {
+          "offset0": {
+            "radius": 20.274323125022452,
+            "sixFaceSpan": 0.00014442641829504055,
+            "relativeToSupportHarmonic": 0.01111834432992187,
+            "capillary100": 0.22113374029454116,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.0007183631385503375,
+            "maxCondition": 5000.969430106385
+          },
+          "offsetHalf": {
+            "radius": 19.79422978284015,
+            "sixFaceSpan": 0.00030138614851793477,
+            "relativeToSupportHarmonic": -0.013223696679838026,
+            "capillary100": 0.21592976727460855,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.022831690125088566,
+            "maxCondition": 195568.77497057724
+          },
+          "relativeRadiusChange": -0.0236798703079647,
+          "capillaryErrorDifference": -0.023550053263638904
+        }
+      }
+    },
+    {
+      "dx": 0.8,
+      "n": 96,
+      "epsilon": 0.0171,
+      "quantities": {
+        "quintic4": {
+          "offset0": {
+            "radius": 14.81572849308533,
+            "sixFaceSpan": 3.29544881676469e-05,
+            "relativeToSupportHarmonic": -0.02616109033329639,
+            "capillary100": 0.15957853944344708,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.028706750469543185,
+            "maxCondition": 47.858091137263095
+          },
+          "offsetHalf": {
+            "radius": 15.007779239535623,
+            "sixFaceSpan": 3.151920791921725e-05,
+            "relativeToSupportHarmonic": -0.016061995986700106,
+            "capillary100": 0.16165827802481644,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.016048180890467667,
+            "maxCondition": 48.21628149656832
+          },
+          "relativeRadiusChange": 0.012962625937693373,
+          "capillaryErrorDifference": 0.012658569579075518
+        },
+        "quintic6": {
+          "offset0": {
+            "radius": 14.936730804340394,
+            "sixFaceSpan": 5.5705885442236536e-05,
+            "relativeToSupportHarmonic": -0.01820759962814633,
+            "capillary100": 0.16088184168122607,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.02077405055846715,
+            "maxCondition": 485.67208848083413
+          },
+          "offsetHalf": {
+            "radius": 14.911646404770318,
+            "sixFaceSpan": 5.4349372216933034e-05,
+            "relativeToSupportHarmonic": -0.022364643970082976,
+            "capillary100": 0.1606227704869081,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.02235091736691419,
+            "maxCondition": 591.1433124287977
+          },
+          "relativeRadiusChange": -0.0016793768260714437,
+          "capillaryErrorDifference": -0.0015768668084470416
+        },
+        "quintic8": {
+          "offset0": {
+            "radius": 14.969115986128246,
+            "sixFaceSpan": 8.498286839042635e-05,
+            "relativeToSupportHarmonic": -0.016078919277641823,
+            "capillary100": 0.16123065881915674,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.018650934677257647,
+            "maxCondition": 4634.756897450107
+          },
+          "offsetHalf": {
+            "radius": 14.905387089485545,
+            "sixFaceSpan": 6.739728742743978e-05,
+            "relativeToSupportHarmonic": -0.022775016356929245,
+            "capillary100": 0.160555347444871,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.022761295515641766,
+            "maxCondition": 10661.9878158693
+          },
+          "relativeRadiusChange": -0.004257358731254213,
+          "capillaryErrorDifference": -0.0041103608383841195
+        },
+        "cubic4": {
+          "offset0": {
+            "radius": 14.833592688880358,
+            "sixFaceSpan": 3.3865849232483924e-05,
+            "relativeToSupportHarmonic": -0.024986875446514345,
+            "capillary100": 0.1597709526801389,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.027535605035007293,
+            "maxCondition": 47.858091137263095
+          },
+          "offsetHalf": {
+            "radius": 15.01040566007032,
+            "sixFaceSpan": 2.965233410279211e-05,
+            "relativeToSupportHarmonic": -0.01588980295684783,
+            "capillary100": 0.16168656886080432,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.015875985442919238,
+            "maxCondition": 48.21628149656832
+          },
+          "relativeRadiusChange": 0.011919767172959173,
+          "capillaryErrorDifference": 0.011659619592088055
+        },
+        "cubic6": {
+          "offset0": {
+            "radius": 14.9879576859035,
+            "sixFaceSpan": 5.539363660034269e-05,
+            "relativeToSupportHarmonic": -0.014840452983259755,
+            "capillary100": 0.16143360064089507,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.017415705791285152,
+            "maxCondition": 485.67208848083413
+          },
+          "offsetHalf": {
+            "radius": 14.901236473061848,
+            "sixFaceSpan": 5.341442067674507e-05,
+            "relativeToSupportHarmonic": -0.023047138512657495,
+            "capillary100": 0.1605106385313744,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.023033421492132944,
+            "maxCondition": 591.1433124287977
+          },
+          "relativeRadiusChange": -0.00578605935905574,
+          "capillaryErrorDifference": -0.005617715700847792
+        },
+        "cubic8": {
+          "offset0": {
+            "radius": 15.028289287282838,
+            "sixFaceSpan": 8.516777814726595e-05,
+            "relativeToSupportHarmonic": -0.012189453895992686,
+            "capillary100": 0.16186800776738458,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.014771636538748134,
+            "maxCondition": 4634.756897450107
+          },
+          "offsetHalf": {
+            "radius": 14.903572467945532,
+            "sixFaceSpan": 6.661574533772807e-05,
+            "relativeToSupportHarmonic": -0.02289398633027595,
+            "capillary100": 0.16053580100906972,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.02288026715940017,
+            "maxCondition": 10661.9878158693
+          },
+          "relativeRadiusChange": -0.008298803473449468,
+          "capillaryErrorDifference": -0.008108630620652035
+        },
+        "raw4": {
+          "offset0": {
+            "radius": 14.711826062557185,
+            "sixFaceSpan": 3.1043730714941375e-05,
+            "relativeToSupportHarmonic": -0.03299060463659065,
+            "capillary100": 0.1584594180910246,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.03551841210527684,
+            "maxCondition": 47.858091137263095
+          },
+          "offsetHalf": {
+            "radius": 15.188720559240537,
+            "sixFaceSpan": 3.093698119371879e-05,
+            "relativeToSupportHarmonic": -0.004199145520124792,
+            "capillary100": 0.16360731136946866,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.004185163862157615,
+            "maxCondition": 48.21628149656832
+          },
+          "relativeRadiusChange": 0.0324157242381411,
+          "capillaryErrorDifference": 0.03133324824311923
+        },
+        "raw6": {
+          "offset0": {
+            "radius": 15.121044100348149,
+            "sixFaceSpan": 6.100039002632229e-05,
+            "relativeToSupportHarmonic": -0.0060926732979939,
+            "capillary100": 0.16286705939027443,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.00869079320837507,
+            "maxCondition": 485.67208848083413
+          },
+          "offsetHalf": {
+            "radius": 14.89099744787221,
+            "sixFaceSpan": 5.180568234486316e-05,
+            "relativeToSupportHarmonic": -0.023718428105030775,
+            "capillary100": 0.1604003475180012,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.02370472050982597,
+            "maxCondition": 591.1433124287977
+          },
+          "relativeRadiusChange": -0.015213675123839088,
+          "capillaryErrorDifference": -0.015013927301450902
+        },
+        "raw8": {
+          "offset0": {
+            "radius": 15.278434169474446,
+            "sixFaceSpan": 9.216055369343223e-05,
+            "relativeToSupportHarmonic": 0.00425258737426093,
+            "capillary100": 0.16456229006123332,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": 0.0016274244720348996,
+            "maxCondition": 4634.756897450107
+          },
+          "offsetHalf": {
+            "radius": 14.867659104883353,
+            "sixFaceSpan": 6.414810496835344e-05,
+            "relativeToSupportHarmonic": -0.0252485334091479,
+            "capillary100": 0.1601489554712957,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.025234847297564977,
+            "maxCondition": 10661.9878158693
+          },
+          "relativeRadiusChange": -0.02688594001418032,
+          "capillaryErrorDifference": -0.026862271769599877
+        },
+        "quinticAllAxes4": {
+          "offset0": {
+            "radius": 14.813843562461605,
+            "sixFaceSpan": 3.191086328868664e-05,
+            "relativeToSupportHarmonic": -0.02628498696006465,
+            "capillary100": 0.15955823706843886,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.02883032322477508,
+            "maxCondition": 49.90271136789408
+          },
+          "offsetHalf": {
+            "radius": 15.0070675919017,
+            "sixFaceSpan": 3.1633394000252224e-05,
+            "relativeToSupportHarmonic": -0.016108652933161438,
+            "capillary100": 0.1616506124182517,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.016094838492021424,
+            "maxCondition": 50.365381335269454
+          },
+          "relativeRadiusChange": 0.013043477111485569,
+          "capillaryErrorDifference": 0.012735484732753655
+        },
+        "quinticAllAxes6": {
+          "offset0": {
+            "radius": 14.941098503354018,
+            "sixFaceSpan": 5.4600258993176e-05,
+            "relativeToSupportHarmonic": -0.017920510454828564,
+            "capillary100": 0.16092888567434785,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.020487711849581203,
+            "maxCondition": 506.64089038989135
+          },
+          "offsetHalf": {
+            "radius": 14.914588450413818,
+            "sixFaceSpan": 5.447953815362894e-05,
+            "relativeToSupportHarmonic": -0.022171757969297712,
+            "capillary100": 0.16065446112047937,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.022158028657890627,
+            "maxCondition": 591.1433124287977
+          },
+          "relativeRadiusChange": -0.0017743041406392823,
+          "capillaryErrorDifference": -0.0016703168083094244
+        },
+        "quinticAllAxes8": {
+          "offset0": {
+            "radius": 14.934180820892285,
+            "sixFaceSpan": 0.00010057964844101264,
+            "relativeToSupportHarmonic": -0.01837521022535271,
+            "capillary100": 0.16085437609730666,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.020941223013788313,
+            "maxCondition": 10182.771313094658
+          },
+          "offsetHalf": {
+            "radius": 14.905003845641096,
+            "sixFaceSpan": 6.705110821947358e-05,
+            "relativeToSupportHarmonic": -0.022800142538314194,
+            "capillary100": 0.16055121928313776,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.022786422049813848,
+            "maxCondition": 10661.9878158693
+          },
+          "relativeRadiusChange": -0.001953704431539527,
+          "capillaryErrorDifference": -0.0018451990360255355
+        }
+      }
+    },
+    {
+      "dx": 0.6,
+      "n": 128,
+      "epsilon": 0,
+      "quantities": {
+        "quintic4": {
+          "offset0": {
+            "radius": 20.009466819495092,
+            "sixFaceSpan": 1.546175521482951e-05,
+            "relativeToSupportHarmonic": -0.00093816655321044,
+            "capillary100": 0.21936364280638115,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0072920339116138155,
+            "maxCondition": 47.85809113726307
+          },
+          "offsetHalf": {
+            "radius": 20.04936568445678,
+            "sixFaceSpan": 0.0001249970553374169,
+            "relativeToSupportHarmonic": 0.0010886061063797303,
+            "capillary100": 0.2197956761209982,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.005336910867753342,
+            "maxCondition": 48.21628149656827
+          },
+          "relativeRadiusChange": 0.0019939994064617217,
+          "capillaryErrorDifference": 0.001955123043860474
+        },
+        "quintic6": {
+          "offset0": {
+            "radius": 20.00356644661961,
+            "sixFaceSpan": 6.456101291618666e-05,
+            "relativeToSupportHarmonic": -0.0012327689729637603,
+            "capillary100": 0.21929895706040115,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.007584762708898518,
+            "maxCondition": 485.67208848083345
+          },
+          "offsetHalf": {
+            "radius": 20.052055695224425,
+            "sixFaceSpan": 0.0001904890209978305,
+            "relativeToSupportHarmonic": 0.00122292153421788,
+            "capillary100": 0.21982516596844537,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.005203457547481083,
+            "maxCondition": 591.143312428812
+          },
+          "relativeRadiusChange": 0.002424030171530145,
+          "capillaryErrorDifference": 0.002381305161417435
+        },
+        "quintic8": {
+          "offset0": {
+            "radius": 20.00951771240771,
+            "sixFaceSpan": 8.565321552467253e-05,
+            "relativeToSupportHarmonic": -0.0009356254976666811,
+            "capillary100": 0.2193642007450212,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.007289509016761175,
+            "maxCondition": 4448.604889981424
+          },
+          "offsetHalf": {
+            "radius": 20.044330553199263,
+            "sixFaceSpan": 0.00021668689865705915,
+            "relativeToSupportHarmonic": 0.0008371960312938409,
+            "capillary100": 0.21974047736326582,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.005586707259799484,
+            "maxCondition": 10661.987815869305
+          },
+          "relativeRadiusChange": 0.0017398140870714673,
+          "capillaryErrorDifference": 0.0017028017569616916
+        },
+        "cubic4": {
+          "offset0": {
+            "radius": 19.994630811313353,
+            "sixFaceSpan": 1.6742419482795867e-05,
+            "relativeToSupportHarmonic": -0.0016789204008161862,
+            "capillary100": 0.21920099575392293,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.008028076687756847,
+            "maxCondition": 47.85809113726307
+          },
+          "offsetHalf": {
+            "radius": 20.0672098747111,
+            "sixFaceSpan": 0.00012319279329631172,
+            "relativeToSupportHarmonic": 0.001979587688038631,
+            "capillary100": 0.219991297065995,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.004451648077859582,
+            "maxCondition": 48.21628149656827
+          },
+          "relativeRadiusChange": 0.003629927658213239,
+          "capillaryErrorDifference": 0.003576428609897264
+        },
+        "cubic6": {
+          "offset0": {
+            "radius": 19.985754109952932,
+            "sixFaceSpan": 6.275254805387931e-05,
+            "relativeToSupportHarmonic": -0.0021221292886942633,
+            "capillary100": 0.21910368053987492,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.008468466840706346,
+            "maxCondition": 485.67208848083345
+          },
+          "offsetHalf": {
+            "radius": 20.068281785546475,
+            "sixFaceSpan": 0.0001836725968438202,
+            "relativeToSupportHarmonic": 0.0020331094672780825,
+            "capillary100": 0.2200030481293708,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.004398469829750895,
+            "maxCondition": 591.143312428812
+          },
+          "relativeRadiusChange": 0.004129325075226564,
+          "capillaryErrorDifference": 0.004069997010955451
+        },
+        "cubic8": {
+          "offset0": {
+            "radius": 19.99725808864322,
+            "sixFaceSpan": 8.605641179215695e-05,
+            "relativeToSupportHarmonic": -0.001547741867683361,
+            "capillary100": 0.21922979857665387,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.007897732428311488,
+            "maxCondition": 4448.604889981424
+          },
+          "offsetHalf": {
+            "radius": 20.052916259046494,
+            "sixFaceSpan": 0.0002055210274996,
+            "relativeToSupportHarmonic": 0.0012658905064366621,
+            "capillary100": 0.21983460009270117,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.005160764372887594,
+            "maxCondition": 10661.987815869305
+          },
+          "relativeRadiusChange": 0.0027832900969000374,
+          "capillaryErrorDifference": 0.002736968055423894
+        },
+        "raw4": {
+          "offset0": {
+            "radius": 19.950977952719533,
+            "sixFaceSpan": 1.468421576333867e-05,
+            "relativeToSupportHarmonic": -0.0038584839711679475,
+            "capillary100": 0.21872242977480738,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.010193778595735337,
+            "maxCondition": 47.85809113726307
+          },
+          "offsetHalf": {
+            "radius": 20.14081833948676,
+            "sixFaceSpan": 0.00012360521568410832,
+            "relativeToSupportHarmonic": 0.005654945630011898,
+            "capillary100": 0.2207982463998653,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0007998805300811762,
+            "maxCondition": 48.21628149656827
+          },
+          "relativeRadiusChange": 0.009515342416653194,
+          "capillaryErrorDifference": 0.00939389806565416
+        },
+        "raw6": {
+          "offset0": {
+            "radius": 19.89178439159777,
+            "sixFaceSpan": 6.084337859491029e-05,
+            "relativeToSupportHarmonic": -0.0068139863958970315,
+            "capillary100": 0.21807349118411484,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.013130484515828322,
+            "maxCondition": 485.67208848083345
+          },
+          "offsetHalf": {
+            "radius": 20.18410033868658,
+            "sixFaceSpan": 0.00018659450431712798,
+            "relativeToSupportHarmonic": 0.007816067180208108,
+            "capillary100": 0.22127273504093828,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.0013473697972090637,
+            "maxCondition": 591.143312428812
+          },
+          "relativeRadiusChange": 0.014695310452504273,
+          "capillaryErrorDifference": 0.014477854313037386
+        },
+        "raw8": {
+          "offset0": {
+            "radius": 19.924046071509323,
+            "sixFaceSpan": 8.315626800126097e-05,
+            "relativeToSupportHarmonic": -0.005203178203291525,
+            "capillary100": 0.21842717575213924,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.011529920795840143,
+            "maxCondition": 4448.604889981424
+          },
+          "offsetHalf": {
+            "radius": 20.14180014188444,
+            "sixFaceSpan": 0.00020952720097966449,
+            "relativeToSupportHarmonic": 0.005703968188093267,
+            "capillary100": 0.2208090096292468,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0007511726247458883,
+            "maxCondition": 10661.987815869305
+          },
+          "relativeRadiusChange": 0.010929209337981582,
+          "capillaryErrorDifference": 0.010778748171094255
+        },
+        "quinticAllAxes4": {
+          "offset0": {
+            "radius": 20.008971326759184,
+            "sixFaceSpan": 1.577447881473404e-05,
+            "relativeToSupportHarmonic": -0.0009629062369641561,
+            "capillary100": 0.21935821072303216,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.00731661625508695,
+            "maxCondition": 47.85809113726307
+          },
+          "offsetHalf": {
+            "radius": 20.049728682767093,
+            "sixFaceSpan": 0.0001230875904489892,
+            "relativeToSupportHarmonic": 0.001106731042510356,
+            "capillary100": 0.21979965557153552,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.005318902267064107,
+            "maxCondition": 52.87732606308289
+          },
+          "relativeRadiusChange": 0.0020369540913580675,
+          "capillaryErrorDifference": 0.0019977139880228423
+        },
+        "quinticAllAxes6": {
+          "offset0": {
+            "radius": 20.00369795395373,
+            "sixFaceSpan": 6.449137509534353e-05,
+            "relativeToSupportHarmonic": -0.0012262028830464233,
+            "capillary100": 0.21930039877437224,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.00757823837822269,
+            "maxCondition": 485.67208848083345
+          },
+          "offsetHalf": {
+            "radius": 20.05162128757917,
+            "sixFaceSpan": 0.0001897535948316431,
+            "relativeToSupportHarmonic": 0.001201231045306006,
+            "capillary100": 0.2198204036770291,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.005225008815345156,
+            "maxCondition": 591.143312428812
+          },
+          "relativeRadiusChange": 0.00239572371747232,
+          "capillaryErrorDifference": 0.0023532295628775346
+        },
+        "quinticAllAxes8": {
+          "offset0": {
+            "radius": 20.009917910997714,
+            "sixFaceSpan": 8.341751490092975e-05,
+            "relativeToSupportHarmonic": -0.0009156437989698007,
+            "capillary100": 0.21936858811932464,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.007269654398349923,
+            "maxCondition": 4448.604889981424
+          },
+          "offsetHalf": {
+            "radius": 20.04427565597152,
+            "sixFaceSpan": 0.00022898085762079745,
+            "relativeToSupportHarmonic": 0.000834454947607588,
+            "capillary100": 0.2197398755400721,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.005589430749758595,
+            "maxCondition": 10661.987815869305
+          },
+          "relativeRadiusChange": 0.0017170357782889667,
+          "capillaryErrorDifference": 0.001680223648591328
+        }
+      }
+    },
+    {
+      "dx": 0.6,
+      "n": 128,
+      "epsilon": 0.0171,
+      "quantities": {
+        "quintic4": {
+          "offset0": {
+            "radius": 14.962462275502764,
+            "sixFaceSpan": 9.752610003310735e-05,
+            "relativeToSupportHarmonic": -0.012271569488667255,
+            "capillary100": 0.16204502779224972,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.013694183669566096,
+            "maxCondition": 47.85809113726307
+          },
+          "offsetHalf": {
+            "radius": 14.971885813052369,
+            "sixFaceSpan": 3.381855582418325e-05,
+            "relativeToSupportHarmonic": -0.011602416977152141,
+            "capillary100": 0.16214708568726793,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.013072996479620569,
+            "maxCondition": 48.21628149656827
+          },
+          "relativeRadiusChange": 0.0006298119504724031,
+          "capillaryErrorDifference": 0.0006211871899455268
+        },
+        "quintic6": {
+          "offset0": {
+            "radius": 14.950099393522684,
+            "sixFaceSpan": 0.00014453193493046967,
+            "relativeToSupportHarmonic": -0.013087689843053973,
+            "capillary100": 0.16191113649032582,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.01450912857495923,
+            "maxCondition": 485.67208848083345
+          },
+          "offsetHalf": {
+            "radius": 14.978721827761362,
+            "sixFaceSpan": 8.230034936573816e-05,
+            "relativeToSupportHarmonic": -0.011151124434566229,
+            "capillary100": 0.16222112043991158,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.012622375389063967,
+            "maxCondition": 591.143312428812
+          },
+          "relativeRadiusChange": 0.001914531367669614,
+          "capillaryErrorDifference": 0.0018867531858952624
+        },
+        "quintic8": {
+          "offset0": {
+            "radius": 14.945045483838141,
+            "sixFaceSpan": 0.00017499972925172358,
+            "relativeToSupportHarmonic": -0.01342131743647701,
+            "capillary100": 0.16185640212106148,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.014842275648301206,
+            "maxCondition": 4448.604889981424
+          },
+          "offsetHalf": {
+            "radius": 14.978298039926637,
+            "sixFaceSpan": 0.00017637422934235758,
+            "relativeToSupportHarmonic": -0.011179101596347163,
+            "capillary100": 0.1622165307734388,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.0126503109252466,
+            "maxCondition": 10661.987815869305
+          },
+          "relativeRadiusChange": 0.0022249886174288136,
+          "capillaryErrorDifference": 0.002191964723054607
+        },
+        "cubic4": {
+          "offset0": {
+            "radius": 14.958470592065458,
+            "sixFaceSpan": 9.648477394996746e-05,
+            "relativeToSupportHarmonic": -0.01253507553092359,
+            "capillary100": 0.16200179744408738,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.013957310187024952,
+            "maxCondition": 47.85809113726307
+          },
+          "offsetHalf": {
+            "radius": 14.980508590068657,
+            "sixFaceSpan": 3.2476283715610066e-05,
+            "relativeToSupportHarmonic": -0.011033167914725084,
+            "capillary100": 0.1622404712621501,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.012504594369895039,
+            "maxCondition": 48.21628149656827
+          },
+          "relativeRadiusChange": 0.0014732788267062258,
+          "capillaryErrorDifference": 0.0014527158171299126
+        },
+        "cubic6": {
+          "offset0": {
+            "radius": 14.939778083048003,
+            "sixFaceSpan": 0.00014224103588666992,
+            "relativeToSupportHarmonic": -0.013769038381032828,
+            "capillary100": 0.1617993556208455,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.015189495774280304,
+            "maxCondition": 485.67208848083345
+          },
+          "offsetHalf": {
+            "radius": 14.993413243866028,
+            "sixFaceSpan": 7.897840673543044e-05,
+            "relativeToSupportHarmonic": -0.010181242594005102,
+            "capillary100": 0.16238023000938973,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.011653936579504753,
+            "maxCondition": 591.143312428812
+          },
+          "relativeRadiusChange": 0.0035900908647956697,
+          "capillaryErrorDifference": 0.0035355591947755505
+        },
+        "cubic8": {
+          "offset0": {
+            "radius": 14.932491614835909,
+            "sixFaceSpan": 0.00017144567795845944,
+            "relativeToSupportHarmonic": -0.014250045562777536,
+            "capillary100": 0.16172044240975797,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.01566981016677571,
+            "maxCondition": 4448.604889981424
+          },
+          "offsetHalf": {
+            "radius": 14.989722963434097,
+            "sixFaceSpan": 0.00016754983947286917,
+            "relativeToSupportHarmonic": -0.010424863491542036,
+            "capillary100": 0.1623402638872273,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.011897195007621986,
+            "maxCondition": 10661.987815869305
+          },
+          "relativeRadiusChange": 0.0038326724082220487,
+          "capillaryErrorDifference": 0.003772615159153725
+        },
+        "raw4": {
+          "offset0": {
+            "radius": 14.978018109803052,
+            "sixFaceSpan": 9.869691215413923e-05,
+            "relativeToSupportHarmonic": -0.01124467033825971,
+            "capillary100": 0.1622134991009894,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.01266876355048796,
+            "maxCondition": 47.85809113726307
+          },
+          "offsetHalf": {
+            "radius": 14.976008404831637,
+            "sixFaceSpan": 3.3325464746880584e-05,
+            "relativeToSupportHarmonic": -0.011330256221900648,
+            "capillary100": 0.16219173378643414,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.012801240656589719,
+            "maxCondition": 48.21628149656827
+          },
+          "relativeRadiusChange": -0.00013417696231121656,
+          "capillaryErrorDifference": -0.00013247710610175822
+        },
+        "raw6": {
+          "offset0": {
+            "radius": 14.912955044446237,
+            "sixFaceSpan": 0.00014263428201921613,
+            "relativeToSupportHarmonic": -0.015539728079816073,
+            "capillary100": 0.16150885931377632,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.01695763516854898,
+            "maxCondition": 485.67208848083345
+          },
+          "offsetHalf": {
+            "radius": 15.043436787931162,
+            "sixFaceSpan": 8.083207303499762e-05,
+            "relativeToSupportHarmonic": -0.0068788429721010624,
+            "capillary100": 0.16292199021162415,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.00835645040667865,
+            "maxCondition": 591.143312428812
+          },
+          "relativeRadiusChange": 0.008749556549727311,
+          "capillaryErrorDifference": 0.008601184761870329
+        },
+        "raw8": {
+          "offset0": {
+            "radius": 14.868237783780033,
+            "sixFaceSpan": 0.0001710762267101984,
+            "relativeToSupportHarmonic": -0.018491682703415058,
+            "capillary100": 0.1610245667144685,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.019905338125010497,
+            "maxCondition": 4448.604889981424
+          },
+          "offsetHalf": {
+            "radius": 15.06489768879613,
+            "sixFaceSpan": 0.00017292221749087844,
+            "relativeToSupportHarmonic": -0.005462060690343606,
+            "capillary100": 0.16315441400745917,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006941776073199013,
+            "maxCondition": 10661.987815869305
+          },
+          "relativeRadiusChange": 0.013226846911920775,
+          "capillaryErrorDifference": 0.012963562051811484
+        },
+        "quinticAllAxes4": {
+          "offset0": {
+            "radius": 14.963088112618868,
+            "sixFaceSpan": 9.711892274033573e-05,
+            "relativeToSupportHarmonic": -0.012230255625944486,
+            "capillary100": 0.1620518056735239,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.01365292931073625,
+            "maxCondition": 47.85809113726307
+          },
+          "offsetHalf": {
+            "radius": 14.972112011405342,
+            "sixFaceSpan": 3.246698738479381e-05,
+            "relativeToSupportHarmonic": -0.011587484061676201,
+            "capillary100": 0.16214953543903465,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.013058085781964435,
+            "maxCondition": 49.41726258066297
+          },
+          "relativeRadiusChange": 0.0006030773005247791,
+          "capillaryErrorDifference": 0.0005948435287718157
+        },
+        "quinticAllAxes6": {
+          "offset0": {
+            "radius": 14.94972560099144,
+            "sixFaceSpan": 0.00014477723409633825,
+            "relativeToSupportHarmonic": -0.013112365294421835,
+            "capillary100": 0.16190708827820682,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.01453376848655119,
+            "maxCondition": 485.67208848083345
+          },
+          "offsetHalf": {
+            "radius": 14.979594588825593,
+            "sixFaceSpan": 8.050051483543541e-05,
+            "relativeToSupportHarmonic": -0.011093507449156825,
+            "capillary100": 0.16223057253331075,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.012564844128629127,
+            "maxCondition": 591.143312428812
+          },
+          "relativeRadiusChange": 0.0019979622791319596,
+          "capillaryErrorDifference": 0.001968924357922064
+        },
+        "quinticAllAxes8": {
+          "offset0": {
+            "radius": 14.944990285114457,
+            "sixFaceSpan": 0.00017362801778020298,
+            "relativeToSupportHarmonic": -0.01342496131191051,
+            "capillary100": 0.16185580431312394,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.014845914275501748,
+            "maxCondition": 4556.999046105174
+          },
+          "offsetHalf": {
+            "radius": 14.977699513285197,
+            "sixFaceSpan": 0.0001743953659172348,
+            "relativeToSupportHarmonic": -0.011218614473559874,
+            "capillary100": 0.16221004866745514,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.012689765013538468,
+            "maxCondition": 10661.987815869305
+          },
+          "relativeRadiusChange": 0.0021886416482530535,
+          "capillaryErrorDifference": 0.0021561492619632805
+        }
+      }
+    },
+    {
+      "dx": 0.4,
+      "n": 192,
+      "epsilon": 0,
+      "quantities": {
+        "quintic4": {
+          "offset0": {
+            "radius": 20.018921642751465,
+            "sixFaceSpan": 7.709646797238179e-05,
+            "relativeToSupportHarmonic": 3.125582934093707e-05,
+            "capillary100": 0.22025124197531346,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.003275293696963666,
+            "maxCondition": 45.66141374712181
+          },
+          "offsetHalf": {
+            "radius": 20.016861191268976,
+            "sixFaceSpan": 0.0002086016661735357,
+            "relativeToSupportHarmonic": -7.054510703363714e-05,
+            "capillary100": 0.22018979689075133,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.003553357208954333,
+            "maxCondition": 45.484812060826826
+          },
+          "relativeRadiusChange": -0.00010292519843269066,
+          "capillaryErrorDifference": -0.00027806351199066714
+        },
+        "quintic6": {
+          "offset0": {
+            "radius": 20.018920629319883,
+            "sixFaceSpan": 0.00016847626319815845,
+            "relativeToSupportHarmonic": 3.120520407362548e-05,
+            "capillary100": 0.22025123082538398,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0032753441548412088,
+            "maxCondition": 432.82865268304295
+          },
+          "offsetHalf": {
+            "radius": 20.016640704251152,
+            "sixFaceSpan": 0.00028120111798202174,
+            "relativeToSupportHarmonic": -8.155939451048866e-05,
+            "capillary100": 0.22018737148592846,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0035643331330310613,
+            "maxCondition": 419.0176827613305
+          },
+          "relativeRadiusChange": -0.00011388851132121403,
+          "capillaryErrorDifference": -0.0002889889781898525
+        },
+        "quintic8": {
+          "offset0": {
+            "radius": 20.01849361796908,
+            "sixFaceSpan": 0.00033150240581036883,
+            "relativeToSupportHarmonic": 9.874150132871407e-06,
+            "capillary100": 0.22024653278110218,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.003296604678799997,
+            "maxCondition": 4544.6829729636365
+          },
+          "offsetHalf": {
+            "radius": 20.017081128473475,
+            "sixFaceSpan": 0.0002995725687995332,
+            "relativeToSupportHarmonic": -5.955828512871353e-05,
+            "capillary100": 0.22019221624750884,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0035424086547851674,
+            "maxCondition": 4050.2088665412807
+          },
+          "relativeRadiusChange": -7.055923000809372e-05,
+          "capillaryErrorDifference": -0.00024580397598517045
+        },
+        "cubic4": {
+          "offset0": {
+            "radius": 20.021470636392845,
+            "sixFaceSpan": 7.723043575680322e-05,
+            "relativeToSupportHarmonic": 0.00015858902729126712,
+            "capillary100": 0.22027928639375516,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0031483815193793507,
+            "maxCondition": 45.66141374712181
+          },
+          "offsetHalf": {
+            "radius": 20.012086285327083,
+            "sixFaceSpan": 0.00020906303374701452,
+            "relativeToSupportHarmonic": -0.0003090724690421043,
+            "capillary100": 0.22013727189397628,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.003791053766370567,
+            "maxCondition": 45.484812060826826
+          },
+          "relativeRadiusChange": -0.00046871437349382816,
+          "capillaryErrorDifference": -0.0006426722469912161
+        },
+        "cubic6": {
+          "offset0": {
+            "radius": 20.020853484569354,
+            "sixFaceSpan": 0.00016699416880427975,
+            "relativeToSupportHarmonic": 0.00012775963877098562,
+            "capillary100": 0.22027249639487126,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0031791089721857624,
+            "maxCondition": 432.82865268304295
+          },
+          "offsetHalf": {
+            "radius": 20.0119231033743,
+            "sixFaceSpan": 0.0002786017846112543,
+            "relativeToSupportHarmonic": -0.0003172241187705538,
+            "capillary100": 0.2201354768572472,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.003799177023431688,
+            "maxCondition": 419.0176827613305
+          },
+          "relativeRadiusChange": -0.0004460539707727973,
+          "capillaryErrorDifference": -0.0006200680512459256
+        },
+        "cubic8": {
+          "offset0": {
+            "radius": 20.018721709481785,
+            "sixFaceSpan": 0.00032284708829521946,
+            "relativeToSupportHarmonic": 2.12683024236604e-05,
+            "capillary100": 0.22024904227885903,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.003285248200660562,
+            "maxCondition": 4544.6829729636365
+          },
+          "offsetHalf": {
+            "radius": 20.015266306766403,
+            "sixFaceSpan": 0.0002990410217833528,
+            "relativeToSupportHarmonic": -0.00015021653883484642,
+            "capillary100": 0.22017225281671643,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0036327511405523927,
+            "maxCondition": 4050.2088665412807
+          },
+          "relativeRadiusChange": -0.0001726085594039306,
+          "capillaryErrorDifference": -0.00034750293989183056
+        },
+        "raw4": {
+          "offset0": {
+            "radius": 20.032547043890535,
+            "sixFaceSpan": 7.716809765412336e-05,
+            "relativeToSupportHarmonic": 0.0007119032316056373,
+            "capillary100": 0.22040115072548724,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0025968968187023433,
+            "maxCondition": 45.66141374712181
+          },
+          "offsetHalf": {
+            "radius": 19.999024430782093,
+            "sixFaceSpan": 0.00020878079958208673,
+            "relativeToSupportHarmonic": -0.0009615690303291791,
+            "capillary100": 0.21999358867252633,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.004441277644410824,
+            "maxCondition": 45.484812060826826
+          },
+          "relativeRadiusChange": -0.0016734074321650416,
+          "capillaryErrorDifference": -0.0018443808257084804
+        },
+        "raw6": {
+          "offset0": {
+            "radius": 20.036732940579256,
+            "sixFaceSpan": 0.00016783711705059545,
+            "relativeToSupportHarmonic": 0.0009210067785947462,
+            "capillary100": 0.2204472046019609,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0023884846613376753,
+            "maxCondition": 432.82865268304295
+          },
+          "offsetHalf": {
+            "radius": 19.99146477360574,
+            "sixFaceSpan": 0.00027951447592755585,
+            "relativeToSupportHarmonic": -0.0013392068531276058,
+            "capillary100": 0.21991043081064582,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.004817600132839384,
+            "maxCondition": 419.0176827613305
+          },
+          "relativeRadiusChange": -0.0022592588875524067,
+          "capillaryErrorDifference": -0.0024291154715017083
+        },
+        "raw8": {
+          "offset0": {
+            "radius": 20.03316847951962,
+            "sixFaceSpan": 0.00032837347991687693,
+            "relativeToSupportHarmonic": 0.0007429466146440245,
+            "capillary100": 0.2204079878554564,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.00256595607893928,
+            "maxCondition": 4544.6829729636365
+          },
+          "offsetHalf": {
+            "radius": 19.994753253318716,
+            "sixFaceSpan": 0.0002989126249097751,
+            "relativeToSupportHarmonic": -0.0011749329594634705,
+            "capillary100": 0.21994660479782396,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.004653898414644364,
+            "maxCondition": 4050.2088665412807
+          },
+          "relativeRadiusChange": -0.001917581147494296,
+          "capillaryErrorDifference": -0.002087942335705084
+        },
+        "quinticAllAxes4": {
+          "offset0": {
+            "radius": 20.01894352243046,
+            "sixFaceSpan": 7.613343961665464e-05,
+            "relativeToSupportHarmonic": 3.234881343128215e-05,
+            "capillary100": 0.22025148269889283,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0032742043267662835,
+            "maxCondition": 48.722658846989034
+          },
+          "offsetHalf": {
+            "radius": 20.016784520369665,
+            "sixFaceSpan": 0.0002188494998058843,
+            "relativeToSupportHarmonic": -7.437515260477756e-05,
+            "capillary100": 0.22018895349429743,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0035571739142553627,
+            "maxCondition": 46.773670385022626
+          },
+          "relativeRadiusChange": -0.00010784795203488962,
+          "capillaryErrorDifference": -0.0002829695874890792
+        },
+        "quinticAllAxes6": {
+          "offset0": {
+            "radius": 20.018915509174594,
+            "sixFaceSpan": 0.00016418321631306299,
+            "relativeToSupportHarmonic": 3.0949430789961596e-05,
+            "capillary100": 0.22025117449276133,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.003275599082424141,
+            "maxCondition": 432.82865268304295
+          },
+          "offsetHalf": {
+            "radius": 20.01657530267384,
+            "sixFaceSpan": 0.0002899283048094503,
+            "relativeToSupportHarmonic": -8.482648833330053e-05,
+            "capillary100": 0.22018665205445082,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.00356758884737729,
+            "maxCondition": 415.86646696464936
+          },
+          "relativeRadiusChange": -0.00011689976410966807,
+          "capillaryErrorDifference": -0.0002919897649531489
+        },
+        "quinticAllAxes8": {
+          "offset0": {
+            "radius": 20.01845951620475,
+            "sixFaceSpan": 0.0003269514556869524,
+            "relativeToSupportHarmonic": 8.170620301672926e-06,
+            "capillary100": 0.22024615758826804,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0032983025760016105,
+            "maxCondition": 4544.6829729636365
+          },
+          "offsetHalf": {
+            "radius": 20.017116689534408,
+            "sixFaceSpan": 0.0003014737154032332,
+            "relativeToSupportHarmonic": -5.778185515126211e-05,
+            "capillary100": 0.22019260742686056,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.0035406384122160794,
+            "maxCondition": 4178.90928808718
+          },
+          "relativeRadiusChange": -6.707942083428176e-05,
+          "capillaryErrorDifference": -0.00024233583621446897
+        }
+      }
+    },
+    {
+      "dx": 0.4,
+      "n": 192,
+      "epsilon": 0.0171,
+      "quantities": {
+        "quintic4": {
+          "offset0": {
+            "radius": 15.018589642726978,
+            "sixFaceSpan": 5.5241884105328154e-05,
+            "relativeToSupportHarmonic": -0.0053334512735923045,
+            "capillary100": 0.16326832770545624,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006248427166262727,
+            "maxCondition": 45.66141374712181
+          },
+          "offsetHalf": {
+            "radius": 15.020159712111472,
+            "sixFaceSpan": 8.47782009198994e-05,
+            "relativeToSupportHarmonic": -0.005221094339704635,
+            "capillary100": 0.1632845007880513,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006149987827217207,
+            "maxCondition": 45.484812060826826
+          },
+          "relativeRadiusChange": 0.00010454173273544143,
+          "capillaryErrorDifference": 9.84393390455196e-05
+        },
+        "quintic6": {
+          "offset0": {
+            "radius": 15.015688976056326,
+            "sixFaceSpan": 6.431855003974363e-05,
+            "relativeToSupportHarmonic": -0.005525559599003582,
+            "capillary100": 0.16323679431864602,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006440358774675858,
+            "maxCondition": 432.82865268304295
+          },
+          "offsetHalf": {
+            "radius": 15.017725828579499,
+            "sixFaceSpan": 0.00011552703138129061,
+            "relativeToSupportHarmonic": -0.005382289429693432,
+            "capillary100": 0.1632580419843427,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006311032398263028,
+            "maxCondition": 419.01768276133015
+          },
+          "relativeRadiusChange": 0.00013564828936063478,
+          "capillaryErrorDifference": 0.0001293263764128305
+        },
+        "quintic8": {
+          "offset0": {
+            "radius": 15.015227281541797,
+            "sixFaceSpan": 0.0001230272209813421,
+            "relativeToSupportHarmonic": -0.005556137176542908,
+            "capillary100": 0.16323177519946833,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006470908224450844,
+            "maxCondition": 4544.6829729636365
+          },
+          "offsetHalf": {
+            "radius": 15.017306677701614,
+            "sixFaceSpan": 8.392451104377585e-05,
+            "relativeToSupportHarmonic": -0.005410049617308066,
+            "capillary100": 0.16325348538553403,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006338766664281126,
+            "maxCondition": 4050.2088665412584
+          },
+          "relativeRadiusChange": 0.00013848582647635332,
+          "capillaryErrorDifference": 0.00013214156016971845
+        },
+        "cubic4": {
+          "offset0": {
+            "radius": 15.016010618008956,
+            "sixFaceSpan": 5.520416695503627e-05,
+            "relativeToSupportHarmonic": -0.005504257566085857,
+            "capillary100": 0.16324029091486278,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006419076337115581,
+            "maxCondition": 45.66141374712181
+          },
+          "offsetHalf": {
+            "radius": 15.021990515275442,
+            "sixFaceSpan": 8.448194821220056e-05,
+            "relativeToSupportHarmonic": -0.005099841010656081,
+            "capillary100": 0.16330440349124486,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006028847720742081,
+            "maxCondition": 45.484812060826826
+          },
+          "relativeRadiusChange": 0.0003982347521327423,
+          "capillaryErrorDifference": 0.00039022861637350026
+        },
+        "cubic6": {
+          "offset0": {
+            "radius": 15.01186422208236,
+            "sixFaceSpan": 6.506952637153063e-05,
+            "relativeToSupportHarmonic": -0.0057788693255166335,
+            "capillary100": 0.1631952151024833,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006693435486121335,
+            "maxCondition": 432.82865268304295
+          },
+          "offsetHalf": {
+            "radius": 15.020043222004027,
+            "sixFaceSpan": 0.00011445490440031847,
+            "relativeToSupportHarmonic": -0.005228809430877113,
+            "capillary100": 0.163283234421421,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006157695714278377,
+            "maxCondition": 419.01768276133015
+          },
+          "relativeRadiusChange": 0.0005448357246420343,
+          "capillaryErrorDifference": 0.000535739771842958
+        },
+        "cubic8": {
+          "offset0": {
+            "radius": 15.010799821135244,
+            "sixFaceSpan": 0.00012291875799341767,
+            "relativeToSupportHarmonic": -0.005849363562440035,
+            "capillary100": 0.16318364391192694,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006763864876662362,
+            "maxCondition": 4544.6829729636365
+          },
+          "offsetHalf": {
+            "radius": 15.019101756474257,
+            "sixFaceSpan": 8.392267530332731e-05,
+            "relativeToSupportHarmonic": -0.005291162299779439,
+            "capillary100": 0.16327299972804996,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.0062199903600183015,
+            "maxCondition": 4050.2088665412584
+          },
+          "relativeRadiusChange": 0.0005530641563364913,
+          "capillaryErrorDifference": 0.0005438745166440606
+        },
+        "raw4": {
+          "offset0": {
+            "radius": 15.012662804480634,
+            "sixFaceSpan": 5.515710726555767e-05,
+            "relativeToSupportHarmonic": -0.005725979991906827,
+            "capillary100": 0.16320389655765338,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006640594804459443,
+            "maxCondition": 45.66141374712181
+          },
+          "offsetHalf": {
+            "radius": 15.025921083727491,
+            "sixFaceSpan": 8.460785626951406e-05,
+            "relativeToSupportHarmonic": -0.004839521103391808,
+            "capillary100": 0.16334713279105306,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.00576877089208061,
+            "maxCondition": 45.484812060826826
+          },
+          "relativeRadiusChange": 0.0008831397480599801,
+          "capillaryErrorDifference": 0.0008718239123788329
+        },
+        "raw6": {
+          "offset0": {
+            "radius": 15.003967948975879,
+            "sixFaceSpan": 6.448983536877506e-05,
+            "relativeToSupportHarmonic": -0.006301831794394697,
+            "capillary100": 0.16310937406575018,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.0072159168912172555,
+            "maxCondition": 432.82865268304295
+          },
+          "offsetHalf": {
+            "radius": 15.027609979206646,
+            "sixFaceSpan": 0.00011510104028644719,
+            "relativeToSupportHarmonic": -0.004727666261051144,
+            "capillary100": 0.1633654928125497,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.005657020496299903,
+            "maxCondition": 419.01768276133015
+          },
+          "relativeRadiusChange": 0.0015757185240041771,
+          "capillaryErrorDifference": 0.0015588963949173529
+        },
+        "raw8": {
+          "offset0": {
+            "radius": 14.998232625142302,
+            "sixFaceSpan": 0.0001229940696561016,
+            "relativeToSupportHarmonic": -0.006681676699880512,
+            "capillary100": 0.16304702488693693,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.007595412384197031,
+            "maxCondition": 4544.6829729636365
+          },
+          "offsetHalf": {
+            "radius": 15.02992138154228,
+            "sixFaceSpan": 8.378833236299954e-05,
+            "relativeToSupportHarmonic": -0.004574583049550607,
+            "capillary100": 0.1633906201203632,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.005504080229123298,
+            "maxCondition": 4050.2088665412584
+          },
+          "relativeRadiusChange": 0.002112832704491918,
+          "capillaryErrorDifference": 0.002091332155073733
+        },
+        "quinticAllAxes4": {
+          "offset0": {
+            "radius": 15.019000576861425,
+            "sixFaceSpan": 5.485471375621387e-05,
+            "relativeToSupportHarmonic": -0.005306235506533752,
+            "capillary100": 0.1632727950043521,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006221236434499455,
+            "maxCondition": 47.7961896401562
+          },
+          "offsetHalf": {
+            "radius": 15.018898454743521,
+            "sixFaceSpan": 8.529227257803029e-05,
+            "relativeToSupportHarmonic": -0.005304626888511965,
+            "capillary100": 0.16327078963027147,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006233442375938036,
+            "maxCondition": 51.31537949504463
+          },
+          "relativeRadiusChange": -6.7995281963773024e-06,
+          "capillaryErrorDifference": -1.2205941438581114e-05
+        },
+        "quinticAllAxes6": {
+          "offset0": {
+            "radius": 15.015629013077268,
+            "sixFaceSpan": 6.428059754703952e-05,
+            "relativeToSupportHarmonic": -0.0055295308886419425,
+            "capillary100": 0.16323614245615106,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.0064443264111962995,
+            "maxCondition": 432.82865268304295
+          },
+          "offsetHalf": {
+            "radius": 15.01776645442307,
+            "sixFaceSpan": 0.00011518299207402549,
+            "relativeToSupportHarmonic": -0.005379598797038199,
+            "capillary100": 0.16325848362882012,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006308344278036504,
+            "maxCondition": 440.38279524591024
+          },
+          "relativeRadiusChange": 0.00014234777270671906,
+          "capillaryErrorDifference": 0.00013598213315979546
+        },
+        "quinticAllAxes8": {
+          "offset0": {
+            "radius": 15.015200436637258,
+            "sixFaceSpan": 0.00012307823197410528,
+            "relativeToSupportHarmonic": -0.005557915088396426,
+            "capillary100": 0.16323148336629517,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.0064726845008352685,
+            "maxCondition": 4544.6829729636365
+          },
+          "offsetHalf": {
+            "radius": 15.01733534151736,
+            "sixFaceSpan": 8.30920846990324e-05,
+            "relativeToSupportHarmonic": -0.005408151224760571,
+            "capillary100": 0.16325379699053255,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.006336870044393206,
+            "maxCondition": 4030.334119180629
+          },
+          "relativeRadiusChange": 0.00014218290918655008,
+          "capillaryErrorDifference": 0.0001358144564420627
+        }
+      }
+    }
+  ],
+  "interpretation": {
+    "finestGridHasMuchSmallerTranslationSensitivity": true,
+    "octicSignedTranslationDifferencePercentagePoints": [
+      {
+        "dx": 0.8,
+        "epsilon": 0,
+        "difference": -2.3725399005760095
+      },
+      {
+        "dx": 0.8,
+        "epsilon": 0.0171,
+        "difference": -0.41103608383841195
+      },
+      {
+        "dx": 0.6,
+        "epsilon": 0,
+        "difference": 0.17028017569616916
+      },
+      {
+        "dx": 0.6,
+        "epsilon": 0.0171,
+        "difference": 0.2191964723054607
+      },
+      {
+        "dx": 0.4,
+        "epsilon": 0,
+        "difference": -0.024580397598517045
+      },
+      {
+        "dx": 0.4,
+        "epsilon": 0.0171,
+        "difference": 0.013214156016971845
+      }
+    ],
+    "finestOcticSignedErrorsPercent": [
+      {
+        "name": "dx-0.4-epsilon-0-offset-0",
+        "error": -0.3296604678799997
+      },
+      {
+        "name": "dx-0.4-epsilon-0-offset-0.2",
+        "error": -0.35424086547851674
+      },
+      {
+        "name": "dx-0.4-epsilon-0.0171-offset-0",
+        "error": -0.6470908224450844
+      },
+      {
+        "name": "dx-0.4-epsilon-0.0171-offset-0.2",
+        "error": -0.6338766664281126
+      }
+    ],
+    "coarseCenteredIsotropicSequenceIsNonmonotone": true,
+    "translationSensitivityIsNotAbsoluteBias": true,
+    "continuumOrPhysicalCoefficientFitPerformed": false,
+    "policySensitivityIsNotConfidenceIntervalOrCertifiedBound": true,
+    "knownTruthControlsDoNotBoundEvolvedProfileInterpolationError": true,
+    "oldPublishedReferenceAndThermalRecoveryRefusalsPreserved": true,
+    "assessment": "scripts/research/quant3d-capillary-grid-assessment.md"
+  },
+  "figure": {
+    "provenance": "docs/validation/quant3d-capillary-grid-c100-2026-10-31.json",
+    "provenanceSha256": "4f98d937d3b617c7fb08b65c8b38f7e3d65016c049ebd207c79384995ec7f7da",
+    "outputs": {
+      ".png": {
+        "sha256": "0008f68da9cf9a205cdd4cab1d7a5cfcea48ba68499f26199d1c5d8657579fbf",
+        "bytes": 182970
+      },
+      ".svg": {
+        "sha256": "e88f45d22fc5b61ece77f860cb02a00e50d6aa23297f5ae3b140a5cdb7baea2e",
+        "bytes": 50078
+      },
+      ".csv": {
+        "sha256": "27cd9cb30f71ea5e6181db938ff105b2c271cae7ffd00364063a6ba0c35bd1fe",
+        "bytes": 79453
+      },
+      ".md": {
+        "sha256": "0e4a1362da5f37efa47a7838285783c784df6de64a3a39bdaaf312ad2441846d",
+        "bytes": 1892
+      }
+    },
+    "visuallyInspected": true,
+    "casesRetained": 12,
+    "csvRows": 144,
+    "exportBytesPreservedInGit": true,
+    "stagedGitReviewSha256": "8c77d54f45de18e205183a254501fe85e91f3370d68554a6958d7158af23da86"
+  },
+  "archiveVerification": {
+    "archives": [
+      {
+        "group": "shared",
+        "bytes": 27374312,
+        "sha256": "65f6cb0e00006f6940b2a9ba60e74b8ea6e4d0311793b5e88a5cfa47fd010ad8",
+        "allEntriesShaVerified": true,
+        "zipCrcVerified": true,
+        "name": "solidify-q3-capillary-grid-shared-2026-10-31.zip",
+        "serverDigestMatches": true
+      },
+      {
+        "group": "dx0p8",
+        "bytes": 139193320,
+        "sha256": "c5c81af16cfd2813741c52f1aa8595da91489c5b9b342010e79e499a38b74086",
+        "allEntriesShaVerified": true,
+        "zipCrcVerified": true,
+        "name": "solidify-q3-capillary-grid-dx-0p8-2026-10-31.zip",
+        "serverDigestMatches": true
+      },
+      {
+        "group": "dx0p6",
+        "bytes": 264286890,
+        "sha256": "76e67c0ada8cce48f44ce0ca84520481b227f233fc133dc1c785a9469921213b",
+        "allEntriesShaVerified": true,
+        "zipCrcVerified": true,
+        "name": "solidify-q3-capillary-grid-dx-0p6-2026-10-31.zip",
+        "serverDigestMatches": true
+      },
+      {
+        "group": "dx0p4",
+        "bytes": 642824871,
+        "sha256": "7e03a5a5186f6b154bf0460fa5670291e948f270832bb4f748bc40e60f1ce221",
+        "allEntriesShaVerified": true,
+        "zipCrcVerified": true,
+        "name": "solidify-q3-capillary-grid-dx-0p4-2026-10-31.zip",
+        "serverDigestMatches": true
+      }
+    ],
+    "auditSha256": "865350e07d10d35da7edda480b81a79c5e1c0272414544c602c6805f3c13ee6e",
+    "secondReadbackSha256": "a2f7638c45b42b045f24facd097d6576ded5b2370755c2e33fafaaa3a29ac0d4",
+    "serverVerifiedAt": "2026-11-01T02:55:17.135226+00:00",
+    "allOriginalInputsUnchanged": true
+  },
+  "remaining": [
+    "Separate residual capillary bias from estimator sensitivity",
+    "Establish longer-time temporal behavior and finite-speed kinetics at common undercooling",
+    "Validate further parameters and grain rotations before considering angular-candidate adoption",
+    "Pass the unchanged full published reference before quantitative 3D promotion"
+  ],
+  "independentScientificReview": {
+    "auditSha256": "f114399cb8a96c49499f80f8be61ca9767fd84e29c45a5a901b5ad523db5b750",
+    "completed": true,
+    "numericalSummaryArithmeticExact": true,
+    "sourceAndMethodFreezeVerified": true,
+    "evidenceRehashedUnchanged": true,
+    "newScientificBands": null,
+    "postRunWorkingSourceDifferences": [
+      "scripts/research/quant3d-equilibrium-translation.mjs",
+      "scripts/research/quant3d-equilibrium-translation.md"
+    ],
+    "counts": {
+      "cases": 12,
+      "summaryValues": 144,
+      "primarySexticOcticValues": 24,
+      "controlClocks": 3000,
+      "checkpointClocks": 612,
+      "allCheckpointRawHashes": 612,
+      "adapterNegativeRawHashes": 6,
+      "initialTerminalFrameAudits": 24
+    },
+    "sensitivity": [
+      {
+        "case": "dx-0.8-epsilon-0-offset-0",
+        "dx": 0.8,
+        "epsilon": 0,
+        "primaryDegree8Minus6PercentagePoints": -0.090585268484622,
+        "crossingMinusPrimaryPercentagePoints": {
+          "cubic6": 0.01741779596968751,
+          "cubic8": 0.09804985622245965,
+          "raw6": 1.8383497487328704,
+          "raw8": 1.4470835497988555,
+          "quinticAllAxes6": 0.006806695918903927,
+          "quinticAllAxes8": 0.018354897283234806
+        }
+      },
+      {
+        "case": "dx-0.8-epsilon-0-offset-0.4",
+        "dx": 0.8,
+        "epsilon": 0,
+        "primaryDegree8Minus6PercentagePoints": 0.14892737781208032,
+        "crossingMinusPrimaryPercentagePoints": {
+          "cubic6": -0.2864451795513423,
+          "cubic8": -0.24835362663238048,
+          "raw6": -2.8472995879967766,
+          "raw8": -2.6055008031364735,
+          "quinticAllAxes6": -0.006661675489472163,
+          "quinticAllAxes8": 0.03588947149535393
+        }
+      },
+      {
+        "case": "dx-0.8-epsilon-0.0171-offset-0",
+        "dx": 0.8,
+        "epsilon": 0.0171,
+        "primaryDegree8Minus6PercentagePoints": 0.2123115881209503,
+        "crossingMinusPrimaryPercentagePoints": {
+          "cubic6": 0.33583447671819977,
+          "cubic8": 0.38792981385095127,
+          "raw6": 1.208325735009208,
+          "raw8": 2.0278359149292546,
+          "quinticAllAxes6": 0.028633870888594704,
+          "quinticAllAxes8": -0.2290288336530666
+        }
+      },
+      {
+        "case": "dx-0.8-epsilon-0.0171-offset-0.4",
+        "dx": 0.8,
+        "epsilon": 0.0171,
+        "primaryDegree8Minus6PercentagePoints": -0.04103781487275748,
+        "crossingMinusPrimaryPercentagePoints": {
+          "cubic6": -0.06825041252187525,
+          "cubic8": -0.011897164375840319,
+          "raw6": -0.13538031429117803,
+          "raw8": -0.2473551781923211,
+          "quinticAllAxes6": 0.019288870902356425,
+          "quinticAllAxes8": -0.0025126534172081882
+        }
+      },
+      {
+        "case": "dx-0.6-epsilon-0-offset-0",
+        "dx": 0.6,
+        "epsilon": 0,
+        "primaryDegree8Minus6PercentagePoints": 0.029525369213734276,
+        "crossingMinusPrimaryPercentagePoints": {
+          "cubic6": -0.08837041318078276,
+          "cubic8": -0.06082234115503127,
+          "raw6": -0.5545721806929804,
+          "raw8": -0.42404117790789675,
+          "quinticAllAxes6": 0.0006524330675827805,
+          "quinticAllAxes8": 0.0019854618411252467
+        }
+      },
+      {
+        "case": "dx-0.6-epsilon-0-offset-0.3",
+        "dx": 0.6,
+        "epsilon": 0,
+        "primaryDegree8Minus6PercentagePoints": -0.03832497123184009,
+        "crossingMinusPrimaryPercentagePoints": {
+          "cubic6": 0.08049877177301878,
+          "cubic8": 0.042594288691188975,
+          "raw6": 0.6550827344690147,
+          "raw8": 0.48355346350535955,
+          "quinticAllAxes6": -0.00215512678640728,
+          "quinticAllAxes8": -0.00027234899591110917
+        }
+      },
+      {
+        "case": "dx-0.6-epsilon-0.0171-offset-0",
+        "dx": 0.6,
+        "epsilon": 0.0171,
+        "primaryDegree8Minus6PercentagePoints": -0.033314707334197724,
+        "crossingMinusPrimaryPercentagePoints": {
+          "cubic6": -0.06803671993210747,
+          "cubic8": -0.08275345184745042,
+          "raw6": -0.244850659358975,
+          "raw8": -0.506306247670929,
+          "quinticAllAxes6": -0.002463991159196155,
+          "quinticAllAxes8": -0.0003638627200541755
+        }
+      },
+      {
+        "case": "dx-0.6-epsilon-0.0171-offset-0.3",
+        "dx": 0.6,
+        "epsilon": 0.0171,
+        "primaryDegree8Minus6PercentagePoints": -0.002793553618263278,
+        "crossingMinusPrimaryPercentagePoints": {
+          "cubic6": 0.09684388095592134,
+          "cubic8": 0.07531159176246138,
+          "raw6": 0.4265924982385316,
+          "raw8": 0.5708534852047586,
+          "quinticAllAxes6": 0.0057531260434839915,
+          "quinticAllAxes8": -0.003945408829186814
+        }
+      },
+      {
+        "case": "dx-0.4-epsilon-0-offset-0",
+        "dx": 0.4,
+        "epsilon": 0,
+        "primaryDegree8Minus6PercentagePoints": -0.002126052395878819,
+        "crossingMinusPrimaryPercentagePoints": {
+          "cubic6": 0.00962351826554464,
+          "cubic8": 0.0011356478139434856,
+          "raw6": 0.08868594935035334,
+          "raw8": 0.0730648599860717,
+          "quinticAllAxes6": -2.549275829322184e-05,
+          "quinticAllAxes8": -0.00016978972016135074
+        }
+      },
+      {
+        "case": "dx-0.4-epsilon-0-offset-0.2",
+        "dx": 0.4,
+        "epsilon": 0,
+        "primaryDegree8Minus6PercentagePoints": 0.002192447824589383,
+        "crossingMinusPrimaryPercentagePoints": {
+          "cubic6": -0.02348438904006267,
+          "cubic8": -0.009034248576722526,
+          "raw6": -0.12532669998083223,
+          "raw8": -0.11114897598591966,
+          "quinticAllAxes6": -0.0003255714346228622,
+          "quinticAllAxes8": 0.00017702425690879764
+        }
+      },
+      {
+        "case": "dx-0.4-epsilon-0.0171-offset-0",
+        "dx": 0.4,
+        "epsilon": 0.0171,
+        "primaryDegree8Minus6PercentagePoints": -0.003054944977498586,
+        "crossingMinusPrimaryPercentagePoints": {
+          "cubic6": -0.025307671144547683,
+          "cubic8": -0.02929566522115179,
+          "raw6": -0.07755581165413972,
+          "raw8": -0.11245041597461869,
+          "quinticAllAxes6": -0.0003967636520441076,
+          "quinticAllAxes8": -0.00017762763844242357
+        }
+      },
+      {
+        "case": "dx-0.4-epsilon-0.0171-offset-0.2",
+        "dx": 0.4,
+        "epsilon": 0.0171,
+        "primaryDegree8Minus6PercentagePoints": -0.002773426601809792,
+        "crossingMinusPrimaryPercentagePoints": {
+          "cubic6": 0.015333668398465061,
+          "cubic8": 0.011877630426282426,
+          "raw6": 0.06540119019631252,
+          "raw8": 0.08346864351578276,
+          "quinticAllAxes6": 0.00026881202265238713,
+          "quinticAllAxes8": 0.00018966198879200036
+        }
+      }
+    ],
+    "auditOnlyAmendment": {
+      "amendments": [
+        {
+          "reason": "Historical run source must be authenticated at immutable GPU commit; later source-copy-only runner/MD fix is not old evidence. Initial assumption of all current-working hashes remaining frozen was refused before data audit.",
+          "initialSourceSha256": "65a8be0762a3ab7bf69b63b9b01ec5010189b2ea3e38934feda8f55b2706e5b8",
+          "frozenEvidenceModified": false,
+          "scientificMethodOrCriteriaChanged": false
+        },
+        {
+          "reason": "Removed unsupported extra centroid-sum identity threshold128*u*40. Lab and local full-volume moments are separate Float64 reductions; largest observed identity residual1.6287249327007203e-12 is now descriptive. Original8e-5 centroid/liveness and original point-frame arithmetic guards remain unchanged. No new scientific band is introduced.",
+          "priorSourceSha256": "5b149b7ecf4c624058a5c2a9a73535e5c4bffc08f558ed72c6741982d4bd6e3b",
+          "frozenEvidenceModified": false,
+          "scientificMethodOrCriteriaChanged": false
+        }
+      ]
+    },
+    "artifactManifestSha256": "07f3bb76dcbf302e621eeaf69b0896963794b63d60fdceafecf22caf0e401027",
+    "reportSha256": "c74816d4fb2ec801522b3c3bb9d09bf76a3321cc1edc78d22f2c36fa5070be9d"
+  },
+  "postprocessingArchive": {
+    "archive": "solidify-q3-capillary-grid-reports-2026-10-31.zip",
+    "bytes": 686540,
+    "sha256": "6716ed07357dc0ccd9f8d62b55db833e96995764fe54a89a7ebfff48e632d3ca",
+    "payloadFiles": 48,
+    "allEntryHashesVerified": true,
+    "zipCrcVerified": true,
+    "allInputsUnchanged": true,
+    "scientificAcceptanceEvaluated": false,
+    "serverDigestMatches": true,
+    "serverVerifiedAt": "2026-11-01T02:55:17.135226+00:00"
+  }
+}

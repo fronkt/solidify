@@ -731,3 +731,39 @@ verified LF/CRLF representation; no result or scientific source was altered.
 commit archive. If reconstruction is necessary, verify the reconstructed bytes
 against every original hash and label the representation. Keep generated shader
 hashes as a separate model-provenance check.
+
+## A passing numerical control still needs a working evidence writer
+
+The angular prerequisites passed numerically, but two NumPy booleans prevented
+JSON serialization before any new profile was solved. The first refused CLI
+attempt, exact sources and seal were preserved; native-boolean casts and a
+separate pre-run seal allowed the same unchanged numerical gates to execute.
+
+**Rule.** Exercise the complete prerequisite report through its actual artifact
+writer before a long study. Convert library scalar verdicts explicitly, keep
+scientific values and criteria unchanged, and preserve any failed attempt before
+freezing a corrected implementation.
+
+## A startup hash does not create a source archive
+
+The capillary runner saved 14 startup hashes but omitted the exact source copies.
+All files still matched under the active source freeze, so a separate capture
+preserved those exact bytes and explicitly recorded its later timestamp. That
+recovery must not be described as copying at startup.
+
+**Rule.** Before GPU admission, write every measured source file into the packet
+and verify its bytes against the startup hashes. Test actual file creation and
+writer refusals. If recovery is needed, record when and how matching bytes were
+obtained, preserve that ledger and require the original end-of-run hash check.
+
+## Hash-linked exports must preserve their Git bytes
+
+The scientific plot exports and their recorded hashes agreed in the Windows
+working tree, but Git normalized their CRLF text when staging. The earlier
+angular CSV therefore had different repository bytes from its provenance.
+Scoped `-text` attributes now preserve the exact original CSV, caption, SVG and
+provenance files; the numerical output and recorded hashes remain unchanged.
+
+**Rule.** For an export whose exact SHA is part of the published evidence, verify
+the staged Git blob as well as the working file. Define its byte-preservation
+attribute before staging, and check every hash-linked export in the commit.

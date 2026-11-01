@@ -5,3 +5,11 @@
 # the digests with them, so they are LF on every checkout.
 hero/*.json text eol=lf
 public/hero/manifest.json text eol=lf
+
+# These scientific exports retain the exact bytes recorded by their provenance
+# JSON. Do not normalize CSV, caption, SVG or provenance line endings in Git.
+docs/validation/quant3d-angular-kinetic-fit-sensitivity-2026-10-31.* -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+docs/validation/quant3d-capillary-grid-c100-2026-10-31.* -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+# Preserve Matplotlib's original path formatting for the recorded hashes.
+docs/validation/quant3d-angular-kinetic-fit-sensitivity-2026-10-31.svg -whitespace
+docs/validation/quant3d-capillary-grid-c100-2026-10-31.svg -whitespace
