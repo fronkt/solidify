@@ -45,6 +45,44 @@ fn main(@builtin(global_invocation_id) g: vec3u) {
   textureStore(outPhi, c, vec4f(select(0.0, 1.0, wasSolid), 0.0, 0.0, 0.0));
 }`;
 
+// One ray, one thread: march the pixel's ray through the field and report the
+// grain id at the first solid voxel (0 when it reaches the far side), skipping
+// the half a SLICE section removes. Nearest-voxel phi at half-voxel steps is
+// finer than a grain, which is all a pick needs.
+const PICK3_WGSL = /* wgsl */ `
+struct PK { ro: vec4f, rd: vec4f, plane: vec4f, n: u32, usePlane: u32, _a: u32, _b: u32 }
+@group(0) @binding(0) var<uniform> K: PK;
+@group(0) @binding(1) var state: texture_3d<f32>;
+@group(0) @binding(2) var grain: texture_3d<u32>;
+@group(0) @binding(3) var<storage, read_write> outB: array<u32, 2>;
+@compute @workgroup_size(1)
+fn main() {
+  let nf = f32(K.n);
+  let ro = K.ro.xyz;
+  let rd = K.rd.xyz;
+  let inv = 1.0 / rd;
+  let t0 = (vec3f(0.0) - ro) * inv;
+  let t1 = (vec3f(nf) - ro) * inv;
+  let tmin = min(t0, t1);
+  let tmax = max(t0, t1);
+  var t = max(max(tmin.x, tmin.y), max(tmin.z, 0.0)) + 0.01;
+  let tEnd = min(min(tmax.x, tmax.y), tmax.z);
+  outB[0] = 0u;
+  outB[1] = 0u;
+  loop {
+    if (t >= tEnd) { break; }
+    let p = ro + rd * t;
+    let removed = K.usePlane == 1u && dot(p, K.plane.xyz) > K.plane.w;
+    let c = clamp(vec3i(floor(p)), vec3i(0), vec3i(i32(K.n) - 1));
+    if (!removed && textureLoad(state, c, 0).r >= 0.5) {
+      outB[0] = textureLoad(grain, c, 0).r;
+      outB[1] = bitcast<u32>(t);
+      return;
+    }
+    t += 0.5;
+  }
+}`;
+
 // Copies the photo accumulation to the canvas, pixel for pixel.
 const BLIT_WGSL = /* wgsl */ `
 @group(0) @binding(0) var src: texture_2d<f32>;
@@ -91,6 +129,13 @@ export class Renderer3D {
   private lastSim: Sim3D | null = null;
   /** replay time (sim units): draw the solid as it stood then; null = live */
   scrubT: number | null = null;
+  /** isolated grain id: only it renders opaque, the rest as glass (0 = off) */
+  isoId = 0;
+  private pickPipe!: GPUComputePipeline;
+  private pickUbuf!: GPUBuffer;
+  private pickOut!: GPUBuffer;
+  private pickStage!: GPUBuffer;
+  private pickBusy = false;
   // retro looks (flags bits 0/1) — the 2D renderer's pixel/palette identity
   voxelOn = false;
   paletteOn = false;
@@ -147,6 +192,13 @@ export class Renderer3D {
       compute: { module: device.createShaderModule({ code: SCRUB3_WGSL }), entryPoint: "main" },
     });
     this.scrubUbuf = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.pickPipe = device.createComputePipeline({
+      layout: "auto",
+      compute: { module: device.createShaderModule({ code: PICK3_WGSL }), entryPoint: "main" },
+    });
+    this.pickUbuf = device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.pickOut = device.createBuffer({ size: 8, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
+    this.pickStage = device.createBuffer({ size: 8, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
     const blit = device.createShaderModule({ code: BLIT_WGSL });
     this.blitPipe = device.createRenderPipeline({
       layout: "auto",
@@ -427,7 +479,7 @@ export class Renderer3D {
       sim3.n, sim3.dir, sim3.frame, sim3.simTime, sim3.alloyActive ? 1 : 0, p.scen,
       p.meltGlow, p.tFar, p.nyCrit, p.c0,
       this.canvas.width, this.canvas.height,
-      this.voxelOn ? 1 : 0, this.paletteOn ? 1 : 0, this.studioOn ? 1 : 0, this.scrubT ?? -1,
+      this.voxelOn ? 1 : 0, this.paletteOn ? 1 : 0, this.studioOn ? 1 : 0, this.scrubT ?? -1, this.isoId,
     ].join(",");
   }
 
@@ -447,6 +499,61 @@ export class Renderer3D {
       entries: [{ binding: 0, resource: this.accum.createView() }],
     });
     this.photoKey = "";
+  }
+
+  /**
+   * The grain under a client point: the id at the first solid voxel along the
+   * pixel's ray (the camera's own ray, so what you see is what you pick), or 0
+   * for none. Resolves null when a pick is already in flight.
+   */
+  async pickGrain(sim3: Sim3D, clientX: number, clientY: number, plane: SlicePlane | null):
+    Promise<{ id: number; depth: number } | null> {
+    if (this.pickBusy) return null;
+    this.pickBusy = true;
+    try {
+      const rect = this.canvas.getBoundingClientRect();
+      const u = (clientX - rect.left) / Math.max(rect.width, 1);
+      const v = (clientY - rect.top) / Math.max(rect.height, 1);
+      const aspect = rect.width / Math.max(rect.height, 1);
+      const b = this.basis();
+      const sx = (u - 0.5) * 2 * this.tanHalfFov * aspect;
+      const sy = (0.5 - v) * 2 * this.tanHalfFov;
+      const rd = [0, 1, 2].map(i => b.fwd[i] + sx * b.right[i] + sy * b.up[i]);
+      const rl = Math.hypot(rd[0], rd[1], rd[2]);
+      const buf = new ArrayBuffer(64);
+      const f = new Float32Array(buf), w = new Uint32Array(buf);
+      f.set([b.eye[0], b.eye[1], b.eye[2], 0], 0);
+      f.set([rd[0] / rl, rd[1] / rl, rd[2] / rl, 0], 4);
+      if (plane) f.set([plane.n[0], plane.n[1], plane.n[2], plane.c], 8);
+      w[12] = sim3.n;
+      w[13] = plane ? 1 : 0;
+      this.device.queue.writeBuffer(this.pickUbuf, 0, buf);
+      const bg = this.device.createBindGroup({
+        layout: this.pickPipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.pickUbuf } },
+          { binding: 1, resource: sim3.stateTexture(sim3.dir).createView() },
+          { binding: 2, resource: sim3.grainTexture(sim3.dir).createView() },
+          { binding: 3, resource: { buffer: this.pickOut } },
+        ],
+      });
+      const enc = this.device.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(this.pickPipe);
+      pass.setBindGroup(0, bg);
+      pass.dispatchWorkgroups(1);
+      pass.end();
+      enc.copyBufferToBuffer(this.pickOut, 0, this.pickStage, 0, 8);
+      this.device.queue.submit([enc.finish()]);
+      await this.pickStage.mapAsync(GPUMapMode.READ);
+      const out = new Uint32Array(this.pickStage.getMappedRange().slice(0));
+      this.pickStage.unmap();
+      return { id: out[0], depth: new Float32Array(out.buffer)[1] };
+    } catch {
+      return null;
+    } finally {
+      this.pickBusy = false;
+    }
   }
 
   /**
@@ -489,6 +596,7 @@ export class Renderer3D {
     f[R3.meltGlow] = sim3.params.meltGlow;
     f[R3.tFar] = sim3.params.tFar;
     f[R3.stepScale] = 0.7;
+    u[R3.iso] = this.isoId;
     f[R3.sliceN] = plane.n[0]; f[R3.sliceN + 1] = plane.n[1];
     f[R3.sliceN + 2] = plane.n[2]; f[R3.sliceN + 3] = plane.c;
     // the Niyama ramp scale is the SAME threshold the stats risk counter uses

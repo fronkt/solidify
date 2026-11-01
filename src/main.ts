@@ -4,7 +4,7 @@ import { Renderer, type ViewMode } from "./render";
 import {
   Sim3D, DEFAULTS3D, GRID3_LADDER, type StatsResult3D, moldWallThickness, stepSectionBounds,
 } from "./sim3d";
-import { LENS3_NAMES, ICOSA_DELTA_MAX } from "./shaders3d";
+import { LENS3_NAMES, ICOSA_DELTA_MAX, PORE_ID } from "./shaders3d";
 import { Renderer3D, slicePlane } from "./render3d";
 import { SlicePanel } from "./slicepanel";
 import { ViewCube } from "./viewcube";
@@ -76,6 +76,52 @@ async function boot() {
   // loop clears them whenever the melt runs or the ledger is marked.
   const replay2 = new ReplayLedger(), replay3 = new ReplayLedger();
   let scrub2: number | null = null, scrub3: number | null = null;
+  // Grain isolation (3D): alt-tap or a long press picks the grain under the
+  // pointer along the camera's own ray; the renderer ghosts every other grain.
+  // vox is an exact whole-volume count (Sim3D.readRegion), null until it lands.
+  // t0: sim time at the pick; the clock running back below it is a reset,
+  // which renumbers grains, so the isolation ends there
+  let iso3: { id: number; vox: number | null; t0: number } | null = null;
+  const setIso3 = (next: { id: number; vox: number | null; t0: number } | null) => {
+    iso3 = next;
+    if (renderer3d) renderer3d.isoId = next?.id ?? 0;
+  };
+  const pickIso3 = async (clientX: number, clientY: number) => {
+    if (!sim3d || !renderer3d) return;
+    const volume = sim3d;
+    const hit = await renderer3d.pickGrain(volume, clientX, clientY,
+      view3d === 2 ? slicePlane(slice, volume.n) : null);
+    if (!hit || sim3d !== volume || mode !== "3d") return;
+    // liquid, a pore or the grain already isolated: back to the whole casting
+    if (hit.id === 0 || hit.id === PORE_ID || hit.id === iso3?.id) { setIso3(null); return; }
+    setIso3({ id: hit.id, vox: null, t0: volume.simTime });
+    hideHint();
+    const n = volume.n;
+    const census = await volume.readRegion([0, 0, 0], [n, n, n]);
+    if (!census || iso3?.id !== hit.id) return;
+    const row = census.grains.find(g => g.id === hit.id);
+    iso3 = { ...iso3, vox: row ? row.voxCount : 0 };
+  };
+  /** the isolated grain's rows: id, exact volume, equivalent-sphere diameter
+   *  and its crystal [001] axis in the sample frame (z up), from the CPU
+   *  quaternion mirror the IPF/pole panels read */
+  const isoRows3 = (): [string, string][] => {
+    if (!iso3 || !sim3d) return [];
+    const um = sim3d.umPerCell;
+    const v = iso3.vox;
+    const q = sim3d.quats.subarray(iso3.id * 4, iso3.id * 4 + 4);
+    const [x, y, z, w] = [q[0], q[1], q[2], q[3]];
+    // R(q) applied to (0, 0, 1): the third column of the rotation matrix
+    const ax = [2 * (x * z + w * y), 2 * (y * z - w * x), 1 - 2 * (x * x + y * y)];
+    const sgn = ax[2] < 0 ? -1 : 1;   // [001] and [00-1] are one axis
+    const axis = ax.map(c => (c * sgn).toFixed(2)).join(", ");
+    return [
+      ["grain", `#${iso3.id} isolated`],
+      ["volume", v == null ? "…" : v === 0 ? "< 4 vox" : `${(v * um ** 3).toPrecision(3)} µm³`],
+      ["d eq", v ? `${(Math.cbrt((6 * v) / Math.PI) * um).toFixed(1)} µm` : "—"],
+      ["[001]", `(${axis})`],
+    ];
+  };
   const hud = new Hud(document.getElementById("hud")!, {
     units: () => unitsNow(),
     meta: () => plotMeta(),
@@ -284,7 +330,7 @@ async function boot() {
   // each "key: action" pair on a line of its own (app/index.html #hint .nw),
   // so a narrow window breaks between pairs, never inside one
   const HINT_2D = ["tap: seed", "shift-tap: twin", "scroll or pinch: zoom", "right-drag: pan"];
-  const HINT_3D = ["tap: seed", "drag: orbit", "wheel: dolly", "right-drag: pan"];
+  const HINT_3D = ["tap: seed", "drag: orbit", "wheel: dolly", "right-drag: pan", "alt-tap or hold: isolate a grain"];
   const setHintMode = (m3: boolean) => {
     const h = document.getElementById("hint")!;
     h.innerHTML = (m3 ? HINT_3D : HINT_2D).map(p => `<span class="nw">${p}</span>`).join(" · ");
@@ -746,6 +792,7 @@ async function boot() {
   };
 
   const exit3D = () => {
+    setIso3(null);
     quantRequest3++;
     quantPending3 = false;
     queuedLambda3 = undefined;
@@ -1964,7 +2011,11 @@ async function boot() {
       const d = this.drag;
       this.drag = null;
       if (!isUp || !d || d.moved || d.btn !== 0) return;
-      if (performance.now() - d.t > 350) return;
+      // alt-tap, or a held press (touch has no alt key), isolates a grain:
+      // read-only, so it neither cancels a recipe nor waits on the optimizer
+      const held = performance.now() - d.t;
+      if (e.altKey || held >= 500) { void pickIso3(e.clientX, e.clientY); return; }
+      if (held > 350) return;
       if (opt3?.active) return;
       cancelRecipe3();
       // ctrl-tap relocates the cooling probe (2D grammar port) — checked first
@@ -2124,6 +2175,7 @@ async function boot() {
     if (e.code === "Space" && !kbFocused) { e.preventDefault(); app.setRun(!app.isRunning()); ui.sync(); }
     if (mode === "3d") {
       if (/^[1-9]$/.test(e.key)) { app.setView3d(parseInt(e.key) - 1); ui.sync(); }
+      if (e.key === "Escape" && iso3) setIso3(null);
       return;
     }
     if (/^[0-9]$/.test(e.key)) {
@@ -2287,6 +2339,7 @@ async function boot() {
           && !quantPending3 && !mode3dPending && sim3d.pendingSeedCount === 0
           && !turntable && !recorder && !(slice.sweep && view3d === 2);
         replay3.clock(sim3d.simTime);
+        if (iso3 && sim3d.simTime < iso3.t0) setIso3(null);
         if (sim3d.params.scen === 2 && running3d) replay3.mark(REPLAY.weld);
         if (sim3d.params.heatIn > 0) replay3.mark(REPLAY.reheat);
         if (heat?.busy) replay3.mark(REPLAY.anneal);
@@ -2364,6 +2417,7 @@ async function boot() {
             ["sites", nuc3.p.nmax > 0 ? `${nuc3.fired}/${nuc3.p.nmax.toFixed(0)}` : "—"],
             ["pores", s ? `${(s.poreFrac * 100).toFixed(2)} %` : "—"],
             ["fps", `${fps.toFixed(0)} · ${sim3d.n}³`],
+            ...isoRows3(),
           ]);
         }
       }

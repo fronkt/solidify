@@ -1293,7 +1293,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 export const R3 = {
   view: 0, n: 1, canvasW: 2, canvasH: 3,
   time: 4, photo: 5, look: 6, flags: 7,
-  meltGlow: 8, tFar: 9, stepScale: 10, _padA: 11,
+  meltGlow: 8, tFar: 9, stepScale: 10, iso: 11,   // iso: isolated grain id (0 = none)
   sliceN: 12,                            // vec4f: unit normal + plane constant c (voxels)
   eye: 16, right: 20, up: 24, fwd: 28,   // vec4 starts (f32 slots)
   misc: 32,                              // vec4f: x = simTime, y = nyCrit
@@ -1339,7 +1339,7 @@ struct RParams3D {
   meltGlow: f32,
   tFar: f32,
   stepScale: f32,   // fine-march step in voxels
-  _padA: f32,
+  iso: u32,         // isolated grain id: only it is opaque, the rest ghost (0 = off)
   sliceN: vec4f,    // unit section-plane normal + plane constant c (voxels)
   eye: vec4f,       // xyz + tanHalfFov in w
   right: vec4f,     // xyz + aspect in w
@@ -1386,6 +1386,13 @@ fn stateAt(p: vec3f) -> vec2f {
 fn grainAt(p: vec3f) -> u32 {
   return textureLoad(grain, clampC(vec3i(p)), 0).r;
 }
+// the phase field the camera hits: all solid, or with a grain isolated, only
+// that grain's solid (its boundary faces with neighbours follow the voxel ids)
+fn hitPhi(p: vec3f) -> f32 {
+  let ph = phiAt(p);
+  if (R.iso == 0u) { return ph; }
+  return select(0.0, ph, grainAt(p) == R.iso);
+}
 fn ageAt(p: vec3f) -> vec2f {
   return textureLoad(age, clampC(vec3i(p)), 0).rg;
 }
@@ -1401,9 +1408,9 @@ fn maskAt(p: vec3f) -> u32 {
 // central-difference surface normal at the phi=0.5 crossing
 fn surfNormal(p: vec3f) -> vec3f {
   let e = 1.2;
-  let gx = phiAt(p + vec3f(e, 0.0, 0.0)) - phiAt(p - vec3f(e, 0.0, 0.0));
-  let gy = phiAt(p + vec3f(0.0, e, 0.0)) - phiAt(p - vec3f(0.0, e, 0.0));
-  let gz = phiAt(p + vec3f(0.0, 0.0, e)) - phiAt(p - vec3f(0.0, 0.0, e));
+  let gx = hitPhi(p + vec3f(e, 0.0, 0.0)) - hitPhi(p - vec3f(e, 0.0, 0.0));
+  let gy = hitPhi(p + vec3f(0.0, e, 0.0)) - hitPhi(p - vec3f(0.0, e, 0.0));
+  let gz = hitPhi(p + vec3f(0.0, 0.0, e)) - hitPhi(p - vec3f(0.0, 0.0, e));
   let g = vec3f(gx, gy, gz);
   let l = length(g);
   // where the crystal is truncated by a domain face, phi is uniform solid and
@@ -1496,7 +1503,7 @@ fn aoAt(p: vec3f, nrm: vec3f, x: u32, y: u32, k: u32) -> f32 {
     var occ = 0.0;
     for (var i = 1; i <= 8; i++) {
       let d = f32(i) * 1.75;
-      if (phiAt(o + dir * d) > 0.5) { occ = 1.0 - d / 16.0; break; }
+      if (hitPhi(o + dir * d) > 0.5) { occ = 1.0 - d / 16.0; break; }
     }
     return 1.0 - 0.85 * occ;
   }
@@ -1504,7 +1511,7 @@ fn aoAt(p: vec3f, nrm: vec3f, x: u32, y: u32, k: u32) -> f32 {
   var dirs = array<vec3f, 5>(nrm, normalize(nrm + tu), normalize(nrm - tu),
                              normalize(nrm + tv), normalize(nrm - tv));
   for (var j = 0; j < 5; j++) {
-    occ += phiAt(o + dirs[j] * 3.0) * 0.6 + phiAt(o + dirs[j] * 7.0) * 0.4;
+    occ += hitPhi(o + dirs[j] * 3.0) * 0.6 + hitPhi(o + dirs[j] * 7.0) * 0.4;
   }
   return clamp(1.0 - 0.75 * occ / 5.0 * 2.2, 0.3, 1.0);
 }
@@ -1529,7 +1536,7 @@ fn shadowAt(p: vec3f, nrm: vec3f, x: u32, y: u32, k: u32) -> f32 {
     if (t > maxD) { break; }
     let q = o + L * t;
     if (any(q < vec3f(0.0)) || any(q > vec3f(nf))) { break; }
-    if (phiAt(q) > 0.5) { return 0.0; }
+    if (hitPhi(q) > 0.5) { return 0.0; }
     t += stepD;
   }
   return 1.0;
@@ -1837,7 +1844,7 @@ fn fmain(in: VOut) -> @location(0) vec4f {
       // a domain face): the visible surface IS the entry plane — hit it
       // exactly. Marching from the jittered start would land 0-2 voxels deep
       // at a per-pixel depth and speckle the flat face.
-      if (cutFront < 0.0 && phiAt(ro + rd * (hit.x + 0.01)) >= 0.5) {
+      if (cutFront < 0.0 && hitPhi(ro + rd * (hit.x + 0.01)) >= 0.5) {
         hitT = hit.x + 0.01;
       }
       if (hitT < 0.0) {
@@ -1872,23 +1879,33 @@ fn fmain(in: VOut) -> @location(0) vec4f {
           trans *= exp(-meltAbsorb * 2.0);
           if (trans < 0.012) { break; }
         }
-        if (s.r > 0.06) {
+        var sr = s.r;
+        if (R.iso != 0u && s.r > 0.06 && grainAt(p) != R.iso) {
+          // isolating a grain: the others are faint glass, for context only
+          if (s.r > 0.5) {
+            acc += trans * vec3f(0.050, 0.056, 0.066) * 0.16;
+            trans *= 0.965;
+            if (trans < 0.012) { break; }
+          }
+          sr = 0.0;
+        }
+        if (sr > 0.06) {
           // fine march toward the phi = 0.5 crossing (the diffuse interface is
           // several voxels wide — give grazing rays a long enough window)
           var tf = max(prevT, t - 2.0);
-          var pf = phiAt(ro + rd * tf);
+          var pf = hitPhi(ro + rd * tf);
           let fEnd = min(t + 14.0, tMax);
           if (pf >= 0.5) { hitT = tf; }
           loop {
             if (hitT > 0.0 || tf >= fEnd) { break; }
             let tn = tf + fine;
-            let pn = phiAt(ro + rd * tn);
+            let pn = hitPhi(ro + rd * tn);
             if (pf < 0.5 && pn >= 0.5) {
               var a = tf;
               var b = tn;
               for (var i = 0; i < 3; i++) {
                 let mid = 0.5 * (a + b);
-                if (phiAt(ro + rd * mid) >= 0.5) { b = mid; } else { a = mid; }
+                if (hitPhi(ro + rd * mid) >= 0.5) { b = mid; } else { a = mid; }
               }
               hitT = 0.5 * (a + b);
               break;
