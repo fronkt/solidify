@@ -110,7 +110,7 @@ def run_controls(baseline_directory,fp32_input):
     ra=angular_problem['evaluate'](y,False);rp=base['evaluate'](y,False)
     difference=float(np.max(np.abs(ra-rp)))
     result['oldFailure']={'angularResidual':float(np.max(np.abs(ra))),'principalResidual':float(np.max(np.abs(rp))),
-      'difference':difference,'preserved':difference<2e-12 and np.max(np.abs(ra))>=3e-11}
-    result['passed']=result['local']['passed'] and all(row['passed'] for key in ['periodic','coupled','principal','storedPrincipal']
-      for row in result[key]) and result['oldFailure']['preserved']
+      'difference':difference,'preserved':bool(difference<2e-12 and np.max(np.abs(ra))>=3e-11)}
+    result['passed']=bool(result['local']['passed'] and all(row['passed'] for key in ['periodic','coupled','principal','storedPrincipal']
+      for row in result[key]) and result['oldFailure']['preserved'])
     return result
