@@ -58,14 +58,17 @@ export async function createObliquePlane(device,c,initial,M,defaults,specialize)
     const data=new ArrayBuffer(M.P3.BYTES),u32=new Uint32Array(data),f32=new Float32Array(data);
     const ints=new Set(['n','frame','aniMode3','seedCount','curGen','scen','alloyOn','idFloor','probeX','probeY','probeZ','solver','frozenT']);
     let dir=0,steps=0,frame=0,time=0;
+    const uploadUniforms=nextFrame=>{
+      const values={...p,n:dims[0],frame:nextFrame,time,curGen:1,idFloor:1,seedCount:0,probeX:0xffffffff,probeY:0xffffffff,probeZ:0xffffffff};
+      for(const [key,offset] of Object.entries(M.P3)){if(key==='BYTES'||key==='sliceN')continue;
+        if(ints.has(key))u32[offset]=values[key]??0;else f32[offset]=values[key]??0;}
+      device.queue.writeBuffer(uniform,0,data);
+    };
     fixture={p,state,grain,age,flux,aux,specs,get dir(){return dir;},get steps(){return steps;},
       async advance(amount){
         if(!Number.isSafeInteger(amount)||amount<1)throw new Error('positive exact step count required');
         let left=amount;while(left){const batch=Math.min(left,2048);frame++;
-          const values={...p,n:dims[0],frame,time,curGen:1,idFloor:1,seedCount:0,probeX:0xffffffff,probeY:0xffffffff,probeZ:0xffffffff};
-          for(const [key,offset] of Object.entries(M.P3)){if(key==='BYTES'||key==='sliceN')continue;
-            if(ints.has(key))u32[offset]=values[key]??0;else f32[offset]=values[key]??0;}
-          device.queue.writeBuffer(uniform,0,data);const e=device.createCommandEncoder(),pass=e.beginComputePass();
+          uploadUniforms(frame);const e=device.createCommandEncoder(),pass=e.beginComputePass();
           for(let k=0;k<batch;k++){for(let j=0;j<3;j++){pass.setPipeline(pipes[j]);pass.setBindGroup(0,groups[dir][j]);pass.dispatchWorkgroups(...dims.map(n=>Math.ceil(n/4)));}dir=1-dir;}
           pass.end();device.queue.submit([e.finish()]);await device.queue.onSubmittedWorkDone();steps+=batch;time+=batch*p.dt;left-=batch;
         }
@@ -73,6 +76,17 @@ export async function createObliquePlane(device,c,initial,M,defaults,specialize)
         const bytes=staging.getMappedRange().slice(0);staging.unmap();const flags=new Uint32Array(bytes)[0];
         if(flags)throw new Error('oblique quantitative flags '+flags);
         return {steps,time:steps*Math.fround(p.dt),declaredTime:time,uniformDt:Math.fround(p.dt)};
+      },
+      // Optional diagnostic dispatch: no transport, ping-pong swap or clock
+      // advancement. The caller supplies a separately identified capture shader.
+      async probePhase(){
+        uploadUniforms(frame+1);const e=device.createCommandEncoder(),pass=e.beginComputePass();
+        for(let j=0;j<2;j++){pass.setPipeline(pipes[j]);pass.setBindGroup(0,groups[dir][j]);pass.dispatchWorkgroups(...dims.map(n=>Math.ceil(n/4)));}
+        pass.end();device.queue.submit([e.finish()]);await device.queue.onSubmittedWorkDone();
+        const check=device.createCommandEncoder();check.copyBufferToBuffer(status,0,staging,0,16);device.queue.submit([check.finish()]);
+        await staging.mapAsync(GPUMapMode.READ);const flags=new Uint32Array(staging.getMappedRange().slice(0))[0];staging.unmap();
+        if(flags)throw new Error('oblique diagnostic quantitative flags '+flags);
+        return {diagnosticOnly:true,steps,time:steps*Math.fround(p.dt),declaredTime:time,uniformDt:Math.fround(p.dt)};
       },
       async fields(){return {state:await obliqueRaw(device,state[dir],dims,8),grain:await obliqueRaw(device,grain[dir],dims,4),age:await obliqueRaw(device,age,dims,8)};},
       async destroy(){let failure;try{await device.queue.onSubmittedWorkDone();}catch(e){failure=e;}

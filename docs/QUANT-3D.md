@@ -422,3 +422,36 @@ Commit archives accompany the data. An additional exact-source ZIP reproduces
 all 34 recorded local source hashes across the three studies, including Windows
 line-ending representations; Git's normalized source bytes alone differ for 25
 of those files. Source and result data were not changed to obtain that agreement.
+
+### Oblique interface operator and grid-refinement protocol
+
+The full rational-plane reduction retains laboratory centered gradients,
+nodewise anisotropy, grad-w terms, tangential flux divergence and the literal
+small-gradient cutoff. Actual production WGSL matches native 3D interiors in
+234 exact state/grain/age comparisons across principal, oblique and signed
+normals. Twelve separate Float32-input CPU response/flux comparisons pass, and
+an evolving wrong-normal control is rejected. Exact source copies, actual input
+bytes, clocks, raw fields and a clean readable device ledger accompany the run.
+
+The separately registered coupled CPU study converges in 95 of 96 requests,
+including all 48 oblique physical cases. A literal-cutoff principal100 candidate
+stalls above the unchanged Newton criterion; its failed state and trace remain
+preserved. Six additional cutoff comparisons pass without replacing that
+failure. Converged traveling profiles establish neither uniqueness nor temporal
+stability. The earlier thermal-recovery refusal remains unchanged.
+
+An independent proof sealed before the oblique outputs predicts a nonzero
+angular h-squared residual in the existing principal-plane candidate. Measured
+residuals are consistent with that term plus higher-order error. In particular,
+211 and held-out321 share continuum a but have different sixth normal moments
+and kinetic residuals. The next angular correction is derived separately and
+remains a research candidate. No coefficient is fitted to needle data, and no
+application default changes. See [oblique evidence](validation/quant3d-oblique-2026-10-31.json)
+and the [full operator protocol](../scripts/research/quant3d-oblique-kinetic.md).
+
+The next capillary protocol pairs lattice phases at dx/W0=.8/.6/.4, with grids
+96/128/192, radius20, a fixed physical box and one common physical phase-volume
+target. All twelve cases keep the previous horizon, cadence and curvature
+estimator. CPU geometry, pairing and lifecycle controls pass; actual GPU
+execution and response-grid conclusions remain pending. These investigations
+do not close Q3 or change the published ten-percent reference bands.

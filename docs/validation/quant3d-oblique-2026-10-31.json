@@ -1,0 +1,2157 @@
+{
+  "format": "solidify-oblique-kinetics-evidence-v1",
+  "scope": "Exact rational-plane production operator and finite-speed coupled CPU diagnostics; no correction adoption, temporal stability or Q3 acceptance",
+  "dateLocal": "2026-10-31",
+  "q3Accepted": false,
+  "productionApplicationChanged": false,
+  "cpu": {
+    "registered": 96,
+    "converged": 95,
+    "completed": false,
+    "failures": [
+      {
+        "label": "principal-literal",
+        "request": {
+          "normal": [
+            1,
+            0,
+            0
+          ],
+          "h": 0.8,
+          "sub": 16,
+          "half": 64.0,
+          "velocity": 0.04,
+          "tau_input": 1.0,
+          "candidate": true,
+          "cutoff": true,
+          "modes": 3,
+          "order": 6,
+          "bias": 1,
+          "tail_periods": 4
+        },
+        "error": "RuntimeError('Newton line search failed at residual 2.8642701849972338e-08')",
+        "failedRaw": "case-003-failed-state.npz",
+        "lastNewton": {
+          "iteration": 13,
+          "maxResidual": 2.8642701849972338e-08
+        }
+      }
+    ],
+    "integrity": {
+      "profileHashesVerified": 96,
+      "failedStatesIncluded": 1,
+      "targetHashesVerified": 6,
+      "unchangedReferenceHashesVerified": 6,
+      "studySourceStable": true,
+      "studyCompleted": false
+    },
+    "sourceHashes": {
+      "scripts\\research\\quant3d-oblique-kinetic-controls.py": "35d15a56a72462dec506f90b6ed7946e7c0e876f0a5abbb8590748928752f185",
+      "scripts\\research\\quant3d-oblique-kinetic-cutoff-controls.py": "329bba63a020553cc6f03e1fb6434a113ac51c1a508a2da8ec6e37b75c4aec79",
+      "scripts\\research\\quant3d-oblique-kinetic-fp32-fixtures.py": "29c0e69428d47935f22d9da0ae1687fae38cdd7ca2aa37c8ef455420c54fc806",
+      "scripts\\research\\quant3d-oblique-kinetic-reference.py": "a8bb1b0e490d250574f7e823564b7a25ff303ea1588a95fe3af90c18b9a9d22a",
+      "scripts\\research\\quant3d-oblique-kinetic-study.py": "33dac69420ffd650ba08b5743a1ba6f6045debf9ffac9fa5b6c831e51917793f",
+      "scripts\\research\\quant3d-oblique-kinetic-summary.py": "102737b597f5b7c8c81018d1c73574d48981e36cbab354b2e448941cf1701f69",
+      "scripts\\research\\quant3d-oblique-kinetic.py": "2b3514ec2484e78211c979540c935716489074704b5d408cbe98d6825d6beda8",
+      "scripts\\research\\quant3d-oblique-kinetic.md": "19798b917657c7944c53845487aa790e5722b5979b593f2c7890abec3e017e76"
+    },
+    "allObliquePhysicalCasesConverged": 48,
+    "numericalControlsConverged": 24,
+    "signedTauControlsConverged": 12,
+    "separateCutoffControlsConverged": 6,
+    "groups": [
+      {
+        "normal": [
+          2,
+          1,
+          0
+        ],
+        "h": 0.8,
+        "candidate": false,
+        "heldOutNormal": false,
+        "gamma": 0.005278392945422683,
+        "formalCandidateBetaOverH2Prediction": 0.0007722562243657751,
+        "formalLeadingBetaPrediction": 0.019524200432859014,
+        "Solid": {
+          "values": [
+            0.02061826352092454,
+            0.020098030886571732,
+            0.01906065145564656,
+            0.01699903515098838
+          ],
+          "primaryQuadraticIntercept": 0.021139524767870854,
+          "linearIntercept": 0.021136953236387136,
+          "linearQuadraticSpread": 2.5715314837179704e-06,
+          "secondaryQuadraticIntercept": 0.021139791169894326,
+          "secondaryPrimarySpread": 2.6640202347230635e-07,
+          "fourPointCubicIntercept": 0.02113948671043899,
+          "cubicPrimarySpread": 3.805743186216515e-08,
+          "heldoutV004Error": 7.992060702712023e-07,
+          "primaryMinusFormal": 0.001615324335011839,
+          "primaryMinusFormalOverH4": 0.003943662927274997
+        },
+        "Liquid": {
+          "values": [
+            0.0202471761352907,
+            0.019354402360227674,
+            0.017567615669533687,
+            0.013990281786441239
+          ],
+          "primaryQuadraticIntercept": 0.021139536863497753,
+          "linearIntercept": 0.021140569480637694,
+          "linearQuadraticSpread": 1.0326171399413497e-06,
+          "secondaryQuadraticIntercept": 0.021139935550353525,
+          "secondaryPrimarySpread": 3.986868557723233e-07,
+          "fourPointCubicIntercept": 0.02113947990823273,
+          "cubicPrimarySpread": 5.695526502161319e-08,
+          "heldoutV004Error": 1.1960605672128866e-06,
+          "primaryMinusFormal": 0.0016153364306387384,
+          "primaryMinusFormalOverH4": 0.003943692457614107
+        },
+        "solidLiquidPrimaryDifference": 1.209562689938326e-08
+      },
+      {
+        "normal": [
+          2,
+          1,
+          0
+        ],
+        "h": 0.8,
+        "candidate": true,
+        "heldOutNormal": false,
+        "gamma": 0.005278392945422683,
+        "formalCandidateBetaOverH2Prediction": 0.0007722562243657751,
+        "formalLeadingBetaPrediction": 0.0004942439835940961,
+        "Solid": {
+          "values": [
+            0.0008986478650929094,
+            0.0004241521778642985,
+            -0.0005231036189927762,
+            -0.0024101186354572373
+          ],
+          "primaryQuadraticIntercept": 0.001373722078188237,
+          "linearIntercept": 0.0013722757635214473,
+          "linearQuadraticSpread": 1.4463146667898028e-06,
+          "secondaryQuadraticIntercept": 0.0013739068338046024,
+          "secondaryPrimarySpread": 1.847556163653459e-07,
+          "fourPointCubicIntercept": 0.0013736956845287706,
+          "cubicPrimarySpread": 2.6393659466545163e-08,
+          "heldoutV004Error": 5.54266849094303e-07,
+          "primaryMinusFormal": 0.000879478094594141,
+          "primaryMinusFormalOverH4": 0.0021471633168802266
+        },
+        "Liquid": {
+          "values": [
+            0.0005000860827664155,
+            -0.0003746781385816078,
+            -0.002127578372235206,
+            -0.005646083799074053
+          ],
+          "primaryQuadraticIntercept": 0.0013737263737952543,
+          "linearIntercept": 0.0013765361995932153,
+          "linearQuadraticSpread": 2.80982579796093e-06,
+          "secondaryQuadraticIntercept": 0.0013739871085614375,
+          "secondaryPrimarySpread": 2.6073476618320053e-07,
+          "fourPointCubicIntercept": 0.0013736891259715385,
+          "cubicPrimarySpread": 3.7247823715799364e-08,
+          "heldoutV004Error": 7.822042985567573e-07,
+          "primaryMinusFormal": 0.0008794823902011582,
+          "primaryMinusFormalOverH4": 0.0021471738042020457
+        },
+        "solidLiquidPrimaryDifference": 4.295607017226061e-09
+      },
+      {
+        "normal": [
+          2,
+          1,
+          0
+        ],
+        "h": 0.4,
+        "candidate": false,
+        "heldOutNormal": false,
+        "gamma": 0.005278392945422683,
+        "formalCandidateBetaOverH2Prediction": 0.0007722562243657751,
+        "formalLeadingBetaPrediction": 0.004889822761023096,
+        "Solid": {
+          "values": [
+            0.004537667010873004,
+            0.0040956348720090855,
+            0.0032142503463148,
+            0.0014628240659133626
+          ],
+          "primaryQuadraticIntercept": 0.00498059240041478,
+          "linearIntercept": 0.004978359273720149,
+          "linearQuadraticSpread": 2.233126694631271e-06,
+          "secondaryQuadraticIntercept": 0.004980800321365753,
+          "secondaryPrimarySpread": 2.0792095097293267e-07,
+          "fourPointCubicIntercept": 0.004980562697421802,
+          "cubicPrimarySpread": 2.9702992978414278e-08,
+          "heldoutV004Error": 6.237628529070886e-07,
+          "primaryMinusFormal": 9.076963939168379e-05,
+          "primaryMinusFormalOverH4": 0.0035456890387376475
+        },
+        "Liquid": {
+          "values": [
+            0.004098110308570213,
+            0.0032147112078551032,
+            0.0014451954380767518,
+            -0.0021038212374535625
+          ],
+          "primaryQuadraticIntercept": 0.004980603553169284,
+          "linearIntercept": 0.004982868193459391,
+          "linearQuadraticSpread": 2.264640290107478e-06,
+          "secondaryQuadraticIntercept": 0.004980898598975586,
+          "secondaryPrimarySpread": 2.9504580630231036e-07,
+          "fourPointCubicIntercept": 0.004980561403768412,
+          "cubicPrimarySpread": 4.214940087232666e-08,
+          "heldoutV004Error": 8.851374188921859e-07,
+          "primaryMinusFormal": 9.078079214618756e-05,
+          "primaryMinusFormalOverH4": 0.0035461246932104507
+        },
+        "solidLiquidPrimaryDifference": 1.1152754503772344e-08
+      },
+      {
+        "normal": [
+          2,
+          1,
+          0
+        ],
+        "h": 0.4,
+        "candidate": true,
+        "heldOutNormal": false,
+        "gamma": 0.005278392945422683,
+        "formalCandidateBetaOverH2Prediction": 0.0007722562243657751,
+        "formalLeadingBetaPrediction": 0.00012356099589852404,
+        "Solid": {
+          "values": [
+            -0.0002596914915911235,
+            -0.0006909250606416383,
+            -0.0015510339771424326,
+            -0.003261249848958951
+          ],
+          "primaryQuadraticIntercept": 0.00017232815132613564,
+          "linearIntercept": 0.00017036296665927348,
+          "linearQuadraticSpread": 1.965184666862164e-06,
+          "secondaryQuadraticIntercept": 0.00017251784292084352,
+          "secondaryPrimarySpread": 1.896915947078746e-07,
+          "fourPointCubicIntercept": 0.00017230105252690058,
+          "cubicPrimarySpread": 2.709879923506065e-08,
+          "heldoutV004Error": 5.690747841313216e-07,
+          "primaryMinusFormal": 4.876715542761161e-05,
+          "primaryMinusFormalOverH4": 0.001904967008891078
+        },
+        "Liquid": {
+          "values": [
+            -0.0007059147621335526,
+            -0.0015852401990312792,
+            -0.0033471107164229075,
+            -0.006882939921146192
+          ],
+          "primaryQuadraticIntercept": 0.00017233746023211354,
+          "linearIntercept": 0.00017502049656226135,
+          "linearQuadraticSpread": 2.683036330147808e-06,
+          "secondaryQuadraticIntercept": 0.00017260092838033625,
+          "secondaryPrimarySpread": 2.634681482227097e-07,
+          "fourPointCubicIntercept": 0.0001722998219252497,
+          "cubicPrimarySpread": 3.763830686383989e-08,
+          "heldoutV004Error": 7.904044446770467e-07,
+          "primaryMinusFormal": 4.8776464333589504e-05,
+          "primaryMinusFormalOverH4": 0.0019053306380308398
+        },
+        "solidLiquidPrimaryDifference": 9.308905977897493e-09
+      },
+      {
+        "normal": [
+          2,
+          1,
+          1
+        ],
+        "h": 0.8,
+        "candidate": false,
+        "heldOutNormal": false,
+        "gamma": 0.0051548139858242584,
+        "formalCandidateBetaOverH2Prediction": 0.00076362294024282,
+        "formalLeadingBetaPrediction": 0.0197567567219841,
+        "Solid": {
+          "values": [
+            0.02101071620180517,
+            0.020499572104642736,
+            0.019480274187148636,
+            0.01745440951094733
+          ],
+          "primaryQuadraticIntercept": 0.021522857057911217,
+          "linearIntercept": 0.021520365160552224,
+          "linearQuadraticSpread": 2.491897358992967e-06,
+          "secondaryQuadraticIntercept": 0.021523113741732495,
+          "secondaryPrimarySpread": 2.566838212779421e-07,
+          "fourPointCubicIntercept": 0.021522820388793933,
+          "cubicPrimarySpread": 3.666911728428257e-08,
+          "heldoutV004Error": 7.700514637332123e-07,
+          "primaryMinusFormal": 0.0017661003359271156,
+          "primaryMinusFormalOverH4": 0.004311768398259559
+        },
+        "Liquid": {
+          "values": [
+            0.020650836634805714,
+            0.0197784228978648,
+            0.01803246369244116,
+            0.014537171215944777
+          ],
+          "primaryQuadraticIntercept": 0.021522873127899377,
+          "linearIntercept": 0.02152381623751754,
+          "linearQuadraticSpread": 9.431096181650167e-07,
+          "secondaryQuadraticIntercept": 0.021523257414738765,
+          "secondaryPrimarySpread": 3.842868393881538e-07,
+          "fourPointCubicIntercept": 0.021522818229779524,
+          "cubicPrimarySpread": 5.489811985212589e-08,
+          "heldoutV004Error": 1.1528605180673168e-06,
+          "primaryMinusFormal": 0.0017661164059152752,
+          "primaryMinusFormalOverH4": 0.004311807631629089
+        },
+        "solidLiquidPrimaryDifference": 1.6069988159617132e-08
+      },
+      {
+        "normal": [
+          2,
+          1,
+          1
+        ],
+        "h": 0.8,
+        "candidate": true,
+        "heldOutNormal": false,
+        "gamma": 0.0051548139858242584,
+        "formalCandidateBetaOverH2Prediction": 0.00076362294024282,
+        "formalLeadingBetaPrediction": 0.0004887186817554048,
+        "Solid": {
+          "values": [
+            0.0010213479463650644,
+            0.0005560861591253963,
+            -0.0003727842127419576,
+            -0.0022233824572507194
+          ],
+          "primaryQuadraticIntercept": 0.0014871608011420606,
+          "linearIntercept": 0.0014857831322987421,
+          "linearQuadraticSpread": 1.377668843318509e-06,
+          "secondaryQuadraticIntercept": 0.001487337364068065,
+          "secondaryPrimarySpread": 1.7656292600437377e-07,
+          "fourPointCubicIntercept": 0.0014871355778669308,
+          "cubicPrimarySpread": 2.5223275129790043e-08,
+          "heldoutV004Error": 5.296887780111698e-07,
+          "primaryMinusFormal": 0.000998442119386656,
+          "primaryMinusFormalOverH4": 0.0024376028305338276
+        },
+        "Liquid": {
+          "values": [
+            0.0006339616341222154,
+            -0.00022032783810743695,
+            -0.001932152394773512,
+            -0.0053680366953412495
+          ],
+          "primaryQuadraticIntercept": 0.0014871692356162776,
+          "linearIntercept": 0.0014898739124552527,
+          "linearQuadraticSpread": 2.704676838975132e-06,
+          "secondaryQuadraticIntercept": 0.0014874183228134386,
+          "secondaryPrimarySpread": 2.4908719716107593e-07,
+          "fourPointCubicIntercept": 0.0014871336517309932,
+          "cubicPrimarySpread": 3.5583885284315095e-08,
+          "heldoutV004Error": 7.472615914999245e-07,
+          "primaryMinusFormal": 0.0009984505538608726,
+          "primaryMinusFormalOverH4": 0.0024376234225118956
+        },
+        "solidLiquidPrimaryDifference": 8.434474216929486e-09
+      },
+      {
+        "normal": [
+          2,
+          1,
+          1
+        ],
+        "h": 0.4,
+        "candidate": false,
+        "heldOutNormal": false,
+        "gamma": 0.0051548139858242584,
+        "formalCandidateBetaOverH2Prediction": 0.00076362294024282,
+        "formalLeadingBetaPrediction": 0.004947853304768362,
+        "Solid": {
+          "values": [
+            0.004613335810049281,
+            0.004181524240901287,
+            0.0033204850512021326,
+            0.0016093362438207054
+          ],
+          "primaryQuadraticIntercept": 0.005046008695396226,
+          "linearIntercept": 0.005043855404898861,
+          "linearQuadraticSpread": 2.153290497365276e-06,
+          "secondaryQuadraticIntercept": 0.005046206621272738,
+          "secondaryPrimarySpread": 1.9792587651213528e-07,
+          "fourPointCubicIntercept": 0.0050459804202710274,
+          "cubicPrimarySpread": 2.827512519867209e-08,
+          "heldoutV004Error": 5.937776295205765e-07,
+          "primaryMinusFormal": 9.81553906278642e-05,
+          "primaryMinusFormalOverH4": 0.0038341949464009446
+        },
+        "Liquid": {
+          "values": [
+            0.004185177166027287,
+            0.00332346494540392,
+            0.001597431073796507,
+            -0.001864232135667665
+          ],
+          "primaryQuadraticIntercept": 0.005046019576530431,
+          "linearIntercept": 0.005048194101830995,
+          "linearQuadraticSpread": 2.174525300564084e-06,
+          "secondaryQuadraticIntercept": 0.005046300328261553,
+          "secondaryPrimarySpread": 2.8075173112186713e-07,
+          "fourPointCubicIntercept": 0.005045979469140304,
+          "cubicPrimarySpread": 4.010739012693526e-08,
+          "heldoutV004Error": 8.422551933586625e-07,
+          "primaryMinusFormal": 9.81662717620688e-05,
+          "primaryMinusFormalOverH4": 0.003834619990705812
+        },
+        "solidLiquidPrimaryDifference": 1.0881134204603071e-08
+      },
+      {
+        "normal": [
+          2,
+          1,
+          1
+        ],
+        "h": 0.4,
+        "candidate": true,
+        "heldOutNormal": false,
+        "gamma": 0.0051548139858242584,
+        "formalCandidateBetaOverH2Prediction": 0.00076362294024282,
+        "formalLeadingBetaPrediction": 0.0001221796704388512,
+        "Solid": {
+          "values": [
+            -0.00024501263889212976,
+            -0.0006660194324732182,
+            -0.001505766587131857,
+            -0.0031756547209078607
+          ],
+          "primaryQuadraticIntercept": 0.0001767496321901364,
+          "linearIntercept": 0.00017486093843718906,
+          "linearQuadraticSpread": 1.8886937529473348e-06,
+          "secondaryQuadraticIntercept": 0.00017692978069917784,
+          "secondaryPrimarySpread": 1.8014850904145112e-07,
+          "fourPointCubicIntercept": 0.00017672389668885625,
+          "cubicPrimarySpread": 2.5735501280147203e-08,
+          "heldoutV004Error": 5.404455271280396e-07,
+          "primaryMinusFormal": 5.456996175128519e-05,
+          "primaryMinusFormalOverH4": 0.0021316391309095773
+        },
+        "Liquid": {
+          "values": [
+            -0.0006798391099183121,
+            -0.0015374720102268036,
+            -0.0032558430303641916,
+            -0.00670425608889913
+          ],
+          "primaryQuadraticIntercept": 0.0001767587172167093,
+          "linearIntercept": 0.00017934640015038208,
+          "linearQuadraticSpread": 2.587682933672769e-06,
+          "secondaryQuadraticIntercept": 0.0001770086704905293,
+          "secondaryPrimarySpread": 2.499532738199791e-07,
+          "fourPointCubicIntercept": 0.00017672300960618767,
+          "cubicPrimarySpread": 3.570761052164588e-08,
+          "heldoutV004Error": 7.498598214644367e-07,
+          "primaryMinusFormal": 5.457904677785811e-05,
+          "primaryMinusFormalOverH4": 0.002131994014760082
+        },
+        "solidLiquidPrimaryDifference": 9.085026572919685e-09
+      },
+      {
+        "normal": [
+          3,
+          2,
+          1
+        ],
+        "h": 0.8,
+        "candidate": false,
+        "heldOutNormal": true,
+        "gamma": 0.003651952765467334,
+        "formalCandidateBetaOverH2Prediction": 0.0005409923454198407,
+        "formalLeadingBetaPrediction": 0.019614270841055086,
+        "Solid": {
+          "values": [
+            0.02079549317822194,
+            0.02028504119621175,
+            0.019267107948081525,
+            0.017243890493680393
+          ],
+          "primaryQuadraticIntercept": 0.021306935398862196,
+          "linearIntercept": 0.02130445980228705,
+          "linearQuadraticSpread": 2.4755965751452336e-06,
+          "secondaryQuadraticIntercept": 0.021307190791628423,
+          "secondaryPrimarySpread": 2.553927662268807e-07,
+          "fourPointCubicIntercept": 0.021306898914181364,
+          "cubicPrimarySpread": 3.648468083206069e-08,
+          "heldoutV004Error": 7.661782986632948e-07,
+          "primaryMinusFormal": 0.0016926645578071095,
+          "primaryMinusFormalOverH4": 0.004132481830583763
+        },
+        "Liquid": {
+          "values": [
+            0.020434993436513338,
+            0.019562639345527266,
+            0.01781674525344057,
+            0.014321357092433873
+          ],
+          "primaryQuadraticIntercept": 0.021306952224127897,
+          "linearIntercept": 0.021307940482556683,
+          "linearQuadraticSpread": 9.882584287856933e-07,
+          "secondaryQuadraticIntercept": 0.021307333445336214,
+          "secondaryPrimarySpread": 3.812212083162403e-07,
+          "fourPointCubicIntercept": 0.021306897763955356,
+          "cubicPrimarySpread": 5.446017254176483e-08,
+          "heldoutV004Error": 1.1436636248550458e-06,
+          "primaryMinusFormal": 0.001692681383072811,
+          "primaryMinusFormalOverH4": 0.004132522907892604
+        },
+        "solidLiquidPrimaryDifference": 1.6825265701514436e-08
+      },
+      {
+        "normal": [
+          3,
+          2,
+          1
+        ],
+        "h": 0.8,
+        "candidate": true,
+        "heldOutNormal": true,
+        "gamma": 0.003651952765467334,
+        "formalCandidateBetaOverH2Prediction": 0.0005409923454198407,
+        "formalLeadingBetaPrediction": 0.00034623510106869814,
+        "Solid": {
+          "values": [
+            0.0008232870042297881,
+            0.00035863516054016894,
+            -0.0005690306804540194,
+            -0.0024172842538066025
+          ],
+          "primaryQuadraticIntercept": 0.0012884847967144237,
+          "linearIntercept": 0.0012871199247268825,
+          "linearQuadraticSpread": 1.3648719875412104e-06,
+          "secondaryQuadraticIntercept": 0.001288660371079621,
+          "secondaryPrimarySpread": 1.7557436519737533e-07,
+          "fourPointCubicIntercept": 0.0012884597146622678,
+          "cubicPrimarySpread": 2.5082052155936743e-08,
+          "heldoutV004Error": 5.267230955906081e-07,
+          "primaryMinusFormal": 0.0009422496956457255,
+          "primaryMinusFormalOverH4": 0.0023004142960100717
+        },
+        "Liquid": {
+          "values": [
+            0.0004353015298885765,
+            -0.000418988430661571,
+            -0.002130860785420907,
+            -0.005567036219480959
+          ],
+          "primaryQuadraticIntercept": 0.0012884940125523763,
+          "linearIntercept": 0.0012912377072682444,
+          "linearQuadraticSpread": 2.7436947158680954e-06,
+          "secondaryQuadraticIntercept": 0.0012887403492506367,
+          "secondaryPrimarySpread": 2.463366982603885e-07,
+          "fourPointCubicIntercept": 0.0012884588215955073,
+          "cubicPrimarySpread": 3.519095686903284e-08,
+          "heldoutV004Error": 7.390100947891887e-07,
+          "primaryMinusFormal": 0.0009422589114836781,
+          "primaryMinusFormalOverH4": 0.002300436795614448
+        },
+        "solidLiquidPrimaryDifference": 9.21583795257877e-09
+      },
+      {
+        "normal": [
+          3,
+          2,
+          1
+        ],
+        "h": 0.4,
+        "candidate": false,
+        "heldOutNormal": true,
+        "gamma": 0.003651952765467334,
+        "formalCandidateBetaOverH2Prediction": 0.0005409923454198407,
+        "formalLeadingBetaPrediction": 0.004912231834536108,
+        "Solid": {
+          "values": [
+            0.004574086456429469,
+            0.0041423756514244745,
+            0.0032815336948463242,
+            0.0015707619221692819
+          ],
+          "primaryQuadraticIntercept": 0.005006657145911745,
+          "linearIntercept": 0.005004507434718544,
+          "linearQuadraticSpread": 2.149711193200586e-06,
+          "secondaryQuadraticIntercept": 0.005006854988162381,
+          "secondaryPrimarySpread": 1.9784225063594618e-07,
+          "fourPointCubicIntercept": 0.0050066288827331044,
+          "cubicPrimarySpread": 2.8263178640346165e-08,
+          "heldoutV004Error": 5.935267518930934e-07,
+          "primaryMinusFormal": 9.442531137563662e-05,
+          "primaryMinusFormalOverH4": 0.003688488725610805
+        },
+        "Liquid": {
+          "values": [
+            0.00414572125797541,
+            0.0032839020061903312,
+            0.001557645536132135,
+            -0.0019044973747162075
+          ],
+          "primaryQuadraticIntercept": 0.005006667854264477,
+          "linearIntercept": 0.005008849493004509,
+          "linearQuadraticSpread": 2.1816387400317577e-06,
+          "secondaryQuadraticIntercept": 0.0050069484860045445,
+          "secondaryPrimarySpread": 2.8063174006744823e-07,
+          "fourPointCubicIntercept": 0.00500662776401593,
+          "cubicPrimarySpread": 4.0090248547113017e-08,
+          "heldoutV004Error": 8.418952201884669e-07,
+          "primaryMinusFormal": 9.443601972836894e-05,
+          "primaryMinusFormalOverH4": 0.003688907020639411
+        },
+        "solidLiquidPrimaryDifference": 1.0708352732313742e-08
+      },
+      {
+        "normal": [
+          3,
+          2,
+          1
+        ],
+        "h": 0.4,
+        "candidate": true,
+        "heldOutNormal": true,
+        "gamma": 0.003651952765467334,
+        "formalCandidateBetaOverH2Prediction": 0.0005409923454198407,
+        "formalLeadingBetaPrediction": 8.655877526717453e-05,
+        "Solid": {
+          "values": [
+            -0.00028346857453986294,
+            -0.0007043779282008694,
+            -0.0015439342850937208,
+            -0.0032134573749130727
+          ],
+          "primaryQuadraticIntercept": 0.00013819489593086345,
+          "linearIntercept": 0.00013630960390656265,
+          "linearQuadraticSpread": 1.885292024300791e-06,
+          "secondaryQuadraticIntercept": 0.00013837497001409728,
+          "secondaryPrimarySpread": 1.80074083233839e-07,
+          "fourPointCubicIntercept": 0.00013816917106184253,
+          "cubicPrimarySpread": 2.5724869020914013e-08,
+          "heldoutV004Error": 5.402222497054472e-07,
+          "primaryMinusFormal": 5.163612066368891e-05,
+          "primaryMinusFormalOverH4": 0.0020170359634253477
+        },
+        "Liquid": {
+          "values": [
+            -0.0007185002376619565,
+            -0.0015762421077369915,
+            -0.003294839326040133,
+            -0.00674373812623863
+          ],
+          "primaryQuadraticIntercept": 0.0001382038063620517,
+          "linearIntercept": 0.00014079837148961322,
+          "linearQuadraticSpread": 2.5945651275615235e-06,
+          "secondaryQuadraticIntercept": 0.0001384536560354113,
+          "secondaryPrimarySpread": 2.498496733596017e-07,
+          "fourPointCubicIntercept": 0.00013816811355159476,
+          "cubicPrimarySpread": 3.569281045693478e-08,
+          "heldoutV004Error": 7.495490200789406e-07,
+          "primaryMinusFormal": 5.164503109487716e-05,
+          "primaryMinusFormalOverH4": 0.0020173840271436386
+        },
+        "solidLiquidPrimaryDifference": 8.910431188247428e-09
+      }
+    ],
+    "studySha256": "31f7306e6254bdb6cf4e32e4de83707d5d9246491c78692228b48ba2d3bbb2b6",
+    "summarySha256": "ef724dc7478a3dfdd13d64b30c55613a90977317fc5c9dcc49c1bcc7d23befea",
+    "verificationSha256": "e98f581cb0d89fe9dee613ae19f60cb31da91d0772c83ca9b87a18772bb3d7ca",
+    "limits": [
+      "Finite-range V=.005/.01/.02 quadratic with .04 held out; no literal zero-speed proof",
+      "Literal-cutoff principal100 candidate failure and failed state preserved",
+      "No exhaustive outgoing-tail spectrum, temporal stability or arbitrary-rotation coupled BVP claim"
+    ]
+  },
+  "independentProof": {
+    "sealedBeforeObliqueOutputs": true,
+    "archive": "q3-oblique-independent-proof-2026-10-31.zip",
+    "archiveSha256": "4640611714cd9d5cd57fe3c9d3a6629b3046c72e4ff6028f6a0e0e85e0aaf362",
+    "definitions": "a=1+epsilon*(4*S4-3), gamma=16*epsilon*(S6-S4^2)/(3*a)",
+    "operator": "a^2*qsecond+h^2*(a^2/12+a^2*gamma)*qfourth+O(h^4)",
+    "existingCandidateLeadingResidual": "beta0/h^2=271*gamma/(525*sqrt(2)*a*D)+O(h^2)",
+    "predictions": [
+      {
+        "normal": "100",
+        "heldOut": false,
+        "S4": "1",
+        "S6": "1",
+        "S6minusS4squared": "0",
+        "a": "epsilon + 1",
+        "C": "0",
+        "gamma": "0",
+        "candidateBeta0OverH2": "0",
+        "candidateBeta0OverH2AtEpsilon0171D25068": 0.0,
+        "h04Prediction": 0.0,
+        "h02Prediction": 0.0,
+        "h01Prediction": 0.0,
+        "divFluxOrientationO2": "0",
+        "divFluxCenteredO2": "0"
+      },
+      {
+        "normal": "110",
+        "heldOut": false,
+        "S4": "1/2",
+        "S6": "1/4",
+        "S6minusS4squared": "0",
+        "a": "1 - epsilon",
+        "C": "0",
+        "gamma": "0",
+        "candidateBeta0OverH2": "0",
+        "candidateBeta0OverH2AtEpsilon0171D25068": 0.0,
+        "h04Prediction": 0.0,
+        "h02Prediction": 0.0,
+        "h01Prediction": 0.0,
+        "divFluxOrientationO2": "0",
+        "divFluxCenteredO2": "0"
+      },
+      {
+        "normal": "111",
+        "heldOut": false,
+        "S4": "1/3",
+        "S6": "1/9",
+        "S6minusS4squared": "0",
+        "a": "1 - 5*epsilon/3",
+        "C": "0",
+        "gamma": "0",
+        "candidateBeta0OverH2": "0",
+        "candidateBeta0OverH2AtEpsilon0171D25068": 0.0,
+        "h04Prediction": 0.0,
+        "h02Prediction": 0.0,
+        "h01Prediction": 0.0,
+        "divFluxOrientationO2": "0",
+        "divFluxCenteredO2": "0"
+      },
+      {
+        "normal": "210",
+        "heldOut": false,
+        "S4": "17/25",
+        "S6": "13/25",
+        "S6minusS4squared": "36/625",
+        "a": "1 - 7*epsilon/25",
+        "C": "-192*epsilon*(7*epsilon - 25)/15625",
+        "gamma": "-192*epsilon/(25*(7*epsilon - 25))",
+        "candidateBeta0OverH2": "8672*sqrt(2)*epsilon/(175*D*(7*epsilon - 25)**2)",
+        "candidateBeta0OverH2AtEpsilon0171D25068": 0.0007722562243657754,
+        "h04Prediction": 0.00012356099589852406,
+        "h02Prediction": 3.0890248974631016e-05,
+        "h01Prediction": 7.722562243657754e-06,
+        "divFluxOrientationO2": "96*epsilon*(7*epsilon - 25)/15625",
+        "divFluxCenteredO2": "-96*epsilon*(7*epsilon - 25)/15625"
+      },
+      {
+        "normal": "211",
+        "heldOut": false,
+        "S4": "1/2",
+        "S6": "11/36",
+        "S6minusS4squared": "1/18",
+        "a": "1 - epsilon",
+        "C": "-8*epsilon*(epsilon - 1)/27",
+        "gamma": "-8*epsilon/(27*(epsilon - 1))",
+        "candidateBeta0OverH2": "1084*sqrt(2)*epsilon/(14175*D*(epsilon - 1)**2)",
+        "candidateBeta0OverH2AtEpsilon0171D25068": 0.0007636229402428206,
+        "h04Prediction": 0.0001221796704388513,
+        "h02Prediction": 3.054491760971283e-05,
+        "h01Prediction": 7.636229402428207e-06,
+        "divFluxOrientationO2": "4*epsilon*(epsilon - 1)/27",
+        "divFluxCenteredO2": "-4*epsilon*(epsilon - 1)/27"
+      },
+      {
+        "normal": "321",
+        "heldOut": true,
+        "S4": "1/2",
+        "S6": "397/1372",
+        "S6minusS4squared": "27/686",
+        "a": "1 - epsilon",
+        "C": "-72*epsilon*(epsilon - 1)/343",
+        "gamma": "-72*epsilon/(343*(epsilon - 1))",
+        "candidateBeta0OverH2": "3252*sqrt(2)*epsilon/(60025*D*(epsilon - 1)**2)",
+        "candidateBeta0OverH2AtEpsilon0171D25068": 0.0005409923454198409,
+        "h04Prediction": 8.655877526717453e-05,
+        "h02Prediction": 2.1639693816793634e-05,
+        "h01Prediction": 5.409923454198408e-06,
+        "divFluxOrientationO2": "36*epsilon*(epsilon - 1)/343",
+        "divFluxCenteredO2": "-36*epsilon*(epsilon - 1)/343"
+      }
+    ],
+    "principalAngularTermExactlyZero": true,
+    "sameS4Control": "211 and held-out321 have equal S4/a but distinct S6/gamma; no a-only calibration",
+    "limits": "Formal smooth-branch expansion and finite-speed numerical corroboration do not bound evolved needle error"
+  },
+  "gpuOperator": {
+    "purpose": "production-WGSL rational-plane operator controls, not kinetic or Q3 acceptance",
+    "source": "90f35985b6cb15c0905459dc95ce12a96b53bd0f",
+    "started": "2026-10-31T23:58:34.608Z",
+    "completed": true,
+    "accepted": false,
+    "q3Accepted": false,
+    "sourceStable": true,
+    "inputsStable": true,
+    "deviceErrorLedgerRead": true,
+    "sourceHashes": {
+      "src/sim3d.ts": "6351143948ebebd018733ca124e5b3e5d478de2e7599e39e2e8131ec196170ba",
+      "src/shaders3d.ts": "f4f1fac066c0b59043f23f550433a8210e5e24cf3f79198b4cab3cf90919f0f4",
+      "src/shaders3d-quant.ts": "65c5eed498314967e9e151025598f8cf77963a89fc7204d243a0c58a86cd66b8",
+      "scripts/browser-cleanup.mjs": "0b2e5b6790d0c63d5271b51c14509507910f69c2924f7334589e63fa8e82b5b1",
+      "scripts/fixtures/rect3d-specialize.mjs": "624959d81b8e317ef65325829704c60e0924aee430105bcc1febd6f981e9ab35",
+      "scripts/fixtures/plane3d-specialize.mjs": "92b0519416edbd41b17ea90ae9b215d5b7fb550f9586ecd4d63780f266a37dd7",
+      "scripts/research/quant3d-oblique-gpu-driver.mjs": "b92b944ea99ed0064984a36324aebb83e543694e4e9d18353b87e72b68583792",
+      "scripts/research/quant3d-oblique-gpu.mjs": "08d59df795f331c4c7b77981376bb5297e137e8f71c80c58d2cd90d63d143e23",
+      "scripts/research/quant3d-oblique-gpu.md": "c0184f7bf2e1878b9f1ef03c7e0916d8ceb583bb0ba56fa9fa4ef58cf9a2dd94",
+      "scripts/research/quant3d-oblique-kinetic.py": "2b3514ec2484e78211c979540c935716489074704b5d408cbe98d6825d6beda8",
+      "scripts/research/quant3d-kinetic-reference.py": "b354940f0ac902553fdd0a68f0727d5d13db4c0e85c13d37e56b187fc64c203b",
+      "scripts/research/quant3d-oblique-kinetic-fp32-fixtures.py": "29c0e69428d47935f22d9da0ae1687fae38cdd7ca2aa37c8ef455420c54fc806"
+    },
+    "inputSha256": "fe4cd012a3ba06d3dd8d8306fecaefab91d57496fa1262e18bcd625ea20e4387",
+    "cpu": {
+      "roundtrips": 56,
+      "neighbours": 2268,
+      "nativeCases": 26,
+      "invalidGeometryRefused": true,
+      "productionShaderHashes": [
+        "daeb196529bea5f11dd3fb4a2c62325104061e1b56b6bc6a81ecb149d0694efc",
+        "4e60cc421b0723f77c5802f172d6e8f9e8f2dab78363e8051801007573154976",
+        "c6065681d943ec6e47e98abb05d0a2507b112b737518b1e45481f9d1ba4ffc6c",
+        "2b6fc125d1713c7c7de176a6cabd7b72ad7f366ee07c6aa69f3498909f817cf4"
+      ]
+    },
+    "native": [
+      {
+        "config": {
+          "normal": [
+            1,
+            0,
+            0
+          ],
+          "candidate": false,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": false
+        },
+        "raw": {
+          "path": "raw/native-00.json.gz",
+          "sha256": "571371fc30fac934c9f17ac425cdd6913f8eb55d9678eed4aafac8895e9b0904",
+          "uncompressedSha256": "7f32fd7a7a2482c437a263728251de56085195dc40f775f6362672602bfea3c8"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            1,
+            0,
+            0
+          ],
+          "candidate": false,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": true
+        },
+        "raw": {
+          "path": "raw/native-01.json.gz",
+          "sha256": "00f0eafc4f97648db6ff06e8fe420e247c9ac9f1383fd3d2b26e5dc600dfd65e",
+          "uncompressedSha256": "17a282b34e0c7ee8beb19433241898c535baaec28a3a1f5bc27ba9e43d8c4a8d"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            1,
+            0,
+            0
+          ],
+          "candidate": true,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": false
+        },
+        "raw": {
+          "path": "raw/native-02.json.gz",
+          "sha256": "d36966b1b9affedc32428ead923949e5707e5d08f7a4640595c8646e47c64493",
+          "uncompressedSha256": "ebfa3e84730ba4c0f119ff2411c7385553485bd3ec2247921a15e4bf67bc8c8c"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            1,
+            0,
+            0
+          ],
+          "candidate": true,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": true
+        },
+        "raw": {
+          "path": "raw/native-03.json.gz",
+          "sha256": "d82cc491a6e38e03880b3c7fe8fe059e496df20fcd304ea4527c3f4ce342b52c",
+          "uncompressedSha256": "4a02336655705dd085122cdf2570a1aa22a1edcf6a10e050ebc0135f150f252f"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            1,
+            1,
+            0
+          ],
+          "candidate": false,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": true
+        },
+        "raw": {
+          "path": "raw/native-04.json.gz",
+          "sha256": "b80369d4bf1625d7eb244c7bbb609773041897d24ce06689c2ea7c9d44ad5b97",
+          "uncompressedSha256": "bb7312b34aefdd4b21537852ea5e3026c3a2ce7bc680e903ee0d1455d20b3810"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            1,
+            1,
+            0
+          ],
+          "candidate": false,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": false
+        },
+        "raw": {
+          "path": "raw/native-05.json.gz",
+          "sha256": "edac8e05b167fe405664f17f35272f915ea5ac2c05117c5fd6be602142d1236c",
+          "uncompressedSha256": "1ca5679070dcc60675ccc3a35070b9ff0773869b6affbca2c22f66c66c74208f"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            1,
+            1,
+            0
+          ],
+          "candidate": true,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": true
+        },
+        "raw": {
+          "path": "raw/native-06.json.gz",
+          "sha256": "84915c88453374474b86d639e68d96c501436c0510a9f436f2a858b8ef448d9c",
+          "uncompressedSha256": "31e669ebcb5738049b3220b26b4811077a83cb9fe9fb482032d70fb6851c5b43"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            1,
+            1,
+            0
+          ],
+          "candidate": true,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": false
+        },
+        "raw": {
+          "path": "raw/native-07.json.gz",
+          "sha256": "48db69fd2f5d0f60f4c9c5be4ec4f8a59c5267fb89dbdf8bd273c1d72accde10",
+          "uncompressedSha256": "efc73886b01c43bfea4a2a2d308104114b23715f2888cfc2eb347eb7ef510f2c"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            1,
+            1,
+            1
+          ],
+          "candidate": false,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": false
+        },
+        "raw": {
+          "path": "raw/native-08.json.gz",
+          "sha256": "55c26bb76f85235446fc6555d00ee0bc5db3ed835be88634c66058b693602c53",
+          "uncompressedSha256": "ef2852d24c4226a05392d712bd06136a92b20aeb8707e0989852e83a243ffff8"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            1,
+            1,
+            1
+          ],
+          "candidate": false,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": true
+        },
+        "raw": {
+          "path": "raw/native-09.json.gz",
+          "sha256": "086e1f83567b34cdd28481a626f119b2ee72acd22bd63e2bc10f6ee01cc45251",
+          "uncompressedSha256": "a953b978c1c5c41f33cf58139ed71c115d75a0cb84b97a28de9268335a2e79bf"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            1,
+            1,
+            1
+          ],
+          "candidate": true,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": false
+        },
+        "raw": {
+          "path": "raw/native-10.json.gz",
+          "sha256": "aaab6ddd3ad03bef9f043c5856470e65dc42bb1aa922e22fdcff907b0b859f15",
+          "uncompressedSha256": "aa90d4b115b0506d1c8557a58b554617e6cac25e46d247f0b7c56f41cb49b0be"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            1,
+            1,
+            1
+          ],
+          "candidate": true,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": true
+        },
+        "raw": {
+          "path": "raw/native-11.json.gz",
+          "sha256": "bab5f3ace90595a9ba6765df88f43844471e39db401291463aabff4d70a55c51",
+          "uncompressedSha256": "c07733313eac2f1850f427cc00c926b5eb8a312abcf2570dab9adf2fa91cddf5"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "candidate": false,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": false
+        },
+        "raw": {
+          "path": "raw/native-12.json.gz",
+          "sha256": "72d07c823eae86612e6efaace4ef1693294f25a4fa3bc589cb6182c3654cc682",
+          "uncompressedSha256": "c98e1a8583bbef87c01c63abd4e7e6a97defaadae9840da1ec864566b84e0be6"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "candidate": false,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": true
+        },
+        "raw": {
+          "path": "raw/native-13.json.gz",
+          "sha256": "1328bad4092c216de1c3d9358f01500605bee35974cb3b37765e21deb67101af",
+          "uncompressedSha256": "a11cf6750608d920c8fd2f65a1e542d17cca54e3fec581a5979ba411020d54f7"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "candidate": true,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": false
+        },
+        "raw": {
+          "path": "raw/native-14.json.gz",
+          "sha256": "00a615ca3bdce7918615ee61c4aad6af1d4f5519b25d1453e8ac784cc152f686",
+          "uncompressedSha256": "44636f9908f4ce96bd759dcac027e7bd59ca0179c4be53fd8bfc77918f14a787"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "candidate": true,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": true
+        },
+        "raw": {
+          "path": "raw/native-15.json.gz",
+          "sha256": "70288037c2435e2bffc5171c3d91a66b9cbe102d39a13552be2ae66b4e1545b2",
+          "uncompressedSha256": "a3abc2df9d4739f46849e00b1bdee833aae825c1fd9b88197ad9cfd74693a634"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "candidate": false,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": true
+        },
+        "raw": {
+          "path": "raw/native-16.json.gz",
+          "sha256": "78dd4267c5a3037a9889c324d5066b38aad82f4d0f128681173dd87059d3da07",
+          "uncompressedSha256": "13b0348c699ec8a7234f9d605945d094663a9209c190c428970ba7aea930e3b6"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "candidate": false,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": false
+        },
+        "raw": {
+          "path": "raw/native-17.json.gz",
+          "sha256": "045352828e8a4f3fc023adf99497a3130981426006122a8c9bcf82b4e62c66fd",
+          "uncompressedSha256": "33dc84d4743c266947e8d32fe33d7d3410b3b693cb9113bcb5b2dc51364beda1"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "candidate": true,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": true
+        },
+        "raw": {
+          "path": "raw/native-18.json.gz",
+          "sha256": "d40827b2949d71acea3fce81510428646461cdc34465064325042d04b6e28165",
+          "uncompressedSha256": "567debf569ea604f72b9b88d8172c9670b13632e2ce1e82ec42a8bb1badb8e93"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "candidate": true,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": false
+        },
+        "raw": {
+          "path": "raw/native-19.json.gz",
+          "sha256": "b77f8f3f2d62b1290dd37bccffa57246931587a6b2ce2cf2900b64788fe9c6e3",
+          "uncompressedSha256": "d7818c2ed2b382eab1d60f7e07413b9032e47f76147df5380550c0b08c224d66"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "candidate": false,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": true
+        },
+        "raw": {
+          "path": "raw/native-20.json.gz",
+          "sha256": "8e0da0c32ba9034f4d3f85c89ec279d11d5c7ca9aba7c680e7908bf8bc4249f0",
+          "uncompressedSha256": "48c2c9d966740f86001d6bbc8cc68be520b2228ec895e9e69d160643004f18a4"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "candidate": false,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": false
+        },
+        "raw": {
+          "path": "raw/native-21.json.gz",
+          "sha256": "bff69f9bb207d98a07d925d0899acd626d62a16ef5cdd984affc9fe98051a46b",
+          "uncompressedSha256": "2cde29d0fc0815430a6428d3f00238258bb814548ee9a7d90d3023e4d23eb220"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "candidate": true,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": true
+        },
+        "raw": {
+          "path": "raw/native-22.json.gz",
+          "sha256": "4627e0d97668022b0a7e1f7bc9d28d1ab4b81cf95b4b7794973355ad6b7fbc11",
+          "uncompressedSha256": "0458340455c42d274b0bc4ed6f6ad9e365be40639fd57f322a5e2b561525c4b6"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "candidate": true,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": false
+        },
+        "raw": {
+          "path": "raw/native-23.json.gz",
+          "sha256": "ca1540baa6335a0e91961f59193049c03911c37fff62779e20b94e0070d4e50e",
+          "uncompressedSha256": "9efa97c0a57aee0215c296fa19b0bae846b8b116069a80a267befe49478b63b7"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            1,
+            -2,
+            0
+          ],
+          "candidate": false,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": true
+        },
+        "raw": {
+          "path": "raw/native-24.json.gz",
+          "sha256": "7ae3cdc974cac0b8b976149ce3d06e875c6736d4317765054e62091d480e274e",
+          "uncompressedSha256": "82f32752522813d3a6c5c10c88abff919254b82e5929518b3d8b9a54447bee34"
+        }
+      },
+      {
+        "config": {
+          "normal": [
+            1,
+            -2,
+            0
+          ],
+          "candidate": true,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        "assessment": {
+          "mismatches": 0,
+          "exact": true,
+          "phaseLive": true,
+          "quotientPhaseLive": true,
+          "ageLive": true
+        },
+        "raw": {
+          "path": "raw/native-25.json.gz",
+          "sha256": "e4b2eced165c3701cf6ba4d1d9c5e5432c27089227d83f919da112296774052e",
+          "uncompressedSha256": "bc5a826da40cfce24192bafb5349f71a5c6c5f04a346e07a9dabfbf4f492993f"
+        }
+      }
+    ],
+    "periodic": [
+      {
+        "normal": [
+          1,
+          0,
+          0
+        ],
+        "candidate": false,
+        "phaseError": 3.09514324170479e-08,
+        "temperatureError": 1.2507647251247533e-07,
+        "fluxError": 3.8067292651433604e-08,
+        "passed": true,
+        "raw": {
+          "path": "raw/periodic-0-false.json.gz",
+          "sha256": "cf87228e48d0a1961c00f2cae2b3f2fefb817c53874066a5089d33e8bad01c3e",
+          "uncompressedSha256": "2188eff20e928148a14d05be086f7a60cae5b851e3a1ede636d219c534d09fc8"
+        }
+      },
+      {
+        "normal": [
+          1,
+          0,
+          0
+        ],
+        "candidate": true,
+        "phaseError": 3.0264153405568095e-08,
+        "temperatureError": 1.3389122432982958e-07,
+        "fluxError": 3.8067292651433604e-08,
+        "passed": true,
+        "raw": {
+          "path": "raw/periodic-0-true.json.gz",
+          "sha256": "12ac7ed4fdef9b011b99883ee8ed40ed3e8b65a08e0ac1afb2781fb949f13e86",
+          "uncompressedSha256": "d25363d36c047e5e87b40f2aac128e8fcaf256d4c950635fcbf0c1a65de9d8ed"
+        }
+      },
+      {
+        "normal": [
+          1,
+          1,
+          0
+        ],
+        "candidate": false,
+        "phaseError": 3.127375847178371e-08,
+        "temperatureError": 1.3979876500869182e-07,
+        "fluxError": 6.041903433118279e-08,
+        "passed": true,
+        "raw": {
+          "path": "raw/periodic-1-false.json.gz",
+          "sha256": "1a561caca99e5fca7acfd6882e9172fd5a53ac0cd4898a8c5b15b6f54e8e6d44",
+          "uncompressedSha256": "0cda1e697f045d67676af7b64304dc8d7ec78002728ea8161af84faa4be2b8fa"
+        }
+      },
+      {
+        "normal": [
+          1,
+          1,
+          0
+        ],
+        "candidate": true,
+        "phaseError": 3.0648262483445876e-08,
+        "temperatureError": 1.41832310340817e-07,
+        "fluxError": 6.041903433118279e-08,
+        "passed": true,
+        "raw": {
+          "path": "raw/periodic-1-true.json.gz",
+          "sha256": "aaaaa5d9fce477b4f2ffb69ac297dba9937e6a11cc28a3664db8a95626a999cf",
+          "uncompressedSha256": "35ffcf6cde08e56179df5319e63086674747956c065ca9ad82578aeecd6db5cf"
+        }
+      },
+      {
+        "normal": [
+          1,
+          1,
+          1
+        ],
+        "candidate": false,
+        "phaseError": 3.0470558520789837e-08,
+        "temperatureError": 1.2644480995582796e-07,
+        "fluxError": 5.607194197843057e-08,
+        "passed": true,
+        "raw": {
+          "path": "raw/periodic-2-false.json.gz",
+          "sha256": "f4476948fa6bd4e624b5b9bfb3cdc155507ab847d116c07c860ecfdd2e4cea0a",
+          "uncompressedSha256": "365182516790e8f031dcd3191aee4ceaf744c13eeff081721f17fd42b605c3d9"
+        }
+      },
+      {
+        "normal": [
+          1,
+          1,
+          1
+        ],
+        "candidate": true,
+        "phaseError": 2.930573761439348e-08,
+        "temperatureError": 1.233848574422325e-07,
+        "fluxError": 5.607194197843057e-08,
+        "passed": true,
+        "raw": {
+          "path": "raw/periodic-2-true.json.gz",
+          "sha256": "5c0e25bc077851bb0f795accd7da28c7704f76ee90261bfb8a60000dd066fd0e",
+          "uncompressedSha256": "09748b1bd812701cbd992fec52b3b4cd67d8d91314f2570a7d25b9ceb0afdba4"
+        }
+      },
+      {
+        "normal": [
+          2,
+          1,
+          0
+        ],
+        "candidate": false,
+        "phaseError": 3.037622431367737e-08,
+        "temperatureError": 1.391931929717316e-07,
+        "fluxError": 1.462546437291934e-07,
+        "passed": true,
+        "raw": {
+          "path": "raw/periodic-3-false.json.gz",
+          "sha256": "0c666cfcc35a6f4782f5c0910cdd776f261c0a53199c0c5ab7cfa6526fed12e2",
+          "uncompressedSha256": "f122e0c0ebe1e38aceffe436c2f27d355b3c910ac18d62fa62cbd9ea91facb4e"
+        }
+      },
+      {
+        "normal": [
+          2,
+          1,
+          0
+        ],
+        "candidate": true,
+        "phaseError": 3.073396459551958e-08,
+        "temperatureError": 1.1061626192798713e-07,
+        "fluxError": 1.462546437291934e-07,
+        "passed": true,
+        "raw": {
+          "path": "raw/periodic-3-true.json.gz",
+          "sha256": "b8dd81273ac99361a814153deedc68642d3b5bca11b5d49bb7d2f9e953d120c6",
+          "uncompressedSha256": "90ca1bf6be502ca6a34e7f139d135d61f6f16ebd9f52289a528690f4bedeb4ed"
+        }
+      },
+      {
+        "normal": [
+          2,
+          1,
+          1
+        ],
+        "candidate": false,
+        "phaseError": 3.143576576825069e-08,
+        "temperatureError": 1.400046443222891e-07,
+        "fluxError": 1.0186369514553206e-07,
+        "passed": true,
+        "raw": {
+          "path": "raw/periodic-4-false.json.gz",
+          "sha256": "e9358ec0d371a4b341011d0b66e2cd6f562bd94dadd404fd8fd384d2e6c2c34f",
+          "uncompressedSha256": "b7a74e88a9407ed908fa70d070930089d7b7a1ffbd6544460c1ec6705b943713"
+        }
+      },
+      {
+        "normal": [
+          2,
+          1,
+          1
+        ],
+        "candidate": true,
+        "phaseError": 3.193004438628577e-08,
+        "temperatureError": 1.2845446573095387e-07,
+        "fluxError": 1.0186369514553206e-07,
+        "passed": true,
+        "raw": {
+          "path": "raw/periodic-4-true.json.gz",
+          "sha256": "db4f191eb726740e90c9e6881386b927113a76a59e8d1719fb2e5627f0a7d15c",
+          "uncompressedSha256": "857572ddf9933f0d836452b3d8a2501857b87fe67a21e82442fdca9f5fb18083"
+        }
+      },
+      {
+        "normal": [
+          3,
+          2,
+          1
+        ],
+        "candidate": false,
+        "phaseError": 3.053556063559171e-08,
+        "temperatureError": 1.2488885303696406e-07,
+        "fluxError": 1.064359785862834e-07,
+        "passed": true,
+        "raw": {
+          "path": "raw/periodic-5-false.json.gz",
+          "sha256": "313f5182b640a48b1ab89cf39465993d75fa7d0fe5a5fe95406c560f8e4384d1",
+          "uncompressedSha256": "d8b3abff4a3b1ac4f06be5efcecd653bb1326c48bb5352db16bd117bdf890727"
+        }
+      },
+      {
+        "normal": [
+          3,
+          2,
+          1
+        ],
+        "candidate": true,
+        "phaseError": 3.075695953480562e-08,
+        "temperatureError": 1.259995756619503e-07,
+        "fluxError": 1.064359785862834e-07,
+        "passed": true,
+        "raw": {
+          "path": "raw/periodic-5-true.json.gz",
+          "sha256": "f30372deab67d5d4942db4a13277b663732a2b30560ecdb38443bbab3bfcd511",
+          "uncompressedSha256": "8c7a93d17428fa309087705fe6d90bde8b0e98aec7927f60a10aa25dafc0b50c"
+        }
+      }
+    ],
+    "errors": [],
+    "status": "oblique production operator controls complete; kinetic acceptance not evaluated",
+    "contract": {
+      "normalOrder": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1
+        ],
+        [
+          2,
+          1,
+          0
+        ],
+        [
+          2,
+          1,
+          1
+        ],
+        [
+          3,
+          2,
+          1
+        ]
+      ],
+      "heldOutNormal": [
+        3,
+        2,
+        1
+      ],
+      "native": [
+        {
+          "normal": [
+            1,
+            0,
+            0
+          ],
+          "candidate": false,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            1,
+            0,
+            0
+          ],
+          "candidate": false,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            1,
+            0,
+            0
+          ],
+          "candidate": true,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            1,
+            0,
+            0
+          ],
+          "candidate": true,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            1,
+            1,
+            0
+          ],
+          "candidate": false,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            1,
+            1,
+            0
+          ],
+          "candidate": false,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            1,
+            1,
+            0
+          ],
+          "candidate": true,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            1,
+            1,
+            0
+          ],
+          "candidate": true,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            1,
+            1,
+            1
+          ],
+          "candidate": false,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            1,
+            1,
+            1
+          ],
+          "candidate": false,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            1,
+            1,
+            1
+          ],
+          "candidate": true,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            1,
+            1,
+            1
+          ],
+          "candidate": true,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "candidate": false,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "candidate": false,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "candidate": true,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            2,
+            1,
+            0
+          ],
+          "candidate": true,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "candidate": false,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "candidate": false,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "candidate": true,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            2,
+            1,
+            1
+          ],
+          "candidate": true,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "candidate": false,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "candidate": false,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "candidate": true,
+          "phase": 0,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            3,
+            2,
+            1
+          ],
+          "candidate": true,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            1,
+            -2,
+            0
+          ],
+          "candidate": false,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        },
+        {
+          "normal": [
+            1,
+            -2,
+            0
+          ],
+          "candidate": true,
+          "phase": 0.5,
+          "dx": 0.8,
+          "dt": 0.004,
+          "epsilon": 0.0171
+        }
+      ],
+      "targets": [
+        1,
+        2,
+        4
+      ],
+      "marginPerStep": 2,
+      "allNativeInteriorFieldBytesMustMatch": true,
+      "periodicAbsoluteTolerance": 2e-06,
+      "scope": "pure identity cubic, no external program/noise; default and existing principal-correction options",
+      "negative": "wrong normal must evolve valid phase and fail native state comparison"
+    },
+    "metadata": {
+      "hardware": {
+        "vendor": "intel",
+        "architecture": "xe-2lpg",
+        "isFallbackAdapter": false
+      },
+      "build": "90f3598",
+      "shaderHashes": [
+        "daeb196529bea5f11dd3fb4a2c62325104061e1b56b6bc6a81ecb149d0694efc",
+        "4e60cc421b0723f77c5802f172d6e8f9e8f2dab78363e8051801007573154976",
+        "c6065681d943ec6e47e98abb05d0a2507b112b737518b1e45481f9d1ba4ffc6c",
+        "2b6fc125d1713c7c7de176a6cabd7b72ad7f366ee07c6aa69f3498909f817cf4"
+      ]
+    },
+    "wrongNormal": {
+      "assessment": {
+        "mismatches": 162668,
+        "exact": false,
+        "phaseLive": true,
+        "quotientPhaseLive": true,
+        "ageLive": true
+      },
+      "raw": {
+        "path": "raw/wrong-normal.json.gz",
+        "sha256": "98940542f841f3d0096977d4da322ec8b92a5c89c7a63a6757d3d2dfa59925e5",
+        "uncompressedSha256": "0338c32543e050f6a486ead529a3cb274811c35fc6da974d6bf3559e29827ec5"
+      }
+    },
+    "finalHashes": {
+      "src/sim3d.ts": "6351143948ebebd018733ca124e5b3e5d478de2e7599e39e2e8131ec196170ba",
+      "src/shaders3d.ts": "f4f1fac066c0b59043f23f550433a8210e5e24cf3f79198b4cab3cf90919f0f4",
+      "src/shaders3d-quant.ts": "65c5eed498314967e9e151025598f8cf77963a89fc7204d243a0c58a86cd66b8",
+      "scripts/browser-cleanup.mjs": "0b2e5b6790d0c63d5271b51c14509507910f69c2924f7334589e63fa8e82b5b1",
+      "scripts/fixtures/rect3d-specialize.mjs": "624959d81b8e317ef65325829704c60e0924aee430105bcc1febd6f981e9ab35",
+      "scripts/fixtures/plane3d-specialize.mjs": "92b0519416edbd41b17ea90ae9b215d5b7fb550f9586ecd4d63780f266a37dd7",
+      "scripts/research/quant3d-oblique-gpu-driver.mjs": "b92b944ea99ed0064984a36324aebb83e543694e4e9d18353b87e72b68583792",
+      "scripts/research/quant3d-oblique-gpu.mjs": "08d59df795f331c4c7b77981376bb5297e137e8f71c80c58d2cd90d63d143e23",
+      "scripts/research/quant3d-oblique-gpu.md": "c0184f7bf2e1878b9f1ef03c7e0916d8ceb583bb0ba56fa9fa4ef58cf9a2dd94",
+      "scripts/research/quant3d-oblique-kinetic.py": "2b3514ec2484e78211c979540c935716489074704b5d408cbe98d6825d6beda8",
+      "scripts/research/quant3d-kinetic-reference.py": "b354940f0ac902553fdd0a68f0727d5d13db4c0e85c13d37e56b187fc64c203b",
+      "scripts/research/quant3d-oblique-kinetic-fp32-fixtures.py": "29c0e69428d47935f22d9da0ae1687fae38cdd7ca2aa37c8ef455420c54fc806"
+    },
+    "finished": "2026-10-31T23:59:10.201Z"
+  },
+  "capillaryRefinement": {
+    "status": "Twelve-case protocol refrozen and CPU-verified; actual GPU run pending compute choice",
+    "registeredCases": 12,
+    "physicalDx": [
+      0.8,
+      0.6,
+      0.4
+    ],
+    "grids": [
+      96,
+      128,
+      192
+    ],
+    "epsilon": [
+      0,
+      0.0171
+    ],
+    "centerOffsets": "0 or dx/2 on each axis",
+    "radius": 20,
+    "physicalBox": [
+      76.8,
+      76.8,
+      76.8
+    ],
+    "physicalPhaseVolumeTarget": 33923.7386779148,
+    "maximumTime": 1000,
+    "measurementPeriod": 20,
+    "controlPeriod": 4,
+    "protocolFreezeSha256": "3a8ec99c315e9b505f69b1965577b0b2c59f894fe903323688112f9faa155bf8",
+    "estimator": "Unchanged local-curvature crossing, sextic/octic fits, orders and windows",
+    "gpuExecuted": false,
+    "q3Accepted": false
+  },
+  "remaining": [
+    "Execute and replay all twelve capillary grid/phase cases",
+    "Independently test any derived angular candidate before considering adoption",
+    "Establish finite-speed temporal behavior with conserved-quantity-aware controls",
+    "Pass the full unchanged published reference before quantitative3D promotion"
+  ]
+}

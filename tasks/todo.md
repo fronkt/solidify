@@ -5507,11 +5507,40 @@ Prospective scope:
   verified destruction; no credit purchase or pre-existing-instance mutation.
 
 - [x] Review prior evidence, worktree state and relevant lessons; specify the next studies before results.
-- [ ] Implement and independently verify the capillary refinement protocol and unchanged estimator replay.
-- [ ] Derive and independently verify the full oblique operator/formal kinetics; run controlled CPU evidence.
+- [x] Implement and independently verify the capillary refinement protocol and unchanged estimator replay.
+- [x] Derive and independently verify the full oblique operator/formal kinetics; run controlled CPU evidence.
 - [ ] Freeze/push source and run the capillary GPU refinement with strict execution and raw-data evidence.
-- [ ] Verify oblique production-WGSL operator geometry against native 3D; run justified finite-speed controls.
+- [x] Verify oblique production-WGSL operator geometry against native 3D; run justified finite-speed controls.
 - [ ] Preserve outcomes/limits and exact sources, verify backup/owned cleanup, update PR and push completed phases.
 
 Review/remaining scientific items will be recorded here after the new evidence;
 neither diagnostic completion nor a formal expansion alone closes Q3.
+
+The capillary twelve-case protocol is refrozen and CPU-verified. Actual GPU
+execution awaits the user's cloud-credit versus local-run choice: available
+Vast.ai credit is below $0.02, and no new rental was created. The proposed
+cloud budget is $0.30; no credit purchase is authorized.
+
+The full coupled oblique study executed all 96 registered requests: 95 converge,
+including all 48 oblique physical cases; the literal-cutoff [100] candidate
+failure remains recorded. Six separately registered cutoff comparisons converge.
+The current principal correction leaves an independently predicted angular h^2
+term. This is evidence for investigating an angular correction, not adoption.
+
+The production GPU operator controls at 90f3598 pass 234 exact native-interior
+field comparisons, twelve independent CPU response/flux comparisons, and an
+evolving wrong-normal rejection. Sources/inputs remained stable, the device
+ledger was readable with no errors, and browser cleanup succeeded. Geometry
+and finite-speed BVP checks do not establish temporal stability or Q3 acceptance.
+
+### Prospective angular kinetic extension
+
+Before angular-candidate output, independently derive and then freeze
+`c = 1321/9870 + (1084/1645)*gamma`, with nodewise gamma from the actual centered
+gradient/anisotropic flux. Preserve the previous operator, reference, 96-case
+study and immutable proof. Do not fit any coefficient to oblique or needle data.
+
+- [x] Prove the compensation and rotated-grain form independently, including a rigorous signed bound.
+- [ ] Freeze a separate CPU protocol; test principal parity, tau/coupled Jacobians, h=.8/.4/.2, held-out321, signed tau and cutoff sensitivity.
+- [ ] If the independent CPU controls justify it, verify a research-only WGSL adapter and its actual response; keep application defaults and production equations unchanged.
+- [ ] Archive both original and new outcomes with exact source bytes; document remaining finite-speed/stability and literature failures separately.
