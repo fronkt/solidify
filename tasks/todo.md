@@ -5685,9 +5685,9 @@ put the plots and the replay behind one control. Done on feature/ui-declutter
 Frank: "Yes, do them all": merge, finish C3b, then D3.2 and D3.3, in that order.
 Production stays a7584a6 until Frank says ship.
 
-- [ ] M: full suite on 9ac6a93 passes -> fast-forward feature/visual, open a
+- [x] M: full suite on 9ac6a93 passes -> fast-forward feature/visual, open a
       draft PR feature/visual -> v7-experiments.
-- [ ] C3b-1 G5 RX3-JMAK, PRE-REGISTERED here before any run: painted single
+- [x] C3b-1 G5 RX3-JMAK, PRE-REGISTERED here before any run: painted single
       crystal at 96^3, matrix H0 = 20 J_b, 150 nuclei at random sites from the
       recrystallization stream (r = 2), three seeds (0xa1, 0xa2, 0xa3).
       X(S) is measured over the INTERIOR box [16, 80)^3 only (a point there
@@ -5697,7 +5697,7 @@ Production stays a7584a6 until Frank says ship.
       Verdict per seed: slope of ln(-ln(1-X)) against ln V1 over X in
       [0.05, 0.95] within 1 +- 0.15 (the design's band), with >= 5 points;
       liveness: interior X_end >= 0.95. n against S reported only.
-- [ ] C3b-1 G7 RX3-CAST-SELECTION, PRE-REGISTERED: three seeded casts at
+- [x] C3b-1 G7 RX3-CAST-SELECTION, PRE-REGISTERED: three seeded casts at
       96^3 (500 seeds), deposit(10), 200 nuclei at explicit centres drawn from
       a seeded LCG, 60 sweeps. Statistic D = mean X over top-quartile-H grains
       minus mean X over bottom-quartile grains (X per grain = fraction of its
@@ -5706,19 +5706,19 @@ Production stays a7584a6 until Frank says ship.
       cast; and the fraction of surviving nuclei (more voxels at the end than
       at birth) whose birth sphere touched >= 2 matrix ids exceeds that
       fraction among all placed nuclei (direction only).
-- [ ] C3b-2 figures: X vs Monte Carlo sweeps and the Avrami plot in the heat
+- [x] C3b-2 figures: X vs Monte Carlo sweeps and the Avrami plot in the heat
       treatment report, exportable; G8 RX3-PANEL drives the dial end to end and
       checks the card's n against avramiFit of the exported columns, the dial
       count, the share tuple (7 with nuclei, 6 without) and that nuclei = 0
       leaves rxRange null on the sim.
-- [ ] C3b copy: learn/panels.ts, tour.ts, README.md, science/index.html stop
+- [x] C3b copy: learn/panels.ts, tour.ts, README.md, science/index.html stop
       saying recrystallization is not modeled; say what is (site-saturated
       random nuclei, sweep clock, J_b) and what is not.
-- [ ] D3.2 coupling per docs/D3-CONVECTION-DESIGN.md: flow-off identity
+- [x] D3.2 coupling per docs/D3-CONVECTION-DESIGN.md: flow-off identity
       fixtures captured FIRST at the base commit; conservative advection of T
       and c in transport; Tong et al. 2001 upstream ratio [1.26, 1.54]
       pre-registered; mass box; mirror; falsification arms.
-- [ ] D3.3: FLOW lens, tracer particles, controls, share link, export, copy.
+- [x] D3.3: FLOW lens, tracer particles, controls, share link, export, copy.
 
 ### FLOW-TIP-TONG protocol (pre-registered before its first run)
 
@@ -5751,3 +5751,26 @@ regression suite into scripts/research/flow-tip-tong.mjs; the failure stands,
 the result is in docs/validation/flow-tong-2026-11-01.json, and every surface
 calls the flow qualitative. Next: a separately pre-registered domain study
 (same lambda, domain and inlet distance varied) before any change.
+
+### Review: combined branch a37a474 (feature/flow -> feature/visual)
+
+- Final evidence: full runner on d5f6d39 passed its first 28 scripts and stopped
+  at verify-rail (RAIL-VAL-FITS: "0.0200 cells/step" too wide; RAIL-NO-EMDASH's
+  tour cap: the heat-treat step had 43 words). a37a474 fixes only those two
+  strings. On a37a474: all 26 browser-free CI scripts and the build pass;
+  verify-tools passes standalone (its first attempt, the first script after a
+  cold server start, failed LAB-CURVE and HUD-LIVE once and passed unchanged on
+  rerun: recorded as an intermittent, checks untouched); verify-rail through
+  verify-flow-gpu (17 scripts) pass in one run with the source hash-frozen
+  (verify-out/final-continuation2-a37a474.log).
+- C3b: RX3-JMAK slopes 1.023 / 0.993 / 1.047 (band 1 +- 0.15), X_end 1;
+  RX3-CAST-SELECTION D 0.36 / 0.33 / 0.31 vs uniform controls 0.020 / 0.004 /
+  0.008, survivors born on boundaries 0.636 vs 0.566; RX3-PANEL: copper cast,
+  X 0.60 after 1318 sweeps, card n 0.61 = refit of the exported columns.
+- D3: flow-off identity vs the pre-advection baseline (2fc221d), inert arms,
+  uniform melt (2e-6), direction 1.13 / 0.89 (reversed 0.87), FLOW-UI.
+  FLOW-TIP-TONG FAILED and stays open (see above); flow is qualitative.
+- Harness fixes found on the way (each in lessons.md): f32 comparison in the
+  replay check, known centres for nucleus geometry, the 3D cancellation fixture
+  waiting on the calibration request, the runner prepending OUT, the tick hook
+  draining the GPU, flow-off cases isolated from each other's parameters.
