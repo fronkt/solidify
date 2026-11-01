@@ -1,0 +1,48 @@
+{
+ "commit": "2fc221d0e68f3cb1c57f94bdb4333173d3c10e36",
+ "captured": "2026-11-01T10:50:31.540Z",
+ "cases": {
+  "kobayashi-fused": {
+   "state": "3d32c19239f0e1bc9a90e0c2e202508889b70a74c626ea7127f634f87604c0d4",
+   "grain": "f5a620ba9330128eb5ad8157e92d6d165e68c709299c568fedb0a87b17fd9626",
+   "simTime": 0.036,
+   "solver": 0
+  },
+  "kobayashi-split": {
+   "state": "3d32c19239f0e1bc9a90e0c2e202508889b70a74c626ea7127f634f87604c0d4",
+   "grain": "f5a620ba9330128eb5ad8157e92d6d165e68c709299c568fedb0a87b17fd9626",
+   "simTime": 0.036,
+   "solver": 0
+  },
+  "kobayashi-alloy": {
+   "state": "05d3f938813e3b6aeed3c7b2050464caf529faa5bc4d03d51d643d2e7cc707fe",
+   "grain": "d9c5e81f5538faf44826c7020ee5cf47ff2865116a30a74d2ed5ed0ac7cd63b0",
+   "simTime": 0.036,
+   "solver": 0
+  },
+  "calibrated-pure": {
+   "state": "ffb5a62d16f342aa98c9735ff55d9dd1d758c882a49990b9c3f7d08677f74736",
+   "grain": "fc809140c52c75106dbbaa8408edb49762e43a519b3b7b4fbff2e4b1813e33bf",
+   "simTime": 19.147917663954043,
+   "solver": 1
+  },
+  "bridgman": {
+   "state": "3fed9ea7ecf0ebd2be8ba50ac9f2b2582606d3eb2872b1e54e89c6e5a425a9bc",
+   "grain": "82321ca2c779932b647e02d159f8231759326263a4e2689d6b998dcba860a890",
+   "simTime": 0.036,
+   "solver": 0
+  },
+  "weld": {
+   "state": "6e1d44852b55a3dd8f1e6a82111c0ca09680efdcb2267339052d28ddc0e8378b",
+   "grain": "f5a620ba9330128eb5ad8157e92d6d165e68c709299c568fedb0a87b17fd9626",
+   "simTime": 0.036,
+   "solver": 0
+  },
+  "stamp-quench": {
+   "state": "d39894c310ef2fedde0a83f4f6657c556225a9ad35d1edae2148127b95f71f16",
+   "grain": "6aecd261641055baa8b560af0adc4d8c01e6be9f0724975815c5d96b17612a45",
+   "simTime": 0.036,
+   "solver": 0
+  }
+ }
+}

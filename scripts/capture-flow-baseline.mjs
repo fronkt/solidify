@@ -24,8 +24,9 @@ await page.waitForFunction("!!window.__solidify", { timeout: 20000 });
 const a = await captureFlowOffCases(page);
 const b = await captureFlowOffCases(page);
 await browser.close();
-const repeat = Object.keys(a).every(k => a[k].state === b[k].state && a[k].grain === b[k].grain);
-console.log(JSON.stringify({ repeat, errors, cases: a }, null, 1));
+const differ = Object.keys(a).filter(k => a[k].state !== b[k].state || a[k].grain !== b[k].grain);
+const repeat = differ.length === 0;
+console.log(JSON.stringify({ repeat, differ, errors, cases: a }, null, 1));
 if (!repeat || errors.length) { console.log("baseline NOT written: cases did not repeat or the page logged errors"); process.exit(1); }
 const commit = execSync("git rev-parse HEAD").toString().trim();
 writeFileSync(new URL("./fixtures/flow-off-baseline.json", import.meta.url),

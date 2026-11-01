@@ -35,6 +35,12 @@ export async function runFlowCase(page, setup) {
       sim.step = () => 0;
       try {
         await sim.device.queue.onSubmittedWorkDone();
+        // every case starts from the parameters the page booted with (minus the
+        // grid-derived dx/dt): a case must not inherit what an earlier case's
+        // material or solver left behind (the calibrated case leaves alloy-only
+        // parameters that switching back to Kobayashi does not reset)
+        window.__flowBoot ??= { ...sim.params };
+        for (const [key, v] of Object.entries(window.__flowBoot)) if (key !== "dx" && key !== "dt") sim.params[key] = v;
         S.setSeed(0x0f1c);
         if (setup.calibrated) S.setSolver(1, setup.calibrated); else S.setSolver(0);
         sim.splitPasses = !!setup.split;
