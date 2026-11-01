@@ -5574,3 +5574,60 @@ Q3c remains OPEN. Next independent targets are local-stiffness grid refinement
 with paired lattice phases, and moving-interface kinetic calibration away from
 principal planes (including finite-speed stability). The complete literature
 reference must pass before any quantitative 3D promotion or candidate adoption.
+
+## Visual and science expansion - 2026-11-01
+
+Frank: "Go ahead with all of those" (after the 11-01 restart review): merge PR4,
+3D studio lighting, a better 3D first view, a time scrubber, click-to-isolate
+grains, C3b recrystallization, D3 convection. Idle auto-orbit stays OFF: Frank
+asked to kill it in v3.0 (line 580 above), so the 3D first view gets better
+shading and a clearer melt instead of camera motion. 3D entry keeps its single
+centred seed because existing 3D fixtures depend on it.
+
+Branching: PR4 conflicts with v7-experiments (PR5 landed after it branched);
+merge commit 1a988f6 on feature/3d-optimizer reconciles inventories (39 local
+scripts, 23 browser-free CI). Visual work lives on feature/visual from 1a988f6 in
+worktree ../solidify-visual; the frozen merge suite runs in ../solidify-verify-merge.
+Production stays at a7584a6 until Frank says ship. Note: v7-experiments also
+carries the unreleased Q3 integration, so shipping it is a separate decision.
+One GPU owner at a time: no browser/GPU checks here while the merge suite runs.
+
+Plan and acceptance:
+- [ ] P0 Merge PR4: full 39-script suite passes on frozen 1a988f6, push the
+      merge, CI green, merge PR4 into v7-experiments.
+- [ ] V1 Studio lighting (render-only; no solver file changes): ambient
+      occlusion from phi along the normal, procedural studio environment with
+      Fresnel reflection for the default steel surface, soft-clipped highlights,
+      and a clearer melt (glow concentrated in the thermal halo, lower
+      absorption) so the crystal reads through it. Photo mode while paused:
+      progressive accumulation of jittered frames with soft shadows and glossy
+      reflections, reset on any camera, lens, cut or field change. Scientific
+      lenses (ORIENT, SEM, THERM, RINGS, CURV, SLICE, FIELD, NEON) keep their
+      colour encodings; only luminance shading may change.
+      Accept: solver/shader-compute sources byte-unchanged; live fps at 192^3
+      within 15% of the pre-change build at the same camera/state; photo mode
+      converges and resets correctly; every lens screenshot inspected; export
+      PNG and webm recording still work.
+- [ ] V2 3D first view: within 5 s of entering 3D the seed reads as a lit metal
+      crystal against the melt (measured luminance contrast between crystal and
+      surrounding melt pixels, before vs after), no camera auto-motion.
+- [ ] V3 Time scrubber (2D first, then 3D): rebuild the solid at an earlier time
+      t from each cell's stored freeze time; transport timeline control; hover
+      on time-axis plots sets t. Scope: solid footprint and grains only.
+      Refused (visible reason) after remelt, reheat, heat treatment or anneal.
+      Accept: scrub at the current time matches the live solid mask
+      (IoU >= 0.99); scrub at earlier times matches masks captured live at those
+      times in a deterministic run (IoU >= 0.97); scrubbing never mutates the
+      field (state hash unchanged); refusal path exercised.
+- [ ] V4 Grain isolate (3D): a modifier-click picks the grain under the cursor;
+      other grains ghost; readout of voxel volume (um^3 when SI), equivalent
+      sphere diameter and orientation. Accept: picked id equals an independent
+      CPU raycast over read-back fields; volume equals the census count.
+- [ ] C3b Recrystallization: design from an independent read-only design pass,
+      reviewed before implementation; gates with cited expectations and
+      negative controls; feature-off hashes unchanged.
+- [ ] D3 Convection (2D forced flow first): design from an independent design
+      pass, reviewed before implementation; analytic flow checks, conservation,
+      flow-off identity; honest scope (no freckles in slice 1).
+- [ ] Final: full suite from a frozen source, independent review, explicit-path
+      commits, push each phase.
