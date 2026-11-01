@@ -47,6 +47,11 @@ jobs:
       - run: node scripts/verify-plot.mjs
       - run: node scripts/verify-process-plots.mjs
       - run: node scripts/verify-run-export.mjs
+      # feature/visual: the replay ledger and its strict freeze-time rule,
+      # C3b's Avrami/bond-count arithmetic, D3.0's flow arithmetic
+      - run: node scripts/verify-replay.mjs
+      - run: node scripts/verify-recrystallize.mjs
+      - run: node scripts/verify-flow.mjs
       # Geometry/verdict controls for the equilibrium 3D lattice regression.
       # The actual phase evolution remains in the local real-GPU suite.
       - run: node scripts/verify-quant3d-wulff.mjs --self-test
