@@ -786,3 +786,16 @@ promise, skipped the wait and read "Preparing". Nothing in the app was stuck.
 that the step itself started (a call counter, a latch set) and finished, then
 settle a few frames so a late, unwanted call is still caught. Never infer "not
 called" from a check made before the caller could have run.
+
+## A fixed sleep is a GPU-speed assumption
+
+FEED-MASK (verify-3d) and once ATMOSPHERE (verify-tools) delivered less growth
+after the studio look made frames heavier. `__solidify.tick(k)` runs k frames in
+one task; the solvers skip a step while two submits are in flight, so only the
+first two frames step, and the caller then slept a fixed 30-80 ms hoping the
+GPU had drained. Heavier renders outlasted the sleep, the next call started
+"busy", and the physics per call shrank. The hook now awaits the GPU queue.
+
+**Rule.** Pace test physics on completion (onSubmittedWorkDone, stepSync),
+never on wall-clock sleeps; a change that only makes frames slower must not be
+able to change how much physics a gate delivers.
