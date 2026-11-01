@@ -77,10 +77,10 @@ const SUITE = [
   ["scripts/verify-scale3d.mjs", String(PORT)],
   ["scripts/verify-3d.mjs", String(PORT)],
   // feature/visual: studio lighting, photo mode, replay, grain picking; C3b nuclei
-  ["scripts/verify-visual-gpu.mjs", "verify-out", String(PORT)],
-  ["scripts/verify-recrystallize-gpu.mjs", "verify-out", String(PORT)],
+  ["scripts/verify-visual-gpu.mjs", String(PORT)],
+  ["scripts/verify-recrystallize-gpu.mjs", String(PORT)],
   // D3.1: the standalone lattice Boltzmann solver, fluid-only gates
-  ["scripts/verify-flow-gpu.mjs", "verify-out", String(PORT)],
+  ["scripts/verify-flow-gpu.mjs", String(PORT)],
 ];
 
 // The suite runs every check: a subset switch left in the shell (verify-hero's
