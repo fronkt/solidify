@@ -5719,3 +5719,20 @@ Production stays a7584a6 until Frank says ship.
       and c in transport; Tong et al. 2001 upstream ratio [1.26, 1.54]
       pre-registered; mass box; mirror; falsification arms.
 - [ ] D3.3: FLOW lens, tracer particles, controls, share link, export, copy.
+
+### FLOW-TIP-TONG protocol (pre-registered before its first run)
+
+Calibrated pure melt staged exactly as QPF-TIP-KR (verify-quant.mjs Q.stage):
+Delta = 0.55, eps4 = 0.05, dx = 0.8 W0, dt = 0.15 dx^2 / D~, solved T, 1024^2,
+one seed at the centre with theta 0. Flow: inlet at x = 0, Pr = 23.1 (lattice
+nu = 3.465, tau = 10.9), U d0/D = 0.035, i.e. u_lat = 0.035 (lambda / a1) 0.15 dx
+cells per substep. Upstream tip = the WEST arm's phi = 0.5 crossing on the
+centre row (sub-cell interpolated); velocity = linear fit over the last third
+of 33 equal chunks spanning 8 diffusion lengths at the no-flow reference speed
+(the KR gate's schedule), stopping early if a tip comes within 12 % of a wall.
+lambda in {2.0, 2.4, 3.2}. Verdict: on every lambda, v_flow / v_noflow (same
+lambda, same schedule) within [1.26, 1.54] (Tong et al. 2001 same-lambda ratios
+1.37-1.43, the design's band); spread of the three ratios < 5 % of their mean.
+Falsification arms at lambda 2.4: coupling 0 must give ratio exactly 1 (same
+trace), coupling -1 must give ratio < 1. The no-flow speed's own accuracy is
+QPF-TIP-KR's (not re-gated here). Downstream arm and Peclet vs Oseen: info only.
