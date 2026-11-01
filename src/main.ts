@@ -1715,10 +1715,21 @@ async function boot() {
       }
       return s;
     },
-    anneal: (sweeps, onProgress, pin) =>
+    anneal: (sweeps, onProgress, pin, sample) =>
       mode === "3d" && sim3d
-        ? sim3d.anneal(sweeps, undefined, onProgress, pin)
+        ? sim3d.anneal(sweeps, undefined, onProgress, pin, sample)
         : sim.anneal(sweeps, undefined, onProgress, pin),
+    // C3b: nuclei after the deposit, and the raw census X is read from
+    nucleate: async (count) => (mode === "3d" && sim3d ? sim3d.nucleate(count) : { why: "Recrystallization runs in the volume only." }),
+    rxCensus: async () => {
+      if (mode !== "3d" || !sim3d) return null;
+      for (let i = 0; i < 60; i++) {
+        const st = await sim3d.readStats();
+        if (st) return { rx: st.rxVox ?? 0, grain: st.grainVox ?? 0 };
+        await new Promise(r => setTimeout(r, 20));
+      }
+      return null;
+    },
     // v7.0 C3a: the cold-work deposit and the recovery ordinate it banks. Both
     // are volume-only and both no-op in the plane rather than throwing — the
     // panel already refuses to render the dial there, so reaching either of
@@ -2698,7 +2709,7 @@ async function boot() {
       // with the cold work behind it): every element PRESENT must be a finite
       // number — the whole-rejection stance stays, only the accepted shapes
       // grew (a 4-element hand-build is still malformed, and so is a 7).
-      if (Array.isArray(shared.ht) && [3, 5, 6].includes(shared.ht.length)
+      if (Array.isArray(shared.ht) && [3, 5, 6, 7].includes(shared.ht.length)
         && shared.ht.every(Number.isFinite) && !lab.active) heat?.open(shared.ht);
     };
     if (shared.d !== 1) openHeat();
