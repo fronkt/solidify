@@ -773,3 +773,16 @@ was containment in the digital sphere about the GENERATING centre.
 **Rule.** Check geometric containment against the known generator (place
 fixtures at explicit centres when the production path draws them at random),
 and include clipped cases on purpose so the check sees the edge it is about.
+
+## Wait for the asynchronous step you assert on, not the one before it
+
+SESSION-3D-CANCELLATION failed twice in three runs after the studio look made
+3D frames heavier: the fixture waited for the alloy step, then awaited
+`quantPromise` only if it already existed. The app requests the calibrated
+volume a few GPU-queue awaits later, so a busier queue meant the check found no
+promise, skipped the wait and read "Preparing". Nothing in the app was stuck.
+
+**Rule.** When the asserted state comes from an async chain, wait for evidence
+that the step itself started (a call counter, a latch set) and finished, then
+settle a few frames so a late, unwanted call is still caught. Never infer "not
+called" from a check made before the caller could have run.
