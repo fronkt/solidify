@@ -23,6 +23,13 @@ export const MAX_SEEDS3 = 128;   // as in 2D: a big inoculant burst must land wh
 export const SEED3_STRIDE = 8; // floats per seed: x, y, z, r, id, dTact, pad, pad
 /** reserved grain id for shrinkage-pore voxels (φ pinned 0 forever) */
 export const PORE_ID = MAX_GRAINS3 - 1;
+/** C3b: nuclei per stamp dispatch (the seed stamp's batching) */
+export const RX_BATCH3 = 128;
+/** C3b: recrystallization nucleus radius, voxels. Provisional: the
+ *  RX3-NUCLEUS-LADDER gate measures the grow/revert crossover before it is
+ *  pinned (radius 2 = 33 voxels: grows above H = 12 J_b, its tips revert below
+ *  8, by RX-LATTICE-THRESHOLDS' bond count at T = 0) */
+export const NUCLEUS_R_3D = 2;
 
 export const LENS3_NAMES = ["MELT", "ORIENT", "SLICE", "FIELD", "SEM", "RINGS", "THERM", "NEON", "CURV"];
 
@@ -1231,6 +1238,53 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let c = vec3i(gid);
   if (textureLoad(grainRW, c).r == T.pid) {
     textureStore(grainRW, c, vec4u(T.tid, 0u, 0u, 0u));
+  }
+}
+`;
+
+/**
+ * C3b recrystallization nuclei: stamp strain-free spheres of fresh ids into
+ * the deformed matrix (docs/C3B-RECRYSTALLIZATION-DESIGN.md). Inserted whole,
+ * the twin plate's doctrine: birth is sub-grid, the anneal pass (and its
+ * existing stored-energy drive, hOf) owns everything after it. Same in-place
+ * read_write stamp as TWINSTAMP3, so no ping-pong flip and no `dir` parity.
+ *
+ * A voxel is claimed only where the treatment mask says it may be treated
+ * (solid, claimed, not a pore, not mould: HTMASK3's one predicate) and only
+ * if it is not already a nucleus of this event ([lo, hi]): within a batch the
+ * first nucleus in list order wins, across batches the earlier batch does,
+ * so the stamp is deterministic. It never binds the stored-energy buffer —
+ * nothing on the GPU writes H.
+ */
+export const RXSTAMP3_WGSL = /* wgsl */ `
+struct RX {
+  n: u32,       // grid edge
+  count: u32,   // nuclei in this batch (<= ${RX_BATCH3})
+  lo: u32,      // the event's id range: never overwritten
+  hi: u32,
+  r2: f32,      // nucleus radius squared, voxels²
+  _a: f32,
+  _b: f32,
+  _c: f32,
+}
+@group(0) @binding(0) var<uniform> X: RX;
+@group(0) @binding(1) var<storage, read> nuc: array<vec4u, ${RX_BATCH3}>;   // xyz: centre voxel · w: id
+@group(0) @binding(2) var mask: texture_3d<u32>;
+@group(0) @binding(3) var grainRW: texture_storage_3d<r32uint, read_write>;
+
+@compute @workgroup_size(4, 4, 4)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= X.n || gid.y >= X.n || gid.z >= X.n) { return; }
+  let c = vec3i(gid);
+  if (textureLoad(mask, c, 0).r == 0u) { return; }
+  let cur = textureLoad(grainRW, c).r;
+  if (cur >= X.lo && cur <= X.hi) { return; }
+  for (var i = 0u; i < X.count; i++) {
+    let d = vec3f(vec3i(gid) - vec3i(nuc[i].xyz));
+    if (dot(d, d) <= X.r2) {
+      textureStore(grainRW, c, vec4u(nuc[i].w, 0u, 0u, 0u));
+      return;
+    }
   }
 }
 `;

@@ -7,11 +7,12 @@ import {
   FLUX3D_WGSL, update3dWgsl, phi3dWgsl, transport3dWgsl, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL, STEREO3D_WGSL,
   LINE3D_WGSL, REGION3D_WGSL, HTMASK3_WGSL, ANNEAL3_WGSL, anneal3Wgsl, TWINSTAMP3_WGSL, HOMOG3_WGSL, HOMOG_D3,
   HT_COLOURS_3D, MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
+  RXSTAMP3_WGSL, RX_BATCH3, NUCLEUS_R_3D,
 } from "./shaders3d";
 import { shaderModule, H2U, HT_STRIDE, HT_KT_DEFAULT, WORK_SALT } from "./shaders";
 import { HT_RECOVER_3D } from "./heattreat";
 import { DEFAULT_UM_PER_CELL } from "./units";
-import { stream } from "./rng";
+import { stream, type Rng } from "./rng";
 import { QUANT_MASS3 } from "./shaders3d-quant";
 
 /**
@@ -224,6 +225,12 @@ export interface StatsResult3D {
   /** mean temperature of the remaining melt, or null once fully solid */
   meanLiqT: number | null;
   grains: { id: number; vox: number }[];   // retained for IPF / histogram panels
+  /** C3b: RAW voxel count over the current recrystallization ids (0 without
+   *  an event); raw, because the census's minVox filter hides a newborn
+   *  33-voxel nucleus */
+  rxVox?: number;
+  /** C3b: raw voxel count over every grain id (1 .. PORE-1), X's denominator */
+  grainVox?: number;
 }
 
 interface Seed3 { x: number; y: number; z: number; r: number; id: number; dTact: number }
@@ -401,6 +408,19 @@ export class Sim3D {
    * so a dimension switch does not renumber either one's draws.
    */
   private rng = stream("sim3d");
+  // C3b: nucleus sites and orientations draw from their OWN named stream
+  // (reserved in shaders.ts, pinned by RNG-NAME-DERIVATION), so turning
+  // recrystallization on cannot move one draw of the cast
+  private rxRng = stream("recrystallization");
+  /** addSeed3D ran past the top id and recycled from 1: high ids may be
+   *  live cast grains, so no id range above nextId can be called free */
+  private idsWrapped = false;
+  /** C3b: the current recrystallization event's ids, or null */
+  rxRange: { lo: number; hi: number } | null = null;
+  private rxPipe: GPUComputePipeline | null = null;
+  private rxBG: GPUBindGroup[] = [];
+  private rxUBuf: GPUBuffer | null = null;
+  private rxNucBuf: GPUBuffer | null = null;
 
   /** true when the GPU is >= 2 submitted frames behind — callers should skip stepping */
   get busy() { return this.inFlight >= 2; }
@@ -1104,6 +1124,8 @@ export class Sim3D {
     this.htMaskTex?.destroy();
     this.htBuf?.destroy();
     this.tsBuf?.destroy();
+    this.rxUBuf?.destroy();
+    this.rxNucBuf?.destroy();
     this.hgBuf?.destroy();
   }
 
@@ -1225,6 +1247,9 @@ export class Sim3D {
     this.frame = 0;
     this.simTime = 0;
     this.nextId = 1;
+    this.idsWrapped = false;
+    this.rxRange = null;
+    this.rxRng.reset();
     this.frontZ = 1;
     this.pendingSeeds = [];
     this.lastSeed = null;
@@ -1286,6 +1311,8 @@ export class Sim3D {
     this.device.queue.writeBuffer(this.hBuf, 0, this.hCPU);
     this.hOn = true;
     this.recAcc = 0;
+    // a fresh deformation re-deforms every id, earlier nuclei included
+    this.rxRange = null;
   }
 
   /**
@@ -1303,6 +1330,87 @@ export class Sim3D {
   }
 
   /**
+   * C3b: insert `count` strain-free recrystallization nuclei (stored energy 0,
+   * fresh ids, random orientations) as digital spheres of radius `r` voxels
+   * at uniformly random sites in the deformed matrix — the classic
+   * site-saturated protocol (docs/C3B-RECRYSTALLIZATION-DESIGN.md). Growth is
+   * then entirely the existing anneal's stored-energy drive.
+   *
+   * Order is load-bearing: `deposit` writes H for every id below PORE_ID, so
+   * this runs AFTER it, or the nuclei would be born deformed.
+   *
+   * Ids come off the same down-counter GPU twins use, so twins and nuclei can
+   * never collide; the range is refused when the cast already recycled ids
+   * (they may be live) and trimmed, with `placed < requested`, when fewer are
+   * free. Sites and orientations draw from stream("recrystallization") only.
+   * `placed` counts nuclei that claimed at least one voxel (a site in liquid,
+   * a pore or mould claims none). Resolves to a sentence on refusal.
+   */
+  async nucleate(count: number, r = NUCLEUS_R_3D):
+    Promise<{ lo: number; hi: number; requested: number; placed: number } | { why: string }> {
+    const want = Math.max(0, Math.floor(count));
+    if (want === 0) { this.rxRange = null; return { lo: 0, hi: -1, requested: 0, placed: 0 }; }
+    if (!this.hOn) return { why: "Recrystallization nuclei grow on stored energy, and this specimen has none: dial cold work first." };
+    if (this.idsWrapped) return { why: "This cast used every grain id once already, so a new id could alias a live grain. Re-pour to recrystallize." };
+    if (!(await this.ensureHt())) return { why: "The GPU could not allocate the treatment mask." };
+    const ctr = await this.readTwinCtr();
+    if (ctr == null) return { why: "The grain-id counter could not be read back." };
+    const k = Math.min(want, ctr - this.nextId - 2);
+    if (k <= 0) return { why: "No free grain ids are left on this cast. Re-pour to recrystallize." };
+    const lo = ctr - k + 1, hi = ctr;
+    const d = this.device;
+    d.queue.writeBuffer(this.twinCtrBuf, 0, new Uint32Array([ctr - k]));
+    // strain-free and freshly oriented, every id in the range
+    for (let id = lo; id <= hi; id++) {
+      this.hCPU[id] = 0;
+      this.quatCPU.set(this.randomQuat(this.rxRng), id * 4);
+    }
+    d.queue.writeBuffer(this.hBuf, 0, this.hCPU);
+    d.queue.writeBuffer(this.quatBuf, lo * 16, this.quatCPU, lo * 4, k * 4);
+    // the treatable-voxel mask, exactly as anneal() builds it (no particles:
+    // dispersion is held back while nuclei are dialled)
+    this.writeHt(0, HT_KT_DEFAULT);
+    const n = this.n;
+    const sites = new Uint32Array(k * 4);
+    for (let i = 0; i < k; i++) {
+      sites[i * 4] = this.rxRng.int(n);
+      sites[i * 4 + 1] = this.rxRng.int(n);
+      sites[i * 4 + 2] = this.rxRng.int(n);
+      sites[i * 4 + 3] = lo + i;
+    }
+    {
+      const enc = d.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(this.htMaskPipe!);
+      pass.setBindGroup(0, this.htMaskBG[this.dir]);
+      this.dispatch(pass);
+      pass.end();
+      d.queue.submit([enc.finish()]);
+    }
+    const u = new ArrayBuffer(32);
+    const uu = new Uint32Array(u), uf = new Float32Array(u);
+    for (let b = 0; b < k; b += RX_BATCH3) {
+      const m = Math.min(RX_BATCH3, k - b);
+      uu[0] = n; uu[1] = m; uu[2] = lo; uu[3] = hi; uf[4] = r * r;
+      d.queue.writeBuffer(this.rxUBuf!, 0, u);
+      d.queue.writeBuffer(this.rxNucBuf!, 0, sites, b * 4, m * 4);
+      const enc = d.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(this.rxPipe!);
+      pass.setBindGroup(0, this.rxBG[this.dir]);
+      this.dispatch(pass);
+      pass.end();
+      d.queue.submit([enc.finish()]);
+      // the next batch's uniform/sites overwrite this one's: let it land first
+      await d.queue.onSubmittedWorkDone();
+    }
+    this.rxRange = { lo, hi };
+    const census = await this.readRegion([0, 0, 0], [n, n, n]);
+    const placed = census ? census.grains.filter(g => g.id >= lo && g.id <= hi).length : 0;
+    return { lo, hi, requested: want, placed };
+  }
+
+  /**
    * Drop the stored-energy field and return to the pre-C3a anneal.
    *
    * Separate from `reset()` because turning the cold work off must not re-pour
@@ -1315,6 +1423,7 @@ export class Sim3D {
     this.device.queue.writeBuffer(this.hBuf, 0, this.hCPU);
     this.hOn = false;
     this.recAcc = 0;
+    this.rxRange = null;
   }
 
   /** the CPU mirror of the stored-energy field — what the panel's census reads */
@@ -1371,8 +1480,8 @@ export class Sim3D {
    * one would have left the volume's single largest source of randomness
    * unseeded while everything around it was reproducible.
    */
-  private randomQuat(): [number, number, number, number] {
-    const u1 = this.rng.next(), u2 = this.rng.next(), u3 = this.rng.next();
+  private randomQuat(rng: Rng = this.rng): [number, number, number, number] {
+    const u1 = rng.next(), u2 = rng.next(), u3 = rng.next();
     const a = Math.sqrt(1 - u1), b = Math.sqrt(u1);
     return [
       a * Math.sin(2 * Math.PI * u2),
@@ -1392,7 +1501,7 @@ export class Sim3D {
     if (!pos) return 0;   // no open voxel within the search bound — the seed is dropped
     [x, y, z] = pos;
     let id = this.nextId++;
-    if (id >= MAX_GRAINS3 - 1) { this.nextId = 2; id = 1; }   // top id is PORE_ID
+    if (id >= MAX_GRAINS3 - 1) { this.nextId = 2; id = 1; this.idsWrapped = true; }   // top id is PORE_ID
     const quat = q ?? this.randomQuat();
     this.quatCPU.set(quat, id * 4);
     this.device.queue.writeBuffer(this.quatBuf, id * 16, this.quatCPU, id * 4, 4);
@@ -1712,6 +1821,21 @@ export class Sim3D {
         });
       }
     }
+    // C3b recrystallization nuclei: in-place stamp gated by the treatment mask
+    this.rxUBuf = d.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.rxNucBuf = d.createBuffer({ size: RX_BATCH3 * 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    this.rxPipe = mk(RXSTAMP3_WGSL, "rxstamp3");
+    for (const dir of [0, 1]) {
+      this.rxBG[dir] = d.createBindGroup({
+        layout: this.rxPipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.rxUBuf } },
+          { binding: 1, resource: { buffer: this.rxNucBuf } },
+          { binding: 2, resource: this.htMaskTex.createView() },
+          { binding: 3, resource: this.grainTex[dir].createView() },
+        ],
+      });
+    }
     // twin-plate nucleation (H3): in-place read_write stamp, one bind per dir
     this.tsBuf = d.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.twinStampPipe = mk(TWINSTAMP3_WGSL, "twinstamp3");
@@ -1779,6 +1903,7 @@ export class Sim3D {
   async anneal(
     sweeps: number, kT = HT_KT_DEFAULT, onProgress?: (done: number) => boolean | void,
     pin?: { f: number; r: number },
+    sample?: { at(done: number): boolean; read(done: number): Promise<void> },
   ): Promise<number> {
     if (HT_COLOURS_3D % 2 !== 0) throw new Error("HT_COLOURS_3D must be even — see anneal()");
     const total = Math.max(0, Math.floor(sweeps));
@@ -1811,6 +1936,13 @@ export class Sim3D {
       }
       pass.end();
       this.device.queue.submit([enc.finish()]);
+      // C3b: observe X(S) inside ONE treatment. Awaited after a submit, so the
+      // salts and the recovery ordinate run exactly as an unsampled call's do
+      // (chunking the call instead would restart the salt at 1 every chunk)
+      if (sample?.at(s + 1)) {
+        await this.device.queue.onSubmittedWorkDone();
+        await sample.read(s + 1);
+      }
       if ((s & 7) === 7) {
         await this.device.queue.onSubmittedWorkDone();
         if (onProgress?.(s + 1) === false) { delivered = s + 1; break; }
@@ -2341,8 +2473,13 @@ export class Sim3D {
     const minVox = Math.max(64, total * 1e-5);
     let volSum = 0;
     const grains: { id: number; vox: number }[] = [];
+    // C3b's raw sums ride the same loop: no filter, so a newborn nucleus counts
+    let rxVox = 0, grainVox = 0;
+    const rx = this.rxRange;
     for (let i = 1; i < MAX_GRAINS3 - 1; i++) {   // top id is the pore census
       const c = data[8 + i];
+      grainVox += c;
+      if (rx && i >= rx.lo && i <= rx.hi) rxVox += c;
       if (c > minVox) { volSum += c; grains.push({ id: i, vox: c }); }
     }
     const count = grains.length;
@@ -2366,6 +2503,8 @@ export class Sim3D {
       probePhi: this.probe ? data[5] / 1000 : null,
       meanLiqT: data[3] > 0 ? data[6] / 500 / data[3] - 1 : null,
       grains,
+      rxVox,
+      grainVox,
     };
   }
 }
