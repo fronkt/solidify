@@ -1,7 +1,7 @@
 # Testing
 
-Visual and science expansion, 2026-11-01 (feature/visual): five scripts on
-top of the merged 39, so the local suite registers 44 and CI gates twenty-six
+Visual and science expansion, 2026-11-01 (feature/visual): six scripts on
+top of the merged 39, so the local suite registers 45 and CI gates twenty-six
 browser-free scripts.
 
 - `verify-replay.mjs` (browser-free, five checks): the replay ledger refuses
@@ -27,6 +27,11 @@ browser-free scripts.
 - `verify-recrystallize-gpu.mjs` (GPU): C3b-0's stamp coherence, undriven and
   uniform-drive controls, the single-nucleus ladder, and off-identity with
   in-treatment sampling.
+- `verify-flow-gpu.mjs` (GPU): D3.1's standalone lattice Boltzmann solver,
+  fluid only. A free-slip shear wave recovers the set viscosity within 1 %;
+  body-force flow over this repo's diffuse solid matches an independent CPU
+  solve of the same continuum equation within 2 % of the peak (an h = 0 arm
+  must miss by more than 20 %); a uniform inlet stream stays uniform.
 
 Merged regression inventory, 2026-11-01: the 3D optimizer branch (PR 4) and
 the quantitative-calibration continuation (PR 5) each registered two scripts on
