@@ -786,7 +786,17 @@ const settle = () => page.evaluate(() => Promise.race([
   Promise.all(document.getAnimations().filter(a => a instanceof CSSTransition).map(a => a.finished.catch(() => {}))),
   new Promise(r => setTimeout(r, 2000)),
 ]));
-const setVP = async (w, h) => { await page.setViewport({ width: w, height: h }); await sleep(350); await settle(); };
+// The head plate folds by default now (ui.ts). Every layout gate here keeps
+// measuring the state it always measured: readings shown, except on the short
+// screens where the plate used to fold them (max-height 600, or a 380-wide
+// phone under 740), which is where a folded plate leaves the legends and the
+// tour pill their room. Driven through the real chevron.
+const headFor = async (w, h) => {
+  const wantOpen = !(h <= 600 || (w <= 380 && h <= 740));
+  const isOpen = await page.evaluate(() => document.body.classList.contains("headOpen"));
+  if (isOpen !== wantOpen) { await page.evaluate(() => document.getElementById("headToggle").click()); await sleep(120); }
+};
+const setVP = async (w, h) => { await page.setViewport({ width: w, height: h }); await headFor(w, h); await sleep(350); await settle(); };
 const toggleRail = async () => { await S(() => document.getElementById("railToggle").click()); await sleep(300); await settle(); };
 
 // ------------------------------------------------------------- the rail itself
@@ -1039,11 +1049,9 @@ async function samplePhone(mode, columns) {
   for (const vp of [PHONE, [390, 540], [844, 390], [360, 640], [320, 568]]) {
     await setVP(...vp);
     if (vp[1] <= 600 || (vp[0] <= 380 && vp[1] <= 740)) {
-      // this page boots with the plate open: fold it, then the gate is the one
-      // it always was: a folded plate offers a reachable chevron that opens
-      // the readings (and the page is left open for the gates after this)
-      await page.click("#headToggle");
-      await settle();
+      // on these short screens setVP leaves the plate folded (headFor): the
+      // gate is the one it always was, a folded plate offers a reachable
+      // chevron that opens the readings, and it is folded again afterwards
       const before = await S(() => {
         const b = document.getElementById("headToggle"), r = b.getBoundingClientRect();
         const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
@@ -1055,6 +1063,8 @@ async function samplePhone(mode, columns) {
       const expanded = await S(() => ({ aria: document.getElementById("headToggle").getAttribute("aria-expanded"),
         readings: window.__railProbe.vis(document.getElementById("readouts")), text: document.getElementById("readouts").textContent.length }));
       await page.screenshot({ path: `${OUT}/phone-${mode}-${vp.join("x")}-readings-expanded.png` });
+      await page.click("#headToggle");
+      await settle();
       phoneDisclosures.push({ mode, vp: vp.join("x"), before, expanded });
     }
     for (const [lens, legend] of [[2, "scalebar"], [mode === "3d" ? 6 : 5, "thermbar"], [mode === "3d" ? 4 : 6, "sembar"]]) {

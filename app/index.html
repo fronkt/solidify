@@ -151,14 +151,18 @@
        on a plate that shrinks to them. Open (body.headOpen): the plate as it
        was. A caveat on the melt marks the chevron, so folding never hides a
        warning without a trace (ui.ts headState) */
-    .headbar { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
-    #headToggle { pointer-events: auto; position: relative; flex: none; width: 28px; height: 24px; padding: 0;
+    .headbar { display: flex; align-items: center; justify-content: space-between; gap: var(--s-1); }
+    .headbar h1 { white-space: nowrap; }
+    #headToggle { pointer-events: auto; position: relative; flex: none; width: 24px; height: 24px; padding: 0;
       display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
     #headToggle span { display: inline-block; transition: transform 0.2s ease; }
     body.headOpen #headToggle span { transform: rotate(180deg); }
     #headToggle.warn::after { content: ""; position: absolute; top: 2px; right: 2px; width: 6px; height: 6px;
       border-radius: 50%; background: var(--fg); }
-    body:not(.headOpen) #head { width: auto; padding: var(--s-2) var(--s-2) var(--s-2) var(--s-3); }
+    /* folded, the pill keeps the open plate's width cap, so on a 320 phone it
+       still stops at the toggle column (120 there: 10 + wordmark + 4 + 24 + 6) */
+    body:not(.headOpen) #head { width: auto; max-width: clamp(120px, calc(var(--free-w) - 212px), 232px);
+      padding: 6px 6px 6px 10px; }
     body:not(.headOpen) #headBody { display: none; }
 
     /* ---- the rail */
