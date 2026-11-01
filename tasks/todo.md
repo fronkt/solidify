@@ -5578,5 +5578,13 @@ traveling identity D/V. No recovery, target-speed, RMS or asymptotic-stability
 acceptance band is introduced. The earlier added-heat refusal remains intact.
 
 - [x] Review the prospective temporal scope and cost/fallback rule before implementation.
-- [ ] Verify prerequisites and exact conservation/clock/metrology controls; freeze/push the selected batch.
+- [x] Verify prerequisites and exact conservation/clock/metrology controls; freeze/push the selected batch.
 - [ ] Execute the selected CPU batch, preserve all outcomes and assess timestep/domain sensitivity without a new scientific pass band.
+
+The active temporal v4 preparation selects both candidates/all14 trajectories
+by the predeclared cost rule (estimated1121 seconds). Independent review clears
+the physical sub1 force/heat controls, exact enthalpy arithmetic, signed-latent
+negatives, tails, metrology and all65 matched integer clocks. Earlier preparation
+versions are retained. The source-admission amendment explicitly reconstructs
+the old sealed CRLF file from its canonical Git blob, with every other transform
+refused. Full pushed-commit admission remains mandatory before any trajectory.
