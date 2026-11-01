@@ -311,7 +311,7 @@ export const CHAPTERS: Chapter[] = [
   {
     title: "Heat treat it",
     body: "Heat treat uses a separate furnace clock. Supported rate laws budget grain-boundary migration; the solid fraction stays fixed.",
-    watch: "Annealing coarsens grains and can reduce Hall–Petch strength. Particle pinning changes the endpoint. In 3D, cold work plus the nuclei dial grows new strain-free grains.",
+    watch: "Annealing coarsens grains and can reduce Hall–Petch strength. Particle pinning changes the endpoint; 3D nuclei in worked metal grow new grains.",
     apply(a) { a.startHeat(); },
     hl: ["sec:MODES"],
   },

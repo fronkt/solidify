@@ -778,7 +778,7 @@ export class UI {
     this.only2d.push(flowPanel);
     this.check(flowPanel, "melt flow", () => host.getFlowOn(), b => host.setFlowOn(b));
     this.slider(flowPanel, "flow speed", 0.005, 0.05, 0.0025, () => host.getFlowU(), v => host.setFlowU(v),
-      v => `${v.toFixed(4)} cells/step`);
+      v => v.toFixed(3));   // cells per substep; the learn hint names the unit
     this.check(flowPanel, "show flow", () => host.getFlowView(), b => host.setFlowView(b));
     const flowWhy = document.createElement("div");
     flowWhy.className = "hint";
