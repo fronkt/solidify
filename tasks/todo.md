@@ -5736,3 +5736,18 @@ lambda, same schedule) within [1.26, 1.54] (Tong et al. 2001 same-lambda ratios
 Falsification arms at lambda 2.4: coupling 0 must give ratio exactly 1 (same
 trace), coupling -1 must give ratio < 1. The no-flow speed's own accuracy is
 QPF-TIP-KR's (not re-gated here). Downstream arm and Peclet vs Oseen: info only.
+
+### FLOW-TIP-TONG first run (2026-11-01, commit 28772a0): FAILED, kept
+
+Upstream/no-flow ratios 1.259 / 1.329 / 1.356 at lambda 2.0 / 2.4 / 3.2 against
+the pre-registered [1.26, 1.54]; spread 7.4 % against 5 %. No-flow speeds match
+Karma-Rappel (Vd0/D 0.0170 / 0.0168 / 0.0163 vs 0.017). Falsification arms
+behave: coupling 0 gives exactly 1, coupling -1 gives 0.583. The ratio rises
+with lambda, and with it the domain measured in d0 (1853 -> 2965 d0), so a
+domain or boundary effect (free-slip walls and an inlet 12 % of the domain
+upstream of the stopping tip, where Tong used periodic sides) is the leading
+hypothesis. Following the Q3 precedent the comparison moved out of the
+regression suite into scripts/research/flow-tip-tong.mjs; the failure stands,
+the result is in docs/validation/flow-tong-2026-11-01.json, and every surface
+calls the flow qualitative. Next: a separately pre-registered domain study
+(same lambda, domain and inlet distance varied) before any change.

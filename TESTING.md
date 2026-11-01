@@ -42,8 +42,12 @@ browser-free scripts.
   coupling reproduce the flow-off split pass bit for bit), FLOW-UNIFORM-MELT,
   FLOW-DIRECTION (upstream faster, downstream slower, reversed coupling the
   other way), FLOW-UI (the rail control, an inert overlay, the scenario
-  refusal, share-link restore) and the pre-registered FLOW-TIP-TONG (Tong et
-  al. 2001's upstream speed-up, protocol in tasks/todo.md).
+  refusal, share-link restore). The pre-registered literature comparison
+  against Tong et al. 2001 is a study, not a regression gate:
+  `scripts/research/flow-tip-tong.mjs` (protocol in tasks/todo.md). Its first
+  run FAILED (ratios 1.259 / 1.329 / 1.356 against [1.26, 1.54], spread 7.4 %
+  against 5 %); the result is kept in docs/validation/flow-tong-2026-11-01.json
+  and the flow stays labelled qualitative.
 
 Merged regression inventory, 2026-11-01: the 3D optimizer branch (PR 4) and
 the quantitative-calibration continuation (PR 5) each registered two scripts on
