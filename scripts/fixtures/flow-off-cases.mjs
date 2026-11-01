@@ -16,8 +16,16 @@ export const FLOW_OFF_CASES = [
 /** run every case in the page and return { name: { state, grain } } hashes */
 export async function captureFlowOffCases(page) {
   const out = {};
-  for (const c of FLOW_OFF_CASES) {
-    out[c.name] = await page.evaluate(async (setup) => {
+  for (const c of FLOW_OFF_CASES) out[c.name] = await runFlowCase(page, c.setup);
+  return out;
+}
+
+/**
+ * One case. `setup.flow` (D3.2 gates only; absent from the baseline cases)
+ * turns melt flow on with { u, scale } before the pour and off afterwards.
+ */
+export async function runFlowCase(page, setup) {
+  return page.evaluate(async (setup) => {
       const S = window.__solidify;
       S.app.setRun(false);
       if (S.mode() !== "2d") await S.app.setMode("2d");
@@ -27,10 +35,21 @@ export async function captureFlowOffCases(page) {
       sim.step = () => 0;
       try {
         await sim.device.queue.onSubmittedWorkDone();
+        // every case starts from the parameters the page booted with (minus the
+        // grid-derived dx/dt): a case must not inherit what an earlier case's
+        // material or solver left behind (the calibrated case leaves alloy-only
+        // parameters that switching back to Kobayashi does not reset)
+        window.__flowBoot ??= { ...sim.params };
+        for (const [key, v] of Object.entries(window.__flowBoot)) if (key !== "dx" && key !== "dt") sim.params[key] = v;
         S.setSeed(0x0f1c);
         if (setup.calibrated) S.setSolver(1, setup.calibrated); else S.setSolver(0);
         sim.splitPasses = !!setup.split;
         Object.assign(sim.params, { scen: setup.scen ?? 0, heatIn: 0, twinProb: 0, alloyOn: setup.alloy ? 1 : 0, coolRate: 0.2 });
+        if (setup.flow) {
+          Object.assign(sim.flowCfg, { u: setup.flow.u, scale: setup.flow.scale ?? 1 });
+          const why = sim.setFlow(true);
+          if (why) throw new Error(`flow refused: ${why}`);
+        }
         sim.reset(1 - 0.6);
         sim.addSeed(128, 128, 4);
         if (setup.scen === 2) { sim.params.weldX = 60; sim.params.weldY = 90; }
@@ -44,8 +63,6 @@ export async function captureFlowOffCases(page) {
         const sha = async a => [...new Uint8Array(await crypto.subtle.digest("SHA-256",
           new Uint8Array(a.buffer, a.byteOffset, a.byteLength)))].map(v => v.toString(16).padStart(2, "0")).join("");
         return { state: await sha(st), grain: await sha(gr), simTime: sim.simTime, solver: sim.params.solver };
-      } finally { sim.step = frameStep; sim.splitPasses = false; }
-    }, c.setup);
-  }
-  return out;
+      } finally { sim.step = frameStep; sim.splitPasses = false; if (setup.flow) { sim.setFlow(false); Object.assign(sim.flowCfg, { u: 0.02, scale: 1 }); } }
+  }, setup);
 }
