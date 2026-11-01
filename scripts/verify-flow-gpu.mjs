@@ -18,6 +18,23 @@ import { closeBrowser } from "./browser-cleanup.mjs";
 //   node scripts/verify-flow-gpu.mjs [outDir] [port]
 import puppeteer from "puppeteer-core";
 import { createServer } from "vite";
+import { readFileSync, existsSync } from "node:fs";
+import { captureFlowOffCases, runFlowCase } from "./fixtures/flow-off-cases.mjs";
+// D3.2 (coupling) adds:
+//   FLOW-OFF-IDENTITY   with flow off, seven 2D cases hash exactly as they did
+//                       at the commit before advection existed
+//                       (scripts/fixtures/flow-off-baseline.json).
+//   FLOW-INERT-ARMS     flow on at zero inlet speed, and flow on with the
+//                       coupling set to 0, both reproduce the flow-off split
+//                       pass bit for bit (the LBM ran; advection added nothing).
+//   FLOW-UNIFORM-MELT   an all-liquid melt at the far-field temperature stays
+//                       uniform under flow (the advection operator and its
+//                       inlet/outlet faces are consistent).
+//   FLOW-DIRECTION      Kobayashi, qualitative: with flow from the west the
+//                       upstream arm outgrows the no-flow arm by > 5 % and the
+//                       downstream arm falls short by > 5 %; with the coupling
+//                       reversed (-1) the upstream arm falls short instead.
+const BASELINE = new URL("./fixtures/flow-off-baseline.json", import.meta.url);
 
 const PORT = process.argv[3] ?? "5199";
 const vite = await createServer({ server: { middlewareMode: true }, appType: "custom", logLevel: "error" });
@@ -146,6 +163,82 @@ try {
       return { U, maxDeviationOfU: dev / U };
     });
     check("FLOW-FREESTREAM", out.maxDeviationOfU <= 1e-3, out);
+  }
+  // -------------------------------------------------------------------------
+  // FLOW-OFF-IDENTITY
+  let baseline = null;
+  {
+    if (!existsSync(BASELINE)) check("FLOW-OFF-IDENTITY", false, { why: "no baseline: run scripts/capture-flow-baseline.mjs on the pre-advection commit" });
+    else {
+      baseline = JSON.parse(readFileSync(BASELINE, "utf8"));
+      const now = await captureFlowOffCases(page);
+      const diff = Object.keys(baseline.cases).filter(k => now[k]?.state !== baseline.cases[k].state || now[k]?.grain !== baseline.cases[k].grain);
+      check("FLOW-OFF-IDENTITY", diff.length === 0 && Object.keys(baseline.cases).length === 7, { baselineCommit: baseline.commit, cases: Object.keys(now).length, differ: diff });
+    }
+  }
+
+  // FLOW-INERT-ARMS
+  {
+    const zero = await runFlowCase(page, { split: true, flow: { u: 0 } });
+    const off0 = await runFlowCase(page, { split: true, flow: { u: 0.02, scale: 0 } });
+    const ref = baseline?.cases["kobayashi-split"];
+    check("FLOW-INERT-ARMS", !!ref && zero.state === ref.state && zero.grain === ref.grain && off0.state === ref.state && off0.grain === ref.grain,
+      { zeroSpeed: zero.state === ref?.state, couplingZero: off0.state === ref?.state });
+  }
+
+  // FLOW-UNIFORM-MELT
+  {
+    const out = await page.evaluate(async () => {
+      const S = window.__solidify, sim = S.sim(), f = sim.step; sim.step = () => 0;
+      try {
+        S.setSolver(0); sim.splitPasses = false;
+        Object.assign(sim.params, { scen: 0, heatIn: 0, coolRate: 0, alloyOn: 0 });
+        sim.flowCfg.u = 0.02; sim.flowCfg.scale = 1;
+        const why = sim.setFlow(true); if (why) return { why };
+        sim.reset(0.4);
+        for (let k = 0; k < 20; k++) await sim.stepSync(100);
+        const n = sim.n, r = await sim.readRows(0, n);
+        let dev = 0, bad = 0;
+        for (let i = 0; i < n * n; i++) { const T = r[i * 4 + 1]; if (!Number.isFinite(T)) bad++; else dev = Math.max(dev, Math.abs(T - 0.4)); }
+        return { maxDeviation: dev, nonFinite: bad, steps: 2000 };
+      } finally { sim.setFlow(false); sim.step = f; }
+    });
+    check("FLOW-UNIFORM-MELT", !out.why && out.nonFinite === 0 && out.maxDeviation <= 1e-4, out);
+  }
+
+  // FLOW-DIRECTION
+  {
+    const out = await page.evaluate(async () => {
+      const S = window.__solidify, sim = S.sim(), f = sim.step; sim.step = () => 0;
+      const reach = async () => {
+        const n = sim.n, y = n / 2, row = await sim.readRows(y, 1);
+        let west = 0, east = 0;
+        for (let x = n / 2; x >= 0 && row[x * 4] >= 0.5; x--) west = n / 2 - x;
+        for (let x = n / 2; x < n && row[x * 4] >= 0.5; x++) east = x - n / 2;
+        return { west, east };
+      };
+      const run = async (flow) => {
+        S.setSeed(0x51f0); S.setSolver(0);
+        Object.assign(sim.params, { scen: 0, heatIn: 0, coolRate: 0, alloyOn: 0, twinProb: 0, noiseAmp: 0 });
+        if (flow) { Object.assign(sim.flowCfg, flow); const why = sim.setFlow(true); if (why) throw new Error(why); }
+        else { sim.setFlow(false); sim.splitPasses = true; }
+        sim.reset(1 - 0.65);
+        sim.addSeed(sim.n / 2, sim.n / 2, 4, 0);
+        for (let i = 0; i < 3; i++) await sim.stepSync(0);
+        for (let k = 0; k < 40; k++) await sim.stepSync(50);
+        const r = await reach();
+        sim.setFlow(false); sim.splitPasses = false; Object.assign(sim.flowCfg, { u: 0.02, scale: 1 });
+        return r;
+      };
+      try {
+        const none = await run(null), fwd = await run({ u: 0.03, scale: 1 }), rev = await run({ u: 0.03, scale: -1 });
+        return { none, fwd, rev,
+          upstream: +(fwd.west / none.west).toFixed(3), downstream: +(fwd.east / none.east).toFixed(3),
+          reversedUpstream: +(rev.west / none.west).toFixed(3) };
+      } finally { sim.step = f; }
+    });
+    const ok = out.none.west > 20 && out.upstream > 1.05 && out.downstream < 0.95 && out.reversedUpstream < 1;
+    check("FLOW-DIRECTION", ok, out);
   }
 } catch (e) {
   console.log("FLOW harness error", String(e?.stack ?? e));
