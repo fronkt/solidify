@@ -106,7 +106,23 @@ try{
       const out={material:S.app.getMaterial(),c0:S.sim3d().params.c0};window.__shareProbe.release();return out;
     },action);
     await page.waitForFunction(()=>window.__shareProbe.alloyFinished);
-    await page.evaluate(async()=>{if(window.__shareProbe.quantPromise)await window.__shareProbe.quantPromise;await new Promise(requestAnimationFrame)});
+    // The app calls enableQuant some awaits AFTER the alloy step returns (each
+    // waits on the GPU queue), so checking quantPromise right after
+    // alloyFinished races that call: a busier frame loop lost the race and the
+    // state was read mid-preparation. Wait for the app's own "Preparing" latch
+    // to release (bounded: a preparation that never finishes still fails here),
+    // then await whatever entry it started.
+    // Settle: where a calibration is expected ('none'), until it has been
+    // requested; then until the latch releases and the entry resolves; then
+    // 20 frames, so a LATE request in the edit cases is still seen by the
+    // quantCalls === 0 assertion. Bounded at 30 s; nothing is relaxed.
+    await page.evaluate(async expectQuant=>{
+      const P=window.__shareProbe,S=window.__solidify,t0=performance.now(),frame=()=>new Promise(requestAnimationFrame);
+      while(expectQuant&&P.quantCalls===0&&performance.now()-t0<30000)await frame();
+      while(S.app.calibrationIssue()?.includes('Preparing')&&performance.now()-t0<30000)await frame();
+      if(P.quantPromise)await P.quantPromise;
+      for(let i=0;i<20;i++)await frame();
+    },action==='none');
     const got=await page.evaluate(()=>({mode:window.__solidify.mode(),material:window.__solidify.app.getMaterial(),
       quantCalls:window.__shareProbe.quantCalls,reason:window.__solidify.app.calibrationIssue(),
       q:window.__solidify.app.calibration(),params:{...window.__solidify.sim3d().params}}));
