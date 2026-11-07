@@ -5979,5 +5979,17 @@ CPU only; --plan; --run), result docs/validation/flow-domain-<date>.json.
       `node scripts/research/flow-domain.mjs --run --port 5201`
       (<= ~23 min of stepping by the 11-01 bound; plan for <= 45 min). It
       refuses to step if the served source differs from this tree.
+- Run 1 (root, 2026-11-07 12:54, bfe6035): REFUSED at admission before
+      any stepping (V1): "served source differs: src/main.ts". Diagnosis in a
+      browser probe: `import("/src/main.ts?raw")` throws (Vite serves the HTML
+      entry module's ?raw request as untransformed TypeScript, SyntaxError),
+      while `fetch("/src/main.ts?raw")` returns text equal to the disk file;
+      for sim.ts and render.ts the import is exact. The source never differed;
+      the check's vehicle failed on one file. Record kept as
+      docs/validation/flow-domain-2026-11-07-refused-admission.json.
+      Amendment (before run 2; arms, statistic and decision rule unchanged):
+      each served file is read by the ?raw import, and only when that throws
+      by fetch of the same ?raw URL; the vehicle is recorded per file and the
+      comparison against the disk hash stays exact (LF-normalized).
 - [ ] Reading: written here by a person after the run (the script leaves
       `reading` null); the FLOW-TIP-TONG verdict stays FAILED either way.
