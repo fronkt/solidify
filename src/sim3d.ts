@@ -1418,7 +1418,14 @@ export class Sim3D {
       await d.queue.onSubmittedWorkDone();
     }
     this.rxRange = { lo, hi };
-    const census = await this.readRegion([0, 0, 0], [n, n, n]);
+    // every nucleus that claimed a voxel, the 1-3 voxel clipped ones included
+    // (the census's default floor of 4 dropped them), and a read that found
+    // another region read in flight waits and retries instead of reporting 0
+    let census: Awaited<ReturnType<Sim3D["readRegion"]>> = null;
+    for (let tries = 0; tries < 40 && !census; tries++) {
+      census = await this.readRegion([0, 0, 0], [n, n, n], 1);
+      if (!census) await d.queue.onSubmittedWorkDone();
+    }
     const placed = census ? census.grains.filter(g => g.id >= lo && g.id <= hi).length : 0;
     return { lo, hi, requested: want, placed };
   }
@@ -2430,8 +2437,11 @@ export class Sim3D {
    * every call since atomics accumulate, mapAsync try/catch); dispatches the
    * full n³ grid like readStereo does, since this is an on-demand
    * report-card-time call (once per section, not per frame).
+   *
+   * `minVox` is the per-id floor for `grains` (readStereo's noise floor of 4
+   * by default); `solidVox` counts every solid voxel whatever the floor.
    */
-  async readRegion(lo: [number, number, number], hi: [number, number, number]):
+  async readRegion(lo: [number, number, number], hi: [number, number, number], minVox = 4):
     Promise<{ grains: { id: number; voxCount: number }[]; poreVox: number; solidVox: number } | null> {
     if (this.regionInFlight) return null;
     this.regionInFlight = true;
@@ -2463,7 +2473,7 @@ export class Sim3D {
     for (let i = 1; i < MAX_GRAINS3 - 1; i++) {
       const c = data[8 + i];
       solidVox += c;                                   // every solid voxel, "real" grain or not
-      if (c >= 4) grains.push({ id: i, voxCount: c });  // readStereo's own noise floor
+      if (c >= minVox && c > 0) grains.push({ id: i, voxCount: c });  // default: readStereo's noise floor
     }
     return { grains, poreVox: data[8 + PORE_ID], solidVox };
   }
