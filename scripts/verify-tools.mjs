@@ -460,6 +460,8 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
 //     ticked quench left a record with no liquid sample to draw.
 {
   const page = await browser.newPage();
+  const pageErrors = [];
+  page.on("pageerror", e => pageErrors.push(String(e?.message ?? e).slice(0, 300)));
   await boot(page);
   const pour = async quant => {
     const at = await page.evaluate(q => {
@@ -501,7 +503,19 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     });
     const want = at.solver === 1 ? 1 : at.alloyOn === 1 ? 1 - at.mLiq * at.c0 : 1;
     const wantC = at.oneC - (1 - want) * at.K;
-    return { card, at, fig, want, wantC };
+    // Diagnostics only (not part of the verdict): this gate failed twice in
+    // suite runs (2026-11-01, 2026-11-07) with no card after 150 s and never in
+    // seven standalone runs, where the Kobayashi card lands in about 5 s. The
+    // lab's own state says which half stalled: the run (state "running", record
+    // length frozen, app paused or not) or the report (state "finished",
+    // report still null while buildReport awaits its census).
+    const lab = card ? null : await page.evaluate(() => {
+      const S = window.__solidify, L = S.lab;
+      return { state: L.runState, running: L.running, active: L.active, recorded: L.series?.length ?? -1,
+        lastFs: L.lastFs, plateau: L.plateau, programDone: !!L.run?.done, simTime: L.host.simTimeNow(), t0: L.t0,
+        report: !!L.report, resultsPanel: !!L.resultsPanel, appRunning: S.app.isRunning(), hidden: document.hidden };
+    });
+    return { card, at, fig, want, wantC, lab, pageErrors: pageErrors.splice(0) };
   };
   const kob = await pour(false);
   const cal = await pour(true);

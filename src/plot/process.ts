@@ -143,3 +143,71 @@ export function heatProcessFigure(c: {
     ] },
   };
 }
+
+// ---- C3b recrystallization (docs/C3B-RECRYSTALLIZATION-DESIGN.md) ----------
+const SWEEP: Quantity = { kind: "count", sym: "S", name: "Monte Carlo sweeps" };
+const XRX: Quantity = { kind: "fraction", sym: "X", name: "Recrystallized fraction" };
+const LNS: Quantity = { kind: "dimless", sym: "ln S", name: "Log sweeps" };
+const LNX: Quantity = { kind: "dimless", sym: "ln(-ln(1-X))", name: "Avrami ordinate" };
+
+/**
+ * Recrystallized fraction against the Monte Carlo sweep clock. X is the raw
+ * voxel share of the event's strain-free ids; the S = 0 row is the nuclei's
+ * own starting volume (what the Avrami fit's raised lower bound reads).
+ * Sweeps are the model's clock, not furnace seconds.
+ */
+export function recrystallizationFigure(S: readonly number[], X: readonly number[], x0: number, b: Bridge, prov: Prov): Figure {
+  const xs = [0, ...S], ys = [x0, ...X];
+  return {
+    title: "Recrystallization kinetics", bridge: b,
+    fig: {
+      x: { title: "Monte Carlo sweeps S (count)", short: "S (count)", sym: "S", unit: "count", lo: 0, hi: Math.max(1, xs.at(-1) ?? 0) },
+      panels: [{ y: { title: "Recrystallized fraction X (dimensionless)", short: "X (dimensionless)", lo: 0, hi: 1 }, series: [
+        { key: "X", label: "measured", slot: 0, xs, ys, sym: "X", unit: "dimensionless" },
+      ], refs: [] }],
+      empty: S.length ? null : "dial cold work and nuclei, then run a treatment",
+    },
+    columns: [
+      { key: "sweeps", q: SWEEP, values: xs },
+      { key: "recrystallized_fraction", q: XRX, values: ys },
+    ],
+    prov: { ...prov, recorded: xs.length, extra: [...(prov.extra ?? []),
+      "X is the raw voxel share of the nuclei's ids over all grain voxels (phi > 0.5). The S = 0 row is the nuclei's own starting volume.",
+      "S counts Monte Carlo sweeps of the Potts anneal: the model's clock, not furnace time. Stored energies are bond energies J_b; there is no SI energy bridge."] },
+  };
+}
+
+/**
+ * The Avrami plot: ln(-ln(1-X)) against ln S over the fit's window, the
+ * fitted line (dashed) and a slope-3 reference through the points' centroid
+ * (site-saturated 3D growth at constant speed). The fit is the one the card
+ * prints; the plot shows the points it used.
+ */
+export function avramiFigure(S: readonly number[], X: readonly number[],
+  fit: { n: number; lnK: number; window: [number, number] } | null, b: Bridge, prov: Prov): Figure {
+  const keep = S.map((s, i) => [s, X[i]] as const).filter(([s, x]) => s > 0 && fit && x >= fit.window[0] && x <= fit.window[1] && x < 1);
+  const lx = keep.map(([s]) => Math.log(s)), ly = keep.map(([, x]) => Math.log(-Math.log(1 - x)));
+  const fx = lx.length ? [Math.min(...lx), Math.max(...lx)] : [], fy = fit ? fx.map(v => fit.lnK + fit.n * v) : [];
+  const mx = lx.reduce((a, v) => a + v, 0) / Math.max(1, lx.length), my = ly.reduce((a, v) => a + v, 0) / Math.max(1, ly.length);
+  const ry = fx.map(v => my + 3 * (v - mx));
+  const [ylo, yhi] = extent([ly, fy], { pad: 0.15 });
+  return {
+    title: "Avrami plot", bridge: b,
+    fig: {
+      x: { title: "ln S (dimensionless)", short: "ln S", sym: "ln S", unit: "dimensionless", lo: fx[0] ?? 0, hi: fx[1] ?? 1 },
+      panels: [{ y: { title: "ln(-ln(1-X)) (dimensionless)", short: "ln(-ln(1-X))", lo: ylo, hi: yhi }, series: [
+        { key: "points", label: "in window", slot: 0, xs: lx, ys: ly, kind: "dots", sym: "ln(-ln(1-X))", unit: "dimensionless" },
+        { key: "fit", label: fit ? `fit, n = ${fit.n.toFixed(2)}` : "fit", slot: 1, xs: fx, ys: fy, dash: true, sym: "fit", unit: "dimensionless" },
+        { key: "ref3", label: "n = 3 reference", slot: 2, xs: fx, ys: ry, dash: true, sym: "ref", unit: "dimensionless" },
+      ], refs: [] }],
+      empty: lx.length ? null : "the window holds too few points for a fit",
+    },
+    columns: [
+      { key: "ln_sweeps", q: LNS, values: lx },
+      { key: "avrami_ordinate", q: LNX, values: ly },
+    ],
+    prov: { ...prov, recorded: lx.length, extra: [...(prov.extra ?? []),
+      fit ? `Fitted Avrami exponent n = ${fit.n.toFixed(3)} on the Monte Carlo sweep clock over X ${fit.window[0].toFixed(2)} to ${fit.window[1].toFixed(2)}. It is not a real-time exponent.` : "No fit: too few points in the window.",
+      "The dashed n = 3 line is a reference slope (site-saturated growth at constant speed in 3D), drawn through the points' centroid; it is not fitted."] },
+  };
+}

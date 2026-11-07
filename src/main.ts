@@ -4,7 +4,7 @@ import { Renderer, type ViewMode } from "./render";
 import {
   Sim3D, DEFAULTS3D, GRID3_LADDER, type StatsResult3D, moldWallThickness, stepSectionBounds,
 } from "./sim3d";
-import { LENS3_NAMES, ICOSA_DELTA_MAX } from "./shaders3d";
+import { LENS3_NAMES, ICOSA_DELTA_MAX, PORE_ID } from "./shaders3d";
 import { Renderer3D, slicePlane } from "./render3d";
 import { SlicePanel } from "./slicepanel";
 import { ViewCube } from "./viewcube";
@@ -33,6 +33,9 @@ import { WT_PER_C0 } from "./alloy";
 import { STATUS_LEARN } from "./learn/panels";
 import { chargeLiquidus, chemOf, type Chem } from "./plot/figures";
 import { runEntries, zipStore, micrographPNG, downloadRun, type RunSnapshot } from "./run-export";
+import { ReplayLedger, REASON as REPLAY } from "./replay";
+import { stampField, stillCurrent } from "./fieldstamp";
+import { flowRefusal } from "./flow";
 
 /** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
 const SPEED_MULTS = [1, 2, 4] as const;
@@ -69,10 +72,89 @@ async function boot() {
   const renderer = new Renderer(device, canvas, sim);
   // the HUD's glance plots read the live units, the run's identity and the
   // charge's liquidus through closures: none is called until boot is done
+  // The replay (src/replay.ts): one ledger per dimension, because each solver
+  // keeps its own freeze-time history and a switch leaves the other intact.
+  // Each ledger owns its replay time (scrub); the frame loop asks it for the
+  // time to draw (ReplayLedger.frame), which ends a scrub whenever the strip
+  // is not offered, the clock ran back, or the ledger is marked.
+  const replay2 = new ReplayLedger(), replay3 = new ReplayLedger();
+  // D3.3: why melt flow is refused or was switched off (null = fine), and the
+  // one predicate (flow.ts) every flow surface asks
+  let flowIssue: string | null = null;
+  const flowWhyNot = (): string | null => flowRefusal({
+    dim3: mode === "3d", scenario: sim.params.scen, frozenTemperature: sim.params.frozenT === 1,
+    alloy: sim.params.alloyOn === 1, calibrated: sim.params.solver === 1, grid: sim.n,
+    busyMode: heat?.active ? "heat treatment" : opt.active ? "optimizer" : challenge.active ? "challenge" : lab.active ? "lab mode" : null,
+  });
+  /** the replay strip is offered: the plain instrument, paused (a mode
+   *  panel owns the stage otherwise, and hides the strip and its live button) */
+  const replayOffered = (three: boolean): boolean => {
+    const plain = !opt.active && !opt3?.active && !lab.active && !heat?.active && !challenge.active;
+    return plain && (three ? sim3d != null && !running3d && !mode3dPending : !running);
+  };
+  // Grain isolation (3D): alt-tap or a long press picks the grain under the
+  // pointer along the camera's own ray; the renderer ghosts every other grain.
+  // vox is an exact whole-volume count (Sim3D.readRegion), null until it lands.
+  // t0: sim time at the pick; the clock running back below it is a reset,
+  // which renumbers grains, so the isolation ends there
+  let iso3: { id: number; vox: number | null; t0: number } | null = null;
+  const setIso3 = (next: { id: number; vox: number | null; t0: number } | null) => {
+    iso3 = next;
+    if (renderer3d) renderer3d.isoId = next?.id ?? 0;
+  };
+  const pickIso3 = async (clientX: number, clientY: number) => {
+    if (!sim3d || !renderer3d) return;
+    const volume = sim3d;
+    const hit = await renderer3d.pickGrain(volume, clientX, clientY,
+      view3d === 2 ? slicePlane(slice, volume.n) : null);
+    if (!hit || sim3d !== volume || mode !== "3d") return;
+    // liquid, a pore or the grain already isolated: back to the whole casting
+    if (hit.id === 0 || hit.id === PORE_ID || hit.id === iso3?.id) { setIso3(null); return; }
+    setIso3({ id: hit.id, vox: null, t0: volume.simTime });
+    hideHint();
+    const n = volume.n;
+    const census = await volume.readRegion([0, 0, 0], [n, n, n]);
+    if (!census || iso3?.id !== hit.id) return;
+    const row = census.grains.find(g => g.id === hit.id);
+    iso3 = { ...iso3, vox: row ? row.voxCount : 0 };
+  };
+  /** the isolated grain's rows: id, exact volume, equivalent-sphere diameter
+   *  and its crystal [001] axis in the sample frame (z up), from the CPU
+   *  quaternion mirror the IPF/pole panels read */
+  const isoRows3 = (): [string, string][] => {
+    if (!iso3 || !sim3d) return [];
+    const um = sim3d.umPerCell;
+    const v = iso3.vox;
+    const q = sim3d.quats.subarray(iso3.id * 4, iso3.id * 4 + 4);
+    const [x, y, z, w] = [q[0], q[1], q[2], q[3]];
+    // R(q) applied to (0, 0, 1): the third column of the rotation matrix
+    const ax = [2 * (x * z + w * y), 2 * (y * z - w * x), 1 - 2 * (x * x + y * y)];
+    const sgn = ax[2] < 0 ? -1 : 1;   // [001] and [00-1] are one axis
+    const axis = ax.map(c => (c * sgn).toFixed(2)).join(", ");
+    return [
+      ["grain", `#${iso3.id} isolated`],
+      ["volume", v == null ? "…" : v === 0 ? "< 4 vox" : `${(v * um ** 3).toPrecision(3)} µm³`],
+      ["d eq", v ? `${(Math.cbrt((6 * v) / Math.PI) * um).toFixed(1)} µm` : "—"],
+      ["[001]", `(${axis})`],
+    ];
+  };
   const hud = new Hud(document.getElementById("hud")!, {
     units: () => unitsNow(),
     meta: () => plotMeta(),
     chem: () => chemNow(),
+    replay: () => {
+      const three = mode === "3d";
+      const ledger = three ? replay3 : replay2;
+      return {
+        paused: replayOffered(three), reason: ledger.reason, t: ledger.scrubTime,
+        now: three ? (sim3d?.simTime ?? 0) : sim.simTime,
+        label: (t: number) => unitsNow().fmtDuration(t),
+      };
+    },
+    scrub: (t: number | null) => {
+      const three = mode === "3d";
+      (three ? replay3 : replay2).scrub(t, three ? (sim3d?.simTime ?? 0) : sim.simTime);
+    },
   });
 
   // ------------------------------------------------------------- app state
@@ -212,7 +294,7 @@ async function boot() {
       for (let batch = 0; batch < speedMult && running3d && current(); batch++) {
         const stats = await clock.advance();
         if (!current()) return;
-        if (stats) { lastStats3 = stats; hud.push3(stats, volume.umPerCell, volume.simTime); an3.onStats3(stats, volume.simTime); }
+        if (stats) { lastStats3 = stats; replay3.observe(volume.simTime, stats.fracSolid); hud.push3(stats, volume.umPerCell, volume.simTime); an3.onStats3(stats, volume.simTime); }
         const state = clock.snapshot();
         if (state.completed || state.exhausted || state.invalid) {
           running3d = false;
@@ -258,7 +340,7 @@ async function boot() {
   // each "key: action" pair on a line of its own (app/index.html #hint .nw),
   // so a narrow window breaks between pairs, never inside one
   const HINT_2D = ["tap: seed", "shift-tap: twin", "scroll or pinch: zoom", "right-drag: pan"];
-  const HINT_3D = ["tap: seed", "drag: orbit", "wheel: dolly", "right-drag: pan"];
+  const HINT_3D = ["tap: seed", "drag: orbit", "wheel: dolly", "right-drag: pan", "alt-tap or hold: isolate a grain"];
   const setHintMode = (m3: boolean) => {
     const h = document.getElementById("hint")!;
     h.innerHTML = (m3 ? HINT_3D : HINT_2D).map(p => `<span class="nw">${p}</span>`).join(" · ");
@@ -720,6 +802,7 @@ async function boot() {
   };
 
   const exit3D = () => {
+    setIso3(null);
     quantRequest3++;
     quantPending3 = false;
     queuedLambda3 = undefined;
@@ -898,6 +981,24 @@ async function boot() {
       else running = on;
     },
     setWeldAuto(on) { weldAuto = on; },
+    // ---- D3.2/D3.3 melt flow (2D)
+    getFlowOn: () => sim.flowOn,
+    setFlowOn(on) {
+      flowIssue = null;
+      if (!on) { sim.setFlow(false); renderer.rebind(sim); return; }
+      const why = flowWhyNot();
+      if (why) { flowIssue = why; return; }
+      flowIssue = sim.setFlow(true);
+      renderer.rebind(sim);
+    },
+    getFlowU: () => sim.flowCfg.u,
+    setFlowU(v) {
+      sim.flowCfg.u = Math.min(0.05, Math.max(0.005, v));
+      if (sim.flowOn) { flowIssue = sim.setFlow(true); if (flowIssue) { sim.setFlow(false); renderer.rebind(sim); } }
+    },
+    getFlowView: () => renderer.flowView,
+    setFlowView(on) { renderer.flowView = on; },
+    flowIssue: () => flowIssue,
     startOptimizer() {
       if (challenge.active || lab.active || heat?.active || mode3dPending || quantPending3 || alloyPreparing3 || sharedRestore3Pending) return;
       if (mode === "3d") {
@@ -917,7 +1018,16 @@ async function boot() {
     syncUI() { ui.sync(); },
     reveal(target) {
       if (target.startsWith("sec:")) ui.reveal(target.slice(4));
-      else document.querySelectorAll(target).forEach(el => el.classList.add("hl"));
+      else {
+        // the head plate and the plots fold by default: a tour step that
+        // points at one opens it through its own button, so the step shows
+        // what its sentence names (and the button's state stays true)
+        if (target === "#head" && !document.body.classList.contains("headOpen"))
+          document.getElementById("headToggle")?.click();
+        if (target === "#hud" && !document.body.classList.contains("plotsOpen"))
+          document.getElementById("plotsToggle")?.click();
+        document.querySelectorAll(target).forEach(el => el.classList.add("hl"));
+      }
     },
     clearReveals() {
       document.querySelectorAll(".hl").forEach(el => el.classList.remove("hl"));
@@ -1292,8 +1402,17 @@ async function boot() {
     meta: () => plotMeta(),
     swapSim(n) {
       const params = { ...sim.params };
+      // D3.3: the old field's flow populations are ~92 MB at 1024²: free them
+      // now rather than at GC, and say the flow stopped instead of going quiet.
+      // The inlet speed (the rail's dial) carries over to the new field.
+      const flowU = sim.flowCfg.u;
+      if (sim.flowOn) {
+        sim.setFlow(false);
+        flowIssue = "Melt flow stopped because the grid changed; switch it on again to restart it.";
+      }
       sim = new Simulation(device, n);
       sim.params = params;
+      sim.flowCfg.u = flowU;
       // a fresh Simulation starts at the DEFAULT pitch — carrying the params
       // over but not the scale would silently re-anchor every length readout to
       // 0.98 µm/cell, which under calibrated mode is not a cosmetic difference
@@ -1337,6 +1456,7 @@ async function boot() {
       return location.origin + location.pathname + packShare({
         p: { ...sim.params }, u: undercool, v: view, m: material,
         n: alloyName, nuc: [nuc.p.nmax, nuc.p.dTN, nuc.p.dTsig], lab: labShare(), ht: heatShare(),
+        fl: sim.flowOn ? sim.flowCfg.u : undefined,
         sched: recipeSchedule, seed: getSeed(), mx: pouredShare(), g2: sim.n, um: umPerCell,
       });
     },
@@ -1614,6 +1734,16 @@ async function boot() {
     fracSolid: s.fracSolid, grainCount: s.grainCount,
     meanAreaPx: 0, meanVolVox: s.meanVolVox, astm: null,
   });
+  // A treatment that moves grain ids (sweeps, nuclei, twin plates) marks the
+  // replay ledger of the dimension it runs in AT THE CALL. The frame loop's
+  // heat.busy mark stays as a backstop, but on its own a short treatment could
+  // start and finish between two frames and leave the ledger clean, and the
+  // replay would paint treated ids onto earlier solid. The clock goes first, so
+  // a reset no frame has seen yet clears the old cast's ledger BEFORE the mark.
+  const markTreated = () => {
+    if (mode === "3d" && sim3d) { replay3.clock(sim3d.simTime); replay3.mark(REPLAY.anneal); }
+    else { replay2.clock(sim.simTime); replay2.mark(REPLAY.anneal); }
+  };
   const heatHost: HeatHost = {
     units: () => unitsNow(),
     meta: () => plotMeta(),
@@ -1642,10 +1772,27 @@ async function boot() {
       }
       return s;
     },
-    anneal: (sweeps, onProgress, pin) =>
-      mode === "3d" && sim3d
-        ? sim3d.anneal(sweeps, undefined, onProgress, pin)
-        : sim.anneal(sweeps, undefined, onProgress, pin),
+    anneal: (sweeps, onProgress, pin, sample) => {
+      markTreated();
+      return mode === "3d" && sim3d
+        ? sim3d.anneal(sweeps, undefined, onProgress, pin, sample)
+        : sim.anneal(sweeps, undefined, onProgress, pin);
+    },
+    // C3b: nuclei after the deposit, and the raw census X is read from
+    nucleate: async (count, pin) => {
+      if (!(mode === "3d" && sim3d)) return { why: "Recrystallization runs in the volume only." };
+      markTreated();
+      return sim3d.nucleate(count, undefined, undefined, pin);
+    },
+    rxCensus: async () => {
+      if (mode !== "3d" || !sim3d) return null;
+      for (let i = 0; i < 60; i++) {
+        const st = await sim3d.readStats();
+        if (st) return { rx: st.rxVox ?? 0, grain: st.grainVox ?? 0 };
+        await new Promise(r => setTimeout(r, 20));
+      }
+      return null;
+    },
     // v7.0 C3a: the cold-work deposit and the recovery ordinate it banks. Both
     // are volume-only and both no-op in the plane rather than throwing — the
     // panel already refuses to render the dial there, so reaching either of
@@ -1662,18 +1809,22 @@ async function boot() {
     // spawned is what the allocator actually delivered, and saturation is
     // reported rather than silently truncating the twin density.
     async annealTwins(sweeps, onProgress, pin) {
+      markTreated();
       if (!(mode === "3d" && sim3d)) {
         return { delivered: await sim.anneal(sweeps, undefined, onProgress, pin), spawned: 0, saturated: false };
       }
       const s3 = sim3d;
       const ctr0 = await s3.readTwinCtr();
-      const avail = Math.max(0, (ctr0 ?? s3.nextId) - s3.nextId - 4);
+      // free ids, not the raw counter: growth twins can wrap it past 0
+      const avail = ctr0 == null ? 0 : s3.freeIds(ctr0, 4);
       const grains = lastStats3?.grainCount ?? 500;
-      const events = Math.min(Math.round(grains * 0.8), 400, avail);
+      const wanted = Math.min(Math.round(grains * 0.8), 400);
+      const events = Math.min(wanted, avail);
       // 24 chunks bounds the readback stalls; events spread evenly, stamped
       // BEFORE each chunk so every plate faces the anneal that follows it
       const chunks = Math.max(1, Math.min(24, events));
-      let delivered = 0, spawned = 0, saturated = false;
+      // a budget the id range cut short is saturation, reported as such
+      let delivered = 0, spawned = 0, saturated = events < wanted;
       for (let ci = 0; ci < chunks; ci++) {
         if (!saturated) {
           const per = Math.round(((ci + 1) * events) / chunks) - Math.round((ci * events) / chunks);
@@ -1816,11 +1967,27 @@ async function boot() {
     sim: () => sim,
     sim3d: () => sim3d,
     cam3: () => renderer3d?.cam() ?? null,
+    // the visual layer (feature/visual): renderers, the isolated grain and the
+    // replay ledgers, for verify-visual-gpu.mjs
+    r2: () => renderer,
+    r3: () => renderer3d,
+    iso3: () => iso3,
+    replayState: () => ({ reason2: replay2.reason, reason3: replay3.reason, scrub2: replay2.scrubTime, scrub3: replay3.scrubTime }),
     vc: () => viewcube,
     fps: () => fps,
     stl: () => exportSTL(false),
     exportRun: () => exportRun(false),
-    tick(k: number) { for (let i = 0; i < k; i++) frameBody(last + 1000 / 60); },
+    // k frames in one task (so only the first two may step: the solvers skip
+    // while two submits are in flight), then wait for the GPU to drain what
+    // they submitted, so the next call steps again. Callers used to sleep a
+    // fixed time instead, which made the physics delivered per call depend on
+    // how fast the GPU cleared the frames' renders.
+    async tick(k: number) {
+      for (let i = 0; i < k; i++) frameBody(last + 1000 / 60);
+      const dev = mode === "3d" && sim3d ? sim3d.device : sim.device;
+      await dev.queue.onSubmittedWorkDone();
+      await new Promise(r => setTimeout(r, 0));
+    },
     units: () => unitsNow(),
     calibrate: (lambda: number) => calibrationFor(lambda, mode === "3d"),
     setSolver: (kind: number, lambda?: number) => mode === "3d" ? setSolver3(kind, lambda) : setSolver(kind, lambda),
@@ -1938,7 +2105,11 @@ async function boot() {
       const d = this.drag;
       this.drag = null;
       if (!isUp || !d || d.moved || d.btn !== 0) return;
-      if (performance.now() - d.t > 350) return;
+      // alt-tap, or a held press (touch has no alt key), isolates a grain:
+      // read-only, so it neither cancels a recipe nor waits on the optimizer
+      const held = performance.now() - d.t;
+      if (e.altKey || held >= 500) { void pickIso3(e.clientX, e.clientY); return; }
+      if (held > 350) return;
       if (opt3?.active) return;
       cancelRecipe3();
       // ctrl-tap relocates the cooling probe (2D grammar port) — checked first
@@ -2098,6 +2269,7 @@ async function boot() {
     if (e.code === "Space" && !kbFocused) { e.preventDefault(); app.setRun(!app.isRunning()); ui.sync(); }
     if (mode === "3d") {
       if (/^[1-9]$/.test(e.key)) { app.setView3d(parseInt(e.key) - 1); ui.sync(); }
+      if (e.key === "Escape" && iso3) setIso3(null);
       return;
     }
     if (/^[0-9]$/.test(e.key)) {
@@ -2254,7 +2426,21 @@ async function boot() {
           if (slice.off < 0.02) { slice.off = 0.02; slice.sweepDir = 1; }
         }
         renderer3d.tick(dt);
-        renderer3d.render(sim3d, view3d, t / 1000, slicePlane(slice, sim3d.n), slice.style);
+        // photo mode only when nothing can change the field or the frame
+        // under it: paused, no treatment/optimizer/replay batch/allocation in
+        // flight, no queued seeds, not recording or sweeping the section
+        const still3 = !running3d && !heat?.busy && !opt3?.active && !recipeTask3 && !lab.running
+          && !quantPending3 && !mode3dPending && sim3d.pendingSeedCount === 0
+          && !turntable && !recorder && !(slice.sweep && view3d === 2);
+        replay3.clock(sim3d.simTime);
+        if (iso3 && sim3d.simTime < iso3.t0) setIso3(null);
+        if (sim3d.params.scen === 2 && running3d) replay3.mark(REPLAY.weld);
+        if (sim3d.params.heatIn > 0) replay3.mark(REPLAY.reheat);
+        if (heat?.busy) replay3.mark(REPLAY.anneal);
+        renderer3d.scrubT = replay3.frame(sim3d.simTime, replayOffered(true));
+        renderer3d.render(sim3d, view3d, t / 1000, slicePlane(slice, sim3d.n), slice.style, still3);
+        renderer3d.scrubT = null;
+        hud.syncReplay();
         viewcube?.draw(renderer3d.cam());
         // probe crosshair rides the projection (perspective, so every frame)
         if (an3.probeOn && sim3d.probe) {
@@ -2278,9 +2464,11 @@ async function boot() {
         if (wantFast3) nucClock = 0;
         if (!opt3?.active && !recipeClock3 && (forPanels3 || wantFast3)) {
           syncNyCrit();   // material/anchor changes land within one poll
-          const observed = sim3d, ownerVersion = recipeVersion3;
+          // the field this read describes (fieldstamp.ts): a reset, clear or
+          // swap before it lands makes it the old cast's, for EVERY consumer
+          const observed = sim3d, ownerVersion = recipeVersion3, field3 = stampField(observed);
           void observed.readStats().then(s => {
-            if (!s || mode !== "3d" || sim3d !== observed || recipeVersion3 !== ownerVersion
+            if (!s || mode !== "3d" || sim3d !== observed || !stillCurrent(field3, sim3d) || recipeVersion3 !== ownerVersion
                 || opt3?.active || recipeClock3) return;
             nuc3.observe(sim3d.simTime, s.meanLiqT, tEq3());
             if (recipeSchedule3 && running3d) {
@@ -2291,7 +2479,7 @@ async function boot() {
             // is why the fs > 0.995 finish could never fire with walls on
             lab.onStats(s.meanLiqT, s.fracSolidOpen);
             if (forPanels3) {
-              lastStats3 = s; hud.push3(s, sim3d.umPerCell, sim3d.simTime); an3.onStats3(s, sim3d.simTime);
+              lastStats3 = s; replay3.observe(sim3d.simTime, s.fracSolid); hud.push3(s, sim3d.umPerCell, sim3d.simTime); an3.onStats3(s, sim3d.simTime);
               heat?.onCensus(census3(s));
             }
           });
@@ -2324,6 +2512,7 @@ async function boot() {
             ["sites", nuc3.p.nmax > 0 ? `${nuc3.fired}/${nuc3.p.nmax.toFixed(0)}` : "—"],
             ["pores", s ? `${(s.poreFrac * 100).toFixed(2)} %` : "—"],
             ["fps", `${fps.toFixed(0)} · ${sim3d.n}³`],
+            ...isoRows3(),
           ]);
         }
       }
@@ -2335,6 +2524,16 @@ async function boot() {
       // when paused, tick() is a no-op — keep the stage live so it isn't frozen
       if (!opt.isRunning()) renderer.render(sim, 1, t / 1000);
     } else {
+      // D3.3: a scenario, solver, mode or dial change that the flow cannot run
+      // under switches it off with the reason, rather than leaving it running
+      // wrong; checked BEFORE this frame's step, so no substep runs with it.
+      // The dials are re-checked against the stability envelope too: the flow
+      // follows them every substep (sim.ts submit), so a dt or solver change
+      // can break the envelope long after setFlow passed it.
+      if (sim.flowOn) {
+        const why = flowWhyNot() ?? sim.flowLimitIssue;
+        if (why) { sim.setFlow(false); renderer.rebind(sim); flowIssue = why; ui.sync(); }
+      }
       // a bench cast owns the transport too, not just the observe below: with
       // the transport live this branch would inject frame-paced nuc.update +
       // sim.step around the cast's fence-paced chunks (Space mid-cast is
@@ -2363,7 +2562,16 @@ async function boot() {
         // during a treatment: a stamp writes φ, and solid state means it can't
         sim.step(0);
       }
+      // the replay ledger: a reset runs the clock back; reheat, a weld pass
+      // and a heat treatment are marked as they happen (src/replay.ts)
+      replay2.clock(sim.simTime);
+      if (sim.params.scen === 2 && running) replay2.mark(REPLAY.weld);
+      if (sim.params.heatIn > 0) replay2.mark(REPLAY.reheat);
+      if (heat?.busy) replay2.mark(REPLAY.anneal);
+      renderer.scrubT = replay2.frame(sim.simTime, replayOffered(false));
       renderer.render(sim, view, t / 1000);
+      renderer.scrubT = null;
+      hud.syncReplay();
     }
     analyze.applyProbe();
     analyze.updateOverlay();
@@ -2378,13 +2586,19 @@ async function boot() {
     if (forPanels) statsClock = 0;
     if (wantFast) nucClock = 0;
     if (forPanels || wantFast) {
+      // the field this read describes (see the 3D read above): a clearMelt,
+      // resetArmed, lab pour or grid swap before it lands drops it for the
+      // nucleation model, the lab, the HUD, analysis, the recipe, the challenge,
+      // the heat census and the replay ledger alike
+      const field2 = stampField(sim);
       void sim.readStats().then(s => {
-        if (!s) return;
+        if (!s || !stillCurrent(field2, sim)) return;
         if (!benchHold) nuc.observe(sim.simTime, s.meanLiqT, tEq2());
         lab.onStats(s.meanLiqT, s.fracSolid);
         if (!forPanels) return;
         lastStats = s;
         if (!opt.active) {
+          replay2.observe(sim.simTime, s.fracSolid);
           hud.push(s, sim.simTime);
           analyze.onStats(s, sim.simTime);
           // an applied ML recipe schedules cooling by solid fraction,
@@ -2587,7 +2801,14 @@ async function boot() {
       // with the cold work behind it): every element PRESENT must be a finite
       // number — the whole-rejection stance stays, only the accepted shapes
       // grew (a 4-element hand-build is still malformed, and so is a 7).
-      if (Array.isArray(shared.ht) && [3, 5, 6].includes(shared.ht.length)
+      // D3.3: a flowing link restarts the flow at its (clamped) inlet speed;
+      // the same refusal predicate decides, so a link cannot force flow where
+      // the model cannot run it
+      if (typeof shared.fl === "number" && Number.isFinite(shared.fl) && mode === "2d") {
+        app.setFlowU(shared.fl);
+        app.setFlowOn(true);
+      }
+      if (Array.isArray(shared.ht) && [3, 5, 6, 7].includes(shared.ht.length)
         && shared.ht.every(Number.isFinite) && !lab.active) heat?.open(shared.ht);
     };
     if (shared.d !== 1) openHeat();

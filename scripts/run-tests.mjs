@@ -35,6 +35,9 @@ const SUITE = [
   ["scripts/verify-plot.mjs"],
   ["scripts/verify-process-plots.mjs"],
   ["scripts/verify-run-export.mjs"],
+  ["scripts/verify-replay.mjs"],
+  ["scripts/verify-recrystallize.mjs"],
+  ["scripts/verify-flow.mjs"],
   ["scripts/verify-quant3d-equilibrium-lifecycle.mjs"],
   ["scripts/verify-scroll-order.mjs"],
   // v8 D1: the live acts below the hero, their spec rails read from the sims
@@ -73,6 +76,11 @@ const SUITE = [
   ["scripts/verify-heattreat-gpu.mjs", String(PORT)],
   ["scripts/verify-scale3d.mjs", String(PORT)],
   ["scripts/verify-3d.mjs", String(PORT)],
+  // feature/visual: studio lighting, photo mode, replay, grain picking; C3b nuclei
+  ["scripts/verify-visual-gpu.mjs", String(PORT)],
+  ["scripts/verify-recrystallize-gpu.mjs", String(PORT)],
+  // D3.1: the standalone lattice Boltzmann solver, fluid-only gates
+  ["scripts/verify-flow-gpu.mjs", String(PORT)],
 ];
 
 // The suite runs every check: a subset switch left in the shell (verify-hero's

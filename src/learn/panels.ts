@@ -55,6 +55,7 @@ export const PANEL_LEARN: readonly LearnEntry[] = [
       "dispersion": "particle volume that pins boundaries",
       "particle radius": "particle size, in grid cells",
       "cold work": "stored deformation energy (bond energies)",
+      "nuclei": "strain-free grains in the worked metal",
     },
   },
   {
@@ -280,11 +281,13 @@ export const HEAT_CAVEATS = {
       + "it adds no work-hardening strength.",
   },
   coldWorkFewSweeps: {
-    // no primary recrystallization at ANY temperature (no new grains
-    // nucleate), so the line must not read as a limit of this window only
-    line: "almost no sweeps at this temperature: no recrystallization anneal (new strain-free grains are not modeled)",
+    // the sweep budget is priced by the grain-growth law at ANY temperature,
+    // so a low-temperature recrystallization anneal still buys almost nothing,
+    // nuclei dialled or not (C3b plants nuclei; it does not price the furnace)
+    line: "almost no sweeps at this temperature: the furnace prices time with the grain-growth law, so a low-temperature recrystallization anneal buys almost none",
     learn: "The furnace turns time into grain-growth steps using the grain-growth law, so it cannot yet run "
-      + "a low-temperature recrystallization anneal, and new strain-free grains are not modeled.",
+      + "a low-temperature recrystallization anneal. In 3D the nuclei dial plants strain-free grains in "
+      + "cold-worked metal, and they grow only in the sweeps this budget buys.",
   },
   specWithdrawn: {
     line: "judged on the measured census after the run",
@@ -348,6 +351,11 @@ export const HEAT_CAVEATS = {
     line: "grain-id range exhausted: delivered count, not rate",
     learn: "The simulation ran out of new grain labels partway through, so this is how many twins it could "
       + "make, not how many the rate asked for.",
+  },
+  pinHeldBack: {
+    line: "held back while nuclei are dialed: particles would cap the recrystallized fraction below 1",
+    learn: "Particles and recrystallization nuclei are not simulated together yet: voxels inside particles "
+      + "keep their deformed grain, so the recrystallized fraction could never reach 1.",
   },
   twinsHeldBack: {
     line: "held back while cold work is dialed: twinning in deformed grains is not modeled yet",

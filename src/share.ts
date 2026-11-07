@@ -35,7 +35,10 @@ export interface ShareState {
    *  in use. The work element rides BEHIND the dispersion pair rather than
    *  replacing it, so a worked-but-unpinned setup still spells that pair out at
    *  its off defaults: a positional tail with a hole in it cannot be decoded. */
-  ht?: [number, number, number, number?, number?, number?];
+  ht?: [number, number, number, number?, number?, number?, number?];   // 7th: C3b nuclei
+  /** D3.3: the melt-flow inlet speed (cells per substep), present only while
+   *  flow runs (2D); absent = no flow, so every older link decodes unchanged */
+  fl?: number;
   /**
    * (v7.0) the run's RNG seed. This is what turns a link from "the same dials"
    * into "the same cast": grain orientations, nucleation sites and their

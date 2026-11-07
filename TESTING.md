@@ -1,9 +1,84 @@
 # Testing
 
+Visual and science expansion, 2026-11-01 (feature/visual): six scripts on
+top of the merged 39, so the local suite registers 45 and CI gates twenty-six
+browser-free scripts.
+
+- `verify-replay.mjs` (browser-free, eight checks): the replay ledger refuses
+  after remelting (with a live threshold), clears on a reset, keeps its first
+  reason and clamps requests; the GPU rule is pinned to the STRICT
+  `age < t` comparison in both dimensions, and every 2D render read of the
+  state goes through `loadState`; a heat treatment's mark, made at the call
+  after syncing the clock, survives a reset no frame saw (marking alone is
+  lost to the next frame); a census issued before a reset or grid swap and
+  landing after it is dropped before any frame-loop consumer (the field stamp
+  of `src/fieldstamp.ts`; consumed, it refuses the fresh pour as remelted, and
+  the source wiring is read back: reset bumps `fieldGen` first, both frame-loop
+  reads are stamped and guarded ahead of every consumer); the ledger owns the scrub, which ends when the strip is
+  withdrawn, on a reset and on a mark, and is refused while marked.
+- `verify-recrystallize.mjs` (browser-free, five checks): the Avrami fit
+  recovers exact JMAK exponents, is sweep-clock invariant and refuses thin
+  windows; the bond counter reproduces the cited triangular thresholds and the
+  26-neighbour flat-front barrier of 8; a CPU Poisson-sphere model on 64³ gives
+  slope 1 against one nucleus's volume; the free grain-id count is zero once
+  growth twins have wrapped the u32 counter past 0 (the old rule handed out ids
+  past every per-id buffer) and unchanged below the wrap. Design: `docs/C3B-RECRYSTALLIZATION-DESIGN.md`.
+- `verify-flow.mjs` (browser-free, five checks): the drag constant derived
+  from the planar shear ODE on this repo's interface profile (2.7571 against
+  Tong et al.'s 2.757, with an h = 2 arm that misses), the lattice stability
+  envelope, the one refusal predicate, the 2D Ivantsov limit, and the flow
+  setting as a function of the current dials (unchanged where setFlow latched
+  it; across a Kobayashi-to-calibrated switch the stale one would carry a 3.1x
+  drag and a +0.5 W no-slip plane). Design:
+  `docs/D3-CONVECTION-DESIGN.md`.
+- `verify-visual-gpu.mjs` (GPU): every lens compiles and renders with the
+  studio look on and off and while replaying; photo mode accumulates and
+  restarts; the studio look's render-only cost (on / off <= 1.8, a planted 2x
+  cost must exceed it; the running fps is reported with its vsync-cap flag);
+  2D replay masks against masks captured live; the reheat refusal; a scrub
+  ending when a mode panel opens or the melt resets; a heat treatment marking
+  the ledger at the call; the 3D replay with the same mask-against-live check
+  and the strip; grain picks against an independent voxel traversal, and
+  alt-tap isolation through the UI.
+- `verify-recrystallize-gpu.mjs` (GPU): C3b-0's stamp coherence, undriven and
+  uniform-drive controls, the single-nucleus ladder, and off-identity with
+  in-treatment sampling; then the pre-registered RX3-JMAK (Avrami kinetics
+  against one nucleus's volume, three seeds) and RX3-CAST-SELECTION (the most
+  deformed grains recrystallize first, against a uniform-drive control), and
+  RX3-PANEL (the nuclei dial end to end, the card's n against the exported
+  columns). Protocols: tasks/todo.md, "Declutter, then finish C3b and D3".
+  The S0 review (tasks/todo.md, "S0 review fixes") appends RX3-ID-WRAP (a
+  wrapped twin counter refuses ids), RX3-PIN-STAMP (pinned nuclei stay out of
+  particles), RX3-PLACED (clipped nuclei count, an in-flight read does not
+  zero the count), HT3-BUSY-RELEASE (a throw in a treatment releases the
+  panel) and RX3-PIN-HELD (the dispersion is held back while nuclei are dialed).
+- `verify-flow-gpu.mjs` (GPU): D3.1's standalone lattice Boltzmann solver,
+  fluid only. A free-slip shear wave recovers the set viscosity within 1 %;
+  body-force flow over this repo's diffuse solid puts its apparent no-slip
+  plane within 0.1 W of phi = 0.5 (h x 2 and h / 2 arms must move it at least
+  that far; S0 review, sized by `scripts/research/flow-drag-offset-sizing.mjs`)
+  and matches an independent CPU solve of the same continuum equation within
+  2 % of the peak; a uniform inlet stream stays uniform. D3.2/D3.3
+  add FLOW-OFF-IDENTITY (seven 2D cases hash as at the pre-advection commit,
+  `scripts/fixtures/flow-off-baseline.json`, captured with
+  `scripts/capture-flow-baseline.mjs`), FLOW-INERT-ARMS (zero speed and zero
+  coupling reproduce the flow-off split pass bit for bit), FLOW-UNIFORM-MELT
+  (with the flow read back moving at the inlet speed),
+  FLOW-DIRECTION (upstream faster, downstream slower, reversed coupling the
+  other way), FLOW-UI (the rail control, an inert overlay, the scenario
+  refusal, share-link restore), and FLOW-RECONFIGURE (the running flow
+  re-derives its viscosity and drag width across a solver switch, and a dt the
+  envelope refuses switches it off with the reason). The pre-registered literature comparison
+  against Tong et al. 2001 is a study, not a regression gate:
+  `scripts/research/flow-tip-tong.mjs` (protocol in tasks/todo.md). Its first
+  run FAILED (ratios 1.259 / 1.329 / 1.356 against [1.26, 1.54], spread 7.4 %
+  against 5 %); the result is kept in docs/validation/flow-tong-2026-11-01.json
+  and the flow stays labelled qualitative.
+
 Merged regression inventory, 2026-11-01: the 3D optimizer branch (PR 4) and
 the quantitative-calibration continuation (PR 5) each registered two scripts on
-top of the shared 35, so the merged local suite contains 39 registered scripts
-and CI gates twenty-three browser-free scripts. Each branch's own full run is
+top of the shared 35, so the merged local suite contained 39 registered scripts
+and CI gated 23 browser-free entries. Each branch's own full run is
 recorded below; the merged suite is re-run before this merge is accepted.
 
 Final reviewed optimizer regression, 2026-10-30: all 37 registered scripts
@@ -179,7 +254,7 @@ fade and Sievert gas porosity — bringing the CI-runnable set to five at the ti
 left it, v8's `verify-hero-manifest.mjs` fourteen and v8 U2's `verify-plot.mjs` fifteen.
 The v8 completion adds process-plot and run-export coverage. Q3 adds the Wulff
 and tip self-tests plus runner-lifecycle controls, bringing the set to
-**twenty-three browser-free scripts**, and
+**twenty-six browser-free scripts**, and
 `CI-SCRIPT-COUNT` derives that number from `ci.yml`'s own run lines and fails if any place this
 document states it disagrees). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
@@ -200,12 +275,14 @@ except `verify-hero.mjs`, which runs with WebGPU removed and needs no GPU; it st
 hardcoded Chrome path and the 5199 server, so it is not in CI either.
 **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
-only the OS-agnostic steps — typecheck, build, and the twenty-three browser-free scripts
+only the OS-agnostic steps — typecheck, build, and the twenty-six browser-free scripts
 (`verify-units.mjs`, `verify-rng.mjs`, `verify-optimizer3d-model.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
 `verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
 `verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
 `verify-composer-grid.mjs`, `verify-hero-manifest.mjs`, `verify-plot.mjs`, `verify-process-plots.mjs`, `verify-run-export.mjs`,
-`verify-quant3d-wulff.mjs --self-test`, `verify-quant3d-tip.mjs --self-test`, `verify-quant3d-tip-lifecycle.mjs`; see
+`verify-replay.mjs`, `verify-recrystallize.mjs`, `verify-flow.mjs`,
+`verify-quant3d-wulff.mjs --self-test`, `verify-quant3d-tip.mjs --self-test`, `verify-quant3d-tip-lifecycle.mjs`,
+`verify-quant3d-readback.mjs`, `verify-quant3d-equilibrium-lifecycle.mjs`; see
 `.github/workflows/ci.yml`) — rather than
 this suite. If you want to run the physics/UI verification yourself, do it locally.
 
@@ -1525,7 +1602,7 @@ rebuilt to make that relationship emergent:
 **Physics-behaviour tests (v5.0).**
 
 - **`UNITS-*`** (`verify-units.mjs`) — the scaling layer, checked without a browser, so it is
-  the first of the twenty-three browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0, the v7.1 arc added six more, v8 added figure/export checks, and Q3 added its self-tests and runner-lifecycle controls). Ten checks: that kelvin-per-unit really is the heat
+  the first of the twenty-six browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0, the v7.1 arc added six more, v8 added figure/export checks, and Q3 added its self-tests and runner-lifecycle controls). Ten checks: that kelvin-per-unit really is the heat
   equation's own `(L/c_p)/K` for four materials computed independently in the test; that the
   time factor is forced by whichever diffusivity is anchoring; that every converter round-trips;
   that an abstract material reads as *unknown* rather than as zero; that the undercooling dial's
@@ -2024,11 +2101,12 @@ spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 
 that evidence recorded in the constant's own docblock. The drift prints on every run, and
 `HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
-`npm run typecheck` and `npm run build` plus the twenty-three browser-free scripts — `verify-units.mjs`,
+`npm run typecheck` and `npm run build` plus the twenty-six browser-free scripts — `verify-units.mjs`,
 `verify-rng.mjs`, `verify-optimizer3d-model.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
 `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
 `verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
 `verify-composer-grid.mjs`, `verify-hero-manifest.mjs`, `verify-plot.mjs`,
-`verify-process-plots.mjs`, `verify-run-export.mjs`, `verify-quant3d-wulff.mjs --self-test`,
+`verify-process-plots.mjs`, `verify-run-export.mjs`, `verify-replay.mjs`, `verify-recrystallize.mjs`,
+`verify-flow.mjs`, `verify-quant3d-wulff.mjs --self-test`,
 `verify-quant3d-tip.mjs --self-test`, `verify-quant3d-tip-lifecycle.mjs`, `verify-quant3d-readback.mjs` and `verify-quant3d-equilibrium-lifecycle.mjs` — are the checks anyone on any OS can run
 without a GPU, and are what CI actually gates on (`.github/workflows/ci.yml`).

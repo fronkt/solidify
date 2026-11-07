@@ -5574,3 +5574,430 @@ Q3c remains OPEN. Next independent targets are local-stiffness grid refinement
 with paired lattice phases, and moving-interface kinetic calibration away from
 principal planes (including finite-speed stability). The complete literature
 reference must pass before any quantitative 3D promotion or candidate adoption.
+
+## Visual and science expansion - 2026-11-01
+
+Frank: "Go ahead with all of those" (after the 11-01 restart review): merge PR4,
+3D studio lighting, a better 3D first view, a time scrubber, click-to-isolate
+grains, C3b recrystallization, D3 convection. Idle auto-orbit stays OFF: Frank
+asked to kill it in v3.0 (line 580 above), so the 3D first view gets better
+shading and a clearer melt instead of camera motion. 3D entry keeps its single
+centred seed because existing 3D fixtures depend on it.
+
+Branching: PR4 conflicts with v7-experiments (PR5 landed after it branched);
+merge commit 1a988f6 on feature/3d-optimizer reconciles inventories (39 local
+scripts, 23 browser-free CI). Visual work lives on feature/visual from 1a988f6 in
+worktree ../solidify-visual; the frozen merge suite runs in ../solidify-verify-merge.
+Production stays at a7584a6 until Frank says ship. Note: v7-experiments also
+carries the unreleased Q3 integration, so shipping it is a separate decision.
+One GPU owner at a time: no browser/GPU checks here while the merge suite runs.
+
+Plan and acceptance:
+- [x] P0 Merge PR4: full 39-script suite passes on frozen 1a988f6, push the
+      merge, CI green, merge PR4 into v7-experiments.
+- [x] V1 Studio lighting (render-only; no solver file changes): ambient
+      occlusion from phi along the normal, procedural studio environment with
+      Fresnel reflection for the default steel surface, soft-clipped highlights,
+      and a clearer melt (glow concentrated in the thermal halo, lower
+      absorption) so the crystal reads through it. Photo mode while paused:
+      progressive accumulation of jittered frames with soft shadows and glossy
+      reflections, reset on any camera, lens, cut or field change. Scientific
+      lenses (ORIENT, SEM, THERM, RINGS, CURV, SLICE, FIELD, NEON) keep their
+      colour encodings; only luminance shading may change.
+      Accept: solver/shader-compute sources byte-unchanged; live fps at 192^3
+      within 15% of the pre-change build at the same camera/state; photo mode
+      converges and resets correctly; every lens screenshot inspected; export
+      PNG and webm recording still work.
+- [x] V2 3D first view: within 5 s of entering 3D the seed reads as a lit metal
+      crystal against the melt (measured luminance contrast between crystal and
+      surrounding melt pixels, before vs after), no camera auto-motion.
+- [x] V3 Time scrubber (2D first, then 3D): rebuild the solid at an earlier time
+      t from each cell's stored freeze time; transport timeline control; hover
+      on time-axis plots sets t. Scope: solid footprint and grains only.
+      Refused (visible reason) after remelt, reheat, heat treatment or anneal.
+      Accept: scrub at the current time matches the live solid mask
+      (IoU >= 0.99); scrub at earlier times matches masks captured live at those
+      times in a deterministic run (IoU >= 0.97); scrubbing never mutates the
+      field (state hash unchanged); refusal path exercised.
+- [x] V4 Grain isolate (3D): a modifier-click picks the grain under the cursor;
+      other grains ghost; readout of voxel volume (um^3 when SI), equivalent
+      sphere diameter and orientation. Accept: picked id equals an independent
+      CPU raycast over read-back fields; volume equals the census count.
+- [ ] C3b Recrystallization: design from an independent read-only design pass,
+      reviewed before implementation; gates with cited expectations and
+      negative controls; feature-off hashes unchanged.
+- [ ] D3 Convection (2D forced flow first): design from an independent design
+      pass, reviewed before implementation; analytic flow checks, conservation,
+      flow-off identity; honest scope (no freckles in slice 1).
+- [ ] Final: full suite from a frozen source, independent review, explicit-path
+      commits, push each phase.
+
+### Progress and evidence (2026-11-01)
+
+- P0: merge 1a988f6 passed all 39 registered scripts in one run with a frozen
+  checkout (`verify-out/merge-full-suite-1a988f6.log`, SUITE EXIT=0; a first
+  attempt in a worktree whose node_modules was a junction stopped at the hero
+  test on Vite's fs.allow 403 for fonts: environment, not code). Pushed; PR4 CI
+  green; PR4 merged into v7-experiments as e97129c. Production untouched.
+- V1-V4 (`verify-visual-gpu.mjs`, all 7 gates): every 3D lens with the studio
+  look on and off and every 2D lens while replaying compile and render with zero
+  console errors; photo mode reaches its 48-sample cap and restarts on a camera
+  move; render-only cost 6.6 -> 7.8 ms (one run) and 8.3 -> 11.3 ms (another) at
+  128^3, running fps unchanged but at the 60 Hz cap, so not discriminating;
+  2D replay masks equal masks captured live at three times (IoU 1.0, after the
+  f32 test fix in lessons.md); replay never changes the field; the reheat
+  refusal disables the strip with its reason; the 3D replay renders and never
+  changes the field; 26/26 GPU picks equal an independent Amanatides-Woo
+  traversal; alt-tap isolation's volume equals a raw recount (56022 voxels).
+- V2 contrast, default 3D entry at 9 s, same frame: crystal-to-melt luminance
+  ratio 11.2 with the studio look vs 4.3 without (crystal 52 vs 27 of 255).
+  Auto-orbit stays off per Frank's v3.0 decision.
+- Look tuning after screenshots: melt emission now scales with the lowered
+  absorption (a uniformly hot melt saturates no brighter than the original),
+  and studio reflections fade on incandescent metal (hot castings no longer
+  blow out to white).
+- C3b-0 (`verify-recrystallize-gpu.mjs`, all 6 gates; `verify-recrystallize.mjs`
+  4 CPU gates): the bond counter reproduces the cited triangular thresholds
+  4/2/2 and the 26-neighbour flat front 8; the GPU ladder puts the r = 2
+  nucleus's first growth at H = 12 (the bond count's grow threshold), r = 3 at 8,
+  r = 1 at 20; uniform stored energy is bit-identical to none; the census X
+  equals an independent recount (44037 voxels); sampling inside a treatment is
+  bit-identical to none. NUCLEUS_R_3D = 2 stands as measured.
+- C3b-2 (minimal): a "nuclei" dial (7th, 3D) nucleates after the deposit, X(S)
+  is sampled on a log schedule inside one treatment, the card reports X and the
+  sweep-clock Avrami n or its refusal; share links carry a 7th element only when
+  dialled. GPU acceptance of the panel path (G8) and the pre-registered G5/G7
+  remain OPEN; figures and the "not modeled" copy updates wait for them.
+- D3.0 (`verify-flow.mjs`, 4 gates): the drag constant derived from the planar
+  shear ODE on this repo's profile is 2.7571 (Tong et al. 2.757), h = 2 misses
+  by -0.164 W; the 2D Ivantsov limit gives P = 0.2569 at Delta 0.55.
+- D3.1 (`verify-flow-gpu.mjs`, 3 gates): standalone D2Q9 TRT solver. Shear-wave
+  viscosity 0.0999885 vs 0.1; drag profile vs an independent CPU solve within
+  0.05 % of peak at tau 10.4 (no-drag arm off by 35x); free stream uniform to
+  1.5e-5. Coupling into transport (D3.2, the Tong benchmark) and the FLOW lens
+  and UI (D3.3) remain OPEN.
+
+## Declutter, then finish C3b and D3 - 2026-11-01
+
+Frank (after the preview): fold the head plate to "SOLIDIFY" + a chevron, and
+put the plots and the replay behind one control. Done on feature/ui-declutter
+(9ac6a93): VIS-DECLUTTER and all rail gates pass; full suite running. Then
+Frank: "Yes, do them all": merge, finish C3b, then D3.2 and D3.3, in that order.
+Production stays a7584a6 until Frank says ship.
+
+- [x] M: full suite on 9ac6a93 passes -> fast-forward feature/visual, open a
+      draft PR feature/visual -> v7-experiments.
+- [x] C3b-1 G5 RX3-JMAK, PRE-REGISTERED here before any run: painted single
+      crystal at 96^3, matrix H0 = 20 J_b, 150 nuclei at random sites from the
+      recrystallization stream (r = 2), three seeds (0xa1, 0xa2, 0xa3).
+      X(S) is measured over the INTERIOR box [16, 80)^3 only (a point there
+      sees the full sphere of reachable nuclei up to R = 16, so the bounded,
+      non-periodic domain does not bias it). V1(S) is the volume of ONE
+      centred nucleus grown alone on the same matrix and seed, same sweeps.
+      Verdict per seed: slope of ln(-ln(1-X)) against ln V1 over X in
+      [0.05, 0.95] within 1 +- 0.15 (the design's band), with >= 5 points;
+      liveness: interior X_end >= 0.95. n against S reported only.
+- [x] C3b-1 G7 RX3-CAST-SELECTION, PRE-REGISTERED: three seeded casts at
+      96^3 (500 seeds), deposit(10), 200 nuclei at explicit centres drawn from
+      a seeded LCG, 60 sweeps. Statistic D = mean X over top-quartile-H grains
+      minus mean X over bottom-quartile grains (X per grain = fraction of its
+      pre-nucleation voxels now carrying a nucleus id). Control: the same with
+      every grain's H set to 10. Pass: D > 0 and D >= 3 |D_control| on every
+      cast; and the fraction of surviving nuclei (more voxels at the end than
+      at birth) whose birth sphere touched >= 2 matrix ids exceeds that
+      fraction among all placed nuclei (direction only).
+- [x] C3b-2 figures: X vs Monte Carlo sweeps and the Avrami plot in the heat
+      treatment report, exportable; G8 RX3-PANEL drives the dial end to end and
+      checks the card's n against avramiFit of the exported columns, the dial
+      count, the share tuple (7 with nuclei, 6 without) and that nuclei = 0
+      leaves rxRange null on the sim.
+- [x] C3b copy: learn/panels.ts, tour.ts, README.md, science/index.html stop
+      saying recrystallization is not modeled; say what is (site-saturated
+      random nuclei, sweep clock, J_b) and what is not.
+- [x] D3.2 coupling per docs/D3-CONVECTION-DESIGN.md: flow-off identity
+      fixtures captured FIRST at the base commit; conservative advection of T
+      and c in transport; Tong et al. 2001 upstream ratio [1.26, 1.54]
+      pre-registered; mass box; mirror; falsification arms.
+- [x] D3.3: FLOW lens, tracer particles, controls, share link, export, copy.
+
+### FLOW-TIP-TONG protocol (pre-registered before its first run)
+
+Calibrated pure melt staged exactly as QPF-TIP-KR (verify-quant.mjs Q.stage):
+Delta = 0.55, eps4 = 0.05, dx = 0.8 W0, dt = 0.15 dx^2 / D~, solved T, 1024^2,
+one seed at the centre with theta 0. Flow: inlet at x = 0, Pr = 23.1 (lattice
+nu = 3.465, tau = 10.9), U d0/D = 0.035, i.e. u_lat = 0.035 (lambda / a1) 0.15 dx
+cells per substep. Upstream tip = the WEST arm's phi = 0.5 crossing on the
+centre row (sub-cell interpolated); velocity = linear fit over the last third
+of 33 equal chunks spanning 8 diffusion lengths at the no-flow reference speed
+(the KR gate's schedule), stopping early if a tip comes within 12 % of a wall.
+lambda in {2.0, 2.4, 3.2}. Verdict: on every lambda, v_flow / v_noflow (same
+lambda, same schedule) within [1.26, 1.54] (Tong et al. 2001 same-lambda ratios
+1.37-1.43, the design's band); spread of the three ratios < 5 % of their mean.
+Falsification arms at lambda 2.4: coupling 0 must give ratio exactly 1 (same
+trace), coupling -1 must give ratio < 1. The no-flow speed's own accuracy is
+QPF-TIP-KR's (not re-gated here). Downstream arm and Peclet vs Oseen: info only.
+
+### FLOW-TIP-TONG first run (2026-11-01, commit 28772a0): FAILED, kept
+
+Upstream/no-flow ratios 1.259 / 1.329 / 1.356 at lambda 2.0 / 2.4 / 3.2 against
+the pre-registered [1.26, 1.54]; spread 7.4 % against 5 %. No-flow speeds match
+Karma-Rappel (Vd0/D 0.0170 / 0.0168 / 0.0163 vs 0.017). Falsification arms
+behave: coupling 0 gives exactly 1, coupling -1 gives 0.583. The ratio rises
+with lambda, and with it the domain measured in d0 (1853 -> 2965 d0), so a
+domain or boundary effect (free-slip walls and an inlet 12 % of the domain
+upstream of the stopping tip, where Tong used periodic sides) is the leading
+hypothesis. Following the Q3 precedent the comparison moved out of the
+regression suite into scripts/research/flow-tip-tong.mjs; the failure stands,
+the result is in docs/validation/flow-tong-2026-11-01.json, and every surface
+calls the flow qualitative. Next: a separately pre-registered domain study
+(same lambda, domain and inlet distance varied) before any change.
+
+### Review: combined branch a37a474 (feature/flow -> feature/visual)
+
+- Final evidence: full runner on d5f6d39 passed its first 28 scripts and stopped
+  at verify-rail (RAIL-VAL-FITS: "0.0200 cells/step" too wide; RAIL-NO-EMDASH's
+  tour cap: the heat-treat step had 43 words). a37a474 fixes only those two
+  strings. On a37a474: all 26 browser-free CI scripts and the build pass;
+  verify-tools passes standalone (its first attempt, the first script after a
+  cold server start, failed LAB-CURVE and HUD-LIVE once and passed unchanged on
+  rerun: recorded as an intermittent, checks untouched); verify-rail through
+  verify-flow-gpu (17 scripts) pass in one run with the source hash-frozen
+  (verify-out/final-continuation2-a37a474.log).
+- C3b: RX3-JMAK slopes 1.023 / 0.993 / 1.047 (band 1 +- 0.15), X_end 1;
+  RX3-CAST-SELECTION D 0.36 / 0.33 / 0.31 vs uniform controls 0.020 / 0.004 /
+  0.008, survivors born on boundaries 0.636 vs 0.566; RX3-PANEL: copper cast,
+  X 0.60 after 1318 sweeps, card n 0.61 = refit of the exported columns.
+- D3: flow-off identity vs the pre-advection baseline (2fc221d), inert arms,
+  uniform melt (2e-6), direction 1.13 / 0.89 (reversed 0.87), FLOW-UI.
+  FLOW-TIP-TONG FAILED and stays open (see above); flow is qualitative.
+- Harness fixes found on the way (each in lessons.md): f32 comparison in the
+  replay check, known centres for nucleus geometry, the 3D cancellation fixture
+  waiting on the calibration request, the runner prepending OUT, the tick hook
+  draining the GPU, flow-off cases isolated from each other's parameters.
+
+## Close PR 7, then the next stages in parallel - 2026-11-07
+
+Frank: "Continue Solidify and its next stages to complete in parallel." Production
+stays a7584a6 (main) until Frank says ship; shipping v7-experiments to main would
+also ship the unreleased Q3 integration, so that is a separate ask. One GPU owner
+at a time: only the root session runs browser/GPU scripts; delegates work
+CPU-only (typecheck, build, browser-free gates, light single-process CPU
+studies) in their own worktrees and hand GPU runs back to the root.
+
+- [x] S0 PR 7 close-out: full 45-script runner on frozen 5fa0578
+      (../solidify-verify-5fa0578, log verify-out/pr7-full-suite-5fa0578.log);
+      independent read-only review of origin/v7-experiments...5fa0578; fix
+      anything confirmed; mark PR 7 ready and merge into v7-experiments.
+      Evidence: the 5fa0578 run stopped at verify-tools (LAB-CURVE, no card
+      in 150 s; 7 instrumented reruns, incl. 2 after verify-optimizer3d, all
+      passed, HUD-LIVE failed once: the stale-read race, fixed below). The
+      review's findings 1-9 were verified and fixed (S0 review fixes); the
+      two visual gates corrected above. Full runner on frozen 09f105a: 45/45
+      scripts, SUITE EXIT=0, 03:28-04:05, tree clean before and after
+      (../solidify-verify-c3b021d/verify-out/pr7-full-suite-09f105a.log).
+      LAB-CURVE's earlier stall stays unexplained; the gate now records the
+      lab's run and report state if it recurs (4f172c2). Open for Frank: the
+      inlet brings tFar while the furnace cools (stated as a limit, 5b0e81a).
+- [ ] S1 D3.4 flow domain study (research/flow-domain, ../solidify-flowdomain):
+      pre-register BEFORE any run a study that holds lambda and the KR staging
+      fixed and varies the domain (in d0) and the inlet distance, plus any
+      lateral-boundary arm Tong et al. 2001 actually used (verified from the
+      paper, not recalled). The failed FLOW-TIP-TONG verdict of 11-01 stays
+      failed; the study only tests the domain/boundary hypothesis. A re-run of
+      the Tong gate needs its own pre-registered configuration.
+- [ ] S2 C3b-3 + C3b-4a (feature/rx-rate, ../solidify-rxrate): constant-rate
+      nucleation (JMAK n = 4 expected for 3D interface-controlled growth) and
+      boundary-only nucleation sites, per docs/C3B-RECRYSTALLIZATION-DESIGN.md
+      section 5. Gates pre-registered here before their first run, with
+      negative controls; feature-off hashes and existing RX/HT gates unchanged.
+      Particles and twins inside RX grains (rest of C3b-4): scoped, not built.
+- [ ] S3 Q3c next targets (research/q3c-stiffness from research/q3-calibration,
+      ../solidify-q3c): local-stiffness grid refinement with paired lattice
+      phases, then off-principal-plane kinetic calibration incl. finite-speed
+      stability. CPU derivations and pre-registered GPU protocols first; GPU
+      runs by the root. Q3 stays open unless the full literature reference passes.
+- [ ] S4 Integrate: each finished stage gets its GPU gates on a frozen source,
+      merges into v7-experiments via its own PR, and is pushed.
+
+### S0 review fixes (delegate, feature/visual, 2026-11-07)
+
+Independent review of origin/v7-experiments...5fa0578, each finding verified in
+the code before any change. Browser-free checks pass on every commit below;
+nothing GPU-side has been run (the root owns the GPU). Fix commits:
+
+- [x] F1 wrapped twin counter (confirmed): da656b2. RX-ID-RANGE (browser-free).
+- [x] F2 flow setting latched at setFlow (confirmed): 0de30b2. FLOW-SETTING.
+- [x] F3 nuclei stamped into particles (confirmed): fcec6bf. The C3b design
+      held the dispersion back while nuclei are dialled and the plan never
+      did; the plan now holds it (note + card say so) and nucleate takes the pin.
+- [x] F4 replay mark depended on a frame seeing heat.busy (confirmed): 4a1d725.
+      REPLAY-LEDGER-TREAT.
+- [x] F5 stale census after a reset (confirmed, widened by the root: every
+      frame-loop consumer, the HUD-LIVE intermittent): fa854ec, replaced by
+      1438eab (per-solver fieldGen + src/fieldstamp.ts). STATS-STALE-READ.
+- [x] F6 scrub survived reset/swap/re-entry/panels (confirmed): c5e88ed.
+      REPLAY-SCRUB.
+- [x] F9 placed count (0a697e6), solute Peclet + post-advection clamp
+      (21ab418), inlet temperature limit stated, open (5b0e81a), swapSim frees
+      the flow and says so (70261ea), verify-replay comment (4a1d725).
+
+#### Pre-registered GPU criteria (committed BEFORE their first run)
+
+Changed gates (F7, F8):
+
+- FLOW-DRAG-PROFILE (verify-flow-gpu.mjs). Setup unchanged (n 64, phi = 0.5
+  at y0 = 16, W = 1.25 cells, nu 3.3 / tau 10.4, Fb 2.9e-5, 12 x 1000 steps).
+  New statistic: the apparent no-slip plane, the root nearer the solid of a
+  least-squares parabola u = a y^2 + b y + c fitted to the row means over
+  y in [25, 61] (phi < 4e-5 there, drag-free; the top two rows excluded);
+  offset = (y_w - y0) / W. PASS: |offset| < 0.1 W at the derived h, with the
+  kept clauses (within 2 % of the ODE peak; deep solid <= 1 % of peak).
+  MUST-MISS arms, same setup: h x 2 and h / 2 each give |offset| >= 0.1 W,
+  and each arm is steady and bounded (all finite, peak within 5 % of the h
+  arm's) so a miss is the plane moving, not a blow-up. CPU sizing (steady
+  discrete proxy of the LBM equation / fine-grid continuum,
+  scripts/research/flow-drag-offset-sizing.mjs): h -0.029 / -0.011 W; 2h +0.300 / +0.320; h/2 -0.397 /
+  -0.381; peaks 9.93e-3, 9.76e-3, 1.012e-2. The h = 0 arm is DROPPED: a
+  periodic frictionless body-forced channel has no steady state (u = Fb t,
+  0.35 lattice units, Mach 0.6 at 12 000 steps), so it failed by
+  accelerating, not on the profile; and a 2x drag error gave 1.73 % / 1.96 %
+  of peak, inside the old 2 % band (reviewer's sizing, rerun here).
+- FLOW-UNIFORM-MELT. Adds a liveness clause: the LBM velocity read back after
+  the 2000 steps has mean u_x within 2 % of the 0.02 inlet. The gate stays a
+  consistency check, invariant to the coupling's sign by construction (the
+  docblock says FLOW-DIRECTION's reversed arm carries it). The review's second
+  claim is refuted on reading ADV_FACES: with the velocity texture bound to
+  zero the inlet face still brings P.flowUin * tFar while nothing carries it
+  on, so the first column heats by 0.008 per substep and the existing 1e-4
+  uniformity clause fails; this gate does see the binding. (Correction made
+  before any run; the criterion above is unchanged.)
+- SESSION-3D-CANCELLATION (fixtures/app3d-integration.mjs). Criterion
+  unchanged; the waits change. The canceled case and each edit case settle
+  on the share-restore chain having FINISHED (S.app.canSwitchMode() true,
+  i.e. no sharedRestore3Pending / alloyPreparing3 / mode3dPending; bounded
+  30 s), then the started entry's promise, then 3 frames, instead of one rAF
+  (canceled) or a fixed 20 frames (edits). Each case records settled, and
+  healthy requires it.
+- VIS-REPLAY-3D (verify-visual-gpu.mjs). Adds, with 2D's bands: live phi
+  masks captured during the 3D setup growth after stepSync batches 20 and 40
+  and at the end (60) equal the replay rule (phi >= 0.5 and age <
+  Math.fround(t)) applied to the final phi and age volumes, IoU >= 0.97 at
+  the two earlier, >= 0.99 at the last, each mask > 50 solid voxels; and the
+  UI path: after the strip input, replayState().scrub3 is in (0, simTime),
+  and the live button returns it to null. Kept: field unchanged, early frame
+  differs from live (> 1).
+- VIS-STUDIO-COST. The gate moves to the render-only GPU cost, which no
+  vsync cap hides: renderMsOn / renderMsOff <= 1.8 (a37a474 measured 15.52 /
+  10.17 = 1.53). MUST-MISS arm: the studio bench with every frame rendered
+  twice (a planted 2x studio cost) gives a ratio > 1.8 (expected ~2.2-3.0).
+  The running-fps clause (fpsOn >= 0.85 fpsOff) is kept and reported with
+  vsyncCapped (both arms >= 0.9 x the idle rAF rate), because at the cap it
+  cannot discriminate (a37a474: 55.7 / 55.6 fps, both capped).
+
+New gates:
+
+- FLOW-RECONFIGURE (verify-flow-gpu.mjs, F2). Kobayashi pure melt ("al"),
+  flow on at u 0.02, one submit: the LBM configuration equals flowSetting at
+  the Kobayashi dials exactly (nu, width). S.setSolver(1, 2.4) (precondition:
+  solver 1, reported separately), one submit: it equals flowSetting at the
+  calibrated dials exactly and differs from the Kobayashi one in nu and width.
+  Back to Kobayashi, one submit: the Kobayashi values return. dt taken to
+  dt / 200: the one synchronous submit keeps the last passing configuration
+  (the unchecked setting has >= 1 issue), and after one app frame
+  (S.tick(1)) the flow is off with a flowIssue matching /Peclet/. MUST-MISS
+  arm: with the instance's flowNow patched to return the setting captured at
+  setFlow (the latched behaviour before 0de30b2), the calibrated clause fails.
+- RX3-ID-WRAP (verify-recrystallize-gpu.mjs, F1). Single crystal: control,
+  freeIds on the fresh counter = 4094 - nextId - 2 > 0. Counter written to
+  (4094 - 4200) >>> 0 = 4294967190 (4200 growth-twin attempts): freeIds = 0;
+  nucleate(20) resolves to { why } without throwing and leaves the counter
+  unchanged; the host's annealTwins(4) resolves with spawned 0 and
+  saturated true. Reported: the replaced rule's first id (> 4096).
+- HT3-BUSY-RELEASE (F1). On an armed nuclei plan, host.nucleate replaced by
+  one that throws a planted error: the run starts (busy observed true,
+  reported separately), busy is false again within 10 s, and a second click
+  starts a run again (busy observed true). Planted errors are removed from the
+  page-error list by their marker; any other page error still fails. On
+  5fa0578 busy stays true (nucleate was awaited before the try).
+- RX3-PIN-HELD (F3). Fresh cast, cold work 8 J_b, dispersion 6 %: with nuclei
+  0 the note prints the live dispersion ("dispersion 6.0 vol %", "pins in 3D",
+  no "held back while nuclei"), which is the must-miss arm for the sentence;
+  with nuclei 200 the note prints "held back while nuclei are dialed" and not
+  "pins in 3D". After a run, the card has the held-back row and no pinned
+  row; every Sim3D.anneal call (>= 1) and the one nucleate call received
+  pin undefined (spied).
+- RX3-PIN-STAMP (F3, the Sim3D API). Same single crystal twice, 40 nuclei at
+  explicit centres (x in 12..84 and y in 12..66, step 18; z in {40, 70}), r = 4: unpinned
+  vs pinned { f: 0.10, r: 2 }. PASS: same id range; the pinned stamp is a
+  subset of the unpinned one voxel for voxel and id for id; it removes
+  >= 1 % of the unpinned stamp (expected ~9.5 %: the particle fraction).
+  On 5fa0578 (mask built without the pin) the two stamps are equal.
+- RX3-PLACED (F9). Single crystal with liquid z < 10: nuclei r = 2 centred at
+  (48, 48, 8) (claims 1 voxel), (20, 20, 40) (33) and (70, 70, 5) (none):
+  placed = 2. Arm 2, a fresh crystal with readRegion returning null for its
+  first two calls (another read in flight): placed = 2 again. On 5fa0578 the
+  first gives 1 (floor of 4 voxels) and the second 0.
+- VIS-REPLAY-SCRUB-END (F6). 2D, paused, plain, a clean ledger and a grown
+  field: a strip scrub stands after two frames (control); opening the heat
+  panel (precondition: heat.active) ends it within two frames; with the panel
+  closed and a new scrub, resetArmed ends it within two frames. On 5fa0578
+  both survive (paused, no mark).
+- VIS-REPLAY-TREAT (F4). Clean ledger, grown 2D field: the host's anneal(4),
+  called with no frame in between, has marked replayState().reason2 with the
+  heat-treatment reason synchronously, before any frame. On 5fa0578 it stays
+  null (heat.busy is never set outside the panel).
+
+Gate code, written after the commit above and not run: e83bdf1 (flow),
+bbadf91 (recrystallization + HT3-BUSY-RELEASE), f1bb615 (visual), 9fc549d
+(the SESSION-3D-CANCELLATION fixture), 360348e (a docblock correction).
+Browser-free: all 22 local scripts before verify-landing-acts except
+verify-scroll-order (it launches Chrome), the four CI self-test modes,
+typecheck and build pass on 360348e.
+
+Run list for the root (frozen source, after the last commit of this section):
+verify-flow-gpu.mjs, verify-recrystallize-gpu.mjs, verify-visual-gpu.mjs,
+verify-completion-gpu.mjs (SESSION-3D-CANCELLATION), verify-heattreat-gpu.mjs
+(HT3-* panel copy unchanged by F1/F3, re-confirm), verify-tools.mjs
+(HUD-LIVE, F5), and the identity gates FLOW-OFF-IDENTITY, HT3-CAST-REPRO,
+verify-passsplit.mjs / verify-passsplit3d.mjs, which must not move.
+
+### S0 GPU run on frozen c3b021d (root, 2026-11-07)
+
+Passed: verify-flow-gpu, verify-recrystallize-gpu (incl. RX3-ID-WRAP,
+RX3-PIN-*, RX3-PLACED, HT3-BUSY-RELEASE), verify-completion-gpu
+(SESSION-3D-CANCELLATION), verify-tools (LAB-CURVE, HUD-LIVE), verify-heattreat-gpu,
+verify-passsplit, verify-passsplit3d. verify-visual-gpu FAILED two gates; both
+results stand as recorded and the corrections below are pre-registered before
+their first run.
+
+- VIS-STUDIO-COST FAILED: renderMs off / on / on-twice 7.26 / 10.43 / 12.53,
+  ratio 1.437, planted ratio 1.726 (must exceed 1.8; expected 2.2-3.0). The
+  must-miss arm failed for its own reason: every bench iteration awaits
+  onSubmittedWorkDone, so a fixed queue round trip dominates and a doubled
+  workload added 2.1 ms, not 10. As built the instrument cannot resolve a 2x
+  cost. Correction (pre-registered): each arm submits 40 frames back to back
+  and awaits the queue once (5 warm-up frames, same camera/lens/plane), ms per
+  frame = elapsed / 40. Verdict: on / off <= 1.8 AND the liveness witness
+  on-twice / on within [1.7, 2.3] (the bench resolves a doubled workload). The
+  fps clause and vsyncCapped stay as reported.
+- VIS-REPLAY-3D FAILED: IoU 0.97375 / 0.97719 / 0.98587 at t 0.108 / 0.216 /
+  0.324 against >= 0.97 / 0.97 / 0.99. The fixture departed from its own
+  pre-registration ("the replay rule applied to the final phi and age volumes"
+  at the end of the setup growth, batch 60): it read phi and age only after
+  VIS-STUDIO-COST had run the cast on to t 0.603, so cells that remelted or
+  refroze in between could not replay. Correction: the final phi and age are
+  read at batch 60 inside the setup, with the three live masks; criterion
+  unchanged. Diagnostics added: per capture, replay-only and live-only voxel
+  counts (missing vs extra), and the final field's time.
+- VIS-STUDIO-COST second run (2103b07) FAILED its witness: amortized ms per
+  frame off / on / on-twice 3.08 / 4.47 / 6.30, ratio 1.451, doubling 1.409
+  (band [1.7, 2.3]). Totals fit time = C + 40 k g with g = 1.83 ms per render
+  and C ~ 106 ms per bench (one-off: queue wait, clock ramp), so no ratio of
+  totals isolates the per-render cost. Third and last instrument
+  (pre-registered): per arm (studio off, then on), time 40 x k renders for
+  k = 1, 2, 3 (5 warm-ups, one queue wait each); g = least-squares slope of
+  time against 40 k. Verdict: g_on / g_off <= 1.8; witness: in each arm the
+  three points are linear (max residual <= 10 % of the k = 3 time minus the
+  intercept) with g > 0. If the witness fails again the instrument cannot
+  measure this cost on this hardware: the gate becomes information only (ratio
+  reported, never gating) and that is recorded here and in TESTING.md.

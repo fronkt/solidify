@@ -79,15 +79,34 @@ try{
       }catch(error){errors.push(error.message);await request.abort()}
     }else await request.continue();
   });
+  // Settle on the share-restore chain having FINISHED, not on a frame count:
+  // canSwitchMode() is false while sharedRestore3Pending / alloyPreparing3 /
+  // mode3dPending hold, and the chain clears sharedRestore3Pending in its own
+  // finally, so once it is true nothing that chain started can still request
+  // a calibration and "quantCalls === 0" means not called rather than not yet
+  // (S0 review: one rAF in the canceled case and a fixed 20 frames in the edit
+  // cases could both pass vacuously). Where a calibration is expected, wait
+  // for its request first; then the "Preparing" latch, the entry's promise,
+  // and 3 frames. Bounded at 30 s; returns whether it really settled.
+  const settle=expectQuant=>page.evaluate(async expectQuant=>{
+    const P=window.__shareProbe,S=window.__solidify,t0=performance.now(),frame=()=>new Promise(requestAnimationFrame);
+    while(expectQuant&&P.quantCalls===0&&performance.now()-t0<30000)await frame();
+    while(!S.app.canSwitchMode()&&performance.now()-t0<30000)await frame();
+    while(S.app.calibrationIssue()?.includes('Preparing')&&performance.now()-t0<30000)await frame();
+    if(P.quantPromise)await P.quantPromise;
+    for(let i=0;i<3;i++)await frame();
+    return S.app.canSwitchMode()&&!S.app.calibrationIssue()?.includes('Preparing')&&(!expectQuant||P.quantCalls>0);
+  },expectQuant);
   await page.goto(setup.url,{waitUntil:'networkidle0'});
   await page.waitForFunction(()=>window.__shareProbe?.entered&&!!window.__shareProbe.release&&window.__solidify?.mode()==='3d');
   const before=await page.evaluate(()=>({mode:window.__solidify.mode(),baseline:window.__shareProbe.baseline,
     staged:{...window.__solidify.sim3d().params}}));
   await page.evaluate(()=>{window.__solidify.app.setMode('2d');window.__shareProbe.release()});
   await page.waitForFunction(()=>window.__shareProbe.alloyFinished);
-  await page.evaluate(async()=>{if(window.__shareProbe.quantPromise)await window.__shareProbe.quantPromise;await new Promise(requestAnimationFrame)});
+  const settledCancel=await settle(false);
   const canceled=await page.evaluate(()=>({mode:window.__solidify.mode(),quantCalls:window.__shareProbe.quantCalls,
     params:{...window.__solidify.sim3d().params}}));
+  canceled.settled=settledCancel;
   const returned=await page.evaluate(async()=>{
     const S=window.__solidify;await S.app.setMode('3d');S.app.setRun(false);await new Promise(requestAnimationFrame);
     return {mode:S.mode(),reason:S.app.calibrationIssue(),canCalibrate:S.app.canCalibrate(),params:{...S.sim3d().params}};
@@ -106,7 +125,11 @@ try{
       const out={material:S.app.getMaterial(),c0:S.sim3d().params.c0};window.__shareProbe.release();return out;
     },action);
     await page.waitForFunction(()=>window.__shareProbe.alloyFinished);
-    await page.evaluate(async()=>{if(window.__shareProbe.quantPromise)await window.__shareProbe.quantPromise;await new Promise(requestAnimationFrame)});
+    // The app calls enableQuant some awaits AFTER the alloy step returns (each
+    // waits on the GPU queue), so checking quantPromise right after
+    // alloyFinished races that call. `settle` waits for the restore chain to
+    // finish (see its definition) instead of counting frames.
+    const settled=await settle(action==='none');
     const got=await page.evaluate(()=>({mode:window.__solidify.mode(),material:window.__solidify.app.getMaterial(),
       quantCalls:window.__shareProbe.quantCalls,reason:window.__solidify.app.calibrationIssue(),
       q:window.__solidify.app.calibration(),params:{...window.__solidify.sim3d().params}}));
@@ -117,10 +140,10 @@ try{
       &&restoredBaseline.kPart===setup.baseline.kPart&&restoredBaseline.dSol===setup.baseline.dSol
       :got.quantCalls===0&&got.params.solver===0&&got.material===intended.material&&got.params.c0===intended.c0
         &&!got.reason?.includes('Preparing');
-    edits.push({action,intended,got,restoredBaseline,healthy});
+    edits.push({action,intended,got,restoredBaseline,settled,healthy:healthy&&settled});
   }
   result={pitch,retry,before,canceled,returned,mismatches,edits,errors,
-    healthy:canceled.mode==='2d'&&canceled.quantCalls===0&&returned.mode==='3d'&&returned.params.solver===0
+    healthy:canceled.settled&&canceled.mode==='2d'&&canceled.quantCalls===0&&returned.mode==='3d'&&returned.params.solver===0
       &&returned.canCalibrate&&!returned.reason&&mismatches.length===0};
   assert.equal(errors.length,0);
   assert.equal(result.healthy,true);

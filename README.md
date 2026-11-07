@@ -476,5 +476,10 @@ plane; the volume shares the mechanism and declines to borrow the law). And grai
 with the law's answer still printed. The sweep budget is bought by the grain-growth law's own
 Arrhenius integral, so this furnace cannot yet price a recrystallization anneal below the
 grain-growth window — a low-temperature recrystallization schedule buys ~0 sweeps and nothing
-happens. Cold work here is the field and the drive; nucleating new strain-free grains is not in
-this one.
+happens. Cold work here is the field and the drive. In the volume, the nuclei dial (C3b) plants
+strain-free nuclei after the deposit: site-saturated (all at once), at uniformly random sites,
+radius 2 cells, stored energy 0, then grown by the existing anneal's stored-energy difference
+alone. The card reports the recrystallized fraction and an Avrami exponent fitted on the Monte
+Carlo sweep clock, which is not a real-time exponent. Constant-rate nucleation, boundary-only
+nucleation sites and particle effects on recrystallization are not modeled: a dialed dispersion
+is held back while nuclei are dialed, and the card says so.

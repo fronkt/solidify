@@ -2142,7 +2142,7 @@ let immobileTop = null;
     // the treatment actually RAN — asserted before anything is read off the
     // card, so a click that landed on a disabled button names itself
     && out.armedAtClick && out.busyDuring && out.cardLen > 0
-    && out.dialCount === 6                                   // the sixth dial, volume only
+    && out.dialCount === 7                                   // cold work (sixth) + C3b nuclei (seventh), volume only
     && out.sweeps >= 50                                      // the armed schedule is a real treatment
     // THE WITHDRAWAL: an endpoint before, none while worked, and it comes back
     && out.asCastArrow !== null && out.workedArrow === null && out.revertedArrow !== null

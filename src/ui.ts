@@ -30,6 +30,15 @@ const RAIL_ROOM = 596;
 const RAIL_ROOM_PHONE = 298;
 
 export interface UIHost extends AppControl {
+  /** D3.2/D3.3 melt flow (2D): on/off, inlet speed (cells per substep), the
+   *  streak overlay, and why it is refused or was switched off (null = fine) */
+  getFlowOn(): boolean;
+  setFlowOn(on: boolean): void;
+  getFlowU(): number;
+  setFlowU(v: number): void;
+  getFlowView(): boolean;
+  setFlowView(on: boolean): void;
+  flowIssue(): string | null;
   simParams(): PhysParams;
   /** the live dimensionless<->SI scaling (units.ts) */
   units(): Units;
@@ -236,8 +245,13 @@ export class UI {
     const rail = document.getElementById("rail")!;
     this.setRailHidden(innerWidth - rail.offsetWidth < RAIL_ROOM);
     addEventListener("resize", () => this.railRoom(true));
-    document.getElementById("readoutsToggle")!.addEventListener("click", () => {
-      document.body.classList.toggle("readoutsOpen");
+    // the head plate folds to its wordmark and chevron by default, on every
+    // screen; the viewer's choice is remembered (a per-viewer convenience)
+    document.body.classList.toggle("headOpen", storeGet("sol.head") === "1");
+    document.getElementById("headToggle")!.addEventListener("click", () => {
+      const open = !document.body.classList.contains("headOpen");
+      document.body.classList.toggle("headOpen", open);
+      storeSet("sol.head", open ? "1" : "0");
       this.readingsState();
       this.placeAnalysis();
     });
@@ -285,10 +299,16 @@ export class UI {
     this.placeAnalysis();
   }
 
+  /** the chevron's state: expanded or not, and marked while the melt
+   *  carries a caveat the folded plate would otherwise hide */
   private readingsState() {
-    const compact = innerHeight <= 600 || (innerWidth <= 380 && innerHeight <= 740);
-    document.getElementById("readoutsToggle")!.setAttribute("aria-expanded",
-      String(!compact || document.body.classList.contains("readoutsOpen")));
+    const open = document.body.classList.contains("headOpen");
+    const t = document.getElementById("headToggle")!;
+    const warn = (document.getElementById("matcaveat")!.textContent ?? "").trim().length > 0;
+    t.setAttribute("aria-expanded", String(open));
+    t.setAttribute("aria-label", (open ? "hide the live readings" : "show the live readings")
+      + (warn && !open ? " (the melt has a caveat)" : ""));
+    t.classList.toggle("warn", warn && !open);
   }
 
   private placeAnalysis() {
@@ -750,6 +770,20 @@ export class UI {
     this.slider(this.weldPanel, "spot size", 2, 9, 0.5, () => p().weldSig, v => { p().weldSig = v; }, v => v.toFixed(1));
     this.check(this.weldPanel, "auto raster", () => host.getWeldAuto(), b => host.setWeldAuto(b));
     this.slider(this.weldPanel, "sweep speed", 10, 140, 2, () => host.getWeldSweep(), v => host.setWeldSweep(v), v => v.toFixed(0));
+    // D3.2/D3.3 melt flow: a forced stream from the left edge, 2D free growth
+    // only; the host refuses (with a sentence) anywhere the model cannot run it
+    const flowPanel = document.createElement("div");
+    flowPanel.className = "subpanel";
+    scen.append(flowPanel);
+    this.only2d.push(flowPanel);
+    this.check(flowPanel, "melt flow", () => host.getFlowOn(), b => host.setFlowOn(b));
+    this.slider(flowPanel, "flow speed", 0.005, 0.05, 0.0025, () => host.getFlowU(), v => host.setFlowU(v),
+      v => v.toFixed(3));   // cells per substep; the learn hint names the unit
+    this.check(flowPanel, "show flow", () => host.getFlowView(), b => host.setFlowView(b));
+    const flowWhy = document.createElement("div");
+    flowWhy.className = "hint";
+    flowPanel.append(flowWhy);
+    this.binds.push({ update: () => { const w = host.flowIssue(); flowWhy.textContent = w ?? ""; flowWhy.style.display = w ? "" : "none"; } });
 
     // ---- alloy
     const alloy = this.section(rail, "ALLOY");
@@ -1188,6 +1222,7 @@ export class UI {
     const cav = document.getElementById("matcaveat")!;
     cav.textContent = caveats.join(" · ");
     cav.style.display = caveats.length ? "block" : "none";
+    this.readingsState();
     const grids = [512, 1024, 2048];
     this.gridBtns.forEach((b, i) => setPressed(b, grids[i] === host.getGrid()));
 

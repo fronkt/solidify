@@ -1,0 +1,43 @@
+{
+ "study": "FLOW-TIP-TONG",
+ "commit": "28772a0",
+ "date": "2026-11-01",
+ "protocol": "tasks/todo.md, FLOW-TIP-TONG protocol (pre-registered at c7ec352, unchanged)",
+ "ok": false,
+ "detail": {
+  "band": "[1.26, 1.54] every lambda, spread < 5 %",
+  "rows": [
+   {
+    "lambda": 2,
+    "ratio": 1.259,
+    "Vd0overD_noflow": 0.01701,
+    "samples": [
+     33,
+     33
+    ]
+   },
+   {
+    "lambda": 2.4,
+    "ratio": 1.329,
+    "Vd0overD_noflow": 0.01678,
+    "samples": [
+     33,
+     33
+    ]
+   },
+   {
+    "lambda": 3.2,
+    "ratio": 1.356,
+    "Vd0overD_noflow": 0.01626,
+    "samples": [
+     33,
+     33
+    ]
+   }
+  ],
+  "spread": 0.0738,
+  "couplingZeroRatio": 1,
+  "couplingReversedRatio": 0.583
+ },
+ "reading": "FAILED: upstream/no-flow 1.259 / 1.329 / 1.356 at lambda 2.0 / 2.4 / 3.2 against the band [1.26, 1.54] (Tong et al. 2001 same-lambda ratios 1.37-1.43); lambda 2.0 sits just below the band and the spread 7.4% exceeds 5%. No-flow speeds match Karma-Rappel (0.0163-0.0170 vs 0.017); coupling-zero ratio exactly 1; reversed coupling 0.583. The ratio rises with lambda, and the domain in d0 rises with it (1853 to 2965 d0): a domain or boundary effect is the leading hypothesis, to be tested by a separately pre-registered study. Flow stays labelled qualitative."
+}
