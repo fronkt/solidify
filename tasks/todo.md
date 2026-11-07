@@ -5784,10 +5784,20 @@ at a time: only the root session runs browser/GPU scripts; delegates work
 CPU-only (typecheck, build, browser-free gates, light single-process CPU
 studies) in their own worktrees and hand GPU runs back to the root.
 
-- [ ] S0 PR 7 close-out: full 45-script runner on frozen 5fa0578
+- [x] S0 PR 7 close-out: full 45-script runner on frozen 5fa0578
       (../solidify-verify-5fa0578, log verify-out/pr7-full-suite-5fa0578.log);
       independent read-only review of origin/v7-experiments...5fa0578; fix
       anything confirmed; mark PR 7 ready and merge into v7-experiments.
+      Evidence: the 5fa0578 run stopped at verify-tools (LAB-CURVE, no card
+      in 150 s; 7 instrumented reruns, incl. 2 after verify-optimizer3d, all
+      passed, HUD-LIVE failed once: the stale-read race, fixed below). The
+      review's findings 1-9 were verified and fixed (S0 review fixes); the
+      two visual gates corrected above. Full runner on frozen 09f105a: 45/45
+      scripts, SUITE EXIT=0, 03:28-04:05, tree clean before and after
+      (../solidify-verify-c3b021d/verify-out/pr7-full-suite-09f105a.log).
+      LAB-CURVE's earlier stall stays unexplained; the gate now records the
+      lab's run and report state if it recurs (4f172c2). Open for Frank: the
+      inlet brings tFar while the furnace cools (stated as a limit, 5b0e81a).
 - [ ] S1 D3.4 flow domain study (research/flow-domain, ../solidify-flowdomain):
       pre-register BEFORE any run a study that holds lambda and the KR staging
       fixed and varies the domain (in d0) and the inlet distance, plus any
@@ -5950,6 +5960,47 @@ verify-completion-gpu.mjs (SESSION-3D-CANCELLATION), verify-heattreat-gpu.mjs
 (HT3-* panel copy unchanged by F1/F3, re-confirm), verify-tools.mjs
 (HUD-LIVE, F5), and the identity gates FLOW-OFF-IDENTITY, HT3-CAST-REPRO,
 verify-passsplit.mjs / verify-passsplit3d.mjs, which must not move.
+
+### S0 GPU run on frozen c3b021d (root, 2026-11-07)
+
+Passed: verify-flow-gpu, verify-recrystallize-gpu (incl. RX3-ID-WRAP,
+RX3-PIN-*, RX3-PLACED, HT3-BUSY-RELEASE), verify-completion-gpu
+(SESSION-3D-CANCELLATION), verify-tools (LAB-CURVE, HUD-LIVE), verify-heattreat-gpu,
+verify-passsplit, verify-passsplit3d. verify-visual-gpu FAILED two gates; both
+results stand as recorded and the corrections below are pre-registered before
+their first run.
+
+- VIS-STUDIO-COST FAILED: renderMs off / on / on-twice 7.26 / 10.43 / 12.53,
+  ratio 1.437, planted ratio 1.726 (must exceed 1.8; expected 2.2-3.0). The
+  must-miss arm failed for its own reason: every bench iteration awaits
+  onSubmittedWorkDone, so a fixed queue round trip dominates and a doubled
+  workload added 2.1 ms, not 10. As built the instrument cannot resolve a 2x
+  cost. Correction (pre-registered): each arm submits 40 frames back to back
+  and awaits the queue once (5 warm-up frames, same camera/lens/plane), ms per
+  frame = elapsed / 40. Verdict: on / off <= 1.8 AND the liveness witness
+  on-twice / on within [1.7, 2.3] (the bench resolves a doubled workload). The
+  fps clause and vsyncCapped stay as reported.
+- VIS-REPLAY-3D FAILED: IoU 0.97375 / 0.97719 / 0.98587 at t 0.108 / 0.216 /
+  0.324 against >= 0.97 / 0.97 / 0.99. The fixture departed from its own
+  pre-registration ("the replay rule applied to the final phi and age volumes"
+  at the end of the setup growth, batch 60): it read phi and age only after
+  VIS-STUDIO-COST had run the cast on to t 0.603, so cells that remelted or
+  refroze in between could not replay. Correction: the final phi and age are
+  read at batch 60 inside the setup, with the three live masks; criterion
+  unchanged. Diagnostics added: per capture, replay-only and live-only voxel
+  counts (missing vs extra), and the final field's time.
+- VIS-STUDIO-COST second run (2103b07) FAILED its witness: amortized ms per
+  frame off / on / on-twice 3.08 / 4.47 / 6.30, ratio 1.451, doubling 1.409
+  (band [1.7, 2.3]). Totals fit time = C + 40 k g with g = 1.83 ms per render
+  and C ~ 106 ms per bench (one-off: queue wait, clock ramp), so no ratio of
+  totals isolates the per-render cost. Third and last instrument
+  (pre-registered): per arm (studio off, then on), time 40 x k renders for
+  k = 1, 2, 3 (5 warm-ups, one queue wait each); g = least-squares slope of
+  time against 40 k. Verdict: g_on / g_off <= 1.8; witness: in each arm the
+  three points are linear (max residual <= 10 % of the k = 3 time minus the
+  intercept) with g > 0. If the witness fails again the instrument cannot
+  measure this cost on this hardware: the gate becomes information only (ratio
+  reported, never gating) and that is recorded here and in TESTING.md.
 
 ## C3b-3 and C3b-4a - 2026-11-07
 

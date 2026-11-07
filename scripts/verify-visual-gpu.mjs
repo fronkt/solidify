@@ -7,7 +7,10 @@ import { closeBrowser } from "./browser-cleanup.mjs";
 //   VIS-PHOTO          photo mode accumulates to its cap while the scene is
 //                      still and restarts when the camera moves.
 //   VIS-STUDIO-COST    render-only GPU cost of the studio look, on / off <= 1.8,
-//                      with a planted 2x studio cost that must exceed it (S0
+//                      as the per-render slope of time against 40/80/120
+//                      renders per arm, with a linearity witness (S0 GPU
+//                      runs: per-frame waits and amortized totals were both
+//                      dominated by a one-off constant). (S0
 //                      review: the running fps sat at the vsync cap in both
 //                      arms, where its <= 15 % drop clause cannot fail; kept,
 //                      reported with the cap flag).
@@ -309,6 +312,10 @@ try {
           let solid = 0;
           for (let i = 0; i < phi.length; i++) if (phi[i] >= 0.5) { m[i] = 1; solid++; }
           caps.push({ t: s3.simTime, m, solid });
+          // the pre-registered "final field" is the one at the end of THIS
+          // growth: later sections run the cast on (VIS-STUDIO-COST), and a
+          // cell that remelts or refreezes after the last capture cannot replay
+          if (k === 59) window.__vis3final = { phi, age: (await s3.readAgeVolume())?.time, t: s3.simTime };
         }
       }
       window.__vis3caps = caps;
@@ -368,24 +375,36 @@ try {
   // VIS-STUDIO-COST (criterion changed by the S0 review, pre-registered in
   // tasks/todo.md): the running fps sat at the vsync cap in both arms (55.7 /
   // 55.6), where a 15 % drop cannot show, so the gate is the render-only GPU
-  // cost, which no cap hides; a planted 2x studio cost (every frame rendered
-  // twice) must break it. The fps clause stays, reported with the cap flag.
+  // cost, which no cap hides, measured as a slope with a linearity witness
+  // (see the bench below). The fps clause stays, reported with the cap flag.
   {
     const out = await page.evaluate(async () => {
       const S = window.__solidify, r3 = S.r3(), s3 = S.sim3d();
       const plane = { n: [1, 0, 0], c: 64 };
-      const bench = async (studio, perFrame = 1) => {
+      // The per-render cost is the SLOPE of elapsed time against renders:
+      // a wait per frame (first S0 run) and a ratio of amortized totals
+      // (second) were both dominated by a one-off constant (~106 ms per
+      // bench), which the slope removes. 40 x k renders, k = 1, 2, 3, one
+      // queue wait each.
+      const timed = async (studio, k) => {
         r3.studioOn = studio;
         for (let i = 0; i < 5; i++) r3.render(s3, 0, 0, plane, 0, false);
         await s3.device.queue.onSubmittedWorkDone();
         const t0 = performance.now();
-        for (let i = 0; i < 40; i++) {
-          for (let j = 0; j < perFrame; j++) r3.render(s3, 0, 0, plane, 0, false);
-          await s3.device.queue.onSubmittedWorkDone();
-        }
-        return (performance.now() - t0) / 40;
+        for (let i = 0; i < 40 * k; i++) r3.render(s3, 0, 0, plane, 0, false);
+        await s3.device.queue.onSubmittedWorkDone();
+        return performance.now() - t0;
       };
-      const off = await bench(false), on = await bench(true), onTwice = await bench(true, 2);
+      const fit = async studio => {
+        const xs = [40, 80, 120], ys = [];
+        for (const k of [1, 2, 3]) ys.push(await timed(studio, k));
+        const mx = 80, my = (ys[0] + ys[1] + ys[2]) / 3;
+        const g = xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0) / xs.reduce((s, x) => s + (x - mx) ** 2, 0);
+        const c = my - g * mx;
+        const maxResid = Math.max(...xs.map((x, i) => Math.abs(ys[i] - (c + g * x))));
+        return { g, c, ys, maxResid, linear: g > 0 && maxResid <= 0.1 * (ys[2] - c) };
+      };
+      const fOffFit = await fit(false), fOnFit = await fit(true);
       r3.studioOn = true;
       // the display's own frame rate, nothing else asked of it
       const rafHz = await new Promise(res => {
@@ -401,13 +420,17 @@ try {
       };
       const fOff = await fpsOf(false), fOn = await fpsOf(true);
       r3.studioOn = true;
-      return { renderMsOff: +off.toFixed(2), renderMsOn: +on.toFixed(2), renderMsOnTwice: +onTwice.toFixed(2),
+      const r = f => ({ msPerRender: +f.g.toFixed(3), constMs: +f.c.toFixed(1), ms: f.ys.map(y => +y.toFixed(1)),
+        maxResidMs: +f.maxResid.toFixed(2), linear: f.linear });
+      return { off: r(fOffFit), on: r(fOnFit),
         fpsOff: +fOff.toFixed(1), fpsOn: +fOn.toFixed(1), rafHz: +rafHz.toFixed(1) };
     });
-    const ratio = out.renderMsOn / out.renderMsOff, plantedRatio = out.renderMsOnTwice / out.renderMsOff;
+    // liveness witness: each arm's time is linear in the number of renders,
+    // so its slope is a per-render cost, before the ratio means anything
+    const ratio = out.on.msPerRender / out.off.msPerRender;
     const vsyncCapped = Math.min(out.fpsOn, out.fpsOff) >= 0.9 * out.rafHz;
-    check("VIS-STUDIO-COST", ratio <= 1.8 && plantedRatio > 1.8 && out.fpsOn >= 0.85 * out.fpsOff,
-      { ...out, ratio: +ratio.toFixed(3), plantedRatio: +plantedRatio.toFixed(3), vsyncCapped });
+    check("VIS-STUDIO-COST", out.off.linear && out.on.linear && ratio <= 1.8 && out.fpsOn >= 0.85 * out.fpsOff,
+      { ...out, ratio: +ratio.toFixed(3), vsyncCapped });
   }
 
   // VIS-REPLAY-3D
@@ -424,18 +447,22 @@ try {
       await s3.device.queue.onSubmittedWorkDone();
       const g1 = V.fnv(await s3.readGrainVolume()), p1 = V.fnv(await s3.readPhiVolume());
       // masks captured live during the growth against the replay rule on the
-      // final field, in the GPU's f32 (S0 review; 2D's bands)
-      const phiF = await s3.readPhiVolume(), age = (await s3.readAgeVolume())?.time;
-      const iou = (window.__vis3caps ?? []).map(c => {
+      // final field of that growth (batch 60), in the GPU's f32 (S0 review;
+      // 2D's bands); replay-only and live-only counts classify a mismatch
+      const fin = window.__vis3final ?? null;
+      const phiF = fin?.phi, age = fin?.age;
+      const iou = (phiF && age ? window.__vis3caps ?? [] : []).map(c => {
         const tF = Math.fround(c.t);
-        let inter = 0, uni = 0;
+        let inter = 0, uni = 0, replayOnly = 0, liveOnly = 0;
         for (let i = 0; i < c.m.length; i++) {
           const re = phiF[i] >= 0.5 && age[i] < tF ? 1 : 0;
           inter += re & c.m[i]; uni += re | c.m[i];
+          if (re && !c.m[i]) replayOnly++; else if (!re && c.m[i]) liveOnly++;
         }
-        return { t: +c.t.toFixed(5), solid: c.solid, iou: uni ? +(inter / uni).toFixed(5) : 1 };
+        return { t: +c.t.toFixed(5), solid: c.solid, iou: uni ? +(inter / uni).toFixed(5) : 1, replayOnly, liveOnly };
       });
-      return { fieldUnchanged: g0 === g1 && p0 === p1, earlyVsLive: +V.diff(early, live).toFixed(3), iou, tNow: s3.simTime };
+      return { fieldUnchanged: g0 === g1 && p0 === p1, earlyVsLive: +V.diff(early, live).toFixed(3), iou,
+        tFinal: fin ? +fin.t.toFixed(5) : null, tNow: s3.simTime };
     });
     const ui = await page.evaluate(async () => {
       const box = document.querySelector("#hud .replay"), input = box?.querySelector("input");
