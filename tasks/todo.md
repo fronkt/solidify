@@ -6177,11 +6177,149 @@ setFlow. Result recorded here. FLOW-OFF-IDENTITY (GPU) stays the runtime proof.
 
 ### Plan
 
-- [ ] Commit this pre-registration + design addendum + reference + sizing; push.
-- [ ] FLOW-INLET-ALGEBRA / -CPU / -DEFAULT in verify-flow.mjs; run; record.
-- [ ] WGSL: Zou-He in lbm.ts (uniform word 3 = inlet), header and docs.
-- [ ] Identity proof; typecheck, build, the 26 browser-free CI scripts.
-- [ ] GPU gates written in verify-flow-gpu.mjs, NOT run; TESTING.md counts.
-- [ ] Copy (README, science page): one sentence, held until the root's run.
+- [x] Commit this pre-registration + design addendum + reference + sizing; push
+      (da91d87).
+- [x] FLOW-INLET-ALGEBRA / -CPU / -DEFAULT in verify-flow.mjs; run; record.
+- [x] WGSL: Zou-He in lbm.ts (uniform word 3 = inlet), header and docs (977e640).
+- [x] Identity proof; typecheck, build, the 26 browser-free CI scripts.
+- [x] GPU gates written in verify-flow-gpu.mjs, NOT run; TESTING.md counts.
+- [x] Copy (science page; README has no flow text): one sentence, HELD until
+      the root's run.
 - [ ] Root: run verify-flow-gpu.mjs on the frozen head (commands in the
       status below).
+
+### Status (2026-11-07, delegate): built and checked off the GPU; GPU not run
+
+CPU results (first runs of the new inlet, after da91d87; every pre-registered
+browser-free clause passed on its first run, no band was changed):
+
+- FLOW-INLET-ALGEBRA: worst |sum f - rho| 4.4e-16, |sum c_x f - rho U| 2.8e-17,
+  |sum c_y f| 1.4e-17, normal pair 2.1e-17 over 2000 draws (band 1e-14); fixed
+  point 1.1e-16 (band 1e-15); without the transverse term |sum c_y f| = 0.042
+  (must exceed 1e-4).
+- FLOW-INLET-CPU, geometry A (empty 64^2, started at U/2, 8000 steps): velocity
+  inlet max |V - 1| = 4.1e-14, u_y 2.1e-14 U, level 1.005768; equilibrium arm
+  0.873248 U everywhere (level 1.004299), as sized.
+- FLOW-INLET-CPU, geometry B (128^2, disk r 9.6, 16000 steps): velocity inlet
+  V = 1.000000 at the inlet rising to 1.00944 at the outlet (predicted ~1.009);
+  steady 2e-15 between 14000 and 16000; mass flux uniform to 5.8e-14
+  (Q = 1.00953); inlet nodes |u_x / U - 1| <= 1.2e-15 and |u_y| / U <= 6e-16,
+  corners included; mirror symmetry 1.5e-14; disk centre |u| 0.0051 U,
+  K / dragK 0.99993; largest u_x on the disk's column 1.510 U; rho_in 1.00953,
+  rho_out 1.00011 (span 0.94 %), level 1.00480. Equilibrium arm: V(0) 0.831517
+  (sized 0.83152), up to 0.837826 at the outlet; rho_in 1.00572 > rho_out
+  0.99813 (D3.4's direction); inlet nodes off by up to 0.2295 in u_x and
+  0.0854 in u_y (both / U); valid run (steady 1.9e-15, conserving 9e-14,
+  disk centre 0.0041 U, gap 1.267 U).
+- Added after the pre-registration, before any GPU run, no band changed: the
+  GPU gates' verdict code lives in lbm-ref.mjs inletVerdicts (pure), and
+  FLOW-INLET-CPU runs it on the reference's own statistics (all three pass)
+  and on a planted run with the old inlet as the default (all three fail).
+- FLOW-INLET-DEFAULT: inlet word 0 for default and "velocity", 1 for
+  "equilibrium"; with no inlet named the whole 48-byte uniform equals the
+  pre-D3.5 packing on all three configs; 70 src files scanned, no offender;
+  the guard matches both planted lines.
+- verify-flow.mjs: 8/8 OK in ~45 s (the CPU reference is ~40 s of it).
+
+Flow-off identity proof (scripts/research/flow-inlet-identity.mjs 3b3fbdd, on
+the committed 977e640, tree clean): FLOW-INLET-OFF-IDENTITY OK. 12 exported
+WGSL strings of src/shaders.ts (ANNEAL, FLUX, HOMOG, HTMASK, HT_COMMON, PALETTE,
+PHI, RENDER, STAMP, STATS, TRANSPORT, UPDATE) hash identically at base and
+head; src/shaders.ts and src/sim.ts are unchanged; src/lbm.ts is the only src
+file changed; LBM_WGSL differs (4a7f78d3... -> 55009915..., the witness);
+`new FlowSolver` occurs only at src/sim.ts:193, inside setFlow.
+
+typecheck and build pass. The 26 browser-free CI entries (ci.yml's run lines,
+incl. the --self-test modes) all exit 0 on the tree with the D3.5 code, the
+TESTING.md entries and the held science-page sentence (CI-SCRIPT-COUNT and
+TESTING-CHECK-COUNT OK; verify-flow 47 s). verify-scroll-order was not run
+(it launches Chrome). The GPU script's Node-side path (the page's base64
+encoder, the decoder, fieldOfTexture, inletStats, inletVerdicts) was run in a
+scratch harness on f32-rounded reference fields: all three verdicts pass,
+f32 rounding moving V by 8.7e-9. Its in-page half has not run anywhere.
+
+GPU run for the root (one GPU owner; nothing here has touched the GPU):
+
+```text
+cd ../solidify-flowinlet          # feature/flow-inlet, frozen at the head named in the report
+npx vite --port 5199 --strictPort  # or any free port; pass it as the 2nd argument below
+node scripts/verify-flow-gpu.mjs verify-out 5199
+```
+
+The script first runs the Float64 reference on the Node side (~45 s), then the
+browser. A pass is every line OK and "done": the existing FLOW-SHEAR-DECAY,
+FLOW-DRAG-PROFILE, FLOW-FREESTREAM, FLOW-OFF-IDENTITY, FLOW-INERT-ARMS,
+FLOW-UNIFORM-MELT, FLOW-DIRECTION, FLOW-UI, FLOW-RECONFIGURE, plus
+FLOW-INLET-EMPTY (velocity max |V - 1| <= 1e-3; arm Vmax < 0.98, expected
+0.873), FLOW-INLET-BLOCKED (V in [0.98, 1.02], expected 1.000 to 1.009;
+within 2e-3 of the reference; arm expected 0.83 within 0.01 of the reference's
+0.8315, valid), FLOW-INLET-COLUMN (velocity inlet nodes <= 1e-4; arm ~0.23) and
+FLOW-INLET-APP (inlet column at 0.03 within 1e-4 after the dial; crystal west
+reach > 20; 2000 substeps and 2000 lattice steps; the old-inlet arm is
+reported only). FLOW-DIRECTION's ratios are expected to move outward from
+S0's 1.13 / 0.89 / 0.87 with its thresholds unchanged.
+
+Copy HELD: science/index.html now says, in the melt-flow row, "The inlet now
+delivers the speed set on the dial even with a crystal in the channel; the
+Tong comparison above was measured before that fix, when the inlet delivered
+0.84 to 0.94 of the dial in those runs." (0.84 / 0.94: D3.4's replicas of the
+11-01 runs, D20-1024 0.837 and D32-1024 0.940 inlet-column velocity.) It is
+in its own commit and must not ship unless FLOW-INLET-EMPTY, -BLOCKED,
+-COLUMN and -APP pass on the root's run; on a failure, revert that commit.
+
+### Next Tong comparison - PROTOCOL ONLY (pre-registered 2026-11-07; not built, not run)
+
+Follows the D3.4 reading (H_D supported: the 11-01 lambda trend was the box;
+N2 fixed by D3.5; N3: windows must be stationary). FLOW-TIP-TONG stays FAILED
+as recorded on 11-01; this is a new comparison with its own verdict. Runs only
+on a head that passed the D3.5 GPU gates.
+
+- Rows (Tong et al. 2001 Table II, eps4 0.05, U d0/D 0.035, Delta 0.55,
+  Pr 23.1; boxes inferred in d0 per D3.4 L5): Tong's own lambda = D / a2:
+  D2 = 3.19 (box 1479 d0, Tong V d0/D 0.0247), D3 = 4.79 (1384 d0, 0.0248),
+  D4 = 6.38 at 921 / 1658 / 3315 d0 (0.0265 / 0.0240 / 0.0244). Same-D ratios
+  against Table I (box-mismatched, as published): 1.372 / 1.417 / 1.550,
+  1.404, 1.427.
+- Staging: the 11-01 / D3.4 staging (calibrated pure melt, Delta 0.55,
+  eps4 0.05, dt = 0.15 dx^2 / D~, solved T, latent 1, noise 0, theta0 0, seed
+  r 8 W0 at the box centre, inoculant 0, coupling 1, the D3.5 inlet), full
+  square box (Tong simulated half with a symmetry plane, D3.4 L1). Side in W0
+  as Tong's row: 409.6 / 256 / 128 / 230.4 / 460.8.
+  Tier P (primary, the app's staging, dx 0.8 W0): n 512 / 320 / 160 / 288 /
+  576 (1478 / 1387 / 924 / 1663 / 3326 d0). Tier T (Tong's resolution,
+  dx 0.4 W0): n 1024 / 640 / 320 / 576 for the first four rows; the 3315 d0 row
+  needs n 1152 > 1024 (flowRefusal) and is not run in tier T. n 160 is below
+  the D3.4 script's N_MIN 256: the script must show Simulation accepts it or
+  drop that arm and say so.
+- Window: 33 equal chunks over T = min(8 l_D / V_KR, s / (1.5 V_KR)), s = side/2
+  - 8 - 38.4 W0 (the tip may approach the inlet to the stop margin), V_KR =
+  0.017 D~ lambda / a1 W0 per tau0, l_D = D~ / V_KR. Substeps (tier P / T):
+  D2 17919 (543 x 33) / 71709 (2173 x 33); D3 6138 / 24618; D4-921 990 /
+  3993; D4-1658 3894 / 15576; D4-3315 5544 / n/a. T is 6.5 / 5.0 / 1.4 / 5.6
+  / 8.0 l_D: the 921 d0 row (1.4 l_D; also Tong's own outlier, 9 % fast) is
+  information only. Stop rule as D3.4 (west tip within 32 cells of x = 0:
+  the arm is invalid).
+- Statistic per row: v = -dx x least-squares slope of the west tip (phi = 0.5
+  on row n/2, sub-cell) over the last third of the samples; R = v_flow /
+  v_noflow, same geometry and schedule; V d0/D of the flow run.
+- Stationarity (validity): |v_last / v_mid - 1| <= 0.02 in BOTH runs of a row
+  (v_mid over the middle third). A non-stationary row is reported and cannot
+  pass or fail.
+- Verdict per tier, over its valid non-information rows: R in [1.26, 1.54]
+  (FLOW-TIP-TONG's band) on every row; the spread of R over the rows < 5 % of
+  their mean; |V d0/D / V_Tong(row) - 1| <= 0.10 on every row (sized: Tong's
+  own rows move 1.7 % between 1658 and 3315 d0, his no-flow values sit +0.6 to
+  +5.9 % from exact, this solver's dx 0.8 no-flow -4.4 % at lambda 3.2). A tier
+  with fewer than two valid rows has no verdict. The app may call the flow
+  quantitative only if tier P passes; tier T alone says the solver can
+  reproduce Tong at his resolution, which the app does not run.
+- Falsification at D2 tier P: coupling 0 must give R exactly 1 (traces equal)
+  and fail; coupling -1 must give R < 1 and fail. Liveness of the inlet: every
+  flow run ends with inlet-column mean u_x / U within 1e-4 of 1.
+- Reported: the resolution step R(T) - R(P) per row; the inlet distance at the
+  end in d0 and nu / U; V3 mirror as in D3.4.
+- Cost on the Arc 140V from D3.4's per-arm times (flow 1.9-2.7 ms and no flow
+  0.6-0.9 ms per 1024^2-substep; at n 640 0.83 / 0.34 ms per substep, used as
+  the floor for smaller grids): tier P ~ 30 s flow + 12 s no flow, tier T
+  ~ 235 s + 77 s, falsification ~ 30 s; about 6.5 min of stepping, plan for
+  <= 20 min with setup.
