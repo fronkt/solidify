@@ -1,0 +1,12 @@
+{
+ "study": "Tong comparison 3 (tong3; D2 only, far from the inlet)",
+ "protocol": "tasks/todo.md, Tong comparison 3 (D2 only, far from the inlet) - PROTOCOL (75d2588, corrected 71c272a), amended before any run",
+ "protocolCommit": "72729d23a997185d871a29719bd9f9863a33a658",
+ "row": { "id": "D2", "D": 2, "lambda": 3.19, "tongVd0D": 0.0247, "tongNoflowVd0D": 0.018, "exactNoflowVd0D": 0.017, "tongRatio": 1.372, "tongBoxD0": 1479 },
+ "arms": [
+  { "id": "P768", "tier": "P", "n": 1024, "seedX": 768, "chunk": 671, "substeps": 22143, "falsification": true },
+  { "id": "P640", "tier": "P", "n": 1024, "seedX": 640, "chunk": 671, "substeps": 22143 },
+  { "id": "P512", "tier": "P", "n": 1024, "seedX": 512, "chunk": 671, "substeps": 22143 },
+  { "id": "I512", "tier": "I", "n": 1024, "seedX": 512, "chunk": 2683, "substeps": 88539, "informationOnly": true }
+ ]
+}

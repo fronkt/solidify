@@ -79,6 +79,21 @@ needs a Vite server for this tree, refuses unless the hashed files are clean
 and src/ equals the head that passed the D3.5 GPU gates, and writes
 `docs/validation/flow-tong2-<date>.json`. It never re-scores FLOW-TIP-TONG.
 
+## Tong comparison 3 (tong3)
+
+`flow-tong3.mjs` is the third, separately pre-registered comparison
+(tasks/todo.md, "Tong comparison 3 (D2 only, far from the inlet)", with its
+amendment before any run). It uses Tong's D2 row only, the one row inside the
+solver's tau V / W <= 0.2 bound. Tier P is an inlet-distance ladder at n 1024
+and dx 0.8 W0, with a convergence clause and the V and R bands (plus the
+falsification arms) on the farthest arm; tier I is Tong's own geometry at dx
+0.4 W0, information only. Arms are in `flow-tong3-arms.json`. It imports
+`flow-tong2.mjs` unchanged (the file the tong2 GPU run froze) for staging, the
+driver path, validity, falsification and admission. With no option it runs a
+CPU-only self-test (`flow-tong3-selftest.mjs`); `--plan` prints the arms and GPU
+cost; `--run --port N` needs a Vite server for this tree and writes
+`docs/validation/flow-tong3-<date>.json`.
+
 ## Runner lifecycle controls
 
 `node scripts/verify-quant3d-tip-lifecycle.mjs` runs the real benchmark CLI with a
