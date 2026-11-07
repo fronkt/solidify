@@ -167,3 +167,20 @@ export function flatFrontBarrier(nb: number[][]): number {
   const q = planar ? [0, 1, 0] : [0, 0, 1];
   return unlike(q, nb, set, true) - unlike(q, nb, set, false);
 }
+
+/**
+ * Free ids on the volume's grain-id down-counter (sim3d.ts), which annealing
+ * twins, growth twins and recrystallization nuclei all draw from. It starts at
+ * `top` (MAX_GRAINS3 - 2; the id above is the pore census) and counts down
+ * toward the cast's own ids below `nextId`, keeping `margin` ids clear of them.
+ *
+ * The GPU growth-twin pass `atomicSub`s on EVERY twin attempt, refused or not,
+ * so a long cast with twinning on can carry the counter past 0 and wrap the
+ * u32 to ~4.29e9. Read naively that wrapped value is "four billion free ids":
+ * the range a caller then allocates starts far past the end of every per-id
+ * buffer. A counter above `top` has wrapped and has no free ids at all.
+ */
+export function freeGrainIds(ctr: number, nextId: number, top: number, margin = 2): number {
+  if (!Number.isFinite(ctr) || ctr > top) return 0;
+  return Math.max(0, ctr - nextId - margin);
+}

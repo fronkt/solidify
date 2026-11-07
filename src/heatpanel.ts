@@ -1075,24 +1075,28 @@ export class HeatPanel {
     const rxS: number[] = [], rxX: number[] = [];
     let rxX0 = 0;
     let rxSample: { at(d: number): boolean; read(d: number): Promise<void> } | undefined;
-    if (plan.rx && this.host.nucleate && this.host.rxCensus && total > 0) {
-      rxEvent = await this.host.nucleate(plan.rx);
-      if (!("why" in rxEvent)) {
-        const c0 = await this.host.rxCensus();
-        rxX0 = c0 && c0.grain > 0 ? c0.rx / c0.grain : 0;
-        const at = new Set(sweepSchedule(1, total, 24));
-        const census = this.host.rxCensus.bind(this.host);
-        rxSample = {
-          at: d => at.has(d),
-          async read(d) {
-            const c = await census();
-            if (c && c.grain > 0) { rxS.push(d); rxX.push(c.rx / c.grain); }
-          },
-        };
-      }
-    }
     let homogLine = "";
+    // the treatment's solver calls (nuclei, their census, sweeps, diffusion)
+    // all sit inside the try: a throw from any of them (nuclei allocated off a
+    // wrapped id counter once did) must still release the busy latch, or run,
+    // setRun and close all wait on it forever
     try {
+      if (plan.rx && this.host.nucleate && this.host.rxCensus && total > 0) {
+        rxEvent = await this.host.nucleate(plan.rx);
+        if (!("why" in rxEvent)) {
+          const c0 = await this.host.rxCensus();
+          rxX0 = c0 && c0.grain > 0 ? c0.rx / c0.grain : 0;
+          const at = new Set(sweepSchedule(1, total, 24));
+          const census = this.host.rxCensus.bind(this.host);
+          rxSample = {
+            at: d => at.has(d),
+            async read(d) {
+              const c = await census();
+              if (c && c.grain > 0) { rxS.push(d); rxX.push(c.rx / c.grain); }
+            },
+          };
+        }
+      }
       if (total > 0) {
         const onProg = (done: number) => {
           updateProcess(done);
@@ -1106,7 +1110,10 @@ export class HeatPanel {
             ? `${num(r.spawned.toLocaleString())} Σ3 annealing twins on migrating boundaries`
               + (r.saturated ? ` (${HC.twinsSaturated.line})` : "")
               + learnSlot(r.saturated ? HC.twinsSaturated.learn : HC.twins.learn)
-            : "none (too little boundary migration)" + learnSlot(HC.twins.learn);
+            // none because no id was free is not none for want of migration
+            : r.saturated
+              ? `none (${HC.twinsSaturated.line})` + learnSlot(HC.twinsSaturated.learn)
+              : "none (too little boundary migration)" + learnSlot(HC.twins.learn);
         } else {
           delivered = await this.host.anneal(total, onProg, pin, rxSample);
         }

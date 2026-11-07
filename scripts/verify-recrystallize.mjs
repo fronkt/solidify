@@ -2,7 +2,9 @@
 //
 // src/recrystallize.ts holds what the GPU gates will lean on: the Avrami fit
 // the card and figure print, the log-spaced sample schedule, and the Potts
-// bond counting that says which nuclei can grow at a given stored energy.
+// bond counting that says which nuclei can grow at a given stored energy; and
+// the free-id count nuclei and twins allocate from, including a counter the
+// growth twins wrapped past 0.
 // Design and citations: docs/C3B-RECRYSTALLIZATION-DESIGN.md.
 //
 //   node scripts/verify-recrystallize.mjs
@@ -125,6 +127,39 @@ const jmak = (S, n, k, x0 = 0) => S.map(s => x0 + (1 - x0) * (1 - Math.exp(-k * 
   check("RX-JMAK-CPU", v1ok, {
     slopeVsLnV1: runs.map(r => Number(r.slopeV1.toFixed(4))),
     constantVelocityN: n3.map(v => Number(v.toFixed(3))), band: "1 +- 0.05",
+  });
+}
+
+// 5. RX-ID-RANGE — the free-id count nuclei and annealing twins allocate from
+//    (freeGrainIds; Sim3D.freeIds). The GPU growth-twin pass atomicSubs on
+//    every attempt, so a long twinning cast walks the u32 counter past 0; the
+//    wrapped value must read as NO free ids. Below the wrap the count must equal
+//    the rule it replaced (ctr - nextId - margin, floored at 0) at every counter
+//    value, so nothing changes on a cast that never wrapped. Falsification arm:
+//    the replaced rule on the wrapped counter hands out ids past the end of
+//    every per-id buffer (lo >= MAX_GRAINS3), the RangeError that stuck the
+//    heat-treatment panel busy.
+{
+  const { MAX_GRAINS3 } = await server.ssrLoadModule("/src/shaders3d.ts");
+  const top = MAX_GRAINS3 - 2, nextId = 501;
+  let sameBelowWrap = true;
+  for (let ctr = 0; ctr <= top; ctr++) for (const margin of [2, 4]) {
+    if (X.freeGrainIds(ctr, nextId, top, margin) !== Math.max(0, ctr - nextId - margin)) sameBelowWrap = false;
+  }
+  // 4200 twin attempts on a fresh counter: the u32 the GPU leaves behind
+  let ctr = top;
+  for (let i = 0; i < 4200; i++) ctr = (ctr - 1) >>> 0;
+  const wrapped = ctr > top;
+  const freeWrapped = [2, 4].map(m => X.freeGrainIds(ctr, nextId, top, m));
+  const want = 200, oldK = Math.min(want, ctr - nextId - 2), oldLo = ctr - oldK + 1;
+  const oldOverruns = oldLo >= MAX_GRAINS3;
+  const fresh = X.freeGrainIds(top, nextId, top);
+  const edge = [X.freeGrainIds(nextId + 2, nextId, top), X.freeGrainIds(nextId + 3, nextId, top), X.freeGrainIds(top + 1, nextId, top), X.freeGrainIds(NaN, nextId, top)];
+  check("RX-ID-RANGE", sameBelowWrap && wrapped && freeWrapped.every(v => v === 0) && oldOverruns
+    && fresh === top - nextId - 2 && edge.join() === "0,1,0,0", {
+    sameAsReplacedRuleBelowWrap: sameBelowWrap, counterAfter4200Attempts: ctr,
+    freeWhenWrapped: freeWrapped, replacedRuleFirstId: oldLo, replacedRuleOverruns: oldOverruns,
+    freshCast: fresh, edges: edge,
   });
 }
 

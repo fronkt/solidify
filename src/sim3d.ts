@@ -14,6 +14,7 @@ import { HT_RECOVER_3D } from "./heattreat";
 import { DEFAULT_UM_PER_CELL } from "./units";
 import { stream, type Rng } from "./rng";
 import { QUANT_MASS3 } from "./shaders3d-quant";
+import { freeGrainIds } from "./recrystallize";
 
 /**
  * Grid rungs, largest first — the out-of-memory creation ladder walks this and
@@ -1341,7 +1342,8 @@ export class Sim3D {
    *
    * Ids come off the same down-counter GPU twins use, so twins and nuclei can
    * never collide; the range is refused when the cast already recycled ids
-   * (they may be live) and trimmed, with `placed < requested`, when fewer are
+   * (they may be live) or the growth twins wrapped the counter past 0
+   * (`freeIds`), and trimmed, with `placed < requested`, when fewer are
    * free. Sites and orientations draw from stream("recrystallization") only.
    * `placed` counts nuclei that claimed at least one voxel (a site in liquid,
    * a pore or mould claims none). Resolves to a sentence on refusal.
@@ -1358,7 +1360,8 @@ export class Sim3D {
     if (!(await this.ensureHt())) return { why: "The GPU could not allocate the treatment mask." };
     const ctr = await this.readTwinCtr();
     if (ctr == null) return { why: "The grain-id counter could not be read back." };
-    const k = Math.min(want, ctr - this.nextId - 2);
+    // a counter the growth twins carried past 0 has wrapped: no ids are free
+    const k = Math.min(want, this.freeIds(ctr));
     if (k <= 0) return { why: "No free grain ids are left on this cast. Re-pour to recrystallize." };
     const lo = ctr - k + 1, hi = ctr;
     const d = this.device;
@@ -2040,7 +2043,9 @@ export class Sim3D {
    * Current value of the GPU twin-id allocator. Ids count DOWN from
    * MAX_GRAINS3−2, so (before − after) across a treatment is the number of
    * annealing twins spawned, and a value at/under `nextId` means the range is
-   * exhausted — the card must report delivered twinning, not requested.
+   * exhausted — the card must report delivered twinning, not requested. The
+   * raw value is not a free count: growth twins decrement on every attempt and
+   * can wrap it past 0, so ask `freeIds` before allocating from it.
    */
   async readTwinCtr(): Promise<number | null> {
     const buf = this.device.createBuffer({ size: 4, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
@@ -2057,6 +2062,16 @@ export class Sim3D {
     buf.unmap();
     buf.destroy();
     return v;
+  }
+
+  /**
+   * Ids still free below a counter value read with `readTwinCtr`, `margin`
+   * kept clear of the cast's own (recrystallize.ts `freeGrainIds`). 0 when the
+   * growth twins' per-attempt decrement has wrapped the counter past 0, which
+   * the raw value cannot show: a wrapped u32 reads as ~4.29e9.
+   */
+  freeIds(ctr: number, margin = 2): number {
+    return freeGrainIds(ctr, this.nextId, MAX_GRAINS3 - 2, margin);
   }
 
   /** one voxel's grain id (256 B staging — the copy-row alignment minimum) */
@@ -2113,7 +2128,7 @@ export class Sim3D {
       if (nb == null || nb === pid || nb === 0 || nb === PORE_ID) continue;
       const ctr = await this.readTwinCtr();
       if (ctr == null) return 0;
-      if (ctr <= this.nextId + 2) return -1;
+      if (this.freeIds(ctr) <= 0) return -1;
       const tid = ctr;
       this.device.queue.writeBuffer(this.twinCtrBuf, 0, new Uint32Array([ctr - 1]));
       const q1 = Array.from(this.quatCPU.subarray(pid * 4, pid * 4 + 4)) as [number, number, number, number];

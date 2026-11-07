@@ -1788,13 +1788,16 @@ async function boot() {
       }
       const s3 = sim3d;
       const ctr0 = await s3.readTwinCtr();
-      const avail = Math.max(0, (ctr0 ?? s3.nextId) - s3.nextId - 4);
+      // free ids, not the raw counter: growth twins can wrap it past 0
+      const avail = ctr0 == null ? 0 : s3.freeIds(ctr0, 4);
       const grains = lastStats3?.grainCount ?? 500;
-      const events = Math.min(Math.round(grains * 0.8), 400, avail);
+      const wanted = Math.min(Math.round(grains * 0.8), 400);
+      const events = Math.min(wanted, avail);
       // 24 chunks bounds the readback stalls; events spread evenly, stamped
       // BEFORE each chunk so every plate faces the anneal that follows it
       const chunks = Math.max(1, Math.min(24, events));
-      let delivered = 0, spawned = 0, saturated = false;
+      // a budget the id range cut short is saturation, reported as such
+      let delivered = 0, spawned = 0, saturated = events < wanted;
       for (let ci = 0; ci < chunks; ci++) {
         if (!saturated) {
           const per = Math.round(((ci + 1) * events) / chunks) - Math.round((ci * events) / chunks);

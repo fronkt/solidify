@@ -9,11 +9,13 @@ browser-free scripts.
   reason and clamps requests; the GPU rule is pinned to the STRICT
   `age < t` comparison in both dimensions, and every 2D render read of the
   state goes through `loadState`.
-- `verify-recrystallize.mjs` (browser-free, four checks): the Avrami fit
+- `verify-recrystallize.mjs` (browser-free, five checks): the Avrami fit
   recovers exact JMAK exponents, is sweep-clock invariant and refuses thin
   windows; the bond counter reproduces the cited triangular thresholds and the
   26-neighbour flat-front barrier of 8; a CPU Poisson-sphere model on 64³ gives
-  slope 1 against one nucleus's volume. Design: `docs/C3B-RECRYSTALLIZATION-DESIGN.md`.
+  slope 1 against one nucleus's volume; the free grain-id count is zero once
+  growth twins have wrapped the u32 counter past 0 (the old rule handed out ids
+  past every per-id buffer) and unchanged below the wrap. Design: `docs/C3B-RECRYSTALLIZATION-DESIGN.md`.
 - `verify-flow.mjs` (browser-free, four checks): the drag constant derived
   from the planar shear ODE on this repo's interface profile (2.7571 against
   Tong et al.'s 2.757, with an h = 2 arm that misses), the lattice stability
