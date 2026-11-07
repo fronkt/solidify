@@ -5671,3 +5671,94 @@ longer-time temporal behavior; and further parameters/grain rotations before
 angular-candidate adoption. The unchanged full published-reference sigma gate
 still fails and Q3 remains open. No new cloud resources or application default
 changes are part of this phase.
+
+## Q3c step-back and interface-width ladder pre-registration - 2026-11-07
+
+Plan item S3 (root plan, solidify-visual tasks/todo.md). Branch
+`research/q3c-stiffness` from bb12806, worktree ../solidify-q3c. CPU only; the
+root owns the GPU. Production source, physical coefficients, the five-arm
+reference gate, its 10% bands and every earlier failure stay unchanged.
+
+- [x] Read QUANT-3D, the independent diagnostics review, this log from 10-29,
+      validation JSONs, research protocols and lessons. Both recorded "next
+      targets" (paired-phase capillary refinement; off-principal kinetics) were
+      already completed on 10-31; neither explains or was run in a needle.
+- [x] Verify the reference from the paper: KR96 Table I, p.2 conditions,
+      the 10% d0/W0 statement and the equilibrium-calibrated eps4 / grid-
+      corrected tau(n) (arXiv PDF, hash-identical to the local copy). KLP 2000
+      and Lu 2005 locate rho as the apex curvature in the phi=0 section. KR98
+      is closed access: Appendix B and Eq. 108 stay UNCONFIRMED.
+- [x] Replay all 484 archived tip checkpoints on the CPU (default 12ce78b and
+      candidate a11a814). Exact reproduction; decomposition into velocity
+      (6-10% slow) and apex distortion (rho/rho_Iv 5-6% high); morphology
+      A1(z) matches KR96 at eps4 0.0171; time, domain and dt excluded.
+- [x] Rank hypotheses (width > anisotropy definition > lattice kinetics >
+      radius metrology; reference precision limits any single comparison).
+- [x] Known-truth metrology at the ladder resolutions, including the measured
+      apex profile: estimator rho bias <= 0.38%, sigma* <= 0.8%.
+- [x] Freeze protocol `scripts/research/quant3d-width-ladder.md` (W1: lambda
+      5.0/4.4/4.0-anchor, lattice-kinetics candidate, fixed terminal), its
+      decision rule, predictions, controls and wall-time estimate; implement
+      the CLI, pure model, synthetic-browser CLI controls and replay tooling.
+      Typecheck and build pass. Commit and push BEFORE any GPU run.
+- [x] Root: run W1 locally (about 2.5-3 h on the Arc 140V, one GPU owner,
+      frozen pushed source) and record the verdict without reinterpretation.
+      Done 2026-11-07 13:15-16:15 on frozen 230c146 (clean before and after,
+      exact-source capture verified before browser admission, source stable,
+      device-error ledger read, no errors). Verdict below.
+- [ ] Depending on the frozen verdict, pre-register the narrow-width five-arm
+      campaign (cloud-class GPU; the root decides on any rental) or move to the
+      anisotropy-definition / angular-kinetic hypotheses. The verdict is
+      form-unresolved, so the pre-registered next step is a DIRECT narrow
+      ladder (no extrapolation). Its hardware is Frank's decision.
+
+### W1 result - 2026-11-07 (frozen 230c146, Intel Arc 140V)
+
+CLI verdict: `width-trend-form-unresolved`. q3Accepted false (diagnostic only).
+Results: `docs/validation/quant3d-q3c-width-ladder-2026-11-07.json` (CLI),
+`docs/validation/quant3d-q3c-width-ladder-replay-2026-11-07.json` (CPU replay).
+Raw checkpoints (73 MB, 199 files) zipped to
+`D:\solidify\q3c-w1-width-ladder-2026-11-07.zip`, sha256
+3ea24d4da32d6375217125ed491073efd75cc2b3bab5b325c00bf929081928ad.
+
+| Arm | lambda | V d0/D | sigma* | P | rho/rho_Iv | window V spread |
+|---|---:|---:|---:|---:|---:|---:|
+| w50 | 5.0 | 0.0111286 | 0.048676 | 0.33810 | 0.7179 | 3.3e-4 |
+| w44 | 4.4 | 0.0113569 | 0.050998 | 0.33369 | 0.7085 | 1.2e-4 |
+| w40-anchor | 4.0 | 0.0114949 | 0.052713 | 0.33020 | 0.7011 | 7.4e-4 |
+
+- Rule 1-2: all three arms complete and valid; no refusal.
+- Rule 3, platform anchor: Intel lambda 4 vs archived NVIDIA lambda 4 is
+  -0.024% in V d0/D (limit 0.25%) and +0.033% in sigma* (limit 1%). Passes.
+- Rule 4, monotone: V d0/D strictly decreases 3.6 -> 4.0 -> 4.4 -> 5.0 by
+  1.18% / 1.20% / 2.01%, against required 0.17% / 0.15% / 0.07%. Passes, so the
+  width hypothesis is NOT refuted.
+- Rule 5, form: log residuals of V d0/D at lambda 4.4 / 5.0 are quadratic
+  +0.079% / +0.207% (RMS 0.157%) and linear -0.044% / -0.329% (RMS 0.235%).
+  RMS_Q <= 0.2% holds but RMS_Q <= 0.5 RMS_L does not (0.157 > 0.117), and
+  linear fails 0.2%. Hence form-unresolved. Descriptively, both measured points
+  sit between the two predictions (quadratic residuals positive, linear
+  negative), the same pattern the W^1.5 control produces. That is a
+  description, not a fitted exponent and not evidence.
+- Rule 6: no follow-up lambda and no W0 -> 0 value, since no form is supported.
+- Reported only: sigma* residuals favour linear (RMS 0.39% vs 1.53%).
+- CPU replay (`quant3d-q3c-tip-replay.py --campaign ladder=...`) reproduces
+  P, sigma*, V d0/D and rho/rho_Iv of all three arms to the printed digits
+  (61 checkpoints each); no new metrology defect.
+
+Meaning, as frozen in protocol section 5: the width trend is real and
+monotone, but its form is not resolved by lambda 4.4/5.0, so extrapolating to
+W0 -> 0 is not allowed and the next experiment is a direct narrow ladder.
+Cost estimate (mine, scaled from the protocol's own "lambda 2.4 base arm is
+about 21x lambda 4", i.e. cost ~ lambda^-6): lambda 3.2 about 3.8x the lambda 4
+arm (about 4.6 h on the Arc), lambda 2.8 about 8.4x (about 10 h, textures about
+7 GiB). A local narrow ladder is possible but long; the five-arm gate at a
+converged width still needs about 30 GB of textures (section 7). Q3 stays OPEN.
+
+Review: the replay found no new solver defect. The only resolved, replicated
+control sensitivity is interface width (10% narrower W0: V d0/D +1.2-1.5%,
+sigma* +3.1-3.5%), which the original 10% pointwise control band could not flag.
+Two-point extrapolations that land near the reference are hypothesis-generating
+only and are not used as evidence. Q3c cannot close on local hardware: the
+unchanged five-arm gate at a converged width needs about 30 GB textures for its
+dx arm. Q3 remains open.
