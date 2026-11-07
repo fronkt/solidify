@@ -6953,3 +6953,23 @@ protocol switch. The self-test must cover, on synthetic traces:
 - both falsification arms, and the no-verdict paths;
 - tier I never gating.
 Commit the build before any GPU run. The GPU run is the root's.
+
+#### Amendment before any run (2026-11-07, tong3)
+
+Written by the build delegate (CPU only) before any run of this comparison,
+CPU or GPU. No arm, window, statistic, band or threshold changes.
+
+1. Falsification arms and the bound. The protocol gives the arms "the same
+   meaning as tong2's amendment item 1", which requires them to be complete,
+   not stopped and inlet-live, and reports their stationarity. The bound clause
+   did not exist in tong2, so item 1 does not say whether a falsification arm
+   must also have tau V / W <= 0.2. Resolution: it is reported for both arms,
+   not required, so tong2's falsification code runs unchanged. This cannot
+   change a verdict. Coupling 0 reproduces the no-flow run exactly, and a
+   coupling -1 arm that counts has R < 1. So either arm can be out of bound
+   only if P768's own no-flow run is, and that makes P768 invalid (NO VERDICT)
+   anyway.
+2. Cost numbers. The cost section still uses the first draft's substep counts:
+   22110 = 670 x 33 and 88473 = 2681 x 33. The frozen formula gives 22143 and
+   88539 (71c272a corrected the window, not the cost lines). The estimate moves
+   by +0.15%. It is not a criterion.
