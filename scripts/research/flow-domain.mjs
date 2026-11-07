@@ -276,9 +276,20 @@ export function installDriver(helperSrc) {
       const i = device.adapterInfo ?? {};
       const served = {};
       for (const p of paths) {
+        // Run 1 (2026-11-07): Vite answers the ?raw IMPORT of the HTML entry
+        // module (src/main.ts) with untransformed TypeScript, which throws; a
+        // fetch of the same ?raw URL returns its exact text. Fall back only on
+        // a throw, record the vehicle, and keep the exact hash comparison.
         try {
-          const text = (await load(`/${p}?raw`)).default;
-          served[p] = { raw: await sha(text), lf: await sha(text.replace(/\r\n/g, "\n")) };
+          let text, via = "import", importError;
+          try { text = (await load(`/${p}?raw`)).default; }
+          catch (e) {
+            importError = String(e?.message ?? e).slice(0, 160);
+            const r = await fetch(`/${p}?raw`);
+            if (!r.ok) throw new Error(`fetch ${r.status} after import failed: ${importError}`);
+            text = await r.text(); via = "fetch";
+          }
+          served[p] = { raw: await sha(text), lf: await sha(text.replace(/\r\n/g, "\n")), via, ...(importError ? { importError } : {}) };
         } catch (e) { served[p] = { error: String(e?.message ?? e) }; }
       }
       const wgsl = {};
