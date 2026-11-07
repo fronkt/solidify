@@ -484,8 +484,9 @@ function recordingDevice() {
  *  for WebGPU: WGSL compilation and the GPU's own validation are NOT exercised. */
 async function simulationAccepts(geos) {
   const { createServer } = await import("vite");
-  const server = await createServer({ root: REPO, configFile: false, server: { middlewareMode: true }, appType: "custom", logLevel: "error",
-    optimizeDeps: { noDiscovery: true, include: [] } });
+  // no port at all: middleware mode, and no HMR websocket (it would bind 24678, which other sessions' servers may hold)
+  const server = await createServer({ root: REPO, configFile: false, server: { middlewareMode: true, hmr: false, ws: false }, appType: "custom",
+    logLevel: "error", optimizeDeps: { noDiscovery: true, include: [] } });
   const saved = { window: globalThis.window, raf: globalThis.requestAnimationFrame, tu: globalThis.GPUTextureUsage, bu: globalThis.GPUBufferUsage,
     ss: globalThis.GPUShaderStage, mm: globalThis.GPUMapMode };
   const detail = {}, bad = [];
