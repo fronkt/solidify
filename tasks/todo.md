@@ -5784,10 +5784,20 @@ at a time: only the root session runs browser/GPU scripts; delegates work
 CPU-only (typecheck, build, browser-free gates, light single-process CPU
 studies) in their own worktrees and hand GPU runs back to the root.
 
-- [ ] S0 PR 7 close-out: full 45-script runner on frozen 5fa0578
+- [x] S0 PR 7 close-out: full 45-script runner on frozen 5fa0578
       (../solidify-verify-5fa0578, log verify-out/pr7-full-suite-5fa0578.log);
       independent read-only review of origin/v7-experiments...5fa0578; fix
       anything confirmed; mark PR 7 ready and merge into v7-experiments.
+      Evidence: the 5fa0578 run stopped at verify-tools (LAB-CURVE, no card
+      in 150 s; 7 instrumented reruns, incl. 2 after verify-optimizer3d, all
+      passed, HUD-LIVE failed once: the stale-read race, fixed below). The
+      review's findings 1-9 were verified and fixed (S0 review fixes); the
+      two visual gates corrected above. Full runner on frozen 09f105a: 45/45
+      scripts, SUITE EXIT=0, 03:28-04:05, tree clean before and after
+      (../solidify-verify-c3b021d/verify-out/pr7-full-suite-09f105a.log).
+      LAB-CURVE's earlier stall stays unexplained; the gate now records the
+      lab's run and report state if it recurs (4f172c2). Open for Frank: the
+      inlet brings tFar while the furnace cools (stated as a limit, 5b0e81a).
 - [ ] S1 D3.4 flow domain study (research/flow-domain, ../solidify-flowdomain):
       pre-register BEFORE any run a study that holds lambda and the KR staging
       fixed and varies the domain (in d0) and the inlet distance, plus any
