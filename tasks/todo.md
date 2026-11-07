@@ -6620,3 +6620,50 @@ on a head that passed the D3.5 GPU gates.
   the floor for smaller grids): tier P ~ 30 s flow + 12 s no flow, tier T
   ~ 235 s + 77 s, falsification ~ 30 s; about 6.5 min of stepping, plan for
   <= 20 min with setup.
+
+#### Amendment before any run (2026-11-07)
+
+Written by the build delegate (research/flow-tong2, CPU only) before any run of
+this comparison, CPU or GPU. No row, grid, window, statistic, band or threshold
+changes. Each item settles a point the protocol leaves open, and
+scripts/research/flow-tong2.mjs implements the protocol with these readings.
+
+1. Falsification arms: what "fail" means and which validity clauses apply. The
+   protocol says coupling 0 "must give R exactly 1 (traces equal) and fail" and
+   coupling -1 "must give R < 1 and fail", and also that a non-stationary row
+   "cannot pass or fail". Read together, a coupling -1 run whose west tip (the
+   downstream tip in that arm, its stationarity not predicted either way)
+   drifts by more than 2 % could never fail, so the falsification would go
+   undecided for a reason unrelated to the coupling (lessons.md: "A
+   falsification arm that fails for its own reason has proved nothing").
+   Resolution: each arm's R is the statistic unchanged, v_arm / v_noflow against
+   D2-P's own no-flow run, and the arm fails when R is outside [1.26, 1.54], the
+   clause its coupling breaks (for coupling -1, R < 1 implies it). It counts
+   only if it and D2-P's no-flow run are complete (item 4) and neither trips the
+   stop rule, and the arm passes the inlet liveness clause, so that it fails on
+   the band and not on a broken run. Its stationarity and its R over the middle
+   third are reported, not required. Coupling 0 also needs its west-tip trace
+   equal to the no-flow trace at every sample (positions and times, bit for
+   bit), as written.
+2. Consequence: the protocol does not say what follows if the falsification is
+   not demonstrated (either arm misses item 1, or D2-P did not run).
+   Resolution: neither tier gets a verdict; both report NO VERDICT
+   ("falsification not demonstrated") with their row clauses still computed and
+   reported. This follows D3.4, whose control Z voided the arms it guarded, and
+   covers tier T too, because the arms test the coupling path and the verdict
+   code that tier T shares.
+3. Inlet liveness: the protocol requires every flow run to end with the
+   inlet-column mean u_x / U within 1e-4 of 1 but does not say what a miss does.
+   Resolution: a row whose flow run misses it is invalid (reported with the
+   value; it cannot pass or fail), as a non-stationary row is; a falsification
+   arm that misses it is item 1's broken run.
+4. Completeness: besides the stop rule, stationarity and liveness, the script
+   applies D3.4's V1 clauses, which the reused D3.4 machinery carries: 33
+   samples per run (unless the stop rule ended it), every chunk delivered in
+   full, flow off in the no-flow run and on at the staged coupling for the
+   whole flow run, a finite final state, no page, device or console errors in
+   the arm's page, and the served source admitted. A row that misses one is
+   invalid and reported. No threshold is added.
+5. "A tier with fewer than two valid rows has no verdict" counts valid
+   non-information rows only (the 921 d0 row never counts), since the verdict
+   is computed "over its valid non-information rows".
