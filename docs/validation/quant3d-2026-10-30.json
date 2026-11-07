@@ -1,0 +1,423 @@
+{
+  "status": "long 3D tip not accepted",
+  "accepted": false,
+  "scope": "Measured five-arm 3D reference study; coefficients and acceptance bands were held fixed",
+  "source": "12ce78b3578d7dc3e7280b67987132791c3d4a71",
+  "sourceHashes": {
+    "src/sim3d.ts": "8c03b2da6e2417a290a404212046318e9d15c8762bf24b5b90a1bbcc69d7eb01",
+    "src/shaders3d.ts": "2a0a54a31a38e5211120d50a1c8896729f80cb76c1d994f09d67af85ec2072d3",
+    "src/shaders3d-quant.ts": "3704128f1a5751af427ef7b1115d3bc7a635bcd4793be654a240b892df9f9c08",
+    "scripts/verify-quant3d-tip.mjs": "095f4b2eb6281d807bbe7a744b3cdf5f2aa9c145bcfb555e2baa0a2d05d0da59",
+    "scripts/fixtures/quant3d-tip-reference.json": "bf502050c19d5196a288b5eed0c9e78bec1332f1c01b37737d2b1f4e10ab56c5",
+    "scripts/fixtures/quant3d-tip-driver.mjs": "f50a977560dcd927e3022bde6fdfc5318bf4351321239f207babb9f27efb4c6d",
+    "scripts/fixtures/quant3d-tip-analysis.mjs": "1ce3e3abd2604b57cc5fdb8df42a31fc44d27304a8c866ef4e3cd17e058e56b7",
+    "scripts/fixtures/rect3d-specialize.mjs": "b8fe39178d149f9ef62ebf4d8b38d7256084bae48d28398c0adfa5b9c4ea5e73"
+  },
+  "observedGpu": "NVIDIA GeForce RTX 5090",
+  "hardware": {
+    "vendor": "nvidia",
+    "architecture": "blackwell",
+    "device": "",
+    "description": "",
+    "isFallbackAdapter": false
+  },
+  "deviceLimits": {
+    "maxBufferSize": 2147483648,
+    "maxTextureDimension3D": 2048
+  },
+  "productionSpecializationExactPairs": 9,
+  "equivalencePassed": true,
+  "baseSustainedStepsPerSecond": 555.45,
+  "largestDxSustainedStepsPerSecond": 186.04,
+  "reference": {
+    "version": 2,
+    "source": {
+      "authors": "Alain Karma and Wouter-Jan Rappel",
+      "title": "Numerical Simulation of Three-Dimensional Dendritic Growth",
+      "journal": "Physical Review Letters 77, 4050 (1996)",
+      "url": "https://arxiv.org/pdf/patt-sol/9607005",
+      "location": "Table I, PDF page 3",
+      "evidence": "verify-out/q3-kr96-table.png; table visually checked before port implementation"
+    },
+    "undercooling": 0.45,
+    "publishedGrid": [
+      200,
+      200,
+      400
+    ],
+    "geometry": "three-dimensional cubic dendrite; full 3D column, not the distinct axisymmetric column",
+    "anisotropyScope": {
+      "publishedEpsilon": "effective lattice-corrected surface-energy anisotropy",
+      "fixtureEpsilon": "raw continuum energy coefficient, held fixed during dx refinement; no fitted offset is applied",
+      "followupSource": "Karma and Rappel, Phys. Rev. E 57, 4323 (1998), Sec. VI.B, Eq. 108 and Table V",
+      "doi": "https://doi.org/10.1103/PhysRevE.57.4323",
+      "leadingEstimate": "epsilon_effective = epsilon_raw - (dx/W0)^2/240 + O(epsilon_raw*dx^2,dx^4)",
+      "publishedExample": {
+        "dxOverW0": 0.8,
+        "epsilonRaw": 0.02,
+        "epsilonEffective": 0.0171
+      },
+      "limit": "The published method independently measures equilibrium Wulff shapes and calibrates discrete planar kinetic coefficients. Its exact corrections cannot be transferred to a different discretization or fitted from tip P/sigma. A failed coarse-grid comparison calls for diagnosis or refinement."
+    },
+    "definitions": {
+      "P": "rho*V/(2*D)",
+      "sigmaStar": "2*D*d0/(rho*rho*V)",
+      "radius": "local tip radius; do not substitute a whole-tip parabolic fit",
+      "rhoOverD0": "1/(P*sigmaStar)",
+      "Vd0OverD": "2*sigmaStar*P*P"
+    },
+    "rows": [
+      {
+        "epsilon4": 0.0171,
+        "full3D": {
+          "P": 0.312,
+          "sigmaStar": 0.063
+        },
+        "numericalSolvability": {
+          "P": 0.324,
+          "sigmaStar": 0.0578
+        }
+      },
+      {
+        "epsilon4": 0.0265,
+        "full3D": {
+          "P": 0.236,
+          "sigmaStar": 0.16
+        },
+        "numericalSolvability": {
+          "P": 0.247,
+          "sigmaStar": 0.142
+        }
+      }
+    ],
+    "acceptance": {
+      "relativeTarget": 0.1,
+      "requires": [
+        "temporal stationarity",
+        "domain enlargement",
+        "dx refinement",
+        "dt refinement",
+        "interface-width refinement at matched physical size and time",
+        "resolved local curvature",
+        "thin-interface validity reported"
+      ]
+    }
+  },
+  "arms": [
+    {
+      "name": "base",
+      "configuration": {
+        "lambda": 4,
+        "epsilon4": 0.0171,
+        "undercooling": 0.45,
+        "radius": 8,
+        "name": "base",
+        "dims": [
+          270,
+          270,
+          612
+        ],
+        "dx": 0.8,
+        "dt": 0.0180006338,
+        "D": 2.5068,
+        "d0": 0.220975,
+        "physicalTimeScale": 1,
+        "maximumTimeTau0": 1949.1356423198636,
+        "samplePeriodTau0": 32.370331090315965
+      },
+      "finalTimeTau0": 1133.4099072174133,
+      "resolvedSampleCount": 35,
+      "stop": "resolved stationary window",
+      "runnerReportedStationary": true,
+      "resolved": true,
+      "boundaryClear": true,
+      "P": 0.3278802616227004,
+      "sigmaStar": 0.05133255873964548,
+      "relativePointError": {
+        "P": 0.050898274431732116,
+        "sigmaStar": 0.1851974803230877
+      },
+      "referenceErrorBudget": {
+        "P": 0.10602991495399694,
+        "sigmaStar": 0.3034669325156989
+      },
+      "uncertainty": {
+        "P": 0.02204307475853473,
+        "sigmaStar": 0.04353918962003678
+      },
+      "drift": {
+        "timeSpan": 291.4482618558742,
+        "rhoVariation": 0.02236556642104018,
+        "velocityVariation": 0.007234935995744506,
+        "inputBudget": 0.025,
+        "P": 0.029762315858349542,
+        "sigmaStar": 0.05390274367801817
+      },
+      "accepted": false
+    },
+    {
+      "name": "domain",
+      "configuration": {
+        "lambda": 4,
+        "epsilon4": 0.0171,
+        "undercooling": 0.45,
+        "radius": 8,
+        "name": "domain",
+        "dims": [
+          300,
+          300,
+          680
+        ],
+        "dx": 0.8,
+        "dt": 0.0180006338,
+        "D": 2.5068,
+        "d0": 0.220975,
+        "physicalTimeScale": 1,
+        "maximumTimeTau0": 1949.1356423198636,
+        "samplePeriodTau0": 32.370331090315965
+      },
+      "finalTimeTau0": 1165.793047423638,
+      "resolvedSampleCount": 36,
+      "stop": "resolved stationary window",
+      "runnerReportedStationary": true,
+      "resolved": true,
+      "boundaryClear": true,
+      "P": 0.3270524359158719,
+      "sigmaStar": 0.05155457805853486,
+      "relativePointError": {
+        "P": 0.0482449869098458,
+        "sigmaStar": 0.18167336415024027
+      },
+      "referenceErrorBudget": {
+        "P": 0.09457525855664883,
+        "sigmaStar": 0.2850080854421324
+      },
+      "uncertainty": {
+        "P": 0.021563238300935206,
+        "sigmaStar": 0.043087157231291195
+      },
+      "drift": {
+        "timeSpan": 291.4482618562454,
+        "rhoVariation": 0.019171360280906675,
+        "velocityVariation": 0.0029294080302574056,
+        "inputBudget": 0.025,
+        "P": 0.02215692904792177,
+        "sigmaStar": 0.042528210612959416
+      },
+      "accepted": false
+    },
+    {
+      "name": "dx",
+      "configuration": {
+        "lambda": 4,
+        "epsilon4": 0.0171,
+        "undercooling": 0.45,
+        "radius": 8,
+        "name": "dx",
+        "dims": [
+          360,
+          360,
+          816
+        ],
+        "dx": 0.6,
+        "dt": 0.010125356512499998,
+        "D": 2.5068,
+        "d0": 0.220975,
+        "physicalTimeScale": 1,
+        "maximumTimeTau0": 1949.1356423198636,
+        "samplePeriodTau0": 32.370331090315965
+      },
+      "finalTimeTau0": 1165.3475317354498,
+      "resolvedSampleCount": 36,
+      "stop": "resolved stationary window",
+      "runnerReportedStationary": true,
+      "resolved": true,
+      "boundaryClear": true,
+      "P": 0.33352870529168394,
+      "sigmaStar": 0.05019442202104604,
+      "relativePointError": {
+        "P": 0.06900226055026892,
+        "sigmaStar": 0.20326314252307864
+      },
+      "referenceErrorBudget": {
+        "P": 0.09869799508619015,
+        "sigmaStar": 0.2677425769554518
+      },
+      "uncertainty": {
+        "P": 0.013888226107965362,
+        "sigmaStar": 0.02724760283123029
+      },
+      "drift": {
+        "timeSpan": 291.33688293267505,
+        "rhoVariation": 0.011506428144855816,
+        "velocityVariation": 0.0021690391085162374,
+        "inputBudget": 0.025,
+        "P": 0.013700425146017547,
+        "sigmaStar": 0.02564088773228157
+      },
+      "accepted": false
+    },
+    {
+      "name": "dt",
+      "configuration": {
+        "lambda": 4,
+        "epsilon4": 0.0171,
+        "undercooling": 0.45,
+        "radius": 8,
+        "name": "dt",
+        "dims": [
+          270,
+          270,
+          612
+        ],
+        "dx": 0.8,
+        "dt": 0.0090003169,
+        "D": 2.5068,
+        "d0": 0.220975,
+        "physicalTimeScale": 1,
+        "maximumTimeTau0": 1949.1356423198636,
+        "samplePeriodTau0": 32.370331090315965
+      },
+      "finalTimeTau0": 1165.4690360149664,
+      "resolvedSampleCount": 36,
+      "stop": "resolved stationary window",
+      "runnerReportedStationary": true,
+      "resolved": true,
+      "boundaryClear": true,
+      "P": 0.3269410681786814,
+      "sigmaStar": 0.051582563423637505,
+      "relativePointError": {
+        "P": 0.04788803903423533,
+        "sigmaStar": 0.18122915200575385
+      },
+      "referenceErrorBudget": {
+        "P": 0.09632542438062441,
+        "sigmaStar": 0.28974727203801987
+      },
+      "uncertainty": {
+        "P": 0.021512544518027088,
+        "sigmaStar": 0.04297997483555149
+      },
+      "drift": {
+        "timeSpan": 291.3672590039862,
+        "rhoVariation": 0.021218699838350456,
+        "velocityVariation": 0.0029104108088253825,
+        "inputBudget": 0.025,
+        "P": 0.024190865780534754,
+        "sigmaStar": 0.046874186760231584
+      },
+      "accepted": false
+    },
+    {
+      "name": "width",
+      "configuration": {
+        "lambda": 3.6,
+        "epsilon4": 0.0171,
+        "undercooling": 0.45,
+        "radius": 8.88888888888889,
+        "name": "width",
+        "dims": [
+          300,
+          300,
+          680
+        ],
+        "dx": 0.8,
+        "dt": 0.0180006338,
+        "D": 2.25612,
+        "d0": 0.2455277777777778,
+        "physicalTimeScale": 1.3717421124828535,
+        "maximumTimeTau0": 2673.711443511473,
+        "samplePeriodTau0": 44.40374635159941
+      },
+      "finalTimeTau0": 1598.6722890474007,
+      "resolvedSampleCount": 36,
+      "stop": "resolved stationary window",
+      "runnerReportedStationary": true,
+      "resolved": true,
+      "boundaryClear": true,
+      "P": 0.32535684587196056,
+      "sigmaStar": 0.05293554814034478,
+      "relativePointError": {
+        "P": 0.04281040343577103,
+        "sigmaStar": 0.1597532041215114
+      },
+      "referenceErrorBudget": {
+        "P": 0.08916722345422445,
+        "sigmaStar": 0.2643681825138837
+      },
+      "uncertainty": {
+        "P": 0.022978972207798876,
+        "sigmaStar": 0.046627611037682426
+      },
+      "drift": {
+        "timeSpan": 399.66807226265837,
+        "rhoVariation": 0.019445010305663986,
+        "velocityVariation": 0.0015178569580984983,
+        "inputBudget": 0.025,
+        "P": 0.020992382007955168,
+        "sigmaStar": 0.041635540827834605
+      },
+      "accepted": false
+    }
+  ],
+  "convergence": [
+    {
+      "arm": "domain",
+      "changes": {
+        "P": 0.002524780548641581,
+        "sigmaStar": 0.004325116930473882,
+        "rhoOverD0": 0.001786220119141202,
+        "Vd0OverD": 0.0007398820216534263
+      }
+    },
+    {
+      "arm": "dx",
+      "changes": {
+        "P": 0.017227153720779098,
+        "sigmaStar": 0.02217182907970694,
+        "rhoOverD0": 0.005355157826439694,
+        "Vd0OverD": 0.011808758130814834
+      }
+    },
+    {
+      "arm": "dt",
+      "changes": {
+        "P": 0.002864440327608797,
+        "sigmaStar": 0.004870294606976966,
+        "rhoOverD0": 0.0019879438186176657,
+        "Vd0OverD": 0.000878242405552454
+      }
+    },
+    {
+      "arm": "width",
+      "changes": {
+        "P": 0.007696150229511534,
+        "sigmaStar": 0.031227537454922905,
+        "rhoOverD0": 0.022760929339524782,
+        "Vd0OverD": 0.01541565371494169
+      }
+    }
+  ],
+  "deviceErrors": [],
+  "scientificCaveat": "Stopping-rule and local capillary/kinetic diagnostics are preserved separately; no coefficients were fitted to the reference.",
+  "cloudArchiveSha256": "72b3860f9a16a2d3a903b60102a4a0b92b2a9440bdef39e8c107b6df755d7dce",
+  "pointControlComparison": {
+    "passed": true,
+    "largestRelativeChange": 0.031227537454922905,
+    "caveat": "Pointwise domain/dx/dt/width changes satisfy the original 10% comparison band. The combined final runner assertion fails because all five literature-reference verdicts fail. This does not establish exact paired-time or zero-kinetic convergence."
+  },
+  "evidence": {
+    "archive": "solidify-q3-validation-evidence.tar.gz",
+    "bytes": 249914660,
+    "sha256": "e12246766121b1eeed12985a84d84764528f7148210b6216f1491f51d6626eac",
+    "rawTipCheckpointsVerified": 179,
+    "rawEquilibriumCheckpointsVerified": 102,
+    "status": "scientific-only whitelist and all member hashes verified; raw evidence backed up as a draft GitHub release"
+  },
+  "protocolLimitations": [
+    "Protocol v3 selects the first reference-blind qualifying stationary/resolved/boundary-clear window within a fixed maximum horizon. It does not run every arm to an exact common physical terminal time.",
+    "Independent NumPy/QR replay of ten raw base checkpoints reproduces the recorded P and sigma values; different arithmetic does not remove the miss.",
+    "Equilibrium support measurements do not establish finite-grid coupled kinetic cancellation. Independent planar and local-curvature diagnostics are inconclusive about a unique correction.",
+    "No numerical or physical coefficient, reference value or acceptance threshold was fitted or widened after the five-arm results."
+  ]
+}

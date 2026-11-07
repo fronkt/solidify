@@ -102,6 +102,8 @@ export class Nucleation {
    * change in how readily the bulk liquid nucleates.
    */
   setFilm(frac: number) { this.filmFrac = Math.max(0, Math.min(1, frac)); }
+  /** Captured by a temporary search so exit can restore the original charge. */
+  get filmFraction(): number { return this.filmFrac; }
 
   /**
    * Draw a fresh site population for a new melt. `film` (0..1) biases that

@@ -199,6 +199,12 @@ const mk = (key, over = {}) => {
     // then prove below that the default cannot enter calibrated mode.
     const c0wt = key === "steel" ? 0.05 : mat.params.c0 * WT;
     const q = Q.calibrate({ si, alloy: true, c0wt, lambda: 30 });
+    const q2 = Q.calibrate({ si, alloy: true, c0wt, lambda: 30, dimensions: 2 });
+    const q3 = Q.calibrate({ si, alloy: true, c0wt, lambda: 30, dimensions: 3 });
+    // The physical calibration is dimension-independent; only the explicit
+    // stencil's timestep margin changes. The 2D default stays bit-identical.
+    ok = ok && q.dt === q2.dt && q3.dt <= q3.dx * q3.dx / (12 * q3.dTilde)
+      && ["W0", "tau0", "d0", "dT0", "umPerCell", "liquidusShiftK"].every(k => q[k] === q3[k]);
     const u = new U.Units(U.scaleOf({
       si, n: 1024, dx: q.dx, latent: q.latent, dSol: q.dTilde, alloy: true, umPerCell: q.umPerCell,
       dTherm: q.dTilde, lambda: q.lambda, oneShiftK: q.liquidusShiftK, oneSource: q.liquidusSource,

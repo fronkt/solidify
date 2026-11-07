@@ -39,9 +39,10 @@ import type { Figure } from "./plot/figures";
 import type { PlotMeta, Prov } from "./plot/csv";
 import { PlotView } from "./plot/view";
 import { openFigure, type FigureHandle } from "./plot/modal";
-import { heatTrajectory, heatProcessFigure, equivalentHeatTime, type HeatPoint, type HeatMeasurement } from "./plot/process";
+import { heatTrajectory, heatProcessFigure, equivalentHeatTime, recrystallizationFigure, avramiFigure, type HeatPoint, type HeatMeasurement } from "./plot/process";
 import { HOMOG_D2 } from "./shaders";
-import { HOMOG_D3 } from "./shaders3d";
+import { HOMOG_D3, NUCLEUS_R_3D } from "./shaders3d";
+import { avramiFit, sweepSchedule, AVRAMI_WINDOW } from "./recrystallize";
 import { range } from "./formbits";
 import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
 import { HEAT_CAVEATS as HC, panelHintFor, panelText } from "./learn/panels";
@@ -122,7 +123,14 @@ export interface HeatHost {
    * aborts at the next drain. Resolves to the sweeps actually delivered.
    */
   anneal(sweeps: number, onProgress: (done: number) => boolean,
-    pin?: { f: number; r: number }): Promise<number>;
+    pin?: { f: number; r: number },
+    sample?: { at(done: number): boolean; read(done: number): Promise<void> }): Promise<number>;
+  /** C3b, 3D only: insert strain-free nuclei after the deposit (Sim3D.nucleate),
+   *  on the treatable voxels of the same dispersion the sweeps will run with */
+  nucleate?(count: number, pin?: { f: number; r: number }):
+    Promise<{ lo: number; hi: number; requested: number; placed: number } | { why: string }>;
+  /** C3b, 3D only: raw voxel counts over the event's ids and over all grains */
+  rxCensus?(): Promise<{ rx: number; grain: number } | null>;
   /**
    * 3D only: the same sweeps with Σ3 annealing-twin spawning enabled — the
    * host budgets the per-flip probability from the remaining id range and
@@ -212,6 +220,9 @@ const RAMP_DOWN = 5;
  */
 const WORK_MAX = 10;
 const WORK_STEP = 0.5;
+/** C3b: recrystallization nuclei per treatment, and the dial's step */
+const RX_MAX = 1000;
+const RX_STEP = 25;
 
 /**
  * Lenses parked during a treatment, per dimension — rule 3. 2D: MELT/FIELD/
@@ -246,6 +257,10 @@ type Plan =
       /** v7.0 C3a: the cold work as dialled, in bond energies (undefined = as
        *  cast). Its presence is what WITHDRAWS the endpoint — see `workNote`. */
       work?: number;
+      /** C3b: recrystallization nuclei, only alongside cold work in 3D */
+      rx?: number;
+      /** C3b: a dispersion was dialled but is held back because nuclei are */
+      pinHeld?: { f: number; r: number };
     };
 
 export class HeatPanel {
@@ -307,6 +322,8 @@ export class HeatPanel {
    * every gate that drives it positionally, byte-identical to v7.1.
    */
   private workJb = 0;
+  /** C3b: recrystallization nuclei as dialled (3D only) */
+  private rxN = 0;
   private abortReq = false;
   /** exit pressed mid-run: abort first, close when the run loop hands back */
   private closeReq = false;
@@ -317,20 +334,25 @@ export class HeatPanel {
    * behaviour on every open and material swap, and exactly the clobber that
    * would silently discard a restored link.
    */
-  private restore: [number, number, number, number?, number?, number?] | null = null;
+  private restore: [number, number, number, number?, number?, number?, number?] | null = null;
   /** learn mode's "i" and hints (rebuilt with the panel); the note's and the
    *  report's learn sentences are slots in their HTML (learnSlot) */
   private learn = new LearnLayer(() => this.applyLearn());
   private processPlot: PlotView | null = null;
   private processModal: FigureHandle | null = null;
   private processFigure: Figure | null = null;
+  // C3b: the last treatment's recrystallization kinetics and Avrami plot
+  private rxPlots: PlotView[] = [];
+  private rxBox: HTMLElement | null = null;
+  private rxFigures: Figure[] = [];
+  private rxModal: FigureHandle | null = null;
   private recordedProcessFigure: Figure | null = null;
   private showRunProcess = false;
 
   /** The most recent treatment keeps its original material and furnace clock. */
   exportFigures(): Figure[] {
     const figure = this.recordedProcessFigure ?? this.processFigure;
-    return figure ? [figure] : [];
+    return [...(figure ? [figure] : []), ...this.rxFigures];
   }
 
   private paintProcess(f: Figure) {
@@ -371,14 +393,17 @@ export class HeatPanel {
    *  BEHIND the dispersion pair rather than replacing it, so a worked link with
    *  no dispersion still spells that pair out at its off defaults — a tail with
    *  a hole in it is a tail nothing can decode positionally. */
-  setup(): [number, number, number, number?, number?, number?] {
+  setup(): [number, number, number, number?, number?, number?, number?] {
+    // C3b's nuclei ride behind the work element, packed only when dialled, so
+    // every link without them keeps its old shape
+    if (this.rxN > 0) return [this.tC, this.holdMin, this.specMPa, this.pinF, this.pinR, this.workJb, this.rxN];
     if (this.workJb > 0) return [this.tC, this.holdMin, this.specMPa, this.pinF, this.pinR, this.workJb];
     return this.pinF > 0
       ? [this.tC, this.holdMin, this.specMPa, this.pinF, this.pinR]
       : [this.tC, this.holdMin, this.specMPa];
   }
 
-  open(restore?: [number, number, number, number?, number?, number?]) {
+  open(restore?: [number, number, number, number?, number?, number?, number?]) {
     if (this.active) return;
     this.active = true;
     this.restore = restore ?? null;
@@ -513,19 +538,29 @@ export class HeatPanel {
     const dCapUm = capped
       ? Math.pow(Math.pow(d0Cells, mModel) + kMC * cap, 1 / mModel) * this.host.umPerCell()
       : dPredUm;
-    // the dispersion, as dialled. The d_lim law is measured in the plane only
-    // (zenerLimitCells' docblock says why the volume does not borrow it), so
-    // dLimUm exists only in 2D — the 3D note and card say the mechanism runs
-    // but decline to print a number nothing has measured.
-    const pin = this.pinF > 0 ? { f: this.pinF, r: this.pinR } : undefined;
-    const dLimUm = pin && this.host.getMode() !== "3d"
-      ? zenerLimitCells(pin.f, pin.r) * this.host.umPerCell()
-      : undefined;
     // the cold work, as dialled (v7.0 C3a). Gated on the dimension as well as
     // the dial: the dial only exists in the volume, and a plan is the one place
     // a stale value from a mode switch could still reach `run`.
     const work = this.workJb > 0 && this.host.getMode() === "3d" ? this.workJb : undefined;
-    return { ok: true, sch, ints, d0Um, dPredUm, sweeps, capped, dCapUm, pin, dLimUm, work };
+    // C3b: nuclei are inert without stored energy to consume, so they ride the
+    // plan only with cold work (the dial still shows; its note says why)
+    const rx = work && this.rxN > 0 ? this.rxN : undefined;
+    // the dispersion, as dialled. The d_lim law is measured in the plane only
+    // (zenerLimitCells' docblock says why the volume does not borrow it), so
+    // dLimUm exists only in 2D — the 3D note and card say the mechanism runs
+    // but decline to print a number nothing has measured.
+    //
+    // C3b slice 1 holds it back while nuclei are dialled
+    // (docs/C3B-RECRYSTALLIZATION-DESIGN.md section 2): particle voxels keep
+    // their deformed matrix ids, so they sit in X's denominator and cap the
+    // recrystallized fraction below one. The note and card say it was held.
+    const dialled = this.pinF > 0 ? { f: this.pinF, r: this.pinR } : undefined;
+    const pin = rx ? undefined : dialled;
+    const pinHeld = rx ? dialled : undefined;
+    const dLimUm = pin && this.host.getMode() !== "3d"
+      ? zenerLimitCells(pin.f, pin.r) * this.host.umPerCell()
+      : undefined;
+    return { ok: true, sch, ints, d0Um, dPredUm, sweeps, capped, dCapUm, pin, dLimUm, work, rx, pinHeld };
   }
 
   // -------------------------------------------------------------- the panel
@@ -589,11 +624,12 @@ export class HeatPanel {
     // field belongs to the specimen that was deformed, and the panel cannot
     // know that the casting under it is still that one
     this.workJb = 0;
+    this.rxN = 0;
     // a share link's setup lands here, once, clamped to this material's own
     // dial ranges — a hand-built link does not get to dial 2000 °C (and the
     // decoder's Number.isFinite whitelist already rejected non-numbers whole)
     if (this.restore) {
-      const [t, h, s, pf, pr, wk] = this.restore;
+      const [t, h, s, pf, pr, wk, rxn] = this.restore;
       this.tC = Math.min(tMax, Math.max(tMin, Math.round(t)));
       this.holdMin = Math.min(720, Math.max(1, Math.round(h)));
       this.specMPa = Math.min(specMax, Math.max(0, s));
@@ -614,6 +650,9 @@ export class HeatPanel {
       // every surface reads "as cast".
       if (typeof wk === "number" && Number.isFinite(wk) && this.host.getMode() === "3d")
         this.workJb = Math.min(WORK_MAX, Math.max(0, Math.round(wk / WORK_STEP) * WORK_STEP));
+      // C3b nuclei: the same volume-only, snap-to-step doctrine as the work
+      if (typeof rxn === "number" && Number.isFinite(rxn) && this.host.getMode() === "3d")
+        this.rxN = Math.min(RX_MAX, Math.max(0, Math.round(rxn / RX_STEP) * RX_STEP));
       this.restore = null;
     }
     const umPC = this.host.umPerCell();
@@ -662,6 +701,11 @@ export class HeatPanel {
         v => v > 0
           ? `${v.toFixed(1)} J_b mean · 0–${(2 * v).toFixed(1)} across grains`
           : "as cast")));
+      // C3b, SEVENTH: strain-free recrystallization nuclei, inserted after the
+      // deposit and grown by the stored-energy difference alone
+      form.append(cell(range("nuclei", 0, RX_MAX, RX_STEP, this.rxN,
+        v => { this.rxN = v; this.refresh(); }, 0,
+        v => v > 0 ? `${v.toFixed(0)} · r ${NUCLEUS_R_3D} cells` : "none")));
     }
 
     const note = document.createElement("div");
@@ -703,7 +747,23 @@ export class HeatPanel {
       this.processModal = openFigure(() => this.processFigure!);
     } });
     form.addEventListener("input", () => { if (!this.busy) { this.showRunProcess = false; this.previewProcess(); } });
-    p.append(head, ex.body, form, caveat, note, row, chart, report);
+    // C3b: two compact plots, shown only after a treatment with nuclei
+    const rxBox = document.createElement("div");
+    rxBox.className = "rxplots";
+    rxBox.style.cssText = "display:none;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;width:100%;min-width:0";
+    this.rxPlots = ["Recrystallization kinetics", "Avrami plot"].map((label, i) => {
+      const c = document.createElement("div");
+      c.style.cssText = "width:100%;height:220px;min-width:0";
+      rxBox.append(c);
+      return new PlotView(c, { id: `htRxPlot${i}`, label: `${label}; open figure and data`, onOpen: () => {
+        const f = this.rxFigures[i];
+        if (!f) return;
+        this.rxModal?.close();
+        this.rxModal = openFigure(() => this.rxFigures[i] ?? f);
+      } });
+    });
+    this.rxBox = rxBox;
+    p.append(head, ex.body, form, caveat, note, row, chart, rxBox, report);
     document.getElementById("app")!.append(p);
     this.panel = p;
     this.noteEl = note;
@@ -812,6 +872,10 @@ export class HeatPanel {
    * silently corrupt what they measure.
    */
   private pinNote(plan: Plan & { ok: true }): string {
+    if (plan.pinHeld) {
+      return `<br>${quiet(`dispersion ${(plan.pinHeld.f * 100).toFixed(1)} vol % · ${HC.pinHeldBack.line}`)}`
+        + learnSlot(HC.pinHeldBack.learn);
+    }
     if (!plan.pin) return "";
     const pct = (plan.pin.f * 100).toFixed(1);
     if (plan.dLimUm === undefined) {
@@ -1019,8 +1083,35 @@ export class HeatPanel {
     // deformed twice. `deposit` therefore re-zeroes the recovery ordinate.
     if (plan.work) this.host.deposit?.(plan.work);
     else this.host.clearWork?.();
+    // C3b: nuclei AFTER the deposit (it writes H for every id, so nuclei born
+    // before it would be born deformed), then X(S) sampled inside the one
+    // treatment on a log schedule (chunked calls would restart the salt)
+    let rxEvent: { lo: number; hi: number; requested: number; placed: number } | { why: string } | null = null;
+    const rxS: number[] = [], rxX: number[] = [];
+    let rxX0 = 0;
+    let rxSample: { at(d: number): boolean; read(d: number): Promise<void> } | undefined;
     let homogLine = "";
+    // the treatment's solver calls (nuclei, their census, sweeps, diffusion)
+    // all sit inside the try: a throw from any of them (nuclei allocated off a
+    // wrapped id counter once did) must still release the busy latch, or run,
+    // setRun and close all wait on it forever
     try {
+      if (plan.rx && this.host.nucleate && this.host.rxCensus && total > 0) {
+        rxEvent = await this.host.nucleate(plan.rx, pin);
+        if (!("why" in rxEvent)) {
+          const c0 = await this.host.rxCensus();
+          rxX0 = c0 && c0.grain > 0 ? c0.rx / c0.grain : 0;
+          const at = new Set(sweepSchedule(1, total, 24));
+          const census = this.host.rxCensus.bind(this.host);
+          rxSample = {
+            at: d => at.has(d),
+            async read(d) {
+              const c = await census();
+              if (c && c.grain > 0) { rxS.push(d); rxX.push(c.rx / c.grain); }
+            },
+          };
+        }
+      }
       if (total > 0) {
         const onProg = (done: number) => {
           updateProcess(done);
@@ -1034,9 +1125,12 @@ export class HeatPanel {
             ? `${num(r.spawned.toLocaleString())} Σ3 annealing twins on migrating boundaries`
               + (r.saturated ? ` (${HC.twinsSaturated.line})` : "")
               + learnSlot(r.saturated ? HC.twinsSaturated.learn : HC.twins.learn)
-            : "none (too little boundary migration)" + learnSlot(HC.twins.learn);
+            // none because no id was free is not none for want of migration
+            : r.saturated
+              ? `none (${HC.twinsSaturated.line})` + learnSlot(HC.twinsSaturated.learn)
+              : "none (too little boundary migration)" + learnSlot(HC.twins.learn);
         } else {
-          delivered = await this.host.anneal(total, onProg, pin);
+          delivered = await this.host.anneal(total, onProg, pin, rxSample);
         }
       }
       // homogenization rides the same treatment: the schedule's Dt product,
@@ -1079,11 +1173,13 @@ export class HeatPanel {
     setStatus("");
     this.host.syncUI();
     if (this.closeReq) { this.closeReq = false; this.close(); return; }
-    this.report(plan, before, after, delivered, total, twinLine, homogLine, spec);
+    this.report(plan, before, after, delivered, total, twinLine, homogLine, spec,
+      rxEvent ? { event: rxEvent, S: rxS, X: rxX, x0: rxX0 } : null);
     this.refresh();
   }
 
-  private report(plan: Plan & { ok: true }, before: Census, after: Census | null, delivered: number, total: number, twinLine = "", homogLine = "", spec = 0) {
+  private report(plan: Plan & { ok: true }, before: Census, after: Census | null, delivered: number, total: number, twinLine = "", homogLine = "", spec = 0,
+    rx: { event: { lo: number; hi: number; requested: number; placed: number } | { why: string }; S: number[]; X: number[]; x0: number } | null = null) {
     if (!this.reportEl) return;
     // The card is a spec rail (.kv): each row's label in --fg-3, one space,
     // then what it says, so the text the gates read is the sentence the card
@@ -1174,6 +1270,9 @@ export class HeatPanel {
           + dim(`· d_lim ≈ ${strong(fmtUm(plan.dLimUm))} `
             + `(measured on this lattice: d_lim = ${ZENER_K}·r^${ZENER_R_EXP}/f^${ZENER_F_EXP} cells)`))
         : kv("pinned", disp + dim(`· ${HC.pin3d.line}`), lrn(HC.pin3d)));
+    } else if (plan.pinHeld) {
+      rows.push(kv("dispersion", dim(`${(plan.pinHeld.f * 100).toFixed(1)} vol % · ${HC.pinHeldBack.line}`),
+        lrn(HC.pinHeldBack)));
     }
     // the cold work's row (v7.0 C3a) — LAST of the mode rows, after C2's
     // pinned row, for the same reason that one went after oxide: the panel
@@ -1194,6 +1293,29 @@ export class HeatPanel {
         + dim(`· recovered to ${hEnd.toFixed(2)} J_b in ${delivered.toLocaleString()} sweeps `
           + `(H_S = H₀/(1 + rec·H₀), rec = ${rec.toPrecision(3)}) · most-deformed grains `
           + `${(2 * plan.work).toFixed(1)} → ${worst.toFixed(2)} J_b`), lrn(HC.coldWorkRow)));
+    }
+    // C3b's rows, after the cold work's, so a card without nuclei is byte-what
+    // it was. X is a raw voxel ratio over the event's ids; n is fitted on the
+    // MONTE CARLO SWEEP clock and is never a real-time exponent.
+    // a treatment without nuclei leaves no recrystallization plots behind
+    if (!(plan.rx && rx && !("why" in rx.event))) { this.rxFigures = []; if (this.rxBox) this.rxBox.style.display = "none"; }
+    if (plan.rx && rx) {
+      const rxEvent = rx.event, rxS = rx.S, rxX = rx.X, rxX0 = rx.x0;
+      if ("why" in rxEvent) rows.push(kv("recrystallized", warnLine(rxEvent.why)));
+      else {
+        const xEnd = rxX.length ? rxX[rxX.length - 1] : rxX0;
+        rows.push(kv("recrystallized", `X ${strong(xEnd.toFixed(2))} after ${delivered.toLocaleString()} MC sweeps `
+          + dim(`· ${rxEvent.placed} of ${rxEvent.requested} nuclei placed (ids ${rxEvent.lo}–${rxEvent.hi}), r ${NUCLEUS_R_3D} cells, 0 J_b`)));
+        const fit = avramiFit(rxS, rxX, AVRAMI_WINDOW, rxX0);
+        const prov = this.host.meta(), b = bridgeOf(this.host.units(), prov.material);
+        this.rxFigures = [recrystallizationFigure(rxS, rxX, rxX0, b, prov), avramiFigure(rxS, rxX, "why" in fit ? null : fit, b, prov)];
+        this.rxFigures.forEach((f, i) => this.rxPlots[i]?.set(f.fig));
+        if (this.rxBox) this.rxBox.style.display = "grid";
+        rows.push("why" in fit
+          ? kv("Avrami n", dim(fit.why))
+          : kv("Avrami n", `${strong(fit.n.toFixed(2))} `
+            + dim(`(X ${fit.window[0].toFixed(2)}–${fit.window[1].toFixed(2)}, ${fit.used} points, r² ${fit.r2.toFixed(3)}, Monte Carlo sweep clock; site-saturated 3D growth at constant speed gives 3)`)));
+      }
     }
     // the closing line, across both columns: a warning when the run did not
     // deliver what it asked for, a quiet line when nothing changed

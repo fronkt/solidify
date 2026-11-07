@@ -1,0 +1,3328 @@
+{
+  "version": 1,
+  "description": "Untouched fused Kobayashi manufactured 3D fixtures; exact bytes, not a physics validation.",
+  "commit": "d59471e012b91d143593c205ced91d765353f656",
+  "sourceHashes": {
+    "sim3d": "fe7a9f6e0c732170af92a082447cb0f52a4dd5122618e9cae9ddcc007814f5d4",
+    "shaders3d": "c21cd65b440889f32cfeb1fabe3bd39d36da27c704cb2bea6814309324663d4a",
+    "rng": "9401484b484ab2baf2cd372f9f998ef3f71b584b6be1dfbe3ebde0a38b5e5814"
+  },
+  "cases": [
+    {
+      "config": {
+        "name": "pure-cubic",
+        "n": 32,
+        "aniMode3": 1
+      },
+      "params": {
+        "dx": 0.03,
+        "dt": 0.00009,
+        "epsBar": 0.01,
+        "delta": 0.04,
+        "deltaZ": 0.03,
+        "aniMode3": 1,
+        "tau": 0.0003,
+        "alpha": 0.9,
+        "gamma": 10,
+        "latent": 1.6,
+        "noiseAmp": 0.012,
+        "tFar": 0.3,
+        "coolRate": 0.15,
+        "heatIn": 0,
+        "meltGlow": 1,
+        "pPore": 0,
+        "scen": 0,
+        "gradG": 0.08,
+        "pullV": 1.5,
+        "weldX": 12.8,
+        "weldY": 19.2,
+        "weldPow": 8,
+        "weldSig": 3,
+        "alloyOn": 0,
+        "c0": 0.3,
+        "mLiq": 0.45,
+        "kPart": 0.2,
+        "dSol": 0.8,
+        "twinProb": 0,
+        "facet": 0,
+        "holdT": 0.08,
+        "holdRate": 5,
+        "moldT": 0.06,
+        "nyCrit": 8,
+        "envRate": 0
+      },
+      "checkpoints": [
+        {
+          "target": 0,
+          "frame": 1,
+          "dir": 1,
+          "simTime": 0,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 15728.239993087947,
+            "solid": 14836,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "pure-cubic-0-state0.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "state1",
+              "file": "pure-cubic-0-state1.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "grain0",
+              "file": "pure-cubic-0-grain0.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "grain1",
+              "file": "pure-cubic-0-grain1.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "age",
+              "file": "pure-cubic-0-age.bin",
+              "bytes": 262144,
+              "sha256": "1f5351e0302788ba77f463768ec07ec61d852b5a9644b96f643a2eab435bbfa0"
+            },
+            {
+              "field": "fed0",
+              "file": "pure-cubic-0-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "pure-cubic-0-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "pure-cubic-0-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "pure-cubic-0-flux.bin",
+              "bytes": 524288,
+              "sha256": "07854d2fef297a06ba81685e660c332de36d5d18d546927d30daad6d7fda1541"
+            }
+          ]
+        },
+        {
+          "target": 1,
+          "frame": 2,
+          "dir": 0,
+          "simTime": 0.00009,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 16571.569891300052,
+            "solid": 16976,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "pure-cubic-1-state0.bin",
+              "bytes": 262144,
+              "sha256": "4d9c8b34424b5626adcd16a759e94fbda674eb874354e2353a28ea6b38a79223"
+            },
+            {
+              "field": "state1",
+              "file": "pure-cubic-1-state1.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "grain0",
+              "file": "pure-cubic-1-grain0.bin",
+              "bytes": 131072,
+              "sha256": "d696b9d82e505519a7e42d579d4b19bdbea70d5c33d9b96ab133b6afb9932d18"
+            },
+            {
+              "field": "grain1",
+              "file": "pure-cubic-1-grain1.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "age",
+              "file": "pure-cubic-1-age.bin",
+              "bytes": 262144,
+              "sha256": "ccfa72706648389a10837f4b8c6bc0a5d6d80bb0d0469ff73a0982ac61fd561a"
+            },
+            {
+              "field": "fed0",
+              "file": "pure-cubic-1-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "pure-cubic-1-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "pure-cubic-1-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "pure-cubic-1-flux.bin",
+              "bytes": 524288,
+              "sha256": "1e6f64ffe4c82bd2b1ea55d72e976a10d6fde5c50c7aead2861b74325c2720bb"
+            }
+          ]
+        },
+        {
+          "target": 17,
+          "frame": 4,
+          "dir": 1,
+          "simTime": 0.0015300000000000001,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 27545.232633806765,
+            "solid": 29675,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "pure-cubic-17-state0.bin",
+              "bytes": 262144,
+              "sha256": "d8e8fbccf065c972c897e4add91e5508f3a566f2cb36bf3c4de9a9b5f31da0a6"
+            },
+            {
+              "field": "state1",
+              "file": "pure-cubic-17-state1.bin",
+              "bytes": 262144,
+              "sha256": "89e320ece9927f7f4bef77e0ff0c56ec5e76b8869c81eeb93cbc79996e260df5"
+            },
+            {
+              "field": "grain0",
+              "file": "pure-cubic-17-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "pure-cubic-17-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "pure-cubic-17-age.bin",
+              "bytes": 262144,
+              "sha256": "fb69a7865965fdbfebcccc8a4198487312f878529303acb49569628f0fb13e9c"
+            },
+            {
+              "field": "fed0",
+              "file": "pure-cubic-17-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "pure-cubic-17-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "pure-cubic-17-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "pure-cubic-17-flux.bin",
+              "bytes": 524288,
+              "sha256": "fb5a8f7c39fc4239850156bbf467b0ba0bc2c014e4a4289f2edcaaa6a4d90345"
+            }
+          ]
+        },
+        {
+          "target": 64,
+          "frame": 5,
+          "dir": 0,
+          "simTime": 0.00576,
+          "feedGen": 3,
+          "summary": {
+            "phiSum": 30562.076978564262,
+            "solid": 31572,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "pure-cubic-64-state0.bin",
+              "bytes": 262144,
+              "sha256": "a719cf0854963a112942a81849609dc6e36c445f7ee91d21e1aa73f7d30b15aa"
+            },
+            {
+              "field": "state1",
+              "file": "pure-cubic-64-state1.bin",
+              "bytes": 262144,
+              "sha256": "1732a5364de9a4ac728001134d89907a5ecdb04d9133d75a58f96e4fd14876f8"
+            },
+            {
+              "field": "grain0",
+              "file": "pure-cubic-64-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "pure-cubic-64-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "pure-cubic-64-age.bin",
+              "bytes": 262144,
+              "sha256": "7ab8e98ee7ba204b2d929fca37fa0a5778221ff48d1d44937137a2def670aa61"
+            },
+            {
+              "field": "fed0",
+              "file": "pure-cubic-64-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "pure-cubic-64-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "pure-cubic-64-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "pure-cubic-64-flux.bin",
+              "bytes": 524288,
+              "sha256": "3acc53d3bff98619f49e88392de26400f4e8a6fe3a1a3084d87a5446e1dc8efa"
+            }
+          ]
+        },
+        {
+          "target": 129,
+          "frame": 6,
+          "dir": 1,
+          "simTime": 0.01161,
+          "feedGen": 4,
+          "summary": {
+            "phiSum": 30602.068528521806,
+            "solid": 30803,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "pure-cubic-129-state0.bin",
+              "bytes": 262144,
+              "sha256": "1da5e0205f48d0a55164fbc3f0e0d1f218b595cea1069df67fb3d6c339723248"
+            },
+            {
+              "field": "state1",
+              "file": "pure-cubic-129-state1.bin",
+              "bytes": 262144,
+              "sha256": "97782cbc9a7032b2295b28bf9fd7695ecc258c77a0764f1ee95995a29892cb71"
+            },
+            {
+              "field": "grain0",
+              "file": "pure-cubic-129-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "pure-cubic-129-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "pure-cubic-129-age.bin",
+              "bytes": 262144,
+              "sha256": "86d4e236adf91c5fb1e7214d4194b9df61ebe86d66b204cd7e41514efed747dc"
+            },
+            {
+              "field": "fed0",
+              "file": "pure-cubic-129-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "pure-cubic-129-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "pure-cubic-129-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "pure-cubic-129-flux.bin",
+              "bytes": 524288,
+              "sha256": "f6dd76a2c86badaf9bb4505975ff59edaaefd9bbc8c1d9aff12f732aee3980c1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "pure-hex",
+        "n": 32,
+        "aniMode3": 2
+      },
+      "params": {
+        "dx": 0.03,
+        "dt": 0.00009,
+        "epsBar": 0.01,
+        "delta": 0.04,
+        "deltaZ": 0.03,
+        "aniMode3": 2,
+        "tau": 0.0003,
+        "alpha": 0.9,
+        "gamma": 10,
+        "latent": 1.6,
+        "noiseAmp": 0.012,
+        "tFar": 0.3,
+        "coolRate": 0.15,
+        "heatIn": 0,
+        "meltGlow": 1,
+        "pPore": 0,
+        "scen": 0,
+        "gradG": 0.08,
+        "pullV": 1.5,
+        "weldX": 12.8,
+        "weldY": 19.2,
+        "weldPow": 8,
+        "weldSig": 3,
+        "alloyOn": 0,
+        "c0": 0.3,
+        "mLiq": 0.45,
+        "kPart": 0.2,
+        "dSol": 0.8,
+        "twinProb": 0,
+        "facet": 0,
+        "holdT": 0.08,
+        "holdRate": 5,
+        "moldT": 0.06,
+        "nyCrit": 8,
+        "envRate": 0
+      },
+      "checkpoints": [
+        {
+          "target": 0,
+          "frame": 1,
+          "dir": 1,
+          "simTime": 0,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 15728.239993087947,
+            "solid": 14836,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "pure-hex-0-state0.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "state1",
+              "file": "pure-hex-0-state1.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "grain0",
+              "file": "pure-hex-0-grain0.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "grain1",
+              "file": "pure-hex-0-grain1.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "age",
+              "file": "pure-hex-0-age.bin",
+              "bytes": 262144,
+              "sha256": "1f5351e0302788ba77f463768ec07ec61d852b5a9644b96f643a2eab435bbfa0"
+            },
+            {
+              "field": "fed0",
+              "file": "pure-hex-0-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "pure-hex-0-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "pure-hex-0-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "pure-hex-0-flux.bin",
+              "bytes": 524288,
+              "sha256": "07854d2fef297a06ba81685e660c332de36d5d18d546927d30daad6d7fda1541"
+            }
+          ]
+        },
+        {
+          "target": 1,
+          "frame": 2,
+          "dir": 0,
+          "simTime": 0.00009,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 16571.510431531817,
+            "solid": 16974,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "pure-hex-1-state0.bin",
+              "bytes": 262144,
+              "sha256": "5b5e2ee8582f8bea043f1fc1516f73733a4af2f3d70716b88a091faac2b926ee"
+            },
+            {
+              "field": "state1",
+              "file": "pure-hex-1-state1.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "grain0",
+              "file": "pure-hex-1-grain0.bin",
+              "bytes": 131072,
+              "sha256": "d696b9d82e505519a7e42d579d4b19bdbea70d5c33d9b96ab133b6afb9932d18"
+            },
+            {
+              "field": "grain1",
+              "file": "pure-hex-1-grain1.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "age",
+              "file": "pure-hex-1-age.bin",
+              "bytes": 262144,
+              "sha256": "2ffcecde292a8277aff539b0861a49a4787373baa1902437ff3bc03cbb95bba0"
+            },
+            {
+              "field": "fed0",
+              "file": "pure-hex-1-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "pure-hex-1-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "pure-hex-1-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "pure-hex-1-flux.bin",
+              "bytes": 524288,
+              "sha256": "dd62f478fdbe13b6097584c87c23615131c97bbdf557b7246b46a4a55f8b8067"
+            }
+          ]
+        },
+        {
+          "target": 17,
+          "frame": 4,
+          "dir": 1,
+          "simTime": 0.0015300000000000001,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 27546.58444993943,
+            "solid": 29681,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "pure-hex-17-state0.bin",
+              "bytes": 262144,
+              "sha256": "ee9879a16588edd64313c81736a883b7db57d9288096bd12e905a7e708cf5ae4"
+            },
+            {
+              "field": "state1",
+              "file": "pure-hex-17-state1.bin",
+              "bytes": 262144,
+              "sha256": "566fbed7c86cf563c68eb5211b8449a239b98b5650d702f0de2a0dbe34f0929f"
+            },
+            {
+              "field": "grain0",
+              "file": "pure-hex-17-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "pure-hex-17-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "pure-hex-17-age.bin",
+              "bytes": 262144,
+              "sha256": "e50a4c68e75a7567e023de62727c7a59c20a5d3378417d64c706bc63db7b7191"
+            },
+            {
+              "field": "fed0",
+              "file": "pure-hex-17-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "pure-hex-17-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "pure-hex-17-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "pure-hex-17-flux.bin",
+              "bytes": 524288,
+              "sha256": "103beea2329a0e556952f1b2f3abced1d8798e5fc51fdb9762d0b38edc72c3ee"
+            }
+          ]
+        },
+        {
+          "target": 64,
+          "frame": 5,
+          "dir": 0,
+          "simTime": 0.00576,
+          "feedGen": 3,
+          "summary": {
+            "phiSum": 30559.435350328684,
+            "solid": 31566,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "pure-hex-64-state0.bin",
+              "bytes": 262144,
+              "sha256": "52fabb26dd0c786e08025ab5b6994091ae68172a2a56033e559657fcbb529576"
+            },
+            {
+              "field": "state1",
+              "file": "pure-hex-64-state1.bin",
+              "bytes": 262144,
+              "sha256": "4ca274675e035965666ff621ad3dc38dc9ca1e0ca4f2e813d796290458827875"
+            },
+            {
+              "field": "grain0",
+              "file": "pure-hex-64-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "pure-hex-64-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "pure-hex-64-age.bin",
+              "bytes": 262144,
+              "sha256": "979620dec28cdc3f77a83c9f546b3e65c88efd70ca6660f63e06d304fc8dcc39"
+            },
+            {
+              "field": "fed0",
+              "file": "pure-hex-64-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "pure-hex-64-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "pure-hex-64-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "pure-hex-64-flux.bin",
+              "bytes": 524288,
+              "sha256": "dd9ceb6249b0b609754a129d145a7ada64e7a76ab4c1358ed2c2f4d0872dd4ae"
+            }
+          ]
+        },
+        {
+          "target": 129,
+          "frame": 6,
+          "dir": 1,
+          "simTime": 0.01161,
+          "feedGen": 4,
+          "summary": {
+            "phiSum": 30600.202547609806,
+            "solid": 30811,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "pure-hex-129-state0.bin",
+              "bytes": 262144,
+              "sha256": "65aec07ec4175fcaa6d1f191678ba9d0f50bf7243f8a5ead929c515d888c25c5"
+            },
+            {
+              "field": "state1",
+              "file": "pure-hex-129-state1.bin",
+              "bytes": 262144,
+              "sha256": "c2bbba5bca6c109673b105a692476a88caa8349740576d96f9664025115c0269"
+            },
+            {
+              "field": "grain0",
+              "file": "pure-hex-129-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "pure-hex-129-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "pure-hex-129-age.bin",
+              "bytes": 262144,
+              "sha256": "e7c7d7e8a61a8099a4f4eb8dbb345ffd618e9fbb6b266649701451397ceedd1f"
+            },
+            {
+              "field": "fed0",
+              "file": "pure-hex-129-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "pure-hex-129-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "pure-hex-129-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "pure-hex-129-flux.bin",
+              "bytes": 524288,
+              "sha256": "721c0861c5fd68b28cab2861f15be3f225f47c58c538f10e6dbf54360f74a939"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "pure-ico",
+        "n": 32,
+        "aniMode3": 3
+      },
+      "params": {
+        "dx": 0.03,
+        "dt": 0.00009,
+        "epsBar": 0.01,
+        "delta": 0.02,
+        "deltaZ": 0.03,
+        "aniMode3": 3,
+        "tau": 0.0003,
+        "alpha": 0.9,
+        "gamma": 10,
+        "latent": 1.6,
+        "noiseAmp": 0.012,
+        "tFar": 0.3,
+        "coolRate": 0.15,
+        "heatIn": 0,
+        "meltGlow": 1,
+        "pPore": 0,
+        "scen": 0,
+        "gradG": 0.08,
+        "pullV": 1.5,
+        "weldX": 12.8,
+        "weldY": 19.2,
+        "weldPow": 8,
+        "weldSig": 3,
+        "alloyOn": 0,
+        "c0": 0.3,
+        "mLiq": 0.45,
+        "kPart": 0.2,
+        "dSol": 0.8,
+        "twinProb": 0,
+        "facet": 0,
+        "holdT": 0.08,
+        "holdRate": 5,
+        "moldT": 0.06,
+        "nyCrit": 8,
+        "envRate": 0
+      },
+      "checkpoints": [
+        {
+          "target": 0,
+          "frame": 1,
+          "dir": 1,
+          "simTime": 0,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 15728.239993087947,
+            "solid": 14836,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "pure-ico-0-state0.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "state1",
+              "file": "pure-ico-0-state1.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "grain0",
+              "file": "pure-ico-0-grain0.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "grain1",
+              "file": "pure-ico-0-grain1.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "age",
+              "file": "pure-ico-0-age.bin",
+              "bytes": 262144,
+              "sha256": "1f5351e0302788ba77f463768ec07ec61d852b5a9644b96f643a2eab435bbfa0"
+            },
+            {
+              "field": "fed0",
+              "file": "pure-ico-0-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "pure-ico-0-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "pure-ico-0-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "pure-ico-0-flux.bin",
+              "bytes": 524288,
+              "sha256": "07854d2fef297a06ba81685e660c332de36d5d18d546927d30daad6d7fda1541"
+            }
+          ]
+        },
+        {
+          "target": 1,
+          "frame": 2,
+          "dir": 0,
+          "simTime": 0.00009,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 16571.545842550695,
+            "solid": 16974,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "pure-ico-1-state0.bin",
+              "bytes": 262144,
+              "sha256": "fc9eac68c38ff9b9fac9dc92fc6a55efef26745f1f1d62c7b17940f4f0402f4e"
+            },
+            {
+              "field": "state1",
+              "file": "pure-ico-1-state1.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "grain0",
+              "file": "pure-ico-1-grain0.bin",
+              "bytes": 131072,
+              "sha256": "d696b9d82e505519a7e42d579d4b19bdbea70d5c33d9b96ab133b6afb9932d18"
+            },
+            {
+              "field": "grain1",
+              "file": "pure-ico-1-grain1.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "age",
+              "file": "pure-ico-1-age.bin",
+              "bytes": 262144,
+              "sha256": "4e60355b7b1e637d75316fdd8f651e4179d43ce4d41088f1aecbf43df5de0aff"
+            },
+            {
+              "field": "fed0",
+              "file": "pure-ico-1-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "pure-ico-1-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "pure-ico-1-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "pure-ico-1-flux.bin",
+              "bytes": 524288,
+              "sha256": "37972ecfcdfb0e34356ba4fc5bd2ce8300319e77b58200611f8409c9f9b87baa"
+            }
+          ]
+        },
+        {
+          "target": 17,
+          "frame": 4,
+          "dir": 1,
+          "simTime": 0.0015300000000000001,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 27549.173139698803,
+            "solid": 29689,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "pure-ico-17-state0.bin",
+              "bytes": 262144,
+              "sha256": "0f24fc16c724f4fc4bff53bacba43985714755b280234c9d7efd0d4f43e523bb"
+            },
+            {
+              "field": "state1",
+              "file": "pure-ico-17-state1.bin",
+              "bytes": 262144,
+              "sha256": "d8acfdf42acd10727c7fdacf796832e483f38144fe9aea3719347a4dd9e4dac2"
+            },
+            {
+              "field": "grain0",
+              "file": "pure-ico-17-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "pure-ico-17-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "pure-ico-17-age.bin",
+              "bytes": 262144,
+              "sha256": "d86c5a4384d921aa42ad8b3f9f0bda163af3a67f9c62229c8ed8233efe5e0513"
+            },
+            {
+              "field": "fed0",
+              "file": "pure-ico-17-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "pure-ico-17-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "pure-ico-17-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "pure-ico-17-flux.bin",
+              "bytes": 524288,
+              "sha256": "aae6f7762e3d4c2fe9394fd5bfa9860d5790316f78eca9da3c4da8dcdc0cb1ec"
+            }
+          ]
+        },
+        {
+          "target": 64,
+          "frame": 5,
+          "dir": 0,
+          "simTime": 0.00576,
+          "feedGen": 3,
+          "summary": {
+            "phiSum": 30559.993679009378,
+            "solid": 31579,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "pure-ico-64-state0.bin",
+              "bytes": 262144,
+              "sha256": "df616a93203894a225a36daba16d55ce96f1cd3396947c5c678eeccb0b8296ae"
+            },
+            {
+              "field": "state1",
+              "file": "pure-ico-64-state1.bin",
+              "bytes": 262144,
+              "sha256": "3c5d87c3504b24ed28e4b21eb463333a7a3e7473a774a3945895aaa21a9a67e0"
+            },
+            {
+              "field": "grain0",
+              "file": "pure-ico-64-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "pure-ico-64-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "pure-ico-64-age.bin",
+              "bytes": 262144,
+              "sha256": "7f7c5c8cbff8baa50ef915b80bcfd6cedba54a9a0763bcb6294adc64388445bd"
+            },
+            {
+              "field": "fed0",
+              "file": "pure-ico-64-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "pure-ico-64-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "pure-ico-64-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "pure-ico-64-flux.bin",
+              "bytes": 524288,
+              "sha256": "dc0476bc0470ed9aa0c1788ca3f43eb2a78c59bad6e02c000113a803b4a537c6"
+            }
+          ]
+        },
+        {
+          "target": 129,
+          "frame": 6,
+          "dir": 1,
+          "simTime": 0.01161,
+          "feedGen": 4,
+          "summary": {
+            "phiSum": 30602.10790444538,
+            "solid": 30815,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "pure-ico-129-state0.bin",
+              "bytes": 262144,
+              "sha256": "8b5a3f764e0cf731540fca925130248497faa19ac6bff600c6c7b986a0372362"
+            },
+            {
+              "field": "state1",
+              "file": "pure-ico-129-state1.bin",
+              "bytes": 262144,
+              "sha256": "1dd536015aff4c44809a7cc7d3d2ceaf27c509b45b81155d7f2faf642d19c77a"
+            },
+            {
+              "field": "grain0",
+              "file": "pure-ico-129-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "pure-ico-129-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "pure-ico-129-age.bin",
+              "bytes": 262144,
+              "sha256": "30ea119a7d7864d94300b5a9fb0619db3db545fcfd3aa398c4d9896ba818ea8f"
+            },
+            {
+              "field": "fed0",
+              "file": "pure-ico-129-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "pure-ico-129-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "pure-ico-129-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "pure-ico-129-flux.bin",
+              "bytes": 524288,
+              "sha256": "fea1086f939416b324360f92fd8c64816be918884389081b35f3372eb34c798b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "alloy-cubic",
+        "n": 32,
+        "aniMode3": 1,
+        "alloy": true
+      },
+      "params": {
+        "dx": 0.03,
+        "dt": 0.00009,
+        "epsBar": 0.01,
+        "delta": 0.04,
+        "deltaZ": 0.03,
+        "aniMode3": 1,
+        "tau": 0.0003,
+        "alpha": 0.9,
+        "gamma": 10,
+        "latent": 1.6,
+        "noiseAmp": 0.012,
+        "tFar": 0.3,
+        "coolRate": 0.15,
+        "heatIn": 0,
+        "meltGlow": 1,
+        "pPore": 0,
+        "scen": 0,
+        "gradG": 0.08,
+        "pullV": 1.5,
+        "weldX": 12.8,
+        "weldY": 19.2,
+        "weldPow": 8,
+        "weldSig": 3,
+        "alloyOn": 1,
+        "c0": 0.3,
+        "mLiq": 0.45,
+        "kPart": 0.2,
+        "dSol": 0.8,
+        "twinProb": 0,
+        "facet": 0,
+        "holdT": 0.08,
+        "holdRate": 5,
+        "moldT": 0.06,
+        "nyCrit": 8,
+        "envRate": 0
+      },
+      "checkpoints": [
+        {
+          "target": 0,
+          "frame": 1,
+          "dir": 1,
+          "simTime": 0,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 15728.239993087947,
+            "solid": 14836,
+            "pores": 1,
+            "mass": 9830.399990081787
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "alloy-cubic-0-state0.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "state1",
+              "file": "alloy-cubic-0-state1.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "grain0",
+              "file": "alloy-cubic-0-grain0.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "grain1",
+              "file": "alloy-cubic-0-grain1.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "age",
+              "file": "alloy-cubic-0-age.bin",
+              "bytes": 262144,
+              "sha256": "1f5351e0302788ba77f463768ec07ec61d852b5a9644b96f643a2eab435bbfa0"
+            },
+            {
+              "field": "fed0",
+              "file": "alloy-cubic-0-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "alloy-cubic-0-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "alloy-cubic-0-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "alloy-cubic-0-flux.bin",
+              "bytes": 524288,
+              "sha256": "07854d2fef297a06ba81685e660c332de36d5d18d546927d30daad6d7fda1541"
+            },
+            {
+              "field": "solute0",
+              "file": "alloy-cubic-0-solute0.bin",
+              "bytes": 131072,
+              "sha256": "f3b0bda21309eddac4da2dc0947682f6b0cb68e17a6a4cb3d25ea7f40cd7ed43"
+            },
+            {
+              "field": "solute1",
+              "file": "alloy-cubic-0-solute1.bin",
+              "bytes": 131072,
+              "sha256": "f3b0bda21309eddac4da2dc0947682f6b0cb68e17a6a4cb3d25ea7f40cd7ed43"
+            }
+          ]
+        },
+        {
+          "target": 1,
+          "frame": 2,
+          "dir": 0,
+          "simTime": 0.00009,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 16549.6457413733,
+            "solid": 16929,
+            "pores": 1,
+            "mass": 10027.50837302208
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "alloy-cubic-1-state0.bin",
+              "bytes": 262144,
+              "sha256": "fabe573a0e8ca6e16e38b4705e597f8f172824e6c4f86f393e627449dccd8fb7"
+            },
+            {
+              "field": "state1",
+              "file": "alloy-cubic-1-state1.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "grain0",
+              "file": "alloy-cubic-1-grain0.bin",
+              "bytes": 131072,
+              "sha256": "d696b9d82e505519a7e42d579d4b19bdbea70d5c33d9b96ab133b6afb9932d18"
+            },
+            {
+              "field": "grain1",
+              "file": "alloy-cubic-1-grain1.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "age",
+              "file": "alloy-cubic-1-age.bin",
+              "bytes": 262144,
+              "sha256": "adf8d19fceccfc4ace041d041ec9395c4ad8282a1f32ae6addb301632742ef98"
+            },
+            {
+              "field": "fed0",
+              "file": "alloy-cubic-1-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "alloy-cubic-1-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "alloy-cubic-1-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "alloy-cubic-1-flux.bin",
+              "bytes": 524288,
+              "sha256": "1e6f64ffe4c82bd2b1ea55d72e976a10d6fde5c50c7aead2861b74325c2720bb"
+            },
+            {
+              "field": "solute0",
+              "file": "alloy-cubic-1-solute0.bin",
+              "bytes": 131072,
+              "sha256": "d9905d54ac26040b30f9233c0fa47087adee87fe3107af98b7931669ddd51960"
+            },
+            {
+              "field": "solute1",
+              "file": "alloy-cubic-1-solute1.bin",
+              "bytes": 131072,
+              "sha256": "f3b0bda21309eddac4da2dc0947682f6b0cb68e17a6a4cb3d25ea7f40cd7ed43"
+            }
+          ]
+        },
+        {
+          "target": 17,
+          "frame": 4,
+          "dir": 1,
+          "simTime": 0.0015300000000000001,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 26000.27435526997,
+            "solid": 29069,
+            "pores": 1,
+            "mass": 12631.589171648026
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "alloy-cubic-17-state0.bin",
+              "bytes": 262144,
+              "sha256": "f31995f39bd7042bc56176a873e444e20e9da087d15685079382991bbd7971b0"
+            },
+            {
+              "field": "state1",
+              "file": "alloy-cubic-17-state1.bin",
+              "bytes": 262144,
+              "sha256": "73f3922dca98c05924ca542373b6b1d5fcb88acb08ad5f75ec868925f6d05680"
+            },
+            {
+              "field": "grain0",
+              "file": "alloy-cubic-17-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "alloy-cubic-17-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "alloy-cubic-17-age.bin",
+              "bytes": 262144,
+              "sha256": "55dc46f10134b8786a258a01f14cbcdfe1d8b9b5a4adfa379234b94eaac5bc65"
+            },
+            {
+              "field": "fed0",
+              "file": "alloy-cubic-17-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "alloy-cubic-17-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "alloy-cubic-17-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "alloy-cubic-17-flux.bin",
+              "bytes": 524288,
+              "sha256": "3c28ffa1aec9b6879ce77fff4547318cc808701050857839dd80f2843f7f2a1d"
+            },
+            {
+              "field": "solute0",
+              "file": "alloy-cubic-17-solute0.bin",
+              "bytes": 131072,
+              "sha256": "9af75b96dca5dc2e6346b85e93b0f20973b3d33cbcf89d90799c4b59f8b2d80e"
+            },
+            {
+              "field": "solute1",
+              "file": "alloy-cubic-17-solute1.bin",
+              "bytes": 131072,
+              "sha256": "9af75b96dca5dc2e6346b85e93b0f20973b3d33cbcf89d90799c4b59f8b2d80e"
+            }
+          ]
+        },
+        {
+          "target": 64,
+          "frame": 5,
+          "dir": 0,
+          "simTime": 0.00576,
+          "feedGen": 3,
+          "summary": {
+            "phiSum": 28302.6837483719,
+            "solid": 30395,
+            "pores": 1,
+            "mass": 13374.010182917118
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "alloy-cubic-64-state0.bin",
+              "bytes": 262144,
+              "sha256": "b7e3966441448f510676d9a47514648986356cddd1512679751e929c02e7a12f"
+            },
+            {
+              "field": "state1",
+              "file": "alloy-cubic-64-state1.bin",
+              "bytes": 262144,
+              "sha256": "0a8cd4ca48cd9b46e3fb50b83e99ea0ded6053396d79ece0583f6f53ea4bcebf"
+            },
+            {
+              "field": "grain0",
+              "file": "alloy-cubic-64-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "alloy-cubic-64-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "alloy-cubic-64-age.bin",
+              "bytes": 262144,
+              "sha256": "1df9c6b6b9f87fd9bf6a883c560510f7368025e2bd69cd682aee4b3e2e33c70c"
+            },
+            {
+              "field": "fed0",
+              "file": "alloy-cubic-64-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "alloy-cubic-64-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "alloy-cubic-64-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "alloy-cubic-64-flux.bin",
+              "bytes": 524288,
+              "sha256": "9753d7d7b5f599fa77d1972358c86ff69c8e9c13b8310a157dcd541f45a3d4ae"
+            },
+            {
+              "field": "solute0",
+              "file": "alloy-cubic-64-solute0.bin",
+              "bytes": 131072,
+              "sha256": "c3001b9c94a688139d94c7132f3844fdc28f3923ffea29d723435674068c229e"
+            },
+            {
+              "field": "solute1",
+              "file": "alloy-cubic-64-solute1.bin",
+              "bytes": 131072,
+              "sha256": "203833e5d9eee53fe74b5c41ebdafa0e8be2fc7a3cd2da2a7be8b1b57506268b"
+            }
+          ]
+        },
+        {
+          "target": 129,
+          "frame": 6,
+          "dir": 1,
+          "simTime": 0.01161,
+          "feedGen": 4,
+          "summary": {
+            "phiSum": 28367.786613831297,
+            "solid": 28786,
+            "pores": 1,
+            "mass": 13415.813005417585
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "alloy-cubic-129-state0.bin",
+              "bytes": 262144,
+              "sha256": "78e0eb4272d2f12802a9d40b415370ef54c11564195d205074b6afbe6a9a3129"
+            },
+            {
+              "field": "state1",
+              "file": "alloy-cubic-129-state1.bin",
+              "bytes": 262144,
+              "sha256": "e5b1e8fa760a7231bcc064e3322fbf8134a6f31edd9fbfa08a2dfb171a12ea40"
+            },
+            {
+              "field": "grain0",
+              "file": "alloy-cubic-129-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "alloy-cubic-129-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "alloy-cubic-129-age.bin",
+              "bytes": 262144,
+              "sha256": "afb60725451469e983c6c9c9622ec44df4b2426a0fd9008d4b37aaadc93f6842"
+            },
+            {
+              "field": "fed0",
+              "file": "alloy-cubic-129-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "alloy-cubic-129-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "alloy-cubic-129-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "alloy-cubic-129-flux.bin",
+              "bytes": 524288,
+              "sha256": "3bd7c0a91e760a1017d169b3431d3010ac4b72225a9f08bcb8f5fedd76effeee"
+            },
+            {
+              "field": "solute0",
+              "file": "alloy-cubic-129-solute0.bin",
+              "bytes": 131072,
+              "sha256": "0dd45625f77221a95a0d2f7f847f3b4dd4141988585fcad4cf1d145b0d1768b6"
+            },
+            {
+              "field": "solute1",
+              "file": "alloy-cubic-129-solute1.bin",
+              "bytes": 131072,
+              "sha256": "2af1a650f06c73d14ab399425c6baa0420c30514068c68d87a0b548d5ed5d974"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "alloy-pore",
+        "n": 64,
+        "aniMode3": 1,
+        "alloy": true,
+        "pPore": 1,
+        "generation": 4
+      },
+      "params": {
+        "dx": 0.03,
+        "dt": 0.00009,
+        "epsBar": 0.01,
+        "delta": 0.04,
+        "deltaZ": 0.03,
+        "aniMode3": 1,
+        "tau": 0.0003,
+        "alpha": 0.9,
+        "gamma": 10,
+        "latent": 1.6,
+        "noiseAmp": 0.012,
+        "tFar": 0.3,
+        "coolRate": 0.15,
+        "heatIn": 0,
+        "meltGlow": 1,
+        "pPore": 1,
+        "scen": 0,
+        "gradG": 0.08,
+        "pullV": 1.5,
+        "weldX": 25.6,
+        "weldY": 38.4,
+        "weldPow": 8,
+        "weldSig": 3,
+        "alloyOn": 1,
+        "c0": 0.3,
+        "mLiq": 0.45,
+        "kPart": 0.2,
+        "dSol": 0.8,
+        "twinProb": 0,
+        "facet": 0,
+        "holdT": 0.08,
+        "holdRate": 5,
+        "moldT": 0.06,
+        "nyCrit": 8,
+        "envRate": 0
+      },
+      "checkpoints": [
+        {
+          "target": 0,
+          "frame": 1,
+          "dir": 1,
+          "simTime": 0,
+          "feedGen": 4,
+          "summary": {
+            "phiSum": 125828.71998540312,
+            "solid": 119788,
+            "pores": 1,
+            "mass": 78643.19995880127
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "alloy-pore-0-state0.bin",
+              "bytes": 2097152,
+              "sha256": "ab857ee4c9de464e05479873eb95f6666f936cd8b725f450122257bdaf43978c"
+            },
+            {
+              "field": "state1",
+              "file": "alloy-pore-0-state1.bin",
+              "bytes": 2097152,
+              "sha256": "ab857ee4c9de464e05479873eb95f6666f936cd8b725f450122257bdaf43978c"
+            },
+            {
+              "field": "grain0",
+              "file": "alloy-pore-0-grain0.bin",
+              "bytes": 1048576,
+              "sha256": "6edfff6b0d54e790ca0fabdc3d02359293264e3b70aa87cc33a0433005c23fc3"
+            },
+            {
+              "field": "grain1",
+              "file": "alloy-pore-0-grain1.bin",
+              "bytes": 1048576,
+              "sha256": "6edfff6b0d54e790ca0fabdc3d02359293264e3b70aa87cc33a0433005c23fc3"
+            },
+            {
+              "field": "age",
+              "file": "alloy-pore-0-age.bin",
+              "bytes": 2097152,
+              "sha256": "52466795029d07b1db4385d29128b96782b60990c3f5eaed04600762da146d84"
+            },
+            {
+              "field": "fed0",
+              "file": "alloy-pore-0-fed0.bin",
+              "bytes": 1048576,
+              "sha256": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+            },
+            {
+              "field": "fed1",
+              "file": "alloy-pore-0-fed1.bin",
+              "bytes": 1048576,
+              "sha256": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58"
+            },
+            {
+              "field": "mask",
+              "file": "alloy-pore-0-mask.bin",
+              "bytes": 262144,
+              "sha256": "8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90"
+            },
+            {
+              "field": "flux",
+              "file": "alloy-pore-0-flux.bin",
+              "bytes": 4194304,
+              "sha256": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+            },
+            {
+              "field": "solute0",
+              "file": "alloy-pore-0-solute0.bin",
+              "bytes": 1048576,
+              "sha256": "98379b9b62282dbbc081c28f6ac273bb55dd553a7287739a1938c6def4b1f1e1"
+            },
+            {
+              "field": "solute1",
+              "file": "alloy-pore-0-solute1.bin",
+              "bytes": 1048576,
+              "sha256": "98379b9b62282dbbc081c28f6ac273bb55dd553a7287739a1938c6def4b1f1e1"
+            }
+          ]
+        },
+        {
+          "target": 1,
+          "frame": 2,
+          "dir": 0,
+          "simTime": 0.00009,
+          "feedGen": 4,
+          "summary": {
+            "phiSum": 131472.1752148457,
+            "solid": 133368,
+            "pores": 1802,
+            "mass": 80207.75555157661
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "alloy-pore-1-state0.bin",
+              "bytes": 2097152,
+              "sha256": "b8db911484044dce6e19c089bb5e33d25cbc0fbc2b8e38263ae9fdbf68574c29"
+            },
+            {
+              "field": "state1",
+              "file": "alloy-pore-1-state1.bin",
+              "bytes": 2097152,
+              "sha256": "ab857ee4c9de464e05479873eb95f6666f936cd8b725f450122257bdaf43978c"
+            },
+            {
+              "field": "grain0",
+              "file": "alloy-pore-1-grain0.bin",
+              "bytes": 1048576,
+              "sha256": "302ef5807376dad353730a700dda530f8158b3251d62f029ed4a91619911bffa"
+            },
+            {
+              "field": "grain1",
+              "file": "alloy-pore-1-grain1.bin",
+              "bytes": 1048576,
+              "sha256": "6edfff6b0d54e790ca0fabdc3d02359293264e3b70aa87cc33a0433005c23fc3"
+            },
+            {
+              "field": "age",
+              "file": "alloy-pore-1-age.bin",
+              "bytes": 2097152,
+              "sha256": "fed012e9d6c8297b799ea2fee54b02fd7b03783e72565e67182010ff0a7f1f41"
+            },
+            {
+              "field": "fed0",
+              "file": "alloy-pore-1-fed0.bin",
+              "bytes": 1048576,
+              "sha256": "05137603d33c999a2dbe4d2506c29cd7dc2e79f7a2765eff33066b1e8c241a98"
+            },
+            {
+              "field": "fed1",
+              "file": "alloy-pore-1-fed1.bin",
+              "bytes": 1048576,
+              "sha256": "f4bcf12527158b7b68c5b243175b60516ff3ac2c1f25322ae1aad6c628cbae88"
+            },
+            {
+              "field": "mask",
+              "file": "alloy-pore-1-mask.bin",
+              "bytes": 262144,
+              "sha256": "8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90"
+            },
+            {
+              "field": "flux",
+              "file": "alloy-pore-1-flux.bin",
+              "bytes": 4194304,
+              "sha256": "600605d4fd4fa6e1675418f043640f62311bf05b206de685e0d92838adb865cb"
+            },
+            {
+              "field": "solute0",
+              "file": "alloy-pore-1-solute0.bin",
+              "bytes": 1048576,
+              "sha256": "879f3b8e3fc697edaf4b9a91981fe4ffbceee3c493e2dff3df4bb011154f9307"
+            },
+            {
+              "field": "solute1",
+              "file": "alloy-pore-1-solute1.bin",
+              "bytes": 1048576,
+              "sha256": "98379b9b62282dbbc081c28f6ac273bb55dd553a7287739a1938c6def4b1f1e1"
+            }
+          ]
+        },
+        {
+          "target": 17,
+          "frame": 4,
+          "dir": 1,
+          "simTime": 0.0015300000000000001,
+          "feedGen": 4,
+          "summary": {
+            "phiSum": 192406.01906181127,
+            "solid": 214752,
+            "pores": 11857,
+            "mass": 97331.57009223104
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "alloy-pore-17-state0.bin",
+              "bytes": 2097152,
+              "sha256": "1c9c040736120f7a02849da9666cd725a423fb56f37dfcd66597cad9f6e4e242"
+            },
+            {
+              "field": "state1",
+              "file": "alloy-pore-17-state1.bin",
+              "bytes": 2097152,
+              "sha256": "39cbe4a970298e5589c5b091521df5f14287d4720d90297d27098c2f9a88783c"
+            },
+            {
+              "field": "grain0",
+              "file": "alloy-pore-17-grain0.bin",
+              "bytes": 1048576,
+              "sha256": "db1d9b8e6442d5e10243b2eb45e69513e4544dbef360f5f28ea4005b890cbedd"
+            },
+            {
+              "field": "grain1",
+              "file": "alloy-pore-17-grain1.bin",
+              "bytes": 1048576,
+              "sha256": "db1d9b8e6442d5e10243b2eb45e69513e4544dbef360f5f28ea4005b890cbedd"
+            },
+            {
+              "field": "age",
+              "file": "alloy-pore-17-age.bin",
+              "bytes": 2097152,
+              "sha256": "e7aa41b5092013790af6707932b54a552f3a405d45e29b89f767982abc5b2bae"
+            },
+            {
+              "field": "fed0",
+              "file": "alloy-pore-17-fed0.bin",
+              "bytes": 1048576,
+              "sha256": "41690a591b5e51df1d375d16e78dd0d7d751de413c85d9b369cc72b6ba687566"
+            },
+            {
+              "field": "fed1",
+              "file": "alloy-pore-17-fed1.bin",
+              "bytes": 1048576,
+              "sha256": "eb22a2897e48486a64fe586bfa3ddaaad1c0ad4005abbea9dacc285fa52bbf8a"
+            },
+            {
+              "field": "mask",
+              "file": "alloy-pore-17-mask.bin",
+              "bytes": 262144,
+              "sha256": "8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90"
+            },
+            {
+              "field": "flux",
+              "file": "alloy-pore-17-flux.bin",
+              "bytes": 4194304,
+              "sha256": "24ae2495bf537b6e0911b06de18378e4e5e7d71a93e8d5ac8a65f60da233dca3"
+            },
+            {
+              "field": "solute0",
+              "file": "alloy-pore-17-solute0.bin",
+              "bytes": 1048576,
+              "sha256": "f93ba2c8cff45c71d88d3448f4616042e514afdd8840045c3914cca6ce24ac09"
+            },
+            {
+              "field": "solute1",
+              "file": "alloy-pore-17-solute1.bin",
+              "bytes": 1048576,
+              "sha256": "f93ba2c8cff45c71d88d3448f4616042e514afdd8840045c3914cca6ce24ac09"
+            }
+          ]
+        },
+        {
+          "target": 64,
+          "frame": 5,
+          "dir": 0,
+          "simTime": 0.00576,
+          "feedGen": 4,
+          "summary": {
+            "phiSum": 207260.01121564803,
+            "solid": 227242,
+            "pores": 13065,
+            "mass": 98451.19186934829
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "alloy-pore-64-state0.bin",
+              "bytes": 2097152,
+              "sha256": "e294a18d2cb07a3696eb9680e7ce858796f664de566be94d8a9a41b43ae6333b"
+            },
+            {
+              "field": "state1",
+              "file": "alloy-pore-64-state1.bin",
+              "bytes": 2097152,
+              "sha256": "414e983140d005bc18c3c5b78b43c45ca3447c8496efcc53b62cdbf8861dc397"
+            },
+            {
+              "field": "grain0",
+              "file": "alloy-pore-64-grain0.bin",
+              "bytes": 1048576,
+              "sha256": "9f0178c30faa1f5a3d3afea5f086127f925b00818f21eb31472d267b364def1a"
+            },
+            {
+              "field": "grain1",
+              "file": "alloy-pore-64-grain1.bin",
+              "bytes": 1048576,
+              "sha256": "fe97c29accb6c0aa33a546139c2e92d46e334ab52010246c33a41e2c4a062d0a"
+            },
+            {
+              "field": "age",
+              "file": "alloy-pore-64-age.bin",
+              "bytes": 2097152,
+              "sha256": "0889f8ac85d83a6769e400c4a079f04fc9069f076a3a47e8e32337064ee1662e"
+            },
+            {
+              "field": "fed0",
+              "file": "alloy-pore-64-fed0.bin",
+              "bytes": 1048576,
+              "sha256": "773a8b64277895eac555ae4351e64ef1dbfc5d9cd07f2052be47303257ced436"
+            },
+            {
+              "field": "fed1",
+              "file": "alloy-pore-64-fed1.bin",
+              "bytes": 1048576,
+              "sha256": "7f39004a2a00408e174d9f6978ebd204a5a5189bb7b0e9ee93843f188a793341"
+            },
+            {
+              "field": "mask",
+              "file": "alloy-pore-64-mask.bin",
+              "bytes": 262144,
+              "sha256": "8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90"
+            },
+            {
+              "field": "flux",
+              "file": "alloy-pore-64-flux.bin",
+              "bytes": 4194304,
+              "sha256": "e46058d62d90dfb54d40713ef26c6872baee31e780589a91cb3e37c991360de1"
+            },
+            {
+              "field": "solute0",
+              "file": "alloy-pore-64-solute0.bin",
+              "bytes": 1048576,
+              "sha256": "45f19503e59ebdbcba51500726a7a6c373927b3c50c554792e5befb56caf6d18"
+            },
+            {
+              "field": "solute1",
+              "file": "alloy-pore-64-solute1.bin",
+              "bytes": 1048576,
+              "sha256": "9cf64df27baaf6addcf4f649a33857e13b75eb962f63dc8674dd3bfe97e136e3"
+            }
+          ]
+        },
+        {
+          "target": 129,
+          "frame": 6,
+          "dir": 1,
+          "simTime": 0.01161,
+          "feedGen": 5,
+          "summary": {
+            "phiSum": 207537.62367685762,
+            "solid": 223322,
+            "pores": 13197,
+            "mass": 96745.03901928663
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "alloy-pore-129-state0.bin",
+              "bytes": 2097152,
+              "sha256": "cb3a6d279e22279ffdd341a2c95d2b3df62424a197e977991273c233de1af3ea"
+            },
+            {
+              "field": "state1",
+              "file": "alloy-pore-129-state1.bin",
+              "bytes": 2097152,
+              "sha256": "567dea15aa747dee411c388ba3c05afe25fc9a2e91ccf6b8bbeee6dcb8ebc0e8"
+            },
+            {
+              "field": "grain0",
+              "file": "alloy-pore-129-grain0.bin",
+              "bytes": 1048576,
+              "sha256": "aae0e082b20a781b3b0eb93ab882d8fc37cc49f235f08a5d58733453e899f935"
+            },
+            {
+              "field": "grain1",
+              "file": "alloy-pore-129-grain1.bin",
+              "bytes": 1048576,
+              "sha256": "f12d331febe73f3c4479cff8d0fba8bb7517e9a88792399b194b5385c1a7cc6c"
+            },
+            {
+              "field": "age",
+              "file": "alloy-pore-129-age.bin",
+              "bytes": 2097152,
+              "sha256": "16daa8cd1f2e6119b16ab5d0d80c67bf2afa741f5adad53929b2bc8872d5a992"
+            },
+            {
+              "field": "fed0",
+              "file": "alloy-pore-129-fed0.bin",
+              "bytes": 1048576,
+              "sha256": "773a8b64277895eac555ae4351e64ef1dbfc5d9cd07f2052be47303257ced436"
+            },
+            {
+              "field": "fed1",
+              "file": "alloy-pore-129-fed1.bin",
+              "bytes": 1048576,
+              "sha256": "773a8b64277895eac555ae4351e64ef1dbfc5d9cd07f2052be47303257ced436"
+            },
+            {
+              "field": "mask",
+              "file": "alloy-pore-129-mask.bin",
+              "bytes": 262144,
+              "sha256": "8a39d2abd3999ab73c34db2476849cddf303ce389b35826850f9a700589b4a90"
+            },
+            {
+              "field": "flux",
+              "file": "alloy-pore-129-flux.bin",
+              "bytes": 4194304,
+              "sha256": "575b3fa1b965b23285dc8c0bdc0077d9a9ab206688b8f3aa335368138fd768a2"
+            },
+            {
+              "field": "solute0",
+              "file": "alloy-pore-129-solute0.bin",
+              "bytes": 1048576,
+              "sha256": "308f5411c07d7a42a79b46f78e83d47feface68205aa4000724660ebf964b050"
+            },
+            {
+              "field": "solute1",
+              "file": "alloy-pore-129-solute1.bin",
+              "bytes": 1048576,
+              "sha256": "2dad37d39d1e49ec56004302b350c2561524904b882af2f159b1e62b73ba156a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "lab-mold",
+        "n": 32,
+        "aniMode3": 1,
+        "alloy": true,
+        "scen": 4
+      },
+      "params": {
+        "dx": 0.03,
+        "dt": 0.00009,
+        "epsBar": 0.01,
+        "delta": 0.04,
+        "deltaZ": 0.03,
+        "aniMode3": 1,
+        "tau": 0.0003,
+        "alpha": 0.9,
+        "gamma": 10,
+        "latent": 1.6,
+        "noiseAmp": 0.012,
+        "tFar": 0.3,
+        "coolRate": 0.15,
+        "heatIn": 0,
+        "meltGlow": 1,
+        "pPore": 0,
+        "scen": 4,
+        "gradG": 0.08,
+        "pullV": 1.5,
+        "weldX": 12.8,
+        "weldY": 19.2,
+        "weldPow": 8,
+        "weldSig": 3,
+        "alloyOn": 1,
+        "c0": 0.3,
+        "mLiq": 0.45,
+        "kPart": 0.2,
+        "dSol": 0.8,
+        "twinProb": 0,
+        "facet": 0,
+        "holdT": 0.08,
+        "holdRate": 5,
+        "moldT": 0.06,
+        "nyCrit": 8,
+        "envRate": 0
+      },
+      "checkpoints": [
+        {
+          "target": 0,
+          "frame": 1,
+          "dir": 1,
+          "simTime": 0,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 15728.239993087947,
+            "solid": 14836,
+            "pores": 1,
+            "mass": 9830.399990081787
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "lab-mold-0-state0.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "state1",
+              "file": "lab-mold-0-state1.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "grain0",
+              "file": "lab-mold-0-grain0.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "grain1",
+              "file": "lab-mold-0-grain1.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "age",
+              "file": "lab-mold-0-age.bin",
+              "bytes": 262144,
+              "sha256": "1f5351e0302788ba77f463768ec07ec61d852b5a9644b96f643a2eab435bbfa0"
+            },
+            {
+              "field": "fed0",
+              "file": "lab-mold-0-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "lab-mold-0-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "lab-mold-0-mask.bin",
+              "bytes": 32768,
+              "sha256": "4fce2d8a7c67becba3371965affdd2dd1b1f3f7045272df313b17e58da291392"
+            },
+            {
+              "field": "flux",
+              "file": "lab-mold-0-flux.bin",
+              "bytes": 524288,
+              "sha256": "07854d2fef297a06ba81685e660c332de36d5d18d546927d30daad6d7fda1541"
+            },
+            {
+              "field": "solute0",
+              "file": "lab-mold-0-solute0.bin",
+              "bytes": 131072,
+              "sha256": "f3b0bda21309eddac4da2dc0947682f6b0cb68e17a6a4cb3d25ea7f40cd7ed43"
+            },
+            {
+              "field": "solute1",
+              "file": "lab-mold-0-solute1.bin",
+              "bytes": 131072,
+              "sha256": "f3b0bda21309eddac4da2dc0947682f6b0cb68e17a6a4cb3d25ea7f40cd7ed43"
+            }
+          ]
+        },
+        {
+          "target": 1,
+          "frame": 2,
+          "dir": 0,
+          "simTime": 0.00009,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 11736.465006876737,
+            "solid": 11822,
+            "pores": 1,
+            "mass": 9971.319089531898
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "lab-mold-1-state0.bin",
+              "bytes": 262144,
+              "sha256": "de7f85b6d38aaa913d58baf6fee2a6d4dbdf45724cc20bbd0a6f98e98d0f83ee"
+            },
+            {
+              "field": "state1",
+              "file": "lab-mold-1-state1.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "grain0",
+              "file": "lab-mold-1-grain0.bin",
+              "bytes": 131072,
+              "sha256": "e8b5ab7dca3d89fa0bd9aa86b85fce712ec7b9b4bb4729d12f0dee3b57ff65a3"
+            },
+            {
+              "field": "grain1",
+              "file": "lab-mold-1-grain1.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "age",
+              "file": "lab-mold-1-age.bin",
+              "bytes": 262144,
+              "sha256": "9ac27d571aaa2440f7d2034beebc25028949652b1aa6bedec78cb93c5b5a3385"
+            },
+            {
+              "field": "fed0",
+              "file": "lab-mold-1-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "lab-mold-1-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "lab-mold-1-mask.bin",
+              "bytes": 32768,
+              "sha256": "4fce2d8a7c67becba3371965affdd2dd1b1f3f7045272df313b17e58da291392"
+            },
+            {
+              "field": "flux",
+              "file": "lab-mold-1-flux.bin",
+              "bytes": 524288,
+              "sha256": "1e6f64ffe4c82bd2b1ea55d72e976a10d6fde5c50c7aead2861b74325c2720bb"
+            },
+            {
+              "field": "solute0",
+              "file": "lab-mold-1-solute0.bin",
+              "bytes": 131072,
+              "sha256": "b47c055cf2716eea3b20a8884b4b9b27276b39c5b426b3634b3dd4bd66ef227f"
+            },
+            {
+              "field": "solute1",
+              "file": "lab-mold-1-solute1.bin",
+              "bytes": 131072,
+              "sha256": "f3b0bda21309eddac4da2dc0947682f6b0cb68e17a6a4cb3d25ea7f40cd7ed43"
+            }
+          ]
+        },
+        {
+          "target": 17,
+          "frame": 4,
+          "dir": 1,
+          "simTime": 0.0015300000000000001,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 18224.125275298953,
+            "solid": 20242,
+            "pores": 1,
+            "mass": 11698.208870321512
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "lab-mold-17-state0.bin",
+              "bytes": 262144,
+              "sha256": "986838d0a7e753bbebd84b4d9d76897acada199df33e94d06bf6bfb8056fef8f"
+            },
+            {
+              "field": "state1",
+              "file": "lab-mold-17-state1.bin",
+              "bytes": 262144,
+              "sha256": "643d49362eb46ed28b05b731dae6d0e19d0323763f8cc8f39980d5e251a0f867"
+            },
+            {
+              "field": "grain0",
+              "file": "lab-mold-17-grain0.bin",
+              "bytes": 131072,
+              "sha256": "3c53a42de3fb3dab850f55c30adb9d3baac126bb841bdefd667896ebf8deddea"
+            },
+            {
+              "field": "grain1",
+              "file": "lab-mold-17-grain1.bin",
+              "bytes": 131072,
+              "sha256": "3c53a42de3fb3dab850f55c30adb9d3baac126bb841bdefd667896ebf8deddea"
+            },
+            {
+              "field": "age",
+              "file": "lab-mold-17-age.bin",
+              "bytes": 262144,
+              "sha256": "a4951f3bdc7e7c5e0a94440e21ea579a694fa9eb5d03f61875174887f7b4a446"
+            },
+            {
+              "field": "fed0",
+              "file": "lab-mold-17-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "lab-mold-17-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "lab-mold-17-mask.bin",
+              "bytes": 32768,
+              "sha256": "4fce2d8a7c67becba3371965affdd2dd1b1f3f7045272df313b17e58da291392"
+            },
+            {
+              "field": "flux",
+              "file": "lab-mold-17-flux.bin",
+              "bytes": 524288,
+              "sha256": "505c219e0d9fb0993d57503346f93f06484309f02744f002038fd6f035b8d9ba"
+            },
+            {
+              "field": "solute0",
+              "file": "lab-mold-17-solute0.bin",
+              "bytes": 131072,
+              "sha256": "ec9d8aa134f7ee9e7ec42cc8d74084cb098254f378ff8ab7425a882330660c3c"
+            },
+            {
+              "field": "solute1",
+              "file": "lab-mold-17-solute1.bin",
+              "bytes": 131072,
+              "sha256": "ec9d8aa134f7ee9e7ec42cc8d74084cb098254f378ff8ab7425a882330660c3c"
+            }
+          ]
+        },
+        {
+          "target": 64,
+          "frame": 5,
+          "dir": 0,
+          "simTime": 0.00576,
+          "feedGen": 3,
+          "summary": {
+            "phiSum": 20794.31360974908,
+            "solid": 22313,
+            "pores": 1,
+            "mass": 12193.227979630232
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "lab-mold-64-state0.bin",
+              "bytes": 262144,
+              "sha256": "7e461a0260a738cc1f012eb9664f6cbfdb9d53946cdec22e0dc7910b555a7ec4"
+            },
+            {
+              "field": "state1",
+              "file": "lab-mold-64-state1.bin",
+              "bytes": 262144,
+              "sha256": "01ba2e4913455c69fe1e0fbd4cc2f40d8ae68cb1be52b28691cc4c90ccddc91e"
+            },
+            {
+              "field": "grain0",
+              "file": "lab-mold-64-grain0.bin",
+              "bytes": 131072,
+              "sha256": "3c53a42de3fb3dab850f55c30adb9d3baac126bb841bdefd667896ebf8deddea"
+            },
+            {
+              "field": "grain1",
+              "file": "lab-mold-64-grain1.bin",
+              "bytes": 131072,
+              "sha256": "3c53a42de3fb3dab850f55c30adb9d3baac126bb841bdefd667896ebf8deddea"
+            },
+            {
+              "field": "age",
+              "file": "lab-mold-64-age.bin",
+              "bytes": 262144,
+              "sha256": "7b669c8827600929664ff5578ac8e465a3821cfbbe01dc83e2f71f9d08582608"
+            },
+            {
+              "field": "fed0",
+              "file": "lab-mold-64-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "lab-mold-64-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "lab-mold-64-mask.bin",
+              "bytes": 32768,
+              "sha256": "4fce2d8a7c67becba3371965affdd2dd1b1f3f7045272df313b17e58da291392"
+            },
+            {
+              "field": "flux",
+              "file": "lab-mold-64-flux.bin",
+              "bytes": 524288,
+              "sha256": "a6b8d13731ac95b3737362dbbf6ca14f67d6686e7b3913c98bb93e304f5828a3"
+            },
+            {
+              "field": "solute0",
+              "file": "lab-mold-64-solute0.bin",
+              "bytes": 131072,
+              "sha256": "e5e32de508e4d886f56d1eebb314f5b139d018c1acb2f0092790710ed3295680"
+            },
+            {
+              "field": "solute1",
+              "file": "lab-mold-64-solute1.bin",
+              "bytes": 131072,
+              "sha256": "06ac5b496975f0add31a7de775f29efeb50d5a7e798b61785efaaadf92e06e39"
+            }
+          ]
+        },
+        {
+          "target": 129,
+          "frame": 6,
+          "dir": 1,
+          "simTime": 0.01161,
+          "feedGen": 4,
+          "summary": {
+            "phiSum": 21378.22326501459,
+            "solid": 22224,
+            "pores": 1,
+            "mass": 12165.838292688131
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "lab-mold-129-state0.bin",
+              "bytes": 262144,
+              "sha256": "e7bde623024af71a915da7be8fb6d6b71e76fa478849c9d17e65261027e7c4de"
+            },
+            {
+              "field": "state1",
+              "file": "lab-mold-129-state1.bin",
+              "bytes": 262144,
+              "sha256": "7b1120a1aa9a94e0f766fbad67fabe283a4aabb0534f3a4591bcfbce1491bb9d"
+            },
+            {
+              "field": "grain0",
+              "file": "lab-mold-129-grain0.bin",
+              "bytes": 131072,
+              "sha256": "3c53a42de3fb3dab850f55c30adb9d3baac126bb841bdefd667896ebf8deddea"
+            },
+            {
+              "field": "grain1",
+              "file": "lab-mold-129-grain1.bin",
+              "bytes": 131072,
+              "sha256": "3c53a42de3fb3dab850f55c30adb9d3baac126bb841bdefd667896ebf8deddea"
+            },
+            {
+              "field": "age",
+              "file": "lab-mold-129-age.bin",
+              "bytes": 262144,
+              "sha256": "652f412485a70d704d184f06e0c2e3ad64b0e78641026c5b52355c4687688d89"
+            },
+            {
+              "field": "fed0",
+              "file": "lab-mold-129-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "lab-mold-129-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "lab-mold-129-mask.bin",
+              "bytes": 32768,
+              "sha256": "4fce2d8a7c67becba3371965affdd2dd1b1f3f7045272df313b17e58da291392"
+            },
+            {
+              "field": "flux",
+              "file": "lab-mold-129-flux.bin",
+              "bytes": 524288,
+              "sha256": "32b7c18695d80cfa331b16e5c1d12737919a1ad7947d29b30b3b62a9dda181ea"
+            },
+            {
+              "field": "solute0",
+              "file": "lab-mold-129-solute0.bin",
+              "bytes": 131072,
+              "sha256": "cef0e415aa688c9e494b7d04d89bb2cc27b63b79730a8d73caeb27d8afd02038"
+            },
+            {
+              "field": "solute1",
+              "file": "lab-mold-129-solute1.bin",
+              "bytes": 131072,
+              "sha256": "b9cf943f950585ba4055091ba772261c249a367e29bf4cbc57bccca81179dab2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "bridgman",
+        "n": 32,
+        "aniMode3": 1,
+        "scen": 1
+      },
+      "params": {
+        "dx": 0.03,
+        "dt": 0.00009,
+        "epsBar": 0.01,
+        "delta": 0.04,
+        "deltaZ": 0.03,
+        "aniMode3": 1,
+        "tau": 0.0003,
+        "alpha": 0.9,
+        "gamma": 10,
+        "latent": 1.6,
+        "noiseAmp": 0.012,
+        "tFar": 0.3,
+        "coolRate": 0.15,
+        "heatIn": 0,
+        "meltGlow": 1,
+        "pPore": 0,
+        "scen": 1,
+        "gradG": 0.08,
+        "pullV": 1.5,
+        "weldX": 12.8,
+        "weldY": 19.2,
+        "weldPow": 8,
+        "weldSig": 3,
+        "alloyOn": 0,
+        "c0": 0.3,
+        "mLiq": 0.45,
+        "kPart": 0.2,
+        "dSol": 0.8,
+        "twinProb": 0,
+        "facet": 0,
+        "holdT": 0.08,
+        "holdRate": 5,
+        "moldT": 0.06,
+        "nyCrit": 8,
+        "envRate": 0
+      },
+      "checkpoints": [
+        {
+          "target": 0,
+          "frame": 1,
+          "dir": 1,
+          "simTime": 0,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 15728.239993087947,
+            "solid": 14836,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "bridgman-0-state0.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "state1",
+              "file": "bridgman-0-state1.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "grain0",
+              "file": "bridgman-0-grain0.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "grain1",
+              "file": "bridgman-0-grain1.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "age",
+              "file": "bridgman-0-age.bin",
+              "bytes": 262144,
+              "sha256": "1f5351e0302788ba77f463768ec07ec61d852b5a9644b96f643a2eab435bbfa0"
+            },
+            {
+              "field": "fed0",
+              "file": "bridgman-0-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "bridgman-0-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "bridgman-0-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "bridgman-0-flux.bin",
+              "bytes": 524288,
+              "sha256": "07854d2fef297a06ba81685e660c332de36d5d18d546927d30daad6d7fda1541"
+            }
+          ]
+        },
+        {
+          "target": 1,
+          "frame": 2,
+          "dir": 0,
+          "simTime": 0.00009,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 16571.569891300052,
+            "solid": 16976,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "bridgman-1-state0.bin",
+              "bytes": 262144,
+              "sha256": "55275872bd074d54105e99195f8b867c0ccc4cee1a529d3214db4af37feb6276"
+            },
+            {
+              "field": "state1",
+              "file": "bridgman-1-state1.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "grain0",
+              "file": "bridgman-1-grain0.bin",
+              "bytes": 131072,
+              "sha256": "d696b9d82e505519a7e42d579d4b19bdbea70d5c33d9b96ab133b6afb9932d18"
+            },
+            {
+              "field": "grain1",
+              "file": "bridgman-1-grain1.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "age",
+              "file": "bridgman-1-age.bin",
+              "bytes": 262144,
+              "sha256": "ad11836e335cde3237c987c90a5a832d0fe9398008bb3f762a6f4978583f7e51"
+            },
+            {
+              "field": "fed0",
+              "file": "bridgman-1-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "bridgman-1-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "bridgman-1-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "bridgman-1-flux.bin",
+              "bytes": 524288,
+              "sha256": "1e6f64ffe4c82bd2b1ea55d72e976a10d6fde5c50c7aead2861b74325c2720bb"
+            }
+          ]
+        },
+        {
+          "target": 17,
+          "frame": 4,
+          "dir": 1,
+          "simTime": 0.0015300000000000001,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 27539.866614311934,
+            "solid": 29609,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "bridgman-17-state0.bin",
+              "bytes": 262144,
+              "sha256": "0edd94d8cf4bb2d052aaa5a03da5b1f399e7f7d6ba20ad33a479c9d9a328ddd5"
+            },
+            {
+              "field": "state1",
+              "file": "bridgman-17-state1.bin",
+              "bytes": 262144,
+              "sha256": "648fe5ffa93e9268d5dae20d3a5615dcc1e1836a8452064f0259fc5d0bcf6666"
+            },
+            {
+              "field": "grain0",
+              "file": "bridgman-17-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "bridgman-17-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "bridgman-17-age.bin",
+              "bytes": 262144,
+              "sha256": "5131dc2099b55cfe693c8d4b32cb9c2518ddf11fe60347e32bd700d460743d99"
+            },
+            {
+              "field": "fed0",
+              "file": "bridgman-17-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "bridgman-17-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "bridgman-17-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "bridgman-17-flux.bin",
+              "bytes": 524288,
+              "sha256": "a5174cd59f0538d0a18c0782fa8854ac2bad35e9509fb9e14ecd453c5cce08d6"
+            }
+          ]
+        },
+        {
+          "target": 64,
+          "frame": 5,
+          "dir": 0,
+          "simTime": 0.00576,
+          "feedGen": 3,
+          "summary": {
+            "phiSum": 31484.89590151608,
+            "solid": 32033,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "bridgman-64-state0.bin",
+              "bytes": 262144,
+              "sha256": "46b624ad1fd94f7b8a0b37b3ae3629388fbca66779bde1f27e8105ae920ef6d1"
+            },
+            {
+              "field": "state1",
+              "file": "bridgman-64-state1.bin",
+              "bytes": 262144,
+              "sha256": "dee81a8bb3750f702e9ed2d369c057c17c17092fdbdfa5a6c747484ebfa3f52e"
+            },
+            {
+              "field": "grain0",
+              "file": "bridgman-64-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "bridgman-64-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "bridgman-64-age.bin",
+              "bytes": 262144,
+              "sha256": "3a43988c6c12e992b319f2223acbd979031d43713856317d97e45496c862d0e1"
+            },
+            {
+              "field": "fed0",
+              "file": "bridgman-64-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "bridgman-64-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "bridgman-64-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "bridgman-64-flux.bin",
+              "bytes": 524288,
+              "sha256": "be06acc5a54c3b2dc38638421cf174f70c167e1dbd05a70e899f39500ac9164c"
+            }
+          ]
+        },
+        {
+          "target": 129,
+          "frame": 6,
+          "dir": 1,
+          "simTime": 0.01161,
+          "feedGen": 4,
+          "summary": {
+            "phiSum": 32357.994305737317,
+            "solid": 32424,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "bridgman-129-state0.bin",
+              "bytes": 262144,
+              "sha256": "059c9d41282f6154fe25ab7c8128d8ea02823ec714d5885464870a57b27046f8"
+            },
+            {
+              "field": "state1",
+              "file": "bridgman-129-state1.bin",
+              "bytes": 262144,
+              "sha256": "0c48a4a61cc7139cbd4d59cfbc147c26823ea83d2497b74c133ce823d3bddbec"
+            },
+            {
+              "field": "grain0",
+              "file": "bridgman-129-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "bridgman-129-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "bridgman-129-age.bin",
+              "bytes": 262144,
+              "sha256": "c25ecb01230b8c27caf8abbc50d4fd63fdbd971c7ba72ae0758732b9fe0dbc7d"
+            },
+            {
+              "field": "fed0",
+              "file": "bridgman-129-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "bridgman-129-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "bridgman-129-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "bridgman-129-flux.bin",
+              "bytes": 524288,
+              "sha256": "d3da57b5528b58990dea4f577557f26e3feb10c7536b1cda3264542dddff33dd"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "name": "weld",
+        "n": 32,
+        "aniMode3": 1,
+        "scen": 2
+      },
+      "params": {
+        "dx": 0.03,
+        "dt": 0.00009,
+        "epsBar": 0.01,
+        "delta": 0.04,
+        "deltaZ": 0.03,
+        "aniMode3": 1,
+        "tau": 0.0003,
+        "alpha": 0.9,
+        "gamma": 10,
+        "latent": 1.6,
+        "noiseAmp": 0.012,
+        "tFar": 0.3,
+        "coolRate": 0.15,
+        "heatIn": 0,
+        "meltGlow": 1,
+        "pPore": 0,
+        "scen": 2,
+        "gradG": 0.08,
+        "pullV": 1.5,
+        "weldX": 12.8,
+        "weldY": 19.2,
+        "weldPow": 8,
+        "weldSig": 3,
+        "alloyOn": 0,
+        "c0": 0.3,
+        "mLiq": 0.45,
+        "kPart": 0.2,
+        "dSol": 0.8,
+        "twinProb": 0,
+        "facet": 0,
+        "holdT": 0.08,
+        "holdRate": 5,
+        "moldT": 0.06,
+        "nyCrit": 8,
+        "envRate": 0
+      },
+      "checkpoints": [
+        {
+          "target": 0,
+          "frame": 1,
+          "dir": 1,
+          "simTime": 0,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 15728.239993087947,
+            "solid": 14836,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "weld-0-state0.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "state1",
+              "file": "weld-0-state1.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "grain0",
+              "file": "weld-0-grain0.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "grain1",
+              "file": "weld-0-grain1.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "age",
+              "file": "weld-0-age.bin",
+              "bytes": 262144,
+              "sha256": "1f5351e0302788ba77f463768ec07ec61d852b5a9644b96f643a2eab435bbfa0"
+            },
+            {
+              "field": "fed0",
+              "file": "weld-0-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "weld-0-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "weld-0-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "weld-0-flux.bin",
+              "bytes": 524288,
+              "sha256": "07854d2fef297a06ba81685e660c332de36d5d18d546927d30daad6d7fda1541"
+            }
+          ]
+        },
+        {
+          "target": 1,
+          "frame": 2,
+          "dir": 0,
+          "simTime": 0.00009,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 16571.569891300052,
+            "solid": 16976,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "weld-1-state0.bin",
+              "bytes": 262144,
+              "sha256": "5cd8d726ea75a75b05bd35674edc4ebebe5806d63ebf9d6e902529ab8f27a7cf"
+            },
+            {
+              "field": "state1",
+              "file": "weld-1-state1.bin",
+              "bytes": 262144,
+              "sha256": "32b7187d332b8f1180a1ea328f0c73dd9b1f3f94328a7cc2dc77800afef26a51"
+            },
+            {
+              "field": "grain0",
+              "file": "weld-1-grain0.bin",
+              "bytes": 131072,
+              "sha256": "d696b9d82e505519a7e42d579d4b19bdbea70d5c33d9b96ab133b6afb9932d18"
+            },
+            {
+              "field": "grain1",
+              "file": "weld-1-grain1.bin",
+              "bytes": 131072,
+              "sha256": "1e1aae2177a881efc77593e3dfbf750c6db5150f7d459f846aa10041f4b3dc32"
+            },
+            {
+              "field": "age",
+              "file": "weld-1-age.bin",
+              "bytes": 262144,
+              "sha256": "0620cad0e654693d23a86f9f481f9296503620d8f4991c814ec5a91631aeb8ba"
+            },
+            {
+              "field": "fed0",
+              "file": "weld-1-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "weld-1-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "weld-1-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "weld-1-flux.bin",
+              "bytes": 524288,
+              "sha256": "1e6f64ffe4c82bd2b1ea55d72e976a10d6fde5c50c7aead2861b74325c2720bb"
+            }
+          ]
+        },
+        {
+          "target": 17,
+          "frame": 4,
+          "dir": 1,
+          "simTime": 0.0015300000000000001,
+          "feedGen": 2,
+          "summary": {
+            "phiSum": 27544.61807446927,
+            "solid": 29675,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "weld-17-state0.bin",
+              "bytes": 262144,
+              "sha256": "57735afce97740b53df81f484db702b892c2ef266cfb71736391d6c3f0ea47c0"
+            },
+            {
+              "field": "state1",
+              "file": "weld-17-state1.bin",
+              "bytes": 262144,
+              "sha256": "8e9900b55f744de58c75b63dd34d3924a168aed658b4876461af91788b0558ed"
+            },
+            {
+              "field": "grain0",
+              "file": "weld-17-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "weld-17-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "weld-17-age.bin",
+              "bytes": 262144,
+              "sha256": "22b7b47302f8df1d9cba73bae48f57ec948febe4e48062452a7fb075f9b94960"
+            },
+            {
+              "field": "fed0",
+              "file": "weld-17-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "weld-17-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "weld-17-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "weld-17-flux.bin",
+              "bytes": 524288,
+              "sha256": "cd65756f8e60774163d96db12d55e15ed7b7659a5f2fba16d41f280c1ecc4eeb"
+            }
+          ]
+        },
+        {
+          "target": 64,
+          "frame": 5,
+          "dir": 0,
+          "simTime": 0.00576,
+          "feedGen": 3,
+          "summary": {
+            "phiSum": 30557.748963661492,
+            "solid": 31567,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "weld-64-state0.bin",
+              "bytes": 262144,
+              "sha256": "2df0bfd2bec8ba28ec7336a60a9f66f9a521a302925502d4e4ba9a77fa4c6f5d"
+            },
+            {
+              "field": "state1",
+              "file": "weld-64-state1.bin",
+              "bytes": 262144,
+              "sha256": "b146c8dcf066ea13a2c9beef731be342686d0657033fa8a247d515304f998903"
+            },
+            {
+              "field": "grain0",
+              "file": "weld-64-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "weld-64-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "weld-64-age.bin",
+              "bytes": 262144,
+              "sha256": "7e4e5c71fc988ee07d241a2d06d2cbb5dee4f299297a0007a67f5988bcf4ee08"
+            },
+            {
+              "field": "fed0",
+              "file": "weld-64-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "weld-64-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "weld-64-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "weld-64-flux.bin",
+              "bytes": 524288,
+              "sha256": "96dfd3a3e4573b80e8750f2ccf66eea8b687db10507e147cacc03c07bc81a903"
+            }
+          ]
+        },
+        {
+          "target": 129,
+          "frame": 6,
+          "dir": 1,
+          "simTime": 0.01161,
+          "feedGen": 4,
+          "summary": {
+            "phiSum": 30593.262403033674,
+            "solid": 30792,
+            "pores": 1,
+            "mass": 0
+          },
+          "fields": [
+            {
+              "field": "state0",
+              "file": "weld-129-state0.bin",
+              "bytes": 262144,
+              "sha256": "2938e7f2b15229f8b9838841f332d08cca50ba81b944ea05906d6d962ebcc911"
+            },
+            {
+              "field": "state1",
+              "file": "weld-129-state1.bin",
+              "bytes": 262144,
+              "sha256": "7624f1423f822985af63a805c465c145fc42775fc0cff7511b7122b145950945"
+            },
+            {
+              "field": "grain0",
+              "file": "weld-129-grain0.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "grain1",
+              "file": "weld-129-grain1.bin",
+              "bytes": 131072,
+              "sha256": "8e5ffc454f533c340c0c911db62afb12800e7017b5b02cb1469869cddd2ffa5e"
+            },
+            {
+              "field": "age",
+              "file": "weld-129-age.bin",
+              "bytes": 262144,
+              "sha256": "c664d2209fe420dca848415dd4c44e6550dbb55e49e46dc2ea6339243531b1e2"
+            },
+            {
+              "field": "fed0",
+              "file": "weld-129-fed0.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "fed1",
+              "file": "weld-129-fed1.bin",
+              "bytes": 131072,
+              "sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471"
+            },
+            {
+              "field": "mask",
+              "file": "weld-129-mask.bin",
+              "bytes": 32768,
+              "sha256": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479"
+            },
+            {
+              "field": "flux",
+              "file": "weld-129-flux.bin",
+              "bytes": 524288,
+              "sha256": "f69fe59bb091f3189e9c36071eb3a2d5e5c3ce33818b0a3a0531b8c4c1310071"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

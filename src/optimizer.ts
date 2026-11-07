@@ -4,7 +4,7 @@
 
 import type { Simulation } from "./sim";
 import { Nucleation } from "./nucleation";
-import { stream } from "./rng";
+import { stream, type Rng } from "./rng";
 import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
 import { OPT_CAVEATS, panelText } from "./learn/panels";
 import { paintRange } from "./design/tool";
@@ -32,13 +32,14 @@ export interface OptHost {
 }
 
 // ---------------------------------------------------------- separable CMA-ES
-class SepCMAES {
+export class SepCMAES {
   dim: number; lambda: number; mu: number;
   mean: number[]; sigma: number; C: number[]; ps: number[]; pc: number[];
   weights: number[]; mueff: number; cs: number; cc: number; c1: number; cmu: number; damps: number;
   private pop: number[][] = [];
 
-  constructor(dim: number, lambda = 8, sigma0 = 0.8) {
+  constructor(dim: number, lambda = 8, sigma0 = 0.8, rng?: Rng) {
+    if (rng) this.rng = rng;
     this.dim = dim; this.lambda = lambda; this.mu = Math.floor(lambda / 2);
     this.mean = new Array(dim).fill(0);
     this.sigma = sigma0;

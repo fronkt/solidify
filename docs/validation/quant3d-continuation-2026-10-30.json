@@ -1,0 +1,1484 @@
+{
+    "purpose":  "Fixed-terminal base diagnostic and independent equilibrium matrix; no Q3 acceptance",
+    "source":  "2bd78939bc00f7aa5484cd815e870dcd6ec2d95a",
+    "base":  {
+                 "hardware":  {
+                                  "vendor":  "nvidia",
+                                  "architecture":  "blackwell",
+                                  "device":  "",
+                                  "description":  "",
+                                  "isFallbackAdapter":  false
+                              },
+                 "protocolVersion":  4,
+                 "execution":  {
+                                   "mode":  "diagnostic subset",
+                                   "selectedArms":  [
+                                                        "base"
+                                                    ],
+                                   "requested":  "base",
+                                   "fullRegistrationPreserved":  true
+                               },
+                 "target":  {
+                                "P":  0.312,
+                                "sigmaStar":  0.063
+                            },
+                 "relativeTarget":  0.1,
+                 "config":  {
+                                "lambda":  4,
+                                "epsilon4":  0.0171,
+                                "undercooling":  0.45,
+                                "radius":  8,
+                                "name":  "base",
+                                "dims":  [
+                                             270,
+                                             270,
+                                             612
+                                         ],
+                                "dx":  0.8,
+                                "dt":  0.0180006338,
+                                "D":  2.5068,
+                                "d0":  0.220975,
+                                "physicalTimeScale":  1,
+                                "maximumTimeTau0":  1949.1356423198636,
+                                "samplePeriodTau0":  32.370331090315965
+                            },
+                 "terminalObservation":  {
+                                             "terminalPhysicalTime":  1949.1356423198636,
+                                             "samplePeriodPhysical":  32.370331090315965,
+                                             "physicalTimeScale":  1,
+                                             "dt":  0.0180006338,
+                                             "terminalSteps":  108282,
+                                             "terminalTimeTau0":  1949.1446291316,
+                                             "terminalPhysicalTimeRounded":  1949.1446291316,
+                                             "maximumPhysicalRounding":  0.0180006338,
+                                             "checkpoints":  [
+                                                                 {
+                                                                     "index":  0,
+                                                                     "steps":  385,
+                                                                     "requestedPhysicalTime":  6.915776900905712,
+                                                                     "requestedTimeTau0":  6.915776900905712,
+                                                                     "timeTau0":  6.930244012999999,
+                                                                     "physicalTime":  6.930244012999999,
+                                                                     "roundingTau0":  0.014467112094287415
+                                                                 },
+                                                                 {
+                                                                     "index":  1,
+                                                                     "steps":  2183,
+                                                                     "requestedPhysicalTime":  39.28610799122157,
+                                                                     "requestedTimeTau0":  39.28610799122157,
+                                                                     "timeTau0":  39.295383585399996,
+                                                                     "physicalTime":  39.295383585399996,
+                                                                     "roundingTau0":  0.00927559417842616
+                                                                 },
+                                                                 {
+                                                                     "index":  2,
+                                                                     "steps":  3981,
+                                                                     "requestedPhysicalTime":  71.65643908153766,
+                                                                     "requestedTimeTau0":  71.65643908153766,
+                                                                     "timeTau0":  71.6605231578,
+                                                                     "physicalTime":  71.6605231578,
+                                                                     "roundingTau0":  0.004084076262344638
+                                                                 },
+                                                                 {
+                                                                     "index":  3,
+                                                                     "steps":  5780,
+                                                                     "requestedPhysicalTime":  104.02677017185351,
+                                                                     "requestedTimeTau0":  104.02677017185351,
+                                                                     "timeTau0":  104.043663364,
+                                                                     "physicalTime":  104.043663364,
+                                                                     "roundingTau0":  0.016893192146483216
+                                                                 },
+                                                                 {
+                                                                     "index":  4,
+                                                                     "steps":  7578,
+                                                                     "requestedPhysicalTime":  136.3971012621696,
+                                                                     "requestedTimeTau0":  136.3971012621696,
+                                                                     "timeTau0":  136.40880293639998,
+                                                                     "physicalTime":  136.40880293639998,
+                                                                     "roundingTau0":  0.011701674230380377
+                                                                 },
+                                                                 {
+                                                                     "index":  5,
+                                                                     "steps":  9376,
+                                                                     "requestedPhysicalTime":  168.76743235248546,
+                                                                     "requestedTimeTau0":  168.76743235248546,
+                                                                     "timeTau0":  168.7739425088,
+                                                                     "physicalTime":  168.7739425088,
+                                                                     "roundingTau0":  0.006510156314533333
+                                                                 },
+                                                                 {
+                                                                     "index":  6,
+                                                                     "steps":  11174,
+                                                                     "requestedPhysicalTime":  201.13776344280154,
+                                                                     "requestedTimeTau0":  201.13776344280154,
+                                                                     "timeTau0":  201.13908208119997,
+                                                                     "physicalTime":  201.13908208119997,
+                                                                     "roundingTau0":  0.001318638398430494
+                                                                 },
+                                                                 {
+                                                                     "index":  7,
+                                                                     "steps":  12973,
+                                                                     "requestedPhysicalTime":  233.5080945331174,
+                                                                     "requestedTimeTau0":  233.5080945331174,
+                                                                     "timeTau0":  233.52222228739998,
+                                                                     "physicalTime":  233.52222228739998,
+                                                                     "roundingTau0":  0.014127754282583282
+                                                                 },
+                                                                 {
+                                                                     "index":  8,
+                                                                     "steps":  14771,
+                                                                     "requestedPhysicalTime":  265.8784256234335,
+                                                                     "requestedTimeTau0":  265.8784256234335,
+                                                                     "timeTau0":  265.88736185979997,
+                                                                     "physicalTime":  265.88736185979997,
+                                                                     "roundingTau0":  0.008936236366480443
+                                                                 },
+                                                                 {
+                                                                     "index":  9,
+                                                                     "steps":  16569,
+                                                                     "requestedPhysicalTime":  298.24875671374934,
+                                                                     "requestedTimeTau0":  298.24875671374934,
+                                                                     "timeTau0":  298.2525014322,
+                                                                     "physicalTime":  298.2525014322,
+                                                                     "roundingTau0":  0.0037447184506618214
+                                                                 },
+                                                                 {
+                                                                     "index":  10,
+                                                                     "steps":  18368,
+                                                                     "requestedPhysicalTime":  330.61908780406543,
+                                                                     "requestedTimeTau0":  330.61908780406543,
+                                                                     "timeTau0":  330.6356416384,
+                                                                     "physicalTime":  330.6356416384,
+                                                                     "roundingTau0":  0.016553834334558815
+                                                                 },
+                                                                 {
+                                                                     "index":  11,
+                                                                     "steps":  20166,
+                                                                     "requestedPhysicalTime":  362.9894188943813,
+                                                                     "requestedTimeTau0":  362.9894188943813,
+                                                                     "timeTau0":  363.00078121079997,
+                                                                     "physicalTime":  363.00078121079997,
+                                                                     "roundingTau0":  0.01136231641868335
+                                                                 },
+                                                                 {
+                                                                     "index":  12,
+                                                                     "steps":  21964,
+                                                                     "requestedPhysicalTime":  395.3597499846974,
+                                                                     "requestedTimeTau0":  395.3597499846974,
+                                                                     "timeTau0":  395.36592078319995,
+                                                                     "physicalTime":  395.36592078319995,
+                                                                     "roundingTau0":  0.00617079850258051
+                                                                 },
+                                                                 {
+                                                                     "index":  13,
+                                                                     "steps":  23762,
+                                                                     "requestedPhysicalTime":  427.73008107501323,
+                                                                     "requestedTimeTau0":  427.73008107501323,
+                                                                     "timeTau0":  427.7310603556,
+                                                                     "physicalTime":  427.7310603556,
+                                                                     "roundingTau0":  0.0009792805867618881
+                                                                 },
+                                                                 {
+                                                                     "index":  14,
+                                                                     "steps":  25561,
+                                                                     "requestedPhysicalTime":  460.1004121653291,
+                                                                     "requestedTimeTau0":  460.1004121653291,
+                                                                     "timeTau0":  460.1142005618,
+                                                                     "physicalTime":  460.1142005618,
+                                                                     "roundingTau0":  0.013788396470886255
+                                                                 },
+                                                                 {
+                                                                     "index":  15,
+                                                                     "steps":  27359,
+                                                                     "requestedPhysicalTime":  492.4707432556452,
+                                                                     "requestedTimeTau0":  492.4707432556452,
+                                                                     "timeTau0":  492.47934013419996,
+                                                                     "physicalTime":  492.47934013419996,
+                                                                     "roundingTau0":  0.008596878554783416
+                                                                 },
+                                                                 {
+                                                                     "index":  16,
+                                                                     "steps":  29157,
+                                                                     "requestedPhysicalTime":  524.841074345961,
+                                                                     "requestedTimeTau0":  524.841074345961,
+                                                                     "timeTau0":  524.8444797065999,
+                                                                     "physicalTime":  524.8444797065999,
+                                                                     "roundingTau0":  0.0034053606389079505
+                                                                 },
+                                                                 {
+                                                                     "index":  17,
+                                                                     "steps":  30956,
+                                                                     "requestedPhysicalTime":  557.2114054362771,
+                                                                     "requestedTimeTau0":  557.2114054362771,
+                                                                     "timeTau0":  557.2276199127999,
+                                                                     "physicalTime":  557.2276199127999,
+                                                                     "roundingTau0":  0.016214476522804944
+                                                                 },
+                                                                 {
+                                                                     "index":  18,
+                                                                     "steps":  32754,
+                                                                     "requestedPhysicalTime":  589.581736526593,
+                                                                     "requestedTimeTau0":  589.581736526593,
+                                                                     "timeTau0":  589.5927594852,
+                                                                     "physicalTime":  589.5927594852,
+                                                                     "roundingTau0":  0.011022958606986322
+                                                                 },
+                                                                 {
+                                                                     "index":  19,
+                                                                     "steps":  34552,
+                                                                     "requestedPhysicalTime":  621.9520676169091,
+                                                                     "requestedTimeTau0":  621.9520676169091,
+                                                                     "timeTau0":  621.9578990576,
+                                                                     "physicalTime":  621.9578990576,
+                                                                     "roundingTau0":  0.005831440690940326
+                                                                 },
+                                                                 {
+                                                                     "index":  20,
+                                                                     "steps":  36350,
+                                                                     "requestedPhysicalTime":  654.3223987072249,
+                                                                     "requestedTimeTau0":  654.3223987072249,
+                                                                     "timeTau0":  654.3230386299999,
+                                                                     "physicalTime":  654.3230386299999,
+                                                                     "roundingTau0":  0.0006399227750080172
+                                                                 },
+                                                                 {
+                                                                     "index":  21,
+                                                                     "steps":  38149,
+                                                                     "requestedPhysicalTime":  686.692729797541,
+                                                                     "requestedTimeTau0":  686.692729797541,
+                                                                     "timeTau0":  686.7061788361999,
+                                                                     "physicalTime":  686.7061788361999,
+                                                                     "roundingTau0":  0.01344903865890501
+                                                                 },
+                                                                 {
+                                                                     "index":  22,
+                                                                     "steps":  39947,
+                                                                     "requestedPhysicalTime":  719.0630608878569,
+                                                                     "requestedTimeTau0":  719.0630608878569,
+                                                                     "timeTau0":  719.0713184086,
+                                                                     "physicalTime":  719.0713184086,
+                                                                     "roundingTau0":  0.008257520743086388
+                                                                 },
+                                                                 {
+                                                                     "index":  23,
+                                                                     "steps":  41745,
+                                                                     "requestedPhysicalTime":  751.433391978173,
+                                                                     "requestedTimeTau0":  751.433391978173,
+                                                                     "timeTau0":  751.436457981,
+                                                                     "physicalTime":  751.436457981,
+                                                                     "roundingTau0":  0.0030660028270403927
+                                                                 },
+                                                                 {
+                                                                     "index":  24,
+                                                                     "steps":  43544,
+                                                                     "requestedPhysicalTime":  783.8037230684888,
+                                                                     "requestedTimeTau0":  783.8037230684888,
+                                                                     "timeTau0":  783.8195981872,
+                                                                     "physicalTime":  783.8195981872,
+                                                                     "roundingTau0":  0.01587511871116476
+                                                                 },
+                                                                 {
+                                                                     "index":  25,
+                                                                     "steps":  45342,
+                                                                     "requestedPhysicalTime":  816.1740541588049,
+                                                                     "requestedTimeTau0":  816.1740541588049,
+                                                                     "timeTau0":  816.1847377595999,
+                                                                     "physicalTime":  816.1847377595999,
+                                                                     "roundingTau0":  0.010683600795005077
+                                                                 },
+                                                                 {
+                                                                     "index":  26,
+                                                                     "steps":  47140,
+                                                                     "requestedPhysicalTime":  848.5443852491208,
+                                                                     "requestedTimeTau0":  848.5443852491208,
+                                                                     "timeTau0":  848.5498773319999,
+                                                                     "physicalTime":  848.5498773319999,
+                                                                     "roundingTau0":  0.005492082879186455
+                                                                 },
+                                                                 {
+                                                                     "index":  27,
+                                                                     "steps":  48938,
+                                                                     "requestedPhysicalTime":  880.9147163394368,
+                                                                     "requestedTimeTau0":  880.9147163394368,
+                                                                     "timeTau0":  880.9150169044,
+                                                                     "physicalTime":  880.9150169044,
+                                                                     "roundingTau0":  0.00030056496314045944
+                                                                 },
+                                                                 {
+                                                                     "index":  28,
+                                                                     "steps":  50737,
+                                                                     "requestedPhysicalTime":  913.2850474297527,
+                                                                     "requestedTimeTau0":  913.2850474297527,
+                                                                     "timeTau0":  913.2981571106,
+                                                                     "physicalTime":  913.2981571106,
+                                                                     "roundingTau0":  0.013109680847264826
+                                                                 },
+                                                                 {
+                                                                     "index":  29,
+                                                                     "steps":  52535,
+                                                                     "requestedPhysicalTime":  945.6553785200687,
+                                                                     "requestedTimeTau0":  945.6553785200687,
+                                                                     "timeTau0":  945.6632966829999,
+                                                                     "physicalTime":  945.6632966829999,
+                                                                     "roundingTau0":  0.00791816293121883
+                                                                 },
+                                                                 {
+                                                                     "index":  30,
+                                                                     "steps":  54333,
+                                                                     "requestedPhysicalTime":  978.0257096103846,
+                                                                     "requestedTimeTau0":  978.0257096103846,
+                                                                     "timeTau0":  978.0284362553999,
+                                                                     "physicalTime":  978.0284362553999,
+                                                                     "roundingTau0":  0.002726645015286522
+                                                                 },
+                                                                 {
+                                                                     "index":  31,
+                                                                     "steps":  56132,
+                                                                     "requestedPhysicalTime":  1010.3960407007006,
+                                                                     "requestedTimeTau0":  1010.3960407007006,
+                                                                     "timeTau0":  1010.4115764615999,
+                                                                     "physicalTime":  1010.4115764615999,
+                                                                     "roundingTau0":  0.015535760899297202
+                                                                 },
+                                                                 {
+                                                                     "index":  32,
+                                                                     "steps":  57930,
+                                                                     "requestedPhysicalTime":  1042.7663717910166,
+                                                                     "requestedTimeTau0":  1042.7663717910166,
+                                                                     "timeTau0":  1042.776716034,
+                                                                     "physicalTime":  1042.776716034,
+                                                                     "roundingTau0":  0.010344242983364893
+                                                                 },
+                                                                 {
+                                                                     "index":  33,
+                                                                     "steps":  59728,
+                                                                     "requestedPhysicalTime":  1075.1367028813324,
+                                                                     "requestedTimeTau0":  1075.1367028813324,
+                                                                     "timeTau0":  1075.1418556064,
+                                                                     "physicalTime":  1075.1418556064,
+                                                                     "roundingTau0":  0.005152725067546271
+                                                                 },
+                                                                 {
+                                                                     "index":  34,
+                                                                     "steps":  61527,
+                                                                     "requestedPhysicalTime":  1107.5070339716485,
+                                                                     "requestedTimeTau0":  1107.5070339716485,
+                                                                     "timeTau0":  1107.5249958125999,
+                                                                     "physicalTime":  1107.5249958125999,
+                                                                     "roundingTau0":  0.017961840951329577
+                                                                 },
+                                                                 {
+                                                                     "index":  35,
+                                                                     "steps":  63325,
+                                                                     "requestedPhysicalTime":  1139.8773650619646,
+                                                                     "requestedTimeTau0":  1139.8773650619646,
+                                                                     "timeTau0":  1139.890135385,
+                                                                     "physicalTime":  1139.890135385,
+                                                                     "roundingTau0":  0.012770323035283582
+                                                                 },
+                                                                 {
+                                                                     "index":  36,
+                                                                     "steps":  65123,
+                                                                     "requestedPhysicalTime":  1172.2476961522805,
+                                                                     "requestedTimeTau0":  1172.2476961522805,
+                                                                     "timeTau0":  1172.2552749574,
+                                                                     "physicalTime":  1172.2552749574,
+                                                                     "roundingTau0":  0.00757880511946496
+                                                                 },
+                                                                 {
+                                                                     "index":  37,
+                                                                     "steps":  66921,
+                                                                     "requestedPhysicalTime":  1204.6180272425963,
+                                                                     "requestedTimeTau0":  1204.6180272425963,
+                                                                     "timeTau0":  1204.6204145298,
+                                                                     "physicalTime":  1204.6204145298,
+                                                                     "roundingTau0":  0.0023872872036463377
+                                                                 },
+                                                                 {
+                                                                     "index":  38,
+                                                                     "steps":  68720,
+                                                                     "requestedPhysicalTime":  1236.9883583329124,
+                                                                     "requestedTimeTau0":  1236.9883583329124,
+                                                                     "timeTau0":  1237.0035547359998,
+                                                                     "physicalTime":  1237.0035547359998,
+                                                                     "roundingTau0":  0.015196403087429644
+                                                                 },
+                                                                 {
+                                                                     "index":  39,
+                                                                     "steps":  70518,
+                                                                     "requestedPhysicalTime":  1269.3586894232283,
+                                                                     "requestedTimeTau0":  1269.3586894232283,
+                                                                     "timeTau0":  1269.3686943083999,
+                                                                     "physicalTime":  1269.3686943083999,
+                                                                     "roundingTau0":  0.010004885171611022
+                                                                 },
+                                                                 {
+                                                                     "index":  40,
+                                                                     "steps":  72316,
+                                                                     "requestedPhysicalTime":  1301.7290205135441,
+                                                                     "requestedTimeTau0":  1301.7290205135441,
+                                                                     "timeTau0":  1301.7338338808,
+                                                                     "physicalTime":  1301.7338338808,
+                                                                     "roundingTau0":  0.0048133672557924
+                                                                 },
+                                                                 {
+                                                                     "index":  41,
+                                                                     "steps":  74115,
+                                                                     "requestedPhysicalTime":  1334.0993516038602,
+                                                                     "requestedTimeTau0":  1334.0993516038602,
+                                                                     "timeTau0":  1334.116974087,
+                                                                     "physicalTime":  1334.116974087,
+                                                                     "roundingTau0":  0.01762248313980308
+                                                                 },
+                                                                 {
+                                                                     "index":  42,
+                                                                     "steps":  75913,
+                                                                     "requestedPhysicalTime":  1366.4696826941763,
+                                                                     "requestedTimeTau0":  1366.4696826941763,
+                                                                     "timeTau0":  1366.4821136593998,
+                                                                     "physicalTime":  1366.4821136593998,
+                                                                     "roundingTau0":  0.01243096522352971
+                                                                 },
+                                                                 {
+                                                                     "index":  43,
+                                                                     "steps":  77711,
+                                                                     "requestedPhysicalTime":  1398.8400137844922,
+                                                                     "requestedTimeTau0":  1398.8400137844922,
+                                                                     "timeTau0":  1398.8472532317999,
+                                                                     "physicalTime":  1398.8472532317999,
+                                                                     "roundingTau0":  0.007239447307711089
+                                                                 },
+                                                                 {
+                                                                     "index":  44,
+                                                                     "steps":  79509,
+                                                                     "requestedPhysicalTime":  1431.210344874808,
+                                                                     "requestedTimeTau0":  1431.210344874808,
+                                                                     "timeTau0":  1431.2123928042,
+                                                                     "physicalTime":  1431.2123928042,
+                                                                     "roundingTau0":  0.002047929391892467
+                                                                 },
+                                                                 {
+                                                                     "index":  45,
+                                                                     "steps":  81308,
+                                                                     "requestedPhysicalTime":  1463.580675965124,
+                                                                     "requestedTimeTau0":  1463.580675965124,
+                                                                     "timeTau0":  1463.5955330104,
+                                                                     "physicalTime":  1463.5955330104,
+                                                                     "roundingTau0":  0.014857045275903147
+                                                                 },
+                                                                 {
+                                                                     "index":  46,
+                                                                     "steps":  83106,
+                                                                     "requestedPhysicalTime":  1495.9510070554402,
+                                                                     "requestedTimeTau0":  1495.9510070554402,
+                                                                     "timeTau0":  1495.9606725827998,
+                                                                     "physicalTime":  1495.9606725827998,
+                                                                     "roundingTau0":  0.009665527359629777
+                                                                 },
+                                                                 {
+                                                                     "index":  47,
+                                                                     "steps":  84904,
+                                                                     "requestedPhysicalTime":  1528.321338145756,
+                                                                     "requestedTimeTau0":  1528.321338145756,
+                                                                     "timeTau0":  1528.3258121551999,
+                                                                     "physicalTime":  1528.3258121551999,
+                                                                     "roundingTau0":  0.0044740094438111555
+                                                                 },
+                                                                 {
+                                                                     "index":  48,
+                                                                     "steps":  86703,
+                                                                     "requestedPhysicalTime":  1560.691669236072,
+                                                                     "requestedTimeTau0":  1560.691669236072,
+                                                                     "timeTau0":  1560.7089523614,
+                                                                     "physicalTime":  1560.7089523614,
+                                                                     "roundingTau0":  0.01728312532804921
+                                                                 },
+                                                                 {
+                                                                     "index":  49,
+                                                                     "steps":  88501,
+                                                                     "requestedPhysicalTime":  1593.062000326388,
+                                                                     "requestedTimeTau0":  1593.062000326388,
+                                                                     "timeTau0":  1593.0740919338,
+                                                                     "physicalTime":  1593.0740919338,
+                                                                     "roundingTau0":  0.012091607412003214
+                                                                 },
+                                                                 {
+                                                                     "index":  50,
+                                                                     "steps":  90299,
+                                                                     "requestedPhysicalTime":  1625.4323314167038,
+                                                                     "requestedTimeTau0":  1625.4323314167038,
+                                                                     "timeTau0":  1625.4392315061998,
+                                                                     "physicalTime":  1625.4392315061998,
+                                                                     "roundingTau0":  0.006900089495957218
+                                                                 },
+                                                                 {
+                                                                     "index":  51,
+                                                                     "steps":  92097,
+                                                                     "requestedPhysicalTime":  1657.80266250702,
+                                                                     "requestedTimeTau0":  1657.80266250702,
+                                                                     "timeTau0":  1657.8043710785998,
+                                                                     "physicalTime":  1657.8043710785998,
+                                                                     "roundingTau0":  0.0017085715799112222
+                                                                 },
+                                                                 {
+                                                                     "index":  52,
+                                                                     "steps":  93896,
+                                                                     "requestedPhysicalTime":  1690.1729935973358,
+                                                                     "requestedTimeTau0":  1690.1729935973358,
+                                                                     "timeTau0":  1690.1875112848,
+                                                                     "physicalTime":  1690.1875112848,
+                                                                     "roundingTau0":  0.014517687464149276
+                                                                 },
+                                                                 {
+                                                                     "index":  53,
+                                                                     "steps":  95694,
+                                                                     "requestedPhysicalTime":  1722.5433246876519,
+                                                                     "requestedTimeTau0":  1722.5433246876519,
+                                                                     "timeTau0":  1722.5526508572,
+                                                                     "physicalTime":  1722.5526508572,
+                                                                     "roundingTau0":  0.00932616954810328
+                                                                 },
+                                                                 {
+                                                                     "index":  54,
+                                                                     "steps":  97492,
+                                                                     "requestedPhysicalTime":  1754.9136557779677,
+                                                                     "requestedTimeTau0":  1754.9136557779677,
+                                                                     "timeTau0":  1754.9177904295998,
+                                                                     "physicalTime":  1754.9177904295998,
+                                                                     "roundingTau0":  0.004134651632057285
+                                                                 },
+                                                                 {
+                                                                     "index":  55,
+                                                                     "steps":  99291,
+                                                                     "requestedPhysicalTime":  1787.2839868682838,
+                                                                     "requestedTimeTau0":  1787.2839868682838,
+                                                                     "timeTau0":  1787.3009306358,
+                                                                     "physicalTime":  1787.3009306358,
+                                                                     "roundingTau0":  0.016943767516067965
+                                                                 },
+                                                                 {
+                                                                     "index":  56,
+                                                                     "steps":  101089,
+                                                                     "requestedPhysicalTime":  1819.6543179585997,
+                                                                     "requestedTimeTau0":  1819.6543179585997,
+                                                                     "timeTau0":  1819.6660702082,
+                                                                     "physicalTime":  1819.6660702082,
+                                                                     "roundingTau0":  0.011752249600249343
+                                                                 },
+                                                                 {
+                                                                     "index":  57,
+                                                                     "steps":  102887,
+                                                                     "requestedPhysicalTime":  1852.0246490489158,
+                                                                     "requestedTimeTau0":  1852.0246490489158,
+                                                                     "timeTau0":  1852.0312097806,
+                                                                     "physicalTime":  1852.0312097806,
+                                                                     "roundingTau0":  0.006560731684203347
+                                                                 },
+                                                                 {
+                                                                     "index":  58,
+                                                                     "steps":  104685,
+                                                                     "requestedPhysicalTime":  1884.3949801392316,
+                                                                     "requestedTimeTau0":  1884.3949801392316,
+                                                                     "timeTau0":  1884.3963493529998,
+                                                                     "physicalTime":  1884.3963493529998,
+                                                                     "roundingTau0":  0.0013692137681573513
+                                                                 },
+                                                                 {
+                                                                     "index":  59,
+                                                                     "steps":  106484,
+                                                                     "requestedPhysicalTime":  1916.7653112295477,
+                                                                     "requestedTimeTau0":  1916.7653112295477,
+                                                                     "timeTau0":  1916.7794895591999,
+                                                                     "physicalTime":  1916.7794895591999,
+                                                                     "roundingTau0":  0.014178329652168031
+                                                                 },
+                                                                 {
+                                                                     "index":  60,
+                                                                     "steps":  108282,
+                                                                     "requestedPhysicalTime":  1949.1356423198636,
+                                                                     "requestedTimeTau0":  1949.1356423198636,
+                                                                     "timeTau0":  1949.1446291316,
+                                                                     "physicalTime":  1949.1446291316,
+                                                                     "roundingTau0":  0.00898681173634941
+                                                                 }
+                                                             ],
+                                             "retained":  [
+                                                              {
+                                                                  "index":  51,
+                                                                  "steps":  92097,
+                                                                  "requestedPhysicalTime":  1657.80266250702,
+                                                                  "requestedTimeTau0":  1657.80266250702,
+                                                                  "timeTau0":  1657.8043710785998,
+                                                                  "physicalTime":  1657.8043710785998,
+                                                                  "roundingTau0":  0.0017085715799112222
+                                                              },
+                                                              {
+                                                                  "index":  52,
+                                                                  "steps":  93896,
+                                                                  "requestedPhysicalTime":  1690.1729935973358,
+                                                                  "requestedTimeTau0":  1690.1729935973358,
+                                                                  "timeTau0":  1690.1875112848,
+                                                                  "physicalTime":  1690.1875112848,
+                                                                  "roundingTau0":  0.014517687464149276
+                                                              },
+                                                              {
+                                                                  "index":  53,
+                                                                  "steps":  95694,
+                                                                  "requestedPhysicalTime":  1722.5433246876519,
+                                                                  "requestedTimeTau0":  1722.5433246876519,
+                                                                  "timeTau0":  1722.5526508572,
+                                                                  "physicalTime":  1722.5526508572,
+                                                                  "roundingTau0":  0.00932616954810328
+                                                              },
+                                                              {
+                                                                  "index":  54,
+                                                                  "steps":  97492,
+                                                                  "requestedPhysicalTime":  1754.9136557779677,
+                                                                  "requestedTimeTau0":  1754.9136557779677,
+                                                                  "timeTau0":  1754.9177904295998,
+                                                                  "physicalTime":  1754.9177904295998,
+                                                                  "roundingTau0":  0.004134651632057285
+                                                              },
+                                                              {
+                                                                  "index":  55,
+                                                                  "steps":  99291,
+                                                                  "requestedPhysicalTime":  1787.2839868682838,
+                                                                  "requestedTimeTau0":  1787.2839868682838,
+                                                                  "timeTau0":  1787.3009306358,
+                                                                  "physicalTime":  1787.3009306358,
+                                                                  "roundingTau0":  0.016943767516067965
+                                                              },
+                                                              {
+                                                                  "index":  56,
+                                                                  "steps":  101089,
+                                                                  "requestedPhysicalTime":  1819.6543179585997,
+                                                                  "requestedTimeTau0":  1819.6543179585997,
+                                                                  "timeTau0":  1819.6660702082,
+                                                                  "physicalTime":  1819.6660702082,
+                                                                  "roundingTau0":  0.011752249600249343
+                                                              },
+                                                              {
+                                                                  "index":  57,
+                                                                  "steps":  102887,
+                                                                  "requestedPhysicalTime":  1852.0246490489158,
+                                                                  "requestedTimeTau0":  1852.0246490489158,
+                                                                  "timeTau0":  1852.0312097806,
+                                                                  "physicalTime":  1852.0312097806,
+                                                                  "roundingTau0":  0.006560731684203347
+                                                              },
+                                                              {
+                                                                  "index":  58,
+                                                                  "steps":  104685,
+                                                                  "requestedPhysicalTime":  1884.3949801392316,
+                                                                  "requestedTimeTau0":  1884.3949801392316,
+                                                                  "timeTau0":  1884.3963493529998,
+                                                                  "physicalTime":  1884.3963493529998,
+                                                                  "roundingTau0":  0.0013692137681573513
+                                                              },
+                                                              {
+                                                                  "index":  59,
+                                                                  "steps":  106484,
+                                                                  "requestedPhysicalTime":  1916.7653112295477,
+                                                                  "requestedTimeTau0":  1916.7653112295477,
+                                                                  "timeTau0":  1916.7794895591999,
+                                                                  "physicalTime":  1916.7794895591999,
+                                                                  "roundingTau0":  0.014178329652168031
+                                                              },
+                                                              {
+                                                                  "index":  60,
+                                                                  "steps":  108282,
+                                                                  "requestedPhysicalTime":  1949.1356423198636,
+                                                                  "requestedTimeTau0":  1949.1356423198636,
+                                                                  "timeTau0":  1949.1446291316,
+                                                                  "physicalTime":  1949.1446291316,
+                                                                  "roundingTau0":  0.00898681173634941
+                                                              }
+                                                          ],
+                                             "complete":  true,
+                                             "endpointReached":  true,
+                                             "reason":  null,
+                                             "observedSteps":  108282,
+                                             "reportedTimeTau0":  1949.1446291311502,
+                                             "retainedSteps":  [
+                                                                   92097,
+                                                                   93896,
+                                                                   95694,
+                                                                   97492,
+                                                                   99291,
+                                                                   101089,
+                                                                   102887,
+                                                                   104685,
+                                                                   106484,
+                                                                   108282
+                                                               ]
+                                         },
+                 "state":  {
+                               "ready":  true,
+                               "stationary":  true,
+                               "statisticallyConsistent":  true,
+                               "resolved":  true,
+                               "uncertainty":  {
+                                                   "P":  0.018600243531737393,
+                                                   "sigmaStar":  0.03777545968715734
+                                               },
+                               "drift":  {
+                                             "timeSpan":  291.34025805300007,
+                                             "rhoVariation":  0.0102194324772396,
+                                             "velocityVariation":  0.0004344377487869868,
+                                             "inputBudget":  0.025,
+                                             "P":  0.010658309933265997,
+                                             "sigmaStar":  0.02120014759952027
+                                         },
+                               "velocity":  0.12461694807513153,
+                               "velocityError":  5.468224654141016E-05,
+                               "rho":  13.14946460633002,
+                               "rhoError":  0.23870847821621233,
+                               "rhoX":  13.20566802608423,
+                               "rhoY":  13.205732647956744,
+                               "tip":  264.0258030706066,
+                               "windows":  [
+                                               {
+                                                   "centerTime":  1706.3655809125498,
+                                                   "velocity":  0.12463127085477693,
+                                                   "velocityError":  5.468224654141016E-05,
+                                                   "rho":  13.101941881609225,
+                                                   "rhoError":  0.23870847821621233,
+                                                   "rhoDrift":  0.0005717310598675544,
+                                                   "rhoDriftError":  0.004916076064697941
+                                               },
+                                               {
+                                                   "centerTime":  1803.47900026355,
+                                                   "velocity":  0.12462439405638462,
+                                                   "velocityError":  4.7945080001406367E-05,
+                                                   "rho":  13.154340822647425,
+                                                   "rhoError":  0.17746325267130914,
+                                                   "rhoDrift":  0.0004866872068518527,
+                                                   "rhoDriftError":  0.003654762727072722
+                                               },
+                                               {
+                                                   "centerTime":  1900.5879194560998,
+                                                   "velocity":  0.12459517931423307,
+                                                   "velocityError":  3.7949967561004487E-05,
+                                                   "rho":  13.192111114733411,
+                                                   "rhoError":  0.13651418424074713,
+                                                   "rhoDrift":  0.00030291560719851327,
+                                                   "rhoDriftError":  0.00281143811335362
+                                               }
+                                           ],
+                               "diffusionLength":  20.116043914738235,
+                               "aheadDiffusionLengths":  11.213646077006427,
+                               "sideDiffusionLengths":  10.410857551538617,
+                               "P":  0.3268402242027301,
+                               "sigmaStar":  0.05141615218775956,
+                               "rhoOverD0":  59.50657136024446,
+                               "Vd0OverD":  0.010985012805529834,
+                               "thinInterface":  {
+                                                     "W0OverRho":  0.07604872365058955,
+                                                     "W0OverDiffusionLength":  0.04971156377658031,
+                                                     "tau0VOverW0":  0.12461694807513153
+                                                 },
+                               "travelDiffusionLengths":  12.728438518524934,
+                               "boundaryAssessment":  {
+                                                          "assessed":  true,
+                                                          "boundaryClear":  true,
+                                                          "lowerVelocity":  0.12455722934667207,
+                                                          "diffusionLengthUpper":  20.125688514016204,
+                                                          "minimumAheadDiffusionLengths":  11.208200371648733,
+                                                          "minimumSideDiffusionLengths":  10.401511776437474,
+                                                          "conservativeTravelDiffusionLengths":  12.721271893152492,
+                                                          "checks":  [
+                                                                         {
+                                                                             "time":  1657.8043710785998,
+                                                                             "tipUpper":  227.72253336148876,
+                                                                             "rhoUpper":  13.312753809668536,
+                                                                             "fitRadius":  6.656376904834268,
+                                                                             "aheadDiffusionLengths":  13.012099757786224,
+                                                                             "sideDiffusionLengths":  10.401811741713672
+                                                                         },
+                                                                         {
+                                                                             "time":  1690.1875112848,
+                                                                             "tipUpper":  231.75843039220268,
+                                                                             "rhoUpper":  13.30919229527973,
+                                                                             "fitRadius":  6.654596147639865,
+                                                                             "aheadDiffusionLengths":  12.811565151086773,
+                                                                             "sideDiffusionLengths":  10.40190022351608
+                                                                         },
+                                                                         {
+                                                                             "time":  1722.5526508572,
+                                                                             "tipUpper":  235.7920222941246,
+                                                                             "rhoUpper":  13.307515976512342,
+                                                                             "fitRadius":  6.653757988256171,
+                                                                             "aheadDiffusionLengths":  12.611145081029902,
+                                                                             "sideDiffusionLengths":  10.401941869762522
+                                                                         },
+                                                                         {
+                                                                             "time":  1754.9177904295998,
+                                                                             "tipUpper":  239.8255780881396,
+                                                                             "rhoUpper":  13.30707000416248,
+                                                                             "fitRadius":  6.65353500208124,
+                                                                             "aheadDiffusionLengths":  12.41072680509336,
+                                                                             "sideDiffusionLengths":  10.401952949441847
+                                                                         },
+                                                                         {
+                                                                             "time":  1787.3009306358,
+                                                                             "tipUpper":  243.86129591766846,
+                                                                             "rhoUpper":  13.307968871209809,
+                                                                             "fitRadius":  6.6539844356049045,
+                                                                             "aheadDiffusionLengths":  12.210201102495992,
+                                                                             "sideDiffusionLengths":  10.40193061810529
+                                                                         },
+                                                                         {
+                                                                             "time":  1819.6660702082,
+                                                                             "tipUpper":  247.89463992543054,
+                                                                             "rhoUpper":  13.309988872635191,
+                                                                             "fitRadius":  6.654994436317596,
+                                                                             "aheadDiffusionLengths":  12.00979334973995,
+                                                                             "sideDiffusionLengths":  10.401880433451383
+                                                                         },
+                                                                         {
+                                                                             "time":  1852.0312097806,
+                                                                             "tipUpper":  251.92778418829096,
+                                                                             "rhoUpper":  13.313172520061224,
+                                                                             "fitRadius":  6.656586260030612,
+                                                                             "aheadDiffusionLengths":  11.809395521856864,
+                                                                             "sideDiffusionLengths":  10.40180133932688
+                                                                         },
+                                                                         {
+                                                                             "time":  1884.3963493529998,
+                                                                             "tipUpper":  255.96061486200733,
+                                                                             "rhoUpper":  13.316862363945672,
+                                                                             "fitRadius":  6.658431181972836,
+                                                                             "aheadDiffusionLengths":  11.609013275509973,
+                                                                             "sideDiffusionLengths":  10.401709669323099
+                                                                         },
+                                                                         {
+                                                                             "time":  1916.7794895591999,
+                                                                             "tipUpper":  259.99526513458056,
+                                                                             "rhoUpper":  13.320972046173408,
+                                                                             "fitRadius":  6.660486023086704,
+                                                                             "aheadDiffusionLengths":  11.408540617406208,
+                                                                             "sideDiffusionLengths":  10.401607568909867
+                                                                         },
+                                                                         {
+                                                                             "time":  1949.1446291316,
+                                                                             "tipUpper":  264.02725051751696,
+                                                                             "rhoUpper":  13.324827825096097,
+                                                                             "fitRadius":  6.662413912548049,
+                                                                             "aheadDiffusionLengths":  11.208200371648733,
+                                                                             "sideDiffusionLengths":  10.401511776437474
+                                                                         }
+                                                                     ],
+                                                          "source":  "retained-window lower velocity confidence bound and upper geometric bounds; every retained sample checked"
+                                                      },
+                               "boundaryClear":  true
+                           },
+                 "firstQualified":  {
+                                        "diagnosticOnly":  true,
+                                        "timeTau0":  1139.8901353854071,
+                                        "physicalTime":  1139.8901353854071,
+                                        "steps":  63325,
+                                        "P":  0.32764019009118234,
+                                        "sigmaStar":  0.05139815033215459
+                                    },
+                 "relativeError":  {
+                                       "P":  0.04756482116259653,
+                                       "sigmaStar":  0.1838706001942927
+                                   },
+                 "referenceErrorBudget":  {
+                                              "P":  0.07842272924176474,
+                                              "sigmaStar":  0.25463818502043867
+                                          },
+                 "armAccepted":  false,
+                 "overallAcceptance":  {
+                                           "referenceArms":  [
+                                                                 {
+                                                                     "name":  "base",
+                                                                     "accepted":  false
+                                                                 }
+                                                             ],
+                                           "missingArms":  [
+                                                               "domain",
+                                                               "dx",
+                                                               "dt",
+                                                               "width"
+                                                           ],
+                                           "allFiveReferenceArmsAccepted":  false,
+                                           "controlsConverged":  false,
+                                           "errorCount":  0,
+                                           "executionFailed":  false,
+                                           "accepted":  false
+                                       },
+                 "status":  "diagnostic subset complete; full Q3 acceptance not evaluated",
+                 "errors":  [
+
+                            ],
+                 "exception":  null
+             },
+    "matrix":  {
+                   "completed":  false,
+                   "sourceStable":  true,
+                   "hardware":  {
+                                    "vendor":  "nvidia",
+                                    "architecture":  "blackwell",
+                                    "device":  "",
+                                    "description":  "",
+                                    "isFallbackAdapter":  false
+                                },
+                   "finished":  "2026-10-30T07:14:14.385Z",
+                   "cases":  [
+                                 {
+                                     "config":  {
+                                                    "name":  "baseline",
+                                                    "n":  96,
+                                                    "dx":  0.8,
+                                                    "radius":  20,
+                                                    "maximumTime":  1000,
+                                                    "measurementPeriod":  20,
+                                                    "epsilon":  0,
+                                                    "lambda":  4
+                                                },
+                                     "completed":  true,
+                                     "finalTime":  1000,
+                                     "equilibrium":  {
+                                                         "ready":  true,
+                                                         "stationary":  true,
+                                                         "resolved":  true,
+                                                         "checks":  {
+                                                                        "volumeError":  1.6254793644421284E-07,
+                                                                        "epsilonSpan":  0,
+                                                                        "temperatureSpan":  0,
+                                                                        "support100Span":  0,
+                                                                        "support110Span":  0,
+                                                                        "epsilonError":  2.4800373082687051E-05,
+                                                                        "heldOut111Residual":  0.0001870641105808379
+                                                                    }
+                                                     },
+                                     "summary":  {
+                                                     "epsilon":  -0.0001011457388551701,
+                                                     "epsilonError":  2.4800373082687051E-05,
+                                                     "d0Effective":  0.2183679474968799,
+                                                     "a1Effective":  0.8734717899875196,
+                                                     "support100":  20.01899394754602,
+                                                     "support110":  20.02304402906243,
+                                                     "heldOut111RelativeResidual":  -0.0001870641105808379
+                                                 },
+                                     "error":  null
+                                 },
+                                 {
+                                     "config":  {
+                                                    "name":  "baseline",
+                                                    "n":  96,
+                                                    "dx":  0.8,
+                                                    "radius":  20,
+                                                    "maximumTime":  1000,
+                                                    "measurementPeriod":  20,
+                                                    "epsilon":  0.0171,
+                                                    "lambda":  4
+                                                },
+                                     "completed":  true,
+                                     "finalTime":  1000.0072101252032,
+                                     "equilibrium":  {
+                                                         "ready":  true,
+                                                         "stationary":  true,
+                                                         "resolved":  true,
+                                                         "checks":  {
+                                                                        "volumeError":  2.185514524910559E-07,
+                                                                        "epsilonSpan":  0,
+                                                                        "temperatureSpan":  1.7881393432617188E-07,
+                                                                        "support100Span":  0,
+                                                                        "support110Span":  0,
+                                                                        "epsilonError":  4.8314465612472879E-05,
+                                                                        "heldOut111Residual":  0.00047952487472030183
+                                                                    }
+                                                     },
+                                     "summary":  {
+                                                     "epsilon":  0.016602038729755794,
+                                                     "epsilonError":  4.8314465612472879E-05,
+                                                     "d0Effective":  0.21820484796323622,
+                                                     "a1Effective":  0.8728193918529449,
+                                                     "support100":  20.59509959483824,
+                                                     "support110":  19.922426064606267,
+                                                     "heldOut111RelativeResidual":  -0.00047952487472030183
+                                                 },
+                                     "error":  null
+                                 },
+                                 {
+                                     "config":  {
+                                                    "name":  "grid",
+                                                    "n":  128,
+                                                    "dx":  0.6,
+                                                    "radius":  20,
+                                                    "maximumTime":  1000,
+                                                    "measurementPeriod":  20,
+                                                    "epsilon":  0,
+                                                    "lambda":  4
+                                                },
+                                     "completed":  true,
+                                     "finalTime":  1000.0012500000156,
+                                     "equilibrium":  {
+                                                         "ready":  true,
+                                                         "stationary":  true,
+                                                         "resolved":  true,
+                                                         "checks":  {
+                                                                        "volumeError":  3.1440990588826878E-07,
+                                                                        "epsilonSpan":  0,
+                                                                        "temperatureSpan":  5.9604644775390625E-08,
+                                                                        "support100Span":  0,
+                                                                        "support110Span":  0,
+                                                                        "epsilonError":  7.587996391101639E-06,
+                                                                        "heldOut111Residual":  5.5070376402925938E-05
+                                                                    }
+                                                     },
+                                     "summary":  {
+                                                     "epsilon":  -3.2689518124119196E-05,
+                                                     "epsilonError":  7.587996391101639E-06,
+                                                     "d0Effective":  0.21946580884552308,
+                                                     "a1Effective":  0.8778632353820923,
+                                                     "support100":  20.01780508495793,
+                                                     "support110":  20.019113872545827,
+                                                     "heldOut111RelativeResidual":  -5.5070376402925938E-05
+                                                 },
+                                     "error":  null
+                                 },
+                                 {
+                                     "config":  {
+                                                    "name":  "grid",
+                                                    "n":  128,
+                                                    "dx":  0.6,
+                                                    "radius":  20,
+                                                    "maximumTime":  1000,
+                                                    "measurementPeriod":  20,
+                                                    "epsilon":  0.0171,
+                                                    "lambda":  4
+                                                },
+                                     "completed":  true,
+                                     "finalTime":  1000.0004598875469,
+                                     "equilibrium":  {
+                                                         "ready":  true,
+                                                         "stationary":  true,
+                                                         "resolved":  true,
+                                                         "checks":  {
+                                                                        "volumeError":  2.6870598834882742E-07,
+                                                                        "epsilonSpan":  0,
+                                                                        "temperatureSpan":  5.9604644775390625E-08,
+                                                                        "support100Span":  0,
+                                                                        "support110Span":  0,
+                                                                        "epsilonError":  1.2129169902591608E-05,
+                                                                        "heldOut111Residual":  0.00023951162846660146
+                                                                    }
+                                                     },
+                                     "summary":  {
+                                                     "epsilon":  0.01680536581496538,
+                                                     "epsilonError":  1.2129169902591608E-05,
+                                                     "d0Effective":  0.21935269923728573,
+                                                     "a1Effective":  0.8774107969491429,
+                                                     "support100":  20.594353882561993,
+                                                     "support110":  19.913602851233765,
+                                                     "heldOut111RelativeResidual":  -0.00023951162846660146
+                                                 },
+                                     "error":  null
+                                 },
+                                 {
+                                     "config":  {
+                                                    "name":  "radius",
+                                                    "n":  144,
+                                                    "dx":  0.8,
+                                                    "radius":  30,
+                                                    "maximumTime":  2250,
+                                                    "measurementPeriod":  45,
+                                                    "epsilon":  0,
+                                                    "lambda":  4
+                                                },
+                                     "completed":  false,
+                                     "finalTime":  null,
+                                     "equilibrium":  null,
+                                     "summary":  null,
+                                     "error":  "Error: Wulff surface unresolved\n    at measure (evaluate at file:///workspace/solidify/scripts/research/quant3d-equilibrium.mjs:46:14, \u003canonymous\u003e:81:21)\n    at #evaluate (file:///workspace/solidify/node_modules/puppeteer-core/lib/puppeteer/cdp/ExecutionContext.js:388:19)\n    at async ExecutionContext.evaluate (file:///workspace/solidify/node_modules/puppeteer-core/lib/puppeteer/cdp/ExecutionContext.js:274:16)\n    at async IsolatedWorld.evaluate (file:///workspace/solidify/node_modules/puppeteer-core/lib/puppeteer/cdp/IsolatedWorld.js:102:16)\n    at async CdpFrame.evaluate (file:///workspace/solidify/node_modules/puppeteer-core/lib/puppeteer/api/Frame.js:359:20)\n    at async CdpPage.evaluate (file:///workspace/solidify/node_modules/puppeteer-core/lib/puppeteer/api/Page.js:826:20)\n    at async measure (file:///workspace/solidify/scripts/research/quant3d-equilibrium.mjs:50:32)\n    at async file:///workspace/solidify/scripts/research/quant3d-equilibrium.mjs:68:7\n    at surfacePoints (http://localhost:5199/scripts/fixtures/quant3d-wulff-analysis.mjs:50:29)"
+                                 },
+                                 {
+                                     "config":  {
+                                                    "name":  "radius",
+                                                    "n":  144,
+                                                    "dx":  0.8,
+                                                    "radius":  30,
+                                                    "maximumTime":  2250,
+                                                    "measurementPeriod":  45,
+                                                    "epsilon":  0.0171,
+                                                    "lambda":  4
+                                                },
+                                     "completed":  false,
+                                     "finalTime":  null,
+                                     "equilibrium":  null,
+                                     "summary":  null,
+                                     "error":  "Error: Wulff surface unresolved\n    at measure (evaluate at file:///workspace/solidify/scripts/research/quant3d-equilibrium.mjs:46:14, \u003canonymous\u003e:81:21)\n    at #evaluate (file:///workspace/solidify/node_modules/puppeteer-core/lib/puppeteer/cdp/ExecutionContext.js:388:19)\n    at async ExecutionContext.evaluate (file:///workspace/solidify/node_modules/puppeteer-core/lib/puppeteer/cdp/ExecutionContext.js:274:16)\n    at async IsolatedWorld.evaluate (file:///workspace/solidify/node_modules/puppeteer-core/lib/puppeteer/cdp/IsolatedWorld.js:102:16)\n    at async CdpFrame.evaluate (file:///workspace/solidify/node_modules/puppeteer-core/lib/puppeteer/api/Frame.js:359:20)\n    at async CdpPage.evaluate (file:///workspace/solidify/node_modules/puppeteer-core/lib/puppeteer/api/Page.js:826:20)\n    at async measure (file:///workspace/solidify/scripts/research/quant3d-equilibrium.mjs:50:32)\n    at async file:///workspace/solidify/scripts/research/quant3d-equilibrium.mjs:68:7\n    at surfacePoints (http://localhost:5199/scripts/fixtures/quant3d-wulff-analysis.mjs:50:29)"
+                                 },
+                                 {
+                                     "config":  {
+                                                    "name":  "cross",
+                                                    "n":  192,
+                                                    "dx":  0.6,
+                                                    "radius":  30,
+                                                    "maximumTime":  2250,
+                                                    "measurementPeriod":  45,
+                                                    "epsilon":  0,
+                                                    "lambda":  4
+                                                },
+                                     "completed":  true,
+                                     "finalTime":  2250.011249999643,
+                                     "equilibrium":  {
+                                                         "ready":  true,
+                                                         "stationary":  true,
+                                                         "resolved":  true,
+                                                         "checks":  {
+                                                                        "volumeError":  2.3121970249562196E-07,
+                                                                        "epsilonSpan":  0,
+                                                                        "temperatureSpan":  5.9604644775390625E-08,
+                                                                        "support100Span":  0,
+                                                                        "support110Span":  0,
+                                                                        "epsilonError":  4.818766865314787E-06,
+                                                                        "heldOut111Residual":  5.3016214525072472E-05
+                                                                    }
+                                                     },
+                                     "summary":  {
+                                                     "epsilon":  -3.0085292545691421E-05,
+                                                     "epsilonError":  4.818766865314787E-06,
+                                                     "d0Effective":  0.21953038700868413,
+                                                     "a1Effective":  0.8781215480347365,
+                                                     "support100":  30.011391085437797,
+                                                     "support110":  30.01319694272856,
+                                                     "heldOut111RelativeResidual":  -5.3016214525072472E-05
+                                                 },
+                                     "error":  null
+                                 },
+                                 {
+                                     "config":  {
+                                                    "name":  "cross",
+                                                    "n":  192,
+                                                    "dx":  0.6,
+                                                    "radius":  30,
+                                                    "maximumTime":  2250,
+                                                    "measurementPeriod":  45,
+                                                    "epsilon":  0.0171,
+                                                    "lambda":  4
+                                                },
+                                     "completed":  true,
+                                     "finalTime":  2250.0060974253315,
+                                     "equilibrium":  {
+                                                         "ready":  true,
+                                                         "stationary":  true,
+                                                         "resolved":  true,
+                                                         "checks":  {
+                                                                        "volumeError":  1.6919148859706468E-07,
+                                                                        "epsilonSpan":  0,
+                                                                        "temperatureSpan":  1.1920928955078125E-07,
+                                                                        "support100Span":  0,
+                                                                        "support110Span":  0,
+                                                                        "epsilonError":  9.5213405930209827E-06,
+                                                                        "heldOut111Residual":  0.0002442567060367842
+                                                                    }
+                                                     },
+                                     "summary":  {
+                                                     "epsilon":  0.01682120112227238,
+                                                     "epsilonError":  9.5213405930209827E-06,
+                                                     "d0Effective":  0.21942959038675738,
+                                                     "a1Effective":  0.8777183615470295,
+                                                     "support100":  30.8752278615212,
+                                                     "support110":  29.85369444545667,
+                                                     "heldOut111RelativeResidual":  -0.0002442567060367842
+                                                 },
+                                     "error":  null
+                                 },
+                                 {
+                                     "config":  {
+                                                    "name":  "fine-grid",
+                                                    "n":  192,
+                                                    "dx":  0.4,
+                                                    "radius":  20,
+                                                    "maximumTime":  1000,
+                                                    "measurementPeriod":  20,
+                                                    "epsilon":  0,
+                                                    "lambda":  4
+                                                },
+                                     "completed":  true,
+                                     "finalTime":  1000.0000000001031,
+                                     "equilibrium":  {
+                                                         "ready":  true,
+                                                         "stationary":  true,
+                                                         "resolved":  true,
+                                                         "checks":  {
+                                                                        "volumeError":  1.9672402640225073E-07,
+                                                                        "epsilonSpan":  0,
+                                                                        "temperatureSpan":  0,
+                                                                        "support100Span":  0,
+                                                                        "support110Span":  0,
+                                                                        "epsilonError":  1.2342390543249578E-06,
+                                                                        "heldOut111Residual":  9.7441438061299733E-06
+                                                                    }
+                                                     },
+                                     "summary":  {
+                                                     "epsilon":  -5.5344885961624345E-06,
+                                                     "epsilonError":  1.2342390543249578E-06,
+                                                     "d0Effective":  0.22018723765043244,
+                                                     "a1Effective":  0.8807489506017298,
+                                                     "support100":  20.016517755824417,
+                                                     "support110":  20.016739319429167,
+                                                     "heldOut111RelativeResidual":  -9.7441438061299733E-06
+                                                 },
+                                     "error":  null
+                                 },
+                                 {
+                                     "config":  {
+                                                    "name":  "fine-grid",
+                                                    "n":  192,
+                                                    "dx":  0.4,
+                                                    "radius":  20,
+                                                    "maximumTime":  1000,
+                                                    "measurementPeriod":  20,
+                                                    "epsilon":  0.0171,
+                                                    "lambda":  4
+                                                },
+                                     "completed":  true,
+                                     "finalTime":  1000.0027099666781,
+                                     "equilibrium":  {
+                                                         "ready":  true,
+                                                         "stationary":  true,
+                                                         "resolved":  true,
+                                                         "checks":  {
+                                                                        "volumeError":  4.1668213768275564E-08,
+                                                                        "epsilonSpan":  0,
+                                                                        "temperatureSpan":  0,
+                                                                        "support100Span":  0,
+                                                                        "support110Span":  0,
+                                                                        "epsilonError":  4.2861447811688713E-06,
+                                                                        "heldOut111Residual":  9.6280107140296628E-05
+                                                                    }
+                                                     },
+                                     "summary":  {
+                                                     "epsilon":  0.01696131082453722,
+                                                     "epsilonError":  4.2861447811688713E-06,
+                                                     "d0Effective":  0.2201554597664711,
+                                                     "a1Effective":  0.8806218390658844,
+                                                     "support100":  20.59496687992024,
+                                                     "support110":  19.90798374505908,
+                                                     "heldOut111RelativeResidual":  -9.6280107140296628E-05
+                                                 },
+                                     "error":  null
+                                 },
+                                 {
+                                     "config":  {
+                                                    "name":  "large-radius",
+                                                    "n":  192,
+                                                    "dx":  0.8,
+                                                    "radius":  40,
+                                                    "maximumTime":  4000,
+                                                    "measurementPeriod":  80,
+                                                    "epsilon":  0,
+                                                    "lambda":  4
+                                                },
+                                     "completed":  true,
+                                     "finalTime":  4000.0000000003956,
+                                     "equilibrium":  {
+                                                         "ready":  true,
+                                                         "stationary":  true,
+                                                         "resolved":  true,
+                                                         "checks":  {
+                                                                        "volumeError":  1.6647557266047386E-07,
+                                                                        "epsilonSpan":  0,
+                                                                        "temperatureSpan":  0,
+                                                                        "support100Span":  0,
+                                                                        "support110Span":  0,
+                                                                        "epsilonError":  4.2951516498828193E-05,
+                                                                        "heldOut111Residual":  0.00013475219176289506
+                                                                    }
+                                                     },
+                                     "summary":  {
+                                                     "epsilon":  -4.3247501224869214E-05,
+                                                     "epsilonError":  4.2951516498828193E-05,
+                                                     "d0Effective":  0.21847597098952473,
+                                                     "a1Effective":  0.8739038839580989,
+                                                     "support100":  40.00982475419987,
+                                                     "support110":  40.01328555376093,
+                                                     "heldOut111RelativeResidual":  -0.00013475219176289506
+                                                 },
+                                     "error":  null
+                                 },
+                                 {
+                                     "config":  {
+                                                    "name":  "large-radius",
+                                                    "n":  192,
+                                                    "dx":  0.8,
+                                                    "radius":  40,
+                                                    "maximumTime":  4000,
+                                                    "measurementPeriod":  80,
+                                                    "epsilon":  0.0171,
+                                                    "lambda":  4
+                                                },
+                                     "completed":  true,
+                                     "finalTime":  4000.0108398667767,
+                                     "equilibrium":  {
+                                                         "ready":  true,
+                                                         "stationary":  true,
+                                                         "resolved":  true,
+                                                         "checks":  {
+                                                                        "volumeError":  7.5243694386273319E-08,
+                                                                        "epsilonSpan":  0,
+                                                                        "temperatureSpan":  0,
+                                                                        "support100Span":  0,
+                                                                        "support110Span":  0,
+                                                                        "epsilonError":  4.5170452675581674E-05,
+                                                                        "heldOut111Residual":  0.0005712621187409273
+                                                                    }
+                                                     },
+                                     "summary":  {
+                                                     "epsilon":  0.016520904165776607,
+                                                     "epsilonError":  4.5170452675581674E-05,
+                                                     "d0Effective":  0.21829804794248805,
+                                                     "a1Effective":  0.8731921917699522,
+                                                     "support100":  41.14814582373622,
+                                                     "support110":  39.81063358770161,
+                                                     "heldOut111RelativeResidual":  -0.0005712621187409273
+                                                 },
+                                     "error":  null
+                                 },
+                                 {
+                                     "config":  {
+                                                    "name":  "half-dt",
+                                                    "n":  96,
+                                                    "dx":  0.8,
+                                                    "radius":  20,
+                                                    "maximumTime":  1000,
+                                                    "measurementPeriod":  20,
+                                                    "epsilon":  0.0171,
+                                                    "dtScale":  0.5,
+                                                    "lambda":  4
+                                                },
+                                     "completed":  true,
+                                     "finalTime":  1000.0072101251988,
+                                     "equilibrium":  {
+                                                         "ready":  true,
+                                                         "stationary":  true,
+                                                         "resolved":  true,
+                                                         "checks":  {
+                                                                        "volumeError":  2.893100177203678E-07,
+                                                                        "epsilonSpan":  0,
+                                                                        "temperatureSpan":  5.9604644775390625E-08,
+                                                                        "support100Span":  0,
+                                                                        "support110Span":  0,
+                                                                        "epsilonError":  4.8299725309494668E-05,
+                                                                        "heldOut111Residual":  0.00048084397178982125
+                                                                    }
+                                                     },
+                                     "summary":  {
+                                                     "epsilon":  0.01659695169017355,
+                                                     "epsilonError":  4.8299725309494668E-05,
+                                                     "d0Effective":  0.2182042309392139,
+                                                     "a1Effective":  0.8728169237568556,
+                                                     "support100":  20.59493830065542,
+                                                     "support110":  19.922472786235392,
+                                                     "heldOut111RelativeResidual":  -0.00048084397178982125
+                                                 },
+                                     "error":  null
+                                 },
+                                 {
+                                     "config":  {
+                                                    "name":  "initial-shape",
+                                                    "n":  96,
+                                                    "dx":  0.8,
+                                                    "radius":  20,
+                                                    "maximumTime":  1000,
+                                                    "measurementPeriod":  20,
+                                                    "epsilon":  0.0171,
+                                                    "initialAxes":  [
+                                                                        1.25,
+                                                                        0.8944271909999159,
+                                                                        0.8944271909999159
+                                                                    ],
+                                                    "matchBaselinePhaseVolume":  true,
+                                                    "lambda":  4,
+                                                    "targetVolume":  66257.30229489849
+                                                },
+                                     "completed":  true,
+                                     "finalTime":  1000.0072101252032,
+                                     "equilibrium":  {
+                                                         "ready":  true,
+                                                         "stationary":  true,
+                                                         "resolved":  true,
+                                                         "checks":  {
+                                                                        "volumeError":  1.2417454253732529E-07,
+                                                                        "epsilonSpan":  0,
+                                                                        "temperatureSpan":  1.1920928955078125E-07,
+                                                                        "support100Span":  0,
+                                                                        "support110Span":  0,
+                                                                        "epsilonError":  7.362677455039629E-05,
+                                                                        "heldOut111Residual":  0.0004791608619157296
+                                                                    }
+                                                     },
+                                     "summary":  {
+                                                     "epsilon":  0.016605904220669238,
+                                                     "epsilonError":  7.362677455039629E-05,
+                                                     "d0Effective":  0.2182120202311825,
+                                                     "a1Effective":  0.87284808092473,
+                                                     "support100":  20.595228014800863,
+                                                     "support110":  19.92239622738604,
+                                                     "heldOut111RelativeResidual":  -0.0004791608619157296
+                                                 },
+                                     "error":  null
+                                 }
+                             ],
+                   "errors":  [
+                                  {
+                                      "kind":  "uncaptured",
+                                      "message":  "bytesPerRow (1152) is not a multiple of 256.\n - While [Failed to format error message: \"encoding %s.CopyTextureToBuffer(%s, %s, %s).\"].\n - While finishing [CommandEncoder (unlabeled)].\n"
+                                  },
+                                  {
+                                      "kind":  "uncaptured",
+                                      "message":  "[Invalid CommandBuffer] is invalid due to a previous error.\n - While calling [Queue].Submit([[Invalid CommandBuffer]])\n"
+                                  },
+                                  {
+                                      "kind":  "uncaptured",
+                                      "message":  "bytesPerRow (1152) is not a multiple of 256.\n - While [Failed to format error message: \"encoding %s.CopyTextureToBuffer(%s, %s, %s).\"].\n - While finishing [CommandEncoder (unlabeled)].\n"
+                                  },
+                                  {
+                                      "kind":  "uncaptured",
+                                      "message":  "[Invalid CommandBuffer] is invalid due to a previous error.\n - While calling [Queue].Submit([[Invalid CommandBuffer]])\n"
+                                  }
+                              ]
+               },
+    "evidence":  {
+                     "rawCheckpointsVerified":  676,
+                     "archiveBytes":  1303512131,
+                     "archiveSha256":  "e2cffee98543a2d3c965d4940085ac5b4731ee1aed2b213125501c8eaff61c28",
+                     "backup":  {
+                                    "draft":  true,
+                                    "url":  "https://github.com/fronkt/solidify/releases/tag/untagged-4ff2f3cab68d844e3925",
+                                    "target":  "2f2f8fa67f3fd4794cd838716374bb00bbddc070",
+                                    "serverDigestsMatch":  true,
+                                    "assets":  [
+                                                   {
+                                                       "name":  "solidify-q3-cont-artifacts.tar.gz",
+                                                       "bytes":  1303512131,
+                                                       "sha256":  "e2cffee98543a2d3c965d4940085ac5b4731ee1aed2b213125501c8eaff61c28"
+                                                   },
+                                                   {
+                                                       "name":  "solidify-q3-cont-artifacts.tar.gz.sha256",
+                                                       "bytes":  100,
+                                                       "sha256":  "86c104b0c1a910793f7d1673974abd668b871272fa0058ae9fd80f0d704c3061"
+                                                   }
+                                               ]
+                                }
+                 },
+    "cleanup":  {
+                    "ownedInstanceRemoved":  true,
+                    "destroyedAt":  "2026-10-30T07:22:00.555651+00:00",
+                    "watchdogStopped":  true,
+                    "estimatedScopedComputeUsd":  0.35030992778209874,
+                    "costScope":  "transfer extras excluded",
+                    "preexistingResourcesUntouched":  true
+                },
+    "limitations":  [
+                        "Base-only diagnostic cannot establish full five-arm acceptance.",
+                        "Two n144 radius cases refused initial unaligned readback before evolution; they are missing evidence, not physical failures.",
+                        "Completed equilibrium cases do not measure moving-interface kinetic cancellation.",
+                        "The independent lifecycle audit found failure paths later repaired; those faults were not observed on the saved base run, which already refused reference acceptance."
+                    ]
+}

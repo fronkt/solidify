@@ -1,0 +1,340 @@
+{
+  "feature": "Native current-grid 3D casting optimizer",
+  "verifiedSourceCommit": "9d5fa9ab80314976a024366c9240db04e10a8ffe",
+  "branch": "feature/3d-optimizer",
+  "pullRequest": "https://github.com/fronkt/solidify/pull/4",
+  "scope": "Functional acceptance of the qualitative Kobayashi optimizer. This does not close quantitative-3D literature acceptance or guarantee an attainable target.",
+  "gpu": {
+    "started": "2026-10-30T14:36:47.057Z",
+    "finished": "2026-10-30T14:44:55.596Z",
+    "passed": true,
+    "adapter": {
+      "vendor": "intel",
+      "architecture": "xe-2lpg",
+      "isFallbackAdapter": false
+    },
+    "grid": 96,
+    "pitchUm": 1.25,
+    "seed": 1372834558,
+    "gates": [
+      {
+        "name": "OPT3-ADMISSION",
+        "passed": true
+      },
+      {
+        "name": "OPT3-ENTER-PAUSED",
+        "passed": true
+      },
+      {
+        "name": "OPT3-MOBILE-CONTROLS",
+        "passed": true
+      },
+      {
+        "name": "OPT3-PAUSE-STEPS",
+        "passed": true
+      },
+      {
+        "name": "OPT3-REAL-CAST-OBJECTIVE",
+        "passed": true
+      },
+      {
+        "name": "OPT3-REPORT-AND-CURVE",
+        "passed": true
+      },
+      {
+        "name": "OPT3-APPLY-AND-SCHEDULE",
+        "passed": true
+      },
+      {
+        "name": "OPT3-SHARE-RESTORE",
+        "passed": true
+      },
+      {
+        "name": "OPT3-WINNING-RECIPE-REPLAY",
+        "passed": true
+      },
+      {
+        "name": "OPT3-REPLAY-DETERMINISM",
+        "passed": true
+      },
+      {
+        "name": "OPT3-INVALID-CAST-REFUSED",
+        "passed": true
+      },
+      {
+        "name": "OPT3-LATE-CENSUS-TARGET",
+        "passed": true
+      },
+      {
+        "name": "OPT3-LATE-CENSUS-STOP-RESTART",
+        "passed": true
+      },
+      {
+        "name": "OPT3-QUANTITATIVE-MODE-REFUSAL",
+        "passed": true
+      },
+      {
+        "name": "OPT3-LEGACY-2D-COMPATIBILITY",
+        "passed": true
+      }
+    ],
+    "sourceStable": true,
+    "deviceErrorLedgerRead": true,
+    "errors": []
+  },
+  "castingSearch": {
+    "speed": 4,
+    "limit": 2,
+    "maxSteps": 60000,
+    "target": 26.400000000000002,
+    "unit": "µm",
+    "history": [
+      {
+        "valid": true,
+        "reason": null,
+        "diameter": 12.653957512605201,
+        "diameterCells": 10.12316601008416,
+        "meanVolVox": 543.1849132176235,
+        "grainCount": 1498,
+        "fracSolid": 0.9201230649594907,
+        "error": 0.5206834275528334,
+        "score": 0.5206834275528334,
+        "episode": 1,
+        "target": 26.400000000000002,
+        "deliveredSteps": 41776,
+        "best": 0.5206834275528334
+      },
+      {
+        "valid": true,
+        "reason": null,
+        "diameter": 18.637969404903995,
+        "diameterCells": 14.910375523923195,
+        "meanVolVox": 1735.6588486140724,
+        "grainCount": 469,
+        "fracSolid": 0.9200755931712963,
+        "error": 0.2940163104203033,
+        "score": 0.2940163104203033,
+        "episode": 2,
+        "target": 26.400000000000002,
+        "deliveredSteps": 51936,
+        "best": 0.2940163104203033
+      }
+    ],
+    "winner": {
+      "dimension": "3d",
+      "grid": 96,
+      "pitch": 1.25,
+      "seed": 1372834558,
+      "known": true,
+      "unit": "µm",
+      "params": {
+        "dx": 0.03,
+        "dt": 0.00009,
+        "epsBar": 0.01,
+        "delta": 0.045,
+        "deltaZ": 0,
+        "aniMode3": 1,
+        "tau": 0.0003,
+        "alpha": 0.9,
+        "gamma": 10,
+        "latent": 1.35,
+        "noiseAmp": 0.006,
+        "tFar": 0.35,
+        "coolRate": 0,
+        "heatIn": 0,
+        "meltGlow": 0.55,
+        "pPore": 0.85,
+        "scen": 0,
+        "gradG": 0.08,
+        "pullV": 1.5,
+        "weldX": 11.52,
+        "weldY": 19.200000000000003,
+        "weldPow": 700,
+        "weldSig": 4,
+        "alloyOn": 0,
+        "c0": 0.3,
+        "mLiq": 0.5,
+        "kPart": 0.14,
+        "dSol": 0.9,
+        "twinProb": 0,
+        "facet": 0,
+        "holdT": 0,
+        "holdRate": 0,
+        "moldT": 0.06,
+        "nyCrit": 8,
+        "envRate": 0,
+        "solver": 0,
+        "lambda": 3,
+        "dTherm": 1,
+        "atCoef": 0,
+        "frozenT": 0
+      },
+      "nuc": {
+        "nmax": 128,
+        "dTN": 0.15,
+        "dTsig": 0.045
+      },
+      "cool": [
+        0.31086834730284957,
+        0.24139481004351146,
+        0.19948687372757662
+      ],
+      "nmax": 1324,
+      "undercool": 0.13422309667082263,
+      "target": 26.400000000000002,
+      "diameter": 18.637969404903995,
+      "maxSteps": 60000
+    }
+  },
+  "independentVolumeRecount": {
+    "n": 96,
+    "pitch": 1.25,
+    "solid": 814024,
+    "fracSolid": 0.9200755931712963,
+    "nonFinite": 0,
+    "minEligibleVoxels": 64,
+    "grainCount": 469,
+    "eligibleSolidVoxels": 814024,
+    "meanVolVox": 1735.6588486140724,
+    "diameterCells": 14.910375523923195,
+    "eqDiamUm": 18.637969404903995,
+    "stateSha256": "c677b55f11f39b5e35e132f0e856b4fd67e2ec8351788e9cf04f766195b5773f",
+    "grainSha256": "5d0c86d385006a313b6653308acd46b880a7c212cbb60810bf6c3bf30f1cfddd"
+  },
+  "coldShare": {
+    "previousDocument": "de9aec0f76b8d38eb8dc1a971abe3165",
+    "restoredDocument": "1f1803f97ea4a6d1f05a045f71fa1b2e",
+    "freshSearchHistoryLength": 0,
+    "stagedGrid": 96,
+    "stagedPitch": 1.25,
+    "seed": 1372834558,
+    "material": "al"
+  },
+  "replay": {
+    "firstSpeed": 1,
+    "secondSpeed": 4,
+    "steps": 51936,
+    "stateSha256": "c677b55f11f39b5e35e132f0e856b4fd67e2ec8351788e9cf04f766195b5773f",
+    "grainSha256": "5d0c86d385006a313b6653308acd46b880a7c212cbb60810bf6c3bf30f1cfddd",
+    "exactHashMatch": true
+  },
+  "cancellation": {
+    "original": 0.123,
+    "expectedBefore": 0.3311432279084806,
+    "optimizerWritten": 0.3312471821370973,
+    "deliveredSteps": 6512,
+    "phaseFraction": 0.3302261917679398,
+    "afterExitCooling": 0.123
+  },
+  "archive": {
+    "file": "optimizer3d-run.zip",
+    "bytes": 1191801,
+    "sha256": "9b1a7d03a5a923d03e351e3f3b80184732ce507908c3f4e55e947cde3c8694d7",
+    "names": [
+      "README.txt",
+      "run.json",
+      "data/01-pole-figure-001.csv",
+      "data/02-pole-figure-100.csv",
+      "data/03-3d-optimizer-convergence.csv",
+      "micrograph.png"
+    ],
+    "crcChecked": 6,
+    "dataset": "data/03-3d-optimizer-convergence.csv",
+    "rows": 2,
+    "png": {
+      "width": 758,
+      "height": 614
+    },
+    "independentPythonValidation": {
+      "zipEntries": 6,
+      "allCRCsValid": true,
+      "sha256": "9b1a7d03a5a923d03e351e3f3b80184732ce507908c3f4e55e947cde3c8694d7",
+      "image": {
+        "size": [
+          758,
+          614
+        ],
+        "extrema": [
+          [
+            2,
+            241
+          ],
+          [
+            3,
+            241
+          ],
+          [
+            4,
+            241
+          ]
+        ],
+        "physicsAreaExtrema": [
+          [
+            2,
+            138
+          ],
+          [
+            3,
+            104
+          ],
+          [
+            4,
+            114
+          ]
+        ]
+      },
+      "rows": 2
+    }
+  },
+  "regression": {
+    "suiteExitCode": 0,
+    "registeredScripts": [
+      "scripts/verify-units.mjs",
+      "scripts/verify-rng.mjs",
+      "scripts/verify-optimizer3d-model.mjs",
+      "scripts/verify-heattreat.mjs",
+      "scripts/verify-thermal.mjs",
+      "scripts/verify-fade.mjs",
+      "scripts/verify-porosity.mjs",
+      "scripts/verify-experiment.mjs",
+      "scripts/verify-phasedata.mjs",
+      "scripts/verify-alloy.mjs",
+      "scripts/verify-phasediagram.mjs",
+      "scripts/verify-regimes.mjs",
+      "scripts/verify-elements.mjs",
+      "scripts/verify-composer-grid.mjs",
+      "scripts/verify-hero-manifest.mjs",
+      "scripts/verify-plot.mjs",
+      "scripts/verify-process-plots.mjs",
+      "scripts/verify-run-export.mjs",
+      "scripts/verify-scroll-order.mjs",
+      "scripts/verify-landing-acts.mjs",
+      "scripts/verify-hero.mjs",
+      "scripts/verify-optimizer.mjs",
+      "scripts/verify-optimizer3d.mjs",
+      "scripts/verify-tools.mjs",
+      "scripts/verify-rail.mjs",
+      "scripts/verify-completion-gpu.mjs",
+      "scripts/verify-passsplit.mjs",
+      "scripts/verify-passsplit3d.mjs",
+      "scripts/verify-quant.mjs",
+      "scripts/verify-quant3d.mjs",
+      "scripts/verify-quant3d-wulff.mjs",
+      "scripts/verify-phasediagram-gpu.mjs",
+      "scripts/verify-composer-gpu.mjs",
+      "scripts/verify-experiment-gpu.mjs",
+      "scripts/verify-heattreat-gpu.mjs",
+      "scripts/verify-scale3d.mjs",
+      "scripts/verify-3d.mjs"
+    ],
+    "sourceFilesFrozen": 151,
+    "freezeManifestSha256": "b3b42adfb1af52723c59d0d15152014e5f5804687cd2fdf0fd780a54fbdb1dba",
+    "logSha256": "1fd446b5de1d94fc74ff4363a07cca3ee1f5de8941b75310e70596828c3d62d9",
+    "ci": {
+      "conclusion": "success",
+      "browserFreeScripts": 21,
+      "url": "https://github.com/fronkt/solidify/actions/runs/41072120918"
+    }
+  },
+  "rawAcceptanceSha256": "de2e2a25569af8314a59bfce60c8ee89cc52c61447b0dae12327fd9495adc113"
+}

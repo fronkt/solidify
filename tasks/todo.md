@@ -5119,12 +5119,12 @@ Plan and acceptance criteria (checked in before implementation):
 - [x] R0 Release: merge PR1 at its verified head, observe successful production deployment, verify public routes/assets and a real GPU/export smoke flow; record release and rollback identifiers.
 - [x] R1 Small polish: abstract-material readouts show finite dimensionless values with explicit units, missing values remain distinct, all grain/casting count axes use integer ticks; retain real SI behavior. Verify pure and browser behavior, commit and push.
 - [x] R2 Phase reconciliation: trace Ni-Nb, Mg-Zr, Fe-Ni, Mg-Al and Fe-Si issues to primary assessments/database scope and reaction definitions. Record evidence and uncertainty, correct data/claims where supported, reproduce affected computations, and run chemistry/calibration gates. Freeze the accepted data before taking 3D baselines.
-- [ ] Q3a Design and baseline: document governing 3D discretization, fields/units/bindings, memory/refusal policy and independent benchmark criteria; measure untouched Kobayashi baselines before refactoring.
-- [ ] Q3b Split: separate 3D phase/transport passes while retaining bit-exact Kobayashi trajectories, mass, IDs, pore/feed and existing 3D features. Runtime allocation failure must leave a usable solver and explain refusal.
+- [x] Q3a Design and baseline: document governing 3D discretization, fields/units/bindings, memory/refusal policy and independent benchmark criteria; measure untouched Kobayashi baselines before refactoring.
+- [x] Q3b Split: separate 3D phase/transport passes while retaining bit-exact Kobayashi trajectories, mass, IDs, pore/feed and existing 3D features. Runtime allocation failure must leave a usable solver and explain refusal.
 - [ ] Q3c Pure calibrated volume: implement 3D thin-interface phase/thermal equations, proper cubic anisotropy, calibration and units; verify equilibrium, curvature/critical radius, orientation symmetry and convergence against appropriate independent 3D references (not 2D tip constants).
-- [ ] Q3d Alloy calibrated volume: implement conservative face-flux solute transport and anti-trapping; independently verify partition, interface-width sensitivity and conservation under matched physics, with AT-off controls and measured tolerances.
-- [ ] Q3e Integrate: active-mode calibration, parameter/units ownership, chemistry changes, share links, exports, controls, documentation and honest material/symmetry/refusal paths. No enabled control may silently do nothing.
-- [ ] Final verification/review: source freeze for browser tests, appropriate pure/GPU/visual checks and full regression coverage; independently review scientific claims and implementation, fix surviving findings, commit and push each completed phase. Release only verified phases, with rollback metadata.
+- [x] Q3d Alloy calibrated volume: implement conservative face-flux solute transport and anti-trapping; independently verify partition, interface-width sensitivity and conservation under matched physics, with AT-off controls and measured tolerances.
+- [x] Q3e Integrate: active-mode calibration, parameter/units ownership, chemistry changes, share links, exports, controls, documentation and honest material/symmetry/refusal paths. No enabled control may silently do nothing.
+- [x] Final verification/review: source freeze for browser tests, appropriate pure/GPU/visual checks and full regression coverage; independently review scientific claims and implementation, fix surviving findings, commit and push each completed phase. Release only verified phases, with rollback metadata. The independent Q3c literature gate remains open.
 
 Verification discipline: no source or app HTML edits during browser gates; use one scoped Vite instance per verification port; stages depend on the preceding acceptance criteria, and unverified physics is not advertised as calibrated.
 
@@ -5149,3 +5149,855 @@ Dependency clarification: manufactured Kobayashi fixtures use explicit fixed con
 Table 1.2.0 uses a coherent primary-source Fe-Ni peritectic (1517.25 C; liquid 5.15, delta 4.02, gamma 4.54 wt% Ni), with a 5.10 wt% pour ceiling. Mg-Zr retains the sourced 654 C / 0.58 wt% liquid boundary and withdraws the untraceable solid endpoint. Fe-Si records the earlier 1286 C peritectic; unknown endpoints refuse diagram/equilibrium phase claims and its 5 wt% dilute scope is enforced through direct APIs as well as UI/links. Ni-Nb and Mg-Al preserve cited values with explicit database disagreements. The audit now detects duplicate same-named composition sets instead of discarding them.
 
 Validation before the calibrated 3D campaign: all 43 gates across six affected browser-free scripts passed; the audit-method regression passed; 72 equilibrium states replayed; independent Fe-Ni common-tangent residuals converged. Primary-source links, exact conversions, database hashes, limitations and reproduction commands are in docs/PHASE-RECONCILIATION.md. Browser chemistry/calibration and final type/build checks remain part of the joint source freeze; this checkpoint makes no GPU acceptance claim.
+
+### Q3 implementation checkpoint (validation continues)
+
+- Implemented separate 3D phase/transport kernels, pure KR heat coupling, EFKP temperature-dependent alloy relaxation, canonical conservative concentration face fluxes with anti-trapping, independent mass/status readbacks, transactional per-device resource allocation and honest admission refusals. Active-mode UI, units, parameter snapshots, composition/link restoration and archive identity are implemented and under acceptance.
+- Untouched d59471e baseline was repeated before editing: 390/390 hashes exact. After the split, BOTH fused and split paths matched all 390 hashes across eight live fixtures, with zero GPU/browser errors. Forced early/late allocation failures preserved every saved field, params and solute identity; concurrent allocation and off/on cancellation tests passed with subsequent live quantitative steps and zero status flags.
+- Typecheck and build pass; all 17 browser-free scripts pass. Initial physical gates pass: three-normal tanh width 0.996873 W0, negligible planar drift; sphere critical-radius errors 1.98% coarse / 1.56% fine and cylinder 1.80%; insulated energy drift 5.38e-6 at 10,000 steps; cubic 90-degree covariance and non-grid orientation response with isotropic control.
+- Remaining before scientific completion: Stefan and alloy mass/partition/width gates, full 3D needle operating-state benchmark with convergence controls, app acceptance and full regression suite. The sourced KR96 table is a reference, not a passed benchmark. Draft PR2 backs up completed work; no 3D production promotion.
+
+Q3 acceptance update: all seven completion-app gates pass, including actual pure-volume growth/status, rapid lambda changes during allocation, calibrated 3D sharing and return to Kobayashi, unsupported hexagonal/steel refusal, imposed-temperature alloy export, and composed A356 share -> Kobayashi -> calibration without losing chemistry. A pending lambda write bypassed the queue before the solver flag changed; corrected and covered. The test now stages its cooling rate explicitly after an inherited aggressive rate correctly triggered the supported-temperature refusal. Independent zipfile CRC and Pillow PNG decoding passed for all three calibrated-volume archives.
+
+Stefan front error improves from 2.01% at dx/W0 .8 to .934% at .4. Four 10,000-step concentration ledgers drift no more than 5.98e-6; GPU/CPU mass agreement is within 4.46e-9 relative with no negative/nonfinite values. Initial anti-trapping fixture was invalid at its widest interface (tau*V/W beyond the thin-interface regime and insufficient uncontaminated liquid samples), and failed its original bands. A lower-drive, longer rectangular fixture is being measured with unchanged error bands; no anti-trapping acceptance claimed yet.
+
+Q3 alloy acceptance is now passed under independently designed admissible conditions. A one-sided Stefan calculation selected Ttilde .8692701173 for nominal Vtau0/W0 .08 at lambda6 (lambda3 .02). Actual on k_eff: .1499877/.1497604 vs .15; off .1557122/.1601655. Every fixed fit window passes original k, width and negative-control bands, with nominal rate <=.08463, one-substep matched120d0 crossing, uncontaminated far field, and no negative/nonfinite concentration. Analytic erfc/diffuse-mixture/solid-history controls recover known k, retain deliberately wrong k, and reject oscillatory profiles. Both earlier failed benchmark attempts remain documented. Final app acceptance now passes8/8, including visible unresolved Fe-Si/Mg-Zr phase panels; exported calibrated-volume images were visually checked.
+
+Re-plan before the long reference run: independent review found normal anisotropic flux was incorrectly clamped at reflected faces. Correct QUANT-only vector ghost parity and prove agreement between a full cube and its reflected octant, plus a broken-operator falsification, before the full regression suite. The legacy Kobayashi expressions remain unchanged. The long-tip campaign also needs an explicit width arm, geometric margin, and an independent stationarity budget with propagated P/sigma uncertainty. No long-tip acceptance or final Q3 completion is claimed.
+
+Q3 boundary correction accepted: the quantitative phase pass now gives normal anisotropic correction-flux ghosts odd parity at all six reflected faces. Full64cube versus32octant phase differences stay <=5.96e-8 and temperature <=1.79e-7 through64steps. The deliberately restored old operator fails boundary phase by up to7.76e-3. Six manufactured-face derivatives agree to1.29e-8; the old operator misses by5e-4. Both legacy fused/split paths again match390/390 original hashes, including allocation/concurrency regressions.
+
+Long-tip preparation now has five prospective arms (domain,dx,dt,lambda3.6width againstlambda4base), matched physical extents/seed radii/times, a separate2.5%stationarity-input budget and propagated P/sigma uncertainty. Independent tanh/Gaussian/asymmetric phase-grid controls and drifting/oscillating/accelerating negative controls pass. The effective-versus-raw anisotropy distinction from KR1998 is recorded; raw coefficients must not be fitted to tip outcomes.
+
+User explicitly requested the full benchmark and Vast.ai acceleration if faster. Cloud bootstrap is authorized for one tagged owned instance within a small capped spend; preexisting instances stay untouched. Local full regression and cloud real-WebGPU throughput proceed independently on frozen commits. Cloud results must prove real NVIDIA hardware and production/harness equivalence before any speed or accuracy claim; download artifacts and destroy the owned rental afterward.
+
+### Long-run and lattice-calibration review
+
+The first full five-arm cloud campaign at ad96166 used real NVIDIA WebGPU, matched nine production/harness field hashes and reported no device errors, but every arm stopped during startup on the instantaneous D/V clearance proxy. It accepted no operating state. Eleven shared base/domain checkpoints were exactly identical despite different proxy verdicts, so this is not evidence of measured boundary contamination or published-reference disagreement.
+
+Protocol v3 prospectively covers the original reference tolerance band with matched geometry/time, retains raw phase brackets and direct far-face temperature patches, and assesses conservative clearance throughout the final stationary window. It removes only the startup proxy abort; all final accuracy, stationarity, travel and convergence requirements remain. CPU metrology and boundary positive/negative controls pass.
+
+Independent fixed-volume Wulff measurements on the unchanged production stencil at dx=.8, lambda4, R20 and fixed1000tau horizon measured effective anisotropy -.002816782 for raw0 and .013569171 for raw.0171; both were stationary/resolved. The intended .0171 therefore cannot be advertised as mesh-calibrated. No tip-output fitting is permitted. Before another reference campaign, compare a research-only19-point isotropic Laplacian against the SAME equilibrium cases, review the discrete moments/pipeline replacement, and assess coupled-heat kinetic calibration. Production source stays unchanged until that independent comparison passes review.
+
+- [x] Compare unchanged and isotropic19-point Wulff equilibrium on identical inputs; preserve hashes and device-error evidence.
+- [x] Choose and document the more isotropic scalar operator, then rerun affected quantitative, legacy and app gates.
+- [x] Run the complete five-arm reference study on the frozen candidate; retain failures and all raw evidence.
+- [x] Collect cloud artifacts, verify checksums, destroy only owned Vast instance58344925 and verify its removal.
+- [ ] Resolve independent discrete capillary/anisotropy and coupled kinetic calibration or justified refinement, then meet the unchanged published-reference gate. Q3c remains open.
+
+### Deterministic heat-treatment fixture review
+
+The full regression reached the legacy3D coarsening gate and failed its unchanged r-squared criterion. The cast helper fixed seed positions but left grain orientations under a random page seed, and armed animation frames could drain queued quench stamps between manually paced growth batches. Controlling both named RNG streams with the helper's existing seed and suspending only the frame-paced step path during cast construction makes repeated specimens agree in six field hashes and exact clocks. The production annealing model, constants, seed values and pass bands are unchanged.
+
+The complete heat-treatment script now passes all27 named gates: the actual fitted specimen is one of two byte-matched witnessed casts, r-squared=.99010 and K/shipped=.980. The historical98.5%solid stopping rule remains; remaining ineligible liquid is counted explicitly. The legacy scale gate also expected a shared2D/3D pitch despite the accepted per-dimension calibration design; it is being updated to verify both independent values survive switches and edits.
+
+The independent19-point comparison is complete: both fixed1000tau0 equilibrium cases are stationary/resolved with zero device errors. Isotropic bias falls from-.0028168 to-.0001011; raw.0171 measures.0166020 instead of.0135692. This independently motivates changing only quantitative scalar phase/heat Laplacians to19-point, preserving all solver0 expressions and conservative solute faces. Residual anisotropy/scalar-capillary error stays documented; no coefficients were fitted. TypeScript, production build, generated fused token identity and binding checks pass for this checkpoint. GPU regression and full reference acceptance remain pending.
+
+### Integration re-plan after independent review
+
+The first fresh35-script final run was intentionally stopped after read-only review found three actual async/retry defects. An unchanged-source GPU probe reproduced all three without page errors: leaving shared-alloy allocation caused a preparing latch and quantitative dials under Kobayashi; leaving a grid swap published the dormant3D pitch into active2D; correcting cooling and resetting after a runtime refusal left retry disabled.
+
+- [x] Reproduce the old behavior with controlled allocation delays and runtime-status injection; preserve old logs/JSON.
+- [x] Keep shared quantitative dials out of the baseline until resource allocation succeeds. Check mode, solver identity, request token and staged user inputs before publishing; retain the independent material/composition snapshot.
+- [x] Guard quantitative entry and pending cleanup, publish grid-swap pitch only for the active mode, and make explicit reset clear the previous refusal while retaining the initial visible runtime diagnostic.
+- [x] Prove the same delayed/canceled/user-edited paths pass on the fixed source and register the regressions.
+- [x] Complete the full suite from the reviewed source freeze. Cloud needle physics remains pinned independently to12ce78b, with no solver-equation change.
+
+Fixed-source integration review passes: the same three old-source failures now pass, and delayed material/solute edits preserve the operator's newer setup without starting calibration. A real composed A356 link retains its own coefficient source/freezing interval and restores canonical qualitative kPart/dSol. SESSION-3D-CANCELLATION registers all six cases in the existing completion driver; all9 completion gates pass. Typecheck/build pass. All local browsers and the scoped Vite instance are closed before the fresh final-suite freeze.
+
+### Completed cloud reference review
+
+The full five-arm protocol-v3 campaign is complete and NOT accepted: P ranges .32536-.33353 against .312, while sigma ranges .05019-.05294 against .063 (15.98-20.33% low). All arms passed the runner's reference-blind stationarity/resolution/clearance/travel conditions; the independent domain/dx/dt/width point comparisons change by at most3.12% and are within their10% band. The combined final assertion fails because every literature-reference verdict fails, rather than because every point control missed its band. Zero device errors; nine exact production/specialization pairs.
+
+Independent raw-data NumPy/QR replay reproduces the base miss. Coupled planar and Wulff local-curvature diagnostics do not establish a unique correction; no coefficient, reference value or acceptance threshold was fitted to the needle result. Future observation times should be fixed prospectively across matched physical arms, rather than selected by reference agreement. Q3 remains in draft; only R1/R2 are prepared for release in PR3.
+
+Raw science evidence is backed up in unpublished GitHub draft release q3-validation-2026-10-30, targeting12ce78b. The249,914,660-byte archive has SHA256 e12246766121b1eeed12985a84d84764528f7148210b6216f1491f51d6626eac; GitHub's asset digest matches. All179 tip checkpoints,102 equilibrium checkpoints, pinned sources and185 diagnostic-superset members were checked. Account/auth and bootstrap logs are excluded. Owned Vast instance58344925 was destroyed at05:20:16UTC and API absence verified; watchdog50492 stopped. Existing instances untouched. Estimated compute cost$0.765, excluding transfer/storage.
+
+The reviewed full local suite passed all scripts before verify-rail, which then hit a Runtime.callFunctionOn timeout without a layout assertion verdict. A focused traced copy is isolating the exact operation before corrective continuation. The source remains frozen; no successful-prefix checks or long-reference misses are reclassified.
+
+### Final regression and verified-phase release
+
+All35 registered regression scripts passed across the reviewed full run and corrective continuation: first22 in ordered-final-reviewed-suite.log, unchanged original rail retry (all11 gates) in rail-original-retry.log, remaining12 in ordered-reviewed-continuation.log. The continuation verified unchanged source/test hashes. The original rail CDP timeout was not reproduced by the traced or unmodified reruns; no source fix, assertion or timeout change was inferred. Typecheck/build and GitHub CI passed. Q3c remains OPEN because the independent full reference study failed, regardless of these regression passes.
+
+Only verified R1/R2 changes were released through PR3 from an isolated worktree (three cherry-picks, no Q3 modules/integration). Local and production real-WebGPU smoke passed dimensionless2D/3D headers, SI return, both visible unresolved phase refusals, and live archive export; ZIP CRC and independent PNG decoding passed, screenshots inspected, no browser/GPU errors. Production main a7584a6c63e6cba612834c92e01d1e9cc86dcaf4, deployment7431740168, actualURL https://solidify-ksacrcmu2-frankyc11223-1729s-projects.vercel.app, publicalias https://solidify.frankcai.dev. Main CI41010562651 passed. Public build a7584a6+local matches the source prefix; the suffix is the existing Vercel working-tree convention. Rollback source069abab7b9b551c751bd50e9362676d0a745efad / deployment7429099595.
+
+The protected preview required Vercel login and existing CLI credentials were invalid. Access settings were left intact; exact isolated-candidate and public post-deploy acceptance supplied the browser checks. All owned local browser sessions and Vite helpers were closed after verification. Q3 stays in draft PR2 with its raw failures backed up and its scientific next target explicit.
+
+## Q3 calibration continuation - 2026-10-30
+
+User requested continuation of the remaining quantitative3D validation gap. Production remains the verified R1/R2 release at a7584a6; do not promote the draft3D path until its independent reference gate passes. Preserve all prior failed studies and the original10% reference/physical acceptance bands.
+
+Plan before implementation:
+- [x] Independently challenge tip-radius metrology using known non-polynomial, fourfold surfaces and raw archived samples. Separate arithmetic replay from model/fit bias; retain invalid/unresolved controls.
+- [ ] Resolve a controlled planar/equilibrium calibration diagnostic using actual production equations and independent references, including mesh/time/size and signed controls. Determine whether existing coarse-grid kinetic extrapolation is identifiable before using it to choose a coefficient.
+- [x] Replace first-qualifying observation times with prospective matched physical terminal times/windows in the next benchmark protocol. Add CPU controls proving the endpoint is independent of the expected reference and that unfinished/unstable endpoints cannot pass.
+- [ ] Choose the smallest justified formulation correction or numerical refinement from those independent diagnostics; preserve fused/split Kobayashi behavior and unit/chemistry ownership. Do not fit coefficients to needle P or sigma.
+- [ ] Run affected local pure/GPU gates under one GPU owner and a source freeze, then a frozen reference campaign only after its prerequisites are reviewable. Use cloud acceleration when justified; inspect current balance/rates before allocating, tag only owned resources and collect/destroy them afterward.
+- [ ] Record results/limits, run required regression checks, commit explicit paths and push completed phases. Keep Q3c open unless the complete reference gate actually passes.
+
+Working boundaries: root owns production source and localGPU scheduling; delegated work initially uses CPU/read-only evidence or isolated fixture files. No app/source edits during browser runs. Existing user untracked .claude/ and dist-embed/ remain untouched. Old cloud instance58344925 was destroyed; do not reuse stale identifiers as live resources.
+
+### Continuation checkpoint review
+
+Protocol4 uses the inherited v3 horizon/cadence as explicit constants, with integer substeps rounded upward independently and ten terminal-anchored observations. Earlier first-qualified windows are diagnostic only. CPU controls prove unchanged observation times when reference values change, refusal of six endpoint faults, and refusal of late drift despite exact point agreement with the reference. Root independently repeated the self-test. Pointwise convergence and overall literature acceptance now have separate verdicts; original physical/reference bands remain unchanged.
+
+The new research-only equilibrium matrix predeclares14 mesh/radius/dt/initial-shape cases using unmodified production shaders. Its local baseline pair reached fixed1000tau0 horizons, both stationary/resolved, with source hashes unchanged and zero device errors. Raw epsilon0 measured-.0001011133; raw.0171 measured.0166019492. This reproduces the prior equilibrium result and does not resolve the refinement limit or establish a unique kinetic correction. Raw brackets/history are retained in verify-out/q3-calib-local-baseline.
+
+User asked whether extra Claude/Codex sessions would help. Useful external work is an independent read-only equation/discretization audit and adversarial review of the new benchmark protocol, on isolated checkouts pinned to the pushed checkpoint. Root retains solver edits and GPU/cloud ownership; additional sessions must not duplicate rentals or run competing local GPU workloads.
+
+The independent finite-speed planar target now includes outgoing complex bulk-heat branches and is reproduced by direct CPU lattice evolution. At V=.04, dx=.8 and160tau0, RK4 reproduces mean velocity to floating-point precision; Euler dt=.016/.008 measures.03999963646/.03999981818. Four cell phases and a1536-to2048 domain control agree independently. This supplies a finite-speed cross-check, not a zero-speed beta calibration. New research files retain the explicit profile, portable generator hashes and limitations. The10-arm production-WGSL GPU comparison is prepared with a nine-pair native-cube equivalence precondition; actual GPU results remain pending at this checkpoint.
+
+Local production-WGSL comparison is now recorded on eaed58c: all10 declared arms reached their terminal steps; all9 native-cube byte/hash pairs matched; source hashes remained unchanged; no device errors, nonfinite values or transverse asymmetry. Mean speeds differ from the finite-speed CPU target by .0005-.0180%. The smaller dt has larger Float32 discrepancies, so this is not monotonic time-convergence evidence or a zero-beta calibration. Terminal profiles, energy and outer fits are retained; modal identifiability remains a limitation. Public summary: docs/validation/quant3d-kinetic-2026-10-30.json. Owned local browser/Vite helpers are closed.
+
+The committed CPU metrology reproducer measures150 phase-sampled known-truth surfaces plus two motion controls. Every published-style fourfold family covers30/30 known radii. A separately declared smooth axisymmetric stress surface covers0/30 and is falsely marked resolved: actual sigma error15.31% versus advertised7.90%. Its sub-width crossover is not shown to occur in evolved GPU fields. No central estimate, threshold or solver changed; a justified model-form bound/refusal remains open.
+
+The cloud continuation owns only instance58362896, created06:40:11UTC, with a105-minute science cutoff and120-minute destroy watchdog. It runs frozen2bd7893, BASE-only fixed-terminal diagnostic then the14-case equilibrium matrix. Full-study acceptance is not evaluated for that subset. Preexisting stopped instances remain untouched. Collection, checksum verification and destruction remain outstanding until independently confirmed.
+
+Local scientific evidence is now independently backed up in unpublished draft q3-calibration-2026-10-30, targeting2f2f8fa. Archive size69,137,619 bytes;224 members and every hash verified; SHA256 d4b39a1da16adc73d7b5f6196402c2348ab990b2bf78da36ee42c6bbd7faf0ec. GitHub's digests match archive and sidecar. Explicit output/source whitelist excludes account/auth/bootstrap data. The original equilibrium runner is reconstructed by removing only subsequent selection preflight and required to match its recorded exact SHA before archival. Independent kinetic audit verifies all90 raw checkpoints and documents outer-fit ill-conditioning and finite-precision limits.
+
+## Independent parallel review - 2026-10-30
+
+User explicitly asked the coordinator to launch the extra sessions. Use fresh
+review agents with isolated detached worktrees at2bd7893, the same frozen
+equation/protocol checkpoint as the handoff briefs. Later9e30318 diagnostic
+evidence may be read as supplemental context; keep findings revision-specific.
+
+- [x] Prepare the two isolated review worktrees and start independent equation/discretization and adversarial-protocol reviews. Findings only; no GPU/cloud jobs, shared source edits, coefficient fitting or acceptance-band changes.
+- [x] Verify actionable findings independently, distinguish known limits from newly reproduced defects, and record reports plus the next concrete fixes.
+- [x] Reconcile the completed cloud continuation, verify durable artifact backup/owned cleanup, and preserve failed matrix cases before any separately pinned repair/rerun.
+
+Review deliverables: severity, exact file:line, primary-source equations for
+physics claims, reproducible counterexamples for protocol defects, and the
+smallest experiment that can falsify a plausible cause. Root owns integration.
+
+Both fresh reviewers finished on unchanged2bd7893 worktrees. The equation audit
+finds no demonstrated pure-material equation error; it confirms separate discrete
+capillary/kinetic calibration and asymptotic-convergence evidence remain open.
+It also finds a reversed energy-extremum comment (positive cubic delta gives an
+energy maximum along100), corrected without changing any expression.
+
+Root independently reproduced the protocol review's missing-ledger defect:
+an injected final GPU-error read failure still wrote accepted=true/exit0. The
+runner now persists a fresh unaccepted artifact before launch, records completion
+and cleanup errors, requires a readable error ledger and stable source hashes,
+and computes final acceptance/status after all execution evidence. Thirteen
+CPU-only real-CLI cases plus passing-subset and stale-retry checks pass; these
+controls now run in CI. Scientific coefficients, numerical expressions and bands
+are unchanged. The velocity-variation claim now explicitly names the three
+four-sample fitted speeds; it does not claim to bound every interval speed.
+
+Cloud continuation is finished: BASE reached its fixed108282-step endpoint and
+still fails the sigma reference (P=.3268402242, sigma=.0514161522). The matrix
+attempted14 cases:12 completed stationary/resolved; both n144 radius cases
+refused initial readback before evolution, with four matching bytesPerRow1152
+layout diagnostics. Overall matrix remains refused; these cases are not physical
+failures. The owned rental58362896 was destroyed07:22:00UTC, API absence verified,
+watchdog stopped, preexisting instances untouched. Compute estimate$.35031,
+excluding transfer. All676 raw checkpoints and source hashes were verified.
+Research readback repair and a separately pinned rerun remain open.
+
+Review phase verification: root typecheck/build and tip self-test pass. The
+independent protocol reviewer reran all13 lifecycle cases, passing-subset refusal
+and stale-result replacement on the root patch, and found no blocking defect.
+Reports and follow-up are preserved under docs/reviews. The1,303,512,131-byte
+cloud archive and distinct checksum sidecar are durably uploaded to the existing
+unpublished calibration draft; both server digests match local files. Archive
+SHA256 e2cffee98543a2d3c965d4940085ac5b4731ee1aed2b213125501c8eaff61c28.
+Public result summary: docs/validation/quant3d-continuation-2026-10-30.json.
+Q3c remains open; reviews do not supply missing kinetic/metrology calibration.
+
+CI initially caught a stale documented script count after the new lifecycle step.
+The inventory now counts argument-bearing self-test entries as well and documents
+all20 browser-free CI scripts. No physical gate was relaxed; the original count
+guard remains active, and its actual workflow/documentation check is rerun.
+
+## Build the 3D optimizer - 2026-10-30
+
+User explicitly requested the 3D parameter-search optimizer. Implement the full
+selected-volume workflow on the development branch; scientific acceptance of
+the separate quantitative3D solver remains open. Existing user .claude/ and
+dist-embed/ files stay untouched. Root owns main.ts integration and GPU timing;
+delegated module/tests/UI work has disjoint file ownership.
+
+Acceptance specification before implementation:
+- Real casting episodes run on the selected Sim3D grid and native volume census,
+  with no hidden2D or lower-resolution proxy. Optimize mean-volume-equivalent
+  sphere diameter, shown in micrometres for known SI or cells otherwise. Identify
+  the census minimum-grain-volume threshold; do not call this an ASTM2D result.
+- Search three solid-fraction cooling stages, inoculant count and initial
+  undercooling with the existing CMA-ES algorithm and an independent random
+  stream. Preserve material/chemistry, grid, seed and pitch. Use free casting and
+  no stochastic twins explicitly in both the measured recipe and its replay.
+- Enter paused. A bounded casting budget, progress, pause/resume, exit, target
+  changes, invalid trials, best-so-far report and convergence figure/export work.
+  Only a completed finite nonzero-grain census can win; a step-budget timeout
+  never supplies an applicable recipe. Refuse calibrated3D with a visible reason.
+- Give the episode sole ownership of the GPU clock: fixed fence-paced delivered
+  substeps, initial and per-batch temperature observations, and complete seed
+  burst draining before physics. Pause cannot start another batch; stale awaited
+  work cannot publish after exit, objective/context change or solver replacement.
+- Apply the best recipe ARMED on the same3D grid, with the three-stage schedule
+  retained. A3D recipe link restores dimension, schedule, seed, pitch, material
+  and inoculant. Keep2D/3D schedules independent and leave2D optimizer behavior
+  and the challenge unchanged. The restored object is a setup, not a field save.
+- Expose the optimizer in3D controls with accurate learn text, guard incompatible
+  modes/settings and interactive seed mutations, and retain camera interaction.
+
+Plan:
+- [x] Inspect existing optimizer/3D interfaces and review the design/measurement hazards in parallel.
+- [x] Implement the3D casting/search module and a shared clock for applying the same measured schedule.
+- [x] Integrate transport, controls/interlocks, recipe application/sharing, figures/export and copy.
+- [x] Verify genuine3D episodes, independently recounted volume metrics, pause/invalid/stale-work paths and apply/share replay on real WebGPU under a source freeze; verify legacy2D behavior.
+- [x] Independent review, required regression/type/build/CI checks, explicit-path commits/push, and an evidence-based completion summary.
+
+Work allocation: optimizer3d_engine owns new optimizer3d module, minimal shared
+CMA export/RNG injection and optional Nucleation injection; optimizer3d_tests owns
+new3D GPU acceptance fixtures; root owns main/sim3d/share and final verification.
+
+### Implementation review checkpoint
+
+Pushed initial implementation as 17d1c48 on feature/3d-optimizer; PR4 targets
+v7-experiments so this feature can be reviewed separately from Q3 acceptance.
+Typecheck/build, RNG, plot/export arithmetic and original solver/source identity
+pass. The initial 9,000-step resource limit stopped genuine Al96-cube trials at
+solid fractions .3894/.2831; both were correctly refused. The default is now
+60,000 at the native dt=.00009; cooling ranges and .92 completion stay fixed.
+Actual completed trials reached .920123/.920076 at41,776/51,936 steps, with an
+independent raw-voxel census matching their volume metric. Applied replay twice
+matched measured diameter and exact state/grain hashes with zero device errors.
+
+That first complete browser run is explicitly review-refused as a full acceptance
+claim: its hash-only navigation reused the page and did not prove fresh shared
+restoration. Its raw runner verdict and review refusal are both retained. The
+corrected final gate must force a new document, inspect real ZIP/CSV/PNG exports,
+cross a CMA generation with actual invalid casts and exercise a real cooling-
+segment transition followed by target change and Exit.
+
+Independent review found finite API-target overflow and a canceled-batch cooling
+restoration race. Root reproduced both failures before changing production code;
+seven model checks and the separately scoped CPU lifecycle reproducer now pass.
+Invalid scores reserve the finite worst sentinel and nonfinite errors refuse;
+reset preserves the current clock's owned parameter writes before dropping it.
+The phone resize guard also preserves transport access while allowing deliberate
+drawer reopening. Final GPU/regression verification remains pending.
+
+### Final review and verification
+
+All 37 registered scripts passed in one full npm test run on 9d5fa9a, with
+all 151 source files under src/scripts/app unchanged. The corrected fifteen-gate
+3D acceptance passed with zero page/device errors and a readable error ledger.
+The real volume census agrees with independently recounted voxels and grain IDs.
+Cold sharing proves a new document and empty optimizer history before admitting
+the exact recipe. The winner replayed at 51,936 steps with 18.6379694049 um diameter;
+state/grain SHA256 match exactly at speed 1 and 4. Nine actual one-step invalid
+castings span a CMA generation and never supply a winner. At a real .330226 solid
+fraction transition, target change plus Exit restores cooling .123 after the
+awaited batch wrote .331247; stale results do not publish.
+
+The actual 1,191,801-byte ZIP passed independent header/name/CRC validation, its
+two-row convergence CSV matches recorded measurements, and its 758 x 614 PNG decodes
+with a nonblank physics area. Python zipfile/Pillow independently confirm it.
+ZIP SHA256: 9b1a7d03a5a923d03e351e3f3b80184732ce507908c3f4e55e947cde3c8694d7.
+Typecheck/build and all 21 browser-free CI scripts pass (run 41072120918).
+Independent engine, test and visual reviews have no remaining blocker. The
+original solver/default 2D arithmetic identity check passes, and owned Vite/Chrome
+helpers are closed. Evidence and review are committed under docs/validation and
+docs/reviews. The optimizer is complete for the qualitative Kobayashi model;
+quantitative 3D literature acceptance remains open. PR 4 is separate from PR 2.
+
+## Quantitative 3D validation resumed - 2026-10-30
+
+User approved continuing the remaining quantitative validation after the completed
+3D optimizer. Research branch `research/q3-calibration` starts at `178d367` in
+`C:/Users/frank/solidify-q3-validation`; the optimizer PR remains independently
+reviewable. Existing production and historical failed evidence are preserved.
+
+Acceptance specification:
+- A result is accepted only by the original published-reference, stationarity,
+  uncertainty, clearance/travel and complete convergence gates at prospectively
+  fixed endpoints. No coefficient or estimator is selected to approach tip P or
+  sigma; preserve the original ten-percent bands and failed studies.
+- Repair the research readback that refused the two n144 radius cases. Prove
+  exact manufactured data and parity with the original reader on aligned grids;
+  neither shaders nor physical parameters change in this repair.
+- Complete the predeclared radius pair and assess the full mesh/radius matrix.
+  Retain raw checkpoint hashes, source freeze and readable device-error ledger.
+- Independently test whether capillary, kinetic or curvature-measurement error
+  is identifiable. Any proposed correction needs a separate physical diagnostic
+  and known-truth/signed controls before a full reference rerun.
+- Root owns local GPU timing and cloud lifecycle. Delegates initially use CPU
+  evidence only. Use one tagged Vast rental when faster, with a declared spend/
+  time cap, local push before remote pull, artifact verification and owned cleanup.
+
+Plan before implementation:
+- [x] Review recorded failures, independent audits and project lessons; isolate the research worktree.
+- [x] Repair and independently verify padded research volume readback and execution evidence.
+- [x] Finish the declared radius cases on frozen source and reconcile all fourteen matrix cases.
+- [x] Complete parallel capillary, kinetic-identifiability and metrology investigations; choose the smallest justified next experiment.
+- [x] Implement an explicitly opt-in research candidate supported by independent derivation; run native/GPU safety and affected regressions, preserving scientific refusals.
+- [x] Run the complete prospectively fixed experimental reference campaign, retaining all verdicts and raw data; do not reinterpret failed recovery as a pass.
+- [x] Record evidence/limitations, verify artifact backup and owned cleanup, commit/push completed phases, and leave Q3 open unless all required gates pass.
+
+Work allocation: q3_capillary_audit examines the existing matrix; q3_kinetic_diagnostic
+derives an identifiable moving-interface measurement; q3_metrology_diagnostic
+challenges local curvature using independent synthetic controls before raw tips.
+Root owns the readback/runner repair, production integration and GPU/cloud work.
+
+Readback checkpoint: seven CPU coordinate/stride controls pass; actual Intel
+WebGPU copies preserve every voxel/channel on both ping-pongs of 96/144 cubes,
+with exact legacy parity at96, a readable error ledger, zero errors and stable
+source hashes. The moved registered verifier was rerun on its final path. Root
+independently reran all19 actual-CLI lifecycle controls plus subset/stale-retry
+checks, including nonfinite/stalled/overshooting clocks. Independent read-only
+review found no blocking defect. Typecheck/build and the22-script CI inventory
+check pass. Production source and physical coefficients remain unchanged.
+Public proof: docs/validation/quant3d-calibration-readback-2026-10-30.json.
+
+Independent diagnostic checkpoint: all three audits are complete. Existing tip
+curvature alternatives change sigma by less than one percent on the measured
+fields; capillary mesh errors are small and converge. Exact independent algebra
+and prospective CPU refinement support a principal-plane lattice kinetic
+candidate, without using the needle reference. A separate production-WGSL
+finite-speed recovery study with two perturbations, a half-dt control and an
+actual wrong-relaxation negative control is being frozen before its first GPU
+run. No production correction is adopted yet. Full reports, raw CPU solves and
+hash manifests are backed up in the unpublished calibration evidence draft;
+all208 archive members and the server digest are verified. Review and limits:
+docs/reviews/quant3d-independent-diagnostics-2026-10-30.md.
+
+GPU kinetic protocol is now frozen before its first execution. Root reproduced
+the CPU input/metrology checks, including neutral translation, signed speed and
+shape errors, missing perturbation/sample refusals and final-evidence controls.
+The three generated targets exactly reproduce the independently derived CPU
+profiles. The seven arms, fixed five-thermal-time durations, tolerances and
+negative-control interpretation are specified in
+scripts/research/quant3d-lattice-kinetic.md. No production equation is changed.
+
+First GPU kinetic run at b24f3f2 completed with valid Intel hardware, nine exact
+native/specialized hash pairs, stable sources/inputs, all declared clocks/raw
+samples, a readable device ledger and zero errors. It is scientifically refused:
+five of six positive recovery arms pass; the added-heat arm fails its frozen
+temperature-RMS clause. The wrong-tau control rejects the late target and differs
+in early response by 7.8739%. No band, window or coefficient is changed.
+All 497 raw checkpoints and 557 archive members are verified and durably backed
+up, including the exact pre-correction source. Public result:
+docs/validation/quant3d-lattice-kinetic-2026-10-30.json.
+
+Re-plan after the failed recovery clause: pause production adoption, retain the
+original refusal, and separate conserved added heat/slow planar dynamics from
+Float32 numerical detuning with an independent coupled CPU march and raw replay.
+Only a separately specified experiment may address a demonstrated protocol
+limitation. The cloud equilibrium matrix continues on its original immutable
+source; it is not affected by local diagnostic changes.
+
+Independent Float64 evolution now reproduces the failed positive heat-pulse
+temperature clause with energy conserved to about 8e-11. The measured speed
+change predicts the altered liquid diffusion tail. Both baseline and corrected
+finite-speed branches have a negative outer undercooling slope; a claimed
+asymptotic recovery is therefore not an established prerequisite for either.
+This does not revise the original refusal or prove a finite-width instability.
+
+Prospective experimental candidate specification:
+- Add an explicit, immutable research option to the native 3D shader factory
+  and Sim3D allocation, default false. Prove default and alloy WGSL bytes match
+  the frozen baseline; the app does not enable this option.
+- Only the opted-in pure phase branch uses the derived additive local tau.
+  Refuse non-positive/nonfinite relaxation and retain CFL using actual local
+  tau. Add conservative host positivity/CFL admission for that option.
+- Give both planar and full-reference harnesses an explicit recorded option,
+  preserving native equivalence, clocks, physical coefficients and bands.
+- Verify candidate native/rectangular equality, finite-speed profiles and signed
+  response before the separate fixed-terminal five-arm candidate experiment.
+  Preserve the known heat-pulse recovery failure and independent CPU transient
+  evidence. Candidate results cannot by themselves erase open calibration scope.
+
+Equilibrium completion: all 14 cases completed stationary/resolved at 26445ae,
+zero errors, stable sources and readable ledger. Local and remote checks verify
+714 compressed/uncompressed raw checkpoints and nine archived source hashes.
+The 730-member archive has matching GitHub server digest. Public result:
+docs/validation/quant3d-equilibrium-complete-2026-10-30.json. R30 local-stiffness
+errors do not form a smooth radius trend; translation remains a diagnostic,
+not an empirical correction.
+
+Candidate a11a814: default/alloy WGSL matches baseline in 19 independent checks.
+Native/rectangular fields match; four invalid native inputs refuse before
+advancement, a valid input advances, and negative local tau emits GPU flag32.
+Both legacy paths retain 390 exact field comparisons each; allocation controls,
+typecheck/build and CI41105696719 pass. Recovery retains its original refusal.
+All 497 candidate raw profiles and the 213-profile CPU transient diagnosis are
+backed up. Public proof: docs/validation/quant3d-lattice-candidate-2026-10-30.json.
+Full five-arm fixed-terminal candidate study is running under the original
+owned-rental cutoffs. BASE still fails sigma; remaining arms continue. Q3 is open.
+
+Prospective translation diagnostic, implemented while the immutable cloud run
+continues: R20/dx0.8, epsilon 0/0.0171 crossed with declared center offsets 0/0.4
+on all axes. Same baseline volume target, default physics, horizon and cadence;
+no coefficient/window selection. The existing fourteen-case runner is preserved.
+
+- [x] Add the optional coordinate adapter and separate four-arm diagnostic CLI; prove default parity, known geometry and missing-offset/recentering refusals before GPU execution.
+- [x] Freeze/push the diagnostic and run it as the sole local GPU study, preserving every raw sample and strict clock/ledger/source/cleanup evidence.
+- [x] Replay the unchanged local-curvature estimator, compare paired offsets and document limits without promoting Q3 or fitting a correction.
+
+### Review and remaining scientific work
+
+The full five-arm candidate campaign completed at a11a814: every fixed endpoint
+was reached with stationary/resolved/boundary-clear observations, source freeze,
+readable GPU ledger and zero errors. All four convergence comparisons pass;
+maximum pointwise change is 3.4653%. Every literature arm still fails sigma:
+0.0510893-0.0545223 versus 0.063. No reference band, estimator, endpoint or
+coefficient was selected to improve agreement. Public final evidence:
+docs/validation/quant3d-lattice-five-arm-2026-10-30.json.
+
+The cloud packet verifies all 312 raw tip checkpoints, eleven source hashes,
+nine exact native comparisons and its startup-only compatibility copy. All
+fourteen scoped backup assets matched GitHub before owned instance 58431724 was
+destroyed at 19:08:07 UTC, with API absence verified. The watchdog exited and both
+pre-existing instances were untouched. Estimated compute was $0.75748 excluding
+transfers. No active rental remains from this work.
+
+The separate four-arm translation diagnostic completed at 0fbf067 with actual
+upload/hash/centroid liveness, preserved schedules, source freeze, zero errors
+and required cleanup/ledger evidence. All 206 raw surfaces verify. The frozen
+unchanged local-stiffness replay finds signed octic C100-error changes of
+-2.37254 pp (epsilon 0) and -0.41104 pp (epsilon 0.0171). Known geometry and once-only
+recentering controls pass; this is inferred response sensitivity, not a fitted
+correction or a bound on evolved-profile/needle error. Public evidence:
+docs/validation/quant3d-translation-2026-10-30.json.
+
+All 18 final scoped backup assets, including the translation packet and a source
+byte supplement, have matching server digests. The supplement exactly verifies
+34 local source records; 25 Windows line-ending representations differ from Git
+archives. Scientific sources/results were not modified. Local browser/server
+and owned watchdog are closed; original optimizer checkout remains untouched.
+
+Q3c remains OPEN. Next independent targets are local-stiffness grid refinement
+with paired lattice phases, and moving-interface kinetic calibration away from
+principal planes (including finite-speed stability). The complete literature
+reference must pass before any quantitative 3D promotion or candidate adoption.
+
+## Visual and science expansion - 2026-11-01
+
+Frank: "Go ahead with all of those" (after the 11-01 restart review): merge PR4,
+3D studio lighting, a better 3D first view, a time scrubber, click-to-isolate
+grains, C3b recrystallization, D3 convection. Idle auto-orbit stays OFF: Frank
+asked to kill it in v3.0 (line 580 above), so the 3D first view gets better
+shading and a clearer melt instead of camera motion. 3D entry keeps its single
+centred seed because existing 3D fixtures depend on it.
+
+Branching: PR4 conflicts with v7-experiments (PR5 landed after it branched);
+merge commit 1a988f6 on feature/3d-optimizer reconciles inventories (39 local
+scripts, 23 browser-free CI). Visual work lives on feature/visual from 1a988f6 in
+worktree ../solidify-visual; the frozen merge suite runs in ../solidify-verify-merge.
+Production stays at a7584a6 until Frank says ship. Note: v7-experiments also
+carries the unreleased Q3 integration, so shipping it is a separate decision.
+One GPU owner at a time: no browser/GPU checks here while the merge suite runs.
+
+Plan and acceptance:
+- [x] P0 Merge PR4: full 39-script suite passes on frozen 1a988f6, push the
+      merge, CI green, merge PR4 into v7-experiments.
+- [x] V1 Studio lighting (render-only; no solver file changes): ambient
+      occlusion from phi along the normal, procedural studio environment with
+      Fresnel reflection for the default steel surface, soft-clipped highlights,
+      and a clearer melt (glow concentrated in the thermal halo, lower
+      absorption) so the crystal reads through it. Photo mode while paused:
+      progressive accumulation of jittered frames with soft shadows and glossy
+      reflections, reset on any camera, lens, cut or field change. Scientific
+      lenses (ORIENT, SEM, THERM, RINGS, CURV, SLICE, FIELD, NEON) keep their
+      colour encodings; only luminance shading may change.
+      Accept: solver/shader-compute sources byte-unchanged; live fps at 192^3
+      within 15% of the pre-change build at the same camera/state; photo mode
+      converges and resets correctly; every lens screenshot inspected; export
+      PNG and webm recording still work.
+- [x] V2 3D first view: within 5 s of entering 3D the seed reads as a lit metal
+      crystal against the melt (measured luminance contrast between crystal and
+      surrounding melt pixels, before vs after), no camera auto-motion.
+- [x] V3 Time scrubber (2D first, then 3D): rebuild the solid at an earlier time
+      t from each cell's stored freeze time; transport timeline control; hover
+      on time-axis plots sets t. Scope: solid footprint and grains only.
+      Refused (visible reason) after remelt, reheat, heat treatment or anneal.
+      Accept: scrub at the current time matches the live solid mask
+      (IoU >= 0.99); scrub at earlier times matches masks captured live at those
+      times in a deterministic run (IoU >= 0.97); scrubbing never mutates the
+      field (state hash unchanged); refusal path exercised.
+- [x] V4 Grain isolate (3D): a modifier-click picks the grain under the cursor;
+      other grains ghost; readout of voxel volume (um^3 when SI), equivalent
+      sphere diameter and orientation. Accept: picked id equals an independent
+      CPU raycast over read-back fields; volume equals the census count.
+- [ ] C3b Recrystallization: design from an independent read-only design pass,
+      reviewed before implementation; gates with cited expectations and
+      negative controls; feature-off hashes unchanged.
+- [ ] D3 Convection (2D forced flow first): design from an independent design
+      pass, reviewed before implementation; analytic flow checks, conservation,
+      flow-off identity; honest scope (no freckles in slice 1).
+- [ ] Final: full suite from a frozen source, independent review, explicit-path
+      commits, push each phase.
+
+### Progress and evidence (2026-11-01)
+
+- P0: merge 1a988f6 passed all 39 registered scripts in one run with a frozen
+  checkout (`verify-out/merge-full-suite-1a988f6.log`, SUITE EXIT=0; a first
+  attempt in a worktree whose node_modules was a junction stopped at the hero
+  test on Vite's fs.allow 403 for fonts: environment, not code). Pushed; PR4 CI
+  green; PR4 merged into v7-experiments as e97129c. Production untouched.
+- V1-V4 (`verify-visual-gpu.mjs`, all 7 gates): every 3D lens with the studio
+  look on and off and every 2D lens while replaying compile and render with zero
+  console errors; photo mode reaches its 48-sample cap and restarts on a camera
+  move; render-only cost 6.6 -> 7.8 ms (one run) and 8.3 -> 11.3 ms (another) at
+  128^3, running fps unchanged but at the 60 Hz cap, so not discriminating;
+  2D replay masks equal masks captured live at three times (IoU 1.0, after the
+  f32 test fix in lessons.md); replay never changes the field; the reheat
+  refusal disables the strip with its reason; the 3D replay renders and never
+  changes the field; 26/26 GPU picks equal an independent Amanatides-Woo
+  traversal; alt-tap isolation's volume equals a raw recount (56022 voxels).
+- V2 contrast, default 3D entry at 9 s, same frame: crystal-to-melt luminance
+  ratio 11.2 with the studio look vs 4.3 without (crystal 52 vs 27 of 255).
+  Auto-orbit stays off per Frank's v3.0 decision.
+- Look tuning after screenshots: melt emission now scales with the lowered
+  absorption (a uniformly hot melt saturates no brighter than the original),
+  and studio reflections fade on incandescent metal (hot castings no longer
+  blow out to white).
+- C3b-0 (`verify-recrystallize-gpu.mjs`, all 6 gates; `verify-recrystallize.mjs`
+  4 CPU gates): the bond counter reproduces the cited triangular thresholds
+  4/2/2 and the 26-neighbour flat front 8; the GPU ladder puts the r = 2
+  nucleus's first growth at H = 12 (the bond count's grow threshold), r = 3 at 8,
+  r = 1 at 20; uniform stored energy is bit-identical to none; the census X
+  equals an independent recount (44037 voxels); sampling inside a treatment is
+  bit-identical to none. NUCLEUS_R_3D = 2 stands as measured.
+- C3b-2 (minimal): a "nuclei" dial (7th, 3D) nucleates after the deposit, X(S)
+  is sampled on a log schedule inside one treatment, the card reports X and the
+  sweep-clock Avrami n or its refusal; share links carry a 7th element only when
+  dialled. GPU acceptance of the panel path (G8) and the pre-registered G5/G7
+  remain OPEN; figures and the "not modeled" copy updates wait for them.
+- D3.0 (`verify-flow.mjs`, 4 gates): the drag constant derived from the planar
+  shear ODE on this repo's profile is 2.7571 (Tong et al. 2.757), h = 2 misses
+  by -0.164 W; the 2D Ivantsov limit gives P = 0.2569 at Delta 0.55.
+- D3.1 (`verify-flow-gpu.mjs`, 3 gates): standalone D2Q9 TRT solver. Shear-wave
+  viscosity 0.0999885 vs 0.1; drag profile vs an independent CPU solve within
+  0.05 % of peak at tau 10.4 (no-drag arm off by 35x); free stream uniform to
+  1.5e-5. Coupling into transport (D3.2, the Tong benchmark) and the FLOW lens
+  and UI (D3.3) remain OPEN.
+
+## Declutter, then finish C3b and D3 - 2026-11-01
+
+Frank (after the preview): fold the head plate to "SOLIDIFY" + a chevron, and
+put the plots and the replay behind one control. Done on feature/ui-declutter
+(9ac6a93): VIS-DECLUTTER and all rail gates pass; full suite running. Then
+Frank: "Yes, do them all": merge, finish C3b, then D3.2 and D3.3, in that order.
+Production stays a7584a6 until Frank says ship.
+
+- [x] M: full suite on 9ac6a93 passes -> fast-forward feature/visual, open a
+      draft PR feature/visual -> v7-experiments.
+- [x] C3b-1 G5 RX3-JMAK, PRE-REGISTERED here before any run: painted single
+      crystal at 96^3, matrix H0 = 20 J_b, 150 nuclei at random sites from the
+      recrystallization stream (r = 2), three seeds (0xa1, 0xa2, 0xa3).
+      X(S) is measured over the INTERIOR box [16, 80)^3 only (a point there
+      sees the full sphere of reachable nuclei up to R = 16, so the bounded,
+      non-periodic domain does not bias it). V1(S) is the volume of ONE
+      centred nucleus grown alone on the same matrix and seed, same sweeps.
+      Verdict per seed: slope of ln(-ln(1-X)) against ln V1 over X in
+      [0.05, 0.95] within 1 +- 0.15 (the design's band), with >= 5 points;
+      liveness: interior X_end >= 0.95. n against S reported only.
+- [x] C3b-1 G7 RX3-CAST-SELECTION, PRE-REGISTERED: three seeded casts at
+      96^3 (500 seeds), deposit(10), 200 nuclei at explicit centres drawn from
+      a seeded LCG, 60 sweeps. Statistic D = mean X over top-quartile-H grains
+      minus mean X over bottom-quartile grains (X per grain = fraction of its
+      pre-nucleation voxels now carrying a nucleus id). Control: the same with
+      every grain's H set to 10. Pass: D > 0 and D >= 3 |D_control| on every
+      cast; and the fraction of surviving nuclei (more voxels at the end than
+      at birth) whose birth sphere touched >= 2 matrix ids exceeds that
+      fraction among all placed nuclei (direction only).
+- [x] C3b-2 figures: X vs Monte Carlo sweeps and the Avrami plot in the heat
+      treatment report, exportable; G8 RX3-PANEL drives the dial end to end and
+      checks the card's n against avramiFit of the exported columns, the dial
+      count, the share tuple (7 with nuclei, 6 without) and that nuclei = 0
+      leaves rxRange null on the sim.
+- [x] C3b copy: learn/panels.ts, tour.ts, README.md, science/index.html stop
+      saying recrystallization is not modeled; say what is (site-saturated
+      random nuclei, sweep clock, J_b) and what is not.
+- [x] D3.2 coupling per docs/D3-CONVECTION-DESIGN.md: flow-off identity
+      fixtures captured FIRST at the base commit; conservative advection of T
+      and c in transport; Tong et al. 2001 upstream ratio [1.26, 1.54]
+      pre-registered; mass box; mirror; falsification arms.
+- [x] D3.3: FLOW lens, tracer particles, controls, share link, export, copy.
+
+### FLOW-TIP-TONG protocol (pre-registered before its first run)
+
+Calibrated pure melt staged exactly as QPF-TIP-KR (verify-quant.mjs Q.stage):
+Delta = 0.55, eps4 = 0.05, dx = 0.8 W0, dt = 0.15 dx^2 / D~, solved T, 1024^2,
+one seed at the centre with theta 0. Flow: inlet at x = 0, Pr = 23.1 (lattice
+nu = 3.465, tau = 10.9), U d0/D = 0.035, i.e. u_lat = 0.035 (lambda / a1) 0.15 dx
+cells per substep. Upstream tip = the WEST arm's phi = 0.5 crossing on the
+centre row (sub-cell interpolated); velocity = linear fit over the last third
+of 33 equal chunks spanning 8 diffusion lengths at the no-flow reference speed
+(the KR gate's schedule), stopping early if a tip comes within 12 % of a wall.
+lambda in {2.0, 2.4, 3.2}. Verdict: on every lambda, v_flow / v_noflow (same
+lambda, same schedule) within [1.26, 1.54] (Tong et al. 2001 same-lambda ratios
+1.37-1.43, the design's band); spread of the three ratios < 5 % of their mean.
+Falsification arms at lambda 2.4: coupling 0 must give ratio exactly 1 (same
+trace), coupling -1 must give ratio < 1. The no-flow speed's own accuracy is
+QPF-TIP-KR's (not re-gated here). Downstream arm and Peclet vs Oseen: info only.
+
+### FLOW-TIP-TONG first run (2026-11-01, commit 28772a0): FAILED, kept
+
+Upstream/no-flow ratios 1.259 / 1.329 / 1.356 at lambda 2.0 / 2.4 / 3.2 against
+the pre-registered [1.26, 1.54]; spread 7.4 % against 5 %. No-flow speeds match
+Karma-Rappel (Vd0/D 0.0170 / 0.0168 / 0.0163 vs 0.017). Falsification arms
+behave: coupling 0 gives exactly 1, coupling -1 gives 0.583. The ratio rises
+with lambda, and with it the domain measured in d0 (1853 -> 2965 d0), so a
+domain or boundary effect (free-slip walls and an inlet 12 % of the domain
+upstream of the stopping tip, where Tong used periodic sides) is the leading
+hypothesis. Following the Q3 precedent the comparison moved out of the
+regression suite into scripts/research/flow-tip-tong.mjs; the failure stands,
+the result is in docs/validation/flow-tong-2026-11-01.json, and every surface
+calls the flow qualitative. Next: a separately pre-registered domain study
+(same lambda, domain and inlet distance varied) before any change.
+
+### Review: combined branch a37a474 (feature/flow -> feature/visual)
+
+- Final evidence: full runner on d5f6d39 passed its first 28 scripts and stopped
+  at verify-rail (RAIL-VAL-FITS: "0.0200 cells/step" too wide; RAIL-NO-EMDASH's
+  tour cap: the heat-treat step had 43 words). a37a474 fixes only those two
+  strings. On a37a474: all 26 browser-free CI scripts and the build pass;
+  verify-tools passes standalone (its first attempt, the first script after a
+  cold server start, failed LAB-CURVE and HUD-LIVE once and passed unchanged on
+  rerun: recorded as an intermittent, checks untouched); verify-rail through
+  verify-flow-gpu (17 scripts) pass in one run with the source hash-frozen
+  (verify-out/final-continuation2-a37a474.log).
+- C3b: RX3-JMAK slopes 1.023 / 0.993 / 1.047 (band 1 +- 0.15), X_end 1;
+  RX3-CAST-SELECTION D 0.36 / 0.33 / 0.31 vs uniform controls 0.020 / 0.004 /
+  0.008, survivors born on boundaries 0.636 vs 0.566; RX3-PANEL: copper cast,
+  X 0.60 after 1318 sweeps, card n 0.61 = refit of the exported columns.
+- D3: flow-off identity vs the pre-advection baseline (2fc221d), inert arms,
+  uniform melt (2e-6), direction 1.13 / 0.89 (reversed 0.87), FLOW-UI.
+  FLOW-TIP-TONG FAILED and stays open (see above); flow is qualitative.
+- Harness fixes found on the way (each in lessons.md): f32 comparison in the
+  replay check, known centres for nucleus geometry, the 3D cancellation fixture
+  waiting on the calibration request, the runner prepending OUT, the tick hook
+  draining the GPU, flow-off cases isolated from each other's parameters.
+
+## Close PR 7, then the next stages in parallel - 2026-11-07
+
+Frank: "Continue Solidify and its next stages to complete in parallel." Production
+stays a7584a6 (main) until Frank says ship; shipping v7-experiments to main would
+also ship the unreleased Q3 integration, so that is a separate ask. One GPU owner
+at a time: only the root session runs browser/GPU scripts; delegates work
+CPU-only (typecheck, build, browser-free gates, light single-process CPU
+studies) in their own worktrees and hand GPU runs back to the root.
+
+- [x] S0 PR 7 close-out: full 45-script runner on frozen 5fa0578
+      (../solidify-verify-5fa0578, log verify-out/pr7-full-suite-5fa0578.log);
+      independent read-only review of origin/v7-experiments...5fa0578; fix
+      anything confirmed; mark PR 7 ready and merge into v7-experiments.
+      Evidence: the 5fa0578 run stopped at verify-tools (LAB-CURVE, no card
+      in 150 s; 7 instrumented reruns, incl. 2 after verify-optimizer3d, all
+      passed, HUD-LIVE failed once: the stale-read race, fixed below). The
+      review's findings 1-9 were verified and fixed (S0 review fixes); the
+      two visual gates corrected above. Full runner on frozen 09f105a: 45/45
+      scripts, SUITE EXIT=0, 03:28-04:05, tree clean before and after
+      (../solidify-verify-c3b021d/verify-out/pr7-full-suite-09f105a.log).
+      LAB-CURVE's earlier stall stays unexplained; the gate now records the
+      lab's run and report state if it recurs (4f172c2). Open for Frank: the
+      inlet brings tFar while the furnace cools (stated as a limit, 5b0e81a).
+- [ ] S1 D3.4 flow domain study (research/flow-domain, ../solidify-flowdomain):
+      pre-register BEFORE any run a study that holds lambda and the KR staging
+      fixed and varies the domain (in d0) and the inlet distance, plus any
+      lateral-boundary arm Tong et al. 2001 actually used (verified from the
+      paper, not recalled). The failed FLOW-TIP-TONG verdict of 11-01 stays
+      failed; the study only tests the domain/boundary hypothesis. A re-run of
+      the Tong gate needs its own pre-registered configuration.
+- [ ] S2 C3b-3 + C3b-4a (feature/rx-rate, ../solidify-rxrate): constant-rate
+      nucleation (JMAK n = 4 expected for 3D interface-controlled growth) and
+      boundary-only nucleation sites, per docs/C3B-RECRYSTALLIZATION-DESIGN.md
+      section 5. Gates pre-registered here before their first run, with
+      negative controls; feature-off hashes and existing RX/HT gates unchanged.
+      Particles and twins inside RX grains (rest of C3b-4): scoped, not built.
+- [ ] S3 Q3c next targets (research/q3c-stiffness from research/q3-calibration,
+      ../solidify-q3c): local-stiffness grid refinement with paired lattice
+      phases, then off-principal-plane kinetic calibration incl. finite-speed
+      stability. CPU derivations and pre-registered GPU protocols first; GPU
+      runs by the root. Q3 stays open unless the full literature reference passes.
+- [ ] S4 Integrate: each finished stage gets its GPU gates on a frozen source,
+      merges into v7-experiments via its own PR, and is pushed.
+
+### S0 review fixes (delegate, feature/visual, 2026-11-07)
+
+Independent review of origin/v7-experiments...5fa0578, each finding verified in
+the code before any change. Browser-free checks pass on every commit below;
+nothing GPU-side has been run (the root owns the GPU). Fix commits:
+
+- [x] F1 wrapped twin counter (confirmed): da656b2. RX-ID-RANGE (browser-free).
+- [x] F2 flow setting latched at setFlow (confirmed): 0de30b2. FLOW-SETTING.
+- [x] F3 nuclei stamped into particles (confirmed): fcec6bf. The C3b design
+      held the dispersion back while nuclei are dialled and the plan never
+      did; the plan now holds it (note + card say so) and nucleate takes the pin.
+- [x] F4 replay mark depended on a frame seeing heat.busy (confirmed): 4a1d725.
+      REPLAY-LEDGER-TREAT.
+- [x] F5 stale census after a reset (confirmed, widened by the root: every
+      frame-loop consumer, the HUD-LIVE intermittent): fa854ec, replaced by
+      1438eab (per-solver fieldGen + src/fieldstamp.ts). STATS-STALE-READ.
+- [x] F6 scrub survived reset/swap/re-entry/panels (confirmed): c5e88ed.
+      REPLAY-SCRUB.
+- [x] F9 placed count (0a697e6), solute Peclet + post-advection clamp
+      (21ab418), inlet temperature limit stated, open (5b0e81a), swapSim frees
+      the flow and says so (70261ea), verify-replay comment (4a1d725).
+
+#### Pre-registered GPU criteria (committed BEFORE their first run)
+
+Changed gates (F7, F8):
+
+- FLOW-DRAG-PROFILE (verify-flow-gpu.mjs). Setup unchanged (n 64, phi = 0.5
+  at y0 = 16, W = 1.25 cells, nu 3.3 / tau 10.4, Fb 2.9e-5, 12 x 1000 steps).
+  New statistic: the apparent no-slip plane, the root nearer the solid of a
+  least-squares parabola u = a y^2 + b y + c fitted to the row means over
+  y in [25, 61] (phi < 4e-5 there, drag-free; the top two rows excluded);
+  offset = (y_w - y0) / W. PASS: |offset| < 0.1 W at the derived h, with the
+  kept clauses (within 2 % of the ODE peak; deep solid <= 1 % of peak).
+  MUST-MISS arms, same setup: h x 2 and h / 2 each give |offset| >= 0.1 W,
+  and each arm is steady and bounded (all finite, peak within 5 % of the h
+  arm's) so a miss is the plane moving, not a blow-up. CPU sizing (steady
+  discrete proxy of the LBM equation / fine-grid continuum,
+  scripts/research/flow-drag-offset-sizing.mjs): h -0.029 / -0.011 W; 2h +0.300 / +0.320; h/2 -0.397 /
+  -0.381; peaks 9.93e-3, 9.76e-3, 1.012e-2. The h = 0 arm is DROPPED: a
+  periodic frictionless body-forced channel has no steady state (u = Fb t,
+  0.35 lattice units, Mach 0.6 at 12 000 steps), so it failed by
+  accelerating, not on the profile; and a 2x drag error gave 1.73 % / 1.96 %
+  of peak, inside the old 2 % band (reviewer's sizing, rerun here).
+- FLOW-UNIFORM-MELT. Adds a liveness clause: the LBM velocity read back after
+  the 2000 steps has mean u_x within 2 % of the 0.02 inlet. The gate stays a
+  consistency check, invariant to the coupling's sign by construction (the
+  docblock says FLOW-DIRECTION's reversed arm carries it). The review's second
+  claim is refuted on reading ADV_FACES: with the velocity texture bound to
+  zero the inlet face still brings P.flowUin * tFar while nothing carries it
+  on, so the first column heats by 0.008 per substep and the existing 1e-4
+  uniformity clause fails; this gate does see the binding. (Correction made
+  before any run; the criterion above is unchanged.)
+- SESSION-3D-CANCELLATION (fixtures/app3d-integration.mjs). Criterion
+  unchanged; the waits change. The canceled case and each edit case settle
+  on the share-restore chain having FINISHED (S.app.canSwitchMode() true,
+  i.e. no sharedRestore3Pending / alloyPreparing3 / mode3dPending; bounded
+  30 s), then the started entry's promise, then 3 frames, instead of one rAF
+  (canceled) or a fixed 20 frames (edits). Each case records settled, and
+  healthy requires it.
+- VIS-REPLAY-3D (verify-visual-gpu.mjs). Adds, with 2D's bands: live phi
+  masks captured during the 3D setup growth after stepSync batches 20 and 40
+  and at the end (60) equal the replay rule (phi >= 0.5 and age <
+  Math.fround(t)) applied to the final phi and age volumes, IoU >= 0.97 at
+  the two earlier, >= 0.99 at the last, each mask > 50 solid voxels; and the
+  UI path: after the strip input, replayState().scrub3 is in (0, simTime),
+  and the live button returns it to null. Kept: field unchanged, early frame
+  differs from live (> 1).
+- VIS-STUDIO-COST. The gate moves to the render-only GPU cost, which no
+  vsync cap hides: renderMsOn / renderMsOff <= 1.8 (a37a474 measured 15.52 /
+  10.17 = 1.53). MUST-MISS arm: the studio bench with every frame rendered
+  twice (a planted 2x studio cost) gives a ratio > 1.8 (expected ~2.2-3.0).
+  The running-fps clause (fpsOn >= 0.85 fpsOff) is kept and reported with
+  vsyncCapped (both arms >= 0.9 x the idle rAF rate), because at the cap it
+  cannot discriminate (a37a474: 55.7 / 55.6 fps, both capped).
+
+New gates:
+
+- FLOW-RECONFIGURE (verify-flow-gpu.mjs, F2). Kobayashi pure melt ("al"),
+  flow on at u 0.02, one submit: the LBM configuration equals flowSetting at
+  the Kobayashi dials exactly (nu, width). S.setSolver(1, 2.4) (precondition:
+  solver 1, reported separately), one submit: it equals flowSetting at the
+  calibrated dials exactly and differs from the Kobayashi one in nu and width.
+  Back to Kobayashi, one submit: the Kobayashi values return. dt taken to
+  dt / 200: the one synchronous submit keeps the last passing configuration
+  (the unchecked setting has >= 1 issue), and after one app frame
+  (S.tick(1)) the flow is off with a flowIssue matching /Peclet/. MUST-MISS
+  arm: with the instance's flowNow patched to return the setting captured at
+  setFlow (the latched behaviour before 0de30b2), the calibrated clause fails.
+- RX3-ID-WRAP (verify-recrystallize-gpu.mjs, F1). Single crystal: control,
+  freeIds on the fresh counter = 4094 - nextId - 2 > 0. Counter written to
+  (4094 - 4200) >>> 0 = 4294967190 (4200 growth-twin attempts): freeIds = 0;
+  nucleate(20) resolves to { why } without throwing and leaves the counter
+  unchanged; the host's annealTwins(4) resolves with spawned 0 and
+  saturated true. Reported: the replaced rule's first id (> 4096).
+- HT3-BUSY-RELEASE (F1). On an armed nuclei plan, host.nucleate replaced by
+  one that throws a planted error: the run starts (busy observed true,
+  reported separately), busy is false again within 10 s, and a second click
+  starts a run again (busy observed true). Planted errors are removed from the
+  page-error list by their marker; any other page error still fails. On
+  5fa0578 busy stays true (nucleate was awaited before the try).
+- RX3-PIN-HELD (F3). Fresh cast, cold work 8 J_b, dispersion 6 %: with nuclei
+  0 the note prints the live dispersion ("dispersion 6.0 vol %", "pins in 3D",
+  no "held back while nuclei"), which is the must-miss arm for the sentence;
+  with nuclei 200 the note prints "held back while nuclei are dialed" and not
+  "pins in 3D". After a run, the card has the held-back row and no pinned
+  row; every Sim3D.anneal call (>= 1) and the one nucleate call received
+  pin undefined (spied).
+- RX3-PIN-STAMP (F3, the Sim3D API). Same single crystal twice, 40 nuclei at
+  explicit centres (x in 12..84 and y in 12..66, step 18; z in {40, 70}), r = 4: unpinned
+  vs pinned { f: 0.10, r: 2 }. PASS: same id range; the pinned stamp is a
+  subset of the unpinned one voxel for voxel and id for id; it removes
+  >= 1 % of the unpinned stamp (expected ~9.5 %: the particle fraction).
+  On 5fa0578 (mask built without the pin) the two stamps are equal.
+- RX3-PLACED (F9). Single crystal with liquid z < 10: nuclei r = 2 centred at
+  (48, 48, 8) (claims 1 voxel), (20, 20, 40) (33) and (70, 70, 5) (none):
+  placed = 2. Arm 2, a fresh crystal with readRegion returning null for its
+  first two calls (another read in flight): placed = 2 again. On 5fa0578 the
+  first gives 1 (floor of 4 voxels) and the second 0.
+- VIS-REPLAY-SCRUB-END (F6). 2D, paused, plain, a clean ledger and a grown
+  field: a strip scrub stands after two frames (control); opening the heat
+  panel (precondition: heat.active) ends it within two frames; with the panel
+  closed and a new scrub, resetArmed ends it within two frames. On 5fa0578
+  both survive (paused, no mark).
+- VIS-REPLAY-TREAT (F4). Clean ledger, grown 2D field: the host's anneal(4),
+  called with no frame in between, has marked replayState().reason2 with the
+  heat-treatment reason synchronously, before any frame. On 5fa0578 it stays
+  null (heat.busy is never set outside the panel).
+
+Gate code, written after the commit above and not run: e83bdf1 (flow),
+bbadf91 (recrystallization + HT3-BUSY-RELEASE), f1bb615 (visual), 9fc549d
+(the SESSION-3D-CANCELLATION fixture), 360348e (a docblock correction).
+Browser-free: all 22 local scripts before verify-landing-acts except
+verify-scroll-order (it launches Chrome), the four CI self-test modes,
+typecheck and build pass on 360348e.
+
+Run list for the root (frozen source, after the last commit of this section):
+verify-flow-gpu.mjs, verify-recrystallize-gpu.mjs, verify-visual-gpu.mjs,
+verify-completion-gpu.mjs (SESSION-3D-CANCELLATION), verify-heattreat-gpu.mjs
+(HT3-* panel copy unchanged by F1/F3, re-confirm), verify-tools.mjs
+(HUD-LIVE, F5), and the identity gates FLOW-OFF-IDENTITY, HT3-CAST-REPRO,
+verify-passsplit.mjs / verify-passsplit3d.mjs, which must not move.
+
+### S0 GPU run on frozen c3b021d (root, 2026-11-07)
+
+Passed: verify-flow-gpu, verify-recrystallize-gpu (incl. RX3-ID-WRAP,
+RX3-PIN-*, RX3-PLACED, HT3-BUSY-RELEASE), verify-completion-gpu
+(SESSION-3D-CANCELLATION), verify-tools (LAB-CURVE, HUD-LIVE), verify-heattreat-gpu,
+verify-passsplit, verify-passsplit3d. verify-visual-gpu FAILED two gates; both
+results stand as recorded and the corrections below are pre-registered before
+their first run.
+
+- VIS-STUDIO-COST FAILED: renderMs off / on / on-twice 7.26 / 10.43 / 12.53,
+  ratio 1.437, planted ratio 1.726 (must exceed 1.8; expected 2.2-3.0). The
+  must-miss arm failed for its own reason: every bench iteration awaits
+  onSubmittedWorkDone, so a fixed queue round trip dominates and a doubled
+  workload added 2.1 ms, not 10. As built the instrument cannot resolve a 2x
+  cost. Correction (pre-registered): each arm submits 40 frames back to back
+  and awaits the queue once (5 warm-up frames, same camera/lens/plane), ms per
+  frame = elapsed / 40. Verdict: on / off <= 1.8 AND the liveness witness
+  on-twice / on within [1.7, 2.3] (the bench resolves a doubled workload). The
+  fps clause and vsyncCapped stay as reported.
+- VIS-REPLAY-3D FAILED: IoU 0.97375 / 0.97719 / 0.98587 at t 0.108 / 0.216 /
+  0.324 against >= 0.97 / 0.97 / 0.99. The fixture departed from its own
+  pre-registration ("the replay rule applied to the final phi and age volumes"
+  at the end of the setup growth, batch 60): it read phi and age only after
+  VIS-STUDIO-COST had run the cast on to t 0.603, so cells that remelted or
+  refroze in between could not replay. Correction: the final phi and age are
+  read at batch 60 inside the setup, with the three live masks; criterion
+  unchanged. Diagnostics added: per capture, replay-only and live-only voxel
+  counts (missing vs extra), and the final field's time.
+- VIS-STUDIO-COST second run (2103b07) FAILED its witness: amortized ms per
+  frame off / on / on-twice 3.08 / 4.47 / 6.30, ratio 1.451, doubling 1.409
+  (band [1.7, 2.3]). Totals fit time = C + 40 k g with g = 1.83 ms per render
+  and C ~ 106 ms per bench (one-off: queue wait, clock ramp), so no ratio of
+  totals isolates the per-render cost. Third and last instrument
+  (pre-registered): per arm (studio off, then on), time 40 x k renders for
+  k = 1, 2, 3 (5 warm-ups, one queue wait each); g = least-squares slope of
+  time against 40 k. Verdict: g_on / g_off <= 1.8; witness: in each arm the
+  three points are linear (max residual <= 10 % of the k = 3 time minus the
+  intercept) with g > 0. If the witness fails again the instrument cannot
+  measure this cost on this hardware: the gate becomes information only (ratio
+  reported, never gating) and that is recorded here and in TESTING.md.

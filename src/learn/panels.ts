@@ -55,12 +55,19 @@ export const PANEL_LEARN: readonly LearnEntry[] = [
       "dispersion": "particle volume that pins boundaries",
       "particle radius": "particle size, in grid cells",
       "cold work": "stored deformation energy (bond energies)",
+      "nuclei": "strain-free grains in the worked metal",
     },
   },
   {
     id: "panel:optimizer",
     text: "The optimizer (CMA-ES) searches for a cooling schedule and refiner charge that hit your target "
       + "grain size. Each tile is one full casting; |ΔG|, the distance from the target, shrinks as it learns.",
+  },
+  {
+    id: "panel:optimizer3d",
+    text: "The 3D optimizer searches cooling schedules and refiner charges using the selected volume and seed. "
+      + "Its target is a volume-equivalent grain diameter, shown in microns when the scale is known or cells otherwise; "
+      + "the Kobayashi model is qualitative.",
   },
   {
     id: "panel:challenge",
@@ -274,11 +281,13 @@ export const HEAT_CAVEATS = {
       + "it adds no work-hardening strength.",
   },
   coldWorkFewSweeps: {
-    // no primary recrystallization at ANY temperature (no new grains
-    // nucleate), so the line must not read as a limit of this window only
-    line: "almost no sweeps at this temperature: no recrystallization anneal (new strain-free grains are not modeled)",
+    // the sweep budget is priced by the grain-growth law at ANY temperature,
+    // so a low-temperature recrystallization anneal still buys almost nothing,
+    // nuclei dialled or not (C3b plants nuclei; it does not price the furnace)
+    line: "almost no sweeps at this temperature: the furnace prices time with the grain-growth law, so a low-temperature recrystallization anneal buys almost none",
     learn: "The furnace turns time into grain-growth steps using the grain-growth law, so it cannot yet run "
-      + "a low-temperature recrystallization anneal, and new strain-free grains are not modeled.",
+      + "a low-temperature recrystallization anneal. In 3D the nuclei dial plants strain-free grains in "
+      + "cold-worked metal, and they grow only in the sweeps this budget buys.",
   },
   specWithdrawn: {
     line: "judged on the measured census after the run",
@@ -343,6 +352,11 @@ export const HEAT_CAVEATS = {
     learn: "The simulation ran out of new grain labels partway through, so this is how many twins it could "
       + "make, not how many the rate asked for.",
   },
+  pinHeldBack: {
+    line: "held back while nuclei are dialed: particles would cap the recrystallized fraction below 1",
+    learn: "Particles and recrystallization nuclei are not simulated together yet: voxels inside particles "
+      + "keep their deformed grain, so the recrystallized fraction could never reach 1.",
+  },
   twinsHeldBack: {
     line: "held back while cold work is dialed: twinning in deformed grains is not modeled yet",
     learn: "Twins and cold work are not simulated together yet: a new twin could start with the wrong stored "
@@ -395,6 +409,24 @@ export const OPT_CAVEATS = {
     line: "",
     learn: "The search stopped improving before it reached the target: this is the best recipe it found, not "
       + "a converged one. Keep searching or move the target.",
+  },
+} as const satisfies Record<string, Caveat>;
+
+export const OPT3_CAVEATS = {
+  intro: {
+    line: "CMA-ES · 1 tile = 1 volume casting · current grid and seed",
+    learn: "Each trial evolves the selected 3D grid with the same seed. "
+      + "Apply stages the winning settings as a fresh melt, ready for run.",
+  },
+  metric: {
+    line: "target: volume-equivalent grain diameter",
+    learn: "The diameter is that of a sphere with the mean volume of the censused grains, not a 2D ASTM grain number. "
+      + "The census keeps grains larger than 64 voxels or 0.001% of the volume, whichever is larger.",
+  },
+  model: {
+    line: "qualitative Kobayashi casting model",
+    learn: "Cooling, undercooling and inoculant charge are compared within the same model, grid and seed. "
+      + "The result is the best casting measured under those settings.",
   },
 } as const satisfies Record<string, Caveat>;
 

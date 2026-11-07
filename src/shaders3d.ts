@@ -16,12 +16,20 @@
 // 2D solver uses, which avoids the checkerboard mode of a naive div(F).
 
 import { HT_COMMON, PALETTE_WGSL, PIN_SALT } from "./shaders";
+import { QUANT_COMMON3, QUANT_PHASE3, QUANT_FACES3, QUANT_SOLUTE3 } from "./shaders3d-quant";
 
 export const MAX_GRAINS3 = 4096;
 export const MAX_SEEDS3 = 128;   // as in 2D: a big inoculant burst must land while liquid remains
 export const SEED3_STRIDE = 8; // floats per seed: x, y, z, r, id, dTact, pad, pad
 /** reserved grain id for shrinkage-pore voxels (φ pinned 0 forever) */
 export const PORE_ID = MAX_GRAINS3 - 1;
+/** C3b: nuclei per stamp dispatch (the seed stamp's batching) */
+export const RX_BATCH3 = 128;
+/** C3b: recrystallization nucleus radius, voxels. Provisional: the
+ *  RX3-NUCLEUS-LADDER gate measures the grow/revert crossover before it is
+ *  pinned (radius 2 = 33 voxels: grows above H = 12 J_b, its tips revert below
+ *  8, by RX-LATTICE-THRESHOLDS' bond count at T = 0) */
+export const NUCLEUS_R_3D = 2;
 
 export const LENS3_NAMES = ["MELT", "ORIENT", "SLICE", "FIELD", "SEM", "RINGS", "THERM", "NEON", "CURV"];
 
@@ -35,7 +43,7 @@ export const LENS3_NAMES = ["MELT", "ORIENT", "SLICE", "FIELD", "SEM", "RINGS", 
 export const ICOSA_DELTA_MAX = 0.035;
 
 // Params3D slot map — single source of truth shared with sim3d.writeParams
-// (u = u32 view, f = f32 view over one 192-byte buffer)
+// (u = u32 view, f = f32 view over one 224-byte buffer)
 export const P3 = {
   n: 0, frame: 1, dx: 2, dt: 3,
   epsBar: 4, delta: 5, aniMode3: 6, tau: 7,
@@ -55,7 +63,8 @@ export const P3 = {
   holdT: 43, holdRate: 44, moldT: 45,   // scen 4: set-point (lab) cooling
   nyCrit: 46,     // dimensionless Niyama threshold (was the free _s46 slot)
   envRate: 47,    // the imposed environment's own dT/dt (was the free _s47 slot)
-  BYTES: 192,
+  solver: 48, lambda: 49, dTherm: 50, atCoef: 51, frozenT: 52,
+  BYTES: 224,
 } as const;
 
 const COMMON3 = /* wgsl */ `
@@ -107,6 +116,8 @@ struct Params3D {
   envRate: f32,    // continuous rate of the imposed cooling: −gradG·pullV for
                    // the pulled profile, the lab programme's set-point slope,
                    // 0 in the free/weld scenarios — the Niyama record's Ṫ
+  solver: u32, lambda: f32, dTherm: f32, atCoef: f32, frozenT: u32,
+  _q53: f32, _q54: f32, _q55: f32,
 }
 const PORE = ${PORE_ID}u;
 const PI = 3.14159265359;
@@ -145,7 +156,7 @@ fn aniso3(np: vec3f, P: Params3D) -> Ani {
       r.a = 1.0 + 2.0 * P.delta * (q.x + q.y + q.z - 1.4);
       r.g = 2.0 * P.delta * np / q;
     } else {
-      // cubic harmonic: minima along <100> — six dendrite arms
+      // cubic harmonic: for positive delta, energy is largest along <100>
       let n3 = np * np * np;
       r.a = 1.0 + P.delta * (4.0 * (n3.x * np.x + n3.y * np.y + n3.z * np.z) - 3.0);
       r.g = 16.0 * P.delta * n3;
@@ -236,26 +247,10 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 // (4 storage textures — needs device limit ≥ 4); the base variant keeps 3 so
 // the ≥3 caps gate still serves weak devices. Never dummy-bind storage:
 // layout:"auto" drops statically-unused bindings (the v1.9 black-canvas bug).
-export const update3dWgsl = (alloy: boolean) => /* wgsl */ `
-${COMMON3}
-@group(0) @binding(0) var<uniform> P: Params3D;
-@group(0) @binding(1) var state: texture_3d<f32>;
-@group(0) @binding(2) var grain: texture_3d<u32>;
-@group(0) @binding(3) var flux: texture_3d<f32>;
-@group(0) @binding(4) var stateOut: texture_storage_3d<rg32float, write>;
-@group(0) @binding(5) var grainOut: texture_storage_3d<r32uint, write>;
-@group(0) @binding(6) var ageOut: texture_storage_3d<rg32float, write>;
-@group(0) @binding(7) var fed: texture_3d<u32>;
-${alloy ? /* wgsl */ `@group(0) @binding(8) var solute: texture_3d<f32>;
-@group(0) @binding(9) var soluteOut: texture_storage_3d<r32float, write>;` : ""}
-@group(0) @binding(10) var<storage, read_write> quats: array<vec4f>;
-@group(0) @binding(11) var<storage, read_write> twinCtr: atomic<u32>;
-@group(0) @binding(12) var mask: texture_3d<u32>;
-
-@compute @workgroup_size(4, 4, 4)
-fn main(@builtin(global_invocation_id) gid: vec3u) {
-  if (gid.x >= P.n || gid.y >= P.n || gid.z >= P.n) { return; }
-  let c = vec3i(gid);
+// One source for the legacy equations: the optional split path stores only
+// the new phase and its increment between dispatches. Kobayashi remains fused
+// by default, so opting into quantitative resources never changes its model.
+const LOADS3 = (alloy: boolean) => /* wgsl */ `  let c = vec3i(gid);
   let inv2dx = 1.0 / (2.0 * P.dx);
   let invdx2 = 1.0 / (P.dx * P.dx);
   let s = textureLoad(state, c, 0);
@@ -276,7 +271,29 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let lapT   = (sE.g + sW.g + sN.g + sS.g + sU.g + sD.g - 6.0 * T) * invdx2;
   let gph = vec3f(sE.r - sW.r, sN.r - sS.r, sU.r - sD.r) * inv2dx;
 
-  // mould wall: dead geometry — φ pinned 0, held at the mould temperature,
+`;
+// The quantitative scalar Laplacian has an isotropic leading truncation error:
+// (2 * faceSum + edgeSum - 24 * center) / (6 * dx^2). Keep LOADS3 unchanged
+// for the original fused kernel, and keep its arithmetic for split Kobayashi.
+const QUANT_EDGES3 = (() => {
+  const edges: number[][] = [];
+  for (let a = 0; a < 3; a++) for (let b = a + 1; b < 3; b++) {
+    for (const u of [-1, 1]) for (const v of [-1, 1]) {
+      const edge = [0, 0, 0]; edge[a] = u; edge[b] = v; edges.push(edge);
+    }
+  }
+  return edges;
+})();
+const quantLap3 = (name: string, channel: string, center: string) => /* wgsl */ `
+  if (P.solver == 1u) {
+    let edge${name} = ${QUANT_EDGES3.map(e => `textureLoad(state, cid3(P, c + vec3i(${e.join(", ")})), 0).${channel}`).join(" + ")};
+    lap${name} = (2.0 * (sE.${channel} + sW.${channel} + sN.${channel} + sS.${channel} + sU.${channel} + sD.${channel}) + edge${name} - 24.0 * ${center}) * (invdx2 / 6.0);
+  }`;
+const splitLoads3 = (alloy: boolean) => LOADS3(alloy)
+  .replace("let lapPhi =", "var lapPhi =")
+  .replace("let lapT   =", "var lapT   =")
+  .replace("  let gph =", `${quantLap3("Phi", "r", "phi")}\n${quantLap3("T", "g", "T")}\n  let gph =`);
+const EARLY3 = (alloy: boolean) => /* wgsl */ `  // mould wall: dead geometry — φ pinned 0, held at the mould temperature,
   // never claimed (walls keep id 0, so the claim loop needs no extra guard);
   // taps stamped into a wall self-heal next step. Used by the grain-selector
   // pigtail (scen 3) and the lab's mould shell (scen 4).
@@ -298,7 +315,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     return;
   }
 
-  // anisotropic terms from the flux texture
+`;
+const ANISO3_CORE = /* wgsl */ `  // anisotropic terms from the flux texture
   let fC = textureLoad(flux, c, 0);
   let fE = textureLoad(flux, cid3(P, c + vec3i(1, 0, 0)), 0);
   let fW = textureLoad(flux, cid3(P, c - vec3i(1, 0, 0)), 0);
@@ -310,7 +328,27 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let gradW = vec3f(fE.w - fW.w, fN.w - fS.w, fU.w - fD.w) * inv2dx;
   let aniso = fC.w * lapPhi + dot(gradW, gph) + divA;
 
-  ${alloy
+`;
+// Keep the legacy fragment verbatim. For the quantitative split, a reflected
+// no-flux face has even scalar fields/w and an odd normal correction A.
+const PHASE_ANISO3_CORE = ANISO3_CORE.replace(
+  "  let aniso = fC.w * lapPhi + dot(gradW, gph) + divA;",
+  /* wgsl */ `  var aniso = fC.w * lapPhi + dot(gradW, gph) + divA;
+  // QUANT-NORMAL-FLUX-BEGIN
+  if (P.solver == 1u) {
+    let fluxEdge = textureDimensions(flux) - vec3u(1u);
+    let aE = select(fE.x, -fC.x, gid.x == fluxEdge.x);
+    let aW = select(fW.x, -fC.x, gid.x == 0u);
+    let aN = select(fN.y, -fC.y, gid.y == fluxEdge.y);
+    let aS = select(fS.y, -fC.y, gid.y == 0u);
+    let aU = select(fU.z, -fC.z, gid.z == fluxEdge.z);
+    let aD = select(fD.z, -fC.z, gid.z == 0u);
+    let reflectedDivA = ((aE - aW) + (aN - aS) + (aU - aD)) * inv2dx;
+    aniso = fC.w * lapPhi + dot(gradW, gph) + reflectedDivA;
+  }
+  // QUANT-NORMAL-FLUX-END`,
+);
+const KOB_PHASE3 = (alloy: boolean) => /* wgsl */ `  ${alloy
     ? /* wgsl */ `// constitutional undercooling: solute depresses the local liquidus
   let tEq = 1.0 - P.mLiq * conc;
   let m = (P.alpha / PI) * atan(P.gamma * (tEq - T));`
@@ -319,7 +357,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let react = phi * (1.0 - phi) * (phi - 0.5 + m) + P.noiseAmp * phi * (1.0 - phi) * chi;
   let phiNew = clamp(phi + (P.dt / P.tau) * (aniso + react), 0.0, 1.0);
   let dPhi = phiNew - phi;
-  ${alloy ? /* wgsl */ `
+`;
+const KOB_SOLUTE3 = /* wgsl */ `
   // Warren–Boettinger dilute solute (2D port): variable-D 6-face diffusion +
   // partition rejection (1-k)·c·dφ at the moving interface; no anti-trapping
   let cE = textureLoad(solute, cid3(P, c + vec3i(1, 0, 0)), 0).r;
@@ -337,9 +376,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
             + 0.5 * (dHere + mix(P.dSol, dSolid, sU.r)) * (cU - conc)
             + 0.5 * (dHere + mix(P.dSol, dSolid, sD.r)) * (cD - conc)) * invdx2;
   let cNew = clamp(conc + P.dt * divC + (1.0 - P.kPart) * conc * dPhi, 0.0, 2.0);
-  textureStore(soluteOut, c, vec4f(cNew, 0.0, 0.0, 0.0));` : ""}
-
-  var TNew = T + P.dt * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn;
+  textureStore(soluteOut, c, vec4f(cNew, 0.0, 0.0, 0.0));`;
+const TRANSPORT3 = (alloy: boolean) => /* wgsl */ `  var TNew = T + P.dt * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn;
   if (P.scen == 1u || P.scen == 3u) {
     // bridgman / selector: relax T toward the pulled linear profile (2D port,
     // minus its no-op /dx*dx algebra); cold below the isotherm, columns race up
@@ -470,7 +508,123 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   }
 
   textureStore(stateOut, c, vec4f(phiNew, TNew, 0.0, 0.0));
-  textureStore(grainOut, c, vec4u(id, 0u, 0u, 0u));
+  textureStore(grainOut, c, vec4u(id, 0u, 0u, 0u));`;
+
+export const update3dWgsl = (alloy: boolean) => /* wgsl */ `
+${COMMON3}
+@group(0) @binding(0) var<uniform> P: Params3D;
+@group(0) @binding(1) var state: texture_3d<f32>;
+@group(0) @binding(2) var grain: texture_3d<u32>;
+@group(0) @binding(3) var flux: texture_3d<f32>;
+@group(0) @binding(4) var stateOut: texture_storage_3d<rg32float, write>;
+@group(0) @binding(5) var grainOut: texture_storage_3d<r32uint, write>;
+@group(0) @binding(6) var ageOut: texture_storage_3d<rg32float, write>;
+@group(0) @binding(7) var fed: texture_3d<u32>;
+${alloy ? /* wgsl */ `@group(0) @binding(8) var solute: texture_3d<f32>;
+@group(0) @binding(9) var soluteOut: texture_storage_3d<r32float, write>;` : ""}
+@group(0) @binding(10) var<storage, read_write> quats: array<vec4f>;
+@group(0) @binding(11) var<storage, read_write> twinCtr: atomic<u32>;
+@group(0) @binding(12) var mask: texture_3d<u32>;
+
+@compute @workgroup_size(4, 4, 4)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= P.n || gid.y >= P.n || gid.z >= P.n) { return; }
+${LOADS3(alloy)}${EARLY3(alloy)}${ANISO3_CORE}${KOB_PHASE3(alloy)}
+${alloy ? KOB_SOLUTE3 : ""}${TRANSPORT3(alloy)}
+}
+`;
+
+/** Split phase pass; the original Kobayashi expression is the same fragment
+ * that the fused kernel evaluates. Only quantitative terms use the status. */
+export const phi3dWgsl = (alloy: boolean, latticeKinetics = false) => /* wgsl */ `
+${COMMON3}
+@group(0) @binding(0) var<uniform> P: Params3D;
+@group(0) @binding(1) var state: texture_3d<f32>;
+@group(0) @binding(2) var grain: texture_3d<u32>;
+@group(0) @binding(3) var flux: texture_3d<f32>;
+@group(0) @binding(4) var phaseOut: texture_storage_3d<rg32float, write>;
+@group(0) @binding(5) var mask: texture_3d<u32>;
+${alloy ? "@group(0) @binding(6) var solute: texture_3d<f32>;" : ""}
+@group(0) @binding(7) var<storage, read_write> qStatus: QuantStatus3;
+${QUANT_COMMON3}
+@compute @workgroup_size(4, 4, 4)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= P.n || gid.y >= P.n || gid.z >= P.n) { return; }
+${splitLoads3(alloy)}
+  if (((P.scen == 3u || P.scen == 4u) && textureLoad(mask, c, 0).r == 1u)
+      || textureLoad(grain, c, 0).r == PORE) {
+    textureStore(phaseOut, c, vec4f(0.0, -phi, 0.0, 0.0)); return;
+  }
+${PHASE_ANISO3_CORE}
+  var phiNew = phi;
+  var dPhi = 0.0;
+  if (P.solver == 1u) {
+${QUANT_PHASE3(alloy, latticeKinetics)}
+  } else {
+${KOB_PHASE3(alloy).replace("let phiNew =", "phiNew =").replace("let dPhi =", "dPhi =")}
+  }
+  textureStore(phaseOut, c, vec4f(phiNew, dPhi, 0.0, 0.0));
+}
+`;
+
+function splitEarly3(alloy: boolean): string {
+  return EARLY3(alloy)
+    .replace("textureStore(stateOut, c, vec4f(0.0, mix(T + P.dt * lapT, wallT, min(1.0, P.dt * 30.0)), 0.0, 0.0));", `
+    var wallHeat = T + P.dt * lapT;
+    if (P.solver == 1u) { wallHeat = T; if (P.frozenT == 0u) { wallHeat = T + P.dt * P.dTherm * lapT; } }
+    textureStore(stateOut, c, vec4f(0.0, mix(wallHeat, wallT, min(1.0, P.dt * 30.0)), 0.0, 0.0));`)
+    .replace("textureStore(stateOut, c, vec4f(0.0, clamp(T + P.dt * lapT - P.dt * P.coolRate, -1.0, 2.0), 0.0, 0.0));", `
+    var poreHeat = T + P.dt * lapT - P.dt * P.coolRate;
+    if (P.solver == 1u) { poreHeat = T - P.dt * P.coolRate; if (P.frozenT == 0u) { poreHeat += P.dt * P.dTherm * lapT; } }
+    textureStore(stateOut, c, vec4f(0.0, clamp(poreHeat, -1.0, 2.0), 0.0, 0.0));`);
+}
+
+function splitTransport3(alloy: boolean): string {
+  return TRANSPORT3(alloy)
+    .replace("var TNew = T + P.dt * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn;", `
+  var TNew = T + P.dt * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn;
+  if (P.solver == 1u) {
+    TNew = T - P.dt * P.coolRate + P.dt * P.heatIn;
+    if (P.frozenT == 0u) { TNew = T + P.dt * P.dTherm * lapT + P.latent * dPhi - P.dt * P.coolRate + P.dt * P.heatIn; }
+  }`)
+    .replace("TNew = clamp(TNew, -1.0, 2.0);", `
+  if (P.solver == 1u && (!finite3(TNew) || TNew < -1.00001 || TNew > 2.00001)) { atomicOr(&qStatus.flags, 16u); }
+  TNew = clamp(TNew, -1.0, 2.0);`)
+    .replace("var bEnv = lapT - P.coolRate + P.heatIn;", `
+    var bEnv = lapT - P.coolRate + P.heatIn;
+    if (P.solver == 1u) { bEnv = -P.coolRate + P.heatIn; if (P.frozenT == 0u) { bEnv += P.dTherm * lapT; } }`)
+    // Quantitative transport has already written the conservative c_new.
+    // A newly formed pore preserves that value instead of undoing this cell's
+    // face exchange after its neighbours received the opposite exchange.
+    .replace("textureStore(soluteOut, c, vec4f(conc, 0.0, 0.0, 0.0));", "if (P.solver == 0u) { textureStore(soluteOut, c, vec4f(conc, 0.0, 0.0, 0.0)); }");
+}
+
+export const transport3dWgsl = (alloy: boolean) => /* wgsl */ `
+${COMMON3}
+@group(0) @binding(0) var<uniform> P: Params3D;
+@group(0) @binding(1) var state: texture_3d<f32>;
+@group(0) @binding(2) var grain: texture_3d<u32>;
+@group(0) @binding(3) var phiAux: texture_3d<f32>;
+@group(0) @binding(4) var stateOut: texture_storage_3d<rg32float, write>;
+@group(0) @binding(5) var grainOut: texture_storage_3d<r32uint, write>;
+@group(0) @binding(6) var ageOut: texture_storage_3d<rg32float, write>;
+@group(0) @binding(7) var fed: texture_3d<u32>;
+${alloy ? "@group(0) @binding(8) var solute: texture_3d<f32>;\n@group(0) @binding(9) var soluteOut: texture_storage_3d<r32float, write>;" : ""}
+@group(0) @binding(10) var<storage, read_write> quats: array<vec4f>;
+@group(0) @binding(11) var<storage, read_write> twinCtr: atomic<u32>;
+@group(0) @binding(12) var mask: texture_3d<u32>;
+@group(0) @binding(13) var<storage, read_write> qStatus: QuantStatus3;
+${QUANT_COMMON3}
+${alloy ? QUANT_FACES3 : ""}
+@compute @workgroup_size(4, 4, 4)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= P.n || gid.y >= P.n || gid.z >= P.n) { return; }
+${splitLoads3(alloy)}${splitEarly3(alloy)}
+  let aux = textureLoad(phiAux, c, 0);
+  let phiNew = aux.r;
+  let dPhi = aux.g;
+${alloy ? `if (P.solver == 1u) { ${QUANT_SOLUTE3} } else { ${KOB_SOLUTE3} }` : ""}
+${splitTransport3(alloy)}
 }
 `;
 
@@ -536,6 +690,7 @@ ${COMMON3}
 @group(0) @binding(4) var stateOut: texture_storage_3d<rg32float, write>;
 @group(0) @binding(5) var grainOut: texture_storage_3d<r32uint, write>;
 @group(0) @binding(6) var ageOut: texture_storage_3d<rg32float, write>;
+@group(0) @binding(7) var mask: texture_3d<u32>;
 
 @compute @workgroup_size(4, 4, 4)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -546,20 +701,26 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   var id = textureLoad(grain, c, 0).r;
   var stamped = false;
   let Tq = clamp(s.g - P.quenchDT, -1.0, 2.0);
-  if (phi < 0.3 && id != PORE) {
+  let quantWall = P.solver == 1u && (P.scen == 3u || P.scen == 4u) && textureLoad(mask, c, 0).r == 1u;
+  if (phi < 0.3 && id != PORE && !quantWall) {
     let p = vec3f(gid) + 0.5;
     // activation undercooling against the liquidus. STAMP3D binds no solute
     // texture, so an alloy uses the nominal liquidus (1 - m*c0) rather than
     // the 2D pass's per-cell one — documented on the science page.
-    let dT = 1.0 - P.mLiq * P.c0 * f32(P.alloyOn) - Tq;
+    var dT = 1.0 - P.mLiq * P.c0 * f32(P.alloyOn) - Tq;
+    // In the calibrated solidus-reference units the nominal liquidus is 1.
+    if (P.solver == 1u) { dT = 1.0 - Tq; }
+    let wCell = P.epsBar / P.dx;
+    let margin = select(0.0, 6.0 * wCell, P.solver == 1u);
     for (var i = 0u; i < P.seedCount; i++) {
       let b = i * ${SEED3_STRIDE}u;
       let pos = vec3f(seeds[b], seeds[b + 1u], seeds[b + 2u]);
       let r = seeds[b + 3u];
       if (dT <= seeds[b + 5u]) { continue; }
       let d = distance(p, pos);
-      if (d < r) {
-        let v = 1.0 - smoothstep(r - 2.0, r, d);
+      if (d < r + margin) {
+        var v = 1.0 - smoothstep(r - 2.0, r, d);
+        if (P.solver == 1u) { v = 0.5 * (1.0 - tanh((d - r) / (sqrt(2.0) * wCell))); }
         if (v > phi) { phi = v; id = u32(seeds[b + 4u]); stamped = true; }
       }
     }
@@ -1082,6 +1243,53 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 `;
 
 /**
+ * C3b recrystallization nuclei: stamp strain-free spheres of fresh ids into
+ * the deformed matrix (docs/C3B-RECRYSTALLIZATION-DESIGN.md). Inserted whole,
+ * the twin plate's doctrine: birth is sub-grid, the anneal pass (and its
+ * existing stored-energy drive, hOf) owns everything after it. Same in-place
+ * read_write stamp as TWINSTAMP3, so no ping-pong flip and no `dir` parity.
+ *
+ * A voxel is claimed only where the treatment mask says it may be treated
+ * (solid, claimed, not a pore, not mould: HTMASK3's one predicate) and only
+ * if it is not already a nucleus of this event ([lo, hi]): within a batch the
+ * first nucleus in list order wins, across batches the earlier batch does,
+ * so the stamp is deterministic. It never binds the stored-energy buffer —
+ * nothing on the GPU writes H.
+ */
+export const RXSTAMP3_WGSL = /* wgsl */ `
+struct RX {
+  n: u32,       // grid edge
+  count: u32,   // nuclei in this batch (<= ${RX_BATCH3})
+  lo: u32,      // the event's id range: never overwritten
+  hi: u32,
+  r2: f32,      // nucleus radius squared, voxels²
+  _a: f32,
+  _b: f32,
+  _c: f32,
+}
+@group(0) @binding(0) var<uniform> X: RX;
+@group(0) @binding(1) var<storage, read> nuc: array<vec4u, ${RX_BATCH3}>;   // xyz: centre voxel · w: id
+@group(0) @binding(2) var mask: texture_3d<u32>;
+@group(0) @binding(3) var grainRW: texture_storage_3d<r32uint, read_write>;
+
+@compute @workgroup_size(4, 4, 4)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= X.n || gid.y >= X.n || gid.z >= X.n) { return; }
+  let c = vec3i(gid);
+  if (textureLoad(mask, c, 0).r == 0u) { return; }
+  let cur = textureLoad(grainRW, c).r;
+  if (cur >= X.lo && cur <= X.hi) { return; }
+  for (var i = 0u; i < X.count; i++) {
+    let d = vec3f(vec3i(gid) - vec3i(nuc[i].xyz));
+    if (dot(d, d) <= X.r2) {
+      textureStore(grainRW, c, vec4u(nuc[i].w, 0u, 0u, 0u));
+      return;
+    }
+  }
+}
+`;
+
+/**
  * Homogenization, 3D (H4): numerical diffusivity per iteration, cells²/iter.
  * The explicit 7-point stability bound is 1/6; 0.14 keeps a margin. Numerical,
  * not physical — D_s enters only through the iteration budget.
@@ -1135,10 +1343,11 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 // flags bits 4–7 = cut-face style: 0 orientation tint · 1 Nital · 2 Klemm's ·
 // 3 Beraha's · 4 EBSD-style orientation map (sample-frame [001] hue, not an
 // IPF key) · 5 Niyama ramp
+// photo = progressive sample index (0 = live frame); look bit 0 = studio light
 export const R3 = {
   view: 0, n: 1, canvasW: 2, canvasH: 3,
-  time: 4, res0: 5, res1: 6, flags: 7,
-  meltGlow: 8, tFar: 9, stepScale: 10, _padA: 11,
+  time: 4, photo: 5, look: 6, flags: 7,
+  meltGlow: 8, tFar: 9, stepScale: 10, iso: 11,   // iso: isolated grain id (0 = none)
   sliceN: 12,                            // vec4f: unit normal + plane constant c (voxels)
   eye: 16, right: 20, up: 24, fwd: 28,   // vec4 starts (f32 slots)
   misc: 32,                              // vec4f: x = simTime, y = nyCrit
@@ -1160,14 +1369,14 @@ fn phiAt(p: vec3f) -> f32 {
 fn stateFine(p: vec3f) -> vec2f {
   var q = p;
   if ((R.flags & 1u) != 0u) { q = floor(p) + 0.5; }
-  return textureSampleLevel(state, samp, q / f32(R.n), 0.0).rg;
+  return replayT(textureSampleLevel(state, samp, q / f32(R.n), 0.0).rg);
 }`
     : /* wgsl */ `
 fn phiAt(p: vec3f) -> f32 {
   return textureLoad(state, clampC(vec3i(p)), 0).r;
 }
 fn stateFine(p: vec3f) -> vec2f {
-  return textureLoad(state, clampC(vec3i(p)), 0).rg;
+  return replayT(textureLoad(state, clampC(vec3i(p)), 0).rg);
 }`;
   const sampBinding = filterable ? `@group(0) @binding(4) var samp: sampler;` : "";
 
@@ -1178,13 +1387,13 @@ struct RParams3D {
   canvasW: f32,
   canvasH: f32,
   time: f32,
-  res0: f32,
-  res1: f32,
+  photo: f32,       // progressive sample index while still (0 = live frame)
+  look: f32,        // bit 0: studio lighting (AO, shadows, reflections)
   flags: u32,       // bits 4-7: cut-face style
   meltGlow: f32,
   tFar: f32,
   stepScale: f32,   // fine-march step in voxels
-  _padA: f32,
+  iso: u32,         // isolated grain id: only it is opaque, the rest ghost (0 = off)
   sliceN: vec4f,    // unit section-plane normal + plane constant c (voxels)
   eye: vec4f,       // xyz + tanHalfFov in w
   right: vec4f,     // xyz + aspect in w
@@ -1216,13 +1425,27 @@ fn vmain(@builtin(vertex_index) vi: u32) -> VOut {
 ${PALETTE_WGSL}
 
 fn clampC(c: vec3i) -> vec3i { return clamp(c, vec3i(0), vec3i(i32(R.n) - 1)); }
+// replaying (look bit 1), the bound phi is the "solid then" volume: an r32float
+// with no temperature channel. Temperature was never stored, so it reads at the
+// far-field value rather than the 0 a missing channel would return.
+fn replayT(s: vec2f) -> vec2f {
+  if ((u32(R.look) & 2u) != 0u) { return vec2f(s.x, R.tFar); }
+  return s;
+}
 ${sampleFine}
 
 fn stateAt(p: vec3f) -> vec2f {
-  return textureLoad(state, clampC(vec3i(p)), 0).rg;
+  return replayT(textureLoad(state, clampC(vec3i(p)), 0).rg);
 }
 fn grainAt(p: vec3f) -> u32 {
   return textureLoad(grain, clampC(vec3i(p)), 0).r;
+}
+// the phase field the camera hits: all solid, or with a grain isolated, only
+// that grain's solid (its boundary faces with neighbours follow the voxel ids)
+fn hitPhi(p: vec3f) -> f32 {
+  let ph = phiAt(p);
+  if (R.iso == 0u) { return ph; }
+  return select(0.0, ph, grainAt(p) == R.iso);
 }
 fn ageAt(p: vec3f) -> vec2f {
   return textureLoad(age, clampC(vec3i(p)), 0).rg;
@@ -1239,9 +1462,9 @@ fn maskAt(p: vec3f) -> u32 {
 // central-difference surface normal at the phi=0.5 crossing
 fn surfNormal(p: vec3f) -> vec3f {
   let e = 1.2;
-  let gx = phiAt(p + vec3f(e, 0.0, 0.0)) - phiAt(p - vec3f(e, 0.0, 0.0));
-  let gy = phiAt(p + vec3f(0.0, e, 0.0)) - phiAt(p - vec3f(0.0, e, 0.0));
-  let gz = phiAt(p + vec3f(0.0, 0.0, e)) - phiAt(p - vec3f(0.0, 0.0, e));
+  let gx = hitPhi(p + vec3f(e, 0.0, 0.0)) - hitPhi(p - vec3f(e, 0.0, 0.0));
+  let gy = hitPhi(p + vec3f(0.0, e, 0.0)) - hitPhi(p - vec3f(0.0, e, 0.0));
+  let gz = hitPhi(p + vec3f(0.0, 0.0, e)) - hitPhi(p - vec3f(0.0, 0.0, e));
   let g = vec3f(gx, gy, gz);
   let l = length(g);
   // where the crystal is truncated by a domain face, phi is uniform solid and
@@ -1290,22 +1513,126 @@ fn grainCol(id: u32) -> vec3f {
   return polar(hue, hashf(id, 5u, 31u) * 0.6);
 }
 
-// shade a solid surface hit; lens picks the instrument (SLICE ghosts use ORIENT)
-fn shadeSurface(p: vec3f, rd: vec3f, lens: u32) -> vec3f {
+// ---- studio lighting: render-only, never read back by the solver --------
+// The key light keeps the direction the plain diffuse term always used, so a
+// shape shades the same way with the studio look on or off.
+const KEY_L = vec3f(-0.5, -0.62, 0.6);
+
+// three decorrelated uniforms in [0,1) for pixel (x, y), photo sample k
+fn rand3(x: u32, y: u32, k: u32, salt: u32) -> vec3f {
+  return vec3f(hashf(x, y, k * 7u + salt),
+               hashf(y + 17u, x, k * 13u + salt + 1u),
+               hashf(x ^ (y << 3u), k + 101u, salt + 2u));
+}
+
+// a dark product studio, z up: soft overhead gradient, dim floor, a large key
+// softbox on the light's side and a cool rim strip behind. Reflected in the
+// metal these give the satin highlights a single point light cannot.
+fn studioEnv(d: vec3f) -> vec3f {
+  let up = clamp(d.z * 0.5 + 0.5, 0.0, 1.0);
+  var c = mix(vec3f(0.010, 0.010, 0.012), vec3f(0.060, 0.066, 0.078), smoothstep(0.35, 1.0, up));
+  let kd = max(dot(d, normalize(KEY_L)), 0.0);
+  c += vec3f(1.00, 0.97, 0.92) * 1.55 * smoothstep(0.86, 0.975, kd);
+  c += vec3f(0.70, 0.74, 0.82) * 0.22 * pow(kd, 6.0);
+  let rd2 = max(dot(d, normalize(vec3f(0.55, 0.65, 0.35))), 0.0);
+  c += vec3f(0.72, 0.84, 1.00) * 0.85 * smoothstep(0.90, 0.985, rd2);
+  return c;
+}
+
+// ambient occlusion from the phase field itself: solid found a few voxels
+// off the surface means a crevice between arms. Live frames use a fixed
+// five-direction probe; photo samples draw one cosine-weighted direction each
+// and the accumulation integrates the hemisphere.
+fn aoAt(p: vec3f, nrm: vec3f, x: u32, y: u32, k: u32) -> f32 {
+  var a = vec3f(1.0, 0.0, 0.0);
+  if (abs(nrm.x) > 0.8) { a = vec3f(0.0, 1.0, 0.0); }
+  let tu = normalize(cross(nrm, a));
+  let tv = cross(nrm, tu);
+  let o = p + nrm * 0.8;
+  if (k > 0u) {
+    let r = rand3(x, y, k, 41u);
+    let ph = 2.0 * PI * r.x;
+    let sr = sqrt(r.y);
+    let dir = tu * (cos(ph) * sr) + tv * (sin(ph) * sr) + nrm * sqrt(1.0 - r.y);
+    var occ = 0.0;
+    for (var i = 1; i <= 8; i++) {
+      let d = f32(i) * 1.75;
+      if (hitPhi(o + dir * d) > 0.5) { occ = 1.0 - d / 16.0; break; }
+    }
+    return 1.0 - 0.85 * occ;
+  }
+  var occ = 0.0;
+  var dirs = array<vec3f, 5>(nrm, normalize(nrm + tu), normalize(nrm - tu),
+                             normalize(nrm + tv), normalize(nrm - tv));
+  for (var j = 0; j < 5; j++) {
+    occ += hitPhi(o + dirs[j] * 3.0) * 0.6 + hitPhi(o + dirs[j] * 7.0) * 0.4;
+  }
+  return clamp(1.0 - 0.75 * occ / 5.0 * 2.2, 0.3, 1.0);
+}
+
+// key-light visibility: march the phase field toward the light. Live frames
+// look a short way (contact shadows between arms); photo samples jitter the
+// direction over a small cone and run to the box edge for soft full shadows.
+fn shadowAt(p: vec3f, nrm: vec3f, x: u32, y: u32, k: u32) -> f32 {
+  var L = normalize(KEY_L);
+  var maxD = 36.0;
+  var stepD = 2.0;
+  if (k > 0u) {
+    L = normalize(L + (rand3(x, y, k, 97u) - 0.5) * 0.12);
+    maxD = f32(R.n) * 1.8;
+    stepD = 1.5;
+  }
+  if (dot(nrm, L) <= 0.0) { return 1.0; }   // facing away: diffuse is already 0
+  let o = p + nrm * 1.2;
+  let nf = f32(R.n);
+  var t = 1.5;
+  loop {
+    if (t > maxD) { break; }
+    let q = o + L * t;
+    if (any(q < vec3f(0.0)) || any(q > vec3f(nf))) { break; }
+    if (hitPhi(q) > 0.5) { return 0.0; }
+    t += stepD;
+  }
+  return 1.0;
+}
+
+// highlights above 0.8 roll off toward 1 instead of clipping (studio MELT only)
+fn softClip(c: vec3f) -> vec3f {
+  let over = max(c - vec3f(0.8), vec3f(0.0));
+  return min(c, vec3f(0.8)) + 0.2 * (vec3f(1.0) - exp(-over / 0.2));
+}
+
+// shade a solid surface hit; lens picks the instrument (SLICE ghosts use ORIENT).
+// With the studio bit off, ao = sh = 1 and every lens reduces exactly to the
+// original single-light shading.
+fn shadeSurface(p: vec3f, rd: vec3f, lens: u32, x: u32, y: u32, k: u32) -> vec3f {
   let nrm = surfNormal(p);
-  let L = normalize(vec3f(-0.5, -0.62, 0.6));
+  let L = normalize(KEY_L);
   let diff = max(dot(nrm, L), 0.0);
   let rim = pow(1.0 - max(dot(nrm, -rd), 0.0), 2.5);
   let spec = pow(max(dot(nrm, normalize(L - rd)), 0.0), 26.0);
   let id = grainAt(p);
   let s = stateFine(p);
+  let studio = (u32(R.look) & 1u) != 0u;
+  var ao = 1.0;
+  var sh = 1.0;
+  if (studio) {
+    ao = aoAt(p, nrm, x, y, k);
+    // shadows only where colour carries no data (MELT steel, ORIENT tint);
+    // the quantitative lenses keep their full value range
+    if (lens == 0u || lens == 1u) { sh = mix(0.25, 1.0, shadowAt(p, nrm, x, y, k)); }
+  }
   if (lens == 1u) {
     let idv = 0.62 + 0.7 * hashf(id, 5u, 31u);
-    return grainCol(id) * idv * (0.30 + 0.85 * diff) + vec3f(spec) * 0.25 + vec3f(0.09, 0.10, 0.12) * rim;
+    return grainCol(id) * idv * (0.30 * ao + 0.85 * diff * sh) + vec3f(spec * sh) * 0.25
+      + vec3f(0.09, 0.10, 0.12) * rim * ao;
   }
+  // the data lenses below take a gentler occlusion floor so no reading darkens
+  // past half its value (ao = 1 with the studio bit off, so aoD = 1 too)
+  let aoD = mix(0.5, 1.0, ao);
   if (lens == 4u) {
     // SEM secondary-electron: edges bright, faces flat gray (scan lines added later)
-    let g = 0.14 + diff * 0.42 + spec * 0.35 + rim * 0.6;
+    let g = (0.14 + diff * 0.42 + spec * 0.35 + rim * 0.6) * aoD;
     return vec3f(g) * vec3f(0.94, 0.97, 1.0);
   }
   if (lens == 5u) {
@@ -1316,11 +1643,11 @@ fn shadeSurface(p: vec3f, rd: vec3f, lens: u32) -> vec3f {
     let band = fract(ageN * 8.0);
     let ring = smoothstep(0.0, 0.3, band) * (1.0 - smoothstep(0.7, 1.0, band));
     let base = mix(vec3f(0.16, 0.34, 0.44), vec3f(0.95, 0.72, 0.28), ageN);
-    return base * (0.34 + 0.42 * ring + 0.38 * diff) + vec3f(spec) * 0.15;
+    return base * (0.34 + 0.42 * ring + 0.38 * diff) * aoD + vec3f(spec) * 0.15;
   }
   if (lens == 6u) {
     // THERM: FLIR ironbow of the surface temperature
-    return ironbow((s.g + 0.25) / 1.35) * (0.55 + 0.5 * diff) + vec3f(spec) * 0.1;
+    return ironbow((s.g + 0.25) / 1.35) * (0.55 + 0.5 * diff) * aoD + vec3f(spec) * 0.1;
   }
   if (lens == 8u) {
     // CURV: Gibbs–Thomson lens — tips vs necks by interface curvature
@@ -1332,11 +1659,32 @@ fn shadeSurface(p: vec3f, rd: vec3f, lens: u32) -> vec3f {
     let gm = length(vec3f(pxp - pxm, pyp - pym, pzp - pzm)) / (2.0 * e);
     let kappa = clamp(lp * 6.0 / max(gm * 4.0, 0.02), -1.2, 1.2);
     let kcol = mix(vec3f(0.2, 0.55, 1.0), vec3f(1.0, 0.35, 0.15), kappa * 0.5 + 0.5);
-    return kcol * (0.35 + 0.55 * diff) + vec3f(spec) * 0.1;
+    return kcol * (0.35 + 0.55 * diff) * aoD + vec3f(spec) * 0.1;
   }
-  let steel = vec3f(0.11, 0.115, 0.13) * (0.42 + 1.0 * diff) + vec3f(spec) * 0.3;
   let ember = heat(s.g * R.meltGlow) * 0.35;
-  return steel * (0.72 + 0.28 * grainCol(id)) + ember + vec3f(0.08, 0.085, 0.1) * rim;
+  if (!studio) {
+    let steel = vec3f(0.11, 0.115, 0.13) * (0.42 + 1.0 * diff) + vec3f(spec) * 0.3;
+    return steel * (0.72 + 0.28 * grainCol(id)) + ember + vec3f(0.08, 0.085, 0.1) * rim;
+  }
+  // MELT, studio: satin steel. Metals have no diffuse body colour, so the
+  // look is Fresnel-weighted reflection of the studio (glossy in photo mode,
+  // where each sample tilts the mirror direction and the average blurs it),
+  // plus a dim key term that keeps the form legible in the dark studio.
+  let nv = max(dot(nrm, -rd), 0.0);
+  let F0 = vec3f(0.56, 0.57, 0.58);
+  let F = F0 + (vec3f(1.0) - F0) * pow(1.0 - nv, 5.0);
+  var rdir = reflect(rd, nrm);
+  if (k > 0u) { rdir = normalize(rdir + (rand3(x, y, k, 151u) - 0.5) * 0.30); }
+  let tint = 0.80 + 0.20 * grainCol(id);
+  var steel = F * studioEnv(rdir) * mix(0.6, 1.0, sh)
+    + vec3f(0.050, 0.053, 0.060) * (0.30 + 1.1 * diff * sh);
+  steel = steel * ao * tint + vec3f(spec * sh) * 0.30;
+  // incandescent metal is lit by its own emission: the studio's reflections
+  // fade as the surface approaches the melting point, so a hot casting glows
+  // instead of reading as chrome under the lights
+  let hot = clamp(dot(ember, vec3f(0.30, 0.55, 0.15)) / 0.35, 0.0, 1.0);
+  steel = steel * mix(1.0, 0.35, hot);
+  return steel + ember + vec3f(0.06, 0.065, 0.075) * rim * ao;
 }
 
 // orientation hue fraction from the grain's quaternion axis (shared by
@@ -1427,8 +1775,17 @@ fn sliceColor(p: vec3f) -> vec3f {
 fn fmain(in: VOut) -> @location(0) vec4f {
   let tanF = R.eye.w;
   let aspect = R.right.w;
-  let sx = (in.uv.x - 0.5) * 2.0 * tanF * aspect;
-  let sy = (0.5 - in.uv.y) * 2.0 * tanF;
+  let px = u32(in.pos.x);
+  let py = u32(in.pos.y);
+  let k = u32(R.photo);              // photo sample index; 0 = live frame
+  let studio = (u32(R.look) & 1u) != 0u;
+  var uv = in.uv;
+  if (k > 0u) {
+    // sub-pixel jitter per photo sample: the average is an anti-aliased image
+    uv += (vec2f(hashf(k, 3u, 911u), hashf(k, 5u, 977u)) - 0.5) / vec2f(R.canvasW, R.canvasH);
+  }
+  let sx = (uv.x - 0.5) * 2.0 * tanF * aspect;
+  let sy = (0.5 - uv.y) * 2.0 * tanF;
   let rd = normalize(R.fwd.xyz + sx * R.right.xyz + sy * R.up.xyz);
   let ro = R.eye.xyz;
   let nf = f32(R.n);
@@ -1438,13 +1795,19 @@ fn fmain(in: VOut) -> @location(0) vec4f {
 
   if (hit.x < hit.y) {
     // per-pixel start jitter breaks up the coarse-march contour banding
-    var t = hit.x + 0.01 + hashf(u32(in.pos.x), u32(in.pos.y), 7u) * 2.0;
+    // (re-drawn per photo sample, so the accumulation averages it away)
+    var t = hit.x + 0.01 + hashf(px, py, 7u + k * 131u) * 2.0;
     var tMax = hit.y;
     let fine = max(R.stepScale, 0.35);
     var trans = 1.0;
     var acc = vec3f(0.0);
     let emit = 5.2 / nf;
     let absorb = 3.4 / nf;
+    // studio MELT: the liquid is clearer (less absorption) and its glow sits
+    // in the thermal halo the latent heat raises around the crystal, so the
+    // solid reads through the melt instead of behind a uniform red fog
+    var meltAbsorb = absorb;
+    if (studio && R.view == 0u) { meltAbsorb = absorb * 0.38; }
 
     // SLICE lens: the section plane removes the + side of the volume (a fixed
     // cut, like a real sectioned specimen — orbit around it to see the face)
@@ -1540,7 +1903,7 @@ fn fmain(in: VOut) -> @location(0) vec4f {
       // a domain face): the visible surface IS the entry plane — hit it
       // exactly. Marching from the jittered start would land 0-2 voxels deep
       // at a per-pixel depth and speckle the flat face.
-      if (cutFront < 0.0 && phiAt(ro + rd * (hit.x + 0.01)) >= 0.5) {
+      if (cutFront < 0.0 && hitPhi(ro + rd * (hit.x + 0.01)) >= 0.5) {
         hitT = hit.x + 0.01;
       }
       if (hitT < 0.0) {
@@ -1557,7 +1920,17 @@ fn fmain(in: VOut) -> @location(0) vec4f {
         if (s.r < 0.5 && (R.view == 0u || R.view == 6u)) {
           if (R.view == 0u) {
             // MELT: emissive incandescent liquid (smooth-sampled T)
-            acc += trans * heat(stateFine(p).g * R.meltGlow) * emit * 2.0;
+            let Tl = stateFine(p).g;
+            var glowW = 2.0;
+            if (studio) {
+              // emission scaled with the lowered absorption (x0.38), so a
+              // uniformly hot melt saturates no brighter than the original
+              // look (2.0 / 1.0), while melt still at the far-field
+              // temperature emits about a third of it
+              let halo = smoothstep(R.tFar, R.tFar + 0.45 * max(1.0 - R.tFar, 0.05), Tl);
+              glowW = 0.76 * (0.35 + 0.65 * halo);
+            }
+            acc += trans * heat(Tl * R.meltGlow) * emit * glowW;
             if ((R.flags & 4u) != 0u) {
               // rejected solute reads as a cool blue haze against the heat
               acc += trans * vec3f(0.10, 0.16, 0.22) * clamp(soluteAt(p) - R.misc.z, 0.0, 1.0) * emit * 4.0;
@@ -1566,26 +1939,36 @@ fn fmain(in: VOut) -> @location(0) vec4f {
             // THERM: the thermal halo itself, in ironbow
             acc += trans * ironbow(clamp((stateFine(p).g + 0.25) / 1.35, 0.0, 1.0)) * emit * 0.8;
           }
-          trans *= exp(-absorb * 2.0);
+          trans *= exp(-meltAbsorb * 2.0);
           if (trans < 0.012) { break; }
         }
-        if (s.r > 0.06) {
+        var sr = s.r;
+        if (R.iso != 0u && s.r > 0.06 && grainAt(p) != R.iso) {
+          // isolating a grain: the others are faint glass, for context only
+          if (s.r > 0.5) {
+            acc += trans * vec3f(0.050, 0.056, 0.066) * 0.16;
+            trans *= 0.965;
+            if (trans < 0.012) { break; }
+          }
+          sr = 0.0;
+        }
+        if (sr > 0.06) {
           // fine march toward the phi = 0.5 crossing (the diffuse interface is
           // several voxels wide — give grazing rays a long enough window)
           var tf = max(prevT, t - 2.0);
-          var pf = phiAt(ro + rd * tf);
+          var pf = hitPhi(ro + rd * tf);
           let fEnd = min(t + 14.0, tMax);
           if (pf >= 0.5) { hitT = tf; }
           loop {
             if (hitT > 0.0 || tf >= fEnd) { break; }
             let tn = tf + fine;
-            let pn = phiAt(ro + rd * tn);
+            let pn = hitPhi(ro + rd * tn);
             if (pf < 0.5 && pn >= 0.5) {
               var a = tf;
               var b = tn;
               for (var i = 0; i < 3; i++) {
                 let mid = 0.5 * (a + b);
-                if (phiAt(ro + rd * mid) >= 0.5) { b = mid; } else { a = mid; }
+                if (hitPhi(ro + rd * mid) >= 0.5) { b = mid; } else { a = mid; }
               }
               hitT = 0.5 * (a + b);
               break;
@@ -1605,7 +1988,7 @@ fn fmain(in: VOut) -> @location(0) vec4f {
         let p = ro + rd * hitT;
         var lensS = R.view;
         if (R.view == 2u) { lensS = 1u; }        // SLICE ghosts shade like ORIENT
-        var surf = shadeSurface(p, rd, lensS);
+        var surf = shadeSurface(p, rd, lensS, px, py, k);
         if (R.view == 4u) {
           // SEM finish: shot noise + scan lines over the detector signal
           surf += (hashf(u32(in.pos.x), u32(in.pos.y), u32(R.time * 30.0) % 512u) - 0.5) * 0.10;
@@ -1631,6 +2014,8 @@ fn fmain(in: VOut) -> @location(0) vec4f {
     let dith = (f32((u32(in.pos.x) + u32(in.pos.y) * 2u) % 4u) - 1.5) / 48.0;
     col = floor((col + vec3f(dith)) * 7.0 + vec3f(0.5)) / 7.0;
   }
+
+  if (studio && R.view == 0u) { col = softClip(col); }
 
   // vignette + film grain, matching the 2D instrument's finish
   let vuv = in.uv - 0.5;

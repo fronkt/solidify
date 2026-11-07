@@ -30,6 +30,15 @@ const RAIL_ROOM = 596;
 const RAIL_ROOM_PHONE = 298;
 
 export interface UIHost extends AppControl {
+  /** D3.2/D3.3 melt flow (2D): on/off, inlet speed (cells per substep), the
+   *  streak overlay, and why it is refused or was switched off (null = fine) */
+  getFlowOn(): boolean;
+  setFlowOn(on: boolean): void;
+  getFlowU(): number;
+  setFlowU(v: number): void;
+  getFlowView(): boolean;
+  setFlowView(on: boolean): void;
+  flowIssue(): string | null;
   simParams(): PhysParams;
   /** the live dimensionless<->SI scaling (units.ts) */
   units(): Units;
@@ -42,6 +51,7 @@ export interface UIHost extends AppControl {
   canCalibrate(): boolean;
   /** a scientific reason this composition cannot use the calibrated solver */
   calibrationIssue?(): string | null;
+  calibrationBusy?(): boolean;
   isCalibrated(): boolean;
   setCalibrated(on: boolean): void;
   getLambda(): number;
@@ -65,6 +75,8 @@ export interface UIHost extends AppControl {
   getSubsteps(): number;
   isRunning(): boolean;
   isEngineering(): boolean;
+  /** A visible refusal from the 3D search or an applied/shared recipe. */
+  optimizerIssue?(): string | null;
   shareLink(): string;
   getSpeedMult(): number;
   cycleSpeedMult(): void;
@@ -168,13 +180,17 @@ export interface UIHost extends AppControl {
 }
 
 interface SliderBind { update(): void }
+type OptimizerControl = HTMLButtonElement | HTMLInputElement | HTMLSelectElement;
+interface OptimizerControlState { disabled: boolean; title: string; ariaDisabled: string | null }
 
 export class UI {
+  private derived3: HTMLElement[] = [];
   private binds: SliderBind[] = [];
   private sections: Record<string, { root: HTMLElement; setOpen: (b: boolean) => void }> = {};
   private viewBtns: HTMLButtonElement[] = [];
   private viewBtns3: HTMLButtonElement[] = [];
   private runBtn!: HTMLButtonElement;
+  private resetBtn!: HTMLButtonElement;
   private multBtn!: HTMLButtonElement;
   private recBtn!: HTMLButtonElement;
   private symBtns: HTMLButtonElement[] = [];
@@ -202,6 +218,7 @@ export class UI {
   private derived: HTMLElement[] = [];
   private only2d: HTMLElement[] = [];
   private only3d: HTMLElement[] = [];
+  private optimizerLocks = new Map<OptimizerControl, OptimizerControlState>();
   private readouts = document.getElementById("readouts")!;
   private lastPixel = 6;
   /** learn mode's explanations and hints in the rail (src/learn) */
@@ -227,9 +244,14 @@ export class UI {
     // CONTROLS brings it in as a drawer (app/index.html .railCramped)
     const rail = document.getElementById("rail")!;
     this.setRailHidden(innerWidth - rail.offsetWidth < RAIL_ROOM);
-    addEventListener("resize", () => this.railRoom());
-    document.getElementById("readoutsToggle")!.addEventListener("click", () => {
-      document.body.classList.toggle("readoutsOpen");
+    addEventListener("resize", () => this.railRoom(true));
+    // the head plate folds to its wordmark and chevron by default, on every
+    // screen; the viewer's choice is remembered (a per-viewer convenience)
+    document.body.classList.toggle("headOpen", storeGet("sol.head") === "1");
+    document.getElementById("headToggle")!.addEventListener("click", () => {
+      const open = !document.body.classList.contains("headOpen");
+      document.body.classList.toggle("headOpen", open);
+      storeSet("sol.head", open ? "1" : "0");
       this.readingsState();
       this.placeAnalysis();
     });
@@ -260,9 +282,16 @@ export class UI {
    *  app/index.html .narrow, the CSS's --lens-under-head), and whether the
    *  open rail leaves the chrome beside it too little room (.railCramped,
    *  .railPhone) */
-  private railRoom() {
+  private railRoom(afterResize = false) {
     const open = !document.body.classList.contains("railHidden");
     const free = innerWidth - (open ? document.getElementById("rail")!.offsetWidth : 0);
+    // A panel already on screen needs the same room after a resize as one
+    // opened on a phone. Keep its transport reachable when the rail becomes
+    // a drawer; setRailHidden re-enters once with open=false.
+    if (afterResize && open && free < RAIL_ROOM && document.querySelector("#app > .modepanel")) {
+      this.setRailHidden(true);
+      return;
+    }
     document.body.classList.toggle("narrow", free < RAIL_ROOM);
     document.body.classList.toggle("railCramped", open && free < RAIL_ROOM);
     document.body.classList.toggle("railPhone", open && free < RAIL_ROOM_PHONE);
@@ -270,10 +299,16 @@ export class UI {
     this.placeAnalysis();
   }
 
+  /** the chevron's state: expanded or not, and marked while the melt
+   *  carries a caveat the folded plate would otherwise hide */
   private readingsState() {
-    const compact = innerHeight <= 600 || (innerWidth <= 380 && innerHeight <= 740);
-    document.getElementById("readoutsToggle")!.setAttribute("aria-expanded",
-      String(!compact || document.body.classList.contains("readoutsOpen")));
+    const open = document.body.classList.contains("headOpen");
+    const t = document.getElementById("headToggle")!;
+    const warn = (document.getElementById("matcaveat")!.textContent ?? "").trim().length > 0;
+    t.setAttribute("aria-expanded", String(open));
+    t.setAttribute("aria-label", (open ? "hide the live readings" : "show the live readings")
+      + (warn && !open ? " (the melt has a caveat)" : ""));
+    t.classList.toggle("warn", warn && !open);
   }
 
   private placeAnalysis() {
@@ -327,12 +362,14 @@ export class UI {
       });
     this.binds.push({
       update: () => {
-        const ok = this.host.canSwitchMode() || this.host.getMode() === "3d";
+        const search3 = this.host.getMode() === "3d" && this.host.isEngineering();
+        const ok = !search3 && (this.host.canSwitchMode() || this.host.getMode() === "3d");
         row.classList.toggle("disabled", !ok);
         row.setAttribute("aria-disabled", String(!ok));
         // canSwitchMode: a capable GPU, and no pour, treatment, optimizer or
         // challenge in progress
-        row.title = ok
+        row.title = search3 ? "Exit the optimizer before changing dimension"
+          : ok
           ? "3D phase-field volume · orbit camera · heavier GPU load"
           : "unavailable: needs a capable GPU, and no pour, treatment, optimizer or challenge running";
       },
@@ -345,7 +382,7 @@ export class UI {
    *  fill stays run/pause's alone (DESIGN.md 5, buttons; app/index.html) */
   private buildTransport() {
     const el = document.getElementById("transport")!;
-    this.button(el, "reset", () => { this.host.resetArmed(); this.sync(); }, "reset");
+    this.resetBtn = this.button(el, "reset", () => { this.host.resetArmed(); this.sync(); }, "reset");
     this.runBtn = this.button(el, "▶ run", () => { this.host.setRun(!this.host.isRunning()); this.sync(); }, "run accent");
     this.multBtn = this.button(el, "×1", () => { this.host.cycleSpeedMult(); this.sync(); }, "mult");
     this.recBtn = this.button(el, "rec", () => this.host.toggleRec(), "recbtn");
@@ -452,7 +489,7 @@ export class UI {
       paintRange(inp);
       val.textContent = Number.isFinite(v) ? fmt(vc) : "—";
     };
-    inp.addEventListener("input", () => { set(parseFloat(inp.value)); update(); });
+    inp.addEventListener("input", () => { if (!inp.disabled) { set(parseFloat(inp.value)); update(); } });
     row.append(lab, inp, val);
     parent.append(row);
     update();
@@ -498,7 +535,7 @@ export class UI {
     const inp = document.createElement("input");
     inp.type = "checkbox";
     inp.checked = get();
-    inp.addEventListener("change", () => { set(inp.checked); this.sync(); });
+    inp.addEventListener("change", () => { if (!inp.disabled) { set(inp.checked); this.sync(); } });
     const span = document.createElement("span");
     span.textContent = label;
     row.append(inp, span);
@@ -529,7 +566,7 @@ export class UI {
       row.setAttribute("aria-checked", String(on));
     };
     row.addEventListener("click", () => {
-      if (row.classList.contains("disabled")) return;
+      if (row.disabled || row.classList.contains("disabled")) return;
       set(!get()); apply(); this.sync();
     });
     parent.append(row);
@@ -543,7 +580,7 @@ export class UI {
     b.type = "button";
     b.textContent = label;
     if (cls) b.className = cls;
-    b.addEventListener("click", fn);
+    b.addEventListener("click", () => { if (!b.disabled) fn(); });
     parent.append(b);
     return b;
   }
@@ -589,7 +626,7 @@ export class UI {
     // the material's spec line, and its learn-mode sentence under it
     const matNote = document.createElement("div");
     matNote.className = "matnote";
-    sel.addEventListener("change", () => { host.setMaterial(sel.value); this.sync(); });
+    sel.addEventListener("change", () => { if (!sel.disabled) { host.setMaterial(sel.value); this.sync(); } });
     mat.append(sel, matNote);
     const matLearn = this.learn.para(matNote, "", { needsAnchorText: true });
     this.binds.push({
@@ -615,13 +652,33 @@ export class UI {
     // ---- modes (what each one does is the section's learn text)
     const modes = this.section(rail, "MODES");
     const mrow0 = this.btnRow(modes, 2);
-    // the lab and (since H2b) the heat-treat panel run in both dimensions;
-    // the ML modes are 2D-only. Plain names, no glyph icons (DESIGN.md)
+    // Lab, heat treat and the optimizer run in both dimensions. Challenge
+    // keeps its 2D ASTM objective. Plain names, no glyph icons (DESIGN.md)
     this.button(mrow0, "lab mode", () => { host.startLab(); this.sync(); });
     const heatBtn = this.button(mrow0, "heat treat", () => { host.startHeat(); this.sync(); });
     heatBtn.title = "solid-state heat treatment · real-hours clock · Arrhenius grain growth";
-    this.only2d.push(this.button(mrow0, "optimizer", () => { host.startOptimizer(); this.sync(); }));
+    const optimizerBtn = this.button(mrow0, "optimizer", () => { host.startOptimizer(); this.sync(); });
     this.only2d.push(this.button(mrow0, "challenge", () => host.startChallenge()));
+    const optimizerNote = document.createElement("div");
+    optimizerNote.id = "optimizerModeNote";
+    optimizerNote.className = "matnote";
+    modes.append(optimizerNote);
+    this.binds.push({
+      update: () => {
+        const three = host.getMode() === "3d";
+        const unit = host.units().known ? "µm" : "cells";
+        const issue = three ? host.optimizerIssue?.() : null;
+        optimizerBtn.title = three
+          ? `3D optimizer · ${host.getGrid3()}³ · equivalent grain diameter (${unit}) · Kobayashi model`
+          : "Search cooling schedules and inoculant charges for a target ASTM grain number";
+        optimizerNote.style.display = three ? "" : "none";
+        optimizerNote.textContent = !three ? "" : issue ? issue : host.isCalibrated()
+          ? "3D optimization uses the Kobayashi model. Turn the calibrated solver off to search."
+          : host.isEngineering()
+            ? `3D search · ${host.getGrid3()}³ · settings held until exit; camera and run/pause stay available`
+            : `3D search · ${host.getGrid3()}³ · equivalent grain diameter (${unit}) · qualitative model`;
+      },
+    });
 
     // ---- melt / process
     const melt = this.section(rail, "MELT · PROCESS", true);
@@ -632,7 +689,8 @@ export class UI {
     const uK = (v: number) => { const u = host.units(); return u.known ? u.fmtK(v) : v.toFixed(2); };
     const uRate = (v: number) => { const u = host.units(); return u.known ? u.fmtRate(v) : v.toFixed(3); };
     this.undercoolRow = this.slider(melt, "undercooling", 0.3, 1.0, 0.01,
-      () => host.getUndercool(), v => host.setUndercool(v), uK);
+      () => host.getUndercool(), v => host.setUndercool(v), uK,
+      () => [host.getMode() === "3d" ? 0.01 : 0.3, 1]);
     // the value leads with "!" past anything a real melt reaches, and this
     // line says why (empty and hidden otherwise), with its learn half under it
     this.unrealNote = document.createElement("div");
@@ -679,9 +737,9 @@ export class UI {
     const reheatBtn = this.button(mrow, "reheat", () => {}, "span2");
     reheatBtn.title = RAIL_CAVEATS.reheat.line;
     this.learn.para(mrow, RAIL_CAVEATS.reheat.learn);
-    reheatBtn.addEventListener("pointerdown", () => host.reheat(true));
+    reheatBtn.addEventListener("pointerdown", () => { if (!reheatBtn.disabled) host.reheat(true); });
     for (const ev of ["pointerup", "pointerleave", "pointercancel"])
-      reheatBtn.addEventListener(ev, () => host.reheat(false));
+      reheatBtn.addEventListener(ev, () => { if (!reheatBtn.disabled) host.reheat(false); });
 
     // ---- scenario
     const scen = this.section(rail, "SCENARIO");
@@ -712,6 +770,20 @@ export class UI {
     this.slider(this.weldPanel, "spot size", 2, 9, 0.5, () => p().weldSig, v => { p().weldSig = v; }, v => v.toFixed(1));
     this.check(this.weldPanel, "auto raster", () => host.getWeldAuto(), b => host.setWeldAuto(b));
     this.slider(this.weldPanel, "sweep speed", 10, 140, 2, () => host.getWeldSweep(), v => host.setWeldSweep(v), v => v.toFixed(0));
+    // D3.2/D3.3 melt flow: a forced stream from the left edge, 2D free growth
+    // only; the host refuses (with a sentence) anywhere the model cannot run it
+    const flowPanel = document.createElement("div");
+    flowPanel.className = "subpanel";
+    scen.append(flowPanel);
+    this.only2d.push(flowPanel);
+    this.check(flowPanel, "melt flow", () => host.getFlowOn(), b => host.setFlowOn(b));
+    this.slider(flowPanel, "flow speed", 0.005, 0.05, 0.0025, () => host.getFlowU(), v => host.setFlowU(v),
+      v => v.toFixed(3));   // cells per substep; the learn hint names the unit
+    this.check(flowPanel, "show flow", () => host.getFlowView(), b => host.setFlowView(b));
+    const flowWhy = document.createElement("div");
+    flowWhy.className = "hint";
+    flowPanel.append(flowWhy);
+    this.binds.push({ update: () => { const w = host.flowIssue(); flowWhy.textContent = w ?? ""; flowWhy.style.display = w ? "" : "none"; } });
 
     // ---- alloy
     const alloy = this.section(rail, "ALLOY");
@@ -726,7 +798,7 @@ export class UI {
     this.alloyPanel.className = "subpanel";
     alloy.append(this.alloyPanel);
     this.slider(this.alloyPanel, "composition c₀", 0.05, 0.7, 0.01, () => p().c0, v => { p().c0 = v; });
-    this.slider(this.alloyPanel, "liquidus slope", 0.1, 0.8, 0.01, () => p().mLiq, v => { p().mLiq = v; });
+    this.derived3.push(this.slider(this.alloyPanel, "liquidus slope", 0.1, 0.8, 0.01, () => p().mLiq, v => { p().mLiq = v; }));
     // dSol joins `derived`: calibrated mode overwrites it with the scaled
     // diffusivity (main.ts setSolver, `dSol: q.dTilde`), so leaving it live was
     // the dead-knob class — a dial the user can drag whose value is replaced on
@@ -775,10 +847,10 @@ export class UI {
     // on screen doing nothing
     const facChk = this.check(cr, "faceted (cusped ε)", () => p().facet > 0.5, b => { p().facet = b ? 1 : 0; });
     this.facetRow = facChk.parentElement as HTMLElement;
-    this.slider(cr, "tip noise", 0, 0.04, 0.001, () => p().noiseAmp, v => { p().noiseAmp = v; }, v => v.toFixed(3));
-    this.slider(cr, "latent heat K", 0.8, 2.2, 0.01, () => p().latent, v => { p().latent = v; });
-    this.slider(cr, "twin rate", 0, 0.004, 0.0001, () => p().twinProb, v => { p().twinProb = v; },
-      v => v > 0 ? `${(v * 1000).toFixed(1)}‰` : "off");
+    this.derived3.push(this.slider(cr, "tip noise", 0, 0.04, 0.001, () => p().noiseAmp, v => { p().noiseAmp = v; }, v => v.toFixed(3)));
+    this.derived.push(this.slider(cr, "latent heat K", 0.8, 2.2, 0.01, () => p().latent, v => { p().latent = v; }));
+    this.derived3.push(this.slider(cr, "twin rate", 0, 0.004, 0.0001, () => p().twinProb, v => { p().twinProb = v; },
+      v => v > 0 ? `${(v * 1000).toFixed(1)}‰` : "off"));
     // hex 3D only: δz sign picks the growth habit (managed manually in sync —
     // visible iff 3D ∧ hex, so neither only2d nor only3d fits)
     // (the value cell names the habit; the sign convention is the learn hint)
@@ -943,7 +1015,7 @@ export class UI {
     // (shaders3d.ts solute rejection), but the dial was 2D-only — the inverse
     // of a dead knob, a working control users could not reach. p() is the
     // ACTIVE solver's params, so the same slider now drives both dimensions.
-    this.slider(adv, "partition k", 0.05, 0.9, 0.01, () => p().kPart, v => { p().kPart = v; });
+    this.derived3.push(this.slider(adv, "partition k", 0.05, 0.9, 0.01, () => p().kPart, v => { p().kPart = v; }));
     // the inoculant's potency distribution: where the site population sits and
     // how tightly it clusters. Potent refiners fire just below the liquidus.
     this.slider(adv, "site ΔT_N", 0.03, 0.6, 0.005,
@@ -1031,6 +1103,9 @@ export class UI {
 
   /** refresh all controls + conditional panels from state */
   sync() {
+    // Release our last overlay before ordinary bindings recompute their own
+    // disabled states. Leaving a search must not unlock a derived parameter.
+    this.releaseOptimizerLocks();
     for (const b of this.binds) b.update();
     const host = this.host;
     const p = host.simParams();
@@ -1040,22 +1115,32 @@ export class UI {
     const cal = host.calibration();
     const on = !!cal;
     const calIssue = host.calibrationIssue?.() ?? null;
+    const calBusy = host.calibrationBusy?.() ?? false;
     this.calSwitch.style.display = host.canCalibrate() || on || calIssue ? "" : "none";
-    this.calSwitch.classList.toggle("disabled", !!calIssue && !on);
-    this.calSwitch.setAttribute("aria-disabled", String(!!calIssue && !on));
+    this.calSwitch.classList.toggle("disabled", calBusy || (!!calIssue && !on));
+    this.calSwitch.setAttribute("aria-disabled", String(calBusy || (!!calIssue && !on)));
     this.calSwitch.title = calIssue ?? "";
     this.lamRow.style.display = on ? "" : "none";
+    for (const input of this.lamRow.querySelectorAll("input")) input.disabled = calBusy;
     for (const el of this.derived) {
       el.style.opacity = on ? "0.42" : "";
       el.style.pointerEvents = on ? "none" : "";
       el.title = on ? RAIL_CAVEATS.derived.line : "";
+      for (const input of el.querySelectorAll("input")) input.disabled = on;
+    }
+    for (const el of this.derived3) {
+      const locked = on && m3;
+      el.style.opacity = locked ? "0.42" : "";
+      el.style.pointerEvents = locked ? "none" : "";
+      el.title = locked ? "Set by the calibrated 3D model" : "";
+      for (const input of el.querySelectorAll("input")) input.disabled = locked;
     }
     const nm = (m: number) => (m < 1e-6 ? `${(m * 1e9).toFixed(1)} nm` : `${(m * 1e6).toFixed(2)} µm`);
     const learnOn = isLearnOn();
     const lrn = (t: string) => (learnOn ? `<div class="lrnText">${esc(t)}</div>` : "");
     const calCav = on ? RAIL_CAVEATS.calLocked
       : host.canCalibrate() ? RAIL_CAVEATS.calOff
-        : m3 ? RAIL_CAVEATS.cal3d : RAIL_CAVEATS.calNoSI;
+        : RAIL_CAVEATS.calNoSI;
     this.calNote.innerHTML = on
       // the numbers a reader needs to judge the calibration, not just trust it:
       // d₀ is Γ over the reference interval — and since v7.1 P1 that interval is
@@ -1069,6 +1154,8 @@ export class UI {
         // this readout until v7.1 P1, and it was wrong for every poured mix.
         + `<br><span class="calsrc">${esc(cal.coefficientSource)}</span>`
         // the locked-dials line in --fg: it is the state, brightness says so
+        + (m3 ? `<br>${p.alloyOn === 1 ? "Dilute alloy · imposed temperature · EFKP τ(T)" : "Pure melt · coupled heat diffusion"}` : "")
+        + (calBusy && calIssue ? `<br>${esc(calIssue)}` : "")
         + `<br><span class="calok">${esc(calCav.line)}</span>${lrn(calCav.learn)}`
       : calIssue ? `<span class="calok">${esc(calIssue)}</span>` : `${esc(calCav.line)}${lrn(calCav.learn)}`;
 
@@ -1135,6 +1222,7 @@ export class UI {
     const cav = document.getElementById("matcaveat")!;
     cav.textContent = caveats.join(" · ");
     cav.style.display = caveats.length ? "block" : "none";
+    this.readingsState();
     const grids = [512, 1024, 2048];
     this.gridBtns.forEach((b, i) => setPressed(b, grids[i] === host.getGrid()));
 
@@ -1189,10 +1277,48 @@ export class UI {
 
     // last: every hint follows its control's display, set above
     this.learn.apply(learnOn);
+    this.applyOptimizerLocks(m3 && host.isEngineering());
     // and every slider on the page, the panels' included, fills to the value
     // script may have just set
     paintRanges();
     this.placeAnalysis();
+  }
+
+  private releaseOptimizerLocks() {
+    for (const [control, state] of this.optimizerLocks) {
+      control.disabled = state.disabled;
+      control.title = state.title;
+      if (state.ariaDisabled == null) control.removeAttribute("aria-disabled");
+      else control.setAttribute("aria-disabled", state.ariaDisabled);
+      delete control.dataset.optimizerLock;
+    }
+    this.optimizerLocks.clear();
+  }
+
+  /** A 3D search owns the casting clock and the settings used to rank trials.
+   * Camera/lens controls, transport run/pause, and data inspection stay live. */
+  private applyOptimizerLocks(search3: boolean) {
+    if (!search3) return;
+    const controls = new Set<OptimizerControl>();
+    for (const name of ["PRESETS", "MATERIAL", "MODES", "MELT · PROCESS", "SCENARIO", "ALLOY", "CRYSTAL", "ENGINE"]) {
+      this.sections[name]?.root.querySelectorAll<OptimizerControl>(".secbody button, .secbody input, .secbody select")
+        .forEach(control => controls.add(control));
+    }
+    // Sharing/exporting is read-only; only physical inputs are held here.
+    for (const name of ["ADVANCED", "SCALE"]) {
+      this.sections[name]?.root.querySelectorAll<OptimizerControl>(".secbody input, .secbody select")
+        .forEach(control => controls.add(control));
+    }
+    if (this.calSwitch instanceof HTMLButtonElement) controls.add(this.calSwitch);
+    controls.add(this.resetBtn);
+    for (const control of controls) {
+      this.optimizerLocks.set(control, { disabled: control.disabled, title: control.title,
+        ariaDisabled: control.getAttribute("aria-disabled") });
+      control.disabled = true;
+      control.title = "Fixed during the 3D search; exit the optimizer to edit";
+      control.setAttribute("aria-disabled", "true");
+      control.dataset.optimizerLock = "true";
+    }
   }
 
   /**

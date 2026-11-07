@@ -4,14 +4,17 @@
 // orientations, and an out-of-memory creation ladder for weaker GPUs.
 
 import {
-  FLUX3D_WGSL, update3dWgsl, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL, STEREO3D_WGSL,
+  FLUX3D_WGSL, update3dWgsl, phi3dWgsl, transport3dWgsl, STAMP3D_WGSL, STATS3D_WGSL, FEED3D_WGSL, STEREO3D_WGSL,
   LINE3D_WGSL, REGION3D_WGSL, HTMASK3_WGSL, ANNEAL3_WGSL, anneal3Wgsl, TWINSTAMP3_WGSL, HOMOG3_WGSL, HOMOG_D3,
   HT_COLOURS_3D, MAX_GRAINS3, MAX_SEEDS3, SEED3_STRIDE, P3, PORE_ID,
+  RXSTAMP3_WGSL, RX_BATCH3, NUCLEUS_R_3D,
 } from "./shaders3d";
 import { shaderModule, H2U, HT_STRIDE, HT_KT_DEFAULT, WORK_SALT } from "./shaders";
 import { HT_RECOVER_3D } from "./heattreat";
 import { DEFAULT_UM_PER_CELL } from "./units";
-import { stream } from "./rng";
+import { stream, type Rng } from "./rng";
+import { QUANT_MASS3 } from "./shaders3d-quant";
+import { freeGrainIds } from "./recrystallize";
 
 /**
  * Grid rungs, largest first — the out-of-memory creation ladder walks this and
@@ -20,6 +23,10 @@ import { stream } from "./rng";
  * selection silently showed nothing.
  */
 export const GRID3_LADDER: readonly number[] = [192, 160, 128, 96];
+
+// Error scopes belong to the device, not an instance. Serializing resource
+// preparation also protects direct-class callers that create two volumes.
+const RESOURCE_QUEUE3 = new WeakMap<GPUDevice, Promise<void>>();
 
 /** the lab's mould geometries. `open` = no walls (moldShell off). Values in
  *  MOLD_KIND_ID are deliberately disjoint from fillPigtail's own kind=3 —
@@ -119,6 +126,11 @@ export interface Phys3DParams {
   /** scen 4 only: the lab programme's set-point slope (the lab supplies it
    *  each tick). Scen 1/3 derive theirs in writeParams from gradG·pullV. */
   envRate: number;
+  solver: number;
+  lambda: number;
+  dTherm: number;
+  atCoef: number;
+  frozenT: number;
 }
 
 export const DEFAULTS3D: Phys3DParams = {
@@ -157,7 +169,38 @@ export const DEFAULTS3D: Phys3DParams = {
   moldT: 0.06,
   nyCrit: 8,
   envRate: 0,
+  solver: 0, lambda: 3, dTherm: 1, atCoef: 0, frozenT: 0,
 };
+
+interface QuantResources3 {
+  aux: GPUTexture;
+  status: GPUBuffer;
+  staging: GPUBuffer;
+  phase: GPUComputePipeline[];
+  transport: GPUComputePipeline[];
+  phaseBG: GPUBindGroup[][];
+  transportBG: GPUBindGroup[][];
+  mass: {
+    shape: GPUBuffer; partials: GPUBuffer; staging: GPUBuffer;
+    pipe: GPUComputePipeline; groups: GPUBindGroup[]; bytes: number;
+  } | null;
+}
+
+export interface QuantitativeStatus3 {
+  flags: number;
+  issue: string | null;
+  minTauFactor: number | null;
+}
+
+export interface QuantitativeMass3 {
+  /** Sum of concentration samples. Multiply by dx^3 for the volume integral. */
+  mass: number;
+  min: number;
+  max: number;
+  count: number;
+  nonFinite: number;
+  negative: number;
+}
 
 export interface StatsResult3D {
   fracSolid: number;
@@ -183,6 +226,12 @@ export interface StatsResult3D {
   /** mean temperature of the remaining melt, or null once fully solid */
   meanLiqT: number | null;
   grains: { id: number; vox: number }[];   // retained for IPF / histogram panels
+  /** C3b: RAW voxel count over the current recrystallization ids (0 without
+   *  an event); raw, because the census's minVox filter hides a newborn
+   *  33-voxel nucleus */
+  rxVox?: number;
+  /** C3b: raw voxel count over every grain id (1 .. PORE-1), X's denominator */
+  grainVox?: number;
 }
 
 interface Seed3 { x: number; y: number; z: number; r: number; id: number; dTact: number }
@@ -341,17 +390,50 @@ export class Sim3D {
   private statsInFlight = false;
   private paramData = new ArrayBuffer(P3.BYTES);
   private inFlight = 0;
+  /** Diagnostic split for Kobayashi; quantitative mode always uses the split. */
+  splitPasses = false;
+  private quant: QuantResources3 | null = null;
+  private quantPending: Promise<boolean> | null = null;
+  private alloyPending: Promise<boolean> | null = null;
+  private alloyPendingEpoch = 0;
+  private alloyEpoch = 0;
+  private quantIssue: string | null = null;
+  private quantReading = false;
+  private quantMassReading = false;
+  private quantEpoch = 0;
+  private destroyed = false;
+  get quantitativeIssue(): string | null { return this.quantIssue; }
   /**
    * The volume's own stream: Marsaglia quaternions, Sigma3 plate directions,
    * chill-floor jitter, the twin probe's site search. Separate from the plane's,
    * so a dimension switch does not renumber either one's draws.
    */
   private rng = stream("sim3d");
+  // C3b: nucleus sites and orientations draw from their OWN named stream
+  // (reserved in shaders.ts, pinned by RNG-NAME-DERIVATION), so turning
+  // recrystallization on cannot move one draw of the cast
+  private rxRng = stream("recrystallization");
+  /** addSeed3D ran past the top id and recycled from 1: high ids may be
+   *  live cast grains, so no id range above nextId can be called free */
+  private idsWrapped = false;
+  /** C3b: the current recrystallization event's ids, or null */
+  rxRange: { lo: number; hi: number } | null = null;
+  private rxPipe: GPUComputePipeline | null = null;
+  private rxBG: GPUBindGroup[] = [];
+  private rxUBuf: GPUBuffer | null = null;
+  private rxNucBuf: GPUBuffer | null = null;
 
   /** true when the GPU is >= 2 submitted frames behind — callers should skip stepping */
   get busy() { return this.inFlight >= 2; }
 
-  private constructor(device: GPUDevice, n: number) {
+  /** Fixed-clock casting runners drain every queued nucleus before physics. */
+  get pendingSeedCount() { return this.pendingSeeds.length; }
+
+  /** Explicit research option; immutable because it selects allocated pipelines. */
+  readonly latticeKinetics: boolean;
+
+  private constructor(device: GPUDevice, n: number, options: { latticeKinetics?: boolean } = {}) {
+    this.latticeKinetics = options.latticeKinetics === true;
     this.device = device;
     this.n = n;
     this.params = { ...DEFAULTS3D };
@@ -364,12 +446,12 @@ export class Sim3D {
    * 128³ ≈ 120 MB, 96³ ≈ 50 MB — plus 57 MB for the solute pair while the alloy
    * is on. Resolves null if even the smallest rung fails.
    */
-  static async create(device: GPUDevice, n: number): Promise<Sim3D | null> {
+  static async create(device: GPUDevice, n: number, options: { latticeKinetics?: boolean } = {}): Promise<Sim3D | null> {
     // 96 is the landing-demo size and the last-chance rung for tight GPUs
     const ladder = [...GRID3_LADDER].filter(v => v <= n);
     if (!ladder.length) ladder.push(96);
     for (const rung of ladder) {
-      const sim = new Sim3D(device, rung);
+      const sim = new Sim3D(device, rung, options);
       device.pushErrorScope("out-of-memory");
       sim.build();
       const err = await device.popErrorScope();
@@ -511,6 +593,7 @@ export class Sim3D {
           { binding: 4, resource: so },
           { binding: 5, resource: go },
           { binding: 6, resource: this.ageTex.createView() },
+          { binding: 7, resource: this.maskTex.createView() },
         ],
       });
       this.statsBG[dir] = d.createBindGroup({
@@ -559,59 +642,278 @@ export class Sim3D {
   }
   soluteTexture(dir: number): GPUTexture | null { return this.soluteTex[dir] ?? null; }
 
+  /** Allocate the split without changing solver flags or the current casting.
+   * Concurrent requests share one transaction; failures destroy only the new
+   * resources. The caller publishes calibrated parameters after success. */
+  enableQuant(): Promise<boolean> {
+    if (this.destroyed) return Promise.resolve(false);
+    if (this.quant) return Promise.resolve(true);
+    if (this.quantPending) return this.quantPending;
+    this.quantPending = this.resourceTransaction(() => this.allocateQuant()).finally(() => { this.quantPending = null; });
+    return this.quantPending;
+  }
+
+  private resourceTransaction<T>(run: () => Promise<T>): Promise<T> {
+    const tail = RESOURCE_QUEUE3.get(this.device) ?? Promise.resolve();
+    const result = tail.then(run, run);
+    RESOURCE_QUEUE3.set(this.device, result.then(() => {}, () => {}));
+    return result;
+  }
+
+  private async allocateQuant(): Promise<boolean> {
+    if (this.destroyed) return false;
+    const d = this.device;
+    await d.queue.onSubmittedWorkDone();
+    if (this.destroyed) return false;
+    const made: { aux?: GPUTexture; status?: GPUBuffer; staging?: GPUBuffer } = {};
+    const extraBuffers: GPUBuffer[] = [];
+    let candidate: QuantResources3 | null = null;
+    let groupPair: GPUTexture[] | null = null;
+    let problem: unknown = null;
+    d.pushErrorScope("out-of-memory");
+    d.pushErrorScope("validation");
+    try {
+      made.aux = d.createTexture({ size: [this.n, this.n, this.n], dimension: "3d", format: "rg32float",
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING });
+      made.status = d.createBuffer({ size: 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
+      made.staging = d.createBuffer({ size: 16, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const phase: GPUComputePipeline[] = [], transport: GPUComputePipeline[] = [];
+      for (const alloy of d.limits.maxStorageTexturesPerShaderStage >= 4 ? [false, true] : [false]) {
+        const mk = (code: string, label: string) => d.createComputePipelineAsync({ layout: "auto",
+          compute: { module: shaderModule(d, code, label), entryPoint: "main" } });
+        phase.push(await mk(phi3dWgsl(alloy, this.latticeKinetics), `phase3${alloy ? "-alloy" : ""}`));
+        transport.push(await mk(transport3dWgsl(alloy), `transport3${alloy ? "-alloy" : ""}`));
+      }
+      let mass: QuantResources3["mass"] = null;
+      if (transport.length > 1) {
+        const buffer = (size: number, usage: GPUBufferUsageFlags) => {
+          const b = d.createBuffer({ size, usage }); extraBuffers.push(b); return b;
+        };
+        const bytes = Math.ceil(this.n ** 3 / 256) * 32;
+        const shape = buffer(16, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
+        const partials = buffer(bytes, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC);
+        const staging = buffer(bytes, GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ);
+        d.queue.writeBuffer(shape, 0, new Uint32Array([this.n, this.n ** 3, 0, 0]));
+        const pipe = await d.createComputePipelineAsync({ layout: "auto", compute: {
+          module: shaderModule(d, QUANT_MASS3, "quant3-mass"), entryPoint: "main" } });
+        mass = { shape, partials, staging, pipe, groups: [], bytes };
+      }
+      candidate = { aux: made.aux, status: made.status, staging: made.staging, phase, transport,
+        phaseBG: [], transportBG: [], mass };
+      groupPair = this.soluteTex;
+      this.quantGroups(candidate, groupPair);
+    } catch (err) { problem = err; }
+    const validation = await d.popErrorScope();
+    const memory = await d.popErrorScope();
+    if (problem || validation || memory || this.destroyed || !candidate) {
+      made.aux?.destroy(); made.status?.destroy(); made.staging?.destroy();
+      for (const b of extraBuffers) b.destroy();
+      this.quantIssue = memory
+        ? "Not enough GPU memory for calibrated 3D. The current casting is unchanged; try a smaller volume."
+        : "This device could not prepare calibrated 3D. The current casting is unchanged.";
+      return false;
+    }
+    // disableAlloy may have invalidated a pair during an awaited compilation
+    // or error-scope result. A second allocation cannot publish until this
+    // transaction finishes, so only the alloy groups need invalidation.
+    if (groupPair !== this.soluteTex) {
+      candidate.phaseBG[1] = []; candidate.transportBG[1] = [];
+      if (candidate.mass) candidate.mass.groups = [];
+    }
+    this.quant = candidate;
+    this.clearQuantitativeStatus();
+    return true;
+  }
+
+  private quantGroups(q: QuantResources3, pair = this.soluteTex): void {
+    const d = this.device;
+    q.phaseBG = [[], []]; q.transportBG = [[], []];
+    for (const alloy of [0, 1]) {
+      if (!q.phase[alloy] || (alloy && pair.length !== 2)) continue;
+      for (const dir of [0, 1]) {
+        const phase: GPUBindGroupEntry[] = [
+          { binding: 0, resource: { buffer: this.paramBuf } },
+          { binding: 1, resource: this.stateTex[dir].createView() },
+          { binding: 2, resource: this.grainTex[dir].createView() },
+          { binding: 3, resource: this.fluxTex.createView() },
+          { binding: 4, resource: q.aux.createView() },
+          { binding: 5, resource: this.maskTex.createView() },
+          { binding: 7, resource: { buffer: q.status } },
+        ];
+        if (alloy) phase.push({ binding: 6, resource: pair[dir].createView() });
+        q.phaseBG[alloy][dir] = d.createBindGroup({ layout: q.phase[alloy].getBindGroupLayout(0), entries: phase });
+        const transport: GPUBindGroupEntry[] = [
+          { binding: 0, resource: { buffer: this.paramBuf } },
+          { binding: 1, resource: this.stateTex[dir].createView() },
+          { binding: 2, resource: this.grainTex[dir].createView() },
+          { binding: 3, resource: q.aux.createView() },
+          { binding: 4, resource: this.stateTex[1 - dir].createView() },
+          { binding: 5, resource: this.grainTex[1 - dir].createView() },
+          { binding: 6, resource: this.ageTex.createView() },
+          { binding: 7, resource: this.fedTex[0].createView() },
+          { binding: 10, resource: { buffer: this.quatBuf } },
+          { binding: 11, resource: { buffer: this.twinCtrBuf } },
+          { binding: 12, resource: this.maskTex.createView() },
+          { binding: 13, resource: { buffer: q.status } },
+        ];
+        if (alloy) transport.push({ binding: 8, resource: pair[dir].createView() },
+          { binding: 9, resource: pair[1 - dir].createView() });
+        q.transportBG[alloy][dir] = d.createBindGroup({ layout: q.transport[alloy].getBindGroupLayout(0), entries: transport });
+      }
+    }
+    if (q.mass) q.mass.groups = pair.map(t => d.createBindGroup({
+      layout: q.mass!.pipe.getBindGroupLayout(0), entries: [
+        { binding: 0, resource: { buffer: q.mass!.shape } },
+        { binding: 1, resource: t.createView() },
+        { binding: 2, resource: { buffer: q.mass!.partials } },
+      ],
+    }));
+  }
+
+  private clearQuantitativeStatus(): void {
+    this.quantEpoch++;
+    this.quantIssue = null;
+    if (this.quant) this.device.queue.writeBuffer(this.quant.status, 0, new Uint32Array([0, 0x7f800000, 0, 0]));
+  }
+
+  async readQuantitativeStatus(): Promise<QuantitativeStatus3 | null> {
+    const q = this.quant;
+    if (!q || this.quantReading || this.destroyed) return null;
+    this.quantReading = true;
+    const epoch = this.quantEpoch;
+    try {
+      const enc = this.device.createCommandEncoder();
+      enc.copyBufferToBuffer(q.status, 0, q.staging, 0, 16);
+      this.device.queue.submit([enc.finish()]);
+      await q.staging.mapAsync(GPUMapMode.READ);
+      const raw = q.staging.getMappedRange().slice(0);
+      q.staging.unmap();
+      if (epoch !== this.quantEpoch || q !== this.quant) return null;
+      const flags = new Uint32Array(raw)[0], tau = new Float32Array(raw)[1];
+      const reasons: string[] = [];
+      if (flags & 1) reasons.push("alloy interface temperature is outside the positive-relaxation range");
+      if (flags & 2) reasons.push("the interface needs a smaller timestep at this temperature");
+      if (flags & 4) reasons.push("the phase field became non-finite");
+      if (flags & 8) reasons.push("solute left the supported concentration range");
+      if (flags & 16) reasons.push("temperature left the supported model range");
+      if (flags & 32) reasons.push("the experimental lattice relaxation is non-positive or non-finite");
+      // CPU admission refusals are also latched until reset. A clean GPU word
+      // must not erase a reason reported before any dispatch was submitted.
+      if (reasons.length) this.quantIssue = `Calibrated 3D stopped: ${reasons.join("; ")}.`;
+      return { flags, issue: this.quantIssue, minTauFactor: Number.isFinite(tau) ? tau : null };
+    } catch { return null; }
+    finally { this.quantReading = false; }
+  }
+
+  /** On-demand float reduction, independent from the integer Stats3 layout.
+   * A 256-lane balanced FP32 tree produces each partial; JavaScript doubles
+   * accumulate the partials in increasing linear workgroup order. */
+  async readQuantitativeMass(): Promise<QuantitativeMass3 | null> {
+    const q = this.quant, mass = q?.mass;
+    if (!q || !mass || this.soluteTex.length !== 2 || mass.groups.length !== 2 || this.quantMassReading || this.destroyed) return null;
+    this.quantMassReading = true;
+    const epoch = this.quantEpoch, pair = this.soluteTex;
+    try {
+      const enc = this.device.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(mass.pipe); pass.setBindGroup(0, mass.groups[this.dir]);
+      pass.dispatchWorkgroups(Math.ceil(this.n ** 3 / 256)); pass.end();
+      enc.copyBufferToBuffer(mass.partials, 0, mass.staging, 0, mass.bytes);
+      this.device.queue.submit([enc.finish()]);
+      await mass.staging.mapAsync(GPUMapMode.READ);
+      const raw = mass.staging.getMappedRange().slice(0); mass.staging.unmap();
+      if (q !== this.quant || epoch !== this.quantEpoch || pair !== this.soluteTex) return null;
+      const f = new Float32Array(raw), u = new Uint32Array(raw);
+      const out: QuantitativeMass3 = { mass: 0, min: Infinity, max: -Infinity,
+        count: 0, nonFinite: 0, negative: 0 };
+      for (let i = 0; i < f.length; i += 8) {
+        out.mass += f[i];
+        if (u[i + 3]) { out.min = Math.min(out.min, f[i + 1]); out.max = Math.max(out.max, f[i + 2]); }
+        out.count += u[i + 3] + u[i + 4]; out.nonFinite += u[i + 4]; out.negative += u[i + 5];
+      }
+      return out;
+    } catch { return null; }
+    finally { this.quantMassReading = false; }
+  }
+
   /**
    * Lazily allocate the solute ping-pong pair (+2·n³·4 B) and its bind groups.
    * Runtime allocation sits OUTSIDE the create-time OOM ladder, so it gets its
    * own error scope; failure leaves alloy off and reports false.
    */
-  async enableAlloy(): Promise<boolean> {
+  enableAlloy(): Promise<boolean> {
+    if (this.destroyed) return Promise.resolve(false);
+    if (this.soluteTex.length === 2) { this.params.alloyOn = 1; return Promise.resolve(true); }
+    if (this.alloyPending && this.alloyPendingEpoch === this.alloyEpoch) return this.alloyPending;
+    const epoch = this.alloyEpoch;
+    const pending = this.resourceTransaction(() => this.allocateAlloy(epoch)).finally(() => {
+      if (this.alloyPending === pending) this.alloyPending = null;
+    });
+    this.alloyPending = pending; this.alloyPendingEpoch = epoch;
+    return pending;
+  }
+
+  private async allocateAlloy(epoch: number): Promise<boolean> {
+    if (this.destroyed || epoch !== this.alloyEpoch) return false;
     if (this.soluteTex.length === 2) { this.params.alloyOn = 1; return true; }
     if (!this.updateAlloyPipe) return false;
     const d = this.device;
     const n = this.n;
+    const pair: GPUTexture[] = [];
+    const homogBG: GPUBindGroup[][] = [], updateBG: GPUBindGroup[] = [];
+    const quant = this.quant;
+    const quantCandidate = quant ? { ...quant, mass: quant.mass ? { ...quant.mass } : null } : null;
+    let problem: unknown = null;
     d.pushErrorScope("out-of-memory");
-    const mkTex = () => d.createTexture({
-      size: [n, n, n], dimension: "3d", format: "r32float",
-      usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
-    });
-    const pair = [mkTex(), mkTex()];
-    const err = await d.popErrorScope();
-    if (err) {
+    d.pushErrorScope("validation");
+    try {
+      for (let i = 0; i < 2; i++) pair.push(d.createTexture({
+        size: [n, n, n], dimension: "3d", format: "r32float",
+        usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
+      }));
+      this.fillSolute(pair);
+      for (const dir of [0, 1]) {
+        homogBG[dir] = [0, 1].map(pp => d.createBindGroup({
+          layout: this.homogPipe.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: this.hgBuf } },
+            { binding: 1, resource: this.stateTex[dir].createView() },
+            { binding: 2, resource: this.maskTex.createView() },
+            { binding: 3, resource: pair[pp].createView() },
+            { binding: 4, resource: pair[1 - pp].createView() },
+          ],
+        }));
+        updateBG[dir] = d.createBindGroup({
+          layout: this.updateAlloyPipe.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: this.paramBuf } },
+            { binding: 1, resource: this.stateTex[dir].createView() },
+            { binding: 2, resource: this.grainTex[dir].createView() },
+            { binding: 3, resource: this.fluxTex.createView() },
+            { binding: 4, resource: this.stateTex[1 - dir].createView() },
+            { binding: 5, resource: this.grainTex[1 - dir].createView() },
+            { binding: 6, resource: this.ageTex.createView() },
+            { binding: 7, resource: this.fedTex[0].createView() },
+            { binding: 8, resource: pair[dir].createView() },
+            { binding: 9, resource: pair[1 - dir].createView() },
+            { binding: 10, resource: { buffer: this.quatBuf } },
+            { binding: 11, resource: { buffer: this.twinCtrBuf } },
+            { binding: 12, resource: this.maskTex.createView() },
+          ],
+        });
+      }
+      if (quantCandidate) this.quantGroups(quantCandidate, pair);
+    } catch (err) { problem = err; }
+    const validation = await d.popErrorScope();
+    const memory = await d.popErrorScope();
+    if (problem || validation || memory || this.destroyed || epoch !== this.alloyEpoch) {
       for (const t of pair) t.destroy();
-      this.params.alloyOn = 0;
       return false;
     }
-    this.soluteTex = pair;
-    this.fillSolute();
-    for (const dir of [0, 1]) {
-      this.homogBG[dir] = [0, 1].map(pp => d.createBindGroup({
-        layout: this.homogPipe.getBindGroupLayout(0),
-        entries: [
-          { binding: 0, resource: { buffer: this.hgBuf } },
-          { binding: 1, resource: this.stateTex[dir].createView() },
-          { binding: 2, resource: this.maskTex.createView() },
-          { binding: 3, resource: this.soluteTex[pp].createView() },
-          { binding: 4, resource: this.soluteTex[1 - pp].createView() },
-        ],
-      }));
-      this.updateAlloyBG[dir] = d.createBindGroup({
-        layout: this.updateAlloyPipe.getBindGroupLayout(0),
-        entries: [
-          { binding: 0, resource: { buffer: this.paramBuf } },
-          { binding: 1, resource: this.stateTex[dir].createView() },
-          { binding: 2, resource: this.grainTex[dir].createView() },
-          { binding: 3, resource: this.fluxTex.createView() },
-          { binding: 4, resource: this.stateTex[1 - dir].createView() },
-          { binding: 5, resource: this.grainTex[1 - dir].createView() },
-          { binding: 6, resource: this.ageTex.createView() },
-          { binding: 7, resource: this.fedTex[0].createView() },
-          { binding: 8, resource: this.soluteTex[dir].createView() },
-          { binding: 9, resource: this.soluteTex[1 - dir].createView() },
-          { binding: 10, resource: { buffer: this.quatBuf } },
-          { binding: 11, resource: { buffer: this.twinCtrBuf } },
-          { binding: 12, resource: this.maskTex.createView() },
-        ],
-      });
+    this.soluteTex = pair; this.homogBG = homogBG; this.updateAlloyBG = updateBG;
+    if (quant && quantCandidate && this.quant === quant) {
+      quant.phaseBG = quantCandidate.phaseBG; quant.transportBG = quantCandidate.transportBG;
+      if (quant.mass && quantCandidate.mass) quant.mass.groups = quantCandidate.mass.groups;
     }
     this.params.alloyOn = 1;
     return true;
@@ -763,27 +1065,38 @@ export class Sim3D {
   }
 
   disableAlloy() {
+    this.alloyEpoch++;
     this.params.alloyOn = 0;
     const old = this.soluteTex;
     this.soluteTex = [];
     this.updateAlloyBG = [];
     this.homogBG = [];
+    if (this.quant) {
+      this.quant.phaseBG[1] = []; this.quant.transportBG[1] = [];
+      if (this.quant.mass) this.quant.mass.groups = [];
+    }
     // the caller rebinds the renderer synchronously after this call; deferring
     // the destroy one microtask means no frame ever binds a dead texture
     queueMicrotask(() => { for (const t of old) t.destroy(); });
   }
 
   /** flood both solute textures with the far-field composition c0 */
-  private fillSolute() {
-    if (this.soluteTex.length !== 2) return;
+  private fillSolute(pair = this.soluteTex) {
+    if (pair.length !== 2) return;
     const n = this.n;
     const c = new Float32Array(n * n * n).fill(this.params.c0);
-    for (const t of this.soluteTex)
+    for (const t of pair)
       this.device.queue.writeTexture(
         { texture: t }, c, { bytesPerRow: n * 4, rowsPerImage: n }, [n, n, n]);
   }
 
   destroy() {
+    this.destroyed = true;
+    this.quantEpoch++;
+    this.alloyEpoch++;
+    this.quant?.aux.destroy(); this.quant?.status.destroy(); this.quant?.staging.destroy();
+    this.quant?.mass?.shape.destroy(); this.quant?.mass?.partials.destroy(); this.quant?.mass?.staging.destroy();
+    this.quant = null;
     for (const t of this.stateTex) t?.destroy();
     for (const t of this.grainTex) t?.destroy();
     this.fluxTex?.destroy();
@@ -812,6 +1125,8 @@ export class Sim3D {
     this.htMaskTex?.destroy();
     this.htBuf?.destroy();
     this.tsBuf?.destroy();
+    this.rxUBuf?.destroy();
+    this.rxNucBuf?.destroy();
     this.hgBuf?.destroy();
   }
 
@@ -907,7 +1222,13 @@ export class Sim3D {
     return { phi, T };
   }
 
+  /** resets so far: an asynchronous read issued before one describes the
+   *  old field (fieldstamp.ts) */
+  fieldGen = 0;
+
   reset(tFar = this.params.tFar) {
+    this.fieldGen++;
+    this.clearQuantitativeStatus();
     const n = this.n;
     this.params.tFar = tFar;
     const state = new Float32Array(n * n * n * 2);
@@ -932,6 +1253,9 @@ export class Sim3D {
     this.frame = 0;
     this.simTime = 0;
     this.nextId = 1;
+    this.idsWrapped = false;
+    this.rxRange = null;
+    this.rxRng.reset();
     this.frontZ = 1;
     this.pendingSeeds = [];
     this.lastSeed = null;
@@ -993,6 +1317,8 @@ export class Sim3D {
     this.device.queue.writeBuffer(this.hBuf, 0, this.hCPU);
     this.hOn = true;
     this.recAcc = 0;
+    // a fresh deformation re-deforms every id, earlier nuclei included
+    this.rxRange = null;
   }
 
   /**
@@ -1010,6 +1336,106 @@ export class Sim3D {
   }
 
   /**
+   * C3b: insert `count` strain-free recrystallization nuclei (stored energy 0,
+   * fresh ids, random orientations) as digital spheres of radius `r` voxels
+   * at uniformly random sites in the deformed matrix — the classic
+   * site-saturated protocol (docs/C3B-RECRYSTALLIZATION-DESIGN.md). Growth is
+   * then entirely the existing anneal's stored-energy drive.
+   *
+   * Order is load-bearing: `deposit` writes H for every id below PORE_ID, so
+   * this runs AFTER it, or the nuclei would be born deformed.
+   *
+   * Ids come off the same down-counter GPU twins use, so twins and nuclei can
+   * never collide; the range is refused when the cast already recycled ids
+   * (they may be live) or the growth twins wrapped the counter past 0
+   * (`freeIds`), and trimmed, with `placed < requested`, when fewer are
+   * free. Sites and orientations draw from stream("recrystallization") only.
+   * `placed` counts nuclei that claimed at least one voxel (a site in liquid,
+   * a pore or mould claims none). Resolves to a sentence on refusal.
+   *
+   * `at` (fixtures only) gives explicit centre voxels instead of random ones;
+   * orientations still come from the stream.
+   *
+   * `pin` is the treatment's dispersion, the one `anneal` will build its mask
+   * with: nuclei may only claim voxels that anneal will treat. Built without
+   * it, a nucleus stamped into a particle voxel that the anneal then freezes,
+   * a permanent offset in X.
+   */
+  async nucleate(count: number, r = NUCLEUS_R_3D, at?: [number, number, number][],
+    pin?: { f: number; r: number }):
+    Promise<{ lo: number; hi: number; requested: number; placed: number } | { why: string }> {
+    const want = Math.max(0, Math.floor(count));
+    if (want === 0) { this.rxRange = null; return { lo: 0, hi: -1, requested: 0, placed: 0 }; }
+    if (!this.hOn) return { why: "Recrystallization nuclei grow on stored energy, and this specimen has none: dial cold work first." };
+    if (this.idsWrapped) return { why: "This cast used every grain id once already, so a new id could alias a live grain. Re-pour to recrystallize." };
+    if (!(await this.ensureHt())) return { why: "The GPU could not allocate the treatment mask." };
+    const ctr = await this.readTwinCtr();
+    if (ctr == null) return { why: "The grain-id counter could not be read back." };
+    // a counter the growth twins carried past 0 has wrapped: no ids are free
+    const k = Math.min(want, this.freeIds(ctr));
+    if (k <= 0) return { why: "No free grain ids are left on this cast. Re-pour to recrystallize." };
+    const lo = ctr - k + 1, hi = ctr;
+    const d = this.device;
+    d.queue.writeBuffer(this.twinCtrBuf, 0, new Uint32Array([ctr - k]));
+    // strain-free and freshly oriented, every id in the range
+    for (let id = lo; id <= hi; id++) {
+      this.hCPU[id] = 0;
+      this.quatCPU.set(this.randomQuat(this.rxRng), id * 4);
+    }
+    d.queue.writeBuffer(this.hBuf, 0, this.hCPU);
+    d.queue.writeBuffer(this.quatBuf, lo * 16, this.quatCPU, lo * 4, k * 4);
+    // the treatable-voxel mask, exactly as anneal() builds it, particles and
+    // all: a nucleus stamped into a voxel the anneal will not treat is frozen
+    this.writeHt(0, HT_KT_DEFAULT, pin);
+    const n = this.n;
+    const sites = new Uint32Array(k * 4);
+    for (let i = 0; i < k; i++) {
+      const c = at?.[i];
+      sites[i * 4] = c ? Math.min(n - 1, Math.max(0, Math.round(c[0]))) : this.rxRng.int(n);
+      sites[i * 4 + 1] = c ? Math.min(n - 1, Math.max(0, Math.round(c[1]))) : this.rxRng.int(n);
+      sites[i * 4 + 2] = c ? Math.min(n - 1, Math.max(0, Math.round(c[2]))) : this.rxRng.int(n);
+      sites[i * 4 + 3] = lo + i;
+    }
+    {
+      const enc = d.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(this.htMaskPipe!);
+      pass.setBindGroup(0, this.htMaskBG[this.dir]);
+      this.dispatch(pass);
+      pass.end();
+      d.queue.submit([enc.finish()]);
+    }
+    const u = new ArrayBuffer(32);
+    const uu = new Uint32Array(u), uf = new Float32Array(u);
+    for (let b = 0; b < k; b += RX_BATCH3) {
+      const m = Math.min(RX_BATCH3, k - b);
+      uu[0] = n; uu[1] = m; uu[2] = lo; uu[3] = hi; uf[4] = r * r;
+      d.queue.writeBuffer(this.rxUBuf!, 0, u);
+      d.queue.writeBuffer(this.rxNucBuf!, 0, sites, b * 4, m * 4);
+      const enc = d.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(this.rxPipe!);
+      pass.setBindGroup(0, this.rxBG[this.dir]);
+      this.dispatch(pass);
+      pass.end();
+      d.queue.submit([enc.finish()]);
+      // the next batch's uniform/sites overwrite this one's: let it land first
+      await d.queue.onSubmittedWorkDone();
+    }
+    this.rxRange = { lo, hi };
+    // every nucleus that claimed a voxel, the 1-3 voxel clipped ones included
+    // (the census's default floor of 4 dropped them), and a read that found
+    // another region read in flight waits and retries instead of reporting 0
+    let census: Awaited<ReturnType<Sim3D["readRegion"]>> = null;
+    for (let tries = 0; tries < 40 && !census; tries++) {
+      census = await this.readRegion([0, 0, 0], [n, n, n], 1);
+      if (!census) await d.queue.onSubmittedWorkDone();
+    }
+    const placed = census ? census.grains.filter(g => g.id >= lo && g.id <= hi).length : 0;
+    return { lo, hi, requested: want, placed };
+  }
+
+  /**
    * Drop the stored-energy field and return to the pre-C3a anneal.
    *
    * Separate from `reset()` because turning the cold work off must not re-pour
@@ -1022,6 +1448,7 @@ export class Sim3D {
     this.device.queue.writeBuffer(this.hBuf, 0, this.hCPU);
     this.hOn = false;
     this.recAcc = 0;
+    this.rxRange = null;
   }
 
   /** the CPU mirror of the stored-energy field — what the panel's census reads */
@@ -1078,8 +1505,8 @@ export class Sim3D {
    * one would have left the volume's single largest source of randomness
    * unseeded while everything around it was reproducible.
    */
-  private randomQuat(): [number, number, number, number] {
-    const u1 = this.rng.next(), u2 = this.rng.next(), u3 = this.rng.next();
+  private randomQuat(rng: Rng = this.rng): [number, number, number, number] {
+    const u1 = rng.next(), u2 = rng.next(), u3 = rng.next();
     const a = Math.sqrt(1 - u1), b = Math.sqrt(u1);
     return [
       a * Math.sin(2 * Math.PI * u2),
@@ -1099,7 +1526,7 @@ export class Sim3D {
     if (!pos) return 0;   // no open voxel within the search bound — the seed is dropped
     [x, y, z] = pos;
     let id = this.nextId++;
-    if (id >= MAX_GRAINS3 - 1) { this.nextId = 2; id = 1; }   // top id is PORE_ID
+    if (id >= MAX_GRAINS3 - 1) { this.nextId = 2; id = 1; this.idsWrapped = true; }   // top id is PORE_ID
     const quat = q ?? this.randomQuat();
     this.quatCPU.set(quat, id * 4);
     this.device.queue.writeBuffer(this.quatBuf, id * 16, this.quatCPU, id * 4, 4);
@@ -1297,6 +1724,11 @@ export class Sim3D {
     // programme's slope as supplied per tick for scen 4, nothing elsewhere
     f[P3.envRate] = p.scen === 1 || p.scen === 3 ? -(p.gradG * p.pullV)
       : p.scen === 4 ? p.envRate : 0;
+    u[P3.solver] = p.solver;
+    f[P3.lambda] = p.lambda;
+    f[P3.dTherm] = p.dTherm;
+    f[P3.atCoef] = p.atCoef;
+    u[P3.frozenT] = p.frozenT;
     this.device.queue.writeBuffer(target ?? this.paramBuf, 0, this.paramData);
   }
 
@@ -1414,6 +1846,21 @@ export class Sim3D {
         });
       }
     }
+    // C3b recrystallization nuclei: in-place stamp gated by the treatment mask
+    this.rxUBuf = d.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.rxNucBuf = d.createBuffer({ size: RX_BATCH3 * 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    this.rxPipe = mk(RXSTAMP3_WGSL, "rxstamp3");
+    for (const dir of [0, 1]) {
+      this.rxBG[dir] = d.createBindGroup({
+        layout: this.rxPipe.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.rxUBuf } },
+          { binding: 1, resource: { buffer: this.rxNucBuf } },
+          { binding: 2, resource: this.htMaskTex.createView() },
+          { binding: 3, resource: this.grainTex[dir].createView() },
+        ],
+      });
+    }
     // twin-plate nucleation (H3): in-place read_write stamp, one bind per dir
     this.tsBuf = d.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.twinStampPipe = mk(TWINSTAMP3_WGSL, "twinstamp3");
@@ -1481,6 +1928,7 @@ export class Sim3D {
   async anneal(
     sweeps: number, kT = HT_KT_DEFAULT, onProgress?: (done: number) => boolean | void,
     pin?: { f: number; r: number },
+    sample?: { at(done: number): boolean; read(done: number): Promise<void> },
   ): Promise<number> {
     if (HT_COLOURS_3D % 2 !== 0) throw new Error("HT_COLOURS_3D must be even — see anneal()");
     const total = Math.max(0, Math.floor(sweeps));
@@ -1513,6 +1961,13 @@ export class Sim3D {
       }
       pass.end();
       this.device.queue.submit([enc.finish()]);
+      // C3b: observe X(S) inside ONE treatment. Awaited after a submit, so the
+      // salts and the recovery ordinate run exactly as an unsampled call's do
+      // (chunking the call instead would restart the salt at 1 every chunk)
+      if (sample?.at(s + 1)) {
+        await this.device.queue.onSubmittedWorkDone();
+        await sample.read(s + 1);
+      }
       if ((s & 7) === 7) {
         await this.device.queue.onSubmittedWorkDone();
         if (onProgress?.(s + 1) === false) { delivered = s + 1; break; }
@@ -1606,7 +2061,9 @@ export class Sim3D {
    * Current value of the GPU twin-id allocator. Ids count DOWN from
    * MAX_GRAINS3−2, so (before − after) across a treatment is the number of
    * annealing twins spawned, and a value at/under `nextId` means the range is
-   * exhausted — the card must report delivered twinning, not requested.
+   * exhausted — the card must report delivered twinning, not requested. The
+   * raw value is not a free count: growth twins decrement on every attempt and
+   * can wrap it past 0, so ask `freeIds` before allocating from it.
    */
   async readTwinCtr(): Promise<number | null> {
     const buf = this.device.createBuffer({ size: 4, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
@@ -1623,6 +2080,16 @@ export class Sim3D {
     buf.unmap();
     buf.destroy();
     return v;
+  }
+
+  /**
+   * Ids still free below a counter value read with `readTwinCtr`, `margin`
+   * kept clear of the cast's own (recrystallize.ts `freeGrainIds`). 0 when the
+   * growth twins' per-attempt decrement has wrapped the counter past 0, which
+   * the raw value cannot show: a wrapped u32 reads as ~4.29e9.
+   */
+  freeIds(ctr: number, margin = 2): number {
+    return freeGrainIds(ctr, this.nextId, MAX_GRAINS3 - 2, margin);
   }
 
   /** one voxel's grain id (256 B staging — the copy-row alignment minimum) */
@@ -1679,7 +2146,7 @@ export class Sim3D {
       if (nb == null || nb === pid || nb === 0 || nb === PORE_ID) continue;
       const ctr = await this.readTwinCtr();
       if (ctr == null) return 0;
-      if (ctr <= this.nextId + 2) return -1;
+      if (this.freeIds(ctr) <= 0) return -1;
       const tid = ctr;
       this.device.queue.writeBuffer(this.twinCtrBuf, 0, new Uint32Array([ctr - 1]));
       const q1 = Array.from(this.quatCPU.subarray(pid * 4, pid * 4 + 4)) as [number, number, number, number];
@@ -1779,6 +2246,32 @@ export class Sim3D {
    * bookkeeping exist exactly once.
    */
   private submit(substeps: number): number {
+    if (this.params.solver === 1) {
+      if (!this.quant) { this.quantIssue = "Calibrated 3D resources are not ready."; return 0; }
+      if (this.latticeKinetics && this.params.alloyOn !== 1) {
+        const p = this.params;
+        const aMin = p.aniMode3 === 0 ? 1 : Math.max(0, 1 - 3 * Math.abs(p.delta));
+        const tauMin = p.tau * (47 / 75) * p.lambda / p.dTherm
+          * (aMin * aMin - (1321 / 9870) * Math.pow(p.dx / p.epsBar, 2));
+        if (![p.tau, p.lambda, p.dTherm, p.dx, p.epsBar, p.dt, tauMin].every(v => Number.isFinite(v) && v > 0)) {
+          this.quantIssue = "Experimental lattice kinetics needs finite positive local relaxation and model parameters."; return 0;
+        }
+        const bound = p.dx * p.dx * tauMin / (12 * p.epsBar * p.epsBar * (1 + 20 * Math.abs(p.delta)));
+        if (p.dt > bound) {
+          this.quantIssue = "Experimental lattice kinetics needs a smaller timestep for its corrected relaxation."; return 0;
+        }
+      }
+      if (this.params.aniMode3 > 1 || this.params.facet > 0.5) {
+        this.quantIssue = "Calibrated 3D supports isotropic or smooth cubic interfaces."; return 0;
+      }
+      if (this.params.alloyOn === 1 && !this.alloyActive) {
+        this.quantIssue = "The calibrated alloy solute field is unavailable."; return 0;
+      }
+      if (this.params.alloyOn === 1 && !(this.params.kPart >= 0.001 && this.params.kPart <= 0.999
+          && Number.isFinite(this.params.c0) && this.params.c0 > 0)) {
+        this.quantIssue = "Calibrated alloy growth needs a finite positive charge and k between 0.001 and 0.999."; return 0;
+      }
+    }
     // bridgman + selector: the reference isotherm rides sim time (2D frontX port)
     if (this.params.scen === 1 || this.params.scen === 3)
       this.frontZ = 1 + this.params.pullV * this.simTime;
@@ -1823,6 +2316,7 @@ export class Sim3D {
     this.pendingQuench = 0;
 
     const alloy = this.alloyActive;
+    const split = (this.splitPasses || this.params.solver === 1) && this.quant != null;
     const enc = d.createCommandEncoder();
     // STAMP flips the state ping-pong without writing solute — mirror the flip
     // by copying solute across BEFORE the compute pass, or the pair desyncs
@@ -1851,9 +2345,19 @@ export class Sim3D {
       pass.setPipeline(this.fluxPipe);
       pass.setBindGroup(0, this.fluxBG[dir]);
       this.dispatch(pass);
-      pass.setPipeline(alloy ? this.updateAlloyPipe! : this.updatePipe);
-      pass.setBindGroup(0, alloy ? this.updateAlloyBG[dir] : this.updateBG[dir]);
-      this.dispatch(pass);
+      if (split) {
+        const q = this.quant!, ai = Number(alloy);
+        pass.setPipeline(q.phase[ai]);
+        pass.setBindGroup(0, q.phaseBG[ai][dir]);
+        this.dispatch(pass);
+        pass.setPipeline(q.transport[ai]);
+        pass.setBindGroup(0, q.transportBG[ai][dir]);
+        this.dispatch(pass);
+      } else {
+        pass.setPipeline(alloy ? this.updateAlloyPipe! : this.updatePipe);
+        pass.setBindGroup(0, alloy ? this.updateAlloyBG[dir] : this.updateBG[dir]);
+        this.dispatch(pass);
+      }
       dir = 1 - dir;
     }
     pass.end();
@@ -1938,8 +2442,11 @@ export class Sim3D {
    * every call since atomics accumulate, mapAsync try/catch); dispatches the
    * full n³ grid like readStereo does, since this is an on-demand
    * report-card-time call (once per section, not per frame).
+   *
+   * `minVox` is the per-id floor for `grains` (readStereo's noise floor of 4
+   * by default); `solidVox` counts every solid voxel whatever the floor.
    */
-  async readRegion(lo: [number, number, number], hi: [number, number, number]):
+  async readRegion(lo: [number, number, number], hi: [number, number, number], minVox = 4):
     Promise<{ grains: { id: number; voxCount: number }[]; poreVox: number; solidVox: number } | null> {
     if (this.regionInFlight) return null;
     this.regionInFlight = true;
@@ -1971,7 +2478,7 @@ export class Sim3D {
     for (let i = 1; i < MAX_GRAINS3 - 1; i++) {
       const c = data[8 + i];
       solidVox += c;                                   // every solid voxel, "real" grain or not
-      if (c >= 4) grains.push({ id: i, voxCount: c });  // readStereo's own noise floor
+      if (c >= minVox && c > 0) grains.push({ id: i, voxCount: c });  // default: readStereo's noise floor
     }
     return { grains, poreVox: data[8 + PORE_ID], solidVox };
   }
@@ -2006,8 +2513,13 @@ export class Sim3D {
     const minVox = Math.max(64, total * 1e-5);
     let volSum = 0;
     const grains: { id: number; vox: number }[] = [];
+    // C3b's raw sums ride the same loop: no filter, so a newborn nucleus counts
+    let rxVox = 0, grainVox = 0;
+    const rx = this.rxRange;
     for (let i = 1; i < MAX_GRAINS3 - 1; i++) {   // top id is the pore census
       const c = data[8 + i];
+      grainVox += c;
+      if (rx && i >= rx.lo && i <= rx.hi) rxVox += c;
       if (c > minVox) { volSum += c; grains.push({ id: i, vox: c }); }
     }
     const count = grains.length;
@@ -2031,6 +2543,8 @@ export class Sim3D {
       probePhi: this.probe ? data[5] / 1000 : null,
       meanLiqT: data[3] > 0 ? data[6] / 500 / data[3] - 1 : null,
       grains,
+      rxVox,
+      grainVox,
     };
   }
 }
