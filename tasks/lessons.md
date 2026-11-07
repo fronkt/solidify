@@ -866,3 +866,30 @@ drop clause on two capped numbers is a constant.
 
 **Rule.** When a quantity can saturate (vsync, a clamp, a full domain), gate on one
 that cannot, and prove it with a planted cost that must break the gate.
+
+## A wall-clock GPU bench measures a slope, not a total
+
+VIS-STUDIO-COST took three instruments. Waiting on the queue after every frame
+let a fixed round trip dominate (a doubled workload moved 7.26 -> 12.53 ms).
+Amortizing 40 frames per wait still failed its own doubling witness (1.41): the
+totals fit time = C + 40 k g with a one-off C of about 106 ms per bench, so any
+ratio of totals mixes C into the cost. Timing 40, 80 and 120 renders and taking
+the least-squares slope removed C (ratio 1.197, both arms linear). The planted
+"render twice" arm was the right instinct and the wrong witness: it only showed
+that the totals did not double.
+
+**Rule.** Time a GPU workload at three or more sizes and gate on the slope, with
+a linearity check as the liveness witness. A per-frame wait or one amortized
+total is not a cost.
+
+## A fixture can quietly depart from its own pre-registration
+
+VIS-REPLAY-3D was pre-registered against "the final phi and age volumes" of the
+setup growth, but the code read them several sections later, after another gate
+had run the cast on from t 0.324 to 0.603. The IoU failed (0.986 vs 0.99) for a
+reason the predicate never asked about. Reading the field at batch 60 gave
+0.983 / 0.990 / 1.000 with every mismatch classified as live-only.
+
+**Rule.** When a gate reads state, read it at the moment the pre-registration
+names, inside the block that produced it. Report that state's time next to the
+verdict so a departure shows up in the output.
