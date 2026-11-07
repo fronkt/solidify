@@ -5808,3 +5808,134 @@ studies) in their own worktrees and hand GPU runs back to the root.
       runs by the root. Q3 stays open unless the full literature reference passes.
 - [ ] S4 Integrate: each finished stage gets its GPU gates on a frozen source,
       merges into v7-experiments via its own PR, and is pushed.
+
+### S0 review fixes (delegate, feature/visual, 2026-11-07)
+
+Independent review of origin/v7-experiments...5fa0578, each finding verified in
+the code before any change. Browser-free checks pass on every commit below;
+nothing GPU-side has been run (the root owns the GPU). Fix commits:
+
+- [x] F1 wrapped twin counter (confirmed): da656b2. RX-ID-RANGE (browser-free).
+- [x] F2 flow setting latched at setFlow (confirmed): 0de30b2. FLOW-SETTING.
+- [x] F3 nuclei stamped into particles (confirmed): fcec6bf. The C3b design
+      held the dispersion back while nuclei are dialled and the plan never
+      did; the plan now holds it (note + card say so) and nucleate takes the pin.
+- [x] F4 replay mark depended on a frame seeing heat.busy (confirmed): 4a1d725.
+      REPLAY-LEDGER-TREAT.
+- [x] F5 stale census after a reset (confirmed, widened by the root: every
+      frame-loop consumer, the HUD-LIVE intermittent): fa854ec, replaced by
+      1438eab (per-solver fieldGen + src/fieldstamp.ts). STATS-STALE-READ.
+- [x] F6 scrub survived reset/swap/re-entry/panels (confirmed): c5e88ed.
+      REPLAY-SCRUB.
+- [x] F9 placed count (0a697e6), solute Peclet + post-advection clamp
+      (21ab418), inlet temperature limit stated, open (5b0e81a), swapSim frees
+      the flow and says so (70261ea), verify-replay comment (4a1d725).
+
+#### Pre-registered GPU criteria (committed BEFORE their first run)
+
+Changed gates (F7, F8):
+
+- FLOW-DRAG-PROFILE (verify-flow-gpu.mjs). Setup unchanged (n 64, phi = 0.5
+  at y0 = 16, W = 1.25 cells, nu 3.3 / tau 10.4, Fb 2.9e-5, 12 x 1000 steps).
+  New statistic: the apparent no-slip plane, the root nearer the solid of a
+  least-squares parabola u = a y^2 + b y + c fitted to the row means over
+  y in [25, 61] (phi < 4e-5 there, drag-free; the top two rows excluded);
+  offset = (y_w - y0) / W. PASS: |offset| < 0.1 W at the derived h, with the
+  kept clauses (within 2 % of the ODE peak; deep solid <= 1 % of peak).
+  MUST-MISS arms, same setup: h x 2 and h / 2 each give |offset| >= 0.1 W,
+  and each arm is steady and bounded (all finite, peak within 5 % of the h
+  arm's) so a miss is the plane moving, not a blow-up. CPU sizing (steady
+  discrete proxy of the LBM equation / fine-grid continuum, scratchpad
+  offset-fit.mjs): h -0.029 / -0.011 W; 2h +0.300 / +0.320; h/2 -0.397 /
+  -0.381; peaks 9.93e-3, 9.76e-3, 1.012e-2. The h = 0 arm is DROPPED: a
+  periodic frictionless body-forced channel has no steady state (u = Fb t,
+  0.35 lattice units, Mach 0.6 at 12 000 steps), so it failed by
+  accelerating, not on the profile; and a 2x drag error gave 1.73 % / 1.96 %
+  of peak, inside the old 2 % band (reviewer's sizing, rerun here).
+- FLOW-UNIFORM-MELT. Adds a liveness clause: the LBM velocity read back after
+  the 2000 steps has mean u_x within 2 % of the 0.02 inlet. The gate stays a
+  consistency check; it is invariant to the coupling's sign and binding by
+  construction, and its docblock now says FLOW-DIRECTION's upstream ratio and
+  reversed arm carry those.
+- SESSION-3D-CANCELLATION (fixtures/app3d-integration.mjs). Criterion
+  unchanged; the waits change. The canceled case and each edit case settle
+  on the share-restore chain having FINISHED (S.app.canSwitchMode() true,
+  i.e. no sharedRestore3Pending / alloyPreparing3 / mode3dPending; bounded
+  30 s), then the started entry's promise, then 3 frames, instead of one rAF
+  (canceled) or a fixed 20 frames (edits). Each case records settled, and
+  healthy requires it.
+- VIS-REPLAY-3D (verify-visual-gpu.mjs). Adds, with 2D's bands: live phi
+  masks captured during the 3D setup growth after stepSync batches 20 and 40
+  and at the end (60) equal the replay rule (phi >= 0.5 and age <
+  Math.fround(t)) applied to the final phi and age volumes, IoU >= 0.97 at
+  the two earlier, >= 0.99 at the last, each mask > 50 solid voxels; and the
+  UI path: after the strip input, replayState().scrub3 is in (0, simTime),
+  and the live button returns it to null. Kept: field unchanged, early frame
+  differs from live (> 1).
+- VIS-STUDIO-COST. The gate moves to the render-only GPU cost, which no
+  vsync cap hides: renderMsOn / renderMsOff <= 1.8 (a37a474 measured 15.52 /
+  10.17 = 1.53). MUST-MISS arm: the studio bench with every frame rendered
+  twice (a planted 2x studio cost) gives a ratio > 1.8 (expected ~2.2-3.0).
+  The running-fps clause (fpsOn >= 0.85 fpsOff) is kept and reported with
+  vsyncCapped (both arms >= 0.9 x the idle rAF rate), because at the cap it
+  cannot discriminate (a37a474: 55.7 / 55.6 fps, both capped).
+
+New gates:
+
+- FLOW-RECONFIGURE (verify-flow-gpu.mjs, F2). Kobayashi pure melt ("al"),
+  flow on at u 0.02, one submit: the LBM configuration equals flowSetting at
+  the Kobayashi dials exactly (nu, width). S.setSolver(1, 2.4) (precondition:
+  solver 1, reported separately), one submit: it equals flowSetting at the
+  calibrated dials exactly and differs from the Kobayashi one in nu and width.
+  Back to Kobayashi, one submit: the Kobayashi values return. dt taken to
+  dt / 200: the one synchronous submit keeps the last passing configuration
+  (the unchecked setting has >= 1 issue), and after one app frame
+  (S.tick(1)) the flow is off with a flowIssue matching /Peclet/. MUST-MISS
+  arm: with the instance's flowNow patched to return the setting captured at
+  setFlow (the latched behaviour before 0de30b2), the calibrated clause fails.
+- RX3-ID-WRAP (verify-recrystallize-gpu.mjs, F1). Single crystal: control,
+  freeIds on the fresh counter = 4094 - nextId - 2 > 0. Counter written to
+  (4094 - 4200) >>> 0 = 4294967190 (4200 growth-twin attempts): freeIds = 0;
+  nucleate(20) resolves to { why } without throwing and leaves the counter
+  unchanged; the host's annealTwins(4) resolves with spawned 0 and
+  saturated true. Reported: the replaced rule's first id (> 4096).
+- HT3-BUSY-RELEASE (F1). On an armed nuclei plan, host.nucleate replaced by
+  one that throws a planted error: the run starts (busy observed true,
+  reported separately), busy is false again within 10 s, and a second click
+  starts a run again (busy observed true). Planted errors are removed from the
+  page-error list by their marker; any other page error still fails. On
+  5fa0578 busy stays true (nucleate was awaited before the try).
+- RX3-PIN-HELD (F3). Fresh cast, cold work 8 J_b, dispersion 6 %: with nuclei
+  0 the note prints the live dispersion ("dispersion 6.0 vol %", "pins in 3D",
+  no "held back while nuclei"), which is the must-miss arm for the sentence;
+  with nuclei 200 the note prints "held back while nuclei are dialed" and not
+  "pins in 3D". After a run, the card has the held-back row and no pinned
+  row; every Sim3D.anneal call (>= 1) and the one nucleate call received
+  pin undefined (spied).
+- RX3-PIN-STAMP (F3, the Sim3D API). Same single crystal twice, 40 nuclei at
+  explicit centres (x in 12..84 and y in 12..66, step 18; z in {40, 70}), r = 4: unpinned
+  vs pinned { f: 0.10, r: 2 }. PASS: same id range; the pinned stamp is a
+  subset of the unpinned one voxel for voxel and id for id; it removes
+  >= 1 % of the unpinned stamp (expected ~9.5 %: the particle fraction).
+  On 5fa0578 (mask built without the pin) the two stamps are equal.
+- RX3-PLACED (F9). Single crystal with liquid z < 10: nuclei r = 2 centred at
+  (48, 48, 8) (claims 1 voxel), (20, 20, 40) (33) and (70, 70, 5) (none):
+  placed = 2. Arm 2, a fresh crystal with readRegion returning null for its
+  first two calls (another read in flight): placed = 2 again. On 5fa0578 the
+  first gives 1 (floor of 4 voxels) and the second 0.
+- VIS-REPLAY-SCRUB-END (F6). 2D, paused, plain, a clean ledger and a grown
+  field: a strip scrub stands after two frames (control); opening the heat
+  panel (precondition: heat.active) ends it within two frames; with the panel
+  closed and a new scrub, resetArmed ends it within two frames. On 5fa0578
+  both survive (paused, no mark).
+- VIS-REPLAY-TREAT (F4). Clean ledger, grown 2D field: the host's anneal(4),
+  called with no frame in between, has marked replayState().reason2 with the
+  heat-treatment reason synchronously, before any frame. On 5fa0578 it stays
+  null (heat.busy is never set outside the panel).
+
+Run list for the root (frozen source, after the last commit of this section):
+verify-flow-gpu.mjs, verify-recrystallize-gpu.mjs, verify-visual-gpu.mjs,
+verify-completion-gpu.mjs (SESSION-3D-CANCELLATION), verify-heattreat-gpu.mjs
+(HT3-* panel copy unchanged by F1/F3, re-confirm), verify-tools.mjs
+(HUD-LIVE, F5), and the identity gates FLOW-OFF-IDENTITY, HT3-CAST-REPRO,
+verify-passsplit.mjs / verify-passsplit3d.mjs, which must not move.
