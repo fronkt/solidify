@@ -6833,3 +6833,121 @@ What would test this next (NOT pre-registered; a choice for Frank):
 - (c) Leave the flow qualitative, as it is now.
 Before any of these, record the validity bound as a protocol input, so a
 row outside it is excluded in advance rather than found afterwards.
+
+### Tong comparison 3 (D2 only, far from the inlet) - PROTOCOL (pre-registered 2026-11-07; not built, not run)
+
+Frank chose option (a) after the tong2 reading, 2026-11-07. This is a new
+comparison with its own verdict. FLOW-TIP-TONG (11-01) stays FAILED and tong2
+stays NO VERDICT. Runs only on a head whose src/ equals a304254 (the D3.5
+inlet that passed its GPU gates); research/flow-tong2 satisfies that.
+
+**Validity bound, checked before writing (lessons.md, "Read the solver's own
+validity bound").** tau V / W = (V d0/D) (a2 lambda) (lambda / a1), with
+a1 0.8839, a2 0.6267, lambda 3.19:
+- Tong's D2 flow speed V d0/D 0.0247 gives 0.178 (bound 0.2, 11% margin);
+- the exact no-flow 0.0170 gives 0.123;
+- tong2 measured 0.191 (D2-P) and 0.213 (D2-T) in non-stationary late windows.
+Only lambda 3.19 is in bound, so this protocol has one row and no spread
+clause.
+
+**Reference.** Tong et al. 2001 Table II, D 2: V d0/D 0.0247, at eps4 0.05,
+U d0/D 0.035, Delta 0.55, Pr 23.1, box 1479 d0 (half simulated), dx 0.4 W0,
+seed at the box centre. Table I no flow (box 1848 d0): 0.0180; exact 0.0170;
+same-D ratio 1.372 (box-mismatched, as published).
+
+Limitation, stated up front: Tong's D2 box gives an initial inlet gap of only
+1.12 nu/U (nu/U = Pr D/U = 660 d0), and his window is not stated (L7). The
+primary tier therefore uses a box twice his size. The comparison then rests
+on Tong's D2 value being box-converged. His only evidence for that is the D4
+series, where 1658 vs 3315 d0 differ by 1.7%. That is an assumption, not a
+measured fact.
+
+**Staging (all arms).** As tong2:
+- calibrated pure melt, Delta 0.55, eps4 0.05, D~ = a2 lambda = 1.999;
+- dt = 0.15 dx^2 / D~, solved T, latent 1, noise 0, theta0 0;
+- seed r 8 W0 on row n/2, inoculant 0, coupling 1, D3.5 velocity inlet;
+- Pr 23.1, U d0/D 0.035;
+- full square box, west tip on row n/2 (phi 0.5, sub-cell).
+
+**Window (all arms).** 33 equal chunks over T = 8 l_D / V_KR, the D3.4 and
+11-01 rule with no inlet cap: V_KR = 0.017 D~ lambda / a1 W0 per tau0, l_D =
+D~ / V_KR, T = 8 D~ / V_KR^2 = 1062 tau0.
+- tier P (dx 0.8): chunk = round(T / 33 / dt) = 670, 22110 substeps;
+- tier I (dx 0.4): chunk 2681, 88473 substeps;
+- the self-test must reproduce both from the formula.
+Stop rule as tong2: the west tip within 32 cells of x = 0 makes the arm
+invalid.
+
+**Arms.**
+- Tier P (primary; the app's dx 0.8 W0; n 1024, box 2957 d0 = 2.0 x
+  Tong's). Each arm runs no flow, then flow:
+  - P512, seedX 512: initial inlet gap 1478 d0 = 2.24 nu/U;
+  - P640, seedX 640: 1848 d0 = 2.80 nu/U;
+  - P768, seedX 768: 2218 d0 = 3.36 nu/U.
+  At Tong's speed the tip travels about 683 d0 (1.03 nu/U) in T. Predicted
+  end gaps are 1.20 / 1.77 / 2.33 nu/U. Off-centre seeds put the downstream
+  tip nearer the outlet; its gap at the end is reported, not gating.
+- Falsification at P768 (flow runs only, against P768's no-flow run):
+  coupling 0 must give R = 1 exactly with equal traces and fail the band;
+  coupling -1 must give R < 1 and fail. Same meaning as tong2's amendment
+  item 1. If the falsification is not shown, there is no verdict.
+- Tier I (INFORMATION ONLY; Tong's own geometry and resolution): n 1024,
+  dx 0.4 W0, box 1478 d0, seedX 512 (inlet gap 739 d0 = 1.12 nu/U),
+  no flow, then flow. Reported, never gating. Predicted to approach the inlet
+  (end gap ~0.09 nu/U) and possibly trip the stop rule.
+
+**Statistic.** As tong2:
+- v = -dx x the least-squares slope of the west tip over the last third of
+  the samples;
+- R = v_flow / v_noflow;
+- V d0/D of each run;
+- tau V / W of each run from its measured V.
+
+**Validity (an invalid arm is reported and cannot pass or fail).**
+- V1 complete: 33 samples, every chunk delivered in full, flow off or on as
+  staged, finite state, no page/device/console errors, served source admitted
+  (tong2 machinery unchanged).
+- Stationarity: |v_last / v_mid - 1| <= 0.02 in BOTH runs.
+- Bound: tau V / W <= 0.2 in BOTH runs.
+- Inlet liveness: flow-run inlet-column mean u_x / U within 1e-4 of 1.
+- Stop rule not tripped.
+
+**Inlet-distance convergence (tier P).** C = |V_flow(P768) / V_flow(P640) - 1|.
+CONVERGED if P640 and P768 are both valid and C <= 0.01. Otherwise NO VERDICT
+("not converged in inlet distance" or "arm invalid"), with every value
+reported. P512 is reported. It indicates whether a 2.24 nu/U start is already
+converged, but it does not gate.
+
+**Verdict (tier P, only if CONVERGED and the falsification is shown).** Use
+P768's values. PASS if both hold:
+- |V_flow d0/D / 0.0247 - 1| <= 0.10. This is tong2's band, sized there from
+  Tong's own spreads.
+- R in [1.26, 1.54] (FLOW-TIP-TONG's band).
+Otherwise FAIL, naming the clause. Reported: the signed V difference, R
+against 1.372, the no-flow V against Tong's 0.0180 and the exact 0.0170, and
+both runs' tau V / W.
+
+**What a PASS means, fixed now.** At one point, Tong's D2 row, the app's
+staging reproduces Tong's upstream tip speed within 10% and the ratio band,
+on a window that is stationary and converged in inlet distance. It does NOT
+make the flow quantitative in general. It is one benchmark point, and any
+copy change is Frank's call. A FAIL or NO VERDICT keeps the flow labelled
+qualitative.
+
+**Cost (Arc 140V; tong2 and D3.4 per-substep times at n 1024, flow 1.9-2.7
+ms and no flow 0.6-0.9 ms).**
+- tier P: 5 flow runs x 22110 x 2.7 ms ~ 5.0 min, plus 3 no-flow ~ 1.0 min;
+- tier I: 88473 x (2.7 + 0.9) ms ~ 5.3 min;
+- about 11 min of stepping; plan for <= 25 min.
+Order: P768 (no flow, flow, coupling 0, coupling -1), P640, P512, then I512.
+
+**Build.** Reuse scripts/research/flow-tong2.mjs's machinery (driver,
+admission, tip/fit, verdict helpers), either as a new
+scripts/research/flow-tong3.mjs with arms JSON and self-test, or as a
+protocol switch. The self-test must cover, on synthetic traces:
+- the substep formula;
+- convergence pass, miss and invalid;
+- the V band, the R band, the bound and stationarity clauses;
+- both falsification arms, and the no-verdict paths;
+- tier I never gating.
+Commit the build before any GPU run. The GPU run is the root's.
