@@ -6667,3 +6667,96 @@ scripts/research/flow-tong2.mjs implements the protocol with these readings.
 5. "A tier with fewer than two valid rows has no verdict" counts valid
    non-information rows only (the 921 d0 row never counts), since the verdict
    is computed "over its valid non-information rows".
+
+#### Status (build, 2026-11-07, delegate): built and checked on the CPU; GPU not run
+
+Branch research/flow-tong2 (worktree ../solidify-tong2): feature/flow-inlet
+70065f0 + research/flow-domain 3278ead (merged; todo sections kept in date
+order), then the amendment 0800b80 and the script d93e21e (+ 4c30576, self-test
+opens no HMR websocket). src/ is byte-identical to a304254, the head that passed
+the D3.5 GPU gates 15/15, so the protocol's precondition holds.
+
+- Built: scripts/research/flow-tong2.mjs, flow-tong2-arms.json,
+  flow-tong2-selftest.mjs, a README section. It imports flow-domain.mjs
+  unchanged (tip, fit, window and mirror arithmetic; the in-page driver; its
+  served-source metadata: each file read by its ?raw import, by fetch only when
+  the import throws, the vehicle recorded per file) and adds the tier-aware
+  window, the verdict and a pure admission function. `--run` refuses before
+  Chrome unless the hashed files and src/ are clean and src/ equals a304254;
+  each page is admitted only on a hardware adapter with every served file's
+  LF-normalized hash equal to the disk's; hashes are re-taken at the end.
+- Readings that need no amendment: lambda as written (3.19 / 4.79 / 6.38; the
+  tier-P boxes 1478 / 1387 / 924 / 1663 / 3326 d0 need the rounded values);
+  chunk = round(T / (33 dt)) with no 50-substep floor (the table's 990 is 30 x
+  33; D3.4's floor would give 1650); the stop rule is 32 cells in both tiers as
+  written (12.8 W0 in tier T; the window's 38.4 W0 is 48 cells at dx 0.8,
+  D3.4's 32 plus its 16-cell planning margin); spread = (max R - min R) / mean
+  R, as FLOW-TIP-TONG; V3, the end inlet distance and Tong's same-D ratios are
+  reported, never gating. Order: tier P (D2-P: no flow, flow, coupling 0,
+  coupling -1; then D3, D4-1658, D4-3315, D4-921), then tier T (D2, D3,
+  D4-1658, D4-921), one page per arm.
+- n 160 (D4-921-P): KEPT. Source: the Simulation constructor has no bound on n
+  (sim.ts:310; dispatch ceil(n / 8) at :636); readRows needs n x 16 bytes per
+  row to be a multiple of 256, i.e. n % 16 = 0 (sim.ts:983; 160 x 16 = 2560);
+  flowRefusal's only grid clause is grid > 1024 (flow.ts:150), the clause the
+  frame loop re-checks (main.ts:2534); the driver's setGrid reaches swapSim,
+  which builds new Simulation(device, n) unbounded (main.ts:1203, 1413);
+  FlowSolver dispatches ceil(n / 8) and already ran on the GPU at n 64 and 128
+  in the D3.5 gates. The only 256 floor is the share-link applier (main.ts:2739),
+  which this harness never calls; D3.4's N_MIN was its own arm bound.
+  readGrainRows (n % 64) is used only by heat-treatment gates. Shown on the
+  CPU (self-test SIM-ACCEPTS): the real sim.ts and flow.ts, loaded through
+  Vite's module runner with no port, driven by D3.4's real driver on a
+  recording GPU device at every staged grid and coupling. At n 160 it stages,
+  turns flow on at the D4 tier-P dials (no refusal, no stability issue),
+  delivers a 30-substep chunk, dispatches 20 x 20 workgroups only and copies
+  2560 bytes per row. A planted 256 floor in flow.ts, a misaligned readRows, or
+  a bound in main.ts's setGrid/swapSim each turns it red. NOT shown on the CPU:
+  WGSL compilation and WebGPU validation at n 160. The GPU run's stage() asserts
+  sim.n === 160 with flow on, and the result records the grid and delivered
+  substeps per run (gridAccepted).
+- CPU results: `node scripts/research/flow-tong2.mjs` (self-test) 10/10 OK in
+  ~6 s. PROTOCOL: the 79b0b00 text sits verbatim at the head of the amended
+  section, 17 quoted clauses present. PARSE: 17 hostile arm files refused, incl.
+  D4-3315-T at n 1152. WINDOW (check 1): every table entry from the formula
+  (17919 = 543 x 33 / 71709 = 2173 x 33; 6138 / 24618; 990 / 3993; 3894 /
+  15576; 5544), T 6.5 / 5.0 / 1.4 / 5.6 / 8.0 l_D, and T, V_KR, dt, u_lat equal
+  to an independent Python computation to 1e-15. VERDICT (check 2, synthetic
+  traces through the real assess and decide): a passing world gives PASS /
+  PASS; a band, a spread and a V-ratio miss each FAIL on that clause alone; a
+  non-stationary row (flow or no-flow run) and a dead-inlet row are excluded;
+  the information-only row is excluded and reported; a tier with one valid row
+  has NO VERDICT; the stop rule invalidates an arm; both falsification arms fail
+  as required. Each negative control (coupling 0 off by 1e-6 cells, coupling -1
+  in band, at R 1.05, with a dead inlet, arms missing, D2-P missing) gives NO
+  VERDICT on both tiers; the 1.26 / 1.54 / 5 % / 0.10 edges hold. MOCK-RUN /
+  MOCK-FAILURES: D3.4's driver against a mock app (D2-P with both arms, coupling
+  0 traces and raw rows bit-equal, R exactly 1; n 160; n 320 at dx 0.4; stop
+  rule, dead inlet, failed readback). ADMISSION (check 3): the same source is
+  admitted (via fetch when the import throws; CRLF on disk vs LF served); a
+  changed served src/lbm.ts or src/main.ts, a fetch 404 and a software adapter
+  are each refused before any staging. Planted defects (chunk floor, window
+  minimum, seed margin, stationarity on one run only, the information row
+  counted, coupling 0 not exact, raw-byte admission, tier-T seed radius, tier
+  dx in the speed, spread bound, liveness off, falsification consequence off,
+  stop rule moved, N_MAX check off) each turned it red. Not visible, because
+  implied: the band clause on coupling -1 (R < 1 implies it).
+- Also: typecheck passes; verify-flow.mjs 8/8 OK (32 s); D3.4's self-test still
+  passes; verify-phasedata CI-SCRIPT-COUNT and TESTING-CHECK-COUNT OK (research
+  scripts are not in CI; nothing there changed).
+- [ ] GPU run (root session only; nothing here has touched a GPU or a browser):
+
+```text
+cd ../solidify-tong2                   # research/flow-tong2, frozen at the head named in the report
+npx vite --port 5297 --strictPort
+node scripts/research/flow-tong2.mjs --run --port 5297
+```
+
+Expected wall time on the Arc 140V: about 6.4 min of stepping by the
+protocol's cost model (`--plan`: tier P 29 s flow + 12 s no flow, tier T 236 s
++ 80 s, falsification 30 s; the protocol said about 6.5 min), plus 9 page loads
+and readbacks; plan for <= 20 min (D3.4's 12 arms took 18 min wall). It prints
+T2-ARM per arm, then T2-VERDICT and FLOW-TONG2 RECORDED or FAILED (FAILED means
+an incomplete run, not a physics failure) and writes
+docs/validation/flow-tong2-<date>.json and raw rows under verify-out/. The
+verdicts come from the script; the reading is written by a person.
