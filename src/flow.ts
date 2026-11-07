@@ -83,6 +83,36 @@ export function flowLimitIssues(l: ReturnType<typeof latticeOf>): string[] {
   return out;
 }
 
+/** the solver dials the flow's lattice numbers follow from */
+export interface FlowDials {
+  dTherm: number;
+  dt: number;
+  dx: number;
+  epsBar: number;
+  /** the calibrated solver: its interface width is epsBar, Kobayashi's 2 epsBar */
+  calibrated: boolean;
+}
+
+/**
+ * What the flow runs at for the solver's CURRENT dials, and the stability
+ * limits that setting breaks (empty when it is safe). The lattice viscosity is
+ * the thermal diffusion number D dt / dx^2 times the Prandtl number; the drag
+ * width is the interface's, in cells.
+ *
+ * Derived on every substep (sim.ts submit), never latched when the flow
+ * starts. Latched, a solver switch or a dt / dx / epsBar / lambda change
+ * mid-flow kept the old viscosity (the wrong Prandtl number) and the old drag
+ * width: Kobayashi to calibrated left the drag 3.1x too strong (no-slip plane
+ * +0.52 W into the liquid), calibrated to Kobayashi 0.32x (-0.63 W), and the
+ * stability envelope was never re-checked.
+ */
+export function flowSetting(p: FlowDials, f: { u: number; pr: number }):
+  { nu: number; uIn: number; width: number; issues: string[] } {
+  const d = p.dTherm * p.dt / (p.dx * p.dx);
+  const width = (p.calibrated ? p.epsBar : 2 * p.epsBar) / p.dx;
+  return { nu: d * f.pr, uIn: f.u, width, issues: flowLimitIssues(latticeOf(d, f.pr, f.u)) };
+}
+
 export interface FlowContext {
   dim3: boolean;
   scenario: number;          // 0 = free growth; others impose temperature

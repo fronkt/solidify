@@ -16,10 +16,13 @@ browser-free scripts.
   slope 1 against one nucleus's volume; the free grain-id count is zero once
   growth twins have wrapped the u32 counter past 0 (the old rule handed out ids
   past every per-id buffer) and unchanged below the wrap. Design: `docs/C3B-RECRYSTALLIZATION-DESIGN.md`.
-- `verify-flow.mjs` (browser-free, four checks): the drag constant derived
+- `verify-flow.mjs` (browser-free, five checks): the drag constant derived
   from the planar shear ODE on this repo's interface profile (2.7571 against
   Tong et al.'s 2.757, with an h = 2 arm that misses), the lattice stability
-  envelope, the one refusal predicate and the 2D Ivantsov limit. Design:
+  envelope, the one refusal predicate, the 2D Ivantsov limit, and the flow
+  setting as a function of the current dials (unchanged where setFlow latched
+  it; across a Kobayashi-to-calibrated switch the stale one would carry a 3.1x
+  drag and a +0.5 W no-slip plane). Design:
   `docs/D3-CONVECTION-DESIGN.md`.
 - `verify-visual-gpu.mjs` (GPU): every lens compiles and renders with the
   studio look on and off and while replaying; photo mode accumulates and

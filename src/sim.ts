@@ -1,5 +1,5 @@
 import { FlowSolver } from "./lbm";
-import { flowLimitIssues, latticeOf } from "./flow";
+import { flowSetting } from "./flow";
 import {
   FLUX_WGSL, UPDATE_WGSL, PHI_WGSL, TRANSPORT_WGSL, STAMP_WGSL, STATS_WGSL,
   HTMASK_WGSL, ANNEAL_WGSL, HOMOG_WGSL, HOMOG_D2,
@@ -163,28 +163,46 @@ export class Simulation {
   /** D3.2: the flow's velocity texture (rgba32float: u.x, u.y, rho, drag), or null */
   get flowVelocity(): GPUTexture | null { return this.flow?.velTex ?? null; }
 
+  /** D3.2: the lattice setting the CURRENT dials imply (flow.ts flowSetting) */
+  private flowNow() {
+    const p = this.params;
+    return flowSetting({ dTherm: p.dTherm, dt: p.dt, dx: p.dx, epsBar: p.epsBar,
+      calibrated: p.solver === SOLVER.QUANT }, this.flowCfg);
+  }
+
   /**
    * D3.2: start or stop forced melt flow (inlet at x = 0, free-slip y walls).
    * The lattice viscosity is the thermal diffusion number times the Prandtl
    * number, the drag width is the interface's (epsBar calibrated, 2 epsBar
    * Kobayashi, in cells). Resolves to a sentence when the lattice numbers
-   * break the stability envelope (flow.ts), leaving flow off.
+   * break the stability envelope (flow.ts), leaving flow off. Starting
+   * re-initializes the populations; after that every submit re-derives the
+   * setting from the dials (`submit`), so a dial change needs no restart.
    */
   setFlow(on: boolean): string | null {
     if (!on) {
       if (this.flow) { this.flow.destroy(); this.flow = null; this.rebuildTransportBGs(); }
       return null;
     }
-    const p = this.params;
-    const d = p.dTherm * p.dt / (p.dx * p.dx);
-    const issues = flowLimitIssues(latticeOf(d, this.flowCfg.pr, this.flowCfg.u));
-    if (issues.length) return issues.join("; ");
-    const width = (p.solver === SOLVER.QUANT ? p.epsBar : 2 * p.epsBar) / p.dx;
-    const cfg = { nu: d * this.flowCfg.pr, uIn: this.flowCfg.u, channel: true, width };
+    const s = this.flowNow();
+    if (s.issues.length) return s.issues.join("; ");
+    const cfg = { nu: s.nu, uIn: s.uIn, channel: true, width: s.width };
     if (this.flow) this.flow.configure(cfg);
     else { this.flow = new FlowSolver(this.device, this.n, cfg); this.rebuildTransportBGs(); }
     this.flow.init(() => [this.flowCfg.u, 0]);
     return null;
+  }
+
+  /**
+   * D3.2: why the RUNNING flow can no longer run at the current dials (the
+   * stability envelope, re-checked against them), or null. The frame loop asks
+   * every frame and switches the flow off with this sentence; until it does,
+   * `submit` keeps the last setting that passed rather than run an unchecked one.
+   */
+  get flowLimitIssue(): string | null {
+    if (!this.flow) return null;
+    const s = this.flowNow();
+    return s.issues.length ? s.issues.join("; ") : null;
   }
 
   /** the transport groups again, after the velocity binding changed */
@@ -836,7 +854,16 @@ export class Simulation {
       dir = 1 - dir;
     }
     const split = this.splitNow;
-    this.flow?.prepare();
+    // D3.2: the flow follows the dials as they are NOW. Latched at setFlow, a
+    // solver switch or a dt / dx / epsBar change mid-flow ran on the old
+    // viscosity and drag width. A setting that breaks the stability envelope
+    // keeps the last one that passed until the frame loop switches the flow off
+    // with the reason (flowLimitIssue). Unchanged dials rewrite the same bytes.
+    if (this.flow) {
+      const s = this.flowNow();
+      if (!s.issues.length) this.flow.configure({ nu: s.nu, uIn: s.uIn, channel: true, width: s.width });
+      this.flow.prepare();
+    }
     for (let i = 0; i < steps; i++) {
       // D3.2: the flow advances first, so this substep's transport reads the
       // velocity that this substep's phase field shaped (drag on phi[dir])

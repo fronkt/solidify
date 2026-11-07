@@ -71,7 +71,12 @@ et al. 2001 Table II. Every other path is labelled qualitative.
   Kobayashi), benchmark lambda 2.4, Pr 23.1, U d0/D 0.035:
   TRT tau = 0.5 + 3 nu_lat >= 0.51 (10.9); Mach <= 0.1 (0.020);
   Courant^2 <= 2d (inside); Pe_cell <= 2 (0.08). Limits become slider ranges
-  (dynRange), not silent clamps.
+  (dynRange), not silent clamps. The lattice setting (nu, drag width, inlet
+  speed) is re-derived from the dials on every substep (flow.ts flowSetting,
+  sim.ts submit) and the envelope re-checked every frame: a solver switch or
+  a dt / dx / epsBar / lambda change mid-flow re-configures the flow, and a
+  change that breaks the envelope switches it off with the reason (review
+  2026-11-07: latched at start, the switch kept a 3.1x or 0.32x drag).
 - Which path is honest: calibrated pure melt with solved T is the only
   quantitative path (Tong's own equations; with the repo's Al constants,
   U d0/D = 0.035 is ~1.6 km/s, so a dimensionless benchmark, not a casting

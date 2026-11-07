@@ -1,4 +1,5 @@
-// FLOW-* — D3 melt flow arithmetic (slice D3.0), checked without a browser.
+// FLOW-* — D3 melt flow arithmetic (slice D3.0, and the setting the running
+// flow re-derives from the dials), checked without a browser.
 // Design and citations: docs/D3-CONVECTION-DESIGN.md.
 //
 //   node scripts/verify-flow.mjs
@@ -80,6 +81,44 @@ const check = (name, ok, detail) => {
   const erfcOk = Math.abs(F.erfc(0) - 1) < 1e-12 && Math.abs(F.erfc(1) - 0.157299207050285) < 1e-11
     && Math.abs(F.erfc(3) - 2.20904969985854e-5) < 1e-14;
   check("IVANTSOV-2D", round && erfcOk && Math.abs(P - 0.257) <= 0.01, { P: +P.toFixed(5), roundTrip: round, erfc: erfcOk });
+}
+
+// 5. FLOW-SETTING — the lattice setting the flow runs at is a function of the
+//    dials as they are NOW (flowSetting; sim.ts re-derives it every submit).
+//    At the dials setFlow saw it is the rule setFlow used to latch, so a flow
+//    whose dials never move writes the same bytes. Across the solver switch it
+//    MUST move: the stale Kobayashi setting under calibrated dials has the drag
+//    3.1x too strong, the no-slip plane +0.5 W off (noSlipOffset, the same ODE
+//    FLOW-H-PLANAR pins at 0), and a different Prandtl number. A dial that
+//    breaks the envelope mid-flow is reported (the frame loop's reason).
+{
+  const { DEFAULTS } = await server.ssrLoadModule("/src/sim.ts");
+  const { A2, DT_SAFETY } = await server.ssrLoadModule("/src/quant.ts");
+  const f = { u: 0.02, pr: 23.1 };
+  const kob = { dTherm: DEFAULTS.dTherm, dt: DEFAULTS.dt, dx: DEFAULTS.dx, epsBar: DEFAULTS.epsBar, calibrated: false };
+  // calibrated staging as QPF-TIP-KR / FLOW-TIP-TONG: lambda 2.4, dx = 0.8 W0, epsBar = 1
+  const dTilde = A2 * 2.4, dxQ = 0.8;
+  const cal = { dTherm: dTilde, dt: DT_SAFETY * dxQ * dxQ / Math.max(1, dTilde), dx: dxQ, epsBar: 1, calibrated: true };
+  const latched = p => {   // the rule setFlow latched before the fix, verbatim
+    const d = p.dTherm * p.dt / (p.dx * p.dx);
+    return { nu: d * f.pr, width: (p.calibrated ? p.epsBar : 2 * p.epsBar) / p.dx };
+  };
+  const sK = F.flowSetting(kob, f), sQ = F.flowSetting(cal, f);
+  const same = [kob, cal].every((p, i) => { const s = i ? sQ : sK, l = latched(p); return s.nu === l.nu && s.width === l.width && s.uIn === f.u; });
+  const K = s => s.nu / (s.width * s.width);           // drag K / (2 h), per phi^2
+  const ratio = K(sK) / K(sQ);
+  const h = F.deriveDragH(), staleOffsetW = F.noSlipOffset(h * ratio);
+  const prStale = sK.nu / (cal.dTherm * cal.dt / (cal.dx * cal.dx));
+  const moved = sK.nu !== sQ.nu && sK.width !== sQ.width && Math.abs(ratio - 3.125) < 0.01 && staleOffsetW > 0.4;
+  // the dt dial taken far down mid-flow: d falls, the cell Peclet number rises past 2
+  const broken = F.flowSetting({ ...kob, dt: DEFAULTS.dt / 200 }, f).issues;
+  const ok = same && moved && sK.issues.length === 0 && sQ.issues.length === 0 && broken.some(s => /Peclet/.test(s));
+  check("FLOW-SETTING", ok, {
+    sameAsLatchedRuleAtItsDials: same,
+    kobayashi: { nu: +sK.nu.toFixed(4), width: +sK.width.toFixed(4) }, calibrated: { nu: +sQ.nu.toFixed(4), width: +sQ.width.toFixed(4) },
+    staleDragRatio: +ratio.toFixed(4), staleNoSlipOffsetW: +staleOffsetW.toFixed(3), staleEffectivePr: +prStale.toFixed(2),
+    brokenDialRefused: broken.length,
+  });
 }
 
 await server.close();

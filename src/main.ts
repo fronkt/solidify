@@ -2496,6 +2496,16 @@ async function boot() {
       // when paused, tick() is a no-op — keep the stage live so it isn't frozen
       if (!opt.isRunning()) renderer.render(sim, 1, t / 1000);
     } else {
+      // D3.3: a scenario, solver, mode or dial change that the flow cannot run
+      // under switches it off with the reason, rather than leaving it running
+      // wrong; checked BEFORE this frame's step, so no substep runs with it.
+      // The dials are re-checked against the stability envelope too: the flow
+      // follows them every substep (sim.ts submit), so a dt or solver change
+      // can break the envelope long after setFlow passed it.
+      if (sim.flowOn) {
+        const why = flowWhyNot() ?? sim.flowLimitIssue;
+        if (why) { sim.setFlow(false); renderer.rebind(sim); flowIssue = why; ui.sync(); }
+      }
       // a bench cast owns the transport too, not just the observe below: with
       // the transport live this branch would inject frame-paced nuc.update +
       // sim.step around the cast's fence-paced chunks (Space mid-cast is
@@ -2526,9 +2536,6 @@ async function boot() {
       }
       // the replay ledger: a reset runs the clock back; reheat, a weld pass
       // and a heat treatment are marked as they happen (src/replay.ts)
-      // D3.3: a scenario, solver or mode change that the flow cannot run under
-      // switches it off with the reason, rather than leaving it running wrong
-      if (sim.flowOn) { const why = flowWhyNot(); if (why) { sim.setFlow(false); renderer.rebind(sim); flowIssue = why; ui.sync(); } }
       replay2.clock(sim.simTime);
       if (sim.params.scen === 2 && running) replay2.mark(REPLAY.weld);
       if (sim.params.heatIn > 0) replay2.mark(REPLAY.reheat);
