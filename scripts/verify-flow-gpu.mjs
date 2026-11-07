@@ -27,6 +27,7 @@ import puppeteer from "puppeteer-core";
 import { createServer } from "vite";
 import { readFileSync, existsSync } from "node:fs";
 import { captureFlowOffCases, runFlowCase } from "./fixtures/flow-off-cases.mjs";
+import { INLET_GATES, inletReference, inletStats, inletVerdicts, fieldOfTexture } from "./fixtures/lbm-ref.mjs";
 // D3.2 (coupling) adds:
 //   FLOW-OFF-IDENTITY   with flow off, seven 2D cases hash exactly as they did
 //                       at the commit before advection existed
@@ -55,12 +56,39 @@ import { captureFlowOffCases, runFlowCase } from "./fixtures/flow-off-cases.mjs"
 //                       upstream arm outgrows the no-flow arm by > 5 % and the
 //                       downstream arm falls short by > 5 %; with the coupling
 //                       reversed (-1) the upstream arm falls short instead.
+// D3.5 (the velocity inlet; pre-registered in tasks/todo.md, "D3.5 velocity
+// inlet - 2026-11-07", da91d87). Setting nu 3.465, u_lat 0.011404 (D3.4's
+// n 848 arm). Each gate runs the default (Zou-He) inlet and a MUST-MISS arm
+// with the pre-D3.5 equilibrium inlet (FlowConfig.inlet, test harness only);
+// both fields go through the same statistics as a Float64 CPU reference of the
+// same step (scripts/fixtures/lbm-ref.mjs), run here on the Node side.
+//   FLOW-INLET-EMPTY    an empty 64^2 channel started at U/2 (a speed change):
+//                       the column-mean velocity is U within 1e-3 at every
+//                       column; the old inlet stays short (CPU: 0.873 U).
+//   FLOW-INLET-BLOCKED  a 128^2 channel with a disk of radius 9.6 cells
+//                       (blockage 0.15): the column-mean velocity is within
+//                       2 % of U at every column, steady, mass-conserving and
+//                       within 2e-3 of the CPU reference; the old inlet
+//                       delivers 0.83 U, as predicted, on an equally valid run.
+//   FLOW-INLET-COLUMN   every inlet node, corners included, carries (U, 0)
+//                       within 1e-4 of U; the old inlet's do not.
+//   FLOW-INLET-APP      the app's own path (sim.ts, no inlet named), Kobayashi
+//                       with a growing crystal, after the rail's speed dial:
+//                       the inlet column carries the dialled speed.
 const BASELINE = new URL("./fixtures/flow-off-baseline.json", import.meta.url);
 
 const PORT = process.argv[3] ?? "5199";
 const vite = await createServer({ server: { middlewareMode: true }, appType: "custom", logLevel: "error" });
 const F = await vite.ssrLoadModule("/src/flow.ts");
 await vite.close();
+
+// D3.5: the Float64 CPU reference of the two inlet geometries, both inlets,
+// computed before the browser starts (about a minute). The GPU fields go
+// through the same statistics (lbm-ref.mjs inletStats).
+const G5 = INLET_GATES, H5 = F.deriveDragH(), DRAGK5 = (2 * H5 * G5.nu) / (G5.W * G5.W);
+const OPTS5 = { probe: G5.B.probe, gapColumn: G5.B.gapColumn, dragK: DRAGK5 };
+const b64f32 = s => new Float32Array(new Uint8Array(Buffer.from(s, "base64")).buffer);
+const cpu5 = { velocity: inletReference("velocity", H5), equilibrium: inletReference("equilibrium", H5) };
 
 let failures = 0;
 const FAIL = () => { failures++; return "FAIL"; };
@@ -212,6 +240,63 @@ try {
     });
     check("FLOW-FREESTREAM", out.maxDeviationOfU <= 1e-3, out);
   }
+
+  // -------------------------------------------------------------------------
+  // D3.5 FLOW-INLET-EMPTY / -BLOCKED / -COLUMN (pre-registered, da91d87). The
+  // page runs the solver and ships the raw velocity textures (u.x, u.y, rho,
+  // K) back; every statistic is computed here by inletStats, the function the
+  // CPU reference's fields go through too.
+  {
+    const gpu = await page.evaluate(async (P) => {
+      const { FlowSolver } = await import("/src/lbm.ts");
+      const device = window.__solidify.sim().device;
+      const b64 = a => { const b = new Uint8Array(a.buffer, a.byteOffset, a.byteLength); let s = "";
+        for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
+      const settle = async (fs, k) => { for (let i = 0; i < k / 1000; i++) { fs.step(1000); await device.queue.onSubmittedWorkDone(); } };
+      const B = P.B, nB = B.n;
+      // the disk as lbm-ref.mjs diskPhi builds it, stored f32 in .r
+      const tex = device.createTexture({ size: [nB, nB], format: "rgba32float", usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST });
+      const d = new Float32Array(nB * nB * 4);
+      for (let y = 0; y < nB; y++) for (let x = 0; x < nB; x++)
+        d[(y * nB + x) * 4] = 0.5 * (1 - Math.tanh((Math.hypot(x - B.cx, y - B.cy) - B.R) / (Math.SQRT2 * P.W)));
+      device.queue.writeTexture({ texture: tex }, d, { bytesPerRow: nB * 16 }, [nB, nB]);
+      const out = {};
+      try {
+        for (const inlet of ["velocity", "equilibrium"]) {
+          // A: empty channel, started at U/2 with the inlet at U
+          const a = new FlowSolver(device, P.A.n, { nu: P.nu, uIn: P.U, channel: true, width: 0, inlet });
+          a.init(() => [P.A.start * P.U, 0]);
+          await settle(a, P.A.steps);
+          const vA = await a.readVelocity(), stepsA = a.steps;
+          a.destroy();
+          // B: the disk, from the app's uniform start
+          const b = new FlowSolver(device, nB, { nu: P.nu, uIn: P.U, channel: true, width: P.W, inlet });
+          b.setPhi(tex);
+          await settle(b, B.mid);
+          const vMid = await b.readVelocity();
+          await settle(b, B.steps - B.mid);
+          const vB = await b.readVelocity(), stepsB = b.steps;
+          b.destroy();
+          out[inlet] = { A: b64(vA), stepsA, Bmid: b64(vMid), B: b64(vB), stepsB };
+        }
+      } finally { tex.destroy(); }
+      return out;
+    }, G5);
+    const g5 = {};
+    for (const inlet of ["velocity", "equilibrium"]) {
+      const r = gpu[inlet];
+      g5[inlet] = { stepsA: r.stepsA, stepsB: r.stepsB,
+        A: inletStats(G5.A.n, G5.U, fieldOfTexture(b64f32(r.A))),
+        Bmid: inletStats(G5.B.n, G5.U, fieldOfTexture(b64f32(r.Bmid)), OPTS5),
+        B: inletStats(G5.B.n, G5.U, fieldOfTexture(b64f32(r.B)), OPTS5) };
+    }
+    // the verdicts and their bands live in lbm-ref.mjs inletVerdicts (pure;
+    // verify-flow.mjs runs it on the reference's own statistics)
+    const v5 = inletVerdicts(g5, cpu5);
+    check("FLOW-INLET-EMPTY", v5.empty.ok, v5.empty.detail);
+    check("FLOW-INLET-BLOCKED", v5.blocked.ok, v5.blocked.detail);
+    check("FLOW-INLET-COLUMN", v5.column.ok, v5.column.detail);
+  }
   // -------------------------------------------------------------------------
   // FLOW-OFF-IDENTITY
   let baseline = null;
@@ -300,6 +385,71 @@ try {
     });
     const ok = out.none.west > 20 && out.upstream > 1.05 && out.downstream < 0.95 && out.reversedUpstream < 1;
     check("FLOW-DIRECTION", ok, out);
+  }
+
+  // FLOW-INLET-APP (D3.5, pre-registered): the inlet the APP runs, through
+  // sim.ts (whose configure names no inlet), with a crystal in the channel and
+  // after the rail's speed dial (S.app.setFlowU, which re-initialises the flow
+  // at the new speed). Staged as FLOW-DIRECTION. Reported, not gating: the same
+  // run with the solver's configure patched to the pre-D3.5 equilibrium inlet.
+  {
+    const out = await page.evaluate(async () => {
+      const S = window.__solidify, sim = S.sim(), f = sim.step; sim.step = () => 0;
+      const readVel = async () => {
+        const n = sim.n, tex = sim.flowVelocity, bpr = n * 16;
+        const buf = sim.device.createBuffer({ size: bpr * n, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+        const enc = sim.device.createCommandEncoder();
+        enc.copyTextureToBuffer({ texture: tex }, { buffer: buf, bytesPerRow: bpr }, [n, n]);
+        sim.device.queue.submit([enc.finish()]);
+        await buf.mapAsync(GPUMapMode.READ);
+        const v = new Float32Array(buf.getMappedRange().slice(0));
+        buf.unmap(); buf.destroy();
+        return v;
+      };
+      const run = async (patchOld) => {
+        S.setSeed(0x51f0); S.setSolver(0);
+        Object.assign(sim.params, { scen: 0, heatIn: 0, coolRate: 0, alloyOn: 0, twinProb: 0, noiseAmp: 0 });
+        Object.assign(sim.flowCfg, { u: 0.02, scale: 1 });
+        const why = sim.setFlow(true);
+        if (why) return { why };
+        const fl = sim.flow;
+        if (patchOld) { const c = fl.configure.bind(fl); fl.configure = cfg => c({ ...cfg, inlet: "equilibrium" }); fl.configure(fl.cfg); }
+        sim.reset(1 - 0.65);
+        sim.addSeed(sim.n / 2, sim.n / 2, 4, 0);
+        for (let i = 0; i < 3; i++) await sim.stepSync(0);
+        let substeps = 0;
+        const lbm0 = fl.steps;
+        for (let k = 0; k < 20; k++) substeps += await sim.stepSync(50);
+        const lbmBefore = fl.steps - lbm0;
+        S.app.setFlowU(0.03);                      // the rail's dial: re-initialises at 0.03
+        if (sim.flow !== fl) return { why: "the dial replaced the solver" };
+        const lbm1 = fl.steps;
+        for (let k = 0; k < 20; k++) substeps += await sim.stepSync(50);
+        const lbmAfter = fl.steps - lbm1, U = sim.flowCfg.u, n = sim.n;
+        const v = await readVel();
+        let inletX = 0, inletY = 0;
+        const V = new Float64Array(n), Rm = new Float64Array(n);
+        for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+          const k = (y * n + x) * 4;
+          V[x] += v[k] / n / U; Rm[x] += v[k + 2] / n;
+          if (x === 0) { inletX = Math.max(inletX, Math.abs(v[k] / U - 1)); inletY = Math.max(inletY, Math.abs(v[k + 1]) / U); }
+        }
+        const row = await sim.readRows(n / 2, 1);
+        let west = 0;
+        for (let x = n / 2; x >= 0 && row[x * 4] >= 0.5; x--) west = n / 2 - x;
+        sim.setFlow(false); sim.splitPasses = false; Object.assign(sim.flowCfg, { u: 0.02, scale: 1 });
+        return { U, n, substeps, lbmSteps: lbmBefore + lbmAfter, inletX, inletY, west,
+          Vmin: Math.min(...V), Vmax: Math.max(...V), rhoIn: Rm[0], rhoOut: Rm[n - 1] };
+      };
+      try {
+        return { app: await run(false), oldInlet: await run(true) };
+      } finally { sim.setFlow(false); sim.splitPasses = false; Object.assign(sim.flowCfg, { u: 0.02, scale: 1 }); sim.step = f; }
+    });
+    const a = out.app ?? {};
+    const live = a.west > 20 && a.lbmSteps === 2000 && a.substeps === 2000;
+    const ok = !a.why && Math.abs(a.U - 0.03) < 1e-12 && a.inletX <= 1e-4 && a.inletY <= 1e-4 && live;
+    const r = o => o && Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === "number" && !Number.isInteger(v) ? +v.toPrecision(5) : v]));
+    check("FLOW-INLET-APP", ok, { app: r(a), live, oldInletInfoOnly: r(out.oldInlet), oldInletMisses: (out.oldInlet?.inletX ?? 0) > 1e-4 });
   }
 
   // FLOW-UI — the operator surface: the rail's "melt flow" checkbox starts the

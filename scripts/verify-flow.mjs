@@ -191,50 +191,26 @@ const R = await import("./fixtures/lbm-ref.mjs");
 //    is a conservation witness only. The equilibrium arms are the inlet that
 //    shipped before D3.5; they must miss, and must miss with a valid run.
 {
-  const NU = 0.15 * 23.1, U = 0.011404004977938682, W = 1.25, H = F.deriveDragH();
-  const max = a => a.reduce((m, v) => Math.max(m, v), -Infinity), min = a => a.reduce((m, v) => Math.min(m, v), Infinity);
-  const runA = inlet => {
-    const L = new R.LbmRef(64, { nu: NU, uIn: U, channel: true, inlet });
-    L.init(() => [U / 2, 0]);
-    L.step(8000);
-    const c = L.columns();
-    return { Vmin: min(c.V), Vmax: max(c.V), dev: max(Array.from(c.V, v => Math.abs(v - 1))), uy: max(Array.from(L.uy, v => Math.abs(v))) / U, level: L.meanRho() };
-  };
-  const n = 128, phi = R.diskPhi(n, 64, 63.5, 9.6, W);
-  const runB = inlet => {
-    const L = new R.LbmRef(n, { nu: NU, uIn: U, channel: true, width: W, h: H, phi, inlet });
-    L.step(14000);
-    const c14 = L.columns();
-    L.step(2000);
-    const c = L.columns(), V = Array.from(c.V), centre = 63 * n + 64;
-    let gapMax = -Infinity, inletX = 0, inletY = 0, mirror = 0;
-    for (let y = 0; y < n; y++) {
-      gapMax = Math.max(gapMax, L.ux[y * n + 64] / U);
-      inletX = Math.max(inletX, Math.abs(L.ux[y * n] / U - 1));
-      inletY = Math.max(inletY, Math.abs(L.uy[y * n]) / U);
-      for (let x = 0; x < n; x++) {
-        const a = y * n + x, b = (n - 1 - y) * n + x;
-        mirror = Math.max(mirror, Math.abs(L.ux[a] - L.ux[b]) / U, Math.abs(L.uy[a] + L.uy[b]) / U);
-      }
-    }
-    const st = {
-      Vmin: min(V), Vmax: max(V), V0: c.V[0], Vout: c.V[n - 1],
-      steady: max(V.map((v, x) => Math.abs(v - c14.V[x]))),
-      conserve: max(Array.from(c.Q, q => Math.abs(q / c.Q[0] - 1))),
-      centreSpeed: Math.hypot(L.ux[centre], L.uy[centre]) / U, centreK: L.K[centre] / L.dragK, gapMax,
-      inletX, inletY, mirror, Q0: c.Q[0], rhoIn: c.R[0], rhoOut: c.R[n - 1], level: L.meanRho(),
-    };
-    st.valid = st.steady <= 1e-4 && st.conserve <= 2e-3 && st.centreSpeed <= 0.01 && st.centreK >= 0.99 && st.gapMax >= 1.05;
-    return st;
-  };
-  const aV = runA("velocity"), aE = runA("equilibrium"), bV = runB("velocity"), bE = runB("equilibrium");
-  const okA = aV.dev <= 1e-6 && aV.uy <= 1e-6 && aE.Vmax < 0.98;
-  const okB = bV.Vmin >= 0.98 && bV.Vmax <= 1.02 && bV.valid && bV.inletX <= 1e-12 && bV.inletY <= 1e-12 && bV.mirror <= 1e-9;
-  const okArm = bE.Vmax < 0.98 && Math.abs(bE.V0 - 0.83152) <= 1e-4 && bE.rhoIn > bE.rhoOut && bE.valid;
-  const r = (o, d = 6) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === "number" ? +v.toPrecision(d) : v]));
-  check("FLOW-INLET-CPU", okA && okB && okArm, {
-    emptyAfterSpeedChange: { velocity: r(aV), equilibrium: r(aE) },
-    blocked: { velocity: r(bV), equilibrium: r(bE) }, verdicts: { okA, okB, okArm },
+  const G = R.INLET_GATES, H = F.deriveDragH();
+  const ref = { velocity: R.inletReference("velocity", H), equilibrium: R.inletReference("equilibrium", H) };
+  const v = ref.velocity, e = ref.equilibrium;
+  const vv = R.blockedValidity(v.Bmid, v.B), ve = R.blockedValidity(e.Bmid, e.B);
+  const devA = Math.max(...v.A.V.map(x => Math.abs(x - 1)));
+  const okA = v.stepsA === G.A.steps && devA <= 1e-6 && v.A.uyMax <= 1e-6 && e.A.Vmax < 0.98;
+  const okB = v.stepsB === G.B.steps && v.B.Vmin >= 0.98 && v.B.Vmax <= 1.02 && vv.ok && v.B.inletX <= 1e-12 && v.B.inletY <= 1e-12 && v.B.mirror <= 1e-9;
+  const okArm = e.B.Vmax < 0.98 && Math.abs(e.B.V0 - 0.83152) <= 1e-4 && e.B.rhoIn > e.B.rhoOut && ve.ok;
+  // The GPU gates' verdict code (lbm-ref.mjs inletVerdicts, never otherwise run
+  // off the GPU), fed the reference's own statistics as the "measured" run: all
+  // three pass. Planted defect: the old inlet as the default; all three fail.
+  const self = R.inletVerdicts(ref, ref), planted = R.inletVerdicts({ velocity: e, equilibrium: e }, ref);
+  const harness = [self.empty, self.blocked, self.column].every(x => x.ok) && [planted.empty, planted.blocked, planted.column].every(x => !x.ok);
+  const r = (o, d = 6) => Object.fromEntries(Object.entries(o).filter(([, x]) => typeof x !== "object").map(([k, x]) => [k, typeof x === "number" ? +x.toPrecision(d) : x]));
+  check("FLOW-INLET-CPU", okA && okB && okArm && harness, {
+    emptyAfterSpeedChange: { velocity: { ...r(v.A), maxAbsVminus1: +devA.toExponential(3), level: +v.levelA.toFixed(6) }, equilibrium: { ...r(e.A), level: +e.levelA.toFixed(6) } },
+    blocked: { velocity: { ...r(v.B), steady: +vv.steady.toExponential(2), valid: vv.ok, level: +v.levelB.toFixed(6) },
+      equilibrium: { ...r(e.B), steady: +ve.steady.toExponential(2), valid: ve.ok, level: +e.levelB.toFixed(6) } },
+    verdicts: { okA, okB, okArm },
+    gpuVerdictCode: { onReference: [self.empty.ok, self.blocked.ok, self.column.ok], oldInletAsDefault: [planted.empty.ok, planted.blocked.ok, planted.column.ok] },
   });
 }
 

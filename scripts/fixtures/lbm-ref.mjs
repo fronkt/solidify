@@ -225,3 +225,121 @@ export class LbmRef {
     return s / (this.n * this.n);
   }
 }
+
+/** a field accessor over this reference's arrays */
+export const fieldOfRef = L => ({ ux: k => L.ux[k], uy: k => L.uy[k], rho: k => L.rho[k], K: k => L.K[k] });
+/** a field accessor over a FlowSolver velocity texture read back (u.x, u.y, rho, K per cell) */
+export const fieldOfTexture = v => ({ ux: k => v[4 * k], uy: k => v[4 * k + 1], rho: k => v[4 * k + 2], K: k => v[4 * k + 3] });
+
+/**
+ * The statistics the D3.5 inlet gates read, from a GPU texture or this
+ * reference alike (scripts/verify-flow.mjs FLOW-INLET-CPU and
+ * scripts/verify-flow-gpu.mjs FLOW-INLET-*), all normalised by U:
+ *   V[x]   column-mean velocity mean_y u_x / U (the pass statistic)
+ *   Q[x]   column-mean mass flux mean_y rho u_x / U; conserve = max |Q/Q[0] - 1|
+ *   inletX / inletY  max over the inlet nodes (x = 0, every y) of
+ *          |u_x / U - 1| and |u_y| / U
+ *   mirror max |u_x(x, y) - u_x(x, n-1-y)| and |u_y(x, y) + u_y(x, n-1-y)|, / U
+ *   with opts.probe = [x, y] and opts.dragK: the probe node's |u| / U and
+ *   K / dragK; with opts.gapColumn: the largest u_x / U on that column.
+ */
+export function inletStats(n, U, g, opts = {}) {
+  const V = new Float64Array(n), Q = new Float64Array(n), Rm = new Float64Array(n);
+  let uyMax = 0, inletX = 0, inletY = 0, mirror = 0;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const k = y * n + x, m = (n - 1 - y) * n + x;
+    V[x] += g.ux(k); Q[x] += g.rho(k) * g.ux(k); Rm[x] += g.rho(k);
+    uyMax = Math.max(uyMax, Math.abs(g.uy(k)) / U);
+    mirror = Math.max(mirror, Math.abs(g.ux(k) - g.ux(m)) / U, Math.abs(g.uy(k) + g.uy(m)) / U);
+    if (x === 0) { inletX = Math.max(inletX, Math.abs(g.ux(k) / U - 1)); inletY = Math.max(inletY, Math.abs(g.uy(k)) / U); }
+  }
+  for (let x = 0; x < n; x++) { V[x] /= n * U; Q[x] /= n * U; Rm[x] /= n; }
+  const Vs = Array.from(V), Qs = Array.from(Q);
+  const out = {
+    V: Vs, Q: Qs, Vmin: Math.min(...Vs), Vmax: Math.max(...Vs), V0: Vs[0], Vout: Vs[n - 1],
+    conserve: Math.max(...Qs.map(q => Math.abs(q / Qs[0] - 1))), Q0: Qs[0],
+    rhoIn: Rm[0], rhoOut: Rm[n - 1], uyMax, inletX, inletY, mirror,
+  };
+  if (opts.probe) {
+    const c = opts.probe[1] * n + opts.probe[0];
+    out.centreSpeed = Math.hypot(g.ux(c), g.uy(c)) / U;
+    if (opts.dragK) out.centreK = g.K(c) / opts.dragK;
+  }
+  if (opts.gapColumn !== undefined) {
+    let gm = -Infinity;
+    for (let y = 0; y < n; y++) gm = Math.max(gm, g.ux(y * n + opts.gapColumn) / U);
+    out.gapMax = gm;
+  }
+  return out;
+}
+
+/** FLOW-INLET-BLOCKED's validity on one arm: steady between the two reads,
+ *  mass-conserving, the disk blocking and the flow going round it */
+export function blockedValidity(mid, end) {
+  const steady = Math.max(...end.V.map((v, x) => Math.abs(v - mid.V[x])));
+  return { steady, ok: steady <= 1e-4 && end.conserve <= 2e-3 && end.centreSpeed <= 0.01 && end.centreK >= 0.99 && end.gapMax >= 1.05 };
+}
+
+/** the D3.5 gate geometries (tasks/todo.md, "D3.5 velocity inlet - 2026-11-07") */
+export const INLET_GATES = {
+  nu: 0.15 * 23.1, U: 0.011404004977938682, W: 1.25,
+  A: { n: 64, start: 0.5, steps: 8000 },
+  B: { n: 128, cx: 64, cy: 63.5, R: 9.6, mid: 14000, steps: 16000, probe: [64, 63], gapColumn: 64 },
+};
+
+/**
+ * The verdicts of FLOW-INLET-EMPTY, -BLOCKED and -COLUMN (verify-flow-gpu.mjs)
+ * from per-inlet statistics { stepsA, stepsB, A, Bmid, B } of the measured run
+ * (`run`) and of this reference (`ref`), with the pre-registered bands. Pure,
+ * so verify-flow.mjs exercises it without a browser.
+ */
+export function inletVerdicts(run, ref) {
+  const G = INLET_GATES, rv = run.velocity, re = run.equilibrium, cv = ref.velocity, ce = ref.equilibrium;
+  const maxAbs = (a, b) => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
+  const brief = (st, d = 6) => Object.fromEntries(Object.entries(st).filter(([, v]) => typeof v === "number").map(([k, v]) => [k, +v.toPrecision(d)]));
+  const devV = Math.max(...rv.A.V.map(v => Math.abs(v - 1)));
+  const empty = {
+    ok: rv.stepsA === G.A.steps && re.stepsA === G.A.steps && devV <= 1e-3 && rv.A.uyMax <= 1e-4 && re.A.Vmax < 0.98,
+    detail: {
+      velocity: { maxAbsVminus1: +devV.toExponential(3), uyMaxOfU: +rv.A.uyMax.toExponential(3), refMaxAbsVminus1: +Math.max(...cv.A.V.map(v => Math.abs(v - 1))).toExponential(3) },
+      equilibriumArm: { Vmax: +re.A.Vmax.toFixed(6), refVmax: +ce.A.Vmax.toFixed(6), misses: re.A.Vmax < 0.98 }, steps: rv.stepsA,
+    },
+  };
+  const vv = blockedValidity(rv.Bmid, rv.B), ve = blockedValidity(re.Bmid, re.B);
+  const refDiff = maxAbs(rv.B.V, cv.B.V), armRefDiff0 = Math.abs(re.B.V0 - ce.B.V0);
+  const pass = rv.B.Vmin >= 0.98 && rv.B.Vmax <= 1.02 && vv.ok && refDiff <= 2e-3;
+  const armMisses = re.B.Vmax < 0.98 && ve.ok && armRefDiff0 <= 0.01;
+  const blocked = {
+    ok: pass && armMisses && rv.stepsB === G.B.steps && re.stepsB === G.B.steps,
+    detail: {
+      velocity: { ...brief(rv.B), steady: +vv.steady.toExponential(2), valid: vv.ok, maxAbsVminusRef: +refDiff.toExponential(3), ref: brief(cv.B) },
+      equilibriumArm: { ...brief(re.B), steady: +ve.steady.toExponential(2), valid: ve.ok, V0minusRef: +armRefDiff0.toExponential(3),
+        refV0: +ce.B.V0.toFixed(6), backPressure: re.B.rhoIn > re.B.rhoOut, misses: re.B.Vmax < 0.98 },
+      steps: rv.stepsB,
+    },
+  };
+  const column = {
+    ok: rv.B.inletX <= 1e-4 && rv.B.inletY <= 1e-4 && re.B.inletX > 1e-4,
+    detail: {
+      velocity: { maxAbsUxOverUminus1: +rv.B.inletX.toExponential(3), maxAbsUyOverU: +rv.B.inletY.toExponential(3) },
+      equilibriumArm: { maxAbsUxOverUminus1: +re.B.inletX.toExponential(3), maxAbsUyOverU: +re.B.inletY.toExponential(3), misses: re.B.inletX > 1e-4 },
+      ref: { velocity: +cv.B.inletX.toExponential(2), equilibrium: +ce.B.inletX.toExponential(3) },
+    },
+  };
+  return { empty, blocked, column };
+}
+
+/** run one arm of each geometry on this reference: { A, Bmid, B } statistics */
+export function inletReference(inlet, h) {
+  const { nu, U, W, A: GA, B: GB } = INLET_GATES;
+  const a = new LbmRef(GA.n, { nu, uIn: U, channel: true, inlet });
+  a.init(() => [GA.start * U, 0]);
+  a.step(GA.steps);
+  const b = new LbmRef(GB.n, { nu, uIn: U, channel: true, width: W, h, phi: diskPhi(GB.n, GB.cx, GB.cy, GB.R, W), inlet });
+  const opts = { probe: GB.probe, gapColumn: GB.gapColumn, dragK: b.dragK };
+  b.step(GB.mid);
+  const Bmid = inletStats(GB.n, U, fieldOfRef(b), opts);
+  b.step(GB.steps - GB.mid);
+  return { A: inletStats(GA.n, U, fieldOfRef(a)), Bmid, B: inletStats(GB.n, U, fieldOfRef(b), opts),
+    levelA: a.meanRho(), levelB: b.meanRho(), stepsA: a.steps, stepsB: b.steps };
+}
