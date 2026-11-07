@@ -33,6 +33,17 @@ import { closeBrowser } from "./browser-cleanup.mjs";
 //                        uniform-drive control; surviving nuclei were born on
 //                        boundaries more often than nuclei in general (pooled).
 //
+//   S0 review (2026-11-07, pre-registered in tasks/todo.md, appended last):
+//   RX3-ID-WRAP          a twin counter wrapped past 0 has no free ids:
+//                        nucleate refuses, annealTwins reports saturation.
+//   RX3-PIN-STAMP        a pinned stamp is a strict subset of the unpinned one
+//                        (nuclei never land in particle voxels).
+//   RX3-PLACED           a one-voxel clipped nucleus counts as placed, and a
+//                        region read in flight does not zero the count.
+//   HT3-BUSY-RELEASE     a throw inside a treatment releases the busy latch.
+//   RX3-PIN-HELD         the dispersion is held back while nuclei are dialed:
+//                        note, card and the solver's own pin arguments.
+//
 //   node scripts/verify-recrystallize-gpu.mjs [outDir] [port]
 import puppeteer from "puppeteer-core";
 import { createServer } from "vite";
@@ -580,6 +591,185 @@ try {
       && /held back/.test(out.report ?? "");
     const rxRows = (out.report ?? "").match(/recrystallized[\s\S]{0,260}/)?.[0] ?? "";
     check("RX3-PANEL", ok, { ...out, report: rxRows, S: out.S?.length, X: undefined, cardN, refitN, refused, xRow });
+  }
+  // -------------------------------------------------------------------------
+  // S0 review gates (pre-registered in tasks/todo.md, "S0 review fixes"),
+  // appended after every earlier gate so none of them inherits their state.
+
+  // RX3-ID-WRAP (F1) — a counter the growth twins carried past 0 has no free
+  // ids: nucleate refuses with a sentence instead of throwing, and the host's
+  // annealTwins reports saturation rather than allocating off a wrapped value.
+  {
+    const out = await page.evaluate(async () => {
+      const R = window.__rx, S = window.__solidify;
+      const s3 = await R.crystal(0x5a5a, 20, 10);
+      return R.hold(async () => {
+        const ctr0 = await s3.readTwinCtr(), nextId = s3.nextId, freeFresh = s3.freeIds(ctr0);
+        let ctr = ctr0;
+        for (let i = 0; i < 4200; i++) ctr = (ctr - 1) >>> 0;   // 4200 growth-twin attempts
+        s3.device.queue.writeBuffer(s3.twinCtrBuf, 0, new Uint32Array([ctr]));
+        const read = await s3.readTwinCtr(), freeWrapped = s3.freeIds(read);
+        let nuc = null, nucThrew = null, tw = null, twThrew = null;
+        try { nuc = await s3.nucleate(20); } catch (e) { nucThrew = String(e); }
+        const after = await s3.readTwinCtr();
+        try { tw = await S.heat.host.annealTwins(4, () => true, undefined); } catch (e) { twThrew = String(e); }
+        // the rule this replaced, on the same counter: where its id range starts
+        const replacedFirstId = read - Math.min(20, read - nextId - 2) + 1;
+        return { ctr0, nextId, freeFresh, written: ctr, read, freeWrapped, nuc, nucThrew, after, tw, twThrew, replacedFirstId };
+      });
+    });
+    const ok = out.freeFresh === out.ctr0 - out.nextId - 2 && out.freeFresh > 0 && out.read === out.written && out.read > 4094
+      && out.freeWrapped === 0 && !out.nucThrew && !!out.nuc && "why" in out.nuc && out.after === out.read
+      && !out.twThrew && out.tw?.spawned === 0 && out.tw?.saturated === true;
+    check("RX3-ID-WRAP", ok, out);
+  }
+
+  // RX3-PIN-STAMP (F3) — nuclei claim only voxels the pinned anneal treats.
+  {
+    const out = await page.evaluate(async () => {
+      const R = window.__rx;
+      const centres = [];
+      for (const z of [40, 70]) for (let y = 12; y <= 66; y += 18) for (let x = 12; x <= 84; x += 18) centres.push([x, y, z]);
+      const stamp = async pin => {
+        const s3 = await R.crystal(0x7a7a, 20, 10);
+        return R.hold(async () => {
+          const ev = await s3.nucleate(centres.length, 4, centres, pin);
+          if ("why" in ev) return { why: ev.why };
+          return { lo: ev.lo, hi: ev.hi, placed: ev.placed, g: await s3.readGrainVolume() };
+        });
+      };
+      const U = await stamp(undefined), P = await stamp({ f: 0.10, r: 2 });
+      if (U.why || P.why) return { why: U.why ?? P.why };
+      let inU = 0, inP = 0, notSubset = 0, idMismatch = 0;
+      for (let i = 0; i < U.g.length; i++) {
+        const u = U.g[i] >= U.lo && U.g[i] <= U.hi, p = P.g[i] >= P.lo && P.g[i] <= P.hi;
+        if (u) inU++;
+        if (p) { inP++; if (!u) notSubset++; else if (P.g[i] !== U.g[i]) idMismatch++; }
+      }
+      return { centres: centres.length, sameRange: U.lo === P.lo && U.hi === P.hi, inU, inP, notSubset, idMismatch,
+        removedFrac: +(inU ? (inU - inP) / inU : 0).toFixed(4), placed: [U.placed, P.placed] };
+    });
+    const ok = !out.why && out.centres === 40 && out.sameRange && out.notSubset === 0 && out.idMismatch === 0
+      && out.inU > 0 && out.removedFrac >= 0.01;
+    check("RX3-PIN-STAMP", ok, out);
+  }
+
+  // RX3-PLACED (F9) — `placed` counts every nucleus that claimed a voxel, a
+  // one-voxel clipped one included, and survives another region read in flight.
+  {
+    const out = await page.evaluate(async () => {
+      const R = window.__rx;
+      const centres = [[48, 48, 8], [20, 20, 40], [70, 70, 5]];   // 1 voxel, 33, none (liquid z < 10)
+      const one = async busyFirst => {
+        const s3 = await R.crystal(0x3b3b, 20, 10);
+        return R.hold(async () => {
+          const orig = s3.readRegion;
+          let calls = 0;
+          // another read in flight: readRegion's own refusal, twice
+          if (busyFirst) s3.readRegion = async function (...a) { return calls++ < 2 ? null : orig.apply(this, a); };
+          try {
+            const ev = await s3.nucleate(3, 2, centres);
+            if ("why" in ev) return { why: ev.why };
+            const g = await s3.readGrainVolume();
+            const per = [0, 0, 0];
+            for (let i = 0; i < g.length; i++) if (g[i] >= ev.lo && g[i] <= ev.hi) per[g[i] - ev.lo]++;
+            return { placed: ev.placed, perNucleus: per, regionCalls: calls };
+          } finally { if (busyFirst) delete s3.readRegion; }
+        });
+      };
+      return { plain: await one(false), inFlight: await one(true) };
+    });
+    const ok = !out.plain.why && !out.inFlight.why && out.plain.placed === 2 && out.inFlight.placed === 2
+      && out.plain.perNucleus.join() === "1,33,0" && out.inFlight.regionCalls >= 3;
+    check("RX3-PLACED", ok, out);
+  }
+
+  // RX3-PIN-HELD (F3) + HT3-BUSY-RELEASE (F1) — through the panel, on a fresh
+  // copper cast: the dispersion is held back while nuclei are dialed (note,
+  // card and the solver's own arguments), and a throw inside a treatment
+  // releases the busy latch.
+  {
+    const PLANT = "planted HT3-BUSY-RELEASE";
+    const out = await page.evaluate(async PLANT => {
+      const S = window.__solidify, R = window.__rx;
+      S.app.setMaterial("cu");
+      await R.cast(0xd2);
+      S.app.startHeat();
+      const panel = document.getElementById("heattreat");
+      if (!panel) return { opened: false };
+      const btn = () => document.getElementById("htRun");
+      const note = () => document.getElementById("htNote").textContent.replace(/\s+/g, " ");
+      const card = () => document.getElementById("htReport").textContent.replace(/\s+/g, " ");
+      const wait = ms => new Promise(r => setTimeout(r, ms));
+      for (let i = 0; i < 40 && /waiting/.test(note()); i++) await wait(100);
+      const dials = panel.querySelectorAll('input[type="range"]');
+      const set = (i, v) => { dials[i].value = String(v); dials[i].dispatchEvent(new Event("input", { bubbles: true })); };
+      const sweepsOf = s => parseInt((s.match(/([\d,]+) MC sweeps/) ?? [])[1]?.replace(/,/g, "") ?? "0", 10);
+      set(5, 8);         // cold work, 8 J_b mean
+      set(3, 0.06);      // dispersion 6 %
+      set(6, 200);       // nuclei
+      // the RX3-PANEL search: step temperature and hold down until it arms
+      const T0 = Number(dials[0].value), Tmin = Number(dials[0].min);
+      let armed = false;
+      search: for (const drop of [0, 100, 200, 300, 400, 500, 600]) {
+        if (T0 - drop < Tmin) break;
+        set(0, T0 - drop);
+        for (const m of [60, 30, 15, 8, 4, 2]) {
+          set(1, m);
+          for (let i = 0; i < 20 && btn().disabled; i++) await wait(100);
+          if (!btn().disabled && sweepsOf(note()) >= 20) { armed = true; break search; }
+        }
+      }
+      if (!armed) return { opened: true, armed: false, note: note().slice(0, 240) };
+      // the must-miss arm for the sentence: nuclei 0, the dispersion is live
+      set(6, 0);
+      const noteLive = note();
+      set(6, 200);
+      const noteHeld = note();
+      // HT3-BUSY-RELEASE: a treatment whose nucleation throws
+      const host = S.heat.host, realNucleate = host.nucleate;
+      host.nucleate = async () => { throw new Error(PLANT); };
+      const clickRun = async () => {
+        btn().click();
+        const started = S.heat.busy;
+        let released = false;
+        for (let i = 0; i < 200 && !(released = !S.heat.busy); i++) await wait(50);
+        return { started, released };
+      };
+      let first, second;
+      try { first = await clickRun(); second = await clickRun(); } finally { host.nucleate = realNucleate; }
+      await wait(400);   // the 4 Hz census refreshes the idle panel
+      // RX3-PIN-HELD: the real run, the solver's arguments spied
+      const s3 = S.sim3d(), annealPins = [], nucPins = [];
+      const annealOrig = s3.anneal, nucOrig = s3.nucleate;
+      s3.anneal = function (sweeps, kT, onP, pin, sample) { annealPins.push(pin === undefined ? "none" : JSON.stringify(pin)); return annealOrig.call(this, sweeps, kT, onP, pin, sample); };
+      s3.nucleate = function (count, r, at, pin) { nucPins.push(pin === undefined ? "none" : JSON.stringify(pin)); return nucOrig.call(this, count, r, at, pin); };
+      let report = "", ran = false;
+      try {
+        const was = card();
+        btn().click();
+        for (let i = 0; i < 100 && !S.heat.busy; i++) await wait(50);
+        ran = annealPins.length > 0 || S.heat.busy;
+        for (let i = 0; i < 1500 && S.heat.busy; i++) await wait(100);
+        for (let i = 0; i < 100 && card() === was; i++) await wait(100);
+        report = card();
+      } finally { delete s3.anneal; delete s3.nucleate; }
+      S.heat.close();
+      return { opened: true, armed, noteLive, noteHeld, first, second, ran, report, annealPins, nucPins };
+    }, PLANT);
+    // the planted rejections are expected page errors; count and drop them
+    const planted = errors.filter(e => e.includes(PLANT)).length;
+    for (let i = errors.length - 1; i >= 0; i--) if (errors[i].includes(PLANT)) errors.splice(i, 1);
+    const busyOk = out.opened && out.armed && out.first?.started && out.first?.released && out.second?.started && out.second?.released;
+    check("HT3-BUSY-RELEASE", busyOk, { first: out.first, second: out.second, plantedPageErrors: planted });
+    const liveOk = /dispersion 6\.0 vol %/.test(out.noteLive ?? "") && /pins in 3D/.test(out.noteLive ?? "") && !/held back while nuclei/.test(out.noteLive ?? "");
+    const heldOk = /held back while nuclei are dialed/.test(out.noteHeld ?? "") && !/pins in 3D/.test(out.noteHeld ?? "");
+    const cardOk = /held back while nuclei are dialed/.test(out.report ?? "") && !/pinned\s*dispersion \d/.test(out.report ?? "");
+    const argsOk = out.ran && out.annealPins?.length >= 1 && out.annealPins.every(p => p === "none") && out.nucPins?.length === 1 && out.nucPins[0] === "none";
+    check("RX3-PIN-HELD", out.opened && out.armed && liveOk && heldOk && cardOk && argsOk, {
+      liveOk, heldOk, cardOk, argsOk, annealCalls: out.annealPins?.length, nucPins: out.nucPins,
+      noteHeld: (out.noteHeld ?? "").match(/dispersion[^·]*·[^·]*/)?.[0], card: (out.report ?? "").match(/dispersion[\s\S]{0,120}/)?.[0],
+    });
   }
 } catch (e) {
   console.log("RX3 harness error", String(e?.stack ?? e));

@@ -43,6 +43,11 @@ browser-free scripts.
   deformed grains recrystallize first, against a uniform-drive control), and
   RX3-PANEL (the nuclei dial end to end, the card's n against the exported
   columns). Protocols: tasks/todo.md, "Declutter, then finish C3b and D3".
+  The S0 review (tasks/todo.md, "S0 review fixes") appends RX3-ID-WRAP (a
+  wrapped twin counter refuses ids), RX3-PIN-STAMP (pinned nuclei stay out of
+  particles), RX3-PLACED (clipped nuclei count, an in-flight read does not
+  zero the count), HT3-BUSY-RELEASE (a throw in a treatment releases the
+  panel) and RX3-PIN-HELD (the dispersion is held back while nuclei are dialed).
 - `verify-flow-gpu.mjs` (GPU): D3.1's standalone lattice Boltzmann solver,
   fluid only. A free-slip shear wave recovers the set viscosity within 1 %;
   body-force flow over this repo's diffuse solid puts its apparent no-slip
