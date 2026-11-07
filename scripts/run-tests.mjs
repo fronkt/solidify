@@ -79,6 +79,9 @@ const SUITE = [
   // feature/visual: studio lighting, photo mode, replay, grain picking; C3b nuclei
   ["scripts/verify-visual-gpu.mjs", String(PORT)],
   ["scripts/verify-recrystallize-gpu.mjs", String(PORT)],
+  // C3b-3/4a: constant-rate and grain-boundary nucleation (its own script so
+  // the recrystallization suite stays inside the 10-minute per-script timeout)
+  ["scripts/verify-recrystallize-rate-gpu.mjs", String(PORT)],
   // D3.1: the standalone lattice Boltzmann solver, fluid-only gates
   ["scripts/verify-flow-gpu.mjs", String(PORT)],
 ];
