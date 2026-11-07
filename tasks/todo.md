@@ -5991,5 +5991,35 @@ CPU only; --plan; --run), result docs/validation/flow-domain-<date>.json.
       each served file is read by the ?raw import, and only when that throws
       by fetch of the same ?raw URL; the vehicle is recorded per file and the
       comparison against the disk hash stays exact (LF-normalized).
-- [ ] Reading: written here by a person after the run (the script leaves
-      `reading` null); the FLOW-TIP-TONG verdict stays FAILED either way.
+- [x] Reading (root, after run 2 at 1d23d20, 2026-11-07 12:56-13:14; 12/12
+      arms valid, served source verified, 0 errors; result
+      docs/validation/flow-domain-2026-11-07.json). FLOW-TIP-TONG stays FAILED.
+      * Replicas reproduce 11-01: 1.2586 / 1.3287 / 1.3555 (lambda 2.0 / 2.4 /
+        3.2 at n 1024) vs 1.259 / 1.329 / 1.356.
+      * H_D SUPPORTED by the frozen rule: at fixed lambda 3.2 the ratio rises
+        1.2025 / 1.3162 / 1.3555 with the box (n 640 / 768 / 1024, 1854 /
+        2224 / 2966 d0); the box step carries f_D = 1.58 of the 11-01 rise and
+        the lambda step is negative (-0.58). The 11-01 lambda trend was the
+        domain, not lambda.
+      * H_I and H_L material: moving the seed away from the inlet raises the
+        ratio (1.297 / 1.329 / 1.346 / 1.358 at end gaps 284 / 421 / 559 / 837
+        d0); narrowing the half-width at a fixed inlet distance lowers it.
+      * N2 FIRES and explains the mechanism: the equilibrium inlet fixes rho
+        as well as u, so the crystal's back-pressure cuts the throughput. The
+        mass flux is uniform along the channel and short of U: 0.90 U at
+        n 1024 (lambda 2.4), 0.82 U at n 848 (flow arm and coupling-0
+        control alike), inlet rho 1.006 vs outlet 0.998. Smaller boxes block
+        more and deliver less. Tong imposes uniform inflow U; the D3 design
+        names a Zou-He velocity inlet, which the shader does not implement.
+        This is a defect in the shipped solver (v7-experiments only;
+        production has no flow): the speed the rail shows is not delivered.
+      * N3 FIRES: the flow-arm tip speeds are not stationary in the smaller
+        boxes (middle vs last third -13 % to -0.4 %; only the largest boxes
+        and farthest inlets are within 1 %), so "steady-state" speeds there
+        are window-dependent.
+      * Next (D3.5): a velocity inlet that delivers U under blockage, with
+        its own pre-registered gates (empty-channel and blocked-channel flux
+        = U, flow-off identity unchanged, existing FLOW gates), then a new
+        pre-registered Tong comparison at Tong's own lambda (3.19 / 4.79 /
+        6.38) and boxes in d0, with a stationarity clause. The 11-01 gate's
+        lambda 2.0 / 2.4 arms had no Tong counterpart.
