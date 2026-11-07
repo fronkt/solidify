@@ -39,20 +39,10 @@ export class ReplayLedger {
   private why: string | null = null;
   private lastT = 0;
   private fsMax = 0;
-  private gen = 0;
   private scrubT: number | null = null;
 
   /** why the history cannot be replayed, or null when it can */
   get reason(): string | null { return this.why; }
-
-  /**
-   * How many resets this ledger has seen. A census read is asynchronous: one
-   * issued before a reset can resolve after it, carrying the OLD cast's solid
-   * fraction, and observed as if it were the new one's it seeds fsMax so high
-   * that the fresh pour reads as remelted. Callers capture this when they
-   * issue the read and hand it to `observe`, which drops a stale one.
-   */
-  get generation(): number { return this.gen; }
 
   /** call every frame with the solver's clock: running backward is a reset */
   clock(simTime: number) {
@@ -61,13 +51,13 @@ export class ReplayLedger {
   }
 
   /**
-   * A measured solid fraction (0..1) at sim time t. `gen` is `generation` as
-   * it was when the measurement was issued; a reset since then makes it the
-   * old cast's, and it is dropped. Omitted, the reading is taken as current.
+   * A measured solid fraction (0..1) at sim time t, of the CURRENT field: a
+   * census issued before a reset describes the old cast and must be dropped
+   * before it gets here (fieldstamp.ts), or its fraction seeds the baseline and
+   * the fresh pour reads as remelted.
    */
-  observe(simTime: number, fracSolid: number, gen?: number) {
+  observe(simTime: number, fracSolid: number) {
     this.clock(simTime);
-    if (gen !== undefined && gen !== this.gen) return;
     if (!Number.isFinite(fracSolid)) return;
     if (fracSolid > this.fsMax) this.fsMax = fracSolid;
     else if (fracSolid < this.fsMax - FS_DROP) this.mark(REASON.remelt);
@@ -77,7 +67,7 @@ export class ReplayLedger {
    *  history cannot be replayed, so a scrub in progress ends here too. */
   mark(reason: string) { if (this.why == null) this.why = reason; this.scrubT = null; }
 
-  clear() { this.why = null; this.lastT = 0; this.fsMax = 0; this.gen++; this.scrubT = null; }
+  clear() { this.why = null; this.lastT = 0; this.fsMax = 0; this.scrubT = null; }
 
   /** ask for a replay time (null = live); refused while the ledger is marked,
    *  clamped to the recorded span [0, now] */

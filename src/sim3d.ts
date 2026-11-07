@@ -1222,7 +1222,12 @@ export class Sim3D {
     return { phi, T };
   }
 
+  /** resets so far: an asynchronous read issued before one describes the
+   *  old field (fieldstamp.ts) */
+  fieldGen = 0;
+
   reset(tFar = this.params.tFar) {
+    this.fieldGen++;
     this.clearQuantitativeStatus();
     const n = this.n;
     this.params.tFar = tFar;

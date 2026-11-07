@@ -34,6 +34,7 @@ import { STATUS_LEARN } from "./learn/panels";
 import { chargeLiquidus, chemOf, type Chem } from "./plot/figures";
 import { runEntries, zipStore, micrographPNG, downloadRun, type RunSnapshot } from "./run-export";
 import { ReplayLedger, REASON as REPLAY } from "./replay";
+import { stampField, stillCurrent } from "./fieldstamp";
 import { flowRefusal } from "./flow";
 
 /** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
@@ -2463,11 +2464,11 @@ async function boot() {
         if (wantFast3) nucClock = 0;
         if (!opt3?.active && !recipeClock3 && (forPanels3 || wantFast3)) {
           syncNyCrit();   // material/anchor changes land within one poll
-          // the ledger's reset count at ISSUE: a read that resolves after a
-          // reset carries the old cast's fraction and must not seed the new one
-          const observed = sim3d, ownerVersion = recipeVersion3, gen3 = replay3.generation;
+          // the field this read describes (fieldstamp.ts): a reset, clear or
+          // swap before it lands makes it the old cast's, for EVERY consumer
+          const observed = sim3d, ownerVersion = recipeVersion3, field3 = stampField(observed);
           void observed.readStats().then(s => {
-            if (!s || mode !== "3d" || sim3d !== observed || recipeVersion3 !== ownerVersion
+            if (!s || mode !== "3d" || sim3d !== observed || !stillCurrent(field3, sim3d) || recipeVersion3 !== ownerVersion
                 || opt3?.active || recipeClock3) return;
             nuc3.observe(sim3d.simTime, s.meanLiqT, tEq3());
             if (recipeSchedule3 && running3d) {
@@ -2478,7 +2479,7 @@ async function boot() {
             // is why the fs > 0.995 finish could never fire with walls on
             lab.onStats(s.meanLiqT, s.fracSolidOpen);
             if (forPanels3) {
-              lastStats3 = s; replay3.observe(sim3d.simTime, s.fracSolid, gen3); hud.push3(s, sim3d.umPerCell, sim3d.simTime); an3.onStats3(s, sim3d.simTime);
+              lastStats3 = s; replay3.observe(sim3d.simTime, s.fracSolid); hud.push3(s, sim3d.umPerCell, sim3d.simTime); an3.onStats3(s, sim3d.simTime);
               heat?.onCensus(census3(s));
             }
           });
@@ -2585,16 +2586,19 @@ async function boot() {
     if (forPanels) statsClock = 0;
     if (wantFast) nucClock = 0;
     if (forPanels || wantFast) {
-      // the ledger's reset count at issue (see the 3D read above)
-      const gen2 = replay2.generation;
+      // the field this read describes (see the 3D read above): a clearMelt,
+      // resetArmed, lab pour or grid swap before it lands drops it for the
+      // nucleation model, the lab, the HUD, analysis, the recipe, the challenge,
+      // the heat census and the replay ledger alike
+      const field2 = stampField(sim);
       void sim.readStats().then(s => {
-        if (!s) return;
+        if (!s || !stillCurrent(field2, sim)) return;
         if (!benchHold) nuc.observe(sim.simTime, s.meanLiqT, tEq2());
         lab.onStats(s.meanLiqT, s.fracSolid);
         if (!forPanels) return;
         lastStats = s;
         if (!opt.active) {
-          replay2.observe(sim.simTime, s.fracSolid, gen2);
+          replay2.observe(sim.simTime, s.fracSolid);
           hud.push(s, sim.simTime);
           analyze.onStats(s, sim.simTime);
           // an applied ML recipe schedules cooling by solid fraction,

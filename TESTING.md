@@ -10,9 +10,11 @@ browser-free scripts.
   `age < t` comparison in both dimensions, and every 2D render read of the
   state goes through `loadState`; a heat treatment's mark, made at the call
   after syncing the clock, survives a reset no frame saw (marking alone is
-  lost to the next frame); a census read issued before a reset and landing
-  after it is dropped by its generation (the old call shape refuses the fresh
-  pour as remelted); the ledger owns the scrub, which ends when the strip is
+  lost to the next frame); a census issued before a reset or grid swap and
+  landing after it is dropped before any frame-loop consumer (the field stamp
+  of `src/fieldstamp.ts`; consumed, it refuses the fresh pour as remelted, and
+  the source wiring is read back: reset bumps `fieldGen` first, both frame-loop
+  reads are stamped and guarded ahead of every consumer); the ledger owns the scrub, which ends when the strip is
   withdrawn, on a reset and on a mark, and is refused while marked.
 - `verify-recrystallize.mjs` (browser-free, five checks): the Avrami fit
   recovers exact JMAK exponents, is sweep-clock invariant and refuses thin

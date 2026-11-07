@@ -475,7 +475,12 @@ export class Simulation {
     this.reset();
   }
 
+  /** resets so far: an asynchronous read issued before one describes the
+   *  old field (fieldstamp.ts) */
+  fieldGen = 0;
+
   reset(tFar = this.params.tFar) {
+    this.fieldGen++;
     const n = this.n;
     this.params.tFar = tFar;
     // D3.2: a fresh pour starts the melt flowing uniformly at the inlet speed

@@ -17,8 +17,8 @@
 // The GPU behaviour itself (replayed masks against masks captured live) is
 // verify-visual-gpu.mjs (VIS-REPLAY-*); this file pins what can be pinned
 // without a device, including the ledger's call contracts the app relies on:
-// a treatment marks after syncing the clock, a census read carries the reset
-// count it was issued under, and the scrub is owned by the ledger.
+// a treatment marks after syncing the clock, a census read that a reset
+// overtook is dropped before any consumer, and the scrub is owned by the ledger.
 //
 //   node scripts/verify-replay.mjs
 import { createServer } from "vite";
@@ -126,30 +126,63 @@ const check = (name, ok, detail) => {
     { clockThenMark: ordered.reason === R.REASON.anneal, markAloneLost: naive.reason === null });
 }
 
-// 7. REPLAY-LEDGER-STALE — a census read issued before a reset and resolving
-//    after it (the old cast's 0.9) is dropped when it carries the generation
-//    it was issued under, so the fresh pour's 0.02 is not a remelt. The
-//    falsification arm is the call shape this replaced (no generation): the
-//    stale 0.9 seeds the baseline and the fresh pour is refused as remelted.
+// 7. STATS-STALE-READ — a census issued before a reset (clearMelt,
+//    resetArmed, a lab pour) or a grid swap, and landing after it, describes
+//    the OLD field and is dropped before ANY frame-loop consumer sees it
+//    (src/fieldstamp.ts). Three parts:
+//    (a) the stamp: current with no reset; stale after the owner's reset and
+//        after a swap to another solver object, and against no solver;
+//    (b) the consequence, through the real ledger: the guarded loop drops the
+//        old cast's 0.9 and the fresh pour stays replayable; the falsification
+//        arm consumes it, as the loop did, and the fresh pour's 0.02 is refused
+//        as remelted (the same stale read put a ΔT on the HUD after its reset);
+//    (c) the wiring, read from the sources: both solvers bump fieldGen first
+//        thing in reset(); each frame-loop readStats is stamped before it is
+//        issued and its callback's first guard is stillCurrent, with every
+//        consumer (replay ledger, nucleation, lab, HUD, analysis, challenge,
+//        heat census) after that guard.
 {
-  const withGen = new R.ReplayLedger(), noGen = new R.ReplayLedger();
-  const g0 = [withGen, noGen].map(L => { L.observe(4, 0.9); return L.generation; });
-  for (const L of [withGen, noGen]) L.clock(0);   // reset: the frame sees the clock run back
-  const bumped = withGen.generation === g0[0] + 1;
-  withGen.observe(0.01, 0.9, g0[0]);              // the stale read lands
-  noGen.observe(0.01, 0.9);
-  for (const L of [withGen, noGen]) { L.observe(0.02, 0.02, L.generation); L.observe(0.03, 0.03, L.generation); }
-  // and a current read is still a measurement: a real fall after it marks;
-  // a read with no generation is taken as current even across a reset that
-  // observe itself detects (its 0.02 seeds the new baseline, so 0.01 marks)
-  const live = new R.ReplayLedger();
-  live.observe(1, 0.5, live.generation); live.observe(2, 0.3, live.generation);
-  const plain = new R.ReplayLedger();
-  plain.observe(5, 0.9); plain.observe(0.01, 0.02); plain.observe(0.02, 0.01);
-  check("REPLAY-LEDGER-STALE", bumped && withGen.reason === null && noGen.reason === R.REASON.remelt
-    && live.reason === R.REASON.remelt && plain.reason === R.REASON.remelt,
-    { generationBumpsOnReset: bumped, staleDropped: withGen.reason === null, oldShapeRefusesFreshPour: noGen.reason === R.REASON.remelt,
-      currentStillMarks: live.reason === R.REASON.remelt, omittedIsCurrent: plain.reason === R.REASON.remelt });
+  const FS = await server.ssrLoadModule("/src/fieldstamp.ts");
+  const a = { fieldGen: 3 }, b = { fieldGen: 3 };
+  const st = FS.stampField(a);
+  const fresh = FS.stillCurrent(st, a);
+  a.fieldGen++;
+  const afterReset = FS.stillCurrent(st, a), afterSwap = FS.stillCurrent(FS.stampField(b), a), none = FS.stillCurrent(st, null);
+  const stamp = fresh && !afterReset && !afterSwap && !none;
+  // (b) the old cast at fs 0.9 is read; the melt resets before it lands
+  const run = guarded => {
+    const L = new R.ReplayLedger(), sim = { fieldGen: 0, simTime: 4 };
+    L.observe(4, 0.85);
+    const issued = FS.stampField(sim);
+    sim.fieldGen++; sim.simTime = 0;              // clearMelt: a fresh pour
+    L.clock(0);                                   // the next frame
+    sim.simTime = 0.01;
+    if (!guarded || FS.stillCurrent(issued, sim)) L.observe(sim.simTime, 0.9);   // the stale read lands
+    L.observe(0.02, 0.02); L.observe(0.03, 0.03);
+    return L.reason;
+  };
+  const guardedReason = run(true), unguardedReason = run(false);
+  const consequence = guardedReason === null && unguardedReason === R.REASON.remelt;
+  // (c) wiring
+  const src = f => readFileSync(new URL(`../src/${f}`, import.meta.url), "utf8");
+  const bumpsFirst = ["sim.ts", "sim3d.ts"].map(f => /\n  reset\(tFar = this\.params\.tFar\) \{\r?\n    this\.fieldGen\+\+;/.test(src(f)));
+  const main = src("main.ts");
+  const reads = [...main.matchAll(/void (\w+)\.readStats\(\)\.then\(s => \{/g)].map(m => {
+    const before = main.slice(Math.max(0, m.index - 400), m.index);
+    const body = main.slice(m.index, m.index + 2600);
+    const close = body.search(/\r?\n\s*\}\);/);   // the callback's own closing line
+    const cb = body.slice(0, close > 0 ? close : body.length);
+    const guardAt = cb.indexOf("stillCurrent(");
+    const firstIf = cb.indexOf("if (");
+    const consumers = ["observe(", "lab.onStats(", "hud.push", "onCensus("].map(k => cb.indexOf(k));
+    return { stampedBefore: /stampField\(/.test(before), guardFirst: guardAt > 0 && guardAt - firstIf < 120,
+      consumersAfter: consumers.every(c => c > guardAt) };
+  });
+  const wiring = bumpsFirst.every(Boolean) && reads.length === 2 && reads.every(r => r.stampedBefore && r.guardFirst && r.consumersAfter);
+  check("STATS-STALE-READ", stamp && consequence && wiring, {
+    stamp: { fresh, afterReset, afterSwap, none }, guardedFreshPour: guardedReason, unguardedFreshPour: unguardedReason === R.REASON.remelt ? "remelt" : unguardedReason,
+    resetBumpsFirst: bumpsFirst, frameLoopReads: reads,
+  });
 }
 
 // 8. REPLAY-SCRUB — the ledger owns the replay time (ReplayLedger.frame). A
