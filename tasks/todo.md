@@ -5783,6 +5783,16 @@ It tests a hypothesis about the 11-01 result; it does NOT re-score
 FLOW-TIP-TONG, which stays FAILED. Any new Tong gate configuration needs its
 own later pre-registration.
 
+AMENDED BEFORE ANY RUN (supersedes the arm list, decision and budget of
+81afc8d): main.ts's frame loop re-checks flowRefusal() every frame
+(main.ts:2528) and switches the flow off on any grid above 1024 (the 2048
+storage-limit refusal is written as grid > 1024, flow.ts:107), so the
+pre-registered D24-1360, D20-1632 and L24-1360 flow runs would have run
+without flow from their first frame. Every arm now has n <= 1024. The box
+range moves to lambda 3.2 (n 640 / 768 / 1024 = 1854 / 2224 / 2966 d0, the
+whole 11-01 range at one lambda) and the half-width family to lambda 3.2 and
+2.4. Thresholds, statistic, staging and witnesses are unchanged.
+
 ### What Tong et al. ran (authors' copies, read 2026-11-07)
 
 Sources: Tong, Beckermann, Karma & Li, PRE 63, 061601 (2001) and Tong,
@@ -5867,19 +5877,21 @@ any arm that stops early is invalid).
 
 - D (box; seed centred, so inlet distance, half-width and outlet distance
   scale together exactly as they did across lambda on 11-01): D20-1024
-  (lambda 2.0, n 1024, 1854 d0, 11-01 replica), D20-1632 (2954 d0); D24-848
-  (2.4, 1842 d0), D24-1024 (2224 d0, replica), D24-1360 (2954 d0); D32-640
-  (3.2, 1854 d0), D32-1024 (2966 d0, replica).
+  (lambda 2.0, n 1024, 1854 d0, 11-01 replica); D24-848 (2.4, 1842 d0),
+  D24-1024 (2224 d0, replica); D32-640 (3.2, 1854 d0), D32-768 (2224 d0),
+  D32-1024 (2966 d0, replica). Boxes of ~1850 d0 exist at all three lambdas
+  and 2224 d0 at 2.4 and 3.2.
 - I (inlet distance; lambda 2.4, n 1024, half-width 1112 d0; the outlet
   distance is the complement and co-varies): seedX 448 / 512 (= D24-1024) /
   576 / 704, i.e. 973 / 1112 / 1251 / 1529 d0 from the inlet at the start.
-- L (half-width; lambda 2.4, seedX 424 = 921 d0 from the inlet; outlet
-  distance co-varies): n 848 (= D24-848) / 1024 / 1360, half-width 921 / 1112
-  / 1477 d0.
+- L (half-width at a fixed inlet distance; outlet distance co-varies):
+  lambda 3.2, seedX 320 (927 d0): n 640 (= D32-640) / 768 (L32-768) / 1024
+  (L32-1024), half-width 927 / 1112 / 1483 d0; lambda 2.4, seedX 424 (921 d0):
+  n 848 (= D24-848) / 1024 (L24-1024), half-width 921 / 1112 d0.
 - Z24-848 (control): D24-848's geometry, flow on with coupling 0.
 
-Grids 640-1632 are not the UI's 512/1024/2048; Simulation takes any n with
-n % 16 = 0 (readRows), and the LBM buffer 36 n^2 B stays under 128 MiB.
+Grids 640-848 are not the UI's 512/1024/2048; Simulation takes any n with
+n % 16 = 0 (readRows), and flowRefusal() allows any grid up to 1024.
 
 ### Validity (failing geometries are reported and excluded from decisions)
 
@@ -5901,22 +5913,29 @@ n % 16 = 0 (readRows), and the LBM buffer 36 n^2 B stays under 128 MiB.
 
 ### Decision (computed by the script)
 
-- dDiag = R(D32-1024) - R(D20-1024) (11-01: 0.097).
-- S_D(lambda) = R(lambda, ~2955 d0) - R(lambda, ~1850 d0): D20-1632 - D20-1024,
-  D24-1360 - D24-848, D32-1024 - D32-640. S_lambda(L) = R(3.2, L) - R(2.0, L):
-  D32-640 - D20-1024 and D32-1024 - D20-1632. f_D = mean S_D / dDiag, f_lambda
-  = mean S_lambda / dDiag; the interaction S_D(3.2) - S_D(2.0) is reported.
-- H_D SUPPORTED: f_D >= 0.5, S_D(2.4) > 0 and R(D24-848) < R(D24-1024) <
-  R(D24-1360). REJECTED: f_D <= 0.25 and S_D(2.4) <= 0.25 dDiag (a mean S_D <=
-  -0.25 dDiag is labelled "opposite sign", as in Tong's 921 d0 row).
-  Otherwise PARTIAL with f_D. A missing or invalid D20-1632 or D32-640 leaves
-  f_D on the available S_D, labelled with the lambdas it rests on; without
-  D24-848, D24-1024, D24-1360 and the two outer replicas there is no verdict.
+- dDiag = R(D32-1024) - R(D20-1024) (11-01: 0.097) splits exactly into a box
+  step and a lambda step: S_D = R(D32-1024) - R(D32-640) (box 1854 -> 2966 d0
+  at lambda 3.2) and S_lambda = R(D32-640) - R(D20-1024) (lambda 2.0 -> 3.2 at
+  1854 d0). f_D = S_D / dDiag; f_lambda = 1 - f_D.
+- Corroboration at lambda 2.4: S_D24 = R(D24-1024) - R(D24-848) (box 1842 ->
+  2224 d0) against p = R(D24-1024) - R(D20-1024), what H_D predicts for that
+  box step (11-01: 0.070). The same step at lambda 3.2, R(D32-768) -
+  R(D32-640), and the lambda step at 2224 d0, R(D32-768) - R(D24-1024), are
+  reported.
+- H_D SUPPORTED: f_D >= 0.5, S_D24 >= 0.5 p, and R(D32-640) < R(D32-768) <
+  R(D32-1024). REJECTED: f_D <= 0.25 and S_D24 <= 0.25 p (f_D <= -0.25 is
+  labelled "opposite sign", as in Tong's 921 d0 row). Otherwise PARTIAL, with
+  f_D and S_D24 / p. No verdict unless D20-1024, D24-848, D24-1024, D32-640
+  and D32-1024 are valid and dDiag > 0 and p > 0; without a valid D32-768 the
+  verdict cannot be SUPPORTED and says so.
 - H_I: S_I = R(I24-704) - R(I24-448); |S_I| >= 0.03 material, < 0.015
   immaterial, otherwise inconclusive; R against the end gap in cells, d0 and
-  nu/U (= 660 d0) reported. H_L: S_L = R(L24-1360) - R(D24-848), same
-  thresholds. (0.03 is ~31 % of dDiag; the deterministic trace resolves R to
-  ~1e-3.)
+  nu/U (= 660 d0) reported; the lambda 3.2 inlet step at n 1024, R(D32-1024) -
+  R(L32-1024) (seedX 512 vs 320), reported. H_L: S_L = R(L32-1024) -
+  R(D32-640) (half-width 927 -> 1483 d0 at a 927 d0 inlet distance), same
+  thresholds; R(L24-1024) - R(D24-848) reported. At lambda 3.2 the box step
+  is exactly S_L plus that inlet step. (0.03 is ~31 % of dDiag; the
+  deterministic trace resolves R to ~1e-3.)
 - Next hypothesis if H_D is not SUPPORTED (triggers pre-registered, all
   reported regardless; several may fire):
   N1 interface/drag resolution at fixed lambda and box (dx/W0 0.8 here, 0.4
@@ -5936,11 +5955,12 @@ n % 16 = 0 (readRows), and the LBM buffer 36 n^2 B stays under 128 MiB.
 
 ### Budget and run
 
-Cost in 1024^2-substep units: flow 617140 (incl. Z), no flow 590322. 11-01's
+Cost in 1024^2-substep units: flow 382874 (incl. Z), no flow 356056. 11-01's
 verify-flow-gpu.mjs (all its gates plus the 8 Tong runs = 313104 units) ran
 in <= 9.6 min on the Arc 140V (log created 05:51:00, last written 06:00:34),
-<= 1.83 ms per unit, so <= ~37 min of stepping; plan for <= 70 min. Order:
-D24-1024, D24-848 (+ Z), D24-1360, D32-1024, D20-1024, D32-640, I, L,
-D20-1632 (the largest, ~9 min, last). No arm dropped. Script:
-scripts/research/flow-domain.mjs (--self-test CPU only; --plan; --run),
-result docs/validation/flow-domain-<date>.json.
+<= 1.83 ms per unit, so <= ~23 min of stepping; plan for <= 45 min. Order:
+D24-1024, D32-1024, D20-1024, D32-640, D24-848 (+ Z), D32-768, L32-1024,
+L32-768, I24-448, I24-576, I24-704, L24-1024. Dropped by the amendment: the
+three n > 1024 geometries (they cannot carry flow in this app); nothing
+dropped for budget. Script: scripts/research/flow-domain.mjs (--self-test
+CPU only; --plan; --run), result docs/validation/flow-domain-<date>.json.
