@@ -6748,7 +6748,8 @@ that passed the D3.5 GPU gates 15/15, so the protocol's precondition holds.
 - Also: typecheck passes; verify-flow.mjs 8/8 OK (32 s); D3.4's self-test still
   passes; verify-phasedata CI-SCRIPT-COUNT and TESTING-CHECK-COUNT OK (research
   scripts are not in CI; nothing there changed).
-- [ ] GPU run (root session only; nothing here has touched a GPU or a browser):
+- [x] GPU run (root session only; nothing here has touched a GPU or a browser).
+      Done 2026-11-07 17:44-17:50 on frozen 21e73ee; result and reading below.
 
 ```text
 cd ../solidify-tong2                   # research/flow-tong2, frozen at the head named in the report
@@ -6764,3 +6765,71 @@ T2-ARM per arm, then T2-VERDICT and FLOW-TONG2 RECORDED or FAILED (FAILED means
 an incomplete run, not a physics failure) and writes
 docs/validation/flow-tong2-<date>.json and raw rows under verify-out/. The
 verdicts come from the script; the reading is written by a person.
+
+#### GPU run and reading (root, frozen 21e73ee, 2026-11-07 17:44-17:50, Intel Arc 140V)
+
+Run conditions:
+- Tree clean before the run.
+- The port 5297 listener was this worktree's vite, and the served src/lbm.ts
+  was this checkout's.
+- Served source verified; source stable.
+- No other headless Chrome at start or end; 0 errors.
+
+FLOW-TONG2 RECORDED. Result:
+docs/validation/flow-tong2-2026-11-07.json (raw rows under verify-out/).
+
+**Verdict (the script's): tier P NO VERDICT, tier T NO VERDICT.**
+- Neither tier had any valid row ("0 valid row(s); a verdict needs 2"). Every
+  row failed only the stationarity clause.
+- The falsification is demonstrated: coupling 0 gives R = 1 exactly with
+  equal traces; coupling -1 gives R = 0.514; both fail the band as required.
+- Inlet liveness held on every flow run (mean u_x / U within 1.2e-7 of 1).
+- The app may NOT call the flow quantitative. FLOW-TIP-TONG stays FAILED as
+  recorded on 11-01, and the flow stays labelled qualitative.
+
+| Row | R | V d0/D flow | vs Tong | no-flow vs exact | stationarity no flow / flow | end gap nu/U |
+|---|---:|---:|---:|---:|---:|---:|
+| D2-P (3.19) | 1.594 | 0.02643 | +7.0% | -2.4% | -3.5% / +9.9% | 0.22 |
+| D3-P (4.79) | 1.598 | 0.02242 | -9.6% | -17.4% | +4.7% / +29.0% | 0.44 |
+| D4-1658-P (6.38) | 1.531 | 0.01631 | -32.0% | -37.3% | -1.5% / +27.1% | 0.69 |
+| D4-3315-P (6.38) | 1.504 | 0.01793 | -26.5% | -29.8% | +13.2% / +32.5% | 1.74 |
+| D4-921-P (info) | 1.008 | 0.01420 | -46.4% | -17.2% | -20.7% / -17.9% | 0.45 |
+| D2-T (3.19) | 1.696 | 0.02953 | +19.6% | +2.4% | -3.0% / +13.4% | 0.15 |
+| D3-T (4.79) | 1.790 | 0.02570 | +3.6% | -15.6% | +6.5% / +35.2% | 0.39 |
+| D4-1658-T (6.38) | 1.780 | 0.01797 | -25.1% | -40.6% | -3.3% / +36.1% | 0.66 |
+| D4-921-T (info) | 1.116 | 0.01543 | -41.8% | -18.7% | -21.4% / -17.1% | 0.44 |
+
+Reading (mine; none of this is a verdict):
+1. The flow runs are not near steady. Every flow window speeds up over its
+   last third by 10-36%, so R is not a steady-state ratio. The non-stationary
+   values above are therefore reported, not compared with Tong's.
+2. **This solver at Tong's D3 and D4 rows is outside its own validity bound.**
+   The v5 Phase Q notes (this file, "Deviation from the plan, and why",
+   around line 956) record that a pure melt at Delta 0.55 reaches
+   tau V / W ~ 0.2 by lambda ~ 4.5. That ladder gave 0.0149 at lambda 4.8
+   against 0.0170, and it was moved to lambda {1.6, 2.4, 3.2} for that reason.
+   From this run's own speeds, tau V / W = (V d0/D) (a2 lambda) (lambda / a1):
+   - no flow: 0.12 at lambda 3.19, 0.23 at 4.79, 0.31 at 6.38 (D4-1658-P);
+   - flow: 0.19, 0.36 and 0.47.
+   The no-flow deficit versus the exact value grows with lambda in the same
+   way: -2.4% / -17% / -30 to -41%. Halving dx (tier T) does not cure it, so
+   it is not a grid effect. Only the D2 row (lambda 3.19) sits inside the
+   bound. A two-row verdict was therefore not reachable at Tong's lambda,
+   with or without stationary windows. The protocol did not account for
+   this, and the v5 finding should have been read before writing it.
+3. D2 is the one in-bound row. Its no-flow run is close to steady (-3.5%,
+   just outside the 2% clause). Its flow run is not (+9.9%), and it ends 0.22
+   nu/U from the inlet. Possibly the tip feels the inlet as it nears it. That
+   is a hypothesis, not tested here. D4-3315-P is +32% at 1.74 nu/U, so inlet
+   distance is not the whole story out of bound.
+
+What would test this next (NOT pre-registered; a choice for Frank):
+- (a) A Tong comparison restricted to what the solver can represent: Tong's
+  D2 row only (lambda 3.19), with a longer upstream run so the tip stays far
+  from the inlet, and stationarity measured before the inlet approach. A
+  single row gives R and V d0/D, but no spread clause.
+- (b) A different flow reference inside tau V / W < 0.2 (lower undercooling,
+  or a reference run at smaller lambda).
+- (c) Leave the flow qualitative, as it is now.
+Before any of these, record the validity bound as a protocol input, so a
+row outside it is excluded in advance rather than found afterwards.
