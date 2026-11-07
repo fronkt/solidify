@@ -2,8 +2,9 @@ import { Simulation, DEFAULTS, type StatsResult } from "./sim";
 import { MATERIALS, to3D } from "./materials";
 import { Renderer, type ViewMode } from "./render";
 import {
-  Sim3D, DEFAULTS3D, GRID3_LADDER, type StatsResult3D, moldWallThickness, stepSectionBounds,
+  Sim3D, DEFAULTS3D, GRID3_LADDER, type StatsResult3D, moldWallThickness, stepSectionBounds, type RxBatch,
 } from "./sim3d";
+import { heatTupleShapeOk } from "./heatshare";
 import { LENS3_NAMES, ICOSA_DELTA_MAX, PORE_ID } from "./shaders3d";
 import { Renderer3D, slicePlane } from "./render3d";
 import { SlicePanel } from "./slicepanel";
@@ -1784,6 +1785,24 @@ async function boot() {
       markTreated();
       return sim3d.nucleate(count, undefined, undefined, pin);
     },
+    // C3b-3/4a: the same event on boundary sites and/or at a steady rate
+    nucleateEvent: async (count, m, pin) => {
+      if (!(mode === "3d" && sim3d)) return { why: "Recrystallization runs in the volume only." };
+      markTreated();
+      return sim3d.nucleateEvent(count, { sites: m.boundary ? "boundary" : "random", window: m.window, pin });
+    },
+    rxTally: () => {
+      const log = mode === "3d" && sim3d ? sim3d.rxLog : null;
+      if (!log) return null;
+      const sum = (f: (b: RxBatch) => number) => log.batches.reduce((a, b) => a + f(b), 0);
+      return {
+        scheduled: log.hi - log.lo + 1, batches: log.batches.length,
+        born: log.batches.filter(b => b.state === "born").length,
+        placed: sum(b => b.placed), phantom: sum(b => b.phantom),
+        unborn: sum(b => (b.state === "unborn" ? b.hi - b.lo + 1 : 0)),
+        boundary: log.sites === "boundary", window: log.window,
+      };
+    },
     rxCensus: async () => {
       if (mode !== "3d" || !sim3d) return null;
       for (let i = 0; i < 60; i++) {
@@ -2797,10 +2816,12 @@ async function boot() {
       // Number.isFinite does not coerce, so a hand-built ht carrying strings,
       // nulls or NaN is rejected whole rather than clamped into NaN dials —
       // the g3 whitelist doctrine. A malformed ht simply does not open.
-      // Length 3 (pre-C2 links), 5 (with the dispersion tail) or 6 (v7.0 C3a,
-      // with the cold work behind it): every element PRESENT must be a finite
-      // number — the whole-rejection stance stays, only the accepted shapes
-      // grew (a 4-element hand-build is still malformed, and so is a 7).
+      // Length 3 (pre-C2 links), 5 (with the dispersion tail), 6 (v7.0 C3a,
+      // with the cold work behind it), 7 (C3b's nuclei) or 8 (C3b-3/4a's
+      // nucleation mode): every element PRESENT must be a finite number — the
+      // whole-rejection stance stays, only the accepted shapes grew (a
+      // 4-element hand-build is still malformed). heatshare.ts's
+      // heatTupleShapeOk, gated browser-free by RX-SHARE-TUPLE.
       // D3.3: a flowing link restarts the flow at its (clamped) inlet speed;
       // the same refusal predicate decides, so a link cannot force flow where
       // the model cannot run it
@@ -2808,8 +2829,7 @@ async function boot() {
         app.setFlowU(shared.fl);
         app.setFlowOn(true);
       }
-      if (Array.isArray(shared.ht) && [3, 5, 6, 7].includes(shared.ht.length)
-        && shared.ht.every(Number.isFinite) && !lab.active) heat?.open(shared.ht);
+      if (heatTupleShapeOk(shared.ht) && !lab.active) heat?.open(shared.ht);
     };
     if (shared.d !== 1) openHeat();
     // a TRUE-3D setup link re-enters the 3D mode at its grid, staged ARMED

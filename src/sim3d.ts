@@ -14,7 +14,7 @@ import { HT_RECOVER_3D } from "./heattreat";
 import { DEFAULT_UM_PER_CELL } from "./units";
 import { stream, type Rng } from "./rng";
 import { QUANT_MASS3 } from "./shaders3d-quant";
-import { freeGrainIds } from "./recrystallize";
+import { freeGrainIds, birthSchedule, scheduleShapeOk, boundarySites, treatableVoxels, type BirthBatch } from "./recrystallize";
 
 /**
  * Grid rungs, largest first — the out-of-memory creation ladder walks this and
@@ -236,6 +236,45 @@ export interface StatsResult3D {
 
 interface Seed3 { x: number; y: number; z: number; r: number; id: number; dTact: number }
 
+/** C3b-3/4a: what one nucleus of an event became (RxLog.state) */
+export const RX_PENDING = 0, RX_STAMPED = 1, RX_PHANTOM = 2, RX_UNBORN = 3;
+
+/** C3b-3/4a: one batch of a recrystallization event's birth schedule */
+export interface RxBatch {
+  /** born after this many sweeps of the anneal that consumed the event */
+  sweep: number;
+  /** the batch's ids, a contiguous slice of the event's range */
+  lo: number;
+  hi: number;
+  /** pending until its sweep; unborn when the anneal ended first (or the
+   *  field could not be read back to test its sites) */
+  state: "pending" | "born" | "unborn";
+  stamped: number;
+  /** sites already recrystallized when the batch was due: not stamped */
+  phantom: number;
+  /** stamped nuclei that claimed at least one voxel */
+  placed: number;
+}
+
+/** C3b-3/4a: a recrystallization event (Sim3D.nucleateEvent), for the card
+ *  and the gates */
+export interface RxLog {
+  lo: number;
+  hi: number;
+  requested: number;
+  sites: "random" | "boundary" | "explicit";
+  /** boundary voxels the sites were drawn from (0 for random or explicit) */
+  boundarySites: number;
+  /** the schedule's window in sweeps as asked (0: at once, or explicit) */
+  window: number;
+  r: number;
+  /** x, y, z per nucleus, id order (nucleus i has id lo + i) */
+  centre: Uint32Array;
+  /** RX_PENDING / RX_STAMPED / RX_PHANTOM / RX_UNBORN per nucleus */
+  state: Uint8Array;
+  batches: RxBatch[];
+}
+
 export class Sim3D {
   readonly device: GPUDevice;
   n: number;
@@ -418,6 +457,11 @@ export class Sim3D {
   private idsWrapped = false;
   /** C3b: the current recrystallization event's ids, or null */
   rxRange: { lo: number; hi: number } | null = null;
+  /** C3b-3/4a: the last `nucleateEvent`'s record (sites, birth schedule, what
+   *  each nucleus became); null after `nucleate`, a deposit, clear or reset */
+  rxLog: RxLog | null = null;
+  /** the next batch of `rxLog` still to be born, or -1 when none is pending */
+  private rxNext = -1;
   private rxPipe: GPUComputePipeline | null = null;
   private rxBG: GPUBindGroup[] = [];
   private rxUBuf: GPUBuffer | null = null;
@@ -1255,6 +1299,8 @@ export class Sim3D {
     this.nextId = 1;
     this.idsWrapped = false;
     this.rxRange = null;
+    this.rxNext = -1;
+    this.rxLog = null;
     this.rxRng.reset();
     this.frontZ = 1;
     this.pendingSeeds = [];
@@ -1317,8 +1363,11 @@ export class Sim3D {
     this.device.queue.writeBuffer(this.hBuf, 0, this.hCPU);
     this.hOn = true;
     this.recAcc = 0;
-    // a fresh deformation re-deforms every id, earlier nuclei included
+    // a fresh deformation re-deforms every id, earlier nuclei included, and
+    // ends any birth schedule still pending (C3b-3)
     this.rxRange = null;
+    this.rxNext = -1;
+    this.rxLog = null;
   }
 
   /**
@@ -1364,6 +1413,10 @@ export class Sim3D {
   async nucleate(count: number, r = NUCLEUS_R_3D, at?: [number, number, number][],
     pin?: { f: number; r: number }):
     Promise<{ lo: number; hi: number; requested: number; placed: number } | { why: string }> {
+    // an at-once event ends any steady schedule still pending (C3b-3): two
+    // events must never interleave on one id range
+    this.rxNext = -1;
+    this.rxLog = null;
     const want = Math.max(0, Math.floor(count));
     if (want === 0) { this.rxRange = null; return { lo: 0, hi: -1, requested: 0, placed: 0 }; }
     if (!this.hOn) return { why: "Recrystallization nuclei grow on stored energy, and this specimen has none: dial cold work first." };
@@ -1436,6 +1489,198 @@ export class Sim3D {
   }
 
   /**
+   * C3b-3/4a: a recrystallization event with a birth schedule and a choice
+   * of sites (docs/C3B-RECRYSTALLIZATION-DESIGN.md section 6). `nucleate`
+   * stays the at-once, random-site path; this is the same event generalized:
+   *
+   * - Draws: every orientation for the range first, then x, y, z per nucleus,
+   *   all from stream("recrystallization") in `nucleate`'s order, so one
+   *   batch at sweep 0 on random sites IS `nucleate`'s event, bit for bit.
+   *   Boundary sites draw one index into the boundary list per nucleus
+   *   instead (`boundarySites`: treatable voxels with a differently-labelled
+   *   treatable 26-neighbour, classified once here from the field as it
+   *   stands, before any nucleus). `at` (fixtures) gives explicit centres.
+   * - Schedule: `window` sweeps at a constant rate in up to `batches`
+   *   batches (`birthSchedule`; 0 or 1 = at once), or an explicit `schedule`
+   *   (fixtures; its counts must sum to `count` and fit the free ids). A
+   *   batch at sweep 0 is born here; later ones are born by the NEXT
+   *   `anneal` call after that many of its sweeps, after its sample hook.
+   * - Phantoms: when a batch is due the field is read back, and a nucleus
+   *   whose centre already carries an id of this event is not stamped (the
+   *   JMAK phantom: the rate is per unit TOTAL volume). Only earlier batches
+   *   make phantoms; overlaps within a batch resolve as `nucleate`'s do.
+   * - Ids: the whole range is allocated up front (`freeIds`, `nucleate`'s
+   *   rule), H = 0 and orientations written for all of it; a short budget
+   *   rebuilds the rate schedule for the ids there are. Phantom ids are spent.
+   *
+   * Births the anneal never reaches (an abort, a shorter call) are recorded
+   * unborn when it returns; a deposit, clear, reset or `nucleate` drops a
+   * pending schedule. `rxLog` keeps the record. Resolves to a sentence on
+   * refusal, with nothing moved.
+   */
+  async nucleateEvent(count: number, opts: {
+    sites?: "random" | "boundary";
+    window?: number;
+    batches?: number;
+    schedule?: BirthBatch[];
+    r?: number;
+    at?: [number, number, number][];
+    pin?: { f: number; r: number };
+  } = {}): Promise<{ lo: number; hi: number; requested: number; placed: number; scheduled: number; batches: number } | { why: string }> {
+    this.rxNext = -1;
+    this.rxLog = null;
+    const want = Math.max(0, Math.floor(count));
+    if (want === 0) { this.rxRange = null; return { lo: 0, hi: -1, requested: 0, placed: 0, scheduled: 0, batches: 0 }; }
+    if (!this.hOn) return { why: "Recrystallization nuclei grow on stored energy, and this specimen has none: dial cold work first." };
+    if (this.idsWrapped) return { why: "This cast used every grain id once already, so a new id could alias a live grain. Re-pour to recrystallize." };
+    if (opts.schedule && !scheduleShapeOk(opts.schedule, want))
+      return { why: "A birth schedule needs strictly increasing whole sweeps and whole counts that add up to the nuclei asked for." };
+    if (!(await this.ensureHt())) return { why: "The GPU could not allocate the treatment mask." };
+    const n = this.n, d = this.device, r = opts.r ?? NUCLEUS_R_3D;
+    // boundary sites: the deformed matrix's own boundaries, before any nucleus
+    const boundary = opts.sites === "boundary" && !opts.at;
+    let list: Uint32Array | null = null;
+    if (boundary) {
+      const ids = await this.readGrainVolume(), phi = await this.readPhiVolume();
+      if (!ids || !phi) return { why: "The grain field could not be read back to find its boundaries." };
+      list = boundarySites(ids, treatableVoxels(ids, phi, this.maskCPU, PORE_ID), n);
+      if (list.length === 0) return { why: "This specimen has no grain boundaries to nucleate on (one grain): choose random sites." };
+    }
+    const ctr = await this.readTwinCtr();
+    if (ctr == null) return { why: "The grain-id counter could not be read back." };
+    const k = Math.min(want, this.freeIds(ctr));
+    if (k <= 0) return { why: "No free grain ids are left on this cast. Re-pour to recrystallize." };
+    if (opts.schedule && k < want) return { why: `This birth schedule needs ${want} grain ids and ${k} are free. Re-pour to recrystallize.` };
+    const schedule = opts.schedule ?? birthSchedule(k, opts.window ?? 0, opts.batches);
+    const lo = ctr - k + 1, hi = ctr;
+    d.queue.writeBuffer(this.twinCtrBuf, 0, new Uint32Array([ctr - k]));
+    // strain-free and freshly oriented, every id in the range (nucleate's order)
+    for (let id = lo; id <= hi; id++) {
+      this.hCPU[id] = 0;
+      this.quatCPU.set(this.randomQuat(this.rxRng), id * 4);
+    }
+    d.queue.writeBuffer(this.hBuf, 0, this.hCPU);
+    d.queue.writeBuffer(this.quatBuf, lo * 16, this.quatCPU, lo * 4, k * 4);
+    this.writeHt(0, HT_KT_DEFAULT, opts.pin);
+    const centre = new Uint32Array(k * 3);
+    for (let i = 0; i < k; i++) {
+      const c = opts.at?.[i];
+      if (c || !list) {
+        centre[i * 3] = c ? Math.min(n - 1, Math.max(0, Math.round(c[0]))) : this.rxRng.int(n);
+        centre[i * 3 + 1] = c ? Math.min(n - 1, Math.max(0, Math.round(c[1]))) : this.rxRng.int(n);
+        centre[i * 3 + 2] = c ? Math.min(n - 1, Math.max(0, Math.round(c[2]))) : this.rxRng.int(n);
+      } else {
+        const v = list[this.rxRng.int(list.length)];
+        centre[i * 3] = v % n;
+        centre[i * 3 + 1] = Math.floor(v / n) % n;
+        centre[i * 3 + 2] = Math.floor(v / (n * n));
+      }
+    }
+    {
+      const enc = d.createCommandEncoder();
+      const pass = enc.beginComputePass();
+      pass.setPipeline(this.htMaskPipe!);
+      pass.setBindGroup(0, this.htMaskBG[this.dir]);
+      this.dispatch(pass);
+      pass.end();
+      d.queue.submit([enc.finish()]);
+    }
+    const batches: RxBatch[] = [];
+    let off = 0;
+    for (const b of schedule) {
+      batches.push({ sweep: b.sweep, lo: lo + off, hi: lo + off + b.count - 1, state: "pending", stamped: 0, phantom: 0, placed: 0 });
+      off += b.count;
+    }
+    this.rxRange = { lo, hi };
+    this.rxLog = {
+      lo, hi, requested: want, sites: opts.at ? "explicit" : boundary ? "boundary" : "random",
+      boundarySites: list ? list.length : 0, window: opts.schedule ? 0 : Math.max(0, Math.floor(opts.window ?? 0)),
+      r, centre, state: new Uint8Array(k), batches,
+    };
+    this.rxNext = 0;
+    if (batches[0].sweep === 0) await this.rxBirths(0);
+    const b0 = batches[0];
+    return { lo, hi, requested: want, placed: b0.sweep === 0 ? b0.placed : 0, scheduled: k, batches: batches.length };
+  }
+
+  /**
+   * Bear every pending batch due at `sweep` (C3b-3). The first batch needs no
+   * readback: nothing of this event is in the field yet, so it cannot meet a
+   * phantom, and skipping the read keeps a one-batch event's commands
+   * `nucleate`'s exactly. Later batches read the field once and leave every
+   * site already carrying an event id unstamped.
+   */
+  private async rxBirths(sweep: number): Promise<void> {
+    const log = this.rxLog;
+    while (log && this.rxNext >= 0 && this.rxNext < log.batches.length && log.batches[this.rxNext].sweep === sweep) {
+      const bi = this.rxNext, bt = log.batches[bi];
+      this.rxNext = bi + 1 < log.batches.length ? bi + 1 : -1;
+      const n = this.n, d = this.device;
+      let field: Uint32Array | null = null;
+      if (bi > 0) {
+        for (let tries = 0; tries < 3 && !field; tries++) field = await this.readGrainVolume();
+        if (!field) {
+          // no field, no phantom test: record the batch unborn, never guess
+          bt.state = "unborn";
+          for (let id = bt.lo; id <= bt.hi; id++) log.state[id - log.lo] = RX_UNBORN;
+          continue;
+        }
+      }
+      const sites = new Uint32Array((bt.hi - bt.lo + 1) * 4);
+      let m = 0;
+      for (let id = bt.lo; id <= bt.hi; id++) {
+        const i = id - log.lo;
+        const x = log.centre[i * 3], y = log.centre[i * 3 + 1], z = log.centre[i * 3 + 2];
+        const cur = field ? field[(z * n + y) * n + x] : 0;
+        if (field && cur >= log.lo && cur <= log.hi) { log.state[i] = RX_PHANTOM; bt.phantom++; continue; }
+        log.state[i] = RX_STAMPED;
+        bt.stamped++;
+        sites[m * 4] = x; sites[m * 4 + 1] = y; sites[m * 4 + 2] = z; sites[m * 4 + 3] = id;
+        m++;
+      }
+      // the at-once stamp, batched as nucleate batches it; [lo, hi] is the
+      // WHOLE event, so earlier batches' grains are never overwritten
+      const u = new ArrayBuffer(32);
+      const uu = new Uint32Array(u), uf = new Float32Array(u);
+      for (let b = 0; b < m; b += RX_BATCH3) {
+        const c = Math.min(RX_BATCH3, m - b);
+        uu[0] = n; uu[1] = c; uu[2] = log.lo; uu[3] = log.hi; uf[4] = log.r * log.r;
+        d.queue.writeBuffer(this.rxUBuf!, 0, u);
+        d.queue.writeBuffer(this.rxNucBuf!, 0, sites, b * 4, c * 4);
+        const enc = d.createCommandEncoder();
+        const pass = enc.beginComputePass();
+        pass.setPipeline(this.rxPipe!);
+        pass.setBindGroup(0, this.rxBG[this.dir]);
+        this.dispatch(pass);
+        pass.end();
+        d.queue.submit([enc.finish()]);
+        await d.queue.onSubmittedWorkDone();
+      }
+      bt.state = "born";
+      // nucleate's placed rule: every id that claimed a voxel, read retried
+      let census: Awaited<ReturnType<Sim3D["readRegion"]>> = null;
+      for (let tries = 0; tries < 40 && !census; tries++) {
+        census = await this.readRegion([0, 0, 0], [n, n, n], 1);
+        if (!census) await d.queue.onSubmittedWorkDone();
+      }
+      bt.placed = census ? census.grains.filter(g => g.id >= bt.lo && g.id <= bt.hi).length : 0;
+    }
+  }
+
+  /** the anneal that consumed an event ended: what it never reached is unborn */
+  private rxCutoff(): void {
+    const log = this.rxLog;
+    if (log && this.rxNext >= 0) {
+      for (let b = this.rxNext; b < log.batches.length; b++) {
+        const bt = log.batches[b];
+        bt.state = "unborn";
+        for (let id = bt.lo; id <= bt.hi; id++) log.state[id - log.lo] = RX_UNBORN;
+      }
+    }
+    this.rxNext = -1;
+  }
+
+  /**
    * Drop the stored-energy field and return to the pre-C3a anneal.
    *
    * Separate from `reset()` because turning the cold work off must not re-pour
@@ -1449,6 +1694,8 @@ export class Sim3D {
     this.hOn = false;
     this.recAcc = 0;
     this.rxRange = null;
+    this.rxNext = -1;
+    this.rxLog = null;
   }
 
   /** the CPU mirror of the stored-energy field — what the panel's census reads */
@@ -1932,8 +2179,9 @@ export class Sim3D {
   ): Promise<number> {
     if (HT_COLOURS_3D % 2 !== 0) throw new Error("HT_COLOURS_3D must be even — see anneal()");
     const total = Math.max(0, Math.floor(sweeps));
-    if (total === 0) return 0;
-    if (!(await this.ensureHt())) return 0;
+    // a pending birth schedule (C3b-3) belongs to this call whatever it delivers
+    if (total === 0) { this.rxCutoff(); return 0; }
+    if (!(await this.ensureHt())) { this.rxCutoff(); return 0; }
     // rebuild the "which voxels may be treated" mask from the current state —
     // once per treatment, not per sweep: φ is frozen for the duration
     this.writeHt(0, kT, pin);
@@ -1968,12 +2216,22 @@ export class Sim3D {
         await this.device.queue.onSubmittedWorkDone();
         await sample.read(s + 1);
       }
+      // C3b-3: nuclei due after this sweep, born AFTER its sample, so a sample
+      // at a birth sweep reads the field the births test their sites against.
+      // Between submits like the sample hook, so salts and recovery run as an
+      // unscheduled call's do; with nothing pending this is one test
+      if (this.rxNext >= 0 && this.rxLog?.batches[this.rxNext]?.sweep === s + 1) {
+        await this.device.queue.onSubmittedWorkDone();
+        await this.rxBirths(s + 1);
+      }
       if ((s & 7) === 7) {
         await this.device.queue.onSubmittedWorkDone();
         if (onProgress?.(s + 1) === false) { delivered = s + 1; break; }
       }
     }
     await this.device.queue.onSubmittedWorkDone();
+    // births this call never reached (an abort, a shorter call) are unborn
+    this.rxCutoff();
     // Recovery accumulates by the sweeps actually DELIVERED, so an aborted hold
     // banks only what it ran, and consecutive `anneal` calls that share one
     // deposit — the chunked path `annealTwins` uses — recover as one treatment

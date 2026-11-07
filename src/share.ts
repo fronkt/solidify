@@ -35,7 +35,7 @@ export interface ShareState {
    *  in use. The work element rides BEHIND the dispersion pair rather than
    *  replacing it, so a worked-but-unpinned setup still spells that pair out at
    *  its off defaults: a positional tail with a hole in it cannot be decoded. */
-  ht?: [number, number, number, number?, number?, number?, number?];   // 7th: C3b nuclei
+  ht?: [number, number, number, number?, number?, number?, number?, number?];   // 7th: C3b nuclei; 8th: C3b-3/4a mode (heatshare.ts)
   /** D3.3: the melt-flow inlet speed (cells per substep), present only while
    *  flow runs (2D); absent = no flow, so every older link decodes unchanged */
   fl?: number;

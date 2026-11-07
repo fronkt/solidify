@@ -43,7 +43,11 @@ import { heatTrajectory, heatProcessFigure, equivalentHeatTime, recrystallizatio
 import { HOMOG_D2 } from "./shaders";
 import { HOMOG_D3, NUCLEUS_R_3D } from "./shaders3d";
 import { avramiFit, sweepSchedule, AVRAMI_WINDOW } from "./recrystallize";
-import { range } from "./formbits";
+import {
+  WORK_MAX, WORK_STEP, RX_MAX, RX_STEP, RX_MODES, rxSteady, rxBoundary,
+  packHeatSetup, applyHeatSetup, type HeatTuple,
+} from "./heatshare";
+import { range, select } from "./formbits";
 import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
 import { HEAT_CAVEATS as HC, panelHintFor, panelText } from "./learn/panels";
 import { kv, kvFull, num, panelHead, pill, quiet, warnLine, warnWord } from "./design/panel";
@@ -96,6 +100,23 @@ export function regionCensus(
   };
 }
 
+/** C3b-3/4a: what a non-default nucleation event delivered over its anneal */
+export interface RxTally {
+  /** nuclei the schedule held (the ids allocated) */
+  scheduled: number;
+  batches: number;
+  /** batches the anneal reached */
+  born: number;
+  /** stamped nuclei that claimed a voxel, over every batch */
+  placed: number;
+  /** sites already recrystallized when their batch was due */
+  phantom: number;
+  /** nuclei whose batch the anneal never reached */
+  unborn: number;
+  boundary: boolean;
+  window: number;
+}
+
 export interface HeatHost {
   units(): Units;
   meta(): PlotMeta;
@@ -129,6 +150,12 @@ export interface HeatHost {
    *  on the treatable voxels of the same dispersion the sweeps will run with */
   nucleate?(count: number, pin?: { f: number; r: number }):
     Promise<{ lo: number; hi: number; requested: number; placed: number } | { why: string }>;
+  /** C3b-3/4a, 3D only: the same event on grain-boundary sites and/or at a
+   *  steady rate over `window` sweeps of the next anneal (Sim3D.nucleateEvent) */
+  nucleateEvent?(count: number, mode: { boundary: boolean; window: number }, pin?: { f: number; r: number }):
+    Promise<{ lo: number; hi: number; requested: number; placed: number } | { why: string }>;
+  /** C3b-3/4a: the last event's tally once its anneal returned (every batch) */
+  rxTally?(): RxTally | null;
   /** C3b, 3D only: raw voxel counts over the event's ids and over all grains */
   rxCensus?(): Promise<{ rx: number; grain: number } | null>;
   /**
@@ -217,12 +244,11 @@ const RAMP_DOWN = 5;
  * comfortably under the ~3 J_b where the Boltzmann tail first makes a flat
  * front measurably mobile: the first click of the dial is honestly almost
  * nothing, which is what a first click should be.
+ *
+ * WORK_MAX and WORK_STEP, and C3b's nuclei ceiling and step, live in
+ * heatshare.ts with the share tuple that snaps to them, so the browser-free
+ * round-trip gate reads the same numbers the dials are built from.
  */
-const WORK_MAX = 10;
-const WORK_STEP = 0.5;
-/** C3b: recrystallization nuclei per treatment, and the dial's step */
-const RX_MAX = 1000;
-const RX_STEP = 25;
 
 /**
  * Lenses parked during a treatment, per dimension — rule 3. 2D: MELT/FIELD/
@@ -259,6 +285,8 @@ type Plan =
       work?: number;
       /** C3b: recrystallization nuclei, only alongside cold work in 3D */
       rx?: number;
+      /** C3b-3/4a: the nucleation mode (heatshare RX_MODES), 0 without nuclei */
+      rxMode?: number;
       /** C3b: a dispersion was dialled but is held back because nuclei are */
       pinHeld?: { f: number; r: number };
     };
@@ -324,6 +352,8 @@ export class HeatPanel {
   private workJb = 0;
   /** C3b: recrystallization nuclei as dialled (3D only) */
   private rxN = 0;
+  /** C3b-3/4a: the nucleation select, an index into RX_MODES (3D only) */
+  private rxMode = 0;
   private abortReq = false;
   /** exit pressed mid-run: abort first, close when the run loop hands back */
   private closeReq = false;
@@ -334,7 +364,7 @@ export class HeatPanel {
    * behaviour on every open and material swap, and exactly the clobber that
    * would silently discard a restored link.
    */
-  private restore: [number, number, number, number?, number?, number?, number?] | null = null;
+  private restore: HeatTuple | null = null;
   /** learn mode's "i" and hints (rebuilt with the panel); the note's and the
    *  report's learn sentences are slots in their HTML (learnSlot) */
   private learn = new LearnLayer(() => this.applyLearn());
@@ -392,18 +422,16 @@ export class HeatPanel {
    *  appears exactly when the mode it carries is in use. The work element rides
    *  BEHIND the dispersion pair rather than replacing it, so a worked link with
    *  no dispersion still spells that pair out at its off defaults — a tail with
-   *  a hole in it is a tail nothing can decode positionally. */
-  setup(): [number, number, number, number?, number?, number?, number?] {
-    // C3b's nuclei ride behind the work element, packed only when dialled, so
-    // every link without them keeps its old shape
-    if (this.rxN > 0) return [this.tC, this.holdMin, this.specMPa, this.pinF, this.pinR, this.workJb, this.rxN];
-    if (this.workJb > 0) return [this.tC, this.holdMin, this.specMPa, this.pinF, this.pinR, this.workJb];
-    return this.pinF > 0
-      ? [this.tC, this.holdMin, this.specMPa, this.pinF, this.pinR]
-      : [this.tC, this.holdMin, this.specMPa];
+   *  a hole in it is a tail nothing can decode positionally. C3b's nuclei ride
+   *  behind the work element and C3b-3/4a's nucleation mode behind them, each
+   *  packed only when it is not the default (heatshare.ts, gated browser-free
+   *  by RX-SHARE-TUPLE), so every link without them keeps its old shape. */
+  setup(): HeatTuple {
+    return packHeatSetup({ tC: this.tC, holdMin: this.holdMin, specMPa: this.specMPa, pinF: this.pinF,
+      pinR: this.pinR, workJb: this.workJb, rxN: this.rxN, rxMode: this.rxMode });
   }
 
-  open(restore?: [number, number, number, number?, number?, number?, number?]) {
+  open(restore?: HeatTuple) {
     if (this.active) return;
     this.active = true;
     this.restore = restore ?? null;
@@ -560,7 +588,9 @@ export class HeatPanel {
     const dLimUm = pin && this.host.getMode() !== "3d"
       ? zenerLimitCells(pin.f, pin.r) * this.host.umPerCell()
       : undefined;
-    return { ok: true, sch, ints, d0Um, dPredUm, sweeps, capped, dCapUm, pin, dLimUm, work, rx, pinHeld };
+    // C3b-3/4a: the mode rides only with nuclei (0 is the at-once default)
+    const rxMode = rx ? this.rxMode : 0;
+    return { ok: true, sch, ints, d0Um, dPredUm, sweeps, capped, dCapUm, pin, dLimUm, work, rx, pinHeld, rxMode };
   }
 
   // -------------------------------------------------------------- the panel
@@ -625,34 +655,23 @@ export class HeatPanel {
     // know that the casting under it is still that one
     this.workJb = 0;
     this.rxN = 0;
+    this.rxMode = 0;
     // a share link's setup lands here, once, clamped to this material's own
     // dial ranges — a hand-built link does not get to dial 2000 °C (and the
-    // decoder's Number.isFinite whitelist already rejected non-numbers whole)
+    // decoder's Number.isFinite whitelist already rejected non-numbers whole).
+    // The clamps, the step snaps (a hand-built 0.0004 dispersion must not
+    // latch the pin ON while every surface prints "0.0 vol %") and the
+    // volume-only rule for work, nuclei and the nucleation mode are
+    // heatshare.ts's applyHeatSetup, moved there verbatim so RX-SHARE-TUPLE
+    // can pin the legacy shapes browser-free
     if (this.restore) {
-      const [t, h, s, pf, pr, wk, rxn] = this.restore;
-      this.tC = Math.min(tMax, Math.max(tMin, Math.round(t)));
-      this.holdMin = Math.min(720, Math.max(1, Math.round(h)));
-      this.specMPa = Math.min(specMax, Math.max(0, s));
-      // the optional dispersion tail (v7.0 C2) — same clamp doctrine; an old
-      // three-element link decodes pf/pr as undefined and keeps the defaults.
-      // pf snaps to the dial's own step: a hand-built 0.0004 would otherwise
-      // latch the pin ON while every surface prints "0.0 vol %" — a lying
-      // label on exactly the hand-built-link surface the clamp defends
-      if (typeof pf === "number" && Number.isFinite(pf))
-        this.pinF = Math.min(0.12, Math.max(0, Math.round(pf / 0.005) * 0.005));
-      if (typeof pr === "number" && Number.isFinite(pr)) this.pinR = Math.min(5, Math.max(1, Math.round(pr)));
-      // the cold-work element (v7.0 C3a), applied in the VOLUME only. A link
-      // carrying work but opened in the plane drops it rather than holding it
-      // silently: there is no dial to show it and no kernel to spend it, and a
-      // dialled value no surface prints is the lying-label case the pf clamp
-      // above was written for. Snapped to the dial's own step for the same
-      // reason pf is — a hand-built 0.004 must not latch the mode on while
-      // every surface reads "as cast".
-      if (typeof wk === "number" && Number.isFinite(wk) && this.host.getMode() === "3d")
-        this.workJb = Math.min(WORK_MAX, Math.max(0, Math.round(wk / WORK_STEP) * WORK_STEP));
-      // C3b nuclei: the same volume-only, snap-to-step doctrine as the work
-      if (typeof rxn === "number" && Number.isFinite(rxn) && this.host.getMode() === "3d")
-        this.rxN = Math.min(RX_MAX, Math.max(0, Math.round(rxn / RX_STEP) * RX_STEP));
+      const d = applyHeatSetup(this.restore, { tMin, tMax, specMax, volume: this.host.getMode() === "3d" }, {
+        tC: this.tC, holdMin: this.holdMin, specMPa: this.specMPa, pinF: this.pinF, pinR: this.pinR,
+        workJb: this.workJb, rxN: this.rxN, rxMode: this.rxMode,
+      });
+      this.tC = d.tC; this.holdMin = d.holdMin; this.specMPa = d.specMPa;
+      this.pinF = d.pinF; this.pinR = d.pinR; this.workJb = d.workJb;
+      this.rxN = d.rxN; this.rxMode = d.rxMode;
       this.restore = null;
     }
     const umPC = this.host.umPerCell();
@@ -706,6 +725,12 @@ export class HeatPanel {
       form.append(cell(range("nuclei", 0, RX_MAX, RX_STEP, this.rxN,
         v => { this.rxN = v; this.refresh(); }, 0,
         v => v > 0 ? `${v.toFixed(0)} · r ${NUCLEUS_R_3D} cells` : "none")));
+      // C3b-3/4a: where and when the nuclei are born. A SELECT, not an eighth
+      // range input, so every gate that counts or drives the dials by
+      // position sees the seven it always has; in a two-column form it sits
+      // beside the nuclei dial, so the panel does not grow
+      form.append(cell(select("nucleation", [...RX_MODES], RX_MODES[this.rxMode],
+        v => { this.rxMode = Math.max(0, RX_MODES.indexOf(v as typeof RX_MODES[number])); this.refresh(); })));
     }
 
     const note = document.createElement("div");
@@ -1090,6 +1115,7 @@ export class HeatPanel {
     const rxS: number[] = [], rxX: number[] = [];
     let rxX0 = 0;
     let rxSample: { at(d: number): boolean; read(d: number): Promise<void> } | undefined;
+    let rxTally: RxTally | null = null;
     let homogLine = "";
     // the treatment's solver calls (nuclei, their census, sweeps, diffusion)
     // all sit inside the try: a throw from any of them (nuclei allocated off a
@@ -1097,7 +1123,15 @@ export class HeatPanel {
     // setRun and close all wait on it forever
     try {
       if (plan.rx && this.host.nucleate && this.host.rxCensus && total > 0) {
-        rxEvent = await this.host.nucleate(plan.rx, pin);
+        // C3b-3/4a: any mode but the default goes through the event path; the
+        // default keeps C3b's call, and with it every byte of its card. Steady
+        // spreads the births over the whole treatment (design section 6.2)
+        const mode = plan.rxMode ?? 0;
+        rxEvent = mode === 0
+          ? await this.host.nucleate(plan.rx, pin)
+          : this.host.nucleateEvent
+            ? await this.host.nucleateEvent(plan.rx, { boundary: rxBoundary(mode), window: rxSteady(mode) ? total : 0 }, pin)
+            : { why: "Nucleation modes need the volume's event path, which this host does not have." };
         if (!("why" in rxEvent)) {
           const c0 = await this.host.rxCensus();
           rxX0 = c0 && c0.grain > 0 ? c0.rx / c0.grain : 0;
@@ -1132,6 +1166,8 @@ export class HeatPanel {
         } else {
           delivered = await this.host.anneal(total, onProg, pin, rxSample);
         }
+        // the event's tally is final once the anneal that consumed it returned
+        if (rxEvent && !("why" in rxEvent) && (plan.rxMode ?? 0) !== 0) rxTally = this.host.rxTally?.() ?? null;
       }
       // homogenization rides the same treatment: the schedule's Dt product,
       // spent as masked diffusion iterations through the solid skeleton
@@ -1174,12 +1210,13 @@ export class HeatPanel {
     this.host.syncUI();
     if (this.closeReq) { this.closeReq = false; this.close(); return; }
     this.report(plan, before, after, delivered, total, twinLine, homogLine, spec,
-      rxEvent ? { event: rxEvent, S: rxS, X: rxX, x0: rxX0 } : null);
+      rxEvent ? { event: rxEvent, S: rxS, X: rxX, x0: rxX0, tally: rxTally } : null);
     this.refresh();
   }
 
   private report(plan: Plan & { ok: true }, before: Census, after: Census | null, delivered: number, total: number, twinLine = "", homogLine = "", spec = 0,
-    rx: { event: { lo: number; hi: number; requested: number; placed: number } | { why: string }; S: number[]; X: number[]; x0: number } | null = null) {
+    rx: { event: { lo: number; hi: number; requested: number; placed: number } | { why: string }; S: number[]; X: number[]; x0: number;
+      tally?: RxTally | null } | null = null) {
     if (!this.reportEl) return;
     // The card is a spec rail (.kv): each row's label in --fg-3, one space,
     // then what it says, so the text the gates read is the sentence the card
@@ -1304,8 +1341,13 @@ export class HeatPanel {
       if ("why" in rxEvent) rows.push(kv("recrystallized", warnLine(rxEvent.why)));
       else {
         const xEnd = rxX.length ? rxX[rxX.length - 1] : rxX0;
+        // C3b-3/4a: the default mode's row is byte-what C3b printed; any other
+        // mode counts what every batch placed and says where and when
+        const mode = plan.rxMode ?? 0, tally = rx.tally ?? null;
+        const placed = mode !== 0 && tally ? tally.placed : rxEvent.placed;
         rows.push(kv("recrystallized", `X ${strong(xEnd.toFixed(2))} after ${delivered.toLocaleString()} MC sweeps `
-          + dim(`· ${rxEvent.placed} of ${rxEvent.requested} nuclei placed (ids ${rxEvent.lo}–${rxEvent.hi}), r ${NUCLEUS_R_3D} cells, 0 J_b`)));
+          + dim(`· ${placed} of ${rxEvent.requested} nuclei placed (ids ${rxEvent.lo}–${rxEvent.hi}), r ${NUCLEUS_R_3D} cells, 0 J_b`
+            + (mode === 0 ? "" : rxModeClause(mode, tally)))));
         const fit = avramiFit(rxS, rxX, AVRAMI_WINDOW, rxX0);
         const prov = this.host.meta(), b = bridgeOf(this.host.units(), prov.material);
         this.rxFigures = [recrystallizationFigure(rxS, rxX, rxX0, b, prov), avramiFigure(rxS, rxX, "why" in fit ? null : fit, b, prov)];
@@ -1314,7 +1356,7 @@ export class HeatPanel {
         rows.push("why" in fit
           ? kv("Avrami n", dim(fit.why))
           : kv("Avrami n", `${strong(fit.n.toFixed(2))} `
-            + dim(`(X ${fit.window[0].toFixed(2)}–${fit.window[1].toFixed(2)}, ${fit.used} points, r² ${fit.r2.toFixed(3)}, Monte Carlo sweep clock; site-saturated 3D growth at constant speed gives 3)`)));
+            + dim(`(X ${fit.window[0].toFixed(2)}–${fit.window[1].toFixed(2)}, ${fit.used} points, r² ${fit.r2.toFixed(3)}, Monte Carlo sweep clock; ${RX_N_REFERENCE[plan.rxMode ?? 0] ?? RX_N_REFERENCE[0]})`)));
       }
     }
     // the closing line, across both columns: a warning when the run did not
@@ -1348,6 +1390,33 @@ export class HeatPanel {
 }
 
 // -------------------------------------------------------------- formatting
+
+/**
+ * The Avrami row's textbook reference, per nucleation mode (heatshare
+ * RX_MODES order). Index 0 is C3b's sentence, unchanged. Boundary modes print
+ * the random-site value they depart from rather than a boundary value: the
+ * classic one (Cahn 1956) is not verified here (design section 6.4).
+ */
+const RX_N_REFERENCE = [
+  "site-saturated 3D growth at constant speed gives 3",
+  "constant-rate nucleation with 3D growth at constant speed gives 4",
+  "nuclei on grain boundaries; random sites all at once at constant speed give 3",
+  "nuclei on grain boundaries at a steady rate; random sites at a constant rate and speed give 4",
+];
+
+/** C3b-3/4a: the recrystallized row's clause for a non-default mode */
+function rxModeClause(mode: number, t: RxTally | null): string {
+  let s = "";
+  if (rxBoundary(mode)) s += " · on grain boundaries";
+  if (rxSteady(mode)) {
+    s += t
+      ? ` · steady: ${t.batches} batches over ${t.window.toLocaleString()} sweeps, `
+        + `${t.phantom} ${t.phantom === 1 ? "site" : "sites"} already recrystallized`
+        + (t.unborn > 0 ? `, ${t.unborn} not born` : "")
+      : " · steady";
+  }
+  return s;
+}
 
 function fmtUm(um: number): string {
   return um >= 100 ? `${um.toFixed(0)} µm` : `${um.toFixed(1)} µm`;
