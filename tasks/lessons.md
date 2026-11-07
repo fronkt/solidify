@@ -910,3 +910,19 @@ fixed-port suite, keep checking for the whole run that the 5199 listener's
 command line names this worktree. Log other headless Chrome processes at the
 start and end, so a timing or timeout failure can be read against
 contention.
+
+## Read the solver's own validity bound before choosing reference rows
+
+The second Tong comparison was pre-registered at Tong's own lambda 3.19 /
+4.79 / 6.38. The v5 Phase Q notes in this same todo.md already recorded that
+a pure melt at Delta 0.55 exceeds tau V / W ~ 0.2 by lambda ~ 4.5, with
+0.0149 against 0.0170 at lambda 4.8. On 11-07 the no-flow baseline came out
+-17% at 4.79 and -30 to -41% at 6.38. Only one of the three rows could ever
+be meaningful, and the protocol needed two for a verdict.
+
+**Rule.** Before pre-registering a comparison against a published reference,
+grep this repo's own notes for the solver's validity bounds at that staging
+(tau V / W, rho / W0, Pe_W, grid limits). Compute the bound for every planned
+row from the predicted speeds. Write any row outside the bound into the
+protocol as excluded up front, and check the verdict is still reachable with
+the rows that remain.
