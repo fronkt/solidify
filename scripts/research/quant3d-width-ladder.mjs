@@ -149,7 +149,9 @@ async function main() {
     result.verdict = complete ? ladderVerdict({ executionClean,
       valid: ['w50', 'w44', 'w40-anchor'].every(n => byName[n].valid),
       anchor: byName['w40-anchor'].derived, w44: byName.w44.derived, w50: byName.w50.derived })
-      : { verdict: exception ? 'refused-execution' : 'incomplete', q3Accepted: false };
+      // Protocol rules 1-2: a failed execution refuses first; otherwise an arm
+      // without a resolved terminal state is an invalid arm.
+      : { verdict: exception || !executionClean ? 'refused-execution' : 'refused-validity', q3Accepted: false };
     result.completed = complete && executionClean;
     result.status = result.verdict.verdict; result.finished = new Date().toISOString(); save();
     console.log('Q3C-LADDER-VERDICT', JSON.stringify(result.verdict));
