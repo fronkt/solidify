@@ -799,3 +799,70 @@ GPU had drained. Heavier renders outlasted the sleep, the next call started
 **Rule.** Pace test physics on completion (onSubmittedWorkDone, stepSync),
 never on wall-clock sleeps; a change that only makes frames slower must not be
 able to change how much physics a gate delivers.
+
+## A raw counter value is not a free count
+
+The volume's grain-id allocator is a u32 the GPU growth-twin pass `atomicSub`s on
+every attempt, refused or not, so a long twinning cast walks it past 0 to ~4.29e9.
+Three callers read it and did arithmetic on the raw value (`ctr - nextId - 2`), so a
+wrapped counter read as four billion free ids; `nucleate` then indexed past every
+per-id buffer, threw, and because the call sat above the panel's `try` the busy
+latch never cleared.
+
+**Rule.** Read a hardware counter through one function that knows how it can
+overflow, and keep every await that can throw inside the block that releases the
+lock it ran under.
+
+## A setting latched from dials goes stale when the dials move
+
+The melt flow computed its lattice viscosity and drag width once, at `setFlow`, from
+dt, dx, epsBar and the solver. Every one of those is a live dial, so a solver switch
+mid-flow ran a 3.1x drag and the wrong Prandtl number with no message, and the
+stability envelope was never checked again.
+
+**Rule.** A value derived from user-adjustable inputs is derived at the point of
+use, and its validity re-checked where the inputs can change, not only where the
+mode starts.
+
+## Stamp an asynchronous result with the state it describes
+
+A census is submitted against the field as it is when the read is issued and
+resolves frames later. A reset in between handed the old cast's numbers to every
+consumer: the replay ledger refused the fresh pour as remelted, the HUD showed a
+ΔT right after its own reset (the HUD-LIVE intermittent), the lab took a first
+sample from the previous melt. The first fix guarded only the consumer the review
+named; the root found the other six.
+
+**Rule.** When a result can outlive what it measured, stamp it at issue (owner and
+generation) and drop it before the FIRST consumer, so one check covers them all.
+Fixing the consumer that was reported leaves the rest.
+
+## Mark the event where it happens, not where a poll may notice it
+
+The replay ledger learned of a heat treatment by a frame seeing `heat.busy`; a
+treatment that started and ended between two frames left it clean. And marking at
+the call is not enough on its own: the next frame's clock reads an unseen reset as
+"time ran back" and clears the mark, so the call syncs the clock first.
+
+**Rule.** Record a state change at the call that makes it. A polled flag is a
+backstop, never the record.
+
+## Size a tolerance against the defect it must catch
+
+FLOW-DRAG-PROFILE allowed 2 % of the peak; a drag constant wrong by a factor of 2
+moves the profile by 1.7 %, so the gate could not see the error it existed for. Its
+falsification arm (h = 0) did fail, but because a frictionless periodic channel has
+no steady state and accelerated to Mach 0.6, not because of the profile.
+
+**Rule.** Before choosing a band, compute what the target defect does to the
+statistic; if the band contains it, change the statistic (here the fitted no-slip
+plane, which a factor of 2 moves by 0.3 W against a 0.1 W band).
+
+## A measurement at a cap cannot fail
+
+VIS-STUDIO-COST compared the running fps with the studio look on and off: 55.7 and
+55.6, both at the headless vsync cap, while the render-only cost rose 53 %. A 15 %
+drop clause on two capped numbers is a constant.
+
+**Rule.** When a quantity can saturate (vsync, a clamp, a full domain), gate on one
+that cannot, and prove it with a planted cost that must break the gate.
