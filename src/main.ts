@@ -1401,8 +1401,17 @@ async function boot() {
     meta: () => plotMeta(),
     swapSim(n) {
       const params = { ...sim.params };
+      // D3.3: the old field's flow populations are ~92 MB at 1024²: free them
+      // now rather than at GC, and say the flow stopped instead of going quiet.
+      // The inlet speed (the rail's dial) carries over to the new field.
+      const flowU = sim.flowCfg.u;
+      if (sim.flowOn) {
+        sim.setFlow(false);
+        flowIssue = "Melt flow stopped because the grid changed; switch it on again to restart it.";
+      }
       sim = new Simulation(device, n);
       sim.params = params;
+      sim.flowCfg.u = flowU;
       // a fresh Simulation starts at the DEFAULT pitch — carrying the params
       // over but not the scale would silently re-anchor every length readout to
       // 0.98 µm/cell, which under calibrated mode is not a cosmetic difference
