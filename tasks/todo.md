@@ -5671,3 +5671,46 @@ longer-time temporal behavior; and further parameters/grain rotations before
 angular-candidate adoption. The unchanged full published-reference sigma gate
 still fails and Q3 remains open. No new cloud resources or application default
 changes are part of this phase.
+
+## Q3c step-back and interface-width ladder pre-registration - 2026-11-07
+
+Plan item S3 (root plan, solidify-visual tasks/todo.md). Branch
+`research/q3c-stiffness` from bb12806, worktree ../solidify-q3c. CPU only; the
+root owns the GPU. Production source, physical coefficients, the five-arm
+reference gate, its 10% bands and every earlier failure stay unchanged.
+
+- [x] Read QUANT-3D, the independent diagnostics review, this log from 10-29,
+      validation JSONs, research protocols and lessons. Both recorded "next
+      targets" (paired-phase capillary refinement; off-principal kinetics) were
+      already completed on 10-31; neither explains or was run in a needle.
+- [x] Verify the reference from the paper: KR96 Table I, p.2 conditions,
+      the 10% d0/W0 statement and the equilibrium-calibrated eps4 / grid-
+      corrected tau(n) (arXiv PDF, hash-identical to the local copy). KLP 2000
+      and Lu 2005 locate rho as the apex curvature in the phi=0 section. KR98
+      is closed access: Appendix B and Eq. 108 stay UNCONFIRMED.
+- [x] Replay all 484 archived tip checkpoints on the CPU (default 12ce78b and
+      candidate a11a814). Exact reproduction; decomposition into velocity
+      (6-10% slow) and apex distortion (rho/rho_Iv 5-6% high); morphology
+      A1(z) matches KR96 at eps4 0.0171; time, domain and dt excluded.
+- [x] Rank hypotheses (width > anisotropy definition > lattice kinetics >
+      radius metrology; reference precision limits any single comparison).
+- [x] Known-truth metrology at the ladder resolutions, including the measured
+      apex profile: estimator rho bias <= 0.38%, sigma* <= 0.8%.
+- [x] Freeze protocol `scripts/research/quant3d-width-ladder.md` (W1: lambda
+      5.0/4.4/4.0-anchor, lattice-kinetics candidate, fixed terminal), its
+      decision rule, predictions, controls and wall-time estimate; implement
+      the CLI, pure model, synthetic-browser CLI controls and replay tooling.
+      Typecheck and build pass. Commit and push BEFORE any GPU run.
+- [ ] Root: run W1 locally (about 2.5-3 h on the Arc 140V, one GPU owner,
+      frozen pushed source) and record the verdict without reinterpretation.
+- [ ] Depending on the frozen verdict, pre-register the narrow-width five-arm
+      campaign (cloud-class GPU; the root decides on any rental) or move to the
+      anisotropy-definition / angular-kinetic hypotheses.
+
+Review: the replay found no new solver defect. The only resolved, replicated
+control sensitivity is interface width (10% narrower W0: V d0/D +1.2-1.5%,
+sigma* +3.1-3.5%), which the original 10% pointwise control band could not flag.
+Two-point extrapolations that land near the reference are hypothesis-generating
+only and are not used as evidence. Q3c cannot close on local hardware: the
+unchanged five-arm gate at a converged width needs about 30 GB textures for its
+dx arm. Q3 remains open.

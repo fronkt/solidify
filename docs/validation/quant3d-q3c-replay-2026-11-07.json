@@ -1,0 +1,3191 @@
+{
+ "campaigns": {
+  "candidate": {
+   "arms": {
+    "base": {
+     "config": {
+      "D": 2.5068,
+      "d0": 0.220975,
+      "dims": [
+       270,
+       270,
+       612
+      ],
+      "dt": 0.0180006338,
+      "dx": 0.8,
+      "epsilon4": 0.0171,
+      "lambda": 4,
+      "maximumTimeTau0": 1949.1356423198636,
+      "name": "base",
+      "physicalTimeScale": 1,
+      "radius": 8,
+      "samplePeriodTau0": 32.370331090315965,
+      "undercooling": 0.45
+     },
+     "derived": {
+      "Vd0OverD": 0.011497656619391736,
+      "W0OverD0": 4.5253988007693176,
+      "W0OverRho": 0.07876555143652086,
+      "W0VOverD": 0.05203148147705277,
+      "dxOverW0": 0.8,
+      "lambda": 4,
+      "rhoOverD0": 57.45403565690072,
+      "rhoOverRhoIv": 0.7012892806559893,
+      "sigmaVelocity": 0.025916358784213618
+     },
+     "hashes": [
+      {
+       "file": "base-000092097.json",
+       "sha256": "4f2b24ed020c7e730b74687b8de07665e269bb69da671a0523d57cadb49ebce6"
+      },
+      {
+       "file": "base-000093896.json",
+       "sha256": "cdc9b0249b1051b77fa8d76dd3d212d0c9aafe6260eeaf2fcb0957b47849ef61"
+      },
+      {
+       "file": "base-000095694.json",
+       "sha256": "54a2b75bb07225edefa67dfc7360ccdcca0823247cf4939fdf02a1af47f8b444"
+      },
+      {
+       "file": "base-000097492.json",
+       "sha256": "d61094bb8a01a2c6f49bbd8cf9a1e806942237e8e56747874fe04417685fd683"
+      },
+      {
+       "file": "base-000099291.json",
+       "sha256": "e43230f4446fe8d307c8133860b88fc7adb80d6b36b241df6116b55ce6259992"
+      },
+      {
+       "file": "base-000101089.json",
+       "sha256": "ea8c76fc98973e6db1c17cee2a05dba4ab28cb1023a8c266cede470e296e1534"
+      },
+      {
+       "file": "base-000102887.json",
+       "sha256": "de0df744801400abddd455583a3ffe05afbc127ffedb7ca482e161963f396bcb"
+      },
+      {
+       "file": "base-000104685.json",
+       "sha256": "ce3b5a81eb90091d32d16cf0fb7de87ea5bd3d00ecc2344ad2207d533d9bca89"
+      },
+      {
+       "file": "base-000106484.json",
+       "sha256": "6045ba05dce83bf6e6f3f53fdd26689d82644a20aa19ff43d3e8ec77a2aa088d"
+      },
+      {
+       "file": "base-000108282.json",
+       "sha256": "f73df91ac42f578f873bb96a647a2266f88653cdaecf5e8f57d4305b5be54ce5"
+      }
+     ],
+     "morphology": {
+      "depthsInRho": [
+       0.5,
+       0.75,
+       1.0,
+       1.25,
+       1.5,
+       1.75,
+       2.0,
+       2.25,
+       2.5
+      ],
+      "fitRange": [
+       0.75,
+       2.5
+      ],
+      "powerFitMean": {
+       "A": 0.09517245992219239,
+       "alpha": 1.6788072184300944,
+       "invA": 10.507281976404052
+      },
+      "powerFitSpread": {
+       "alpha": 0.011494741547838805,
+       "invA": 0.06862710178666376
+      },
+      "terminal": [
+       {
+        "A0": 0.103186,
+        "A1": 0.000533,
+        "A1Spread": 1.3e-05,
+        "A2": 3e-06,
+        "covered": true,
+        "depth": 0.05,
+        "depthInCells": 0.793494,
+        "depthInW0": 0.634795,
+        "samples": 10,
+        "secantRadius": 1.031859
+       },
+       {
+        "A0": 0.211535,
+        "A1": 0.001893,
+        "A1Spread": 1.8e-05,
+        "A2": 2.2e-05,
+        "covered": true,
+        "depth": 0.1,
+        "depthInCells": 1.586988,
+        "depthInW0": 1.269591,
+        "samples": 10,
+        "secantRadius": 1.057673
+       },
+       {
+        "A0": 0.323638,
+        "A1": 0.003876,
+        "A1Spread": 5.2e-05,
+        "A2": 6.2e-05,
+        "covered": true,
+        "depth": 0.15,
+        "depthInCells": 2.380482,
+        "depthInW0": 1.904386,
+        "samples": 10,
+        "secantRadius": 1.078794
+       },
+       {
+        "A0": 0.438671,
+        "A1": 0.006379,
+        "A1Spread": 2.9e-05,
+        "A2": 0.000125,
+        "covered": true,
+        "depth": 0.2,
+        "depthInCells": 3.173976,
+        "depthInW0": 2.539181,
+        "samples": 10,
+        "secantRadius": 1.096678
+       },
+       {
+        "A0": 0.67547,
+        "A1": 0.012727,
+        "A1Spread": 4.9e-05,
+        "A2": 0.00034,
+        "covered": true,
+        "depth": 0.3,
+        "depthInCells": 4.760965,
+        "depthInW0": 3.808772,
+        "samples": 10,
+        "secantRadius": 1.125783
+       },
+       {
+        "A0": 0.919065,
+        "A1": 0.020647,
+        "A1Spread": 0.000107,
+        "A2": 0.00067,
+        "covered": true,
+        "depth": 0.4,
+        "depthInCells": 6.347953,
+        "depthInW0": 5.078362,
+        "samples": 10,
+        "secantRadius": 1.148832
+       },
+       {
+        "A0": 1.167761,
+        "A1": 0.029972,
+        "A1Spread": 0.000167,
+        "A2": 0.001117,
+        "covered": true,
+        "depth": 0.5,
+        "depthInCells": 7.934941,
+        "depthInW0": 6.347953,
+        "samples": 10,
+        "secantRadius": 1.167761
+       },
+       {
+        "A0": 1.80528,
+        "A1": 0.058868,
+        "A1Spread": 0.000403,
+        "A2": 0.002785,
+        "covered": true,
+        "depth": 0.75,
+        "depthInCells": 11.902411,
+        "depthInW0": 9.521929,
+        "samples": 10,
+        "secantRadius": 1.20352
+       },
+       {
+        "A0": 2.458074,
+        "A1": 0.095073,
+        "A1Spread": 0.000642,
+        "A2": 0.005254,
+        "covered": true,
+        "depth": 1.0,
+        "depthInCells": 15.869882,
+        "depthInW0": 12.695906,
+        "samples": 10,
+        "secantRadius": 1.229037
+       },
+       {
+        "A0": 3.120899,
+        "A1": 0.138093,
+        "A1Spread": 0.001005,
+        "A2": 0.008556,
+        "covered": true,
+        "depth": 1.25,
+        "depthInCells": 19.837352,
+        "depthInW0": 15.869882,
+        "samples": 10,
+        "secantRadius": 1.24836
+       },
+       {
+        "A0": 3.790782,
+        "A1": 0.187616,
+        "A1Spread": 0.00148,
+        "A2": 0.012719,
+        "covered": true,
+        "depth": 1.5,
+        "depthInCells": 23.804823,
+        "depthInW0": 19.043858,
+        "samples": 10,
+        "secantRadius": 1.263594
+       },
+       {
+        "A0": 4.465956,
+        "A1": 0.24345,
+        "A1Spread": 0.002025,
+        "A2": 0.017769,
+        "covered": true,
+        "depth": 1.75,
+        "depthInCells": 27.772293,
+        "depthInW0": 22.217835,
+        "samples": 10,
+        "secantRadius": 1.275987
+       },
+       {
+        "A0": 5.145407,
+        "A1": 0.305488,
+        "A1Spread": 0.002941,
+        "A2": 0.023734,
+        "covered": true,
+        "depth": 2.0,
+        "depthInCells": 31.739764,
+        "depthInW0": 25.391811,
+        "samples": 10,
+        "secantRadius": 1.286352
+       },
+       {
+        "A0": 5.862021,
+        "A1": 0.374883,
+        "A1Spread": 0.0,
+        "A2": 0.030645,
+        "covered": true,
+        "depth": 2.25,
+        "depthInCells": 35.707234,
+        "depthInW0": 28.565787,
+        "samples": 1,
+        "secantRadius": 1.302671
+       },
+       {
+        "covered": false,
+        "depth": 2.5
+       }
+      ]
+     },
+     "sampleCount": 61,
+     "terminal": {
+      "P": 0.3302933866906667,
+      "rho": 12.695905529283637,
+      "sigma": 0.052696234408671036,
+      "terminalSteps": 108282,
+      "terminalTime": 1949.1446291316,
+      "velocity": 0.1304325177666759,
+      "windowRhos": [
+       12.696722538005565,
+       12.698706752915985,
+       12.692287296929365
+      ],
+      "windowVelocities": [
+       0.13047417953793322,
+       0.13044051677577756,
+       0.1303828569863169
+      ]
+     },
+     "trends": {
+      "rho": {
+       "relativeChangeError": 0.0007495193064244075,
+       "relativeChangePerDiffusionTime": -0.00015251887798181576,
+       "spanDiffusionTimes": 4.17406708298812
+      },
+      "rhoOverRhoIv": {
+       "relativeChangeError": 0.0007509779471294424,
+       "relativeChangePerDiffusionTime": -0.0006643842421236556,
+       "spanDiffusionTimes": 4.17406708298812
+      },
+      "sigma": {
+       "relativeChangeError": 0.0015011146913637562,
+       "relativeChangePerDiffusionTime": 0.0008121178898459874,
+       "spanDiffusionTimes": 4.17406708298812
+      },
+      "velocity": {
+       "relativeChangeError": 8.941808266015074e-05,
+       "relativeChangePerDiffusionTime": -0.0005111346991653503,
+       "spanDiffusionTimes": 4.17406708298812
+      }
+     }
+    },
+    "domain": {
+     "config": {
+      "D": 2.5068,
+      "d0": 0.220975,
+      "dims": [
+       300,
+       300,
+       680
+      ],
+      "dt": 0.0180006338,
+      "dx": 0.8,
+      "epsilon4": 0.0171,
+      "lambda": 4,
+      "maximumTimeTau0": 1949.1356423198636,
+      "name": "domain",
+      "physicalTimeScale": 1,
+      "radius": 8,
+      "samplePeriodTau0": 32.370331090315965,
+      "undercooling": 0.45
+     },
+     "derived": {
+      "Vd0OverD": 0.011497658857651298,
+      "W0OverD0": 4.5253988007693176,
+      "W0OverRho": 0.07876548671279171,
+      "W0VOverD": 0.05203149160606991,
+      "dxOverW0": 0.8,
+      "lambda": 4,
+      "rhoOverD0": 57.454082868434575,
+      "rhoOverRhoIv": 0.7012899934450962,
+      "sigmaVelocity": 0.02591636382937541
+     },
+     "hashes": [
+      {
+       "file": "domain-000092097.json",
+       "sha256": "2e4d2303135aef1c1fe031e03b3d746ea90cfb04be40dd28d3be96073b617021"
+      },
+      {
+       "file": "domain-000093896.json",
+       "sha256": "44bc77bf7631158019131666504e0f5d42aee096bb28e90aa2bca3efa1aee835"
+      },
+      {
+       "file": "domain-000095694.json",
+       "sha256": "66102db84cd4356c0251db6aaee93d60dc63fbcd36db153aa9bcec39817963c7"
+      },
+      {
+       "file": "domain-000097492.json",
+       "sha256": "b80344d3c107b28f3cbcded02a66360b760652df6d6dea10b53c39db7e2579e5"
+      },
+      {
+       "file": "domain-000099291.json",
+       "sha256": "7283552e6cc66e19b1f1e76a751bc063f826bbf1a7190dd4016ec55f117db27a"
+      },
+      {
+       "file": "domain-000101089.json",
+       "sha256": "b0d79ec5cef5f6363f252eca8a56f47fef2a5cf48af4118ff41a12de922b6eca"
+      },
+      {
+       "file": "domain-000102887.json",
+       "sha256": "55e6894ce1493deaeb645752d7eb59634d5413061bff3ebf44e7e8dd880fac46"
+      },
+      {
+       "file": "domain-000104685.json",
+       "sha256": "de48dd8124471f1d9e35572f42008d0446272d00f1dbc732caec53b4801ca623"
+      },
+      {
+       "file": "domain-000106484.json",
+       "sha256": "02115257e3aba4cfcabfb71b589397f84ca647ea81821927ac8e020ff3c88ae8"
+      },
+      {
+       "file": "domain-000108282.json",
+       "sha256": "c4b1cf46066da0c005a5c5907d0870ea299d6ae7d807b2e2e11e216539a07a88"
+      }
+     ],
+     "morphology": {
+      "depthsInRho": [
+       0.5,
+       0.75,
+       1.0,
+       1.25,
+       1.5,
+       1.75,
+       2.0,
+       2.25,
+       2.5
+      ],
+      "fitRange": [
+       0.75,
+       2.5
+      ],
+      "powerFitMean": {
+       "A": 0.09517260720925104,
+       "alpha": 1.6788081240313795,
+       "invA": 10.507265747566688
+      },
+      "powerFitSpread": {
+       "alpha": 0.011494676395928938,
+       "invA": 0.06866326331890349
+      },
+      "terminal": [
+       {
+        "A0": 0.103186,
+        "A1": 0.000533,
+        "A1Spread": 1.3e-05,
+        "A2": 3e-06,
+        "covered": true,
+        "depth": 0.05,
+        "depthInCells": 0.793495,
+        "depthInW0": 0.634796,
+        "samples": 10,
+        "secantRadius": 1.031859
+       },
+       {
+        "A0": 0.211535,
+        "A1": 0.001893,
+        "A1Spread": 1.8e-05,
+        "A2": 2.2e-05,
+        "covered": true,
+        "depth": 0.1,
+        "depthInCells": 1.586989,
+        "depthInW0": 1.269592,
+        "samples": 10,
+        "secantRadius": 1.057673
+       },
+       {
+        "A0": 0.323638,
+        "A1": 0.003876,
+        "A1Spread": 5.2e-05,
+        "A2": 6.2e-05,
+        "covered": true,
+        "depth": 0.15,
+        "depthInCells": 2.380484,
+        "depthInW0": 1.904387,
+        "samples": 10,
+        "secantRadius": 1.078794
+       },
+       {
+        "A0": 0.438671,
+        "A1": 0.006379,
+        "A1Spread": 2.9e-05,
+        "A2": 0.000125,
+        "covered": true,
+        "depth": 0.2,
+        "depthInCells": 3.173979,
+        "depthInW0": 2.539183,
+        "samples": 10,
+        "secantRadius": 1.096678
+       },
+       {
+        "A0": 0.67547,
+        "A1": 0.012727,
+        "A1Spread": 4.9e-05,
+        "A2": 0.00034,
+        "covered": true,
+        "depth": 0.3,
+        "depthInCells": 4.760968,
+        "depthInW0": 3.808775,
+        "samples": 10,
+        "secantRadius": 1.125783
+       },
+       {
+        "A0": 0.919065,
+        "A1": 0.020647,
+        "A1Spread": 0.000107,
+        "A2": 0.00067,
+        "covered": true,
+        "depth": 0.4,
+        "depthInCells": 6.347958,
+        "depthInW0": 5.078366,
+        "samples": 10,
+        "secantRadius": 1.148832
+       },
+       {
+        "A0": 1.167761,
+        "A1": 0.029972,
+        "A1Spread": 0.000167,
+        "A2": 0.001117,
+        "covered": true,
+        "depth": 0.5,
+        "depthInCells": 7.934947,
+        "depthInW0": 6.347958,
+        "samples": 10,
+        "secantRadius": 1.167761
+       },
+       {
+        "A0": 1.80528,
+        "A1": 0.058868,
+        "A1Spread": 0.000403,
+        "A2": 0.002785,
+        "covered": true,
+        "depth": 0.75,
+        "depthInCells": 11.902421,
+        "depthInW0": 9.521937,
+        "samples": 10,
+        "secantRadius": 1.20352
+       },
+       {
+        "A0": 2.458074,
+        "A1": 0.095074,
+        "A1Spread": 0.000642,
+        "A2": 0.005254,
+        "covered": true,
+        "depth": 1.0,
+        "depthInCells": 15.869895,
+        "depthInW0": 12.695916,
+        "samples": 10,
+        "secantRadius": 1.229037
+       },
+       {
+        "A0": 3.120899,
+        "A1": 0.138093,
+        "A1Spread": 0.001006,
+        "A2": 0.008556,
+        "covered": true,
+        "depth": 1.25,
+        "depthInCells": 19.837369,
+        "depthInW0": 15.869895,
+        "samples": 10,
+        "secantRadius": 1.24836
+       },
+       {
+        "A0": 3.790782,
+        "A1": 0.187616,
+        "A1Spread": 0.00148,
+        "A2": 0.012719,
+        "covered": true,
+        "depth": 1.5,
+        "depthInCells": 23.804842,
+        "depthInW0": 19.043874,
+        "samples": 10,
+        "secantRadius": 1.263594
+       },
+       {
+        "A0": 4.465956,
+        "A1": 0.24345,
+        "A1Spread": 0.002025,
+        "A2": 0.017769,
+        "covered": true,
+        "depth": 1.75,
+        "depthInCells": 27.772316,
+        "depthInW0": 22.217853,
+        "samples": 10,
+        "secantRadius": 1.275987
+       },
+       {
+        "A0": 5.145407,
+        "A1": 0.305489,
+        "A1Spread": 0.002941,
+        "A2": 0.023734,
+        "covered": true,
+        "depth": 2.0,
+        "depthInCells": 31.73979,
+        "depthInW0": 25.391832,
+        "samples": 10,
+        "secantRadius": 1.286352
+       },
+       {
+        "A0": 5.862026,
+        "A1": 0.374884,
+        "A1Spread": 0.0,
+        "A2": 0.030645,
+        "covered": true,
+        "depth": 2.25,
+        "depthInCells": 35.707264,
+        "depthInW0": 28.565811,
+        "samples": 1,
+        "secantRadius": 1.302672
+       },
+       {
+        "covered": false,
+        "depth": 2.5
+       }
+      ]
+     },
+     "sampleCount": 61,
+     "terminal": {
+      "P": 0.33029372240024424,
+      "rho": 12.69591596185233,
+      "sigma": 0.05269613754653147,
+      "terminalSteps": 108282,
+      "terminalTime": 1949.1446291316,
+      "velocity": 0.13043254315809605,
+      "windowRhos": [
+       12.696726108109571,
+       12.698725307424516,
+       12.692296470022903
+      ],
+      "windowVelocities": [
+       0.13047422551293708,
+       0.1304405460187901,
+       0.13038285794256102
+      ]
+     },
+     "trends": {
+      "rho": {
+       "relativeChangeError": 0.0007495058957858971,
+       "relativeChangePerDiffusionTime": -0.0001523139051821689,
+       "spanDiffusionTimes": 4.17406870812736
+      },
+      "rhoOverRhoIv": {
+       "relativeChangeError": 0.0007509483629956139,
+       "relativeChangePerDiffusionTime": -0.0006642349152980713,
+       "spanDiffusionTimes": 4.17406870812736
+      },
+      "sigma": {
+       "relativeChangeError": 0.0015010741726634352,
+       "relativeChangePerDiffusionTime": 0.0008117648849238378,
+       "spanDiffusionTimes": 4.17406870812736
+      },
+      "velocity": {
+       "relativeChangeError": 8.940568163722093e-05,
+       "relativeChangePerDiffusionTime": -0.0005111906372922829,
+       "spanDiffusionTimes": 4.17406870812736
+      }
+     }
+    },
+    "dt": {
+     "config": {
+      "D": 2.5068,
+      "d0": 0.220975,
+      "dims": [
+       270,
+       270,
+       612
+      ],
+      "dt": 0.0090003169,
+      "dx": 0.8,
+      "epsilon4": 0.0171,
+      "lambda": 4,
+      "maximumTimeTau0": 1949.1356423198636,
+      "name": "dt",
+      "physicalTimeScale": 1,
+      "radius": 8,
+      "samplePeriodTau0": 32.370331090315965,
+      "undercooling": 0.45
+     },
+     "derived": {
+      "Vd0OverD": 0.011497152010209413,
+      "W0OverD0": 4.5253988007693176,
+      "W0OverRho": 0.0787954690570367,
+      "W0VOverD": 0.05202919791926423,
+      "dxOverW0": 0.8,
+      "lambda": 4,
+      "rhoOverD0": 57.43222110263185,
+      "rhoOverRhoIv": 0.7009922436864906,
+      "sigmaVelocity": 0.025915221366994805
+     },
+     "hashes": [
+      {
+       "file": "dt-000184194.json",
+       "sha256": "40ef5505c32c93ee578568739921b074ecfd0dcb012805ce00677b22d38f234d"
+      },
+      {
+       "file": "dt-000187791.json",
+       "sha256": "4e8a3021cc4d87b08f944e94b33e1dad80fa56a64fe441c3bea6c5a84d0c98f7"
+      },
+      {
+       "file": "dt-000191387.json",
+       "sha256": "a559b0ae7652f356ed4dd01cda12a6250ab55dfe78aca1dd487294a9b5649bb0"
+      },
+      {
+       "file": "dt-000194984.json",
+       "sha256": "998600ac4418e7e4ee623a78d8f3bb476529426a014303d88717e93b7b9dcba0"
+      },
+      {
+       "file": "dt-000198581.json",
+       "sha256": "8df99c4521c50845a71a61dcc632a75e6fcbfab1a430a64fa3eebba60228f2ad"
+      },
+      {
+       "file": "dt-000202177.json",
+       "sha256": "76070193ece4715155d06c057f6a7a454dbd8b42d3929cc14c81b80d632e7551"
+      },
+      {
+       "file": "dt-000205774.json",
+       "sha256": "da8b6c8f81acaeae8c480906cfd2f9aad5d5535a66d2f867a116f74661c5ce63"
+      },
+      {
+       "file": "dt-000209370.json",
+       "sha256": "4801ade9a0eaee65fc762a1fc0287745e1fe1e1ab940080d393940ad59cf3dc0"
+      },
+      {
+       "file": "dt-000212967.json",
+       "sha256": "00a4e96e3adb755ad6d63e19723aaa1127d6dcc39bb34371faa20547fe3f3772"
+      },
+      {
+       "file": "dt-000216564.json",
+       "sha256": "f0916180fcd8b3d39a0e209f9943a1f1a841733c0df895eaa0c1057d662034fa"
+      }
+     ],
+     "morphology": {
+      "depthsInRho": [
+       0.5,
+       0.75,
+       1.0,
+       1.25,
+       1.5,
+       1.75,
+       2.0,
+       2.25,
+       2.5
+      ],
+      "fitRange": [
+       0.75,
+       2.5
+      ],
+      "powerFitMean": {
+       "A": 0.09514181788460649,
+       "alpha": 1.678654352012492,
+       "invA": 10.51066591297139
+      },
+      "powerFitSpread": {
+       "alpha": 0.011430464372339966,
+       "invA": 0.06794991702711073
+      },
+      "terminal": [
+       {
+        "A0": 0.103183,
+        "A1": 0.000533,
+        "A1Spread": 1.4e-05,
+        "A2": 3e-06,
+        "covered": true,
+        "depth": 0.05,
+        "depthInCells": 0.793193,
+        "depthInW0": 0.634554,
+        "samples": 10,
+        "secantRadius": 1.031828
+       },
+       {
+        "A0": 0.211528,
+        "A1": 0.001892,
+        "A1Spread": 1.8e-05,
+        "A2": 2.2e-05,
+        "covered": true,
+        "depth": 0.1,
+        "depthInCells": 1.586386,
+        "depthInW0": 1.269109,
+        "samples": 10,
+        "secantRadius": 1.057639
+       },
+       {
+        "A0": 0.323627,
+        "A1": 0.003875,
+        "A1Spread": 5.2e-05,
+        "A2": 6.2e-05,
+        "covered": true,
+        "depth": 0.15,
+        "depthInCells": 2.379578,
+        "depthInW0": 1.903663,
+        "samples": 10,
+        "secantRadius": 1.078757
+       },
+       {
+        "A0": 0.438655,
+        "A1": 0.006378,
+        "A1Spread": 2.9e-05,
+        "A2": 0.000125,
+        "covered": true,
+        "depth": 0.2,
+        "depthInCells": 3.172771,
+        "depthInW0": 2.538217,
+        "samples": 10,
+        "secantRadius": 1.096639
+       },
+       {
+        "A0": 0.675445,
+        "A1": 0.012724,
+        "A1Spread": 4.9e-05,
+        "A2": 0.00034,
+        "covered": true,
+        "depth": 0.3,
+        "depthInCells": 4.759157,
+        "depthInW0": 3.807326,
+        "samples": 10,
+        "secantRadius": 1.125741
+       },
+       {
+        "A0": 0.919029,
+        "A1": 0.020643,
+        "A1Spread": 0.000109,
+        "A2": 0.00067,
+        "covered": true,
+        "depth": 0.4,
+        "depthInCells": 6.345543,
+        "depthInW0": 5.076434,
+        "samples": 10,
+        "secantRadius": 1.148787
+       },
+       {
+        "A0": 1.167713,
+        "A1": 0.029965,
+        "A1Spread": 0.000167,
+        "A2": 0.001117,
+        "covered": true,
+        "depth": 0.5,
+        "depthInCells": 7.931928,
+        "depthInW0": 6.345543,
+        "samples": 10,
+        "secantRadius": 1.167713
+       },
+       {
+        "A0": 1.805202,
+        "A1": 0.058851,
+        "A1Spread": 0.000402,
+        "A2": 0.002783,
+        "covered": true,
+        "depth": 0.75,
+        "depthInCells": 11.897892,
+        "depthInW0": 9.518314,
+        "samples": 10,
+        "secantRadius": 1.203468
+       },
+       {
+        "A0": 2.457964,
+        "A1": 0.095043,
+        "A1Spread": 0.00064,
+        "A2": 0.005251,
+        "covered": true,
+        "depth": 1.0,
+        "depthInCells": 15.863856,
+        "depthInW0": 12.691085,
+        "samples": 10,
+        "secantRadius": 1.228982
+       },
+       {
+        "A0": 3.120754,
+        "A1": 0.138045,
+        "A1Spread": 0.000997,
+        "A2": 0.008551,
+        "covered": true,
+        "depth": 1.25,
+        "depthInCells": 19.82982,
+        "depthInW0": 15.863856,
+        "samples": 10,
+        "secantRadius": 1.248302
+       },
+       {
+        "A0": 3.790602,
+        "A1": 0.187545,
+        "A1Spread": 0.001487,
+        "A2": 0.012712,
+        "covered": true,
+        "depth": 1.5,
+        "depthInCells": 23.795784,
+        "depthInW0": 19.036628,
+        "samples": 10,
+        "secantRadius": 1.263534
+       },
+       {
+        "A0": 4.46574,
+        "A1": 0.243351,
+        "A1Spread": 0.002033,
+        "A2": 0.017759,
+        "covered": true,
+        "depth": 1.75,
+        "depthInCells": 27.761749,
+        "depthInW0": 22.209399,
+        "samples": 10,
+        "secantRadius": 1.275926
+       },
+       {
+        "A0": 5.145154,
+        "A1": 0.305355,
+        "A1Spread": 0.00294,
+        "A2": 0.023719,
+        "covered": true,
+        "depth": 2.0,
+        "depthInCells": 31.727713,
+        "depthInW0": 25.38217,
+        "samples": 10,
+        "secantRadius": 1.286288
+       },
+       {
+        "A0": 5.862633,
+        "A1": 0.374717,
+        "A1Spread": 0.0,
+        "A2": 0.030624,
+        "covered": true,
+        "depth": 2.25,
+        "depthInCells": 35.693677,
+        "depthInW0": 28.554941,
+        "samples": 1,
+        "secantRadius": 1.302807
+       },
+       {
+        "covered": false,
+        "depth": 2.5
+       }
+      ]
+     },
+     "sampleCount": 61,
+     "terminal": {
+      "P": 0.3301534881504576,
+      "rho": 12.691085058154073,
+      "sigma": 0.0527385879592578,
+      "terminalSteps": 216564,
+      "terminalTime": 1949.1446291316,
+      "velocity": 0.13042679334401158,
+      "windowRhos": [
+       12.69178146681669,
+       12.693953275308452,
+       12.687520432337076
+      ],
+      "windowVelocities": [
+       0.13046770452820575,
+       0.1304347460150035,
+       0.13037792948882548
+      ]
+     },
+     "trends": {
+      "rho": {
+       "relativeChangeError": 0.0007497805297938494,
+       "relativeChangePerDiffusionTime": -0.00014979847894291563,
+       "spanDiffusionTimes": 4.173639631931492
+      },
+      "rhoOverRhoIv": {
+       "relativeChangeError": 0.0007513415312989512,
+       "relativeChangePerDiffusionTime": -0.00064610149092384,
+       "spanDiffusionTimes": 4.173639631931492
+      },
+      "sigma": {
+       "relativeChangeError": 0.0015018486503357012,
+       "relativeChangePerDiffusionTime": 0.0007911968221883093,
+       "spanDiffusionTimes": 4.173639631931492
+      },
+      "velocity": {
+       "relativeChangeError": 8.91083418321478e-05,
+       "relativeChangePerDiffusionTime": -0.0004955765143715318,
+       "spanDiffusionTimes": 4.173639631931492
+      }
+     }
+    },
+    "dx": {
+     "config": {
+      "D": 2.5068,
+      "d0": 0.220975,
+      "dims": [
+       360,
+       360,
+       816
+      ],
+      "dt": 0.010125356512499998,
+      "dx": 0.6,
+      "epsilon4": 0.0171,
+      "lambda": 4,
+      "maximumTimeTau0": 1949.1356423198636,
+      "name": "dx",
+      "physicalTimeScale": 1,
+      "radius": 8,
+      "samplePeriodTau0": 32.370331090315965,
+      "undercooling": 0.45
+     },
+     "derived": {
+      "Vd0OverD": 0.011427321455257669,
+      "W0OverD0": 4.5253988007693176,
+      "W0OverRho": 0.07731775453001373,
+      "W0VOverD": 0.051713186809628546,
+      "dxOverW0": 0.6,
+      "lambda": 4,
+      "rhoOverD0": 58.529878787576756,
+      "rhoOverRhoIv": 0.7100507590961816,
+      "sigmaVelocity": 0.02575781940447856
+     },
+     "hashes": [
+      {
+       "file": "dx-000163728.json",
+       "sha256": "59d6a23ee4016b7e6d6fb5fdf39794c83b85ca6be04ae84b2bf6b7c737d2bd93"
+      },
+      {
+       "file": "dx-000166925.json",
+       "sha256": "92c04f06d876f78e115335f675fa8cfa2a191cd0da6fd72461014e2bf4dac940"
+      },
+      {
+       "file": "dx-000170122.json",
+       "sha256": "916cc11965b4e9cbfcf071a598e338a55b9e4103f0ba66c40fe2f2637e7327cf"
+      },
+      {
+       "file": "dx-000173319.json",
+       "sha256": "87c8ee820ebdbe77968d220567a7deb0b51ee28dbcf9bf0b17f5f025d6c3784b"
+      },
+      {
+       "file": "dx-000176516.json",
+       "sha256": "09d9a57ba3cb78594d5d8a78c9d8839c65fe61c36e229524321b7e5e23054db7"
+      },
+      {
+       "file": "dx-000179713.json",
+       "sha256": "5d74dcf42369105a028341107029e9ac114f6e82ea2babe58fcaefb17939c433"
+      },
+      {
+       "file": "dx-000182910.json",
+       "sha256": "d8e31e31e15dd2a02245dfe4a8c8f872049cf6418fdc3ce26bd40f2ff0ab53d2"
+      },
+      {
+       "file": "dx-000186107.json",
+       "sha256": "9ab2a852634952b0dc4bc332301c17df16196dec768010057da20623766a8623"
+      },
+      {
+       "file": "dx-000189304.json",
+       "sha256": "4f43034362ee86dff71c8c023c82493fc65c1d644353fcef9a2d5155e8c5030c"
+      },
+      {
+       "file": "dx-000192501.json",
+       "sha256": "3ea5a213bfe3032682695eb5ba29212accafa4346fe0a5d27979e3e618b798b7"
+      }
+     ],
+     "morphology": {
+      "depthsInRho": [
+       0.5,
+       0.75,
+       1.0,
+       1.25,
+       1.5,
+       1.75,
+       2.0,
+       2.25,
+       2.5
+      ],
+      "fitRange": [
+       0.75,
+       2.5
+      ],
+      "powerFitMean": {
+       "A": 0.09023096493118912,
+       "alpha": 1.6882482704352952,
+       "invA": 11.082677192275884
+      },
+      "powerFitSpread": {
+       "alpha": 0.003695923220516706,
+       "invA": 0.02632295240368343
+      },
+      "terminal": [
+       {
+        "A0": 0.10291,
+        "A1": 0.000481,
+        "A1Spread": 0.0,
+        "A2": 3e-06,
+        "covered": true,
+        "depth": 0.05,
+        "depthInCells": 1.077803,
+        "depthInW0": 0.646682,
+        "samples": 10,
+        "secantRadius": 1.029101
+       },
+       {
+        "A0": 0.210611,
+        "A1": 0.001717,
+        "A1Spread": 1e-06,
+        "A2": 1.7e-05,
+        "covered": true,
+        "depth": 0.1,
+        "depthInCells": 2.155607,
+        "depthInW0": 1.293364,
+        "samples": 10,
+        "secantRadius": 1.053053
+       },
+       {
+        "A0": 0.321836,
+        "A1": 0.003538,
+        "A1Spread": 3e-06,
+        "A2": 5.1e-05,
+        "covered": true,
+        "depth": 0.15,
+        "depthInCells": 3.23341,
+        "depthInW0": 1.940046,
+        "samples": 10,
+        "secantRadius": 1.072788
+       },
+       {
+        "A0": 0.435837,
+        "A1": 0.005855,
+        "A1Spread": 5e-06,
+        "A2": 0.000105,
+        "covered": true,
+        "depth": 0.2,
+        "depthInCells": 4.311213,
+        "depthInW0": 2.586728,
+        "samples": 10,
+        "secantRadius": 1.089593
+       },
+       {
+        "A0": 0.670278,
+        "A1": 0.011778,
+        "A1Spread": 1.2e-05,
+        "A2": 0.000288,
+        "covered": true,
+        "depth": 0.3,
+        "depthInCells": 6.46682,
+        "depthInW0": 3.880092,
+        "samples": 10,
+        "secantRadius": 1.117131
+       },
+       {
+        "A0": 0.911273,
+        "A1": 0.019218,
+        "A1Spread": 2.4e-05,
+        "A2": 0.000572,
+        "covered": true,
+        "depth": 0.4,
+        "depthInCells": 8.622427,
+        "depthInW0": 5.173456,
+        "samples": 10,
+        "secantRadius": 1.139091
+       },
+       {
+        "A0": 1.157222,
+        "A1": 0.028033,
+        "A1Spread": 4.2e-05,
+        "A2": 0.000964,
+        "covered": true,
+        "depth": 0.5,
+        "depthInCells": 10.778033,
+        "depthInW0": 6.46682,
+        "samples": 10,
+        "secantRadius": 1.157222
+       },
+       {
+        "A0": 1.787532,
+        "A1": 0.055528,
+        "A1Spread": 0.000109,
+        "A2": 0.002444,
+        "covered": true,
+        "depth": 0.75,
+        "depthInCells": 16.16705,
+        "depthInW0": 9.70023,
+        "samples": 10,
+        "secantRadius": 1.191688
+       },
+       {
+        "A0": 2.4329,
+        "A1": 0.090192,
+        "A1Spread": 0.000219,
+        "A2": 0.004675,
+        "covered": true,
+        "depth": 1.0,
+        "depthInCells": 21.556067,
+        "depthInW0": 12.93364,
+        "samples": 10,
+        "secantRadius": 1.21645
+       },
+       {
+        "A0": 3.088241,
+        "A1": 0.131543,
+        "A1Spread": 0.000373,
+        "A2": 0.007697,
+        "covered": true,
+        "depth": 1.25,
+        "depthInCells": 26.945083,
+        "depthInW0": 16.16705,
+        "samples": 10,
+        "secantRadius": 1.235296
+       },
+       {
+        "covered": false,
+        "depth": 1.5
+       },
+       {
+        "covered": false,
+        "depth": 1.75
+       },
+       {
+        "covered": false,
+        "depth": 2.0
+       },
+       {
+        "covered": false,
+        "depth": 2.25
+       },
+       {
+        "covered": false,
+        "depth": 2.5
+       }
+      ]
+     },
+     "sampleCount": 61,
+     "terminal": {
+      "P": 0.3344198698214533,
+      "rho": 12.933639965084774,
+      "sigma": 0.051089341121960306,
+      "terminalSteps": 192501,
+      "terminalTime": 1949.1412540127621,
+      "velocity": 0.12963461669437684,
+      "windowRhos": [
+       12.930731039469196,
+       12.93381212260851,
+       12.936376733176619
+      ],
+      "windowVelocities": [
+       0.12965818228060424,
+       0.1296397449784073,
+       0.12960592282411898
+      ]
+     },
+     "trends": {
+      "rho": {
+       "relativeChangeError": 6.540176695283924e-05,
+       "relativeChangePerDiffusionTime": -0.00011623510948513476,
+       "spanDiffusionTimes": 4.123079424108385
+      },
+      "rhoOverRhoIv": {
+       "relativeChangeError": 8.401562966112401e-05,
+       "relativeChangePerDiffusionTime": -0.0006135009173211754,
+       "spanDiffusionTimes": 4.123079424108385
+      },
+      "sigma": {
+       "relativeChangeError": 0.00012781565796498508,
+       "relativeChangePerDiffusionTime": 0.0007291794050505607,
+       "spanDiffusionTimes": 4.123079424108385
+      },
+      "velocity": {
+       "relativeChangeError": 7.950485803230623e-05,
+       "relativeChangePerDiffusionTime": -0.0004972904592504611,
+       "spanDiffusionTimes": 4.123079424108385
+      }
+     }
+    },
+    "width": {
+     "config": {
+      "D": 2.25612,
+      "d0": 0.2455277777777778,
+      "dims": [
+       300,
+       300,
+       680
+      ],
+      "dt": 0.0180006338,
+      "dx": 0.8,
+      "epsilon4": 0.0171,
+      "lambda": 3.6,
+      "maximumTimeTau0": 2673.711443511473,
+      "name": "width",
+      "physicalTimeScale": 1.3717421124828535,
+      "radius": 8.88888888888889,
+      "samplePeriodTau0": 44.40374635159941,
+      "undercooling": 0.45
+     },
+     "derived": {
+      "Vd0OverD": 0.01163226701938344,
+      "W0OverD0": 4.0728589206923855,
+      "W0OverRho": 0.07252765502976789,
+      "W0VOverD": 0.04737658249777167,
+      "dxOverW0": 0.8,
+      "lambda": 3.6,
+      "rhoOverD0": 56.15594381233947,
+      "rhoOverRhoIv": 0.6934695891257172,
+      "sigmaVelocity": 0.02621977812762901
+     },
+     "hashes": [
+      {
+       "file": "width-000126334.json",
+       "sha256": "f7b12e3e736e78e15b341080a8d8eee92255be24b725396267f5a7f518ef2009"
+      },
+      {
+       "file": "width-000128800.json",
+       "sha256": "c0e35ece0f191b0f6c4712168dc1ecef88f95752fe7604f972bdeafb0d0ff94a"
+      },
+      {
+       "file": "width-000131267.json",
+       "sha256": "5da0e33644f40758eea260e2f8b0ef23df23874b5d43d0895b19070447e34ffa"
+      },
+      {
+       "file": "width-000133734.json",
+       "sha256": "1d79a5170488ea123123c786b2074be0bb52a801d7093132fdeee3114f617221"
+      },
+      {
+       "file": "width-000136201.json",
+       "sha256": "b38b37c72b5d128a753a40ca59c38cc1c8eeb2a229ce400987c223d25525f6d5"
+      },
+      {
+       "file": "width-000138668.json",
+       "sha256": "91ab9a257af0f8c12782adb78195f5b4900b60be9a602ad4b5bbd736b004f4b9"
+      },
+      {
+       "file": "width-000141134.json",
+       "sha256": "50e1a80ad03d075f426c3db041c3ee3335d93e008755976ac41c63c5e9f55f87"
+      },
+      {
+       "file": "width-000143601.json",
+       "sha256": "dcd6247ee0513ccb658a61155f9cd323cbfff6543fd956172f75a488dc1706d6"
+      },
+      {
+       "file": "width-000146068.json",
+       "sha256": "ff87e3260e143d3af864200baa0f174c8a7c377398ebd9d36f2861a3d0bf45af"
+      },
+      {
+       "file": "width-000148535.json",
+       "sha256": "ecf512d1503b85693d9771d7be8aa0d8e160e0aa7f432593c0740a1baa11a553"
+      }
+     ],
+     "morphology": {
+      "depthsInRho": [
+       0.5,
+       0.75,
+       1.0,
+       1.25,
+       1.5,
+       1.75,
+       2.0,
+       2.25,
+       2.5
+      ],
+      "fitRange": [
+       0.75,
+       2.5
+      ],
+      "powerFitMean": {
+       "A": 0.09528189138339313,
+       "alpha": 1.6708971321035246,
+       "invA": 10.495202394746041
+      },
+      "powerFitSpread": {
+       "alpha": 0.00546834242874028,
+       "invA": 0.051508807722926875
+      },
+      "terminal": [
+       {
+        "A0": 0.103513,
+        "A1": 0.000543,
+        "A1Spread": 1.2e-05,
+        "A2": 4e-06,
+        "covered": true,
+        "depth": 0.05,
+        "depthInCells": 0.86174,
+        "depthInW0": 0.689392,
+        "samples": 10,
+        "secantRadius": 1.035127
+       },
+       {
+        "A0": 0.212323,
+        "A1": 0.001914,
+        "A1Spread": 1.8e-05,
+        "A2": 2.1e-05,
+        "covered": true,
+        "depth": 0.1,
+        "depthInCells": 1.723481,
+        "depthInW0": 1.378784,
+        "samples": 10,
+        "secantRadius": 1.061615
+       },
+       {
+        "A0": 0.324994,
+        "A1": 0.003914,
+        "A1Spread": 3e-05,
+        "A2": 6.2e-05,
+        "covered": true,
+        "depth": 0.15,
+        "depthInCells": 2.585221,
+        "depthInW0": 2.068177,
+        "samples": 10,
+        "secantRadius": 1.083314
+       },
+       {
+        "A0": 0.440678,
+        "A1": 0.006436,
+        "A1Spread": 2.3e-05,
+        "A2": 0.000124,
+        "covered": true,
+        "depth": 0.2,
+        "depthInCells": 3.446961,
+        "depthInW0": 2.757569,
+        "samples": 10,
+        "secantRadius": 1.101695
+       },
+       {
+        "A0": 0.678951,
+        "A1": 0.012808,
+        "A1Spread": 4.7e-05,
+        "A2": 0.00034,
+        "covered": true,
+        "depth": 0.3,
+        "depthInCells": 5.170442,
+        "depthInW0": 4.136353,
+        "samples": 10,
+        "secantRadius": 1.131584
+       },
+       {
+        "A0": 0.924188,
+        "A1": 0.020749,
+        "A1Spread": 9e-05,
+        "A2": 0.000682,
+        "covered": true,
+        "depth": 0.4,
+        "depthInCells": 6.893922,
+        "depthInW0": 5.515138,
+        "samples": 10,
+        "secantRadius": 1.155235
+       },
+       {
+        "A0": 1.174659,
+        "A1": 0.03009,
+        "A1Spread": 0.000111,
+        "A2": 0.001127,
+        "covered": true,
+        "depth": 0.5,
+        "depthInCells": 8.617403,
+        "depthInW0": 6.893922,
+        "samples": 10,
+        "secantRadius": 1.174659
+       },
+       {
+        "A0": 1.81711,
+        "A1": 0.059001,
+        "A1Spread": 0.000293,
+        "A2": 0.0028,
+        "covered": true,
+        "depth": 0.75,
+        "depthInCells": 12.926104,
+        "depthInW0": 10.340883,
+        "samples": 10,
+        "secantRadius": 1.211406
+       },
+       {
+        "A0": 2.475354,
+        "A1": 0.095178,
+        "A1Spread": 0.00049,
+        "A2": 0.005262,
+        "covered": true,
+        "depth": 1.0,
+        "depthInCells": 17.234805,
+        "depthInW0": 13.787844,
+        "samples": 10,
+        "secantRadius": 1.237677
+       },
+       {
+        "A0": 3.143995,
+        "A1": 0.138129,
+        "A1Spread": 0.000747,
+        "A2": 0.008551,
+        "covered": true,
+        "depth": 1.25,
+        "depthInCells": 21.543506,
+        "depthInW0": 17.234805,
+        "samples": 10,
+        "secantRadius": 1.257598
+       },
+       {
+        "A0": 3.819906,
+        "A1": 0.187516,
+        "A1Spread": 0.000909,
+        "A2": 0.012693,
+        "covered": true,
+        "depth": 1.5,
+        "depthInCells": 25.852208,
+        "depthInW0": 20.681766,
+        "samples": 10,
+        "secantRadius": 1.273302
+       },
+       {
+        "A0": 4.501142,
+        "A1": 0.243121,
+        "A1Spread": 0.001094,
+        "A2": 0.017709,
+        "covered": true,
+        "depth": 1.75,
+        "depthInCells": 30.160909,
+        "depthInW0": 24.128727,
+        "samples": 10,
+        "secantRadius": 1.286041
+       },
+       {
+        "covered": false,
+        "depth": 2.0
+       },
+       {
+        "covered": false,
+        "depth": 2.25
+       },
+       {
+        "covered": false,
+        "depth": 2.5
+       }
+      ]
+     },
+     "sampleCount": 61,
+     "terminal": {
+      "P": 0.326610466575313,
+      "rho": 13.787844093257462,
+      "sigma": 0.054522300383126096,
+      "terminalSteps": 148535,
+      "terminalTime": 2673.724141483,
+      "velocity": 0.10688725530487263,
+      "windowRhos": [
+       13.801550971896294,
+       13.74856721097256,
+       13.813414096903534
+      ],
+      "windowVelocities": [
+       0.10693317533623464,
+       0.1068843385502179,
+       0.10684425202816532
+      ]
+     },
+     "trends": {
+      "rho": {
+       "relativeChangeError": 0.0007183573706705785,
+       "relativeChangePerDiffusionTime": -0.0005376772975481315,
+       "spanDiffusionTimes": 4.272313753851953
+      },
+      "rhoOverRhoIv": {
+       "relativeChangeError": 0.0006836467891663156,
+       "relativeChangePerDiffusionTime": -0.001018300803148236,
+       "spanDiffusionTimes": 4.272313753851953
+      },
+      "sigma": {
+       "relativeChangeError": 0.0014006083908031123,
+       "relativeChangePerDiffusionTime": 0.0015564880012039484,
+       "spanDiffusionTimes": 4.272313753851953
+      },
+      "velocity": {
+       "relativeChangeError": 5.960593574132809e-05,
+       "relativeChangePerDiffusionTime": -0.00048224838156825725,
+       "spanDiffusionTimes": 4.272313753851953
+      }
+     }
+    }
+   },
+   "directory": "samples",
+   "sensitivities": {
+    "domain": {
+     "P": 1.0163981207789163e-06,
+     "Vd0OverD": 1.946709347055986e-07,
+     "rhoOverD0": 8.217270259791576e-07,
+     "rhoOverRhoIv": 1.0163981207789163e-06,
+     "sigma": -1.8381226031261022e-06
+    },
+    "dt": {
+     "P": -0.0004235584054855801,
+     "Vd0OverD": -4.388800248844582e-05,
+     "rhoOverD0": -0.0003796870667038821,
+     "rhoOverRhoIv": -0.0004235584054854691,
+     "sigma": 0.0008037301158618781
+    },
+    "dx": {
+     "P": 0.012493387082712637,
+     "Vd0OverD": -0.0061173477746274685,
+     "rhoOverD0": 0.018725283931326775,
+     "rhoOverRhoIv": 0.012493387082712637,
+     "sigma": -0.030493512577178028
+    },
+    "width": {
+     "P": -0.011150450671308487,
+     "Vd0OverD": 0.011707637864629916,
+     "rhoOverD0": -0.022593571186419137,
+     "rhoOverRhoIv": -0.011150450671308598,
+     "sigma": 0.03465268429416635
+    },
+    "widthAndMeshExtrapolationDiagnosticOnly": {
+     "Vd0OverD": {
+      "a": -0.002991382845450509,
+      "b": 0.021914769307250295,
+      "value": 0.012053788636788913
+     },
+     "rhoOverRhoIv": {
+      "a": 0.0028817594086341966,
+      "b": -0.04434281678891088,
+      "value": 0.6801297896337307
+     },
+     "sigma": {
+      "a": -0.008754901662719073,
+      "b": 0.11060040288507007,
+      "value": 0.058736035096205515
+     }
+    },
+    "widthExtrapolationDiagnosticOnly": {
+     "linear-in-W": {
+      "Vd0OverD": 0.012916939374085636,
+      "rhoOverRhoIv": 0.6269016315170763,
+      "sigma": 0.07408417867555966
+     },
+     "quadratic-in-W": {
+      "Vd0OverD": 0.012224039607594155,
+      "rhoOverRhoIv": 0.6610994248309111,
+      "sigma": 0.06304430178050185
+     }
+    }
+   }
+  },
+  "default": {
+   "arms": {
+    "base": {
+     "config": {
+      "D": 2.5068,
+      "d0": 0.220975,
+      "dims": [
+       270,
+       270,
+       612
+      ],
+      "dt": 0.0180006338,
+      "dx": 0.8,
+      "epsilon4": 0.0171,
+      "lambda": 4,
+      "maximumTimeTau0": 1949.1356423198636,
+      "name": "base",
+      "physicalTimeScale": 1,
+      "radius": 8,
+      "samplePeriodTau0": 32.370331090315965,
+      "undercooling": 0.45
+     },
+     "derived": {
+      "Vd0OverD": 0.011037061292634003,
+      "W0OverD0": 4.5253988007693176,
+      "W0OverRho": 0.07616668306060702,
+      "W0VOverD": 0.04994710393770337,
+      "dxOverW0": 0.8,
+      "lambda": 4,
+      "rhoOverD0": 59.414413480082715,
+      "rhoOverRhoIv": 0.6961656578067931,
+      "sigmaVelocity": 0.024878151248736095
+     },
+     "hashes": [
+      {
+       "file": "base-000046774.json",
+       "sha256": "8047c8cbafe93bd4c46fe094c92cc73852da5c18697c07c08f6ab8aadec65191"
+      },
+      {
+       "file": "base-000048573.json",
+       "sha256": "a056344a70766a80bed16a52577b332b5e800e77b97b28ca5a7120359ffb6941"
+      },
+      {
+       "file": "base-000050372.json",
+       "sha256": "62c1787a8990cfe1c1cabae1788d49fae69aad8cb79a31f10ee2f2a3de4a6ae3"
+      },
+      {
+       "file": "base-000052171.json",
+       "sha256": "2b1413fa7c3dd415eb9b67d85387fc1030195807217109648d27e52e1a109a81"
+      },
+      {
+       "file": "base-000053970.json",
+       "sha256": "fa034ed699e222e05997a268e21ca6413f382787250aad207450c360b47fc375"
+      },
+      {
+       "file": "base-000055769.json",
+       "sha256": "168d298fe29132afbf061c96e76e968634f28ce25315a0ff79b508db6ff76bc9"
+      },
+      {
+       "file": "base-000057568.json",
+       "sha256": "de2f15c0494c413407e7d35021c4a8cf24a013af586be8c73068a9f82217494e"
+      },
+      {
+       "file": "base-000059367.json",
+       "sha256": "edb96a3070166ae1b5c25e39bf4ade7e47cf04cc6e5c879fd1b0c3f6f19fd858"
+      },
+      {
+       "file": "base-000061166.json",
+       "sha256": "9f3ac72812c34805466bbc153ef4a126703d2abff8e024b08b5c7c3bb99adc55"
+      },
+      {
+       "file": "base-000062965.json",
+       "sha256": "037cc1af25d17dbf03b5d4b39591e5caf535ba1fa9c905de77f8c7e10afd9187"
+      }
+     ],
+     "morphology": {
+      "depthsInRho": [
+       0.5,
+       0.75,
+       1.0,
+       1.25,
+       1.5,
+       1.75,
+       2.0,
+       2.25,
+       2.5
+      ],
+      "fitRange": [
+       0.75,
+       2.5
+      ],
+      "powerFitMean": {
+       "A": 0.09896201626093738,
+       "alpha": 1.6862993693174733,
+       "invA": 10.108500963434198
+      },
+      "powerFitSpread": {
+       "alpha": 0.27671371483231644,
+       "invA": 0.5396741389727442
+      },
+      "terminal": [
+       {
+        "A0": 0.103463,
+        "A1": 0.00054,
+        "A1Spread": 1.4e-05,
+        "A2": 4e-06,
+        "covered": true,
+        "depth": 0.05,
+        "depthInCells": 0.820569,
+        "depthInW0": 0.656455,
+        "samples": 10,
+        "secantRadius": 1.034634
+       },
+       {
+        "A0": 0.212171,
+        "A1": 0.001914,
+        "A1Spread": 5e-05,
+        "A2": 2.1e-05,
+        "covered": true,
+        "depth": 0.1,
+        "depthInCells": 1.641138,
+        "depthInW0": 1.31291,
+        "samples": 10,
+        "secantRadius": 1.060853
+       },
+       {
+        "A0": 0.324764,
+        "A1": 0.003929,
+        "A1Spread": 8.9e-05,
+        "A2": 6.3e-05,
+        "covered": true,
+        "depth": 0.15,
+        "depthInCells": 2.461706,
+        "depthInW0": 1.969365,
+        "samples": 10,
+        "secantRadius": 1.082546
+       },
+       {
+        "A0": 0.440428,
+        "A1": 0.006477,
+        "A1Spread": 0.000154,
+        "A2": 0.000138,
+        "covered": true,
+        "depth": 0.2,
+        "depthInCells": 3.282275,
+        "depthInW0": 2.62582,
+        "samples": 10,
+        "secantRadius": 1.10107
+       },
+       {
+        "A0": 0.678878,
+        "A1": 0.012943,
+        "A1Spread": 0.000406,
+        "A2": 0.000358,
+        "covered": true,
+        "depth": 0.3,
+        "depthInCells": 4.923413,
+        "depthInW0": 3.93873,
+        "samples": 10,
+        "secantRadius": 1.131464
+       },
+       {
+        "A0": 0.924691,
+        "A1": 0.021039,
+        "A1Spread": 0.000736,
+        "A2": 0.000684,
+        "covered": true,
+        "depth": 0.4,
+        "depthInCells": 6.56455,
+        "depthInW0": 5.25164,
+        "samples": 10,
+        "secantRadius": 1.155864
+       },
+       {
+        "A0": 1.176266,
+        "A1": 0.030662,
+        "A1Spread": 0.001253,
+        "A2": 0.001154,
+        "covered": true,
+        "depth": 0.5,
+        "depthInCells": 8.205688,
+        "depthInW0": 6.56455,
+        "samples": 10,
+        "secantRadius": 1.176266
+       },
+       {
+        "A0": 1.824189,
+        "A1": 0.060728,
+        "A1Spread": 0.003132,
+        "A2": 0.002889,
+        "covered": true,
+        "depth": 0.75,
+        "depthInCells": 12.308531,
+        "depthInW0": 9.846825,
+        "samples": 10,
+        "secantRadius": 1.216126
+       },
+       {
+        "A0": 2.492312,
+        "A1": 0.098928,
+        "A1Spread": 0.005882,
+        "A2": 0.005514,
+        "covered": true,
+        "depth": 1.0,
+        "depthInCells": 16.411375,
+        "depthInW0": 13.1291,
+        "samples": 10,
+        "secantRadius": 1.246156
+       },
+       {
+        "A0": 3.174718,
+        "A1": 0.14467,
+        "A1Spread": 0.010727,
+        "A2": 0.009061,
+        "covered": true,
+        "depth": 1.25,
+        "depthInCells": 20.514219,
+        "depthInW0": 16.411375,
+        "samples": 10,
+        "secantRadius": 1.269887
+       },
+       {
+        "A0": 3.865935,
+        "A1": 0.197187,
+        "A1Spread": 0.023764,
+        "A2": 0.013558,
+        "covered": true,
+        "depth": 1.5,
+        "depthInCells": 24.617063,
+        "depthInW0": 19.69365,
+        "samples": 10,
+        "secantRadius": 1.288645
+       },
+       {
+        "A0": 4.5593,
+        "A1": 0.255286,
+        "A1Spread": 0.045787,
+        "A2": 0.018965,
+        "covered": true,
+        "depth": 1.75,
+        "depthInCells": 28.719906,
+        "depthInW0": 22.975925,
+        "samples": 10,
+        "secantRadius": 1.302657
+       },
+       {
+        "A0": 5.246267,
+        "A1": 0.317235,
+        "A1Spread": 0.079745,
+        "A2": 0.025186,
+        "covered": true,
+        "depth": 2.0,
+        "depthInCells": 32.82275,
+        "depthInW0": 26.2582,
+        "samples": 10,
+        "secantRadius": 1.311567
+       },
+       {
+        "covered": false,
+        "depth": 2.25
+       },
+       {
+        "covered": false,
+        "depth": 2.5
+       }
+      ]
+     },
+     "sampleCount": 35,
+     "terminal": {
+      "P": 0.32788026162278644,
+      "rho": 13.129100018761278,
+      "sigma": 0.05133255873963214,
+      "terminalSteps": 62965,
+      "terminalTime": 1133.409907217,
+      "velocity": 0.12520740015103482,
+      "windowRhos": [
+       13.244803300533365,
+       13.107513212151375,
+       13.034983543599099
+      ],
+      "windowVelocities": [
+       0.12561969914880908,
+       0.12498671383994023,
+       0.12501578746435515
+      ]
+     },
+     "trends": {
+      "rho": {
+       "relativeChangeError": 0.002864314513998823,
+       "relativeChangePerDiffusionTime": 0.015152996259212388,
+       "spanDiffusionTimes": 3.8478033702998027
+      },
+      "rhoOverRhoIv": {
+       "relativeChangeError": 0.003618415394151391,
+       "relativeChangePerDiffusionTime": 0.009625009828220675,
+       "spanDiffusionTimes": 3.8478033702998027
+      },
+      "sigma": {
+       "relativeChangeError": 0.006324097749509866,
+       "relativeChangePerDiffusionTime": -0.025663144379031767,
+       "spanDiffusionTimes": 3.8478033702998027
+      },
+      "velocity": {
+       "relativeChangeError": 0.0018869771738645536,
+       "relativeChangePerDiffusionTime": -0.005503878858398184,
+       "spanDiffusionTimes": 3.8478033702998027
+      }
+     }
+    },
+    "domain": {
+     "config": {
+      "D": 2.5068,
+      "d0": 0.220975,
+      "dims": [
+       300,
+       300,
+       680
+      ],
+      "dt": 0.0180006338,
+      "dx": 0.8,
+      "epsilon4": 0.0171,
+      "lambda": 4,
+      "maximumTimeTau0": 1949.1356423198636,
+      "name": "domain",
+      "physicalTimeScale": 1,
+      "radius": 8,
+      "samplePeriodTau0": 32.370331090315965,
+      "undercooling": 0.45
+     },
+     "derived": {
+      "Vd0OverD": 0.011028895169425524,
+      "W0OverD0": 4.5253988007693176,
+      "W0OverRho": 0.07630297697322666,
+      "W0VOverD": 0.04991014897352879,
+      "dxOverW0": 0.8,
+      "lambda": 4,
+      "rhoOverD0": 59.30828625935786,
+      "rhoOverRhoIv": 0.6944079922962034,
+      "sigmaVelocity": 0.02485974435192635
+     },
+     "hashes": [
+      {
+       "file": "domain-000048573.json",
+       "sha256": "309b41246608f13c7a6f9848699313a876870aacd4f57396af268ee4536b67fc"
+      },
+      {
+       "file": "domain-000050372.json",
+       "sha256": "d3fc8f855db353d960dbb12d26f310857e25f2685bb8981daeddd15c79abc9a8"
+      },
+      {
+       "file": "domain-000052171.json",
+       "sha256": "05463ca5aff9f1b86f1502b0f613180fe9ae8fa1bb5461802cf57782ee2eb2eb"
+      },
+      {
+       "file": "domain-000053970.json",
+       "sha256": "234127a5249858398d6acbef6d5f45030da2001b6e8bf4b50da25e0731d8b26a"
+      },
+      {
+       "file": "domain-000055769.json",
+       "sha256": "cf00a4f091ea7af79b209f0578c96eebf39867b5a74e38df003507965a2db26f"
+      },
+      {
+       "file": "domain-000057568.json",
+       "sha256": "f52dfe0cad2f3c01a1cf57241435b48fe1b342602356325760186ae06c330d5e"
+      },
+      {
+       "file": "domain-000059367.json",
+       "sha256": "a6dcb64c3bb20560af4949fbe348e516dba960a1dfdc824d33eea5e80a945210"
+      },
+      {
+       "file": "domain-000061166.json",
+       "sha256": "c599803ae4b9bf8925160870c0c9f90352727154158ec74392164be17d51f173"
+      },
+      {
+       "file": "domain-000062965.json",
+       "sha256": "a3f9ea895822caeb7af8673999b7bdef31d57a0b967475af10ce167188c803dd"
+      },
+      {
+       "file": "domain-000064764.json",
+       "sha256": "6294612e4a2b813c4524431f865c6222d81c14ad1ce220f56bc37dbf4518bde0"
+      }
+     ],
+     "morphology": {
+      "depthsInRho": [
+       0.5,
+       0.75,
+       1.0,
+       1.25,
+       1.5,
+       1.75,
+       2.0,
+       2.25,
+       2.5
+      ],
+      "fitRange": [
+       0.75,
+       2.5
+      ],
+      "powerFitMean": {
+       "A": 0.09883532479432805,
+       "alpha": 1.7098058547382358,
+       "invA": 10.122340194892896
+      },
+      "powerFitSpread": {
+       "alpha": 0.21715005951931277,
+       "invA": 0.642191574240627
+      },
+      "terminal": [
+       {
+        "A0": 0.103476,
+        "A1": 0.000539,
+        "A1Spread": 1.2e-05,
+        "A2": 4e-06,
+        "covered": true,
+        "depth": 0.05,
+        "depthInCells": 0.819103,
+        "depthInW0": 0.655282,
+        "samples": 10,
+        "secantRadius": 1.034761
+       },
+       {
+        "A0": 0.212194,
+        "A1": 0.001909,
+        "A1Spread": 4.2e-05,
+        "A2": 1.9e-05,
+        "covered": true,
+        "depth": 0.1,
+        "depthInCells": 1.638206,
+        "depthInW0": 1.310565,
+        "samples": 10,
+        "secantRadius": 1.060968
+       },
+       {
+        "A0": 0.324794,
+        "A1": 0.003919,
+        "A1Spread": 9.5e-05,
+        "A2": 6.1e-05,
+        "covered": true,
+        "depth": 0.15,
+        "depthInCells": 2.457309,
+        "depthInW0": 1.965847,
+        "samples": 10,
+        "secantRadius": 1.082648
+       },
+       {
+        "A0": 0.440455,
+        "A1": 0.006462,
+        "A1Spread": 0.000166,
+        "A2": 0.000138,
+        "covered": true,
+        "depth": 0.2,
+        "depthInCells": 3.276412,
+        "depthInW0": 2.62113,
+        "samples": 10,
+        "secantRadius": 1.101137
+       },
+       {
+        "A0": 0.678838,
+        "A1": 0.012903,
+        "A1Spread": 0.000424,
+        "A2": 0.000357,
+        "covered": true,
+        "depth": 0.3,
+        "depthInCells": 4.914618,
+        "depthInW0": 3.931695,
+        "samples": 10,
+        "secantRadius": 1.131397
+       },
+       {
+        "A0": 0.92453,
+        "A1": 0.020968,
+        "A1Spread": 0.000767,
+        "A2": 0.000681,
+        "covered": true,
+        "depth": 0.4,
+        "depthInCells": 6.552824,
+        "depthInW0": 5.242259,
+        "samples": 10,
+        "secantRadius": 1.155662
+       },
+       {
+        "A0": 1.175943,
+        "A1": 0.030548,
+        "A1Spread": 0.001333,
+        "A2": 0.001145,
+        "covered": true,
+        "depth": 0.5,
+        "depthInCells": 8.19103,
+        "depthInW0": 6.552824,
+        "samples": 10,
+        "secantRadius": 1.175943
+       },
+       {
+        "A0": 1.823464,
+        "A1": 0.060491,
+        "A1Spread": 0.003436,
+        "A2": 0.002869,
+        "covered": true,
+        "depth": 0.75,
+        "depthInCells": 12.286546,
+        "depthInW0": 9.829236,
+        "samples": 10,
+        "secantRadius": 1.215643
+       },
+       {
+        "A0": 2.491784,
+        "A1": 0.098652,
+        "A1Spread": 0.006717,
+        "A2": 0.005484,
+        "covered": true,
+        "depth": 1.0,
+        "depthInCells": 16.382061,
+        "depthInW0": 13.105649,
+        "samples": 10,
+        "secantRadius": 1.245892
+       },
+       {
+        "A0": 3.176128,
+        "A1": 0.144655,
+        "A1Spread": 0.010868,
+        "A2": 0.009035,
+        "covered": true,
+        "depth": 1.25,
+        "depthInCells": 20.477576,
+        "depthInW0": 16.382061,
+        "samples": 10,
+        "secantRadius": 1.270451
+       },
+       {
+        "A0": 3.872603,
+        "A1": 0.198043,
+        "A1Spread": 0.015229,
+        "A2": 0.013579,
+        "covered": true,
+        "depth": 1.5,
+        "depthInCells": 24.573091,
+        "depthInW0": 19.658473,
+        "samples": 10,
+        "secantRadius": 1.290868
+       },
+       {
+        "A0": 4.576377,
+        "A1": 0.257994,
+        "A1Spread": 0.032314,
+        "A2": 0.019112,
+        "covered": true,
+        "depth": 1.75,
+        "depthInCells": 28.668606,
+        "depthInW0": 22.934885,
+        "samples": 10,
+        "secantRadius": 1.307536
+       },
+       {
+        "A0": 5.280707,
+        "A1": 0.32315,
+        "A1Spread": 0.06081,
+        "A2": 0.025588,
+        "covered": true,
+        "depth": 2.0,
+        "depthInCells": 32.764121,
+        "depthInW0": 26.211297,
+        "samples": 10,
+        "secantRadius": 1.320177
+       },
+       {
+        "covered": false,
+        "depth": 2.25
+       },
+       {
+        "covered": false,
+        "depth": 2.5
+       }
+      ]
+     },
+     "sampleCount": 36,
+     "terminal": {
+      "P": 0.327052435916369,
+      "rho": 13.105648556161603,
+      "sigma": 0.05155457805845642,
+      "terminalSteps": 64764,
+      "terminalTime": 1165.7930474231998,
+      "velocity": 0.12511476144684197,
+      "windowRhos": [
+       13.206223742281075,
+       13.067011264948231,
+       13.043710661255503
+      ],
+      "windowVelocities": [
+       0.1253124944367116,
+       0.12494598225000395,
+       0.12508580765381042
+      ]
+     },
+     "trends": {
+      "rho": {
+       "relativeChangeError": 0.003006659655222844,
+       "relativeChangePerDiffusionTime": 0.013743421019969409,
+       "spanDiffusionTimes": 3.8421116356216762
+      },
+      "rhoOverRhoIv": {
+       "relativeChangeError": 0.003508599213653242,
+       "relativeChangePerDiffusionTime": 0.00632165710381494,
+       "spanDiffusionTimes": 3.8421116356216762
+      },
+      "sigma": {
+       "relativeChangeError": 0.006495896577158056,
+       "relativeChangePerDiffusionTime": -0.020992104477877624,
+       "spanDiffusionTimes": 3.8421116356216762
+      },
+      "velocity": {
+       "relativeChangeError": 0.0013891003099612404,
+       "relativeChangePerDiffusionTime": -0.007446976146390365,
+       "spanDiffusionTimes": 3.8421116356216762
+      }
+     }
+    },
+    "dt": {
+     "config": {
+      "D": 2.5068,
+      "d0": 0.220975,
+      "dims": [
+       270,
+       270,
+       612
+      ],
+      "dt": 0.0090003169,
+      "dx": 0.8,
+      "epsilon4": 0.0171,
+      "lambda": 4,
+      "maximumTimeTau0": 1949.1356423198636,
+      "name": "dt",
+      "physicalTimeScale": 1,
+      "radius": 8,
+      "samplePeriodTau0": 32.370331090315965,
+      "undercooling": 0.45
+     },
+     "derived": {
+      "Vd0OverD": 0.011027368077381904,
+      "W0OverD0": 4.5253988007693176,
+      "W0OverRho": 0.07631839975163976,
+      "W0VOverD": 0.049903238273025924,
+      "dxOverW0": 0.8,
+      "lambda": 4,
+      "rhoOverD0": 59.29630096406844,
+      "rhoOverRhoIv": 0.6941715328223673,
+      "sigmaVelocity": 0.024856302201355228
+     },
+     "hashes": [
+      {
+       "file": "dt-000097119.json",
+       "sha256": "54ba9b171fb3fd376ecafa1b63ffdca433b97ba1e72ec871df983f25f9274fa2"
+      },
+      {
+       "file": "dt-000100716.json",
+       "sha256": "592ddffa6c4bdfe40c3edb8a5c58b54c7136f9b6a6b7fe12e40fc99fc4776ff8"
+      },
+      {
+       "file": "dt-000104313.json",
+       "sha256": "773f44f97c13d0ea758482e528f987263aafb712f67f9ff894f948898102716b"
+      },
+      {
+       "file": "dt-000107910.json",
+       "sha256": "c8e8a8f07bc6d1f59515ea957f172dfb4c3f28ff97a130c32db0a46e0ca9aea0"
+      },
+      {
+       "file": "dt-000111507.json",
+       "sha256": "6c8a16051b79741cfe07f7e4a8ed3d65b2319d998f869e84348679ad59163beb"
+      },
+      {
+       "file": "dt-000115104.json",
+       "sha256": "cf24c9bea1b6e9b42e8c3ec21aa5b7b766997d22728580239ea235aa0a9fc67a"
+      },
+      {
+       "file": "dt-000118701.json",
+       "sha256": "e68840e0335151fc2202f03055713cef5cdfcab04d453b319d61edbf1d5013fb"
+      },
+      {
+       "file": "dt-000122298.json",
+       "sha256": "0e0858bf151499fac249a85db9836591e6545ecd2e3c56be3867cfd6c5d76117"
+      },
+      {
+       "file": "dt-000125895.json",
+       "sha256": "6d657ca0e0d3d1f052f4e9d38df484c7eb86297dc4cdad81b60b64f7fc4a4bc7"
+      },
+      {
+       "file": "dt-000129492.json",
+       "sha256": "4df22370d0b772ce0ce8627f6a4b8411342349a37470f5426c67b7cd6c0d18d7"
+      }
+     ],
+     "morphology": {
+      "depthsInRho": [
+       0.5,
+       0.75,
+       1.0,
+       1.25,
+       1.5,
+       1.75,
+       2.0,
+       2.25,
+       2.5
+      ],
+      "fitRange": [
+       0.75,
+       2.5
+      ],
+      "powerFitMean": {
+       "A": 0.09880421330413984,
+       "alpha": 1.70944317131137,
+       "invA": 10.12538311960846
+      },
+      "powerFitSpread": {
+       "alpha": 0.21715874843153316,
+       "invA": 0.6336549331404076
+      },
+      "terminal": [
+       {
+        "A0": 0.10349,
+        "A1": 0.000539,
+        "A1Spread": 1.1e-05,
+        "A2": 4e-06,
+        "covered": true,
+        "depth": 0.05,
+        "depthInCells": 0.818938,
+        "depthInW0": 0.65515,
+        "samples": 10,
+        "secantRadius": 1.034904
+       },
+       {
+        "A0": 0.212205,
+        "A1": 0.001909,
+        "A1Spread": 4.7e-05,
+        "A2": 2e-05,
+        "covered": true,
+        "depth": 0.1,
+        "depthInCells": 1.637875,
+        "depthInW0": 1.3103,
+        "samples": 10,
+        "secantRadius": 1.061023
+       },
+       {
+        "A0": 0.324794,
+        "A1": 0.00392,
+        "A1Spread": 9e-05,
+        "A2": 6.3e-05,
+        "covered": true,
+        "depth": 0.15,
+        "depthInCells": 2.456813,
+        "depthInW0": 1.96545,
+        "samples": 10,
+        "secantRadius": 1.082648
+       },
+       {
+        "A0": 0.440443,
+        "A1": 0.006461,
+        "A1Spread": 0.000152,
+        "A2": 0.000138,
+        "covered": true,
+        "depth": 0.2,
+        "depthInCells": 3.27575,
+        "depthInW0": 2.6206,
+        "samples": 10,
+        "secantRadius": 1.101108
+       },
+       {
+        "A0": 0.678815,
+        "A1": 0.012902,
+        "A1Spread": 0.00041,
+        "A2": 0.000357,
+        "covered": true,
+        "depth": 0.3,
+        "depthInCells": 4.913625,
+        "depthInW0": 3.9309,
+        "samples": 10,
+        "secantRadius": 1.131359
+       },
+       {
+        "A0": 0.924492,
+        "A1": 0.020961,
+        "A1Spread": 0.000758,
+        "A2": 0.00068,
+        "covered": true,
+        "depth": 0.4,
+        "depthInCells": 6.5515,
+        "depthInW0": 5.2412,
+        "samples": 10,
+        "secantRadius": 1.155615
+       },
+       {
+        "A0": 1.175891,
+        "A1": 0.030541,
+        "A1Spread": 0.001302,
+        "A2": 0.001148,
+        "covered": true,
+        "depth": 0.5,
+        "depthInCells": 8.189375,
+        "depthInW0": 6.5515,
+        "samples": 10,
+        "secantRadius": 1.175891
+       },
+       {
+        "A0": 1.823372,
+        "A1": 0.060475,
+        "A1Spread": 0.003384,
+        "A2": 0.00287,
+        "covered": true,
+        "depth": 0.75,
+        "depthInCells": 12.284063,
+        "depthInW0": 9.82725,
+        "samples": 10,
+        "secantRadius": 1.215581
+       },
+       {
+        "A0": 2.491642,
+        "A1": 0.098624,
+        "A1Spread": 0.006626,
+        "A2": 0.005484,
+        "covered": true,
+        "depth": 1.0,
+        "depthInCells": 16.37875,
+        "depthInW0": 13.103,
+        "samples": 10,
+        "secantRadius": 1.245821
+       },
+       {
+        "A0": 3.175916,
+        "A1": 0.144606,
+        "A1Spread": 0.010747,
+        "A2": 0.009029,
+        "covered": true,
+        "depth": 1.25,
+        "depthInCells": 20.473438,
+        "depthInW0": 16.37875,
+        "samples": 10,
+        "secantRadius": 1.270366
+       },
+       {
+        "A0": 3.872289,
+        "A1": 0.197961,
+        "A1Spread": 0.015231,
+        "A2": 0.013571,
+        "covered": true,
+        "depth": 1.5,
+        "depthInCells": 24.568125,
+        "depthInW0": 19.6545,
+        "samples": 10,
+        "secantRadius": 1.290763
+       },
+       {
+        "A0": 4.57591,
+        "A1": 0.257862,
+        "A1Spread": 0.032309,
+        "A2": 0.0191,
+        "covered": true,
+        "depth": 1.75,
+        "depthInCells": 28.662813,
+        "depthInW0": 22.93025,
+        "samples": 10,
+        "secantRadius": 1.307403
+       },
+       {
+        "A0": 5.280019,
+        "A1": 0.322951,
+        "A1Spread": 0.060873,
+        "A2": 0.025568,
+        "covered": true,
+        "depth": 2.0,
+        "depthInCells": 32.7575,
+        "depthInW0": 26.206,
+        "samples": 10,
+        "secantRadius": 1.320005
+       },
+       {
+        "covered": false,
+        "depth": 2.25
+       },
+       {
+        "covered": false,
+        "depth": 2.5
+       }
+      ]
+     },
+     "sampleCount": 36,
+     "terminal": {
+      "P": 0.32694106817899904,
+      "rho": 13.103000105535024,
+      "sigma": 0.0515825634235873,
+      "terminalSteps": 129492,
+      "terminalTime": 1165.4690360148,
+      "velocity": 0.1250974377028214,
+      "windowRhos": [
+       13.217667993165836,
+       13.070207535317344,
+       13.02112478812189
+      ],
+      "windowVelocities": [
+       0.1252930762417564,
+       0.12492899130714581,
+       0.12507024555956198
+      ]
+     },
+     "trends": {
+      "rho": {
+       "relativeChangeError": 0.003073701005081921,
+       "relativeChangePerDiffusionTime": 0.013669982375850558,
+       "spanDiffusionTimes": 3.839980179190779
+      },
+      "rhoOverRhoIv": {
+       "relativeChangeError": 0.0035349126372066736,
+       "relativeChangePerDiffusionTime": 0.006213753206904011,
+       "spanDiffusionTimes": 3.839980179190779
+      },
+      "sigma": {
+       "relativeChangeError": 0.006586029683338057,
+       "relativeChangePerDiffusionTime": -0.02080023576158553,
+       "spanDiffusionTimes": 3.839980179190779
+      },
+      "velocity": {
+       "relativeChangeError": 0.0013883453173621511,
+       "relativeChangePerDiffusionTime": -0.007484021312192874,
+       "spanDiffusionTimes": 3.839980179190779
+      }
+     }
+    },
+    "dx": {
+     "config": {
+      "D": 2.5068,
+      "d0": 0.220975,
+      "dims": [
+       360,
+       360,
+       816
+      ],
+      "dt": 0.010125356512499998,
+      "dx": 0.6,
+      "epsilon4": 0.0171,
+      "lambda": 4,
+      "maximumTimeTau0": 1949.1356423198636,
+      "name": "dx",
+      "physicalTimeScale": 1,
+      "radius": 8,
+      "samplePeriodTau0": 32.370331090315965,
+      "undercooling": 0.45
+     },
+     "derived": {
+      "Vd0OverD": 0.011167395279854124,
+      "W0OverD0": 4.5253988007693176,
+      "W0OverRho": 0.07576097110326507,
+      "W0VOverD": 0.0505369172071688,
+      "dxOverW0": 0.6,
+      "lambda": 4,
+      "rhoOverD0": 59.732587041433604,
+      "rhoOverRhoIv": 0.708158610605177,
+      "sigmaVelocity": 0.02517193131943997
+     },
+     "hashes": [
+      {
+       "file": "dx-000086319.json",
+       "sha256": "213b9b9f97f3ced4c3b2744a174dd9508de1a78a4f875040f193599113e2033f"
+      },
+      {
+       "file": "dx-000089516.json",
+       "sha256": "f048f1a57050cfed3e6a565210dcbfd79553a7ac9d5c29a353c88212789e64d2"
+      },
+      {
+       "file": "dx-000092713.json",
+       "sha256": "4d8ce84ddd0eec0e7d819391fac1edf266db2e563b8d0fcff0c9aafcd93e1594"
+      },
+      {
+       "file": "dx-000095910.json",
+       "sha256": "ee1d2db19977ebf673e753f88c296842797d086cde59a22d97fc6d71e00ff4cd"
+      },
+      {
+       "file": "dx-000099107.json",
+       "sha256": "e5e4d6d9a00464c8f0160ce7182ffcfdc593bd0f7ca6ab4281fb00cd11cab595"
+      },
+      {
+       "file": "dx-000102304.json",
+       "sha256": "50948ee99c93747afd617754251eceb6b1b60a5c1e7089a1eb448743464fea92"
+      },
+      {
+       "file": "dx-000105501.json",
+       "sha256": "9d2112c018d5f29a948726d0d55c6ecc955cbbbb6a652bd17f955e0a565dd8ef"
+      },
+      {
+       "file": "dx-000108698.json",
+       "sha256": "62fb2b435f4126d7c8f01da751c213475ab3e3fd01c597471ce225dd629d8f8a"
+      },
+      {
+       "file": "dx-000111895.json",
+       "sha256": "1627a946ffb5264b97cfccfbed0c7be97ce1df3d8253038ccbbf3f3dc749d273"
+      },
+      {
+       "file": "dx-000115092.json",
+       "sha256": "50b2c504aa94557ea1bf4adbc74e385c532e4100010c8658a4e336fdc39f3163"
+      }
+     ],
+     "morphology": {
+      "depthsInRho": [
+       0.5,
+       0.75,
+       1.0,
+       1.25,
+       1.5,
+       1.75,
+       2.0,
+       2.25,
+       2.5
+      ],
+      "fitRange": [
+       0.75,
+       2.5
+      ],
+      "powerFitMean": {
+       "A": 0.09025703789166946,
+       "alpha": 1.7048236787053999,
+       "invA": 11.079868869829673
+      },
+      "powerFitSpread": {
+       "alpha": 0.025026486799208048,
+       "invA": 0.16244614179718653
+      },
+      "terminal": [
+       {
+        "A0": 0.102934,
+        "A1": 0.000483,
+        "A1Spread": 7e-06,
+        "A2": 3e-06,
+        "covered": true,
+        "depth": 0.05,
+        "depthInCells": 1.099951,
+        "depthInW0": 0.65997,
+        "samples": 10,
+        "secantRadius": 1.029344
+       },
+       {
+        "A0": 0.210711,
+        "A1": 0.001726,
+        "A1Spread": 2.7e-05,
+        "A2": 1.8e-05,
+        "covered": true,
+        "depth": 0.1,
+        "depthInCells": 2.199901,
+        "depthInW0": 1.319941,
+        "samples": 10,
+        "secantRadius": 1.053557
+       },
+       {
+        "A0": 0.322074,
+        "A1": 0.003557,
+        "A1Spread": 6.4e-05,
+        "A2": 5.1e-05,
+        "covered": true,
+        "depth": 0.15,
+        "depthInCells": 3.299852,
+        "depthInW0": 1.979911,
+        "samples": 10,
+        "secantRadius": 1.073579
+       },
+       {
+        "A0": 0.436274,
+        "A1": 0.005889,
+        "A1Spread": 0.00012,
+        "A2": 0.000107,
+        "covered": true,
+        "depth": 0.2,
+        "depthInCells": 4.399803,
+        "depthInW0": 2.639882,
+        "samples": 10,
+        "secantRadius": 1.090686
+       },
+       {
+        "A0": 0.671331,
+        "A1": 0.011861,
+        "A1Spread": 0.0003,
+        "A2": 0.00029,
+        "covered": true,
+        "depth": 0.3,
+        "depthInCells": 6.599704,
+        "depthInW0": 3.959823,
+        "samples": 10,
+        "secantRadius": 1.118884
+       },
+       {
+        "A0": 0.913282,
+        "A1": 0.019391,
+        "A1Spread": 0.00058,
+        "A2": 0.000578,
+        "covered": true,
+        "depth": 0.4,
+        "depthInCells": 8.799606,
+        "depthInW0": 5.279763,
+        "samples": 10,
+        "secantRadius": 1.141603
+       },
+       {
+        "A0": 1.160599,
+        "A1": 0.028346,
+        "A1Spread": 0.000968,
+        "A2": 0.000977,
+        "covered": true,
+        "depth": 0.5,
+        "depthInCells": 10.999507,
+        "depthInW0": 6.599704,
+        "samples": 10,
+        "secantRadius": 1.160599
+       },
+       {
+        "A0": 1.796594,
+        "A1": 0.056502,
+        "A1Spread": 0.002546,
+        "A2": 0.002495,
+        "covered": true,
+        "depth": 0.75,
+        "depthInCells": 16.499261,
+        "depthInW0": 9.899556,
+        "samples": 10,
+        "secantRadius": 1.197729
+       },
+       {
+        "A0": 2.451677,
+        "A1": 0.092449,
+        "A1Spread": 0.005028,
+        "A2": 0.004815,
+        "covered": true,
+        "depth": 1.0,
+        "depthInCells": 21.999014,
+        "depthInW0": 13.199408,
+        "samples": 10,
+        "secantRadius": 1.225839
+       },
+       {
+        "A0": 3.094961,
+        "A1": 0.132182,
+        "A1Spread": 0.002749,
+        "A2": 0.007709,
+        "covered": true,
+        "depth": 1.25,
+        "depthInCells": 27.498768,
+        "depthInW0": 16.499261,
+        "samples": 3,
+        "secantRadius": 1.237984
+       },
+       {
+        "covered": false,
+        "depth": 1.5
+       },
+       {
+        "covered": false,
+        "depth": 1.75
+       },
+       {
+        "covered": false,
+        "depth": 2.0
+       },
+       {
+        "covered": false,
+        "depth": 2.25
+       },
+       {
+        "covered": false,
+        "depth": 2.5
+       }
+      ]
+     },
+     "sampleCount": 36,
+     "terminal": {
+      "P": 0.3335287052899907,
+      "rho": 13.199408421480792,
+      "sigma": 0.050194422021301255,
+      "terminalSteps": 115092,
+      "terminalTime": 1165.3475317366497,
+      "velocity": 0.12668594405493075,
+      "windowRhos": [
+       13.255628431128395,
+       13.195959824388655,
+       13.146637008925321
+      ],
+      "windowVelocities": [
+       0.1268248370916086,
+       0.12655005032381805,
+       0.12668294474936562
+      ]
+     },
+     "trends": {
+      "rho": {
+       "relativeChangeError": 0.0020017685245487787,
+       "relativeChangePerDiffusionTime": 0.011708635577872304,
+       "spanDiffusionTimes": 3.937710094868541
+      },
+      "rhoOverRhoIv": {
+       "relativeChangeError": 0.0025094056592873774,
+       "relativeChangePerDiffusionTime": 0.0069954980920186255,
+       "spanDiffusionTimes": 3.937710094868541
+      },
+      "sigma": {
+       "relativeChangeError": 0.004438903269086585,
+       "relativeChangePerDiffusionTime": -0.019277203290047895,
+       "spanDiffusionTimes": 3.937710094868541
+      },
+      "velocity": {
+       "relativeChangeError": 0.001283668215242472,
+       "relativeChangePerDiffusionTime": -0.00470723801378359,
+       "spanDiffusionTimes": 3.937710094868541
+      }
+     }
+    },
+    "width": {
+     "config": {
+      "D": 2.25612,
+      "d0": 0.2455277777777778,
+      "dims": [
+       300,
+       300,
+       680
+      ],
+      "dt": 0.0180006338,
+      "dx": 0.8,
+      "epsilon4": 0.0171,
+      "lambda": 3.6,
+      "maximumTimeTau0": 2673.711443511473,
+      "name": "width",
+      "physicalTimeScale": 1.3717421124828535,
+      "radius": 8.88888888888889,
+      "samplePeriodTau0": 44.40374635159941,
+      "undercooling": 0.45
+     },
+     "derived": {
+      "Vd0OverD": 0.011207204807584154,
+      "W0OverD0": 4.0728589206923855,
+      "W0OverRho": 0.07014661694626667,
+      "W0VOverD": 0.04564536407659571,
+      "dxOverW0": 0.8,
+      "lambda": 3.6,
+      "rhoOverD0": 58.062086213113524,
+      "rhoOverRhoIv": 0.6908078623216807,
+      "sigmaVelocity": 0.025261664213527404
+     },
+     "hashes": [
+      {
+       "file": "width-000066609.json",
+       "sha256": "cfde0d111ec6ba94958d6f6c6ecf0e4ffe34bcf037602a308e4d2337f3122db0"
+      },
+      {
+       "file": "width-000069076.json",
+       "sha256": "396f3366ef7e6f0b9f32a04ca0eb96b4b2b52d6be5ab091e029fe890838e2ae7"
+      },
+      {
+       "file": "width-000071543.json",
+       "sha256": "91aac92374b49f8a089a86809992e9371efd7009d0dd6ae398b6e14ce1d1b37c"
+      },
+      {
+       "file": "width-000074010.json",
+       "sha256": "9f4fdf48adc7018eb40a554a339b8c57fa09387b2388bcb94672edf36e498126"
+      },
+      {
+       "file": "width-000076477.json",
+       "sha256": "d56026c5430d530ce52a4be190b0a96be78f3a9baba3b1088ba3ff81d3f169e3"
+      },
+      {
+       "file": "width-000078944.json",
+       "sha256": "3e063d91708ad4f87aa57321792d4cd68a1c1067f095605bff1ef62524489346"
+      },
+      {
+       "file": "width-000081411.json",
+       "sha256": "58d18237249d60bc1e9689432e65668d5cec4bb0fd3699ae294ffa10b7326e85"
+      },
+      {
+       "file": "width-000083878.json",
+       "sha256": "41079a55bd317474961d54655dc7f58ef37dc1c78818ca986299b3552cc400b7"
+      },
+      {
+       "file": "width-000086345.json",
+       "sha256": "db73562ed58f1dd49be64b1eec5e67a5ca9a7ff15374bc914830162ad464a970"
+      },
+      {
+       "file": "width-000088812.json",
+       "sha256": "ff3149d3f0b86005fa2af343884823a796c7e40bca2ab600ab09fd7b238f390d"
+      }
+     ],
+     "morphology": {
+      "depthsInRho": [
+       0.5,
+       0.75,
+       1.0,
+       1.25,
+       1.5,
+       1.75,
+       2.0,
+       2.25,
+       2.5
+      ],
+      "fitRange": [
+       0.75,
+       2.5
+      ],
+      "powerFitMean": {
+       "A": 0.09812202183951244,
+       "alpha": 1.7156003069183554,
+       "invA": 10.197528926680935
+      },
+      "powerFitSpread": {
+       "alpha": 0.10689186845700949,
+       "invA": 0.712537196060639
+      },
+      "terminal": [
+       {
+        "A0": 0.103385,
+        "A1": 0.000546,
+        "A1Spread": 1.5e-05,
+        "A2": 3e-06,
+        "covered": true,
+        "depth": 0.05,
+        "depthInCells": 0.890991,
+        "depthInW0": 0.712793,
+        "samples": 10,
+        "secantRadius": 1.033851
+       },
+       {
+        "A0": 0.212154,
+        "A1": 0.001928,
+        "A1Spread": 4.3e-05,
+        "A2": 2.2e-05,
+        "covered": true,
+        "depth": 0.1,
+        "depthInCells": 1.781982,
+        "depthInW0": 1.425586,
+        "samples": 10,
+        "secantRadius": 1.060768
+       },
+       {
+        "A0": 0.324837,
+        "A1": 0.00394,
+        "A1Spread": 0.000102,
+        "A2": 6.4e-05,
+        "covered": true,
+        "depth": 0.15,
+        "depthInCells": 2.672973,
+        "depthInW0": 2.138378,
+        "samples": 10,
+        "secantRadius": 1.08279
+       },
+       {
+        "A0": 0.44059,
+        "A1": 0.006477,
+        "A1Spread": 0.000178,
+        "A2": 0.000131,
+        "covered": true,
+        "depth": 0.2,
+        "depthInCells": 3.563964,
+        "depthInW0": 2.851171,
+        "samples": 10,
+        "secantRadius": 1.101474
+       },
+       {
+        "A0": 0.679226,
+        "A1": 0.012909,
+        "A1Spread": 0.000389,
+        "A2": 0.00035,
+        "covered": true,
+        "depth": 0.3,
+        "depthInCells": 5.345946,
+        "depthInW0": 4.276757,
+        "samples": 10,
+        "secantRadius": 1.132043
+       },
+       {
+        "A0": 0.925197,
+        "A1": 0.020945,
+        "A1Spread": 0.00074,
+        "A2": 0.000687,
+        "covered": true,
+        "depth": 0.4,
+        "depthInCells": 7.127928,
+        "depthInW0": 5.702342,
+        "samples": 10,
+        "secantRadius": 1.156496
+       },
+       {
+        "A0": 1.176855,
+        "A1": 0.030442,
+        "A1Spread": 0.001288,
+        "A2": 0.001146,
+        "covered": true,
+        "depth": 0.5,
+        "depthInCells": 8.909909,
+        "depthInW0": 7.127928,
+        "samples": 10,
+        "secantRadius": 1.176855
+       },
+       {
+        "A0": 1.824831,
+        "A1": 0.060103,
+        "A1Spread": 0.003487,
+        "A2": 0.00286,
+        "covered": true,
+        "depth": 0.75,
+        "depthInCells": 13.364864,
+        "depthInW0": 10.691891,
+        "samples": 10,
+        "secantRadius": 1.216554
+       },
+       {
+        "A0": 2.493518,
+        "A1": 0.097825,
+        "A1Spread": 0.0072,
+        "A2": 0.005435,
+        "covered": true,
+        "depth": 1.0,
+        "depthInCells": 17.819819,
+        "depthInW0": 14.255855,
+        "samples": 10,
+        "secantRadius": 1.246759
+       },
+       {
+        "A0": 3.178876,
+        "A1": 0.143412,
+        "A1Spread": 0.011798,
+        "A2": 0.008943,
+        "covered": true,
+        "depth": 1.25,
+        "depthInCells": 22.274773,
+        "depthInW0": 17.819819,
+        "samples": 10,
+        "secantRadius": 1.27155
+       },
+       {
+        "A0": 3.878369,
+        "A1": 0.196697,
+        "A1Spread": 0.017369,
+        "A2": 0.013444,
+        "covered": true,
+        "depth": 1.5,
+        "depthInCells": 26.729728,
+        "depthInW0": 21.383783,
+        "samples": 10,
+        "secantRadius": 1.29279
+       },
+       {
+        "A0": 4.578032,
+        "A1": 0.25522,
+        "A1Spread": 0.023516,
+        "A2": 0.018777,
+        "covered": true,
+        "depth": 1.75,
+        "depthInCells": 31.184683,
+        "depthInW0": 24.947746,
+        "samples": 8,
+        "secantRadius": 1.308009
+       },
+       {
+        "covered": false,
+        "depth": 2.0
+       },
+       {
+        "covered": false,
+        "depth": 2.25
+       },
+       {
+        "covered": false,
+        "depth": 2.5
+       }
+      ]
+     },
+     "sampleCount": 36,
+     "terminal": {
+      "P": 0.32535684587298574,
+      "rho": 14.255855001047513,
+      "sigma": 0.052935548140177875,
+      "terminalSteps": 88812,
+      "terminalTime": 1598.6722890455999,
+      "velocity": 0.10298141880048912,
+      "windowRhos": [
+       14.323293320915324,
+       14.246268668844012,
+       14.1980030133832
+      ],
+      "windowVelocities": [
+       0.103015208894097,
+       0.10288636822214464,
+       0.10304267928522579
+      ]
+     },
+     "trends": {
+      "rho": {
+       "relativeChangeError": 0.0028562129863968747,
+       "relativeChangePerDiffusionTime": 0.012123414497643951,
+       "spanDiffusionTimes": 3.966122223094004
+      },
+      "rhoOverRhoIv": {
+       "relativeChangeError": 0.003081757112270924,
+       "relativeChangePerDiffusionTime": 0.0037916086259482396,
+       "spanDiffusionTimes": 3.966122223094004
+      },
+      "sigma": {
+       "relativeChangeError": 0.00600044719085542,
+       "relativeChangePerDiffusionTime": -0.016741299239932197,
+       "spanDiffusionTimes": 3.966122223094004
+      },
+      "velocity": {
+       "relativeChangeError": 0.00110799195817635,
+       "relativeChangePerDiffusionTime": -0.00839299556151097,
+       "spanDiffusionTimes": 3.966122223094004
+      }
+     }
+    }
+   },
+   "directory": "q3-metrology-v4-raw",
+   "sensitivities": {
+    "domain": {
+     "P": -0.00252478054738714,
+     "Vd0OverD": -0.0007398820204005396,
+     "rhoOverD0": -0.0017862201191372051,
+     "rhoOverRhoIv": -0.002524780547387251,
+     "sigma": 0.004325116929206674
+    },
+    "dt": {
+     "P": -0.002864440326901696,
+     "Vd0OverD": -0.0008782424048481285,
+     "rhoOverD0": -0.001987943818613447,
+     "rhoOverRhoIv": -0.002864440326901585,
+     "sigma": 0.004870294606260206
+    },
+    "dx": {
+     "P": 0.017227153715347887,
+     "Vd0OverD": 0.011808758125417373,
+     "rhoOverD0": 0.005355157826434587,
+     "rhoOverRhoIv": 0.017227153715347887,
+     "sigma": -0.02217182907448112
+    },
+    "width": {
+     "P": -0.00769615022664516,
+     "Vd0OverD": 0.015415653717869793,
+     "rhoOverD0": -0.02276092933952001,
+     "rhoOverRhoIv": -0.007696150226645271,
+     "sigma": 0.03122753745193929
+    },
+    "widthAndMeshExtrapolationDiagnosticOnly": {
+     "Vd0OverD": {
+      "a": -0.003931592232324321,
+      "b": -0.041927067225116264,
+      "value": 0.012287815230341089
+     },
+     "rhoOverRhoIv": {
+      "a": 0.0019855590269459125,
+      "b": -0.06100160277963948,
+      "value": 0.6950375989718283
+     },
+     "sigma": {
+      "a": -0.00790271028621609,
+      "b": 0.0800761383341619,
+      "value": 0.05733538378593541
+     }
+    },
+    "widthExtrapolationDiagnosticOnly": {
+     "linear-in-W": {
+      "Vd0OverD": 0.012861511094208355,
+      "rhoOverRhoIv": 0.6444056775580129,
+      "sigma": 0.06981326186531384
+     },
+     "quadratic-in-W": {
+      "Vd0OverD": 0.011962476791525819,
+      "rhoOverRhoIv": 0.6684254804559991,
+      "sigma": 0.06035034593952318
+     }
+    }
+   }
+  }
+ },
+ "ivantsovPeclet": 0.47098022998684475,
+ "kr96": {
+  "0.0123": {
+   "P": 0.36,
+   "alpha": 1.73,
+   "invA": 11.3,
+   "sigma": 0.036,
+   "solvP": 0.367,
+   "solvSigma": 0.0329
+  },
+  "0.0171": {
+   "P": 0.312,
+   "alpha": 1.68,
+   "invA": 10.1,
+   "sigma": 0.063,
+   "solvP": 0.324,
+   "solvSigma": 0.0578
+  },
+  "0.0265": {
+   "P": 0.236,
+   "alpha": 1.62,
+   "invA": 7.8,
+   "sigma": 0.16,
+   "solvP": 0.247,
+   "solvSigma": 0.142
+  }
+ },
+ "kr96Source": "Karma and Rappel, PRL 77, 4050 (1996), arXiv:patt-sol/9607005v1, Table I, PDF p.3",
+ "purpose": "Q3c CPU replay of archived tip checkpoints; diagnostic only, no acceptance"
+}

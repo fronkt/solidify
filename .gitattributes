@@ -13,3 +13,5 @@ docs/validation/quant3d-capillary-grid-c100-2026-10-31.* -text whitespace=blank-
 # Preserve Matplotlib's original path formatting for the recorded hashes.
 docs/validation/quant3d-angular-kinetic-fit-sensitivity-2026-10-31.svg -whitespace
 docs/validation/quant3d-capillary-grid-c100-2026-10-31.svg -whitespace
+# Q3c replay summary: its SHA256 is quoted in the Q3c report; keep exact bytes.
+docs/validation/quant3d-q3c-replay-2026-11-07.json -text
