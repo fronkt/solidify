@@ -62,6 +62,23 @@ against a mock app); `--plan` prints the arms and GPU cost; `--run --port N`
 needs a Vite server for this tree and writes `docs/validation/flow-domain-<date>.json`.
 It never re-scores FLOW-TIP-TONG.
 
+## Next Tong comparison (tong2)
+
+`flow-tong2.mjs` is the separately pre-registered comparison that follows D3.4
+and the D3.5 velocity inlet (tasks/todo.md, "Next Tong comparison", with its
+amendment before any run): Tong et al. 2001 Table II at Tong's own lambda and
+boxes in d0, tier P (dx 0.8 W0, the app's) and tier T (dx 0.4 W0, Tong's), a
+stationarity clause and falsification arms at D2 tier P. Arms in
+`flow-tong2-arms.json`; it reuses `flow-domain.mjs`'s arithmetic, in-page driver
+and served-source metadata. With no option it runs a CPU-only self-test
+(`flow-tong2-selftest.mjs`: the window table recomputed from its formula, the
+verdict code on synthetic traces, the driver against a mock app, the
+served-source admission, and the real Simulation on a recording GPU device at
+every staged grid); `--plan` prints the arms and GPU cost; `--run --port N`
+needs a Vite server for this tree, refuses unless the hashed files are clean
+and src/ equals the head that passed the D3.5 GPU gates, and writes
+`docs/validation/flow-tong2-<date>.json`. It never re-scores FLOW-TIP-TONG.
+
 ## Runner lifecycle controls
 
 `node scripts/verify-quant3d-tip-lifecycle.mjs` runs the real benchmark CLI with a

@@ -1,0 +1,26 @@
+{
+ "study": "Next Tong comparison (tong2)",
+ "protocol": "tasks/todo.md, Next Tong comparison - PROTOCOL ONLY (pre-registered 2026-11-07), amended before any run",
+ "protocolCommit": "0800b80c479adfa54ffe36931cc0672d22f7134a",
+ "rows": [
+  { "id": "D2", "D": 2, "lambda": 3.19, "sideW0": 409.6, "tongBoxD0": 1479, "tongVd0D": 0.0247, "tongRatio": 1.372 },
+  { "id": "D3", "D": 3, "lambda": 4.79, "sideW0": 256, "tongBoxD0": 1384, "tongVd0D": 0.0248, "tongRatio": 1.417 },
+  { "id": "D4-921", "D": 4, "lambda": 6.38, "sideW0": 128, "tongBoxD0": 921, "tongVd0D": 0.0265, "tongRatio": 1.55, "informationOnly": true },
+  { "id": "D4-1658", "D": 4, "lambda": 6.38, "sideW0": 230.4, "tongBoxD0": 1658, "tongVd0D": 0.024, "tongRatio": 1.404 },
+  { "id": "D4-3315", "D": 4, "lambda": 6.38, "sideW0": 460.8, "tongBoxD0": 3315, "tongVd0D": 0.0244, "tongRatio": 1.427 }
+ ],
+ "arms": [
+  { "id": "D2-P", "row": "D2", "tier": "P", "n": 512, "substeps": 17919, "falsification": true },
+  { "id": "D3-P", "row": "D3", "tier": "P", "n": 320, "substeps": 6138 },
+  { "id": "D4-1658-P", "row": "D4-1658", "tier": "P", "n": 288, "substeps": 3894 },
+  { "id": "D4-3315-P", "row": "D4-3315", "tier": "P", "n": 576, "substeps": 5544 },
+  { "id": "D4-921-P", "row": "D4-921", "tier": "P", "n": 160, "substeps": 990 },
+  { "id": "D2-T", "row": "D2", "tier": "T", "n": 1024, "substeps": 71709 },
+  { "id": "D3-T", "row": "D3", "tier": "T", "n": 640, "substeps": 24618 },
+  { "id": "D4-1658-T", "row": "D4-1658", "tier": "T", "n": 576, "substeps": 15576 },
+  { "id": "D4-921-T", "row": "D4-921", "tier": "T", "n": 320, "substeps": 3993 }
+ ],
+ "notRun": [
+  { "id": "D4-3315-T", "why": "n 1152 > 1024: flowRefusal() refuses flow above 1024 and main.ts re-checks it every frame (protocol: not run in tier T)" }
+ ]
+}
