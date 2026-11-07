@@ -17,7 +17,8 @@
 // The GPU behaviour itself (replayed masks against masks captured live) is
 // verify-visual-gpu.mjs (VIS-REPLAY-*); this file pins what can be pinned
 // without a device, including the ledger's call contracts the app relies on:
-// a treatment marks after syncing the clock.
+// a treatment marks after syncing the clock, a census read carries the reset
+// count it was issued under.
 //
 //   node scripts/verify-replay.mjs
 import { createServer } from "vite";
@@ -123,6 +124,32 @@ const check = (name, ok, detail) => {
   for (const L of [ordered, naive]) L.clock(3);   // the next frame
   check("REPLAY-LEDGER-TREAT", ordered.reason === R.REASON.anneal && naive.reason === null,
     { clockThenMark: ordered.reason === R.REASON.anneal, markAloneLost: naive.reason === null });
+}
+
+// 7. REPLAY-LEDGER-STALE — a census read issued before a reset and resolving
+//    after it (the old cast's 0.9) is dropped when it carries the generation
+//    it was issued under, so the fresh pour's 0.02 is not a remelt. The
+//    falsification arm is the call shape this replaced (no generation): the
+//    stale 0.9 seeds the baseline and the fresh pour is refused as remelted.
+{
+  const withGen = new R.ReplayLedger(), noGen = new R.ReplayLedger();
+  const g0 = [withGen, noGen].map(L => { L.observe(4, 0.9); return L.generation; });
+  for (const L of [withGen, noGen]) L.clock(0);   // reset: the frame sees the clock run back
+  const bumped = withGen.generation === g0[0] + 1;
+  withGen.observe(0.01, 0.9, g0[0]);              // the stale read lands
+  noGen.observe(0.01, 0.9);
+  for (const L of [withGen, noGen]) { L.observe(0.02, 0.02, L.generation); L.observe(0.03, 0.03, L.generation); }
+  // and a current read is still a measurement: a real fall after it marks;
+  // a read with no generation is taken as current even across a reset that
+  // observe itself detects (its 0.02 seeds the new baseline, so 0.01 marks)
+  const live = new R.ReplayLedger();
+  live.observe(1, 0.5, live.generation); live.observe(2, 0.3, live.generation);
+  const plain = new R.ReplayLedger();
+  plain.observe(5, 0.9); plain.observe(0.01, 0.02); plain.observe(0.02, 0.01);
+  check("REPLAY-LEDGER-STALE", bumped && withGen.reason === null && noGen.reason === R.REASON.remelt
+    && live.reason === R.REASON.remelt && plain.reason === R.REASON.remelt,
+    { generationBumpsOnReset: bumped, staleDropped: withGen.reason === null, oldShapeRefusesFreshPour: noGen.reason === R.REASON.remelt,
+      currentStillMarks: live.reason === R.REASON.remelt, omittedIsCurrent: plain.reason === R.REASON.remelt });
 }
 
 await server.close();

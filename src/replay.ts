@@ -35,9 +35,19 @@ export class ReplayLedger {
   private why: string | null = null;
   private lastT = 0;
   private fsMax = 0;
+  private gen = 0;
 
   /** why the history cannot be replayed, or null when it can */
   get reason(): string | null { return this.why; }
+
+  /**
+   * How many resets this ledger has seen. A census read is asynchronous: one
+   * issued before a reset can resolve after it, carrying the OLD cast's solid
+   * fraction, and observed as if it were the new one's it seeds fsMax so high
+   * that the fresh pour reads as remelted. Callers capture this when they
+   * issue the read and hand it to `observe`, which drops a stale one.
+   */
+  get generation(): number { return this.gen; }
 
   /** call every frame with the solver's clock: running backward is a reset */
   clock(simTime: number) {
@@ -45,9 +55,14 @@ export class ReplayLedger {
     this.lastT = simTime;
   }
 
-  /** a measured solid fraction (0..1) at sim time t */
-  observe(simTime: number, fracSolid: number) {
+  /**
+   * A measured solid fraction (0..1) at sim time t. `gen` is `generation` as
+   * it was when the measurement was issued; a reset since then makes it the
+   * old cast's, and it is dropped. Omitted, the reading is taken as current.
+   */
+  observe(simTime: number, fracSolid: number, gen?: number) {
     this.clock(simTime);
+    if (gen !== undefined && gen !== this.gen) return;
     if (!Number.isFinite(fracSolid)) return;
     if (fracSolid > this.fsMax) this.fsMax = fracSolid;
     else if (fracSolid < this.fsMax - FS_DROP) this.mark(REASON.remelt);
@@ -56,7 +71,7 @@ export class ReplayLedger {
   /** record a cause; the first one stands until the next reset */
   mark(reason: string) { if (this.why == null) this.why = reason; }
 
-  clear() { this.why = null; this.lastT = 0; this.fsMax = 0; }
+  clear() { this.why = null; this.lastT = 0; this.fsMax = 0; this.gen++; }
 
   /** a requested replay time, clamped to the recorded span [0, now] */
   clamp(t: number, now: number): number {

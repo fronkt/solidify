@@ -2455,7 +2455,9 @@ async function boot() {
         if (wantFast3) nucClock = 0;
         if (!opt3?.active && !recipeClock3 && (forPanels3 || wantFast3)) {
           syncNyCrit();   // material/anchor changes land within one poll
-          const observed = sim3d, ownerVersion = recipeVersion3;
+          // the ledger's reset count at ISSUE: a read that resolves after a
+          // reset carries the old cast's fraction and must not seed the new one
+          const observed = sim3d, ownerVersion = recipeVersion3, gen3 = replay3.generation;
           void observed.readStats().then(s => {
             if (!s || mode !== "3d" || sim3d !== observed || recipeVersion3 !== ownerVersion
                 || opt3?.active || recipeClock3) return;
@@ -2468,7 +2470,7 @@ async function boot() {
             // is why the fs > 0.995 finish could never fire with walls on
             lab.onStats(s.meanLiqT, s.fracSolidOpen);
             if (forPanels3) {
-              lastStats3 = s; replay3.observe(sim3d.simTime, s.fracSolid); hud.push3(s, sim3d.umPerCell, sim3d.simTime); an3.onStats3(s, sim3d.simTime);
+              lastStats3 = s; replay3.observe(sim3d.simTime, s.fracSolid, gen3); hud.push3(s, sim3d.umPerCell, sim3d.simTime); an3.onStats3(s, sim3d.simTime);
               heat?.onCensus(census3(s));
             }
           });
@@ -2576,6 +2578,8 @@ async function boot() {
     if (forPanels) statsClock = 0;
     if (wantFast) nucClock = 0;
     if (forPanels || wantFast) {
+      // the ledger's reset count at issue (see the 3D read above)
+      const gen2 = replay2.generation;
       void sim.readStats().then(s => {
         if (!s) return;
         if (!benchHold) nuc.observe(sim.simTime, s.meanLiqT, tEq2());
@@ -2583,7 +2587,7 @@ async function boot() {
         if (!forPanels) return;
         lastStats = s;
         if (!opt.active) {
-          replay2.observe(sim.simTime, s.fracSolid);
+          replay2.observe(sim.simTime, s.fracSolid, gen2);
           hud.push(s, sim.simTime);
           analyze.onStats(s, sim.simTime);
           // an applied ML recipe schedules cooling by solid fraction,
