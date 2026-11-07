@@ -90,7 +90,11 @@ const check = (name, ok, detail) => {
 //    MUST move: the stale Kobayashi setting under calibrated dials has the drag
 //    3.1x too strong, the no-slip plane +0.5 W off (noSlipOffset, the same ODE
 //    FLOW-H-PLANAR pins at 0), and a different Prandtl number. A dial that
-//    breaks the envelope mid-flow is reported (the frame loop's reason).
+//    breaks the envelope mid-flow is reported (the frame loop's reason). With
+//    solute advected (Kobayashi alloy) its own cell Peclet number u / (D_s d)
+//    is held to the limit too: at the rail's corner (u 0.05, solute D 0.2) it
+//    is 1.88 and allowed; at D_s 0.15 it is 2.5 and refused, where the thermal
+//    check alone passed it.
 {
   const { DEFAULTS } = await server.ssrLoadModule("/src/sim.ts");
   const { A2, DT_SAFETY } = await server.ssrLoadModule("/src/quant.ts");
@@ -112,12 +116,18 @@ const check = (name, ok, detail) => {
   const moved = sK.nu !== sQ.nu && sK.width !== sQ.width && Math.abs(ratio - 3.125) < 0.01 && staleOffsetW > 0.4;
   // the dt dial taken far down mid-flow: d falls, the cell Peclet number rises past 2
   const broken = F.flowSetting({ ...kob, dt: DEFAULTS.dt / 200 }, f).issues;
-  const ok = same && moved && sK.issues.length === 0 && sQ.issues.length === 0 && broken.some(s => /Peclet/.test(s));
+  const fast = { u: 0.05, pr: 23.1 };
+  const corner = F.flowSetting({ ...kob, soluteD: 0.2 }, fast).issues;
+  const thin = F.flowSetting({ ...kob, soluteD: 0.15 }, fast).issues;
+  const heatOnly = F.flowSetting(kob, fast).issues;
+  const solute = corner.length === 0 && thin.some(s => /solute cell Peclet/.test(s)) && heatOnly.length === 0;
+  const ok = same && moved && sK.issues.length === 0 && sQ.issues.length === 0 && broken.some(s => /Peclet/.test(s)) && solute;
   check("FLOW-SETTING", ok, {
     sameAsLatchedRuleAtItsDials: same,
     kobayashi: { nu: +sK.nu.toFixed(4), width: +sK.width.toFixed(4) }, calibrated: { nu: +sQ.nu.toFixed(4), width: +sQ.width.toFixed(4) },
     staleDragRatio: +ratio.toFixed(4), staleNoSlipOffsetW: +staleOffsetW.toFixed(3), staleEffectivePr: +prStale.toFixed(2),
     brokenDialRefused: broken.length,
+    solutePeclet: { railCornerAllowed: corner.length === 0, belowRailRefused: thin.length, thermalAloneAllowed: heatOnly.length === 0 },
   });
 }
 

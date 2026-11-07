@@ -167,7 +167,9 @@ export class Simulation {
   private flowNow() {
     const p = this.params;
     return flowSetting({ dTherm: p.dTherm, dt: p.dt, dx: p.dx, epsBar: p.epsBar,
-      calibrated: p.solver === SOLVER.QUANT }, this.flowCfg);
+      calibrated: p.solver === SOLVER.QUANT,
+      // solute rides the flow on the Kobayashi alloy only (shaders.ts ADV_FACES)
+      soluteD: p.alloyOn === 1 && p.solver === SOLVER.KOB ? p.dSol : undefined }, this.flowCfg);
   }
 
   /**

@@ -438,7 +438,9 @@ const ADV_FACES = /* wgsl */ `
       var gW = uW * 0.5 * (conc + sW.b);
       if (c.x == nI - 1) { gE = vC.x * conc; }
       if (c.x == 0) { gW = P.flowUin * P.c0; }
-      cNew = cNew - k * (gE - gW + uN * 0.5 * (conc + sN.b) - uS * 0.5 * (conc + sS.b));
+      // the solute update's [0, 2] clamp ran BEFORE this flux; re-applied so
+      // the bound holds on what is stored (flow on only: off, nothing here runs)
+      cNew = clamp(cNew - k * (gE - gW + uN * 0.5 * (conc + sN.b) - uS * 0.5 * (conc + sS.b)), 0.0, 2.0);
     }
   }
 `;

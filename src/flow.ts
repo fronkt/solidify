@@ -91,6 +91,9 @@ export interface FlowDials {
   epsBar: number;
   /** the calibrated solver: its interface width is epsBar, Kobayashi's 2 epsBar */
   calibrated: boolean;
+  /** the liquid solute diffusivity when the flow advects solute (the
+   *  Kobayashi alloy, at the same dt / dx^2), else undefined */
+  soluteD?: number;
 }
 
 /**
@@ -105,12 +108,22 @@ export interface FlowDials {
  * width: Kobayashi to calibrated left the drag 3.1x too strong (no-slip plane
  * +0.52 W into the liquid), calibrated to Kobayashi 0.32x (-0.63 W), and the
  * stability envelope was never re-checked.
+ *
+ * When solute is advected too, its own cell Peclet number u / (D_s dt / dx^2)
+ * is held to the same limit: it is the larger of the two whenever D_s is
+ * below the thermal diffusivity, and checking heat alone let it through.
  */
 export function flowSetting(p: FlowDials, f: { u: number; pr: number }):
   { nu: number; uIn: number; width: number; issues: string[] } {
   const d = p.dTherm * p.dt / (p.dx * p.dx);
   const width = (p.calibrated ? p.epsBar : 2 * p.epsBar) / p.dx;
-  return { nu: d * f.pr, uIn: f.u, width, issues: flowLimitIssues(latticeOf(d, f.pr, f.u)) };
+  const issues = flowLimitIssues(latticeOf(d, f.pr, f.u));
+  if (p.soluteD !== undefined) {
+    const peS = f.u / (p.soluteD * p.dt / (p.dx * p.dx));
+    if (!(peS <= FLOW_LIMITS.peCellMax))
+      issues.push(`solute cell Peclet number ${peS.toFixed(2)} is over ${FLOW_LIMITS.peCellMax}: central advection of the solute would oscillate`);
+  }
+  return { nu: d * f.pr, uIn: f.u, width, issues };
 }
 
 export interface FlowContext {

@@ -76,7 +76,11 @@ et al. 2001 Table II. Every other path is labelled qualitative.
   sim.ts submit) and the envelope re-checked every frame: a solver switch or
   a dt / dx / epsBar / lambda change mid-flow re-configures the flow, and a
   change that breaks the envelope switches it off with the reason (review
-  2026-11-07: latched at start, the switch kept a 3.1x or 0.32x drag).
+  2026-11-07: latched at start, the switch kept a 3.1x or 0.32x drag). With
+  the Kobayashi alloy's solute advected, its own cell Peclet number
+  u / (D_s dt / dx^2) is held to the same limit (1.88 at the rail's corner,
+  u 0.05 and solute D 0.2), and the solute's [0, 2] clamp is re-applied after
+  the advective flux, which used to run after it.
 - Which path is honest: calibrated pure melt with solved T is the only
   quantitative path (Tong's own equations; with the repo's Al constants,
   U d0/D = 0.035 is ~1.6 km/s, so a dimensionless benchmark, not a casting
