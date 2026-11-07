@@ -6,8 +6,11 @@ import { closeBrowser } from "./browser-cleanup.mjs";
 //                      WGSL/validation errors on the console.
 //   VIS-PHOTO          photo mode accumulates to its cap while the scene is
 //                      still and restarts when the camera moves.
-//   VIS-STUDIO-COST    render-only cost of the studio look (info) and the app's
-//                      running fps with it on vs off (gate: <= 15 % drop).
+//   VIS-STUDIO-COST    render-only GPU cost of the studio look, on / off <= 1.8,
+//                      with a planted 2x studio cost that must exceed it (S0
+//                      review: the running fps sat at the vsync cap in both
+//                      arms, where its <= 15 % drop clause cannot fail; kept,
+//                      reported with the cap flag).
 //   VIS-REPLAY-2D      a seeded 2D growth: masks captured live at three times
 //                      equal the replay rule applied to the final field
 //                      (IoU >= 0.97; >= 0.99 at the last frame); rendering a
@@ -16,8 +19,15 @@ import { closeBrowser } from "./browser-cleanup.mjs";
 //                      "now"; the strip drives the replay through the UI.
 //   VIS-REPLAY-REFUSAL reheat marks the ledger; the strip is disabled with the
 //                      reason, and a replay request is refused.
+//   VIS-REPLAY-SCRUB-END (S0) a strip scrub stands until a mode panel takes the
+//                      stage or the melt resets, and ends on each.
+//   VIS-REPLAY-TREAT   (S0) a heat treatment marks the ledger at the call, with
+//                      no frame in between.
 //   VIS-REPLAY-3D      the 3D replay renders, never changes the field, and a
-//                      replay frame differs from live at an early time.
+//                      replay frame differs from live at an early time; (S0)
+//                      masks captured live during the growth equal the replay
+//                      rule on the final field (2D's IoU bands), and the strip
+//                      drives scrub3 and its live button clears it.
 //   VIS-DECLUTTER      on a fresh page the head plate and the plots are folded
 //                      (only the wordmark, its chevron and the plots pill);
 //                      each opens and folds from its own button, the choice
@@ -218,6 +228,58 @@ try {
     check("VIS-REPLAY-REFUSAL", !!out.reason && /Reheat/.test(out.reason) && out.disabled && out.note === out.reason && out.scrub2 === null, out);
   }
 
+  // S0 review (pre-registered in tasks/todo.md): a clean ledger and a grown
+  // 2D field for each, since the refusal above marked the ledger
+  const fresh2 = () => page.evaluate(async () => {
+    const S = window.__solidify, V = window.__vis;
+    const frames = async k => { for (let i = 0; i < k; i++) await new Promise(requestAnimationFrame); };
+    S.app.setRun(false); S.app.resetArmed();
+    await frames(2);
+    await V.hold2(async sim => {
+      sim.addSeed(256, 256, 4);
+      for (let i = 0; i < 3; i++) await sim.stepSync(0);
+      for (let j = 0; j < 20; j++) await sim.stepSync(40);
+    });
+    await frames(2);
+    return { clean: S.replayState().reason2 === null, now: S.sim().simTime };
+  });
+
+  // VIS-REPLAY-SCRUB-END (F6) — a scrub ends when a mode panel takes the stage
+  // (hiding the strip and its live button) and on a reset; nothing else ends it
+  {
+    const pre = await fresh2();
+    const out = await page.evaluate(async () => {
+      const S = window.__solidify;
+      const frames = async k => { for (let i = 0; i < k; i++) await new Promise(requestAnimationFrame); };
+      const strip = v => { const input = document.querySelector("#hud .replay input"); input.value = String(v); input.dispatchEvent(new Event("input")); };
+      strip(300); await frames(2);
+      const control = S.replayState().scrub2;
+      S.app.startHeat(); await frames(2);
+      const opened = !!S.heat.active, afterPanel = S.replayState().scrub2;
+      S.heat.close(); await frames(2);
+      strip(300); await frames(2);
+      const again = S.replayState().scrub2;
+      S.app.resetArmed(); await frames(2);
+      return { control, opened, afterPanel, again, afterReset: S.replayState().scrub2 };
+    });
+    const ok = pre.clean && pre.now > 0 && out.control > 0 && out.opened && out.afterPanel === null && out.again > 0 && out.afterReset === null;
+    check("VIS-REPLAY-SCRUB-END", ok, { ...pre, ...out });
+  }
+
+  // VIS-REPLAY-TREAT (F4) — a heat treatment marks the ledger at the call, with
+  // no frame in between (the frame loop only ever saw heat.busy)
+  {
+    const pre = await fresh2();
+    const out = await page.evaluate(async () => {
+      const S = window.__solidify;
+      const p = S.heat.host.anneal(4, () => true);
+      const marked = S.replayState().reason2;      // same task as the call
+      const delivered = await p;
+      return { marked, delivered };
+    });
+    check("VIS-REPLAY-TREAT", pre.clean && pre.now > 0 && /heat treatment/i.test(out.marked ?? "") && out.delivered > 0, { ...pre, ...out });
+  }
+
   // -------------------------------------------------------------------------
   // 3D: enter, grow a polycrystal at 128³
   await page.evaluate(() => { const S = window.__solidify; S.app.setMode("3d"); });
@@ -237,7 +299,19 @@ try {
       const rnd = () => { rs = (rs * 1664525 + 1013904223) >>> 0; return rs / 4294967296; };
       for (let i = 0; i < 40; i++) s3.addSeed3D(16 + rnd() * 96, 16 + rnd() * 96, 16 + rnd() * 96, 3);
       for (let i = 0; i < 3; i++) await s3.stepSync(0);
-      for (let k = 0; k < 60; k++) await s3.stepSync(60);
+      // VIS-REPLAY-3D's live masks (S0 review): phi >= 0.5 after batches 20,
+      // 40 and 60, read back between batches (a readback, no physics)
+      const caps = [];
+      for (let k = 0; k < 60; k++) {
+        await s3.stepSync(60);
+        if (k === 19 || k === 39 || k === 59) {
+          const phi = await s3.readPhiVolume(), m = new Uint8Array(phi.length);
+          let solid = 0;
+          for (let i = 0; i < phi.length; i++) if (phi[i] >= 0.5) { m[i] = 1; solid++; }
+          caps.push({ t: s3.simTime, m, solid });
+        }
+      }
+      window.__vis3caps = caps;
       await s3.device.queue.onSubmittedWorkDone();
     } finally { s3.step = f; }
   });
@@ -291,21 +365,34 @@ try {
       { reached, capped, afterMove, restarted });
   }
 
-  // VIS-STUDIO-COST
+  // VIS-STUDIO-COST (criterion changed by the S0 review, pre-registered in
+  // tasks/todo.md): the running fps sat at the vsync cap in both arms (55.7 /
+  // 55.6), where a 15 % drop cannot show, so the gate is the render-only GPU
+  // cost, which no cap hides; a planted 2x studio cost (every frame rendered
+  // twice) must break it. The fps clause stays, reported with the cap flag.
   {
     const out = await page.evaluate(async () => {
       const S = window.__solidify, r3 = S.r3(), s3 = S.sim3d();
       const plane = { n: [1, 0, 0], c: 64 };
-      const bench = async studio => {
+      const bench = async (studio, perFrame = 1) => {
         r3.studioOn = studio;
         for (let i = 0; i < 5; i++) r3.render(s3, 0, 0, plane, 0, false);
         await s3.device.queue.onSubmittedWorkDone();
         const t0 = performance.now();
-        for (let i = 0; i < 40; i++) { r3.render(s3, 0, 0, plane, 0, false); await s3.device.queue.onSubmittedWorkDone(); }
+        for (let i = 0; i < 40; i++) {
+          for (let j = 0; j < perFrame; j++) r3.render(s3, 0, 0, plane, 0, false);
+          await s3.device.queue.onSubmittedWorkDone();
+        }
         return (performance.now() - t0) / 40;
       };
-      const off = await bench(false), on = await bench(true);
+      const off = await bench(false), on = await bench(true), onTwice = await bench(true, 2);
       r3.studioOn = true;
+      // the display's own frame rate, nothing else asked of it
+      const rafHz = await new Promise(res => {
+        let k = 0; const t0 = performance.now();
+        const f = () => { k++; if (performance.now() - t0 < 1000) requestAnimationFrame(f); else res(k / ((performance.now() - t0) / 1000)); };
+        requestAnimationFrame(f);
+      });
       // running fps, studio on vs off (the frame loop's own fps readout)
       const fpsOf = async studio => {
         r3.studioOn = studio; S.app.setRun(true);
@@ -314,9 +401,13 @@ try {
       };
       const fOff = await fpsOf(false), fOn = await fpsOf(true);
       r3.studioOn = true;
-      return { renderMsOff: +off.toFixed(2), renderMsOn: +on.toFixed(2), fpsOff: +fOff.toFixed(1), fpsOn: +fOn.toFixed(1) };
+      return { renderMsOff: +off.toFixed(2), renderMsOn: +on.toFixed(2), renderMsOnTwice: +onTwice.toFixed(2),
+        fpsOff: +fOff.toFixed(1), fpsOn: +fOn.toFixed(1), rafHz: +rafHz.toFixed(1) };
     });
-    check("VIS-STUDIO-COST", out.fpsOn >= 0.85 * out.fpsOff, out);
+    const ratio = out.renderMsOn / out.renderMsOff, plantedRatio = out.renderMsOnTwice / out.renderMsOff;
+    const vsyncCapped = Math.min(out.fpsOn, out.fpsOff) >= 0.9 * out.rafHz;
+    check("VIS-STUDIO-COST", ratio <= 1.8 && plantedRatio > 1.8 && out.fpsOn >= 0.85 * out.fpsOff,
+      { ...out, ratio: +ratio.toFixed(3), plantedRatio: +plantedRatio.toFixed(3), vsyncCapped });
   }
 
   // VIS-REPLAY-3D
@@ -332,16 +423,37 @@ try {
       r3.scrubT = null;
       await s3.device.queue.onSubmittedWorkDone();
       const g1 = V.fnv(await s3.readGrainVolume()), p1 = V.fnv(await s3.readPhiVolume());
-      return { fieldUnchanged: g0 === g1 && p0 === p1, earlyVsLive: +V.diff(early, live).toFixed(3) };
+      // masks captured live during the growth against the replay rule on the
+      // final field, in the GPU's f32 (S0 review; 2D's bands)
+      const phiF = await s3.readPhiVolume(), age = (await s3.readAgeVolume())?.time;
+      const iou = (window.__vis3caps ?? []).map(c => {
+        const tF = Math.fround(c.t);
+        let inter = 0, uni = 0;
+        for (let i = 0; i < c.m.length; i++) {
+          const re = phiF[i] >= 0.5 && age[i] < tF ? 1 : 0;
+          inter += re & c.m[i]; uni += re | c.m[i];
+        }
+        return { t: +c.t.toFixed(5), solid: c.solid, iou: uni ? +(inter / uni).toFixed(5) : 1 };
+      });
+      return { fieldUnchanged: g0 === g1 && p0 === p1, earlyVsLive: +V.diff(early, live).toFixed(3), iou, tNow: s3.simTime };
     });
-    await page.evaluate(() => {
+    const ui = await page.evaluate(async () => {
       const box = document.querySelector("#hud .replay"), input = box?.querySelector("input");
-      if (input) { input.value = "350"; input.dispatchEvent(new Event("input")); }
+      if (!input) return { strip: false };
+      input.value = "350"; input.dispatchEvent(new Event("input"));
+      await new Promise(r => setTimeout(r, 400));
+      // reason3 reported so a refusal from a real remelt (the cast ran during
+      // VIS-STUDIO-COST) is legible as that, not as a scrub defect
+      const st = window.__solidify.replayState();
+      return { strip: true, scrub3: st.scrub3, reason3: st.reason3 };
     });
-    await sleep(400);
     await shot("replay-3d-early");
     await page.evaluate(() => document.querySelector("#hud .replay__live")?.click());
-    check("VIS-REPLAY-3D", out.fieldUnchanged && out.earlyVsLive > 1, out);
+    await sleep(200);
+    const uiLive = await page.evaluate(() => window.__solidify.replayState().scrub3);
+    const iouOk = out.iou.length === 3 && out.iou.slice(0, 2).every(c => c.iou >= 0.97) && out.iou[2].iou >= 0.99 && out.iou.every(c => c.solid > 50);
+    const uiOk = ui.strip && ui.scrub3 > 0 && ui.scrub3 < out.tNow && uiLive === null;
+    check("VIS-REPLAY-3D", out.fieldUnchanged && out.earlyVsLive > 1 && iouOk && uiOk, { ...out, iouOk, ui, liveButtonClears: uiLive === null });
   }
 
   // VIS-PICK

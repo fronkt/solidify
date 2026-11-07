@@ -33,9 +33,13 @@ browser-free scripts.
   `docs/D3-CONVECTION-DESIGN.md`.
 - `verify-visual-gpu.mjs` (GPU): every lens compiles and renders with the
   studio look on and off and while replaying; photo mode accumulates and
-  restarts; the studio look's frame-rate cost; 2D replay masks against masks
-  captured live; the reheat refusal; the 3D replay; grain picks against an
-  independent voxel traversal, and alt-tap isolation through the UI.
+  restarts; the studio look's render-only cost (on / off <= 1.8, a planted 2x
+  cost must exceed it; the running fps is reported with its vsync-cap flag);
+  2D replay masks against masks captured live; the reheat refusal; a scrub
+  ending when a mode panel opens or the melt resets; a heat treatment marking
+  the ledger at the call; the 3D replay with the same mask-against-live check
+  and the strip; grain picks against an independent voxel traversal, and
+  alt-tap isolation through the UI.
 - `verify-recrystallize-gpu.mjs` (GPU): C3b-0's stamp coherence, undriven and
   uniform-drive controls, the single-nucleus ladder, and off-identity with
   in-treatment sampling; then the pre-registered RX3-JMAK (Avrami kinetics
