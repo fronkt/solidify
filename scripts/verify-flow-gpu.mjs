@@ -38,10 +38,12 @@ import { captureFlowOffCases, runFlowCase } from "./fixtures/flow-off-cases.mjs"
 //                       uniform under flow (the advection operator and its
 //                       inlet/outlet faces are consistent), with the flow
 //                       read back moving at the inlet speed (liveness). A
-//                       consistency check only: a uniform field is invariant
-//                       to the coupling's sign and to which velocity texture
-//                       transport binds; FLOW-DIRECTION's upstream ratio and
-//                       reversed arm carry those.
+//                       consistency check: a uniform field's fluxes cancel
+//                       under either coupling sign, so the sign is
+//                       FLOW-DIRECTION's (its reversed arm). A zero-bound
+//                       velocity texture IS seen here: the inlet face flux is
+//                       the params' u_in tFar, which would then heat the
+//                       first column by u_in tFar every substep.
 //   FLOW-RECONFIGURE    (S0 review, pre-registered) the running flow follows
 //                       the dials: a Kobayashi-to-calibrated switch
 //                       re-configures the lattice viscosity and drag width on

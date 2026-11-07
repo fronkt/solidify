@@ -5854,9 +5854,13 @@ Changed gates (F7, F8):
   of peak, inside the old 2 % band (reviewer's sizing, rerun here).
 - FLOW-UNIFORM-MELT. Adds a liveness clause: the LBM velocity read back after
   the 2000 steps has mean u_x within 2 % of the 0.02 inlet. The gate stays a
-  consistency check; it is invariant to the coupling's sign and binding by
-  construction, and its docblock now says FLOW-DIRECTION's upstream ratio and
-  reversed arm carry those.
+  consistency check, invariant to the coupling's sign by construction (the
+  docblock says FLOW-DIRECTION's reversed arm carries it). The review's second
+  claim is refuted on reading ADV_FACES: with the velocity texture bound to
+  zero the inlet face still brings P.flowUin * tFar while nothing carries it
+  on, so the first column heats by 0.008 per substep and the existing 1e-4
+  uniformity clause fails; this gate does see the binding. (Correction made
+  before any run; the criterion above is unchanged.)
 - SESSION-3D-CANCELLATION (fixtures/app3d-integration.mjs). Criterion
   unchanged; the waits change. The canceled case and each edit case settle
   on the share-restore chain having FINISHED (S.app.canSwitchMode() true,
