@@ -5774,3 +5774,37 @@ calls the flow qualitative. Next: a separately pre-registered domain study
   replay check, known centres for nucleus geometry, the 3D cancellation fixture
   waiting on the calibration request, the runner prepending OUT, the tick hook
   draining the GPU, flow-off cases isolated from each other's parameters.
+
+## Close PR 7, then the next stages in parallel - 2026-11-07
+
+Frank: "Continue Solidify and its next stages to complete in parallel." Production
+stays a7584a6 (main) until Frank says ship; shipping v7-experiments to main would
+also ship the unreleased Q3 integration, so that is a separate ask. One GPU owner
+at a time: only the root session runs browser/GPU scripts; delegates work
+CPU-only (typecheck, build, browser-free gates, light single-process CPU
+studies) in their own worktrees and hand GPU runs back to the root.
+
+- [ ] S0 PR 7 close-out: full 45-script runner on frozen 5fa0578
+      (../solidify-verify-5fa0578, log verify-out/pr7-full-suite-5fa0578.log);
+      independent read-only review of origin/v7-experiments...5fa0578; fix
+      anything confirmed; mark PR 7 ready and merge into v7-experiments.
+- [ ] S1 D3.4 flow domain study (research/flow-domain, ../solidify-flowdomain):
+      pre-register BEFORE any run a study that holds lambda and the KR staging
+      fixed and varies the domain (in d0) and the inlet distance, plus any
+      lateral-boundary arm Tong et al. 2001 actually used (verified from the
+      paper, not recalled). The failed FLOW-TIP-TONG verdict of 11-01 stays
+      failed; the study only tests the domain/boundary hypothesis. A re-run of
+      the Tong gate needs its own pre-registered configuration.
+- [ ] S2 C3b-3 + C3b-4a (feature/rx-rate, ../solidify-rxrate): constant-rate
+      nucleation (JMAK n = 4 expected for 3D interface-controlled growth) and
+      boundary-only nucleation sites, per docs/C3B-RECRYSTALLIZATION-DESIGN.md
+      section 5. Gates pre-registered here before their first run, with
+      negative controls; feature-off hashes and existing RX/HT gates unchanged.
+      Particles and twins inside RX grains (rest of C3b-4): scoped, not built.
+- [ ] S3 Q3c next targets (research/q3c-stiffness from research/q3-calibration,
+      ../solidify-q3c): local-stiffness grid refinement with paired lattice
+      phases, then off-principal-plane kinetic calibration incl. finite-speed
+      stability. CPU derivations and pre-registered GPU protocols first; GPU
+      runs by the root. Q3 stays open unless the full literature reference passes.
+- [ ] S4 Integrate: each finished stage gets its GPU gates on a frozen source,
+      merges into v7-experiments via its own PR, and is pushed.
