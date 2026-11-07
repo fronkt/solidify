@@ -5950,3 +5950,165 @@ verify-completion-gpu.mjs (SESSION-3D-CANCELLATION), verify-heattreat-gpu.mjs
 (HT3-* panel copy unchanged by F1/F3, re-confirm), verify-tools.mjs
 (HUD-LIVE, F5), and the identity gates FLOW-OFF-IDENTITY, HT3-CAST-REPRO,
 verify-passsplit.mjs / verify-passsplit3d.mjs, which must not move.
+
+## C3b-3 and C3b-4a - 2026-11-07
+
+S2 (delegate, feature/rx-rate in ../solidify-rxrate, fast-forwarded from
+5fa0578 to c3b021d because the S0 fixes rewrite nucleate, readRegion and the
+panel's run path). Design: docs/C3B-RECRYSTALLIZATION-DESIGN.md section 6,
+written before code. Every gate below is PRE-REGISTERED here and committed
+before its first run. The CPU sizing quoted is a scratch union-of-balls model
+on the GPU geometry (96^3, interior box [16, 80)^3), run before this section
+to choose sizes; the gated CPU checks use their own stated geometry and seeds
+and have not been run. GPU gates are written by the delegate and run only by
+the root.
+
+- [ ] Design addendum (section 6), pre-registration (this), then code.
+- [ ] CPU gates pass (verify-recrystallize.mjs), typecheck, build, TESTING.md.
+- [ ] GPU gates written (scripts/verify-recrystallize-rate-gpu.mjs, registered
+      in run-tests.mjs), NOT run by the delegate.
+- [ ] Copy (README, science page, learn) neutral; no measured claims before
+      the root runs the GPU gates.
+
+### Browser-free (verify-recrystallize.mjs)
+
+- RX-BIRTH-SCHEDULE. birthSchedule(count, window, batches) over count in
+  {1, 7, 50, 200, 400, 1000}, window in {0, 1, 2, 24, 70, 1318}, batches in
+  {8, 16}: counts sum to count, every count >= 1; sweeps integers, strictly
+  increasing, first 0, last < max(1, window); B = min(count, max(1, window),
+  batches); cumulative after batch b within 0.5 of count (b+1)/B; |t_b - b
+  window / B| < 1. count 0 gives []; window <= 1 gives one batch at 0. The
+  gate fixture's (400, 24, 8) is exactly 8 x 50 at 0, 3, ..., 21. Must-fail:
+  the same rate checker rejects a front-loaded schedule ([{0, 400}] for window
+  24, batches 8) and a schedule whose counts sum to 399.
+- RX-BOUNDARY-CLASSIFIER. boundarySites(ids, ok, n), 26 neighbours, no wrap,
+  untreatable voxels neither sites nor neighbours, on n = 8 fields with hand
+  answers: single crystal 0; bicrystal split at x = 4: 128 (planes 3, 4);
+  2x2x2 octant blocks: 296 (512 - 6^3); a 2^3 inclusion at the centre: 64 (8 +
+  its 56-voxel shell); a single crystal with z < 2 untreatable: 0; a crystal
+  whose plane x = 0 carries a second id: 128 (planes 0, 1; plane 7 would join
+  only under a wrap); x < 3 id 1, x = 3 PORE, x > 3 id 2: 0 (a pore is not a
+  boundary). And equal to a brute-force 26-loop on three random n = 12 fields
+  (5 labels, 10 % untreatable) voxel for voxel.
+- RX-RATE-CPU. Periodic 64^3, 120 sites uniform over the domain (seeded
+  mulberry32, seeds 0xc31, 0xc32, 0xc33), schedule birthSchedule(120, 24, 8)
+  (15 per batch at 0, 3, ..., 21), a site is a phantom when an earlier batch's
+  real nucleus already covers it at its birth; union-of-balls growth
+  R_i(S) = r0 + D(S) - D(t_i) for S > t_i, with two growth laws (constant
+  v = 0.3 cell/sweep; recovery-like v(S) = 0.4 clamp((H_S - 8)/6, 0.02, 1),
+  H_S = 20/(1 + 0.02 S)); samples every 2 sweeps to 70 (a sample at a birth
+  sweep reads before the births). Gated arms r0 = 0. PASS on every seed and
+  law: slope of ln(-ln(1-X)) against ln X_ext, X_ext = sum_b c_b V(t_b, S) /
+  64^3 with the phantoms counted in c_b, within 1 +- 0.05 over X in
+  [0.05, 0.95] with >= 6 points; X_end >= 0.95; phantoms > 0. Must-fail on
+  every run: the site-saturated construction X_ext' = 120 V(0, S) / 64^3 gives
+  slope > 1.15 (sizing on the GPU geometry: 1.25-1.31). Info: the r0 = 2 arm,
+  the age-shifted construction sum_b c_b V(0, S - t_b), sweep-clock n.
+- RX-BOUNDARY-CPU. The GPU gate's polycrystal: 96^3 bounded, labels = nearest
+  of 12 points drawn by mulberry32(seed) in [0, 96)^3 (squared distance from
+  voxel centres, ties to the lower index), seeds 0xb1, 0xb2, 0xb3; boundary
+  list from boundarySites (all treatable); 600 sites drawn uniformly from the
+  list, and a control of 600 sites uniform over the domain; all born at once;
+  R(S) = 2 + 0.35 S, samples every 2 sweeps to 70; X(S) = fraction of the box
+  [16, 80)^3 within R of a site. PASS on every seed: random sites' slope
+  against ln V1 (V1 = 4/3 pi R^3) within 1 +- 0.1; boundary sites' slope
+  against ln V1 < 0.85 (sizing 0.69 on 0xb1); sweep-clock n of the boundary
+  sites below the random sites' (sizing 1.33 against 1.66); X_boundary(S) <=
+  F_B(R(S)), the box fraction within R of any boundary-voxel centre, at every
+  sample (exact: every site is a boundary voxel); X_end >= 0.95 in both arms.
+- RX-SHARE-TUPLE (src/heatshare.ts). Legacy tuples decode to the old
+  decoder's dials exactly (3: [800, 60, 25]; 5: [800, 60, 25, 0.05, 3];
+  6: [800, 60, 25, 0, 2, 4]; 7: [800, 60, 25, 0, 2, 8, 200]; plus clamped and
+  snapped hand-built values: 0.0004 dispersion -> 0, work 4.2 -> 4, nuclei 210
+  -> 200, temperature past the range -> the bound) and canonical ones re-pack
+  to themselves; an 8-element [.., 200, 3] gives mode 3 and re-packs to 8
+  elements; mode 0 re-packs to 7 elements (the default is never packed);
+  nuclei 0 with mode 2 packs 6 (no mode without nuclei); in 2D work, nuclei
+  and mode are dropped; mode 2.6 -> 3, -1 -> 0, 7 -> 3. The shape predicate
+  accepts lengths 3, 5, 6, 7, 8 of finite numbers and rejects 2, 4, 9, a NaN,
+  a string, null and a non-array. Default dials pack 3 elements.
+
+### GPU (scripts/verify-recrystallize-rate-gpu.mjs, 96^3, written not run)
+
+- RX3-RATE-SCHEDULE (structural). Painted single crystal, H0 = 20 J_b, seed
+  0xa1. Steady event: nucleateEvent(400, schedule birthSchedule(400, 24, 8))
+  and anneal(30), the grain volume read before the event and by the sample
+  hook at every batch sweep 3..21 (before that sweep's births) and at 30.
+  PASS: (1) the event log lists 8 batches at 0, 3, ..., 21, each delivered,
+  50 each, 400 = hi - lo + 1; (2) for every nucleus, stamped <=> its centre
+  voxel in the field read at its batch sweep held an id outside [lo, hi],
+  phantom <=> inside: 0 disagreements; (3) no id of batch b in any read before
+  its sweep, no phantom id in any read; (4) liveness: phantoms > 0 over the
+  event, stamped > 0 in every batch. (5) Identity: on the same crystal and
+  seed, nucleateEvent(400) with one batch at sweep 0 then anneal(30) is
+  bit-identical to nucleate(400) then anneal(30) in grain-volume FNV, stored
+  energy buffer FNV, quaternion FNV, the counter and the range. Must-differ:
+  the steady event's field at sweep 30 differs from the at-once one (birth
+  timing reaches the field). (6) Abort: the steady event on a fresh crystal,
+  anneal(30) aborted by onProgress at the first drain (8 sweeps): batches at
+  0, 3, 6 born (150), 250 recorded not born, nothing pending, and after a
+  following anneal(10) no id of an unborn batch appears in the field.
+- RX3-RATE-JMAK (kinetics). Many: painted single crystal, H0 = 20 J_b, seeds
+  0xa1, 0xa2, 0xa3 (sites from the recrystallization stream), 400 nuclei,
+  birthSchedule(400, 24, 8), r = 2, 70 sweeps, X(S) = fraction of the interior
+  box [16, 80)^3 carrying an event id, read at S = 0 (after batch 0) and every
+  2 sweeps (before births at the same sweep). Reference: for each batch sweep
+  t_b, one nucleus at (48, 48, 48) of the same painted crystal, born at t_b by
+  an explicit one-batch schedule, the same 70 sweeps and sample sweeps;
+  V_b(S) = its voxel count (0 before birth). Seed-independent (the anneal's
+  stream is salted by the sweep index; the orientation does not enter a
+  single crystal), so measured once on seed 0xa1. Statistic: slope of
+  ln(-ln(1-X)) against ln X_ext, X_ext(S) = sum_b 50 V_b(S) / 96^3, over X in
+  [0.05, 0.95] (samples with X_ext > 0). PASS on every seed: slope within
+  1 +- 0.15 with >= 5 points; interior X_end >= 0.95; phantoms > 0; all 8
+  batches delivered. Must-fail on every seed: the site-saturated
+  construction 400 V_0(S) / 96^3 gives slope > 1.15 (CPU sizing on this
+  geometry, three growth laws: 1.27-1.31). Info: sweep-clock n (sizing
+  2.7-3.1, not 4: inserted radius, window, recovery), the age-shifted
+  construction sum_b 50 V_0(S - t_b), the mean of -ln(1-X)/X_ext.
+- RX3-BOUNDARY-SITES (structural). Painted 12-grain Voronoi (RX-BOUNDARY-CPU's
+  generator, seed 0xb1), all solid, every grain H = 20 J_b; the field read
+  before nucleation and classified IN THE PAGE by an independent 26-loop
+  (treatable: phi >= 0.5, id not 0 or 4095; no wrap) into the set B. Arm 1,
+  nucleateEvent(600, sites boundary): every centre in B (0 misses), the
+  event's boundary-site count = |B|, placed >= 540. Arm 2 (must fail the
+  all-in-B clause), random sites on the same field: fraction of centres in B
+  < 0.5 (expected about |B| / 96^3). Arm 3, boundary sites at a steady rate
+  (600 in birthSchedule(600, 24, 8)) with anneal(30): every centre of every
+  batch in B, phantoms > 0, no phantom id in the final field. Arm 4: a single
+  crystal with liquid z < 10 refuses boundary sites with a sentence and leaves
+  the counter unchanged (a free surface is not a boundary). Arm 5: arm 1 again
+  at the same seed gives the same centre list.
+- RX3-BOUNDARY-JMAK (kinetics). Painted 12-grain Voronoi, seeds 0xb1, 0xb2,
+  0xb3, every grain H0 = 20 J_b (ONE growth law); arms: 600 boundary sites and
+  600 random sites, each at once, 70 sweeps, X over [16, 80)^3 every 2 sweeps.
+  Reference: one nucleus at (48, 48, 48) of a painted single crystal at
+  H0 = 20, 70 sweeps: V1(S) and its voxel set as offsets from the centre.
+  Union U(S): box fraction covered by the reference set at S translated to
+  every PLACED centre of the arm (from the event log and the post-stamp read).
+  PASS on every seed: in both arms the slope of ln(-ln(1-X)) against
+  ln(-ln(1-U)) within 1 +- 0.15 (>= 5 points, X in [0.05, 0.95], U < 1); the
+  random arm's slope against ln V1 within 1 +- 0.15; X_end >= 0.90 in both
+  arms. Must-fail on every seed: the boundary arm's slope against ln V1
+  < 0.85 (CPU sizing 0.69). Info: sweep-clock n per arm (sizing 1.33 /
+  1.66-1.76).
+- RX3-MODES-PANEL (UI). Copper cast as RX3-PANEL (R.cast(0xd1)), heat panel,
+  cold work 8 J_b, nuclei 200, nucleation "boundaries, steady", armed as
+  RX3-PANEL (>= 20 sweeps), one run. Precondition reported separately: the
+  run started (busy seen) and the card changed. PASS: seven range dials and
+  one select whose options are the four modes in order; setup() 8 long ending
+  3 while dialled, 7 long with the select back at "random, at once"; the card's
+  recrystallized row says "on grain boundaries" and "steady:" with the batch
+  count of the sim's event log; the log's per-nucleus states partition the
+  scheduled count (stamped + phantom + not born = scheduled) and the card
+  prints the log's placed and phantom counts; the log says boundary sites over
+  a window equal to the delivered sweeps. Restores: open([T, h, 0, 0, 2, 8, 200]) shows "random, at once" and
+  setup() 7 long; open([.., 200, 3]) shows "boundaries, steady", 8 long
+  ending 3; open([.., 200, 0]) packs 7.
+
+Risks to existing gates, stated before the run: the dial count stays 7 (the
+mode is a select); the panel form gains an eighth cell (no height change in
+two columns, one select row in one column: verify-rail's 3D heat-treat
+samples); the share tuple gains an optional 8th element (RX3-PANEL's 7/6
+lengths unchanged at the default mode); TESTING.md counts move
+(verify-recrystallize.mjs five -> ten checks, 45 -> 46 registered scripts).
