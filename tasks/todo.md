@@ -6673,8 +6673,9 @@ scripts/research/flow-tong2.mjs implements the protocol with these readings.
 Branch research/flow-tong2 (worktree ../solidify-tong2): feature/flow-inlet
 70065f0 + research/flow-domain 3278ead (merged; todo sections kept in date
 order), then the amendment 0800b80 and the script d93e21e (+ 4c30576, self-test
-opens no HMR websocket). src/ is byte-identical to a304254, the head that passed
-the D3.5 GPU gates 15/15, so the protocol's precondition holds.
+opens no HMR websocket; 8a0ccba, contention log after merging feature/flow-inlet
+847dfea, a lessons.md entry only). src/ is byte-identical to a304254, the head
+that passed the D3.5 GPU gates 15/15, so the protocol's precondition holds.
 
 - Built: scripts/research/flow-tong2.mjs, flow-tong2-arms.json,
   flow-tong2-selftest.mjs, a README section. It imports flow-domain.mjs
@@ -6684,7 +6685,9 @@ the D3.5 GPU gates 15/15, so the protocol's precondition holds.
   window, the verdict and a pure admission function. `--run` refuses before
   Chrome unless the hashed files and src/ are clean and src/ equals a304254;
   each page is admitted only on a hardware adapter with every served file's
-  LF-normalized hash equal to the disk's; hashes are re-taken at the end.
+  LF-normalized hash equal to the disk's; hashes are re-taken at the end. Per
+  lessons.md (847dfea) it logs the PIDs of other headless Chrome browsers at
+  the start and the end (contention; never gating).
 - Readings that need no amendment: lambda as written (3.19 / 4.79 / 6.38; the
   tier-P boxes 1478 / 1387 / 924 / 1663 / 3326 d0 need the rounded values);
   chunk = round(T / (33 dt)) with no 50-substep floor (the table's 990 is 30 x
@@ -6715,8 +6718,8 @@ the D3.5 GPU gates 15/15, so the protocol's precondition holds.
   WGSL compilation and WebGPU validation at n 160. The GPU run's stage() asserts
   sim.n === 160 with flow on, and the result records the grid and delivered
   substeps per run (gridAccepted).
-- CPU results: `node scripts/research/flow-tong2.mjs` (self-test) 10/10 OK in
-  ~6 s. PROTOCOL: the 79b0b00 text sits verbatim at the head of the amended
+- CPU results: `node scripts/research/flow-tong2.mjs` (self-test) 11/11 OK in
+  ~7 s. PROTOCOL: the 79b0b00 text sits verbatim at the head of the amended
   section, 17 quoted clauses present. PARSE: 17 hostile arm files refused, incl.
   D4-3315-T at n 1152. WINDOW (check 1): every table entry from the formula
   (17919 = 543 x 33 / 71709 = 2173 x 33; 6138 / 24618; 990 / 3993; 3894 /
@@ -6740,7 +6743,8 @@ the D3.5 GPU gates 15/15, so the protocol's precondition holds.
   counted, coupling 0 not exact, raw-byte admission, tier-T seed radius, tier
   dx in the speed, spread bound, liveness off, falsification consequence off,
   stop rule moved, N_MAX check off) each turned it red. Not visible, because
-  implied: the band clause on coupling -1 (R < 1 implies it).
+  implied: the band clause on coupling -1 (R < 1 implies it). CONTENTION-LOG:
+  the read-only listing works (it saw one other session's headless Chrome).
 - Also: typecheck passes; verify-flow.mjs 8/8 OK (32 s); D3.4's self-test still
   passes; verify-phasedata CI-SCRIPT-COUNT and TESTING-CHECK-COUNT OK (research
   scripts are not in CI; nothing there changed).
