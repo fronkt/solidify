@@ -5979,3 +5979,15 @@ their first run.
   read at batch 60 inside the setup, with the three live masks; criterion
   unchanged. Diagnostics added: per capture, replay-only and live-only voxel
   counts (missing vs extra), and the final field's time.
+- VIS-STUDIO-COST second run (2103b07) FAILED its witness: amortized ms per
+  frame off / on / on-twice 3.08 / 4.47 / 6.30, ratio 1.451, doubling 1.409
+  (band [1.7, 2.3]). Totals fit time = C + 40 k g with g = 1.83 ms per render
+  and C ~ 106 ms per bench (one-off: queue wait, clock ramp), so no ratio of
+  totals isolates the per-render cost. Third and last instrument
+  (pre-registered): per arm (studio off, then on), time 40 x k renders for
+  k = 1, 2, 3 (5 warm-ups, one queue wait each); g = least-squares slope of
+  time against 40 k. Verdict: g_on / g_off <= 1.8; witness: in each arm the
+  three points are linear (max residual <= 10 % of the k = 3 time minus the
+  intercept) with g > 0. If the witness fails again the instrument cannot
+  measure this cost on this hardware: the gate becomes information only (ratio
+  reported, never gating) and that is recorded here and in TESTING.md.
