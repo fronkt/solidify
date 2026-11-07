@@ -458,6 +458,19 @@ export function preconditions() {
   return { dirty, srcAsD35, d35PassedCommit: D35_PASSED_COMMIT, ok: dirty === "" && srcAsD35 };
 }
 
+/** other headless Chrome browsers on this machine (lessons.md, "The GPU and the test
+ *  port are shared with other sessions"): their PIDs at the start and the end of a run,
+ *  so a timing failure can be read against contention. Read-only; never gating. */
+export function headlessChromes() {
+  if (process.platform !== "win32") return { skipped: process.platform };
+  const ps = "Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" | Where-Object { $_.CommandLine -like '*--headless*' -and $_.CommandLine -notlike '*--type=*' } | ForEach-Object { $_.ProcessId }";
+  try {
+    const out = execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(ps, "utf16le").toString("base64")],
+      { encoding: "utf8", timeout: 60_000, stdio: ["ignore", "pipe", "ignore"] });
+    return { pids: out.split(/\s+/).filter(Boolean).map(Number), at: new Date().toISOString() };
+  } catch (e) { return { error: String(e?.message ?? e).split("\n")[0].slice(0, 200) }; }
+}
+
 function printPlan(geos) {
   console.log("arm        tier    n  box_d0  T/l_D bound   chunk substeps  gap0  gap@1.5V  est_s(flow+noflow+fals)");
   const tot = { P: { flow: 0, noflow: 0 }, T: { flow: 0, noflow: 0 }, falsification: 0 };
@@ -514,6 +527,8 @@ async function main() {
   };
   const save = () => writeFileSync(resultPath, JSON.stringify(result, null, 1) + "\n");
   save();
+  result.contention = { start: headlessChromes() };   // before our own browser exists
+  save();
   const { default: puppeteer } = await import("puppeteer-core");
   const { closeBrowser } = await import("../browser-cleanup.mjs");
   const extra = process.env.CHROME_ARGS ? JSON.parse(process.env.CHROME_ARGS) : [];
@@ -555,6 +570,7 @@ async function main() {
     result.exception = err?.stack ?? String(err);
   } finally {
     await closeBrowser(browser);
+    result.contention.end = headlessChromes();   // after our own browser is closed
   }
   result.servedVerified = servedOk;
   const meta = result.arms.map(r => JSON.stringify({ h: r.metadata?.hardware, w: r.metadata?.wgsl }));
@@ -575,7 +591,8 @@ async function main() {
     falsification: { ok: d.falsification.ok, zeroR: d.falsification.zero?.R ?? null, reversedR: d.falsification.reversed?.R ?? null },
     failedP: d.P.failed ?? null, failedT: d.T.failed ?? null, whyP: d.P.why ?? null, whyT: d.T.why ?? null }));
   console.log("FLOW-TONG2", result.completed ? "RECORDED" : "FAILED", JSON.stringify({ result: resultPath, completed: result.completed,
-    sourceStable: result.sourceStable, servedVerified: servedOk, errors: result.errors.length, exception: result.exception?.split("\n")[0], abort: result.abort }));
+    sourceStable: result.sourceStable, servedVerified: servedOk, errors: result.errors.length, exception: result.exception?.split("\n")[0], abort: result.abort,
+    otherHeadlessChrome: [result.contention.start?.pids ?? null, result.contention.end?.pids ?? null] }));
   return result.completed ? 0 : 1;
 }
 

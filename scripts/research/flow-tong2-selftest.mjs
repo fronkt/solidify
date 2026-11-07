@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import {
   PROTOCOL_COMMIT, PROTOCOL_HEADER, AMENDMENT_HEADER, D35_PASSED_COMMIT, REPO, K, RULES, PROTOCOL, COST, SCALE,
-  staging, geometry, parseArms, summarizeRun, runArm, admission, hashText, assess, falsification, tierVerdict, decide, SERVED,
+  staging, geometry, headlessChromes, parseArms, summarizeRun, runArm, admission, hashText, assess, falsification, tierVerdict, decide, SERVED,
 } from "./flow-tong2.mjs";
 import { HELPER_SRC, installDriver } from "./flow-domain.mjs";
 
@@ -557,6 +557,8 @@ export async function selfTest() {
   await mockRun(geos);
   await admissionCheck(geos);
   await simulationAccepts(geos);
+  const hc = headlessChromes();   // read-only process listing, the run logs it at start and end
+  check("CONTENTION-LOG", Array.isArray(hc.pids) || !!hc.skipped, { otherHeadlessChrome: hc.pids?.length ?? null, error: hc.error });
   check("RULES-FROZEN", Object.isFrozen(RULES) && Object.isFrozen(K) && Object.isFrozen(K.TIERS) && Object.isFrozen(PROTOCOL.rows.D2) && Object.isFrozen(COST)
     && RULES.bandLo === 1.26 && RULES.bandHi === 1.54 && RULES.spreadMax === 0.05 && RULES.vRatioMax === 0.10 && RULES.stationarityMax === 0.02
     && RULES.inletTol === 1e-4 && RULES.minValidRows === 2 && K.STOP_CELLS === 32 && K.TIERS.P === 0.8 && K.TIERS.T === 0.4, {});
