@@ -5937,6 +5937,13 @@ New gates:
   heat-treatment reason synchronously, before any frame. On 5fa0578 it stays
   null (heat.busy is never set outside the panel).
 
+Gate code, written after the commit above and not run: e83bdf1 (flow),
+bbadf91 (recrystallization + HT3-BUSY-RELEASE), f1bb615 (visual), 9fc549d
+(the SESSION-3D-CANCELLATION fixture), 360348e (a docblock correction).
+Browser-free: all 22 local scripts before verify-landing-acts except
+verify-scroll-order (it launches Chrome), the four CI self-test modes,
+typecheck and build pass on 360348e.
+
 Run list for the root (frozen source, after the last commit of this section):
 verify-flow-gpu.mjs, verify-recrystallize-gpu.mjs, verify-visual-gpu.mjs,
 verify-completion-gpu.mjs (SESSION-3D-CANCELLATION), verify-heattreat-gpu.mjs
