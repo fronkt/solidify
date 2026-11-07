@@ -1350,8 +1350,14 @@ export class Sim3D {
    *
    * `at` (fixtures only) gives explicit centre voxels instead of random ones;
    * orientations still come from the stream.
+   *
+   * `pin` is the treatment's dispersion, the one `anneal` will build its mask
+   * with: nuclei may only claim voxels that anneal will treat. Built without
+   * it, a nucleus stamped into a particle voxel that the anneal then freezes,
+   * a permanent offset in X.
    */
-  async nucleate(count: number, r = NUCLEUS_R_3D, at?: [number, number, number][]):
+  async nucleate(count: number, r = NUCLEUS_R_3D, at?: [number, number, number][],
+    pin?: { f: number; r: number }):
     Promise<{ lo: number; hi: number; requested: number; placed: number } | { why: string }> {
     const want = Math.max(0, Math.floor(count));
     if (want === 0) { this.rxRange = null; return { lo: 0, hi: -1, requested: 0, placed: 0 }; }
@@ -1373,9 +1379,9 @@ export class Sim3D {
     }
     d.queue.writeBuffer(this.hBuf, 0, this.hCPU);
     d.queue.writeBuffer(this.quatBuf, lo * 16, this.quatCPU, lo * 4, k * 4);
-    // the treatable-voxel mask, exactly as anneal() builds it (no particles:
-    // dispersion is held back while nuclei are dialled)
-    this.writeHt(0, HT_KT_DEFAULT);
+    // the treatable-voxel mask, exactly as anneal() builds it, particles and
+    // all: a nucleus stamped into a voxel the anneal will not treat is frozen
+    this.writeHt(0, HT_KT_DEFAULT, pin);
     const n = this.n;
     const sites = new Uint32Array(k * 4);
     for (let i = 0; i < k; i++) {

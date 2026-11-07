@@ -352,6 +352,11 @@ export const HEAT_CAVEATS = {
     learn: "The simulation ran out of new grain labels partway through, so this is how many twins it could "
       + "make, not how many the rate asked for.",
   },
+  pinHeldBack: {
+    line: "held back while nuclei are dialed: particles would cap the recrystallized fraction below 1",
+    learn: "Particles and recrystallization nuclei are not simulated together yet: voxels inside particles "
+      + "keep their deformed grain, so the recrystallized fraction could never reach 1.",
+  },
   twinsHeldBack: {
     line: "held back while cold work is dialed: twinning in deformed grains is not modeled yet",
     learn: "Twins and cold work are not simulated together yet: a new twin could start with the wrong stored "

@@ -91,7 +91,10 @@ existing SIBM line (shaders3d.ts:1153); the anneal kernel is unchanged.
   endpoint is already withdrawn (heatpanel.ts:762, :1114) and workHoldsTwins
   holds Sigma-3 back (:992-999). Unchanged.
 - Dispersion: hold back while nuclei are dialled in slice 1 (particles would
-  sit in X's denominator). The particle slice should expect LA-UR-90-459's
+  sit in X's denominator). Implemented in the panel's plan (pin undefined,
+  pinHeld set, a "held back" line on the note and card) after the 2026-11-07
+  review found the plan kept it; Sim3D.nucleate also takes the treatment's
+  pin so a pinned caller cannot stamp nuclei into particle voxels. The particle slice should expect LA-UR-90-459's
   result: particles stop completion at low H, no effect at high H.
 
 ## 3. UI (heatpanel, 3D only)

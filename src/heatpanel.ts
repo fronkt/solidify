@@ -125,8 +125,10 @@ export interface HeatHost {
   anneal(sweeps: number, onProgress: (done: number) => boolean,
     pin?: { f: number; r: number },
     sample?: { at(done: number): boolean; read(done: number): Promise<void> }): Promise<number>;
-  /** C3b, 3D only: insert strain-free nuclei after the deposit (Sim3D.nucleate) */
-  nucleate?(count: number): Promise<{ lo: number; hi: number; requested: number; placed: number } | { why: string }>;
+  /** C3b, 3D only: insert strain-free nuclei after the deposit (Sim3D.nucleate),
+   *  on the treatable voxels of the same dispersion the sweeps will run with */
+  nucleate?(count: number, pin?: { f: number; r: number }):
+    Promise<{ lo: number; hi: number; requested: number; placed: number } | { why: string }>;
   /** C3b, 3D only: raw voxel counts over the event's ids and over all grains */
   rxCensus?(): Promise<{ rx: number; grain: number } | null>;
   /**
@@ -257,6 +259,8 @@ type Plan =
       work?: number;
       /** C3b: recrystallization nuclei, only alongside cold work in 3D */
       rx?: number;
+      /** C3b: a dispersion was dialled but is held back because nuclei are */
+      pinHeld?: { f: number; r: number };
     };
 
 export class HeatPanel {
@@ -534,14 +538,6 @@ export class HeatPanel {
     const dCapUm = capped
       ? Math.pow(Math.pow(d0Cells, mModel) + kMC * cap, 1 / mModel) * this.host.umPerCell()
       : dPredUm;
-    // the dispersion, as dialled. The d_lim law is measured in the plane only
-    // (zenerLimitCells' docblock says why the volume does not borrow it), so
-    // dLimUm exists only in 2D — the 3D note and card say the mechanism runs
-    // but decline to print a number nothing has measured.
-    const pin = this.pinF > 0 ? { f: this.pinF, r: this.pinR } : undefined;
-    const dLimUm = pin && this.host.getMode() !== "3d"
-      ? zenerLimitCells(pin.f, pin.r) * this.host.umPerCell()
-      : undefined;
     // the cold work, as dialled (v7.0 C3a). Gated on the dimension as well as
     // the dial: the dial only exists in the volume, and a plan is the one place
     // a stale value from a mode switch could still reach `run`.
@@ -549,7 +545,22 @@ export class HeatPanel {
     // C3b: nuclei are inert without stored energy to consume, so they ride the
     // plan only with cold work (the dial still shows; its note says why)
     const rx = work && this.rxN > 0 ? this.rxN : undefined;
-    return { ok: true, sch, ints, d0Um, dPredUm, sweeps, capped, dCapUm, pin, dLimUm, work, rx };
+    // the dispersion, as dialled. The d_lim law is measured in the plane only
+    // (zenerLimitCells' docblock says why the volume does not borrow it), so
+    // dLimUm exists only in 2D — the 3D note and card say the mechanism runs
+    // but decline to print a number nothing has measured.
+    //
+    // C3b slice 1 holds it back while nuclei are dialled
+    // (docs/C3B-RECRYSTALLIZATION-DESIGN.md section 2): particle voxels keep
+    // their deformed matrix ids, so they sit in X's denominator and cap the
+    // recrystallized fraction below one. The note and card say it was held.
+    const dialled = this.pinF > 0 ? { f: this.pinF, r: this.pinR } : undefined;
+    const pin = rx ? undefined : dialled;
+    const pinHeld = rx ? dialled : undefined;
+    const dLimUm = pin && this.host.getMode() !== "3d"
+      ? zenerLimitCells(pin.f, pin.r) * this.host.umPerCell()
+      : undefined;
+    return { ok: true, sch, ints, d0Um, dPredUm, sweeps, capped, dCapUm, pin, dLimUm, work, rx, pinHeld };
   }
 
   // -------------------------------------------------------------- the panel
@@ -861,6 +872,10 @@ export class HeatPanel {
    * silently corrupt what they measure.
    */
   private pinNote(plan: Plan & { ok: true }): string {
+    if (plan.pinHeld) {
+      return `<br>${quiet(`dispersion ${(plan.pinHeld.f * 100).toFixed(1)} vol % · ${HC.pinHeldBack.line}`)}`
+        + learnSlot(HC.pinHeldBack.learn);
+    }
     if (!plan.pin) return "";
     const pct = (plan.pin.f * 100).toFixed(1);
     if (plan.dLimUm === undefined) {
@@ -1082,7 +1097,7 @@ export class HeatPanel {
     // setRun and close all wait on it forever
     try {
       if (plan.rx && this.host.nucleate && this.host.rxCensus && total > 0) {
-        rxEvent = await this.host.nucleate(plan.rx);
+        rxEvent = await this.host.nucleate(plan.rx, pin);
         if (!("why" in rxEvent)) {
           const c0 = await this.host.rxCensus();
           rxX0 = c0 && c0.grain > 0 ? c0.rx / c0.grain : 0;
@@ -1255,6 +1270,9 @@ export class HeatPanel {
           + dim(`· d_lim ≈ ${strong(fmtUm(plan.dLimUm))} `
             + `(measured on this lattice: d_lim = ${ZENER_K}·r^${ZENER_R_EXP}/f^${ZENER_F_EXP} cells)`))
         : kv("pinned", disp + dim(`· ${HC.pin3d.line}`), lrn(HC.pin3d)));
+    } else if (plan.pinHeld) {
+      rows.push(kv("dispersion", dim(`${(plan.pinHeld.f * 100).toFixed(1)} vol % · ${HC.pinHeldBack.line}`),
+        lrn(HC.pinHeldBack)));
     }
     // the cold work's row (v7.0 C3a) — LAST of the mode rows, after C2's
     // pinned row, for the same reason that one went after oxide: the panel

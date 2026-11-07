@@ -1757,7 +1757,7 @@ async function boot() {
         ? sim3d.anneal(sweeps, undefined, onProgress, pin, sample)
         : sim.anneal(sweeps, undefined, onProgress, pin),
     // C3b: nuclei after the deposit, and the raw census X is read from
-    nucleate: async (count) => (mode === "3d" && sim3d ? sim3d.nucleate(count) : { why: "Recrystallization runs in the volume only." }),
+    nucleate: async (count, pin) => (mode === "3d" && sim3d ? sim3d.nucleate(count, undefined, undefined, pin) : { why: "Recrystallization runs in the volume only." }),
     rxCensus: async () => {
       if (mode !== "3d" || !sim3d) return null;
       for (let i = 0; i < 60; i++) {

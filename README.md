@@ -481,4 +481,5 @@ strain-free nuclei after the deposit: site-saturated (all at once), at uniformly
 radius 2 cells, stored energy 0, then grown by the existing anneal's stored-energy difference
 alone. The card reports the recrystallized fraction and an Avrami exponent fitted on the Monte
 Carlo sweep clock, which is not a real-time exponent. Constant-rate nucleation, boundary-only
-nucleation sites and particle effects on recrystallization are not modeled.
+nucleation sites and particle effects on recrystallization are not modeled: a dialed dispersion
+is held back while nuclei are dialed, and the card says so.
