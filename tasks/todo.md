@@ -6870,10 +6870,12 @@ measured fact.
 - full square box, west tip on row n/2 (phi 0.5, sub-cell).
 
 **Window (all arms).** 33 equal chunks over T = 8 l_D / V_KR, the D3.4 and
-11-01 rule with no inlet cap: V_KR = 0.017 D~ lambda / a1 W0 per tau0, l_D =
-D~ / V_KR, T = 8 D~ / V_KR^2 = 1062 tau0.
-- tier P (dx 0.8): chunk = round(T / 33 / dt) = 670, 22110 substeps;
-- tier I (dx 0.4): chunk 2681, 88473 substeps;
+11-01 rule with no inlet cap (numbers corrected before any build: the first draft
+had T 1062, chunk 670 / 2681, hand-rounded; the formula is what is frozen):
+V_KR = 0.017 D~ lambda / a1 W0 per tau0, l_D =
+D~ / V_KR, T = 8 D~ / V_KR^2 = 1063.1 tau0.
+- tier P (dx 0.8): chunk = round(T / 33 / dt) = 671, 22143 substeps;
+- tier I (dx 0.4): chunk 2683, 88539 substeps;
 - the self-test must reproduce both from the formula.
 Stop rule as tong2: the west tip within 32 cells of x = 0 makes the arm
 invalid.
