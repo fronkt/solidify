@@ -6185,8 +6185,9 @@ setFlow. Result recorded here. FLOW-OFF-IDENTITY (GPU) stays the runtime proof.
 - [x] GPU gates written in verify-flow-gpu.mjs, NOT run; TESTING.md counts.
 - [x] Copy (science page; README has no flow text): one sentence, HELD until
       the root's run.
-- [ ] Root: run verify-flow-gpu.mjs on the frozen head (commands in the
-      status below).
+- [x] Root: run verify-flow-gpu.mjs on the frozen head (commands in the
+      status below). Run 2 on a304254: 15/15 OK (results below). The held
+      science-page sentence may ship.
 
 ### Status (2026-11-07, delegate): built and checked off the GPU; GPU not run
 
@@ -6266,6 +6267,53 @@ Tong comparison above was measured before that fix, when the inlet delivered
 11-01 runs, D20-1024 0.837 and D32-1024 0.940 inlet-column velocity.) It is
 in its own commit and must not ship unless FLOW-INLET-EMPTY, -BLOCKED,
 -COLUMN and -APP pass on the root's run; on a failure, revert that commit.
+
+### GPU run on frozen a304254 (root, 2026-11-07, Intel Arc 140V)
+
+Run 1 (16:16-16:20, port 5199): ABORTED before any gate printed. Puppeteer's
+default 180 s protocol timeout fired on the first in-page evaluate ("FLOW
+harness error ProtocolError: Runtime.callFunctionOn timed out"; page errors
+none). No verdict, kept as a harness abort. Evidence on the cause:
+- Another session's Orbital WebGPU probes (headless Chrome, D:\orbital\probe,
+  results diag1/diag2/diag3 ending 16:19:48 / 16:20:51 / 16:21:07) overlapped
+  the run.
+- Minutes later a third party's `timeout 120 node scripts/run-tests.mjs` held
+  port 5199 and served a checkout without src/lbm.ts.
+- A diagnostic probe on port 5297 (verify-out, not committed) compiled the new
+  LBM_WGSL with zero compilation messages and stepped, read back and
+  validated a 64^2 FlowSolver in under 1 s with no validation error.
+Hence the cause was the environment, not the shader. Not proven beyond that.
+
+Run 2 (16:26:18-16:27:08, port 5297; the runner checked the served
+src/lbm.ts was this checkout's, tree clean before and after, no other
+headless Chrome at start or end): **15/15 OK, "done", page errors none.**
+Log: docs/validation/flow-inlet-gpu-2026-11-07.txt.
+- FLOW-INLET-EMPTY: velocity max |V - 1| 4.5e-5 (band 1e-3), u_y 1.7e-5 U;
+  equilibrium arm Vmax 0.873163 (ref 0.873248), misses as required.
+- FLOW-INLET-BLOCKED: V 1.00000 to 1.00939 (band [0.98, 1.02]; predicted 1.000
+  to 1.009), within 5.7e-5 of the Float64 reference (band 2e-3), steady 1.1e-6,
+  conserving 5.6e-5, disk centre 0.0051 U, K/dragK 0.99993, gap 1.510 U.
+  Equilibrium arm: V(0) 0.831517, 3.6e-7 from the reference, rho_in 1.00572 >
+  rho_out 0.99813, valid, misses as required.
+- FLOW-INLET-COLUMN: velocity inlet nodes 6.6e-7 (u_x) / 1.6e-7 (u_y) of U
+  (band 1e-4); equilibrium arm 0.2295 / 0.0854, misses.
+- FLOW-INLET-APP: after the dial to 0.03, inlet column 3.9e-7 / 1.2e-7 of U
+  (band 1e-4), west reach 42 > 20, 2000 substeps and 2000 lattice steps; V
+  0.99985 to 1.0162. Old-inlet arm (info only): inlet off by 0.189, V 0.854 to
+  0.870, misses.
+- Unchanged gates as expected: FLOW-SHEAR-DECAY nu 0.0999885 (S0 value),
+  FLOW-DRAG-PROFILE offsets h -0.0111 W, x2 +0.3193 W, /2 -0.3807 W,
+  FLOW-FREESTREAM 1.5e-5, FLOW-OFF-IDENTITY 7/7 equal to 2fc221d,
+  FLOW-INERT-ARMS, FLOW-UNIFORM-MELT, FLOW-UI, FLOW-RECONFIGURE.
+- PREDICTION NOT BORNE OUT: FLOW-DIRECTION was expected to move outward from
+  S0's 1.13 / 0.89 / 0.87. It gave 1.132 / 0.892 / 0.868, the same integer
+  reaches as S0 (no flow 38/37, forward 43/33, reversed 33/42). The gate
+  passes, since its thresholds are unchanged. The likely reason is that its
+  statistic is a whole-cell reach and the inlet change is below one cell at
+  this staging. FLOW-INLET-APP supports that: on the same staging, its
+  old-inlet arm delivers 0.85-0.87 U yet gives the same west reach (42) as
+  the velocity inlet. So the prediction was wrong about the size of the
+  effect, and no gate depends on it.
 
 ### Next Tong comparison - PROTOCOL ONLY (pre-registered 2026-11-07; not built, not run)
 
