@@ -11,9 +11,20 @@
  * It owns its populations and a cell-centred velocity texture and READS a
  * phase-field texture for the drag; it writes nothing the phase field reads.
  * Coupling into transport is D3.2. Boundaries: x is either periodic (the
- * analytic gates) or a channel (equilibrium inlet at x = 0 with velocity
- * (U, 0), zero-gradient outlet at x = n - 1); y walls are free-slip, matching
- * the phase field's clamped edges. Units are lattice units: dx = dt = 1.
+ * analytic gates) or a channel (a Zou-He velocity inlet at x = 0 that gives
+ * every inlet node the velocity (U, 0), D3.5; zero-gradient outlet at
+ * x = n - 1); y walls are free-slip, matching the phase field's clamped edges.
+ * Units are lattice units: dx = dt = 1.
+ *
+ * D3.5: until 3b3fbdd the inlet was an equilibrium inlet (the populations
+ * entering at x = 0 were feq at rho = 1 and (U, 0)). It fixed the density of
+ * what entered as well as its velocity, so any overpressure in the channel (a
+ * crystal's back-pressure, or the density level the zero-gradient outlet
+ * leaves free) cut the delivered speed: 0.82 U at n 848 in the D3.4 study. It
+ * stays selectable as FlowConfig.inlet = "equilibrium" for the must-miss arms of
+ * the D3.5 gates only; the app never sets it. Design:
+ * docs/D3-CONVECTION-DESIGN.md, "D3.5 addendum"; CPU reference:
+ * scripts/fixtures/lbm-ref.mjs.
  */
 
 import { shaderModule } from "./shaders";
@@ -22,12 +33,12 @@ import { latticeOf, deriveDragH } from "./flow";
 /** the TRT magic product (tau+ - 1/2)(tau- - 1/2) */
 export const TRT_LAMBDA = 0.25;
 
-const LBM_WGSL = /* wgsl */ `
+export const LBM_WGSL = /* wgsl */ `
 struct LP {
   n: u32,
   channel: u32,     // 0 = periodic x; 1 = inlet at x = 0, outlet at x = n - 1
   phiOn: u32,       // 1: read phi for the drag
-  _a: u32,
+  inlet: u32,       // 0 = Zou-He velocity inlet; 1 = the pre-D3.5 equilibrium inlet (test harness only)
   omegaP: f32,      // 1 / tau+
   omegaM: f32,      // 1 / tau-
   uIn: f32,         // inlet speed, lattice units
@@ -72,7 +83,9 @@ fn pull(x: i32, y: i32, i: u32) -> f32 {
   if (L.channel == 0u) {
     sx = (sx + n) % n;
   } else if (sx < 0) {
-    return feq(i, 1.0, vec2f(L.uIn, 0.0));     // equilibrium inlet
+    // west inlet: the equilibrium populations of the pre-D3.5 inlet; with the
+    // velocity inlet (L.inlet == 0) main() replaces these three
+    return feq(i, 1.0, vec2f(L.uIn, 0.0));
   } else if (sx >= n) {
     sx = n - 1;                                // zero-gradient outlet
   }
@@ -85,10 +98,25 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let x = i32(gid.x);
   let y = i32(gid.y);
   var f: array<f32, 9>;
+  for (var i = 0u; i < 9u; i++) { f[i] = pull(x, y, i); }
+  // D3.5 Zou-He velocity inlet: of a west node's nine populations, the three
+  // with c_x = +1 (1, 5, 8) came from outside. They are rebuilt from the six
+  // known ones so that sum f = rho and sum c f = (rho U, 0): rho from
+  // rho (1 - U) = f0 + f2 + f4 + 2 (f3 + f6 + f7), the normal pair by
+  // non-equilibrium bounce-back, the diagonals with the transverse correction.
+  // At the corners the free-slip mirror has already supplied f2/f6 (y = 0) or
+  // f4/f7 (y = n - 1). The node then collides like any other.
+  if (L.channel == 1u && x == 0 && L.inlet == 0u) {
+    let r = (f[0] + f[2] + f[4] + 2.0 * (f[3] + f[6] + f[7])) / (1.0 - L.uIn);
+    let j = r * L.uIn;
+    let t = 0.5 * (f[2] - f[4]);
+    f[1] = f[3] + (2.0 / 3.0) * j;
+    f[5] = f[7] - t + j / 6.0;
+    f[8] = f[6] + t + j / 6.0;
+  }
   var rho = 0.0;
   var m = vec2f(0.0);
   for (var i = 0u; i < 9u; i++) {
-    f[i] = pull(x, y, i);
     rho += f[i];
     m += vec2f(f32(CX[i]), f32(CY[i])) * f[i];
   }
@@ -133,6 +161,29 @@ export interface FlowConfig {
   h?: number;
   /** a uniform body force, lattice units (analytic gates) */
   force?: [number, number];
+  /**
+   * The west inlet of a channel. "velocity" (the default, and the only one the
+   * app runs) is the D3.5 Zou-He inlet. "equilibrium" is the inlet that shipped
+   * before D3.5, kept ONLY for the must-miss arms of the D3.5 gates
+   * (verify-flow-gpu.mjs); no app path may set it (FLOW-INLET-DEFAULT).
+   */
+  inlet?: "velocity" | "equilibrium";
+}
+
+/**
+ * The lattice uniform (struct LP in LBM_WGSL), 48 bytes. Pure, so the packing
+ * and its default inlet are checked without a GPU (verify-flow.mjs
+ * FLOW-INLET-DEFAULT). `phiOn`: a phase field is bound for the drag.
+ */
+export function lbmUniform(n: number, c: FlowConfig, phiOn: boolean, h: number): ArrayBuffer {
+  const { tauP, tauM } = trtTaus(c.nu);
+  const buf = new ArrayBuffer(48), u = new Uint32Array(buf), f = new Float32Array(buf);
+  u[0] = n; u[1] = c.channel ? 1 : 0; u[2] = phiOn && c.width > 0 ? 1 : 0;
+  u[3] = c.inlet === "equilibrium" ? 1 : 0;
+  f[4] = 1 / tauP; f[5] = 1 / tauM; f[6] = c.uIn;
+  f[7] = c.width > 0 ? (2 * h * c.nu) / (c.width * c.width) : 0;
+  f[8] = c.force?.[0] ?? 0; f[9] = c.force?.[1] ?? 0;
+  return buf;
 }
 
 /** tau+ and tau- for a viscosity at the TRT magic product */
@@ -231,15 +282,9 @@ export class FlowSolver {
   }
 
   private writeParams(phiBound = false) {
-    const c = this.cfg, n = this.n;
-    const { tauP, tauM } = trtTaus(c.nu);
+    const c = this.cfg;
     const h = c.h ?? (this.hCache ??= deriveDragH());
-    const buf = new ArrayBuffer(48), u = new Uint32Array(buf), f = new Float32Array(buf);
-    u[0] = n; u[1] = c.channel ? 1 : 0; u[2] = (phiBound || this.phi) && c.width > 0 ? 1 : 0;
-    f[4] = 1 / tauP; f[5] = 1 / tauM; f[6] = c.uIn;
-    f[7] = c.width > 0 ? (2 * h * c.nu) / (c.width * c.width) : 0;
-    f[8] = c.force?.[0] ?? 0; f[9] = c.force?.[1] ?? 0;
-    this.device.queue.writeBuffer(this.ubuf, 0, buf);
+    this.device.queue.writeBuffer(this.ubuf, 0, lbmUniform(this.n, c, !!(phiBound || this.phi), h));
   }
 
   private bg(dir: number): GPUBindGroup {

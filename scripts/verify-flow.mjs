@@ -1,5 +1,8 @@
 // FLOW-* — D3 melt flow arithmetic (slice D3.0, and the setting the running
-// flow re-derives from the dials), checked without a browser.
+// flow re-derives from the dials), checked without a browser. D3.5 adds the
+// velocity inlet: its algebra, a Float64 reference of the lattice step on the
+// GPU gates' two channels with both inlets (about a minute of CPU), and the
+// default the app runs.
 // Design and citations: docs/D3-CONVECTION-DESIGN.md.
 //
 //   node scripts/verify-flow.mjs
@@ -128,6 +131,156 @@ const check = (name, ok, detail) => {
     staleDragRatio: +ratio.toFixed(4), staleNoSlipOffsetW: +staleOffsetW.toFixed(3), staleEffectivePr: +prStale.toFixed(2),
     brokenDialRefused: broken.length,
     solutePeclet: { railCornerAllowed: corner.length === 0, belowRailRefused: thin.length, thermalAloneAllowed: heatOnly.length === 0 },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// D3.5 velocity inlet (tasks/todo.md, "D3.5 velocity inlet - 2026-11-07",
+// pre-registered in da91d87 before any run of the new inlet). The reference is
+// scripts/fixtures/lbm-ref.mjs, a Float64 copy of src/lbm.ts's step.
+const R = await import("./fixtures/lbm-ref.mjs");
+
+// 6. FLOW-INLET-ALGEBRA — the Zou-He reconstruction gives sum f = rho and
+//    sum c f = (rho U, 0) exactly, on 2000 seeded non-equilibrium nodes, and
+//    never reads the three populations it replaces (they are NaN going in). It
+//    returns an equilibrium node unchanged. Must-miss arm: without the
+//    transverse correction the y momentum is not zero.
+{
+  let s = 0x5eed1;
+  const rnd = () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+  const uni = (a, b) => a + (b - a) * rnd();
+  const mom = f => f.reduce((a, v, i) => [a[0] + v, a[1] + R.CX[i] * v, a[2] + R.CY[i] * v], [0, 0, 0]);
+  const worst = { mass: 0, jx: 0, jy: 0, normalPair: 0 };
+  let missY = 0;
+  for (let k = 0; k < 2000; k++) {
+    const rho0 = uni(0.95, 1.05), ux = uni(-0.05, 0.05), uy = uni(-0.05, 0.05), U = uni(0, 0.05);
+    const known = Array.from({ length: 9 }, (_, i) => R.feq(i, rho0, ux, uy) * (1 + uni(-0.05, 0.05)));
+    for (const i of [1, 5, 8]) known[i] = NaN;
+    const f = known.slice(), rho = R.zouHeWest(f, U), [m, jx, jy] = mom(f);
+    worst.mass = Math.max(worst.mass, Math.abs(m - rho));
+    worst.jx = Math.max(worst.jx, Math.abs(jx - rho * U));
+    worst.jy = Math.max(worst.jy, Math.abs(jy));
+    worst.normalPair = Math.max(worst.normalPair, Math.abs((f[1] - f[3]) - (2 / 3) * rho * U));
+    // the arm: the same, minus the transverse correction on the diagonals
+    const g = known.slice(), r2 = (g[0] + g[2] + g[4] + 2 * (g[3] + g[6] + g[7])) / (1 - U), j2 = r2 * U;
+    g[1] = g[3] + (2 / 3) * j2; g[5] = g[7] + j2 / 6; g[8] = g[6] + j2 / 6;
+    missY = Math.max(missY, Math.abs(mom(g)[2]));
+  }
+  let fixed = 0;
+  for (const [rho0, U] of [[1, 0.011404004977938682], [0.97, 0.05], [1.03, 0], [1, 0.02]]) {
+    const eq = Array.from({ length: 9 }, (_, i) => R.feq(i, rho0, U, 0));
+    const f = eq.slice();
+    for (const i of [1, 5, 8]) f[i] = NaN;
+    const rho = R.zouHeWest(f, U);
+    fixed = Math.max(fixed, Math.abs(rho - rho0), ...[1, 5, 8].map(i => Math.abs(f[i] - eq[i])));
+  }
+  const ok = Object.values(worst).every(v => v <= 1e-14) && fixed <= 1e-15 && missY > 1e-4;
+  check("FLOW-INLET-ALGEBRA", ok, {
+    worst: Object.fromEntries(Object.entries(worst).map(([k, v]) => [k, +v.toExponential(2)])),
+    fixedPoint: +fixed.toExponential(2), noTransverseMissY: +missY.toExponential(3),
+  });
+}
+
+// 7. FLOW-INLET-CPU — the GPU gates' two geometries on the Float64 reference,
+//    both inlets, at the D3.4 setting (nu 3.465, u_lat 0.011404, W 1.25 cells).
+//    A: an empty 64^2 channel started at U/2 (a speed change), 8000 steps. B: a
+//    128^2 channel with a disk of radius 9.6 cells (blockage 0.15) centred at
+//    (64, 63.5), 14000 and 16000 steps. The statistic is the column-mean
+//    velocity V(x) = mean_y u_x / U, the velocity transport reads; the mass
+//    flux Q(x) carries the free density level of the zero-gradient outlet and
+//    is a conservation witness only. The equilibrium arms are the inlet that
+//    shipped before D3.5; they must miss, and must miss with a valid run.
+{
+  const NU = 0.15 * 23.1, U = 0.011404004977938682, W = 1.25, H = F.deriveDragH();
+  const max = a => a.reduce((m, v) => Math.max(m, v), -Infinity), min = a => a.reduce((m, v) => Math.min(m, v), Infinity);
+  const runA = inlet => {
+    const L = new R.LbmRef(64, { nu: NU, uIn: U, channel: true, inlet });
+    L.init(() => [U / 2, 0]);
+    L.step(8000);
+    const c = L.columns();
+    return { Vmin: min(c.V), Vmax: max(c.V), dev: max(Array.from(c.V, v => Math.abs(v - 1))), uy: max(Array.from(L.uy, v => Math.abs(v))) / U, level: L.meanRho() };
+  };
+  const n = 128, phi = R.diskPhi(n, 64, 63.5, 9.6, W);
+  const runB = inlet => {
+    const L = new R.LbmRef(n, { nu: NU, uIn: U, channel: true, width: W, h: H, phi, inlet });
+    L.step(14000);
+    const c14 = L.columns();
+    L.step(2000);
+    const c = L.columns(), V = Array.from(c.V), centre = 63 * n + 64;
+    let gapMax = -Infinity, inletX = 0, inletY = 0, mirror = 0;
+    for (let y = 0; y < n; y++) {
+      gapMax = Math.max(gapMax, L.ux[y * n + 64] / U);
+      inletX = Math.max(inletX, Math.abs(L.ux[y * n] / U - 1));
+      inletY = Math.max(inletY, Math.abs(L.uy[y * n]) / U);
+      for (let x = 0; x < n; x++) {
+        const a = y * n + x, b = (n - 1 - y) * n + x;
+        mirror = Math.max(mirror, Math.abs(L.ux[a] - L.ux[b]) / U, Math.abs(L.uy[a] + L.uy[b]) / U);
+      }
+    }
+    const st = {
+      Vmin: min(V), Vmax: max(V), V0: c.V[0], Vout: c.V[n - 1],
+      steady: max(V.map((v, x) => Math.abs(v - c14.V[x]))),
+      conserve: max(Array.from(c.Q, q => Math.abs(q / c.Q[0] - 1))),
+      centreSpeed: Math.hypot(L.ux[centre], L.uy[centre]) / U, centreK: L.K[centre] / L.dragK, gapMax,
+      inletX, inletY, mirror, Q0: c.Q[0], rhoIn: c.R[0], rhoOut: c.R[n - 1], level: L.meanRho(),
+    };
+    st.valid = st.steady <= 1e-4 && st.conserve <= 2e-3 && st.centreSpeed <= 0.01 && st.centreK >= 0.99 && st.gapMax >= 1.05;
+    return st;
+  };
+  const aV = runA("velocity"), aE = runA("equilibrium"), bV = runB("velocity"), bE = runB("equilibrium");
+  const okA = aV.dev <= 1e-6 && aV.uy <= 1e-6 && aE.Vmax < 0.98;
+  const okB = bV.Vmin >= 0.98 && bV.Vmax <= 1.02 && bV.valid && bV.inletX <= 1e-12 && bV.inletY <= 1e-12 && bV.mirror <= 1e-9;
+  const okArm = bE.Vmax < 0.98 && Math.abs(bE.V0 - 0.83152) <= 1e-4 && bE.rhoIn > bE.rhoOut && bE.valid;
+  const r = (o, d = 6) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === "number" ? +v.toPrecision(d) : v]));
+  check("FLOW-INLET-CPU", okA && okB && okArm, {
+    emptyAfterSpeedChange: { velocity: r(aV), equilibrium: r(aE) },
+    blocked: { velocity: r(bV), equilibrium: r(bE) }, verdicts: { okA, okB, okArm },
+  });
+}
+
+// 8. FLOW-INLET-DEFAULT — the app runs the velocity inlet: the lattice uniform
+//    (lbm.ts lbmUniform) writes inlet word 0 unless "equilibrium" is named,
+//    and every other word exactly as FlowSolver packed it before D3.5; no
+//    source file names the old inlet. Must-miss: the guard's pattern matches a
+//    planted line, so a clean scan is not a blind one.
+{
+  const LB = await server.ssrLoadModule("/src/lbm.ts");
+  const { readdirSync, readFileSync, statSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { fileURLToPath } = await import("node:url");
+  const prior = (n, c, phiOn, h) => {   // FlowSolver.writeParams before D3.5, verbatim
+    const tauP = 0.5 + 3 * c.nu, tauM = 0.5 + 0.25 / (tauP - 0.5);
+    const buf = new ArrayBuffer(48), u = new Uint32Array(buf), f = new Float32Array(buf);
+    u[0] = n; u[1] = c.channel ? 1 : 0; u[2] = phiOn && c.width > 0 ? 1 : 0;
+    f[4] = 1 / tauP; f[5] = 1 / tauM; f[6] = c.uIn;
+    f[7] = c.width > 0 ? (2 * h * c.nu) / (c.width * c.width) : 0;
+    f[8] = c.force?.[0] ?? 0; f[9] = c.force?.[1] ?? 0;
+    return Array.from(u);
+  };
+  const h = F.deriveDragH();
+  const cfgs = [
+    [64, { nu: 0.1, uIn: 0, channel: false, width: 0, force: [2.9e-5, 0] }, false],
+    [128, { nu: 3.465, uIn: 0.011404, channel: true, width: 1.25 }, true],
+    [64, { nu: 0.2, uIn: 0.02, channel: true, width: 0 }, false],
+  ];
+  const words = [];
+  for (const [n, c, phiOn] of cfgs) {
+    const old = prior(n, c, phiOn, h);
+    for (const inlet of [undefined, "velocity", "equilibrium"]) {
+      const now = Array.from(new Uint32Array(LB.lbmUniform(n, inlet ? { ...c, inlet } : c, phiOn, h)));
+      words.push({ inlet: inlet ?? "default", word3: now[3], othersAsBefore: now.every((w, i) => i === 3 || w === old[i]), wholeAsBefore: now.every((w, i) => w === old[i]) });
+    }
+  }
+  const packOk = words.every(w => (w.inlet === "equilibrium" ? w.word3 === 1 : w.word3 === 0 && w.wholeAsBefore) && w.othersAsBefore);
+  const pattern = /inlet\s*:\s*["'`]equilibrium["'`]/;
+  const files = [];
+  const walk = d => { for (const e of readdirSync(d)) { const p = join(d, e); if (statSync(p).isDirectory()) walk(p); else if (/\.ts$/.test(e)) files.push(p); } };
+  walk(fileURLToPath(new URL("../src/", import.meta.url)));
+  const offenders = files.filter(p => pattern.test(readFileSync(p, "utf8"))).map(p => p.replace(/\\/g, "/").replace(/^.*\/src\//, "src/"));
+  const planted = ['this.flow.configure({ ...cfg, inlet: "equilibrium" });', "new FlowSolver(d, n, { nu, uIn, channel: true, width, inlet:'equilibrium' })"].every(l => pattern.test(l));
+  check("FLOW-INLET-DEFAULT", packOk && files.length > 20 && offenders.length === 0 && planted, {
+    packing: words.map(w => `${w.inlet}:${w.word3}${w.othersAsBefore ? "" : " (other words moved)"}`), defaultBitIdenticalToPreD35: words.filter(w => w.inlet !== "equilibrium").every(w => w.wholeAsBefore),
+    scanned: files.length, offenders, guardSeesPlanted: planted,
   });
 }
 
