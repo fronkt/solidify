@@ -6207,3 +6207,27 @@ branch touches their code paths: verify-recrystallize-gpu.mjs (RX3-PANEL's
 7/6 tuple and card, the default mode), verify-heattreat-gpu.mjs (HT3-SE-PANEL
 dial count 7, panel copy), verify-rail.mjs (3D heat-treat panel geometry with
 the eighth form cell, learn hints).
+
+### GPU results (root, frozen 90065bf, 2026-11-07 04:08-04:17): all PASS
+
+verify-recrystallize-rate-gpu 5/5 OK, PAGE ERRORS none; verify-recrystallize-gpu
+13/13; verify-heattreat-gpu 27/27; verify-rail 11/11.
+- RX3-RATE-SCHEDULE: births at sweeps 0, 3, ..., 21 (stamped 50/50/49/45/45/
+  38/38/32, phantoms 0/0/1/5/5/12/12/18), 0 disagreements; one batch at sweep 0
+  bit-identical to nucleate (hashes a9be4557 / 312a00f2 / ff3d8360); an abort
+  at 8 sweeps leaves 250 nuclei unborn, none seen.
+- RX3-RATE-JMAK: slope vs ln X_ext 1.024 / 1.005 / 1.054 (seeds 161-163,
+  band 1 +- 0.15, 14-15 points, X_end 1); site-saturated construction 1.211 /
+  1.182 / 1.244 (must exceed 1.15). Info: sweep-clock n 2.85 / 2.77 / 2.93;
+  age-shifted shortcut 0.93-0.96 (the error the measured V(t_b, S) avoids).
+- RX3-BOUNDARY-SITES: 600/600 centres on boundary (independent classifier,
+  0 misses); random control 0.113 on boundaries (voxel fraction 0.126); steady
+  boundary mode 0 misses; single crystal refuses with its reason.
+- RX3-BOUNDARY-JMAK: union slope boundary 0.957 / 0.961 / 0.971, random 1.045 /
+  1.053 / 1.051; Poisson slope random 1.056 / 1.045 / 1.053 (in 1 +- 0.15),
+  boundary 0.662 / 0.702 / 0.734 (must be < 0.85); X_end 1 everywhere.
+- RX3-MODES-PANEL: select + 7 dials, 8-element tuple only off-default, card =
+  event log (boundary steady: 155 placed, 45 phantom of 200, 16 batches over
+  1318 sweeps), legacy 7/6 links restore.
+Merged v7-experiments (3b3fbdd) afterwards (3a99c33); the merged head needs the
+full suite before its PR merges (S4).
