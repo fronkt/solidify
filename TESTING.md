@@ -4,11 +4,13 @@ Visual and science expansion, 2026-11-01 (feature/visual): six scripts on
 top of the merged 39, so the local suite registers 45 and CI gates twenty-six
 browser-free scripts.
 
-- `verify-replay.mjs` (browser-free, five checks): the replay ledger refuses
+- `verify-replay.mjs` (browser-free, six checks): the replay ledger refuses
   after remelting (with a live threshold), clears on a reset, keeps its first
   reason and clamps requests; the GPU rule is pinned to the STRICT
   `age < t` comparison in both dimensions, and every 2D render read of the
-  state goes through `loadState`.
+  state goes through `loadState`; a heat treatment's mark, made at the call
+  after syncing the clock, survives a reset no frame saw (marking alone is
+  lost to the next frame).
 - `verify-recrystallize.mjs` (browser-free, five checks): the Avrami fit
   recovers exact JMAK exponents, is sweep-clock invariant and refuses thin
   windows; the bond counter reproduces the cited triangular thresholds and the

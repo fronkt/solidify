@@ -15,7 +15,9 @@
 //      at a frame boundary, one batch early.
 //
 // The GPU behaviour itself (replayed masks against masks captured live) is
-// verify-replay-gpu.mjs; this file pins what can be pinned without a device.
+// verify-visual-gpu.mjs (VIS-REPLAY-*); this file pins what can be pinned
+// without a device, including the ledger's call contracts the app relies on:
+// a treatment marks after syncing the clock.
 //
 //   node scripts/verify-replay.mjs
 import { createServer } from "vite";
@@ -105,6 +107,22 @@ const check = (name, ok, detail) => {
   const noLe = !/<= ?R\.scrubT/.test(load) && !/<= ?S\.x/.test(scrub3);
   check("REPLAY-RULE-STRUCTURE", rule2 && rule3 && noLe && direct === 1,
     { rule2, rule3, strictOnly: noLe, directStateLoadsIn2DRender: direct });
+}
+
+// 6. REPLAY-LEDGER-TREAT — a treatment marks the ledger at the call, clock
+//    first (main.ts markTreated). The case that needs the order: a reset and a
+//    fixed-step re-cast with no frame in between (sim time 5 -> 0 -> 3), then a
+//    treatment, then the next frame's clock(3). Clock-then-mark keeps the mark;
+//    the falsification arm, mark alone, loses it to that frame's clock (3 < 5
+//    reads as the reset), and the replay would paint treated ids.
+{
+  const ordered = new R.ReplayLedger(), naive = new R.ReplayLedger();
+  for (const L of [ordered, naive]) { L.observe(5, 0.9); L.clock(5); }
+  ordered.clock(3); ordered.mark(R.REASON.anneal);
+  naive.mark(R.REASON.anneal);
+  for (const L of [ordered, naive]) L.clock(3);   // the next frame
+  check("REPLAY-LEDGER-TREAT", ordered.reason === R.REASON.anneal && naive.reason === null,
+    { clockThenMark: ordered.reason === R.REASON.anneal, markAloneLost: naive.reason === null });
 }
 
 await server.close();

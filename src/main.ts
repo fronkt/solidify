@@ -1724,6 +1724,16 @@ async function boot() {
     fracSolid: s.fracSolid, grainCount: s.grainCount,
     meanAreaPx: 0, meanVolVox: s.meanVolVox, astm: null,
   });
+  // A treatment that moves grain ids (sweeps, nuclei, twin plates) marks the
+  // replay ledger of the dimension it runs in AT THE CALL. The frame loop's
+  // heat.busy mark stays as a backstop, but on its own a short treatment could
+  // start and finish between two frames and leave the ledger clean, and the
+  // replay would paint treated ids onto earlier solid. The clock goes first, so
+  // a reset no frame has seen yet clears the old cast's ledger BEFORE the mark.
+  const markTreated = () => {
+    if (mode === "3d" && sim3d) { replay3.clock(sim3d.simTime); replay3.mark(REPLAY.anneal); }
+    else { replay2.clock(sim.simTime); replay2.mark(REPLAY.anneal); }
+  };
   const heatHost: HeatHost = {
     units: () => unitsNow(),
     meta: () => plotMeta(),
@@ -1752,12 +1762,18 @@ async function boot() {
       }
       return s;
     },
-    anneal: (sweeps, onProgress, pin, sample) =>
-      mode === "3d" && sim3d
+    anneal: (sweeps, onProgress, pin, sample) => {
+      markTreated();
+      return mode === "3d" && sim3d
         ? sim3d.anneal(sweeps, undefined, onProgress, pin, sample)
-        : sim.anneal(sweeps, undefined, onProgress, pin),
+        : sim.anneal(sweeps, undefined, onProgress, pin);
+    },
     // C3b: nuclei after the deposit, and the raw census X is read from
-    nucleate: async (count, pin) => (mode === "3d" && sim3d ? sim3d.nucleate(count, undefined, undefined, pin) : { why: "Recrystallization runs in the volume only." }),
+    nucleate: async (count, pin) => {
+      if (!(mode === "3d" && sim3d)) return { why: "Recrystallization runs in the volume only." };
+      markTreated();
+      return sim3d.nucleate(count, undefined, undefined, pin);
+    },
     rxCensus: async () => {
       if (mode !== "3d" || !sim3d) return null;
       for (let i = 0; i < 60; i++) {
@@ -1783,6 +1799,7 @@ async function boot() {
     // spawned is what the allocator actually delivered, and saturation is
     // reported rather than silently truncating the twin density.
     async annealTwins(sweeps, onProgress, pin) {
+      markTreated();
       if (!(mode === "3d" && sim3d)) {
         return { delivered: await sim.anneal(sweeps, undefined, onProgress, pin), spawned: 0, saturated: false };
       }
