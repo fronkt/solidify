@@ -277,3 +277,16 @@ The verdict is the CLI's alone.
   value still carries the dx/W0 = 0.8 lattice error (dx arm: sigma* -3%).
 - The anisotropy-definition (Section 4 item 2) and angular-kinetic hypotheses
   are not tested by W1.
+
+## Addendum, 2026-11-07, before any GPU run (arms, rules and predictions unchanged)
+
+`quant3d-q3c-angular-magnitude.py` evaluates the sealed angular term in Float64
+over all normals: gamma = (16 eps/3)(S6 - S4^2)/a peaks at 0.007213 near
+theta 25.7 deg, phi 45 deg (closed form in a {100} plane: S6 - S4^2 =
+sin^2(4 theta)/16). The angular part therefore changes the h^2 kinetic
+coefficient by at most 3.55% of the principal 1321/9870. Scaling the measured
+principal-correction effect (+4.7% V, +2.5% sigma*) by that fraction bounds the
+continuum angular effect near 0.2% in V. This is an order-of-magnitude bound,
+not a measurement: nodewise finite-difference normals, h^4 remainders and
+finite-speed stability are not covered. It supports ranking off-principal
+kinetics below the width and anisotropy-definition hypotheses.
