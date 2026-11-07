@@ -63,6 +63,10 @@ et al. 2001 Table II. Every other path is labelled qualitative.
   Kobayashi alloy: u c directly. Frozen temperature: never advect T.
 - Explicit boundary faces (a clamped central face would leak): walls 0;
   inlet u_in tFar and u_in c0 (already in P2); outlet upwind interior.
+  Open (review 2026-11-07): the inlet brings tFar even while coolRate cools
+  the domain, so with cooling on the stream is a heat source (a sink under
+  reheat). Whether the reservoir should follow the furnace is a modeling
+  choice not made yet; the science page states the limit.
 - Clock: one LBM step per substep at dt_LBM = dt, dispatched before FLUX in
   submit(); macroscopic velocity to model units as u dx/dt. Tong used a flow
   step ~10x the phase-field step; if FLOW-TAU-INDEP fails, the pre-registered

@@ -407,6 +407,11 @@ const AT_NONE = /* wgsl */ `
  * the far-field temperature, or c0); the outlet face at x = n - 1 carries the
  * cell's own value out (upwind). The velocity is superficial ((1 - phi) V, the
  * drag holds it near zero in the solid), so the solid is not swept.
+ * Known limit (review 2026-11-07, open): the inlet always brings tFar, the
+ * pour's far-field temperature, while coolRate cools (and heatIn warms) the
+ * whole domain uniformly. With cooling on, the stream is warmer than the melt
+ * it replaces and acts as a heat source at the inlet; a reservoir that cools
+ * with the furnace is not modeled.
  * Temperature is never advected when it is imposed (frozenT). Solute is
  * advected only on the Kobayashi path; the calibrated alloy is refused for
  * flow in this slice (flow.ts flowRefusal).
