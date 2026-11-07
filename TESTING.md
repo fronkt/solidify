@@ -4,7 +4,7 @@ Visual and science expansion, 2026-11-01 (feature/visual): six scripts on
 top of the merged 39, so the local suite registers 45 and CI gates twenty-six
 browser-free scripts.
 
-- `verify-replay.mjs` (browser-free, seven checks): the replay ledger refuses
+- `verify-replay.mjs` (browser-free, eight checks): the replay ledger refuses
   after remelting (with a live threshold), clears on a reset, keeps its first
   reason and clamps requests; the GPU rule is pinned to the STRICT
   `age < t` comparison in both dimensions, and every 2D render read of the
@@ -12,7 +12,8 @@ browser-free scripts.
   after syncing the clock, survives a reset no frame saw (marking alone is
   lost to the next frame); a census read issued before a reset and landing
   after it is dropped by its generation (the old call shape refuses the fresh
-  pour as remelted).
+  pour as remelted); the ledger owns the scrub, which ends when the strip is
+  withdrawn, on a reset and on a mark, and is refused while marked.
 - `verify-recrystallize.mjs` (browser-free, five checks): the Avrami fit
   recovers exact JMAK exponents, is sweep-clock invariant and refuses thin
   windows; the bond counter reproduces the cited triangular thresholds and the

@@ -18,7 +18,7 @@
 // verify-visual-gpu.mjs (VIS-REPLAY-*); this file pins what can be pinned
 // without a device, including the ledger's call contracts the app relies on:
 // a treatment marks after syncing the clock, a census read carries the reset
-// count it was issued under.
+// count it was issued under, and the scrub is owned by the ledger.
 //
 //   node scripts/verify-replay.mjs
 import { createServer } from "vite";
@@ -150,6 +150,27 @@ const check = (name, ok, detail) => {
     && live.reason === R.REASON.remelt && plain.reason === R.REASON.remelt,
     { generationBumpsOnReset: bumped, staleDropped: withGen.reason === null, oldShapeRefusesFreshPour: noGen.reason === R.REASON.remelt,
       currentStillMarks: live.reason === R.REASON.remelt, omittedIsCurrent: plain.reason === R.REASON.remelt });
+}
+
+// 8. REPLAY-SCRUB — the ledger owns the replay time (ReplayLedger.frame). A
+//    scrub stands while the strip is offered and nothing invalidates it, and
+//    ends on each of: the strip withdrawn (running, or a mode panel opening,
+//    which hides the live button too), a reset (the clock running back, which
+//    a grid swap or a fresh volume also is), and a mark.
+//    Requests are refused while marked. Liveness: each arm starts from a
+//    standing scrub, and the one arm with nothing wrong keeps it.
+{
+  const standing = () => { const L = new R.ReplayLedger(); L.frame(2, true); L.scrub(1, 2); return L; };
+  const keep = standing(); const kept = keep.frame(2, true);
+  const arms = {
+    withdrawn: (() => { const L = standing(); return L.frame(2, false); })(),
+    reset: (() => { const L = standing(); return L.frame(0, true); })(),
+    marked: (() => { const L = standing(); L.mark(R.REASON.reheat); return L.frame(2, true); })(),
+  };
+  const refused = (() => { const L = new R.ReplayLedger(); L.frame(2, true); L.mark(R.REASON.weld); L.scrub(1, 2); return L.scrubTime; })();
+  const clamped = (() => { const L = new R.ReplayLedger(); L.frame(2, true); L.scrub(7, 2); return L.scrubTime; })();
+  check("REPLAY-SCRUB", kept === 1 && Object.values(arms).every(v => v === null) && refused === null && clamped === 2,
+    { kept, ...arms, refusedWhileMarked: refused, clampedToNow: clamped });
 }
 
 await server.close();

@@ -17,6 +17,10 @@
  * reset (sim time running backward is a reset; it only advances otherwise),
  * and a measured fall in the solid fraction counts as remelting whatever
  * caused it. The replay is offered only while the ledger is clean.
+ *
+ * It also owns the replay time being shown (the scrub), because every way a
+ * scrub goes stale is ledger state or comes through the per-frame call: a
+ * reset, a mark, or the strip that can end it leaving the screen (`frame`).
  */
 
 /** a fall in solid fraction larger than this (absolute, 0..1) is remelting.
@@ -36,6 +40,7 @@ export class ReplayLedger {
   private lastT = 0;
   private fsMax = 0;
   private gen = 0;
+  private scrubT: number | null = null;
 
   /** why the history cannot be replayed, or null when it can */
   get reason(): string | null { return this.why; }
@@ -68,10 +73,37 @@ export class ReplayLedger {
     else if (fracSolid < this.fsMax - FS_DROP) this.mark(REASON.remelt);
   }
 
-  /** record a cause; the first one stands until the next reset */
-  mark(reason: string) { if (this.why == null) this.why = reason; }
+  /** record a cause; the first one stands until the next reset. A marked
+   *  history cannot be replayed, so a scrub in progress ends here too. */
+  mark(reason: string) { if (this.why == null) this.why = reason; this.scrubT = null; }
 
-  clear() { this.why = null; this.lastT = 0; this.fsMax = 0; this.gen++; }
+  clear() { this.why = null; this.lastT = 0; this.fsMax = 0; this.gen++; this.scrubT = null; }
+
+  /** ask for a replay time (null = live); refused while the ledger is marked,
+   *  clamped to the recorded span [0, now] */
+  scrub(t: number | null, now: number) {
+    this.scrubT = t == null || this.why != null ? null : this.clamp(t, now);
+  }
+
+  /** the replay time asked for and still standing, or null for live */
+  get scrubTime(): number | null { return this.scrubT; }
+
+  /**
+   * The replay time to draw THIS frame, or null for the live field. Call once
+   * per frame with the solver's clock and whether the strip is offered (the
+   * plain instrument, paused). Before this owned the scrub, a time survived a
+   * reset, a grid swap, a 3D re-entry and a mode panel opening (which hides the
+   * strip and its live button), and the canvas kept the replay's far-field
+   * look over the real field with no control left to end it. A scrub ends on
+   * a reset (the clock running back; a swapped solver starts at 0), a mark, or
+   * the strip not being offered. (A time past now is refused as well, though
+   * only a clock that ran back, already a reset, can produce one.)
+   */
+  frame(now: number, offered: boolean): number | null {
+    this.clock(now);
+    if (!offered || this.why != null || this.scrubT == null || !(this.scrubT <= now)) this.scrubT = null;
+    return this.scrubT;
+  }
 
   /** a requested replay time, clamped to the recorded span [0, now] */
   clamp(t: number, now: number): number {

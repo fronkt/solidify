@@ -73,8 +73,9 @@ async function boot() {
   // charge's liquidus through closures: none is called until boot is done
   // The replay (src/replay.ts): one ledger per dimension, because each solver
   // keeps its own freeze-time history and a switch leaves the other intact.
-  // scrub2/scrub3 are the replay times being shown (null = live); the frame
-  // loop clears them whenever the melt runs or the ledger is marked.
+  // Each ledger owns its replay time (scrub); the frame loop asks it for the
+  // time to draw (ReplayLedger.frame), which ends a scrub whenever the strip
+  // is not offered, the clock ran back, or the ledger is marked.
   const replay2 = new ReplayLedger(), replay3 = new ReplayLedger();
   // D3.3: why melt flow is refused or was switched off (null = fine), and the
   // one predicate (flow.ts) every flow surface asks
@@ -84,7 +85,12 @@ async function boot() {
     alloy: sim.params.alloyOn === 1, calibrated: sim.params.solver === 1, grid: sim.n,
     busyMode: heat?.active ? "heat treatment" : opt.active ? "optimizer" : challenge.active ? "challenge" : lab.active ? "lab mode" : null,
   });
-  let scrub2: number | null = null, scrub3: number | null = null;
+  /** the replay strip is offered: the plain instrument, paused (a mode
+   *  panel owns the stage otherwise, and hides the strip and its live button) */
+  const replayOffered = (three: boolean): boolean => {
+    const plain = !opt.active && !opt3?.active && !lab.active && !heat?.active && !challenge.active;
+    return plain && (three ? sim3d != null && !running3d && !mode3dPending : !running);
+  };
   // Grain isolation (3D): alt-tap or a long press picks the grain under the
   // pointer along the camera's own ray; the renderer ghosts every other grain.
   // vox is an exact whole-volume count (Sim3D.readRegion), null until it lands.
@@ -138,21 +144,15 @@ async function boot() {
     replay: () => {
       const three = mode === "3d";
       const ledger = three ? replay3 : replay2;
-      // the plain instrument, paused: a mode panel owns the stage otherwise
-      const plain = !opt.active && !opt3?.active && !lab.active && !heat?.active && !challenge.active;
-      const paused = plain && (three ? sim3d != null && !running3d && !mode3dPending : !running);
       return {
-        paused, reason: ledger.reason, t: three ? scrub3 : scrub2,
+        paused: replayOffered(three), reason: ledger.reason, t: ledger.scrubTime,
         now: three ? (sim3d?.simTime ?? 0) : sim.simTime,
         label: (t: number) => unitsNow().fmtDuration(t),
       };
     },
     scrub: (t: number | null) => {
       const three = mode === "3d";
-      const ledger = three ? replay3 : replay2;
-      const now = three ? (sim3d?.simTime ?? 0) : sim.simTime;
-      const v = t == null || ledger.reason != null ? null : ledger.clamp(t, now);
-      if (three) scrub3 = v; else scrub2 = v;
+      (three ? replay3 : replay2).scrub(t, three ? (sim3d?.simTime ?? 0) : sim.simTime);
     },
   });
 
@@ -1962,7 +1962,7 @@ async function boot() {
     r2: () => renderer,
     r3: () => renderer3d,
     iso3: () => iso3,
-    replayState: () => ({ reason2: replay2.reason, reason3: replay3.reason, scrub2, scrub3 }),
+    replayState: () => ({ reason2: replay2.reason, reason3: replay3.reason, scrub2: replay2.scrubTime, scrub3: replay3.scrubTime }),
     vc: () => viewcube,
     fps: () => fps,
     stl: () => exportSTL(false),
@@ -2427,8 +2427,7 @@ async function boot() {
         if (sim3d.params.scen === 2 && running3d) replay3.mark(REPLAY.weld);
         if (sim3d.params.heatIn > 0) replay3.mark(REPLAY.reheat);
         if (heat?.busy) replay3.mark(REPLAY.anneal);
-        if (running3d || replay3.reason != null) scrub3 = null;
-        renderer3d.scrubT = scrub3;
+        renderer3d.scrubT = replay3.frame(sim3d.simTime, replayOffered(true));
         renderer3d.render(sim3d, view3d, t / 1000, slicePlane(slice, sim3d.n), slice.style, still3);
         renderer3d.scrubT = null;
         hud.syncReplay();
@@ -2559,8 +2558,7 @@ async function boot() {
       if (sim.params.scen === 2 && running) replay2.mark(REPLAY.weld);
       if (sim.params.heatIn > 0) replay2.mark(REPLAY.reheat);
       if (heat?.busy) replay2.mark(REPLAY.anneal);
-      if (running || replay2.reason != null) scrub2 = null;
-      renderer.scrubT = scrub2;
+      renderer.scrubT = replay2.frame(sim.simTime, replayOffered(false));
       renderer.render(sim, view, t / 1000);
       renderer.scrubT = null;
       hud.syncReplay();
