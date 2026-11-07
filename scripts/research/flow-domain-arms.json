@@ -1,0 +1,19 @@
+{
+ "study": "D3.4 flow domain study",
+ "protocol": "tasks/todo.md, D3.4 flow domain study - 2026-11-07 (amended before any run)",
+ "protocolCommit": "8ad00f6837c0040e99cbf78f9c49bf53ddf6f62f",
+ "geometries": [
+  { "id": "D24-1024", "family": "D", "lambda": 2.4, "n": 1024, "seedX": 512, "replica": { "ratio": 1.329, "vd0DNoflow": 0.01678 } },
+  { "id": "D32-1024", "family": "D", "lambda": 3.2, "n": 1024, "seedX": 512, "replica": { "ratio": 1.356, "vd0DNoflow": 0.01626 } },
+  { "id": "D20-1024", "family": "D", "lambda": 2.0, "n": 1024, "seedX": 512, "replica": { "ratio": 1.259, "vd0DNoflow": 0.01701 } },
+  { "id": "D32-640", "family": "D", "lambda": 3.2, "n": 640, "seedX": 320 },
+  { "id": "D24-848", "family": "D", "lambda": 2.4, "n": 848, "seedX": 424, "control": true },
+  { "id": "D32-768", "family": "D", "lambda": 3.2, "n": 768, "seedX": 384 },
+  { "id": "L32-1024", "family": "L", "lambda": 3.2, "n": 1024, "seedX": 320 },
+  { "id": "L32-768", "family": "L", "lambda": 3.2, "n": 768, "seedX": 320 },
+  { "id": "I24-448", "family": "I", "lambda": 2.4, "n": 1024, "seedX": 448 },
+  { "id": "I24-576", "family": "I", "lambda": 2.4, "n": 1024, "seedX": 576 },
+  { "id": "I24-704", "family": "I", "lambda": 2.4, "n": 1024, "seedX": 704 },
+  { "id": "L24-1024", "family": "L", "lambda": 2.4, "n": 1024, "seedX": 424 }
+ ]
+}

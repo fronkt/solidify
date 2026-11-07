@@ -1,0 +1,457 @@
+{
+ "study": "D3.4 flow domain study (research; FLOW-TIP-TONG stays FAILED and is not re-scored)",
+ "protocol": "tasks/todo.md, D3.4 flow domain study - 2026-11-07 (amended before any run)",
+ "protocolCommit": "8ad00f6837c0040e99cbf78f9c49bf53ddf6f62f",
+ "commit": "bfe60355eb78851733d8f3c4a401a854cef33944",
+ "dirty": "",
+ "committedBlobs": {
+  "src/sim.ts": "d2a7438e35c88d99181bd835830b101c5e64ffa5",
+  "src/shaders.ts": "89a21dab196ccce4e64318a41ad600cd711684b8",
+  "src/lbm.ts": "1979996322d399badb4b7a6aac049d993fac4f54",
+  "src/flow.ts": "f2c46fb1f56daa452501a334fdca15661b71e979",
+  "src/main.ts": "aee9cc7d9566a557dfe7e0eb7cbd27132cf6ffa5",
+  "src/render.ts": "ee4f11d2e6cc76c3e790501e37e75fc19375a064",
+  "scripts/research/flow-domain.mjs": "c589643d425423dce7e543801282dd34d429fc43",
+  "scripts/research/flow-domain-selftest.mjs": "4e1b1081a4cf6739d10bfcf570f8d1b79835562b",
+  "scripts/research/flow-domain-arms.json": "08cfaadfa4eff122e582c81441b5ef0b64787738",
+  "scripts/browser-cleanup.mjs": "91dcf7fe93f4005450b05085863823b4dcb57c78"
+ },
+ "date": "2026-11-07",
+ "started": "2026-11-07T17:54:06.594Z",
+ "argv": [
+  "--run",
+  "--port",
+  "5201"
+ ],
+ "port": "5201",
+ "selected": [
+  "D24-1024",
+  "D32-1024",
+  "D20-1024",
+  "D32-640",
+  "D24-848",
+  "D32-768",
+  "L32-1024",
+  "L32-768",
+  "I24-448",
+  "I24-576",
+  "I24-704",
+  "L24-1024"
+ ],
+ "constants": {
+  "A1": 0.8839,
+  "A2": 0.6267,
+  "DELTA": 0.55,
+  "EPS4": 0.05,
+  "REF": 0.017,
+  "PR": 23.1,
+  "UD0D": 0.035,
+  "DX": 0.8,
+  "SEED_R_W0": 8,
+  "NS": 33,
+  "TRAVEL_LD": 8,
+  "STOP_CELLS": 32,
+  "LAMBDAS": [
+   2,
+   2.4,
+   3.2
+  ],
+  "N_MAX": 1024,
+  "N_MIN": 256
+ },
+ "rules": {
+  "replicaRatioTol": 0.0005,
+  "replicaVTol": 0.000005,
+  "refTol": 0.02,
+  "mirrorTol": 0.05,
+  "material": 0.03,
+  "immaterial": 0.015,
+  "support": 0.5,
+  "reject": 0.25,
+  "opposite": -0.25,
+  "inflowTrigger": 0.98,
+  "windowTrigger": 0.02,
+  "zInletMin": 0.5,
+  "zAheadMax": 0.9
+ },
+ "staging": {
+  "2": {
+   "lambda": 2,
+   "dx": 0.8,
+   "dTilde": 1.2534,
+   "dt": 0.07659167065581618,
+   "vGuess": 0.04821314628351624,
+   "travelW0": 207.9764705882353,
+   "travelCells": 259.9705882352941,
+   "chunk": 1707,
+   "substeps": 56331,
+   "uLat": 0.009503337481615567,
+   "diffusionNumber": 0.14999999999999997,
+   "nuLat": 3.4649999999999994,
+   "tau": 10.894999999999998,
+   "mach": 0.016460263359631824,
+   "peCell": 0.06335558321077046,
+   "cellD0": 1.8101595203077272,
+   "lDCells": 32.49632352941176,
+   "nuOverUCells": 364.60874999999993,
+   "seedRCells": 10
+  },
+  "2.4": {
+   "lambda": 2.4,
+   "dx": 0.8,
+   "dTilde": 1.50408,
+   "dt": 0.06382639221318015,
+   "vGuess": 0.06942693064826339,
+   "travelW0": 173.31372549019608,
+   "travelCells": 216.64215686274508,
+   "chunk": 1185,
+   "substeps": 39105,
+   "uLat": 0.011404004977938682,
+   "diffusionNumber": 0.14999999999999997,
+   "nuLat": 3.4649999999999994,
+   "tau": 10.894999999999998,
+   "mach": 0.01975231603155819,
+   "peCell": 0.07602669985292457,
+   "cellD0": 2.1721914243692724,
+   "lDCells": 27.080269607843135,
+   "nuOverUCells": 303.84062499999993,
+   "seedRCells": 10
+  },
+  "3.2": {
+   "lambda": 3.2,
+   "dx": 0.8,
+   "dTilde": 2.00544,
+   "dt": 0.04786979415988511,
+   "vGuess": 0.12342565448580156,
+   "travelW0": 129.98529411764707,
+   "travelCells": 162.48161764705884,
+   "chunk": 667,
+   "substeps": 22011,
+   "uLat": 0.015205339970584911,
+   "diffusionNumber": 0.14999999999999997,
+   "nuLat": 3.4649999999999994,
+   "tau": 10.894999999999998,
+   "mach": 0.026336421375410923,
+   "peCell": 0.10136893313723276,
+   "cellD0": 2.896255232492364,
+   "lDCells": 20.310202205882355,
+   "nuOverUCells": 227.88046874999992,
+   "seedRCells": 10
+  }
+ },
+ "sourceHashes": {
+  "src/sim.ts": {
+   "raw": "a6ed0b0f9e33570ea0d89085bce04f25e5c9210846823caf2666f6e085fd4fab",
+   "lf": "b8392bdc9a36ccb4e31d96c292cf423f257d153ca8b46b565cedf84d15e9bd82"
+  },
+  "src/shaders.ts": {
+   "raw": "468ac5b2a2ff5aa110c6c1a1fbe035fbec811aa87d61eac887bf37df15bd4830",
+   "lf": "c27b7f1d05cf73b5530997189dea32265edeee567f07561d2ebcf82bd3b2aaef"
+  },
+  "src/lbm.ts": {
+   "raw": "88990b1ef6d8db8dda1e9d3c8deaea7ff5bb5c45015787351e140c8edd27f68b",
+   "lf": "7b3515da9f58192d5fbc46793c46d652123f23ca0577ef3114b3582b89fb6d74"
+  },
+  "src/flow.ts": {
+   "raw": "5dad677e1e7ac1d42599d91a3579f28b2e2da1758f2671b24eca2a35c7a3f910",
+   "lf": "dff46875f40c43d36372e778b8aaf906e3277d2a7e33306a3b0090e1cf108753"
+  },
+  "src/main.ts": {
+   "raw": "5ffc7b00cfb3ff72f2e88ba09adfb35e65afdcf89b4f4dbab6272c50555b795b",
+   "lf": "2cdc453c485c3d4d0668544d8425867c69e1679999580066fea4602c2a22a174"
+  },
+  "src/render.ts": {
+   "raw": "00f4ca3f9b8d42d073d3b9c214b1d4318c137ccb382deedc19fe248c4746bc79",
+   "lf": "8f92a6527e86f822537928a0cbecae671a3cd225a2de81efddc419466f2c0bc1"
+  },
+  "scripts/research/flow-domain.mjs": {
+   "raw": "e6873727bf20c2ff0c6c2896674bb1da80741dbc065f1f36b50955737a71419c",
+   "lf": "e6873727bf20c2ff0c6c2896674bb1da80741dbc065f1f36b50955737a71419c"
+  },
+  "scripts/research/flow-domain-selftest.mjs": {
+   "raw": "89a486896d53cbdb3defe741e934daeed09065ee02fde9f4955c059c0c95fc8b",
+   "lf": "89a486896d53cbdb3defe741e934daeed09065ee02fde9f4955c059c0c95fc8b"
+  },
+  "scripts/research/flow-domain-arms.json": {
+   "raw": "6cf07bf10ff93025f8ec8e2bb20d866f85e62add4ffae82dd698b84901fe9643",
+   "lf": "6cf07bf10ff93025f8ec8e2bb20d866f85e62add4ffae82dd698b84901fe9643"
+  },
+  "scripts/browser-cleanup.mjs": {
+   "raw": "0b2e5b6790d0c63d5271b51c14509507910f69c2924f7334589e63fa8e82b5b1",
+   "lf": "af3c57e0d09047d4212ce702f9d7e8eaf3f95074812339ac5f33936c1b5e4323"
+  }
+ },
+ "geometries": [
+  {
+   "id": "D24-1024",
+   "family": "D",
+   "lambda": 2.4,
+   "n": 1024,
+   "seedX": 512,
+   "seedY": 512,
+   "control": false,
+   "replica": {
+    "ratio": 1.329,
+    "vd0DNoflow": 0.01678
+   },
+   "boxD0": 2224.324018554135,
+   "halfWidthD0": 1112.1620092770675,
+   "inletD0": 1112.1620092770675,
+   "outletD0": 1112.1620092770675,
+   "units": 39105,
+   "chunk": 1185,
+   "runs": {},
+   "started": "2026-11-07T17:54:08.459Z",
+   "metadata": {
+    "hardware": {
+     "vendor": "intel",
+     "architecture": "xe-2lpg",
+     "device": "",
+     "description": "",
+     "isFallbackAdapter": false
+    },
+    "limits": {
+     "maxStorageBufferBindingSize": 134217728,
+     "maxBufferSize": 268435456,
+     "maxTextureDimension2D": 8192
+    },
+    "served": {
+     "src/sim.ts": {
+      "raw": "a6ed0b0f9e33570ea0d89085bce04f25e5c9210846823caf2666f6e085fd4fab",
+      "lf": "b8392bdc9a36ccb4e31d96c292cf423f257d153ca8b46b565cedf84d15e9bd82"
+     },
+     "src/shaders.ts": {
+      "raw": "468ac5b2a2ff5aa110c6c1a1fbe035fbec811aa87d61eac887bf37df15bd4830",
+      "lf": "c27b7f1d05cf73b5530997189dea32265edeee567f07561d2ebcf82bd3b2aaef"
+     },
+     "src/lbm.ts": {
+      "raw": "88990b1ef6d8db8dda1e9d3c8deaea7ff5bb5c45015787351e140c8edd27f68b",
+      "lf": "7b3515da9f58192d5fbc46793c46d652123f23ca0577ef3114b3582b89fb6d74"
+     },
+     "src/flow.ts": {
+      "raw": "5dad677e1e7ac1d42599d91a3579f28b2e2da1758f2671b24eca2a35c7a3f910",
+      "lf": "dff46875f40c43d36372e778b8aaf906e3277d2a7e33306a3b0090e1cf108753"
+     },
+     "src/main.ts": {
+      "error": "Unexpected identifier 'StatsResult'"
+     },
+     "src/render.ts": {
+      "raw": "00f4ca3f9b8d42d073d3b9c214b1d4318c137ccb382deedc19fe248c4746bc79",
+      "lf": "8f92a6527e86f822537928a0cbecae671a3cd225a2de81efddc419466f2c0bc1"
+     }
+    },
+    "wgsl": {
+     "FLUX_WGSL": "05a1c0e4fe46f2d756ad17af894f71ed95fe7ca2a53458a9fa72cba690bb6865",
+     "PHI_WGSL": "f558de1b02e77930f4743b740a19d5dbd394b43fb3d3f92141fa4cb408e29439",
+     "TRANSPORT_WGSL": "0d60e022f1e858be4032e271b2accad0d9c808b4795356dd2aaf0732e4607020",
+     "STAMP_WGSL": "3e47e5859fc627d33bbafdba22a4224ed6342a400c2439603f82eb7915f7983d",
+     "UPDATE_WGSL": "476686b53b514fe097faa30f266091ca957f4959b016ab887c3a9ca64e31d14e",
+     "STATS_WGSL": "b7f8f4c2ab5f27bbb3da1c59a6396f98a046494828c2c118ed0599dc351ba0cf"
+    },
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+    "appSeed": 2708790664
+   },
+   "exception": "Error: not admitted: served source differs: src/main.ts\n    at Object.admit (file:///C:/Users/frank/solidify-flowdomain/scripts/research/flow-domain.mjs:631:15)\n    at runGeometry (file:///C:/Users/frank/solidify-flowdomain/scripts/research/flow-domain.mjs:418:16)\n    at async main (file:///C:/Users/frank/solidify-flowdomain/scripts/research/flow-domain.mjs:638:19)",
+   "wallMs": 3803,
+   "errors": [],
+   "vNoflow": null,
+   "vFlow": null,
+   "ratio": null,
+   "vd0DNoflow": null,
+   "flowSteadiness": null,
+   "flowInletUx": null,
+   "endGap": null,
+   "V1": false,
+   "V1issues": [
+    "exception",
+    "runs missing",
+    "served source not verified"
+   ],
+   "V3": false,
+   "V2": null,
+   "V2dev": null,
+   "valid": false,
+   "voidBy": [
+    "V1",
+    "V3"
+   ],
+   "replicaCheck": {
+    "ratioDiff": -1.329,
+    "vd0DDiff": -0.01678,
+    "ok": false
+   }
+  }
+ ],
+ "errors": [],
+ "completed": false,
+ "abort": "served source differs from the worktree, or a software adapter: stopping",
+ "servedVerified": false,
+ "metadataConsistent": true,
+ "metadata": {
+  "hardware": {
+   "vendor": "intel",
+   "architecture": "xe-2lpg",
+   "device": "",
+   "description": "",
+   "isFallbackAdapter": false
+  },
+  "limits": {
+   "maxStorageBufferBindingSize": 134217728,
+   "maxBufferSize": 268435456,
+   "maxTextureDimension2D": 8192
+  },
+  "served": {
+   "src/sim.ts": {
+    "raw": "a6ed0b0f9e33570ea0d89085bce04f25e5c9210846823caf2666f6e085fd4fab",
+    "lf": "b8392bdc9a36ccb4e31d96c292cf423f257d153ca8b46b565cedf84d15e9bd82"
+   },
+   "src/shaders.ts": {
+    "raw": "468ac5b2a2ff5aa110c6c1a1fbe035fbec811aa87d61eac887bf37df15bd4830",
+    "lf": "c27b7f1d05cf73b5530997189dea32265edeee567f07561d2ebcf82bd3b2aaef"
+   },
+   "src/lbm.ts": {
+    "raw": "88990b1ef6d8db8dda1e9d3c8deaea7ff5bb5c45015787351e140c8edd27f68b",
+    "lf": "7b3515da9f58192d5fbc46793c46d652123f23ca0577ef3114b3582b89fb6d74"
+   },
+   "src/flow.ts": {
+    "raw": "5dad677e1e7ac1d42599d91a3579f28b2e2da1758f2671b24eca2a35c7a3f910",
+    "lf": "dff46875f40c43d36372e778b8aaf906e3277d2a7e33306a3b0090e1cf108753"
+   },
+   "src/main.ts": {
+    "error": "Unexpected identifier 'StatsResult'"
+   },
+   "src/render.ts": {
+    "raw": "00f4ca3f9b8d42d073d3b9c214b1d4318c137ccb382deedc19fe248c4746bc79",
+    "lf": "8f92a6527e86f822537928a0cbecae671a3cd225a2de81efddc419466f2c0bc1"
+   }
+  },
+  "wgsl": {
+   "FLUX_WGSL": "05a1c0e4fe46f2d756ad17af894f71ed95fe7ca2a53458a9fa72cba690bb6865",
+   "PHI_WGSL": "f558de1b02e77930f4743b740a19d5dbd394b43fb3d3f92141fa4cb408e29439",
+   "TRANSPORT_WGSL": "0d60e022f1e858be4032e271b2accad0d9c808b4795356dd2aaf0732e4607020",
+   "STAMP_WGSL": "3e47e5859fc627d33bbafdba22a4224ed6342a400c2439603f82eb7915f7983d",
+   "UPDATE_WGSL": "476686b53b514fe097faa30f266091ca957f4959b016ab887c3a9ca64e31d14e",
+   "STATS_WGSL": "b7f8f4c2ab5f27bbb3da1c59a6396f98a046494828c2c118ed0599dc351ba0cf"
+  },
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+  "appSeed": 2708790664
+ },
+ "Z": {
+  "run": false
+ },
+ "decision": {
+  "dDiag": null,
+  "S_D": null,
+  "S_lambda": null,
+  "S_D24": null,
+  "p": null,
+  "boxStep32": null,
+  "lambdaStep2224": null,
+  "H_D": {
+   "verdict": "NO VERDICT",
+   "why": "not valid or not run: D20-1024, D24-848, D24-1024, D32-640, D32-1024"
+  },
+  "H_I": {
+   "S_I": null,
+   "inletStep32": null,
+   "verdict": "not run",
+   "byGap": [
+    {
+     "id": "D24-1024",
+     "ratio": null,
+     "valid": false,
+     "endGap": null
+    }
+   ]
+  },
+  "H_L": {
+   "S_L": null,
+   "S_L24": null,
+   "halfStep32": null,
+   "verdict": "not run",
+   "boxIsHalfPlusInlet": null
+  },
+  "next": {
+   "N1": {
+    "fires": null,
+    "fLambda": null
+   },
+   "N2": {
+    "fires": null,
+    "inletUx": null
+   },
+   "N3": {
+    "fires": false,
+    "runs": []
+   },
+   "N4": {
+    "reported": {
+     "2": {
+      "windowStartCells": 368.83514610188655,
+      "endCells": 441.7996321863566,
+      "nuOverUCells": 364.60874999999993
+     },
+     "2.4": {
+      "windowStartCells": 307.3085989685287,
+      "endCells": 368.10165036304846,
+      "nuOverUCells": 303.84062499999993
+     },
+     "3.2": {
+      "windowStartCells": 230.55707536312997,
+      "endCells": 276.16682458253376,
+      "nuOverUCells": 227.88046874999992
+     }
+    }
+   },
+   "lateral": {
+    "fires": false,
+    "runs": []
+   }
+  }
+ },
+ "finalHashes": {
+  "src/sim.ts": {
+   "raw": "a6ed0b0f9e33570ea0d89085bce04f25e5c9210846823caf2666f6e085fd4fab",
+   "lf": "b8392bdc9a36ccb4e31d96c292cf423f257d153ca8b46b565cedf84d15e9bd82"
+  },
+  "src/shaders.ts": {
+   "raw": "468ac5b2a2ff5aa110c6c1a1fbe035fbec811aa87d61eac887bf37df15bd4830",
+   "lf": "c27b7f1d05cf73b5530997189dea32265edeee567f07561d2ebcf82bd3b2aaef"
+  },
+  "src/lbm.ts": {
+   "raw": "88990b1ef6d8db8dda1e9d3c8deaea7ff5bb5c45015787351e140c8edd27f68b",
+   "lf": "7b3515da9f58192d5fbc46793c46d652123f23ca0577ef3114b3582b89fb6d74"
+  },
+  "src/flow.ts": {
+   "raw": "5dad677e1e7ac1d42599d91a3579f28b2e2da1758f2671b24eca2a35c7a3f910",
+   "lf": "dff46875f40c43d36372e778b8aaf906e3277d2a7e33306a3b0090e1cf108753"
+  },
+  "src/main.ts": {
+   "raw": "5ffc7b00cfb3ff72f2e88ba09adfb35e65afdcf89b4f4dbab6272c50555b795b",
+   "lf": "2cdc453c485c3d4d0668544d8425867c69e1679999580066fea4602c2a22a174"
+  },
+  "src/render.ts": {
+   "raw": "00f4ca3f9b8d42d073d3b9c214b1d4318c137ccb382deedc19fe248c4746bc79",
+   "lf": "8f92a6527e86f822537928a0cbecae671a3cd225a2de81efddc419466f2c0bc1"
+  },
+  "scripts/research/flow-domain.mjs": {
+   "raw": "e6873727bf20c2ff0c6c2896674bb1da80741dbc065f1f36b50955737a71419c",
+   "lf": "e6873727bf20c2ff0c6c2896674bb1da80741dbc065f1f36b50955737a71419c"
+  },
+  "scripts/research/flow-domain-selftest.mjs": {
+   "raw": "89a486896d53cbdb3defe741e934daeed09065ee02fde9f4955c059c0c95fc8b",
+   "lf": "89a486896d53cbdb3defe741e934daeed09065ee02fde9f4955c059c0c95fc8b"
+  },
+  "scripts/research/flow-domain-arms.json": {
+   "raw": "6cf07bf10ff93025f8ec8e2bb20d866f85e62add4ffae82dd698b84901fe9643",
+   "lf": "6cf07bf10ff93025f8ec8e2bb20d866f85e62add4ffae82dd698b84901fe9643"
+  },
+  "scripts/browser-cleanup.mjs": {
+   "raw": "0b2e5b6790d0c63d5271b51c14509507910f69c2924f7334589e63fa8e82b5b1",
+   "lf": "af3c57e0d09047d4212ce702f9d7e8eaf3f95074812339ac5f33936c1b5e4323"
+  }
+ },
+ "sourceStable": true,
+ "finished": "2026-11-07T17:54:12.518Z",
+ "reading": null
+}

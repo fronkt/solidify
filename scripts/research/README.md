@@ -51,6 +51,17 @@ known curvatures. Its report preserves uncertainty undercoverage, including a
 smooth falsely resolved example. Diagnostic completion is distinct from accuracy
 acceptance; no estimator or threshold is changed by these controls.
 
+## Forced-flow domain study (D3.4)
+
+`flow-tip-tong.mjs` is the failed 11-01 FLOW-TIP-TONG comparison, kept as run.
+`flow-domain.mjs` is the separately pre-registered follow-up (tasks/todo.md,
+"D3.4 flow domain study - 2026-11-07"): box, inlet distance and half-width
+varied at fixed lambda, arms in `flow-domain-arms.json`. With no option it runs
+a CPU-only self-test (`flow-domain-selftest.mjs`, including the in-page driver
+against a mock app); `--plan` prints the arms and GPU cost; `--run --port N`
+needs a Vite server for this tree and writes `docs/validation/flow-domain-<date>.json`.
+It never re-scores FLOW-TIP-TONG.
+
 ## Runner lifecycle controls
 
 `node scripts/verify-quant3d-tip-lifecycle.mjs` runs the real benchmark CLI with a

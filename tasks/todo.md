@@ -6002,6 +6002,255 @@ their first run.
   measure this cost on this hardware: the gate becomes information only (ratio
   reported, never gating) and that is recorded here and in TESTING.md.
 
+## D3.4 flow domain study - 2026-11-07
+
+Item S1 of "Close PR 7, then the next stages in parallel" (branch
+research/flow-domain). PRE-REGISTERED here and committed before any GPU run.
+It tests a hypothesis about the 11-01 result; it does NOT re-score
+FLOW-TIP-TONG, which stays FAILED. Any new Tong gate configuration needs its
+own later pre-registration.
+
+AMENDED BEFORE ANY RUN (supersedes the arm list, decision and budget of
+81afc8d): main.ts's frame loop re-checks flowRefusal() every frame
+(main.ts:2528) and switches the flow off on any grid above 1024 (the 2048
+storage-limit refusal is written as grid > 1024, flow.ts:107), so the
+pre-registered D24-1360, D20-1632 and L24-1360 flow runs would have run
+without flow from their first frame. Every arm now has n <= 1024. The box
+range moves to lambda 3.2 (n 640 / 768 / 1024 = 1854 / 2224 / 2966 d0, the
+whole 11-01 range at one lambda) and the half-width family to lambda 3.2 and
+2.4. Thresholds, statistic, staging and witnesses are unchanged.
+
+### What Tong et al. ran (authors' copies, read 2026-11-07)
+
+Sources: Tong, Beckermann, Karma & Li, PRE 63, 061601 (2001) and Tong,
+Beckermann & Karma, PRE 61, R49 (2000), PDFs from beckermann.lab.uiowa.edu
+(PRETong.pdf sha256 76e9a7fd..., TongPRERP.pdf sha256 fbda3ab5...).
+
+- L1 sides. 2001 Sec. III, p. 061601-4: "Periodic boundary conditions are
+  imposed on the vertical side boundaries of the domain." Same paragraph: "Due
+  to the symmetry of the problem with respect to the vertical axis, simulations
+  are carried out on only half of the domain, and the results are simply
+  mirrored to the other half." Fig. 1 (same page) labels both vertical sides
+  "symmetry". 2000, p. R50: "Symmetry boundary conditions are applied at x = 0
+  and the side boundary of the domain." So the 11-01 note "Tong used periodic
+  sides" quotes the 2001 text but implies a difference that does not exist:
+  periodic sides on a mirror-symmetric field are symmetry planes, and this
+  repo's sides are symmetry planes too. Discretely: lbm.ts pulls the mirror
+  population of the boundary cell, shaders.ts cid() clamps phi and T, and
+  ADV_FACES zeroes the wall-normal face velocity; each equals the periodic
+  image of a field mirror-symmetric about y = (n - 1)/2, which the centred
+  seed (stamp at gid + 0.5, centre n/2) and theta0 = 0 give. No lateral-BC arm
+  is run; witness V3 checks the symmetry this rests on.
+- L2 inlet/outlet. 2001 p. 4: "Supercooled melt enters the domain from the top
+  boundary with a uniform velocity U, and exits at the bottom boundary"; "the
+  initial velocity field is taken to be that for steady flow around the seed,
+  and the inlet and initial melt temperature (dimensionless) are both set to
+  -Delta". Seed "at the center of the square domain", so the initial inlet
+  distance is half the box. The outlet treatment is not stated (only "It was
+  verified that the velocity gradients across the lower boundary (exit) are
+  small", p. 5). The inlet distance at measurement time is NOT stated.
+- L3 parameters. Pr 23.1 "in all simulations" (p. 5); Re < 1 (p. 5), Re < 0.1
+  for Pe_f 0-1 (p. 7); dx/W0 = 0.4 throughout Tables I-II; flow time step
+  "typically one order of magnitude larger" than the phase-field step (p. 4).
+- L4 the 1.37-1.43. Table II (p. 6; same numbers as 2000 Table I, p. R50),
+  eps 0.05, U d0/D 0.035, Delta 0.55: V d0/D 0.0265 (D 4, Nx x Ny 160x320),
+  0.0240 (D 4, 288x576), 0.0244 (D 4, 576x1152), 0.0248 (D 3, 320x640), 0.0247
+  (D 2, 512x1024). Table I (p. 5, no flow, 640x1280, eps 5 %): 0.0171 (D 4),
+  0.0175 (D 3), 0.0180 (D 2), exact 0.0170. Same-D ratios: 1.427 (D 4,
+  576x1152; 1.404 at 288x576), 1.417 (D 3), 1.372 (D 2); 160x320 gives 1.550.
+- L5 boxes in d0 (INFERRED: "square domain" + half simulated + Nx = Ny/2 in
+  every row, so the full side is Ny dx; D = a2 lambda checks against the d0/W0
+  column, a1 a2 / 4 = 0.1385 vs 0.139). D 4: 921 / 1658 / 3315 d0 with V 0.0265
+  / 0.0240 / 0.0244 (the smallest box 9 % fast, the larger two within 1.7 %);
+  D 3: 1384 d0; D 2: 1479 d0. Table I's no-flow box is 1848 / 2768 / 3683 d0
+  (D 2 / 3 / 4): Tong's same-D ratios pair DIFFERENT boxes.
+- L6 lambda. Tong's D 2 / 3 / 4 are lambda = D / a2 = 3.19 / 4.79 / 6.38. The
+  11-01 lambdas 2.0 and 2.4 (D~ 1.25, 1.50) have no Tong row; only lambda 3.2
+  (D~ 2.005) matches one (D 2), where 11-01 measured 1.356 against Tong's
+  1.372. Information only, not a re-score.
+- L7 tip speed. Table II: "upstream tip steady-state velocity"; p. 6: "All tip
+  velocities start from a large value before leveling off ... The upstream tip
+  eventually reaches a steady state". The one stated window is for the
+  horizontal tip of the Fig. 3 case (eps 0.03, U d0/D 0.135): "800 < t/tau0 <
+  1000". The window and method behind Table II: NOT stated (unconfirmed).
+- Correction to the 11-01 reading: 12 % of n was the stop threshold and never
+  fired (33/33 samples); the end gap at lambda 2.4 was roughly 0.2 n
+  (estimated; 11-01 kept no traces).
+
+### Hypotheses, statistic, fixed staging
+
+H_D (primary): the 11-01 rise of the ratio with lambda (1.259 / 1.329 / 1.356)
+is a domain effect: n was fixed, so the box L = n dx lambda / a1 rose with
+lambda (1853 -> 2966 d0). Complement H_lambda: it is lambda itself (W0/d0, a
+tip radius of ~7.5 d0 being ~4.1 / 3.5 / 2.6 cells, u_lat).
+
+Statistic per geometry: R = v_flow / v_noflow, same geometry and schedule; v
+exactly as on 11-01: -dx times the least-squares slope of the west tip (phi =
+0.5 on row n/2, sub-cell, scanning west from the seed) over the last third of
+the samples (trace.slice(2 floor(len/3))).
+
+Fixed (the 11-01 staging): Delta 0.55, eps4 0.05, dx 0.8 W0, D~ = a2 lambda,
+dt = 0.15 dx^2 / D~, solved T, latent 1, noise 0, theta0 0, seed r = 8 W0,
+inoculant 0, Pr 23.1 (nu_lat 3.465, tau 10.895), U d0/D 0.035 (u_lat = 0.035
+(lambda/a1) 0.15 dx), coupling 1, 33 equal chunks over 8 l_D at the KR speed
+(chunk = max(50, round(8 D~ / v_g^2 / 33 / dt)), v_g = 0.017 D~ lambda / a1):
+lambda 2.0: 1707 x 33 = 56331 substeps; 2.4: 1185 x 33 = 39105; 3.2: 667 x 33 =
+22011. Seed at (seedX, n/2), y always the centre face. Stop: west tip within
+32 cells of x = 0 (replaces 0.12 n, which off-centre seeds and larger boxes
+would trip on geometry alone; no designed arm is predicted to reach it, and
+any arm that stops early is invalid).
+
+### Arms (each geometry runs no flow, then flow; seedX in cells)
+
+- D (box; seed centred, so inlet distance, half-width and outlet distance
+  scale together exactly as they did across lambda on 11-01): D20-1024
+  (lambda 2.0, n 1024, 1854 d0, 11-01 replica); D24-848 (2.4, 1842 d0),
+  D24-1024 (2224 d0, replica); D32-640 (3.2, 1854 d0), D32-768 (2224 d0),
+  D32-1024 (2966 d0, replica). Boxes of ~1850 d0 exist at all three lambdas
+  and 2224 d0 at 2.4 and 3.2.
+- I (inlet distance; lambda 2.4, n 1024, half-width 1112 d0; the outlet
+  distance is the complement and co-varies): seedX 448 / 512 (= D24-1024) /
+  576 / 704, i.e. 973 / 1112 / 1251 / 1529 d0 from the inlet at the start.
+- L (half-width at a fixed inlet distance; outlet distance co-varies):
+  lambda 3.2, seedX 320 (927 d0): n 640 (= D32-640) / 768 (L32-768) / 1024
+  (L32-1024), half-width 927 / 1112 / 1483 d0; lambda 2.4, seedX 424 (921 d0):
+  n 848 (= D24-848) / 1024 (L24-1024), half-width 921 / 1112 d0.
+- Z24-848 (control): D24-848's geometry, flow on with coupling 0.
+
+Grids 640-848 are not the UI's 512/1024/2048; Simulation takes any n with
+n % 16 = 0 (readRows), and flowRefusal() allows any grid up to 1024.
+
+### Validity (failing geometries are reported and excluded from decisions)
+
+- V1 complete: 33 samples in both runs, every chunk delivered in full, no
+  device/page/console errors, served source bytes = worktree source bytes.
+- V2 reference: v_noflow within 2 % of the same-lambda centred n = 1024
+  replica (every no-flow west tip stays > 4 l_D from the boundaries).
+- V3 mirror (flow runs): at the end, the north and south phi = 0.5 crossings
+  on column seedX satisfy |y_N + y_S - (n - 1)| <= 0.05 cells; the field's max
+  |phi(x,y) - phi(x,n-1-y)| is reported.
+- Z: Z24-848's west trace equals D24-848's no-flow trace bit for bit (R
+  exactly 1) AND its LBM was live (inlet-column mean u_x >= 0.5 U, centre-row
+  u_x 2 cells ahead of the tip <= 0.9 U). If Z fails, every geometry with n
+  != 1024 is void.
+- REPLICA: D20/D24/D32-1024 reproduce 11-01 (R 1.259 / 1.329 / 1.356 +-
+  0.0005; V d0/D no flow 0.01701 / 0.01678 / 0.01626 +- 0.000005). src/ is
+  unchanged since 28772a0, so they should; a miss is reported and the
+  decisions use this run's own diagonal.
+
+### Decision (computed by the script)
+
+- dDiag = R(D32-1024) - R(D20-1024) (11-01: 0.097) splits exactly into a box
+  step and a lambda step: S_D = R(D32-1024) - R(D32-640) (box 1854 -> 2966 d0
+  at lambda 3.2) and S_lambda = R(D32-640) - R(D20-1024) (lambda 2.0 -> 3.2 at
+  1854 d0). f_D = S_D / dDiag; f_lambda = 1 - f_D.
+- Corroboration at lambda 2.4: S_D24 = R(D24-1024) - R(D24-848) (box 1842 ->
+  2224 d0) against p = R(D24-1024) - R(D20-1024), what H_D predicts for that
+  box step (11-01: 0.070). The same step at lambda 3.2, R(D32-768) -
+  R(D32-640), and the lambda step at 2224 d0, R(D32-768) - R(D24-1024), are
+  reported.
+- H_D SUPPORTED: f_D >= 0.5, S_D24 >= 0.5 p, and R(D32-640) < R(D32-768) <
+  R(D32-1024). REJECTED: f_D <= 0.25 and S_D24 <= 0.25 p (f_D <= -0.25 is
+  labelled "opposite sign", as in Tong's 921 d0 row). Otherwise PARTIAL, with
+  f_D and S_D24 / p. No verdict unless D20-1024, D24-848, D24-1024, D32-640
+  and D32-1024 are valid and dDiag > 0 and p > 0; without a valid D32-768 the
+  verdict cannot be SUPPORTED and says so.
+- H_I: S_I = R(I24-704) - R(I24-448); |S_I| >= 0.03 material, < 0.015
+  immaterial, otherwise inconclusive; R against the end gap in cells, d0 and
+  nu/U (= 660 d0) reported; the lambda 3.2 inlet step at n 1024, R(D32-1024) -
+  R(L32-1024) (seedX 512 vs 320), reported. H_L: S_L = R(L32-1024) -
+  R(D32-640) (half-width 927 -> 1483 d0 at a 927 d0 inlet distance), same
+  thresholds; R(L24-1024) - R(D24-848) reported. At lambda 3.2 the box step
+  is exactly S_L plus that inlet step. (0.03 is ~31 % of dDiag; the
+  deterministic trace resolves R to ~1e-3.)
+- Next hypothesis if H_D is not SUPPORTED (triggers pre-registered, all
+  reported regardless; several may fire):
+  N1 interface/drag resolution at fixed lambda and box (dx/W0 0.8 here, 0.4
+  in Tong; Tong's own same-D ratios rise with D, 1.372 -> 1.427): default when
+  f_lambda >= 0.5. dx 0.4 at the same box needs n 2048, whose 151 MB LBM
+  buffer exceeds the default binding limit: that study needs its own design.
+  N2 inflow deficit: the equilibrium inlet fixes rho = 1 as well as u = U, so
+  a pressure rise ahead of the crystal lowers the inflow (u ~ U - (rho - 1)/3,
+  lattice units). Trigger: D24-1024 inlet-column mean u_x < 0.98 U.
+  N3 measurement window: trigger: any valid flow run with |v_last / v_mid - 1|
+  > 0.02 (middle third = trace.slice(floor(len/3), 2 floor(len/3))).
+  N4 flow development: reported only (vorticity spread sqrt(nu t) ~ 300-370
+  cells by the window vs nu/U = 304 cells at lambda 2.4; Tong started from the
+  steady flow around the seed).
+  If V3 fails on any valid flow run, the lateral equivalence (L1) is not
+  established and an opt-in periodic-sides option becomes the next step.
+
+### Budget and run
+
+Cost in 1024^2-substep units: flow 382874 (incl. Z), no flow 356056. 11-01's
+verify-flow-gpu.mjs (all its gates plus the 8 Tong runs = 313104 units) ran
+in <= 9.6 min on the Arc 140V (log created 05:51:00, last written 06:00:34),
+<= 1.83 ms per unit, so <= ~23 min of stepping; plan for <= 45 min. Order:
+D24-1024, D32-1024, D20-1024, D32-640, D24-848 (+ Z), D32-768, L32-1024,
+L32-768, I24-448, I24-576, I24-704, L24-1024. Dropped by the amendment: the
+three n > 1024 geometries (they cannot carry flow in this app); nothing
+dropped for budget. Script: scripts/research/flow-domain.mjs (--self-test
+CPU only; --plan; --run), result docs/validation/flow-domain-<date>.json.
+
+### Status (2026-11-07): built, no GPU run yet
+
+- Protocol 81afc8d, amended 8ad00f6 before any run. Script a510e29. The
+  CPU self-test (10 checks, incl. the in-page driver against a mock app and
+  the decision on synthetic worlds) passes; planted defects in the tip
+  offset, the fit window, the step restore, the control's coupling, the
+  mirror offset and three decision thresholds each turn it red. No solver
+  option was added (L1: the lateral arm is not needed), so src/ is
+  byte-identical to 5fa0578. typecheck and build pass.
+- [ ] GPU run (root session only): from ../solidify-flowdomain,
+      `npx vite --port 5201 --strictPort`, then
+      `node scripts/research/flow-domain.mjs --run --port 5201`
+      (<= ~23 min of stepping by the 11-01 bound; plan for <= 45 min). It
+      refuses to step if the served source differs from this tree.
+- Run 1 (root, 2026-11-07 12:54, bfe6035): REFUSED at admission before
+      any stepping (V1): "served source differs: src/main.ts". Diagnosis in a
+      browser probe: `import("/src/main.ts?raw")` throws (Vite serves the HTML
+      entry module's ?raw request as untransformed TypeScript, SyntaxError),
+      while `fetch("/src/main.ts?raw")` returns text equal to the disk file;
+      for sim.ts and render.ts the import is exact. The source never differed;
+      the check's vehicle failed on one file. Record kept as
+      docs/validation/flow-domain-2026-11-07-refused-admission.json.
+      Amendment (before run 2; arms, statistic and decision rule unchanged):
+      each served file is read by the ?raw import, and only when that throws
+      by fetch of the same ?raw URL; the vehicle is recorded per file and the
+      comparison against the disk hash stays exact (LF-normalized).
+- [x] Reading (root, after run 2 at 1d23d20, 2026-11-07 12:56-13:14; 12/12
+      arms valid, served source verified, 0 errors; result
+      docs/validation/flow-domain-2026-11-07.json). FLOW-TIP-TONG stays FAILED.
+      * Replicas reproduce 11-01: 1.2586 / 1.3287 / 1.3555 (lambda 2.0 / 2.4 /
+        3.2 at n 1024) vs 1.259 / 1.329 / 1.356.
+      * H_D SUPPORTED by the frozen rule: at fixed lambda 3.2 the ratio rises
+        1.2025 / 1.3162 / 1.3555 with the box (n 640 / 768 / 1024, 1854 /
+        2224 / 2966 d0); the box step carries f_D = 1.58 of the 11-01 rise and
+        the lambda step is negative (-0.58). The 11-01 lambda trend was the
+        domain, not lambda.
+      * H_I and H_L material: moving the seed away from the inlet raises the
+        ratio (1.297 / 1.329 / 1.346 / 1.358 at end gaps 284 / 421 / 559 / 837
+        d0); narrowing the half-width at a fixed inlet distance lowers it.
+      * N2 FIRES and explains the mechanism: the equilibrium inlet fixes rho
+        as well as u, so the crystal's back-pressure cuts the throughput. The
+        mass flux is uniform along the channel and short of U: 0.90 U at
+        n 1024 (lambda 2.4), 0.82 U at n 848 (flow arm and coupling-0
+        control alike), inlet rho 1.006 vs outlet 0.998. Smaller boxes block
+        more and deliver less. Tong imposes uniform inflow U; the D3 design
+        names a Zou-He velocity inlet, which the shader does not implement.
+        This is a defect in the shipped solver (v7-experiments only;
+        production has no flow): the speed the rail shows is not delivered.
+      * N3 FIRES: the flow-arm tip speeds are not stationary in the smaller
+        boxes (middle vs last third -13 % to -0.4 %; only the largest boxes
+        and farthest inlets are within 1 %), so "steady-state" speeds there
+        are window-dependent.
+      * Next (D3.5): a velocity inlet that delivers U under blockage, with
+        its own pre-registered gates (empty-channel and blocked-channel flux
+        = U, flow-off identity unchanged, existing FLOW gates), then a new
+        pre-registered Tong comparison at Tong's own lambda (3.19 / 4.79 /
+        6.38) and boxes in d0, with a stationarity clause. The 11-01 gate's
+        lambda 2.0 / 2.4 arms had no Tong counterpart.
+
 ## D3.5 velocity inlet - 2026-11-07
 
 Branch feature/flow-inlet (from origin/v7-experiments 3b3fbdd), worktree
