@@ -5963,12 +5963,14 @@ to choose sizes; the gated CPU checks use their own stated geometry and seeds
 and have not been run. GPU gates are written by the delegate and run only by
 the root.
 
-- [ ] Design addendum (section 6), pre-registration (this), then code.
-- [ ] CPU gates pass (verify-recrystallize.mjs), typecheck, build, TESTING.md.
-- [ ] GPU gates written (scripts/verify-recrystallize-rate-gpu.mjs, registered
-      in run-tests.mjs), NOT run by the delegate.
-- [ ] Copy (README, science page, learn) neutral; no measured claims before
-      the root runs the GPU gates.
+- [x] Design addendum (section 6), pre-registration (this), then code
+      (04a44d4 committed before any code; implementation 38da951).
+- [x] CPU gates pass (verify-recrystallize.mjs), typecheck, build, TESTING.md.
+- [x] GPU gates written (scripts/verify-recrystallize-rate-gpu.mjs, registered
+      in run-tests.mjs; 79a14b4), NOT run by the delegate.
+- [x] Copy (README, science page, learn hint) neutral; no measured claims
+      before the root runs the GPU gates (39366cf).
+- [ ] Root: run the GPU script on a frozen source and record the verdicts here.
 
 ### Browser-free (verify-recrystallize.mjs)
 
@@ -6112,3 +6114,45 @@ two columns, one select row in one column: verify-rail's 3D heat-treat
 samples); the share tuple gains an optional 8th element (RX3-PANEL's 7/6
 lengths unchanged at the default mode); TESTING.md counts move
 (verify-recrystallize.mjs five -> ten checks, 45 -> 46 registered scripts).
+
+### CPU results (first run, 38da951, 2026-11-07): all ten PASS
+
+- RX-BIRTH-SCHEDULE: 72/72 cases pass the rate checker; (400, 24, 8) is
+  8 x 50 at 0, 3, ..., 21; the checker rejects the front-loaded and the
+  one-short schedules (both must-fail arms failed).
+- RX-BOUNDARY-CLASSIFIER: every hand count matches (0, 128, 296, 64, 0, 128,
+  0); equal to the brute-force 26-loop on three random n = 12 fields
+  (1547 / 1552 / 1567 sites).
+- RX-RATE-CPU (r0 = 0, gated): slopes 1.0095 / 1.019 / 1.0087 / 1.016 /
+  1.0339 / 1.0412 (seeds x laws; band 1 +- 0.05, the last within 0.009 of its
+  edge); site-saturated construction 1.26-1.30 (must exceed 1.15: it does);
+  phantoms 3-11; X_end >= 0.9955. Info: r0 = 2 slopes 1.010-1.038, sweep-clock
+  n 3.78-3.88 (constant v, r0 = 0), 3.30-3.48 (recovery law, r0 = 0) and
+  2.82-2.90 (r0 = 2), age-shifted construction 0.94-0.97 under the recovery
+  law at r0 = 0 (the trap the measured V(t_b, S) avoids).
+- RX-BOUNDARY-CPU: boundary-site slope against ln V1 0.700 / 0.738 / 0.774
+  (< 0.85), random 1.013 / 1.006 / 0.984 (1 +- 0.1); sweep-clock n 1.34-1.42
+  against 1.63-1.66; X_b <= F_B at every sample; the distance transform equal
+  to brute force; X_end 1 in both arms.
+- RX-SHARE-TUPLE: legacy 3/5/6/7 and hand-built tuples decode exactly as the
+  shipped decoder (copied verbatim into the gate) did, in 3D and 2D, and pack
+  as the shipped setup() packed; the 8th element only off the default.
+- Also unchanged on this branch: verify-heattreat 16/16, verify-rng 7/7,
+  verify-replay 8/8, verify-process-plots 3/3, verify-run-export 5/5,
+  verify-plot, verify-phasedata 11/11 (CI-SCRIPT-COUNT twenty-six), the
+  quant3d readback / wulff / tip self-tests; typecheck and build pass. The
+  vite "Request is outdated" dep-scan noise after verify-recrystallize's
+  "done" is pre-existing (the c3b021d copy prints it too) and exits 0.
+
+### GPU run list for the root (frozen source, from ../solidify-rxrate)
+
+    node scripts/verify-recrystallize-rate-gpu.mjs verify-out 5199
+
+with a vite server on 5199 serving this worktree (or `npm test`, which
+registers it after verify-recrystallize-gpu.mjs). A pass prints five OK lines
+(RX3-RATE-SCHEDULE, RX3-RATE-JMAK, RX3-BOUNDARY-SITES, RX3-BOUNDARY-JMAK,
+RX3-MODES-PANEL), "PAGE ERRORS: none" and "done". Also re-run, because this
+branch touches their code paths: verify-recrystallize-gpu.mjs (RX3-PANEL's
+7/6 tuple and card, the default mode), verify-heattreat-gpu.mjs (HT3-SE-PANEL
+dial count 7, panel copy), verify-rail.mjs (3D heat-treat panel geometry with
+the eighth form cell, learn hints).
