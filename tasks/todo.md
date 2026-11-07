@@ -6231,3 +6231,28 @@ verify-recrystallize-rate-gpu 5/5 OK, PAGE ERRORS none; verify-recrystallize-gpu
   1318 sweeps), legacy 7/6 links restore.
 Merged v7-experiments (3b3fbdd) afterwards (3a99c33); the merged head needs the
 full suite before its PR merges (S4).
+
+### Full suite on the merged head (root, 2026-11-07, Intel Arc 140V)
+
+Both runs used a guard that checked, for the whole run, that the 5199
+listener was this worktree's vite (other sessions use the machine's GPU and
+that port; see lessons.md on feature/flow-inlet).
+
+- Run 1, frozen 47fc4ba (16:29-16:47): stopped in verify-tools.mjs. Every gate
+  up to and including ATMOSPHERE passed. Then section 9's boot() hit
+  puppeteer's 30 s navigation timeout (networkidle0) on a fresh page, and the
+  script crashed, so the rest of the suite never ran. The guard showed my
+  server throughout and no other headless Chrome; Orbital wrote nothing after
+  16:22. Not a gate verdict.
+- Standalone check: verify-tools.mjs twice on the same frozen 47fc4ba, 2/2 exit
+  0 (3.5 min each). The boot timeout did not reproduce.
+- 0180a33: boot() now logs the in-flight requests and the document state on a
+  navigation timeout, then fails exactly as before. Diagnostics only; nothing
+  else changed.
+- Run 2, frozen 0180a33 (16:56-17:43): **46/46 scripts, exit 0**, 385 OK
+  lines, no FAIL verdict, PAGE ERRORS none. Includes RX3-RATE-* /
+  RX3-BOUNDARY-* / RX3-MODES-PANEL, LAB-CURVE, HUD-LIVE, VIS-STUDIO-COST and
+  the FLOW-* gates. Log:
+  ../solidify-verify-rxrate/verify-out/pr8-0180a33-full-suite.log.
+- Open: the run-1 boot timeout is unexplained. If it recurs, BOOT-TIMEOUT will
+  name what was pending.
