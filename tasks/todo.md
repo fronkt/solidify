@@ -5964,3 +5964,20 @@ L32-768, I24-448, I24-576, I24-704, L24-1024. Dropped by the amendment: the
 three n > 1024 geometries (they cannot carry flow in this app); nothing
 dropped for budget. Script: scripts/research/flow-domain.mjs (--self-test
 CPU only; --plan; --run), result docs/validation/flow-domain-<date>.json.
+
+### Status (2026-11-07): built, no GPU run yet
+
+- Protocol 81afc8d, amended 8ad00f6 before any run. Script a510e29. The
+  CPU self-test (10 checks, incl. the in-page driver against a mock app and
+  the decision on synthetic worlds) passes; planted defects in the tip
+  offset, the fit window, the step restore, the control's coupling, the
+  mirror offset and three decision thresholds each turn it red. No solver
+  option was added (L1: the lateral arm is not needed), so src/ is
+  byte-identical to 5fa0578. typecheck and build pass.
+- [ ] GPU run (root session only): from ../solidify-flowdomain,
+      `npx vite --port 5201 --strictPort`, then
+      `node scripts/research/flow-domain.mjs --run --port 5201`
+      (<= ~23 min of stepping by the 11-01 bound; plan for <= 45 min). It
+      refuses to step if the served source differs from this tree.
+- [ ] Reading: written here by a person after the run (the script leaves
+      `reading` null); the FLOW-TIP-TONG verdict stays FAILED either way.
