@@ -5845,8 +5845,8 @@ Changed gates (F7, F8):
   MUST-MISS arms, same setup: h x 2 and h / 2 each give |offset| >= 0.1 W,
   and each arm is steady and bounded (all finite, peak within 5 % of the h
   arm's) so a miss is the plane moving, not a blow-up. CPU sizing (steady
-  discrete proxy of the LBM equation / fine-grid continuum, scratchpad
-  offset-fit.mjs): h -0.029 / -0.011 W; 2h +0.300 / +0.320; h/2 -0.397 /
+  discrete proxy of the LBM equation / fine-grid continuum,
+  scripts/research/flow-drag-offset-sizing.mjs): h -0.029 / -0.011 W; 2h +0.300 / +0.320; h/2 -0.397 /
   -0.381; peaks 9.93e-3, 9.76e-3, 1.012e-2. The h = 0 arm is DROPPED: a
   periodic frictionless body-forced channel has no steady state (u = Fb t,
   0.35 lattice units, Mach 0.6 at 12 000 steps), so it failed by

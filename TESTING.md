@@ -45,16 +45,21 @@ browser-free scripts.
   columns). Protocols: tasks/todo.md, "Declutter, then finish C3b and D3".
 - `verify-flow-gpu.mjs` (GPU): D3.1's standalone lattice Boltzmann solver,
   fluid only. A free-slip shear wave recovers the set viscosity within 1 %;
-  body-force flow over this repo's diffuse solid matches an independent CPU
-  solve of the same continuum equation within 2 % of the peak (an h = 0 arm
-  must miss by more than 20 %); a uniform inlet stream stays uniform. D3.2/D3.3
+  body-force flow over this repo's diffuse solid puts its apparent no-slip
+  plane within 0.1 W of phi = 0.5 (h x 2 and h / 2 arms must move it at least
+  that far; S0 review, sized by `scripts/research/flow-drag-offset-sizing.mjs`)
+  and matches an independent CPU solve of the same continuum equation within
+  2 % of the peak; a uniform inlet stream stays uniform. D3.2/D3.3
   add FLOW-OFF-IDENTITY (seven 2D cases hash as at the pre-advection commit,
   `scripts/fixtures/flow-off-baseline.json`, captured with
   `scripts/capture-flow-baseline.mjs`), FLOW-INERT-ARMS (zero speed and zero
-  coupling reproduce the flow-off split pass bit for bit), FLOW-UNIFORM-MELT,
+  coupling reproduce the flow-off split pass bit for bit), FLOW-UNIFORM-MELT
+  (with the flow read back moving at the inlet speed),
   FLOW-DIRECTION (upstream faster, downstream slower, reversed coupling the
   other way), FLOW-UI (the rail control, an inert overlay, the scenario
-  refusal, share-link restore). The pre-registered literature comparison
+  refusal, share-link restore), and FLOW-RECONFIGURE (the running flow
+  re-derives its viscosity and drag width across a solver switch, and a dt the
+  envelope refuses switches it off with the reason). The pre-registered literature comparison
   against Tong et al. 2001 is a study, not a regression gate:
   `scripts/research/flow-tip-tong.mjs` (protocol in tasks/todo.md). Its first
   run FAILED (ratios 1.259 / 1.329 / 1.356 against [1.26, 1.54], spread 7.4 %

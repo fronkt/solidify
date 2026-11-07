@@ -7,11 +7,18 @@ import { closeBrowser } from "./browser-cleanup.mjs";
 //                      exp(-nu k^2 t): the measured viscosity equals the set
 //                      one within 1 % (analytic).
 //   FLOW-DRAG-PROFILE  body-force-driven flow over a diffuse solid (this repo's
-//                      tanh profile, W = 1.25 cells) at tau ~ 10.4 matches an
-//                      independent CPU solve of the same continuum equation,
-//                      u'' = 2h phi^2 u / W^2 - F / nu, within 2 % of the peak,
-//                      and is near zero deep in the solid. Falsification arm:
-//                      h = 0 (no drag) must miss by more than 20 %.
+//                      tanh profile, W = 1.25 cells) at tau ~ 10.4: the
+//                      apparent no-slip plane, read off a parabola fitted to
+//                      the drag-free liquid, sits within 0.1 W of phi = 0.5;
+//                      the profile matches an independent CPU solve of
+//                      u'' = 2h phi^2 u / W^2 - F / nu within 2 % of the peak
+//                      and is near zero deep in the solid. Must-miss arms
+//                      (S0 review, pre-registered in tasks/todo.md): h x 2 and
+//                      h / 2 each move the plane >= 0.1 W, on a steady,
+//                      bounded profile. The old h = 0 arm is gone: with no
+//                      drag a periodic body-forced channel has no steady
+//                      state and failed by accelerating (Mach 0.6), and a 2x
+//                      drag error stayed inside the 2 % profile band.
 //   FLOW-FREESTREAM    a uniform inlet stream through an empty free-slip
 //                      channel stays uniform (inlet/outlet boundaries).
 //
@@ -29,7 +36,19 @@ import { captureFlowOffCases, runFlowCase } from "./fixtures/flow-off-cases.mjs"
 //                       pass bit for bit (the LBM ran; advection added nothing).
 //   FLOW-UNIFORM-MELT   an all-liquid melt at the far-field temperature stays
 //                       uniform under flow (the advection operator and its
-//                       inlet/outlet faces are consistent).
+//                       inlet/outlet faces are consistent), with the flow
+//                       read back moving at the inlet speed (liveness). A
+//                       consistency check only: a uniform field is invariant
+//                       to the coupling's sign and to which velocity texture
+//                       transport binds; FLOW-DIRECTION's upstream ratio and
+//                       reversed arm carry those.
+//   FLOW-RECONFIGURE    (S0 review, pre-registered) the running flow follows
+//                       the dials: a Kobayashi-to-calibrated switch
+//                       re-configures the lattice viscosity and drag width on
+//                       the next submit, and a dt that breaks the envelope
+//                       keeps the last passing setting until the app frame
+//                       switches the flow off with the Peclet reason. Arm: the
+//                       latched setting (flowNow patched) fails the switch.
 //   FLOW-DIRECTION      Kobayashi, qualitative: with flow from the west the
 //                       upstream arm outgrows the no-flow arm by > 5 % and the
 //                       downstream arm falls short by > 5 %; with the coupling
@@ -112,9 +131,10 @@ try {
     check("FLOW-SHEAR-DECAY", out.relErr <= 0.01 && out.a1 > 0 && out.a1 < out.a0, out);
   }
 
-  // FLOW-DRAG-PROFILE (+ the h = 0 arm)
+  // FLOW-DRAG-PROFILE (+ the h x 2 and h / 2 must-miss arms)
   const n = 64, y0 = 16, W = 1.25, nu = 3.3, Fb = 2.9e-5;
-  const prof = await page.evaluate(async (n, y0, W, nu, Fb) => {
+  const hDrag = F.deriveDragH();
+  const prof = await page.evaluate(async (n, y0, W, nu, Fb, hDrag) => {
     const { FlowSolver } = await import("/src/lbm.ts");
     const device = window.__solidify.sim().device;
     const tex = device.createTexture({ size: [n, n], format: "rgba32float", usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST });
@@ -130,21 +150,47 @@ try {
       fs.destroy();
       return Array.from({ length: n }, (_, y) => { let s = 0; for (let x = 0; x < n; x++) s += v[(y * n + x) * 4]; return s / n; });
     };
-    const drag = await run(undefined), none = await run(0);
+    const drag = await run(hDrag), twice = await run(2 * hDrag), half = await run(hDrag / 2);
     tex.destroy();
-    return { drag, none };
-  }, n, y0, W, nu, Fb);
+    return { drag, twice, half };
+  }, n, y0, W, nu, Fb, hDrag);
   {
-    const h = F.deriveDragH();
+    const h = hDrag;
     const ref = odeProfile(n, y0, W, h, Fb, nu);
     const peak = Math.max(...ref);
     const err = arr => Math.max(...arr.map((v, j) => Math.abs(v - ref[j]))) / peak;
     const solid = prof.drag.slice(0, y0 - 6).map(Math.abs);
-    const ok = err(prof.drag) <= 0.02 && Math.max(...solid) <= 0.01 * peak && err(prof.none) > 0.2;
+    // the apparent no-slip plane: a least-squares parabola over the drag-free
+    // liquid (phi < 4e-5 from y0 + 9; the top two rows next to the free-slip
+    // wall left out), its root on the solid side, in W from phi = 0.5
+    const offsetW = u => {
+      const ys = [], us = [];
+      for (let y = y0 + 9; y <= n - 3; y++) { ys.push(y); us.push(u[y]); }
+      const yc = ys.reduce((a, b) => a + b, 0) / ys.length;
+      const M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], r = [0, 0, 0];
+      ys.forEach((y, i) => {
+        const x = [(y - yc) ** 2, y - yc, 1];
+        for (let p = 0; p < 3; p++) { r[p] += x[p] * us[i]; for (let q = 0; q < 3; q++) M[p][q] += x[p] * x[q]; }
+      });
+      const det = m => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+        + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+      const d0 = det(M);
+      const [a, b, c] = [0, 1, 2].map(k => det(M.map((row, i) => row.map((v, j) => (j === k ? r[i] : v)))) / d0);
+      const disc = Math.sqrt(b * b - 4 * a * c);
+      const yw = Math.min((-b - disc) / (2 * a), (-b + disc) / (2 * a)) + yc;
+      return (yw - y0) / W;
+    };
+    const sane = arr => arr.every(Number.isFinite) && Math.abs(Math.max(...arr) / Math.max(...prof.drag) - 1) <= 0.05;
+    const off = { h: offsetW(prof.drag), twice: offsetW(prof.twice), half: offsetW(prof.half) };
+    const planeOk = Math.abs(off.h) < 0.1;
+    const armsMiss = Math.abs(off.twice) >= 0.1 && Math.abs(off.half) >= 0.1 && sane(prof.twice) && sane(prof.half);
+    const ok = planeOk && armsMiss && err(prof.drag) <= 0.02 && Math.max(...solid) <= 0.01 * peak;
     check("FLOW-DRAG-PROFILE", ok, {
       h: +h.toFixed(4), tau: +(0.5 + 3 * nu).toFixed(2), peak: +peak.toExponential(3),
+      noSlipOffsetW: Object.fromEntries(Object.entries(off).map(([k, v]) => [k, +v.toFixed(4)])),
+      planeOk, armsMiss, armsSane: [sane(prof.twice), sane(prof.half)],
+      armPeakRatio: [Math.max(...prof.twice), Math.max(...prof.half)].map(p => +(p / Math.max(...prof.drag)).toFixed(4)),
       maxErrOfPeak: +err(prof.drag).toFixed(4), deepSolidOfPeak: +(Math.max(...solid) / peak).toExponential(2),
-      noDragArmErrOfPeak: +err(prof.none).toFixed(3),
     });
   }
 
@@ -200,10 +246,23 @@ try {
         const n = sim.n, r = await sim.readRows(0, n);
         let dev = 0, bad = 0;
         for (let i = 0; i < n * n; i++) { const T = r[i * 4 + 1]; if (!Number.isFinite(T)) bad++; else dev = Math.max(dev, Math.abs(T - 0.4)); }
-        return { maxDeviation: dev, nonFinite: bad, steps: 2000 };
+        // liveness (S0 review): the flow this melt stayed uniform under was
+        // really moving, at the inlet speed, in the texture the sim exposes
+        const tex = sim.flowVelocity, bpr = n * 16;
+        const buf = sim.device.createBuffer({ size: bpr * n, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+        const enc = sim.device.createCommandEncoder();
+        enc.copyTextureToBuffer({ texture: tex }, { buffer: buf, bytesPerRow: bpr }, [n, n]);
+        sim.device.queue.submit([enc.finish()]);
+        await buf.mapAsync(GPUMapMode.READ);
+        const v = new Float32Array(buf.getMappedRange().slice(0));
+        buf.unmap(); buf.destroy();
+        let ux = 0;
+        for (let i = 0; i < n * n; i++) ux += v[i * 4];
+        return { maxDeviation: dev, nonFinite: bad, steps: 2000, meanUxOfInlet: +(ux / (n * n) / sim.flowCfg.u).toFixed(4) };
       } finally { sim.setFlow(false); sim.step = f; }
     });
-    check("FLOW-UNIFORM-MELT", !out.why && out.nonFinite === 0 && out.maxDeviation <= 1e-4, out);
+    const moving = Math.abs(out.meanUxOfInlet - 1) <= 0.02;
+    check("FLOW-UNIFORM-MELT", !out.why && out.nonFinite === 0 && out.maxDeviation <= 1e-4 && moving, { ...out, moving });
   }
 
   // FLOW-DIRECTION
@@ -293,6 +352,72 @@ try {
     const ok = out.found && out.started && out.overlayPixelDiff > 0.5 && out.fieldUnchanged && out.stopped && /scenario/i.test(out.why)
       && restored?.on && Math.abs(restored.u - out.u) < 1e-9;
     check("FLOW-UI", ok, { ...out, link: undefined, restored });
+  }
+
+  // FLOW-RECONFIGURE (S0 review; pre-registered in tasks/todo.md). LAST, on
+  // purpose: it switches the material to "al" (the calibrated solver needs
+  // one), which no earlier gate's numbers may inherit.
+  {
+    const out = await page.evaluate(async () => {
+      const S = window.__solidify;
+      S.app.setMaterial("al");
+      const sim = S.sim(), f = sim.step;
+      sim.step = () => 0;
+      const { flowSetting } = await import("/src/flow.ts");
+      const dials = () => ({ dTherm: sim.params.dTherm, dt: sim.params.dt, dx: sim.params.dx, epsBar: sim.params.epsBar,
+        calibrated: sim.params.solver === 1 });
+      const cfg = () => { const c = sim.flow?.cfg; return c ? { nu: c.nu, width: c.width } : null; };
+      const want = () => { const s = flowSetting(dials(), sim.flowCfg); return { nu: s.nu, width: s.width, issues: s.issues.length }; };
+      const sequence = async latched => {
+        S.setSolver(0);
+        Object.assign(sim.params, { scen: 0, heatIn: 0, coolRate: 0, alloyOn: 0 });
+        Object.assign(sim.flowCfg, { u: 0.02, scale: 1 });
+        const why = sim.setFlow(true);
+        if (why) return { why };
+        // the must-miss arm: the setting captured at setFlow, forever (pre-0de30b2)
+        if (latched) { const s = sim.flowNow(); sim.flowNow = () => s; }
+        sim.reset(0.4);
+        await sim.stepSync(1);
+        const kob = cfg(), wantKob = want();
+        S.setSolver(1, 2.4);
+        const calibrated = sim.params.solver === 1;
+        await sim.stepSync(1);
+        const cal = cfg(), wantCal = want();
+        S.setSolver(0);
+        await sim.stepSync(1);
+        return { kob, wantKob, calibrated, cal, wantCal, back: cfg() };
+      };
+      let dtK = null;
+      try {
+        const live = await sequence(false);
+        if (live.why) return { why: live.why };
+        // a dt the envelope refuses: ONE submit, synchronously, so no frame can
+        // switch the flow off in between; then one app frame
+        dtK = sim.params.dt;
+        sim.params.dt = dtK / 200;
+        f.call(sim, 1);
+        const held = cfg(), unchecked = want();
+        await sim.device.queue.onSubmittedWorkDone();
+        await S.tick(1);
+        const stopped = !sim.flowOn, issue = S.app.flowIssue();
+        sim.params.dt = dtK; dtK = null;
+        sim.setFlow(false);
+        const latchedArm = await sequence(true);
+        return { live, held, unchecked, stopped, issue, latchedArm };
+      } finally {
+        if (dtK != null) sim.params.dt = dtK;
+        delete sim.flowNow;
+        sim.setFlow(false); S.setSolver(0); sim.step = f;
+        Object.assign(sim.flowCfg, { u: 0.02, scale: 1 });
+      }
+    });
+    const same = (a, b) => !!a && !!b && a.nu === b.nu && a.width === b.width;
+    const L = out.live ?? {};
+    const followsSwitch = a => same(a.cal, a.wantCal) && !!a.cal && !!a.kob && a.cal.nu !== a.kob.nu && a.cal.width !== a.kob.width;
+    const ok = !out.why && L.calibrated && same(L.kob, L.wantKob) && followsSwitch(L) && same(L.back, L.wantKob)
+      && same(out.held, L.back) && out.unchecked.issues >= 1 && out.stopped && /Peclet/.test(out.issue ?? "")
+      && out.latchedArm?.calibrated && !followsSwitch(out.latchedArm);
+    check("FLOW-RECONFIGURE", ok, { ...out, followsSwitch: !!out.live && followsSwitch(L), latchedArmFollows: !!out.latchedArm && followsSwitch(out.latchedArm) });
   }
 
 } catch (e) {
