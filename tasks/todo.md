@@ -7075,3 +7075,78 @@ Expected wall time on the Arc 140V:
 It prints a T3-ARM line per arm, then T3-VERDICT and FLOW-TONG3 RECORDED or
 FAILED. FAILED means an incomplete run, not a physics failure. It writes
 docs/validation/flow-tong3-<date>.json and raw rows under verify-out/.
+
+#### GPU run and reading (root, frozen f7db85a, 2026-11-07 19:00-19:14, Intel Arc 140V)
+
+Run conditions:
+- Tree clean before the run; the self-test passed in the same runner.
+- The port 5297 listener was this worktree's vite.
+- Served source verified, source stable, 0 errors.
+- No other headless Chrome at start or end.
+- One "Chrome shutdown stalled" cleanup message at the end (harness, not an
+  error).
+
+FLOW-TONG3 RECORDED. Result: docs/validation/flow-tong3-2026-11-08.json (the
+date is UTC).
+
+**Verdict (the script's): NO VERDICT.** P768 and P640 are invalid, both by
+stationarity of the NO-FLOW run (-4.45%; the clause is 2%). Every other
+clause held:
+- Flow runs stationary: +0.22% (P768), +0.51% (P640), +1.69% (P512).
+- In bound: tau V / W flow 0.158 / 0.159 / 0.162, no flow 0.117.
+- Inlet live: within 4e-8.
+- No stop rule tripped in tier P.
+- Converged in inlet distance: C = 0.45% (rule 1%).
+- Falsification shown: coupling 0 gives R = 1 exactly; coupling -1 gives
+  R = 0.630.
+- Tier I (info): the stop rule tripped in the flow run (end gap 0.04 nu/U),
+  non-stationary (+18%), out of bound (0.222). As predicted, Tong's own
+  geometry cannot give a clean steady number in this app.
+
+| Arm | V d0/D no flow | V d0/D flow | vs Tong 0.0247 | R | stationarity no flow / flow | end gap nu/U |
+|---|---:|---:|---:|---:|---:|---:|
+| P768 | 0.016273 | 0.021946 | -11.1% | 1.349 | -4.45% / +0.22% | 2.36 |
+| P640 | 0.016273 | 0.022046 | -10.7% | 1.355 | -4.45% / +0.51% | 1.80 |
+| P512 | 0.016273 | 0.022485 | -9.0% | 1.382 | -4.45% / +1.69% | 1.23 |
+| I512 (info) | 0.017148 | 0.030809 | +24.7% | 1.797 | -3.68% / +17.96% | 0.04 (stopped) |
+
+Reading (mine; none of this is a verdict):
+1. The no-flow run is the one that fails, and the reason is intrinsic. Its
+   west tip gives the same speed and the same -4.45% in all three geometries,
+   agreeing to 1e-9 although the seed moves 256 cells and the east tip ends
+   197 to 936 d0 from the east wall. So the deceleration is not a wall or box
+   effect. It is the free tip still relaxing from the seed at 8 l_D / V_KR:
+   at dx 0.8 and lambda 3.19 the no-flow transient is longer than this
+   window. The flow tip relaxes faster (it is stationary to 0.2-1.7%).
+2. A counterfactual, NOT a verdict, and no band is moved by it: had the
+   no-flow run been stationary, the frozen rule would have given FAIL on the
+   V clause (-11.1% against +-10%), with R = 1.349 inside [1.26, 1.54]. A
+   longer no-flow window can change R. It cannot rescue the V clause, which
+   uses the flow run alone, and that run is already stationary and converged.
+3. The flow speed-up agrees with Tong more closely than the absolute speed
+   does. R = 1.349 against Tong's same-D 1.372 is -1.7%. The absolute flow V
+   is -11.1%. The no-flow baseline accounts for most of the gap:
+   - this solver's no-flow V is 0.01627, which is -4.3% from exact 0.0170 and
+     -9.6% from Tong's own no-flow 0.0180 (+5.9% above exact);
+   - this matches the dx 0.8 no-flow deficit the v5 ladder found at lambda 3.2
+     (-4.4%).
+   But the no-flow value is still falling, so this R is a lower bound in
+   tendency, not a converged ratio.
+4. Inlet distance matters at the 2-3% level between 1.2 and 1.8 nu/U (P512
+   to P640: V -2.0%, R -1.9%) and settles beyond (P640 to P768: -0.45%).
+   A seed at Tong's centred 1.12 nu/U start (tier I) runs into the inlet.
+
+Consequence: per the protocol, the flow stays labelled qualitative.
+
+What could follow (NOT pre-registered; Frank's choice; any follow-up must
+keep the bands):
+- (i) Accept and stop. The record is now complete: speed-up within 2% of
+  Tong at D2, absolute speed 11% low, traced mostly to the dx 0.8 no-flow
+  baseline.
+- (ii) A no-flow convergence check alone: the same staging and a longer
+  window (e.g. 16 or 24 l_D / V_KR), to find when the free tip becomes
+  stationary at dx 0.8 and lambda 3.19, and what R then is. This changes R
+  only, not the V clause.
+- (iii) The resolution step at the same box (dx 0.4 at 2957 d0) needs
+  n 2048, above the 1024 flow limit (D3.4 N1). Not runnable without a new
+  design.
