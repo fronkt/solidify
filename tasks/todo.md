@@ -7241,3 +7241,36 @@ The self-test covers:
 - admission refusal;
 - planted defects.
 Commit the build before the GPU run, which is the root's.
+
+#### Amendment before any run (2026-11-07, follow-up ii)
+
+Written by the build delegate (CPU only) before any run of this protocol, CPU or
+GPU. No arm, run length, statistic or threshold changes.
+
+1. Replica reference (an error in the text). The replica compares N1024's m = 33
+   V d0/D with "0.0162725 within 1e-6 relative". tong3 recorded P768's no-flow
+   value as 0.016272541498534042 (docs/validation/flow-tong3-2026-11-08.json,
+   arm P768, runs.noflow.summary). The quoted figure sits 2.55e-6 from it, so a
+   bit-identical rerun would miss the replica on rounding alone. Resolution:
+   both replica clauses compare with the recorded doubles, V 0.016272541498534042
+   and s_33 -0.044540341195214994, and the tolerances stay 1e-6 relative and
+   0.01 points. For s the choice is immaterial: rounding moves it by 3.4e-5
+   points against a 0.01-point tolerance. For scale, tong3's P512 has the same
+   seed position as N1024's centred seed, and it recorded a value 8.2e-8 from
+   P768's.
+2. What an invalid arm does (not stated). An arm that misses V1, trips the
+   stop rule, or (N1024) misses the replica is reported with its windows and
+   label, marked invalid. R* needs N1024 valid and STEADY. The box test needs
+   both arms valid. Otherwise it reports NOT TESTED with the reason, and the
+   box question stays open, as the protocol says for an N2048 that cannot run.
+3. Reported quantities the text names but does not define. These are reported
+   only and never gate.
+   - The per-chunk speed v_k is the V d0/D between samples k - 1 and k
+     (k = 1..80; sample k is read after k + 1 chunks).
+   - "The first chunk below the exact 0.0170" is the first k with v_k < 0.0170.
+   - "The drift per chunk" is the least-squares slope of v_k against k over the
+     last third of the samples (54..80). It is reported for every arm,
+     whatever its label.
+   - The probe's u is T - 1 (the calibrated pure melt's drive, shaders.ts
+     "drive = T - 1.0"; far field -Delta). It is interpolated linearly
+     between cells, and is null where the point lies beyond x = 0.
