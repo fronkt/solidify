@@ -7274,3 +7274,133 @@ GPU. No arm, run length, statistic or threshold changes.
    - The probe's u is T - 1 (the calibrated pure melt's drive, shaders.ts
      "drive = T - 1.0"; far field -Delta). It is interpolated linearly
      between cells, and is null where the point lies beyond x = 0.
+
+#### Status (build, 2026-11-07, delegate): built and checked on the CPU; GPU not run
+
+- Built (b2651e6, after the amendment d4b8856):
+  scripts/research/flow-noflow-d2.mjs, flow-noflow-d2-arms.json,
+  flow-noflow-d2-selftest.mjs, and a README section.
+  - Imported unchanged: flow-domain.mjs (the driver, tip and mirror helpers),
+    flow-tong2.mjs (summarizeRun, runIssues, admission, the contention log)
+    and flow-tong3.mjs (tier-P staging, chunk 671, and tau V / W).
+  - Those three files equal their frozen heads (21e73ee / 21e73ee / f7db85a),
+    as do their self-tests and arm files and tong3's result JSON (f47bc6f).
+    The self-test checks this, and `--run` refuses otherwise.
+  - The 81-chunk run loop is new code, because tong2's runOne is fixed at 33
+    chunks. It reuses the same driver calls and the same stop rule.
+  - V1 is tong2's runIssues with its 33-sample count replaced by 81, plus
+    "flow on during the run".
+- n 2048 with flow off: ACCEPTED, so N2048 runs. Source:
+  - flowRefusal's grid > 1024 clause is a flow refusal, and the frame loop asks
+    it only `if (sim.flowOn)` (main.ts:2533).
+  - setGrid reaches swapSim, which builds `new Simulation(device, n)` with no
+    bound (main.ts:1203, 1413).
+  - The UI itself offers 2048² (ui.ts:917), and this file's early notes
+    (line 24) record "2048² works with backpressure throttling" on this
+    machine.
+  - The device takes WebGPU's default limits (main.ts:55 names features
+    only). The state textures are 64 MiB each, far under the 8192
+    texture-dimension limit.
+  - readRows at n 2048 has 32768 bytes per row (a multiple of 256). Its
+    full-field end readback is a 64 MiB mappable buffer, under the default
+    256 MiB maxBufferSize.
+  - D3.4's and tong2's N_MAX 1024 guards belong to their own flow arm files.
+    This arm file has none, since it never turns flow on.
+
+  CPU demonstration (self-test SIM-ACCEPTS-2048): the real sim.ts and flow.ts,
+  loaded through Vite with no port and no websocket, driven by the real D3.4
+  driver and the probe on a recording device, at n 1024 and n 2048 with flow
+  off. Each one:
+  - stages, delivers a 671-substep chunk, reads back and restores;
+  - never calls setFlow(true);
+  - dispatches only 256 x 256 workgroups at 2048;
+  - keeps every copy aligned;
+  - creates no texture over 8192 and no buffer over the default limits (the
+    largest is 64 MiB).
+
+  Source pins (the UI's 2048, setGrid/swapSim, the default-limits device and
+  the flow-only frame check) turn it red if they change.
+
+  Not shown on the CPU: real WebGPU allocation and validation at 2048². The
+  run records the staged grid (gridAccepted) and stage() throws unless
+  sim.n === 2048.
+- Probe: AVAILABLE without a src/ change.
+  - The page's own Simulation.readRows returns all four channels of a row.
+    Channel 1 is T, and u = T - 1 for the calibrated pure melt (shaders.ts:318;
+    reset fills T = tFar = 1 - Delta).
+  - The script installs a read-only helper (window.__nd2probe) and copies row
+    n/2 after each chunk. It never stages, steps or writes anything.
+  - Two witnesses: the probe's last copy must equal the driver's own end()
+    T row bit for bit (probeMatchesEnd), and the replica, which a perturbing
+    probe could not pass.
+  - A probe failure is recorded (probeError) and never invalidates an arm.
+  - At N1024's predicted end (~114 cells from x = 0) the 8 l_D point
+    (163 cells ahead) lies past the wall, so it reports null late in the run.
+- CPU results: `node scripts/research/flow-noflow-d2.mjs` (self-test) 13/13
+  OK.
+  - PROTOCOL: the 80be923 text is kept verbatim at the head of the amended
+    section, with 15 quoted clauses present.
+  - FROZEN: the reused files and tong3's result are unchanged.
+  - PARSE: 10 hostile arm files are refused.
+  - RUN-LENGTH: 81 x 671 = 54351, T81 = 2609.9 tau0 = 19.6 l_D / V_KR, and
+    the first 33 chunks are exactly tong3's window.
+  - REPLICA: on tong3's recorded P768 trace, m = 33 returns the recorded
+    doubles exactly. The quoted 0.0162725 sits 2.55e-6 away (amendment
+    item 1). Both clauses pass and fail on their own tolerances: V within and
+    outside 1e-6 with s fixed, and s within and outside 0.01 points with V
+    fixed.
+  - PREFIX, on synthetic traces:
+    - steady gives STEADY with m* 33;
+    - a linear drift gives DRIFTING, with the drift per chunk recovered and
+      the first chunk below 0.0170;
+    - a late steady gives STEADY with m* 69;
+    - the stop rule invalidates;
+    - the label edges hold (0.02 inclusive, a non-contiguous ok set, a
+      missing window 81).
+  - BOX-RSTAR:
+    - the box-rule edges at 0.005 and 0.02 hold, with INDEPENDENT,
+      DEPENDENT, UNRESOLVED and NOT TESTED (N2048 not run, or invalid);
+    - R* is computed only for a valid STEADY N1024; DRIFTING, replica-missed
+      and flow-on N1024s give none;
+    - every decision carries tong3's verdict only as the constant "stands as
+      recorded" string.
+  - PROBE: the interpolation and the null past the wall.
+  - MOCK-RUN and MOCK-FAILURES: the driver against a mock app for both arms
+    (setGrid(2048), 81 x 671 delivered, flow never on, the probe matching
+    end()). Failure cases: the stop rule (stopped at the first sample within
+    32 cells), a failed readback with the step restored, and a failing probe
+    that leaves the arm valid.
+  - ADMISSION: a changed served src/sim.ts is refused before any staging.
+  - SIM-ACCEPTS-2048, and RULES-FROZEN.
+  - Planted defects: 19 each turned it red:
+    - replica: against the quoted value, a looser tolerance, not gating;
+    - the label: a strict STEADY edge, m* without contiguity;
+    - the windows: last-m instead of first-m prefixes;
+    - the box rule: >= 0.02, a V-only independence test;
+    - R*: when DRIFTING, when invalid, with the full-precision numerator;
+    - the probe: its offset sign, u without the -1;
+    - the run: a 33-sample count, the flow-on witness off, the stop rule moved
+      to 0, 80 chunks;
+    - the box test run on invalid arms;
+    - an edit to flow-tong3.mjs.
+- Also: the tong2 (11/11), tong3 (10/10) and D3.4 self-tests still pass;
+  typecheck passes; verify-flow.mjs passes 8/8 (103 s this time, on a busy
+  machine; 28 s before).
+- [ ] GPU run (root session only; nothing here has touched a GPU or a browser):
+
+```text
+cd ../solidify-tong2                   # research/flow-tong2, frozen at the head named in the report
+npx vite --port 5297 --strictPort
+node scripts/research/flow-noflow-d2.mjs --run --port 5297
+```
+
+Expected wall time on the Arc 140V:
+- about 4.4 min of stepping (`--plan`: N1024 54351 x 0.98 ms = 53 s; N2048
+  about 4x, 213 s);
+- plus 162 probe row copies, one 64 MiB end readback at 2048, and two page
+  loads;
+- about 5-6 min in all; plan for <= 10 min.
+
+It prints an ND2-ARM line per arm, then ND2-DECISION and FLOW-NOFLOW-D2
+RECORDED or FAILED. It writes docs/validation/flow-noflow-d2-<date>.json and
+raw rows under verify-out/.
