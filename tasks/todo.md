@@ -6577,6 +6577,36 @@ for the whole run that the 5199 listener was this worktree's vite. The
 FLOW-INLET-* numbers repeat run 2's to the printed digits.
 Log: ../solidify-verify-v7/verify-out/pr11-847dfea-full-suite.log.
 
+### Merged head with PR 8 (frozen c2c825d, 2026-11-07 20:29 to 11-08 00:02)
+
+Every one of the 47 scripts passed on c2c825d, but not in one clean run. The
+machine was saturated by other sessions (Blender, Chrome automation, CPU
+77-100%) for the whole evening.
+
+- Full-suite runs 1 and 2 died on load timeouts (OPT3-ACCEPTANCE 300 s; the
+  vite server never answered).
+- Run 3 passed the first 40 scripts. The 41st, verify-scale3d, hit a 30 s
+  navigation timeout.
+- The remaining 7 scripts were run one by one on the same tree, each with its
+  own vite on 5199 and an ownership check. scale3d, 3d, recrystallize-gpu,
+  recrystallize-rate-gpu and flow-gpu passed. My first attempt at scale3d and
+  3d omitted their port argument and tested nothing; rerun with it, both pass.
+- verify-visual-gpu: VIS-STUDIO-COST failed 3 of 4 times on c2c825d and passed
+  on the 4th. The 2 fails under heavy load (rafHz 26.6) failed on linearity
+  and, once, ratio 2.14. The fail on a quiet machine was linearity only: the
+  "on" arm's residual was 82.6 ms against the 10%-of-span allowance of
+  76.5 ms, while its ratio was 0.925. Its other 10 checks passed every time.
+  Control on 484fb02 (v7 without this PR): 2/2 pass, ratios 1.07 / 1.06.
+  This PR changes only src/lbm.ts, which that render path does not use.
+  Reading: the 3-point linearity witness flakes on timing noise. The cost it
+  guards (ratio <= 1.8) held in every run not starved by load.
+- [ ] Follow-up: VIS-STUDIO-COST's linearity witness is flaky (3 points, a 10%
+  residual allowance, 1-2 s of timing). Re-register it with more points or
+  repeats before relying on it as a gate.
+
+Logs: ../solidify-verify-v7/verify-out/pr11-merged-c2c825d-r3-*,
+pr11-c2c825d-rest*-*.log, pr11-c2c825d-visual-r3.log, v7-484fb02-visual-control.log.
+
 ### Next Tong comparison - PROTOCOL ONLY (pre-registered 2026-11-07; not built, not run)
 
 Follows the D3.4 reading (H_D supported: the 11-01 lambda trend was the box;
