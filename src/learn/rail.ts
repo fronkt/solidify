@@ -30,7 +30,7 @@ export const RAIL_LEARN: readonly LearnEntry[] = [
     id: "sec:MODES",
     text: "In lab mode you pour a planned experiment (mold, superheat, cooling program) and get its cooling "
       + "curve and grains; heat treat anneals the frozen casting in real hours. The optimizer searches for "
-      + "a process that hits a target grain size, and challenge pits you against it (both 2D only).",
+      + "a process that hits a target grain size in 2D or 3D; challenge pits you against it in 2D only.",
   },
   {
     id: "sec:MELT · PROCESS",
@@ -46,8 +46,12 @@ export const RAIL_LEARN: readonly LearnEntry[] = [
     id: "sec:SCENARIO",
     text: "Where heat leaves the melt, which decides the shape of the grains: free cools it evenly, bridgman "
       + "pulls it through a temperature gradient (how turbine blades are grown), weld drags a laser pool "
-      + "across it, and selector (TRUE 3D only) filters many grains down to one.",
+      + "across it, and selector (TRUE 3D only) filters many grains down to one. Melt flow (2D, free "
+      + "growth) pushes liquid in from the left edge: arms facing the stream grow faster, the wake grows slower.",
     hints: {
+      "melt flow": "liquid streaming in from the left edge",
+      "flow speed": "inlet speed, in cells per step",
+      "show flow": "streaks that move with the melt",
       "gradient": "temperature change per unit length",
       "gradient (3D)": "temperature change per unit length",
       "pull speed": "how fast the melt moves through the gradient",
@@ -238,8 +242,8 @@ export const RAIL_CAVEATS = {
     learn: LOCKED,
   },
   cal3d: {
-    line: "calibrated solver: 2D only",
-    learn: "The calibrated solver runs in 2D only for now; the volume still uses the Kobayashi model.",
+    line: "3D calibration: smooth cubic energy",
+    learn: "Calibrated volumes support smooth cubic interface energy. Hexagonal, icosahedral and cusped shapes use the qualitative model.",
   },
   calNoSI: {
     line: "calibration needs SI data (Γ, D)",

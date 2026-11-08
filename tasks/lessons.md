@@ -681,3 +681,232 @@ split "bridgma/n" and the head plate sat under the toggles.
 require it was read (a per-item floor, not a list entry). When the property lives
 somewhere the probe's API cannot see (pseudo-elements, canvas, compositing), read the
 pixels, and prove the read on a planted defect.
+
+## Seed every stochastic input and own the manual GPU clock
+
+A3D calibration fixture seeded nucleation positions but inherited a random page seed for grain orientations. Armed animation frames could also consume queued quench stamps between manual growth batches. The same source therefore produced different specimens and coarsening fits.
+
+**Rule.** For a deterministic GPU fixture, control every named random stream and separate manual physics submission from animation submissions. Verify actual field bytes and delivered steps/frame/time before fitting a physical constant. Preserve stopping rules and scientific tolerances; reproducibility is a precondition, not a reason to widen acceptance.
+
+## Async setup owns its publication, not merely its allocation
+
+A shared 3D setup wrote calibrated dials before allocation, then resumed after the operator left the mode. A completed allocation does not authorize publishing into a different mode, solver instance or user-edited setup. Preserve the qualitative baseline until preparation succeeds, check ownership after every await, and keep composed kPart/dSol canonical before taking a restoration snapshot. Publish a dormant volume's scale only into that volume; an explicit reset must permit retry after a visible runtime refusal.
+
+## Separate a compound gate from its component results
+
+The five-arm reference runner's final convergence assertion included every arm's literature acceptance. That assertion failed even though all pointwise domain/grid/time/width differences were within their comparison band. Report the condition that actually failed. A fixed maximum horizon also does not make a first-qualifying endpoint a fixed terminal observation; predeclare paired physical endpoints when the convergence comparison requires them.
+
+## A CI inventory includes argument-bearing test modes
+
+Adding a browser-free lifecycle check also changes the documented CI inventory.
+Count workflow invocations with modes such as --self-test, update TESTING.md in
+the same phase, and run verify-phasedata before pushing workflow additions.
+Passing only the new test misses the existing cross-document count contract.
+
+## A hash change is not a fresh setup restoration
+
+Navigating an open app to the same pathname with a different recipe hash can
+reuse the existing document and its already armed recipe. Matching dials then
+proves nothing about link restoration. Force a new document, require its identity
+to change, and assert a fresh optimizer history before checking the restored
+recipe and actual replay.
+
+## Cancellation must retain writes made before an await
+
+A casting batch selects its next cooling rate before awaiting the census. The
+parent's last published parameter snapshot can therefore lag an owned write.
+Before dropping a canceled clock on target reset, retain that clock's current
+expected parameters so Exit can restore the original setup. Version checks stop
+late publication; they do not undo writes that already happened.
+
+## A perturbed traveling wave need not recover on an assumed thermal clock
+
+The lattice kinetic experiment required an added-heat front to recover its
+original fixed-speed temperature profile after five D/V-squared times. All
+execution checks passed, but that thermal clause failed. An independent Float64
+march reproduced the residual while conserving enthalpy. The small speed shift
+changed the liquid diffusion length and predicted the temperature tail. Positive
+bare relaxation did not establish asymptotic stability of either finite-speed
+branch, and a neutral translation could not absorb the added enthalpy.
+
+**Rule.** Identify conserved quantities and available neutral modes before
+requiring recovery to the original wave. Establish the transient expectation in
+an independent solver, distinguish field evolution from stability, and include
+signed or zero-integral controls when appropriate. A failed frozen predicate
+stays failed; a later diagnosis requires its own prospectively specified test.
+
+## A commit archive does not always preserve measured source bytes
+
+Git normalizes line endings. Twenty-five local scientific source records used
+Windows byte representations that differed from their commit archive, although
+the generated WGSL and source logic were identical. A separate exact-byte
+archive reconstructed every recorded hash from the pinned Git content and
+verified LF/CRLF representation; no result or scientific source was altered.
+
+**Rule.** Preserve the exact files whose hashes were measured, alongside the
+commit archive. If reconstruction is necessary, verify the reconstructed bytes
+against every original hash and label the representation. Keep generated shader
+hashes as a separate model-provenance check.
+
+## Compare in the precision the GPU stored
+
+The 2D replay gate first failed (IoU 0.966 against a pre-registered 0.97). The
+first hypothesis, interface flicker re-stamping the freeze time, was wrong:
+classifying the disagreeing cells showed every one was an EXTRA replay cell, the
+same count with noise off, about one batch of growth. The CPU check compared the
+f32 age against the double capture time; f32(0.144) sits below the double, so
+the batch that starts exactly at the capture passed `age < t`. The GPU compares
+f32 to f32 and was right all along; with `Math.fround(t)` the IoU is 1.0.
+
+**Rule.** A CPU reference for a GPU float rule compares in the GPU's stored
+precision (Math.fround the threshold). Before explaining a mismatch, classify
+it (missing vs extra, near what, with which control off) and let the counts
+pick the hypothesis.
+
+## A centroid is not the centre of a clipped shape
+
+The nucleus-stamp gate bounded every nucleus's voxels within r of their
+centroid; a sphere clipped by the liquid slab or a domain face has its centroid
+pulled away from the clip, so a correct stamp read 2.06 > 2. The property meant
+was containment in the digital sphere about the GENERATING centre.
+
+**Rule.** Check geometric containment against the known generator (place
+fixtures at explicit centres when the production path draws them at random),
+and include clipped cases on purpose so the check sees the edge it is about.
+
+## Wait for the asynchronous step you assert on, not the one before it
+
+SESSION-3D-CANCELLATION failed twice in three runs after the studio look made
+3D frames heavier: the fixture waited for the alloy step, then awaited
+`quantPromise` only if it already existed. The app requests the calibrated
+volume a few GPU-queue awaits later, so a busier queue meant the check found no
+promise, skipped the wait and read "Preparing". Nothing in the app was stuck.
+
+**Rule.** When the asserted state comes from an async chain, wait for evidence
+that the step itself started (a call counter, a latch set) and finished, then
+settle a few frames so a late, unwanted call is still caught. Never infer "not
+called" from a check made before the caller could have run.
+
+## A fixed sleep is a GPU-speed assumption
+
+FEED-MASK (verify-3d) and once ATMOSPHERE (verify-tools) delivered less growth
+after the studio look made frames heavier. `__solidify.tick(k)` runs k frames in
+one task; the solvers skip a step while two submits are in flight, so only the
+first two frames step, and the caller then slept a fixed 30-80 ms hoping the
+GPU had drained. Heavier renders outlasted the sleep, the next call started
+"busy", and the physics per call shrank. The hook now awaits the GPU queue.
+
+**Rule.** Pace test physics on completion (onSubmittedWorkDone, stepSync),
+never on wall-clock sleeps; a change that only makes frames slower must not be
+able to change how much physics a gate delivers.
+
+## A raw counter value is not a free count
+
+The volume's grain-id allocator is a u32 the GPU growth-twin pass `atomicSub`s on
+every attempt, refused or not, so a long twinning cast walks it past 0 to ~4.29e9.
+Three callers read it and did arithmetic on the raw value (`ctr - nextId - 2`), so a
+wrapped counter read as four billion free ids; `nucleate` then indexed past every
+per-id buffer, threw, and because the call sat above the panel's `try` the busy
+latch never cleared.
+
+**Rule.** Read a hardware counter through one function that knows how it can
+overflow, and keep every await that can throw inside the block that releases the
+lock it ran under.
+
+## A setting latched from dials goes stale when the dials move
+
+The melt flow computed its lattice viscosity and drag width once, at `setFlow`, from
+dt, dx, epsBar and the solver. Every one of those is a live dial, so a solver switch
+mid-flow ran a 3.1x drag and the wrong Prandtl number with no message, and the
+stability envelope was never checked again.
+
+**Rule.** A value derived from user-adjustable inputs is derived at the point of
+use, and its validity re-checked where the inputs can change, not only where the
+mode starts.
+
+## Stamp an asynchronous result with the state it describes
+
+A census is submitted against the field as it is when the read is issued and
+resolves frames later. A reset in between handed the old cast's numbers to every
+consumer: the replay ledger refused the fresh pour as remelted, the HUD showed a
+ΔT right after its own reset (the HUD-LIVE intermittent), the lab took a first
+sample from the previous melt. The first fix guarded only the consumer the review
+named; the root found the other six.
+
+**Rule.** When a result can outlive what it measured, stamp it at issue (owner and
+generation) and drop it before the FIRST consumer, so one check covers them all.
+Fixing the consumer that was reported leaves the rest.
+
+## Mark the event where it happens, not where a poll may notice it
+
+The replay ledger learned of a heat treatment by a frame seeing `heat.busy`; a
+treatment that started and ended between two frames left it clean. And marking at
+the call is not enough on its own: the next frame's clock reads an unseen reset as
+"time ran back" and clears the mark, so the call syncs the clock first.
+
+**Rule.** Record a state change at the call that makes it. A polled flag is a
+backstop, never the record.
+
+## Size a tolerance against the defect it must catch
+
+FLOW-DRAG-PROFILE allowed 2 % of the peak; a drag constant wrong by a factor of 2
+moves the profile by 1.7 %, so the gate could not see the error it existed for. Its
+falsification arm (h = 0) did fail, but because a frictionless periodic channel has
+no steady state and accelerated to Mach 0.6, not because of the profile.
+
+**Rule.** Before choosing a band, compute what the target defect does to the
+statistic; if the band contains it, change the statistic (here the fitted no-slip
+plane, which a factor of 2 moves by 0.3 W against a 0.1 W band).
+
+## A measurement at a cap cannot fail
+
+VIS-STUDIO-COST compared the running fps with the studio look on and off: 55.7 and
+55.6, both at the headless vsync cap, while the render-only cost rose 53 %. A 15 %
+drop clause on two capped numbers is a constant.
+
+**Rule.** When a quantity can saturate (vsync, a clamp, a full domain), gate on one
+that cannot, and prove it with a planted cost that must break the gate.
+
+## A wall-clock GPU bench measures a slope, not a total
+
+VIS-STUDIO-COST took three instruments. Waiting on the queue after every frame
+let a fixed round trip dominate (a doubled workload moved 7.26 -> 12.53 ms).
+Amortizing 40 frames per wait still failed its own doubling witness (1.41): the
+totals fit time = C + 40 k g with a one-off C of about 106 ms per bench, so any
+ratio of totals mixes C into the cost. Timing 40, 80 and 120 renders and taking
+the least-squares slope removed C (ratio 1.197, both arms linear). The planted
+"render twice" arm was the right instinct and the wrong witness: it only showed
+that the totals did not double.
+
+**Rule.** Time a GPU workload at three or more sizes and gate on the slope, with
+a linearity check as the liveness witness. A per-frame wait or one amortized
+total is not a cost.
+
+## A fixture can quietly depart from its own pre-registration
+
+VIS-REPLAY-3D was pre-registered against "the final phi and age volumes" of the
+setup growth, but the code read them several sections later, after another gate
+had run the cast on from t 0.324 to 0.603. The IoU failed (0.986 vs 0.99) for a
+reason the predicate never asked about. Reading the field at batch 60 gave
+0.983 / 0.990 / 1.000 with every mismatch classified as live-only.
+
+**Rule.** When a gate reads state, read it at the moment the pre-registration
+names, inside the block that produced it. Report that state's time next to the
+verdict so a departure shows up in the output.
+
+## The GPU and the test port are shared with other sessions
+
+On 11-07 the first D3.5 GPU run aborted on puppeteer's 180 s protocol timeout
+before any gate ran. Other sessions' WebGPU probes were running on the same
+iGPU at the same time. A few minutes later a third party's suite held port
+5199, so my diagnostic page loaded a different checkout that had no
+src/lbm.ts. run-tests.mjs only waits for "something answers on 5199", so a
+squatter would silently become the server under test.
+
+**Rule.** Before a GPU gate run, check that the port is free. Prefer a unique
+port where the script takes one. Confirm that the served file is this
+checkout's (fetch a source file and match a line only this head has). For the
+fixed-port suite, keep checking for the whole run that the 5199 listener's
+command line names this worktree. Log other headless Chrome processes at the
+start and end, so a timing or timeout failure can be read against
+contention.

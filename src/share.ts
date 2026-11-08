@@ -20,6 +20,9 @@ export interface ShareState {
    *  whitelist doctrine on every optional tail element */
   lab?: [string, number, number, number, number, string, number?, number?, string?];
   sched?: [number, number, number] | null;  // applied recipe cooling schedule
+  /** Lossless 3D model-recipe provenance; legacy links need only sched. */
+  opt3?: { version: 1; maxSteps: number; target: number; diameter: number | null;
+    unit: "µm" | "cells"; params: Record<string, number> };
   d?: 1;                                    // 1 = the setup lives in TRUE-3D mode
   g3?: number;                              // 3D grid edge (128 / 160 / 192)
   g2?: number;                              // 2D grid edge; absent in older links
@@ -32,7 +35,10 @@ export interface ShareState {
    *  in use. The work element rides BEHIND the dispersion pair rather than
    *  replacing it, so a worked-but-unpinned setup still spells that pair out at
    *  its off defaults: a positional tail with a hole in it cannot be decoded. */
-  ht?: [number, number, number, number?, number?, number?];
+  ht?: [number, number, number, number?, number?, number?, number?, number?];   // 7th: C3b nuclei; 8th: C3b-3/4a mode (heatshare.ts)
+  /** D3.3: the melt-flow inlet speed (cells per substep), present only while
+   *  flow runs (2D); absent = no flow, so every older link decodes unchanged */
+  fl?: number;
   /**
    * (v7.0) the run's RNG seed. This is what turns a link from "the same dials"
    * into "the same cast": grain orientations, nucleation sites and their

@@ -21,7 +21,26 @@ async function boot(page, hash = "") {
     if ((t === "warning" || t === "warn") && /binding size|minimum (buffer )?binding size/i.test(m.text()))
       bindWarnings.push(m.text());
   });
-  await page.goto("http://localhost:5199/app/" + hash, { waitUntil: "networkidle0", timeout: 30000 });
+  // Diagnostics only (a full suite once timed out here, 18 min in, never in
+  // standalone reruns): on a navigation timeout, print what was still in
+  // flight and the document state, then fail exactly as before.
+  const inflight = new Map();
+  const t0 = Date.now();
+  page.on("request", r => inflight.set(r, Date.now() - t0));
+  page.on("requestfinished", r => inflight.delete(r));
+  page.on("requestfailed", r => inflight.delete(r));
+  try {
+    await page.goto("http://localhost:5199/app/" + hash, { waitUntil: "networkidle0", timeout: 30000 });
+  } catch (e) {
+    const state = await Promise.race([
+      page.evaluate(() => ({ ready: document.readyState, solidify: !!window.__solidify, scripts: document.scripts.length })).catch(x => String(x).slice(0, 120)),
+      new Promise(r => setTimeout(() => r("evaluate did not return in 5 s"), 5000)),
+    ]);
+    console.log("BOOT-TIMEOUT", JSON.stringify({ error: String(e?.message ?? e).slice(0, 160), state,
+      pending: [...inflight].map(([r, at]) => ({ url: r.url().replace("http://localhost:5199", ""), type: r.resourceType(), sinceMs: at })).slice(0, 20),
+      pendingCount: inflight.size }));
+    throw e;
+  }
   try { await page.waitForFunction("!!window.__solidify", { timeout: 15000 }); }
   catch { await page.reload({ waitUntil: "networkidle0" }); await page.waitForFunction("!!window.__solidify", { timeout: 20000 }); }
   await new Promise(r => setTimeout(r, 1000));
@@ -460,6 +479,8 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
 //     ticked quench left a record with no liquid sample to draw.
 {
   const page = await browser.newPage();
+  const pageErrors = [];
+  page.on("pageerror", e => pageErrors.push(String(e?.message ?? e).slice(0, 300)));
   await boot(page);
   const pour = async quant => {
     const at = await page.evaluate(q => {
@@ -501,7 +522,19 @@ const hideChrome = p => p.evaluate(() => { for (const el of document.getElementB
     });
     const want = at.solver === 1 ? 1 : at.alloyOn === 1 ? 1 - at.mLiq * at.c0 : 1;
     const wantC = at.oneC - (1 - want) * at.K;
-    return { card, at, fig, want, wantC };
+    // Diagnostics only (not part of the verdict): this gate failed twice in
+    // suite runs (2026-11-01, 2026-11-07) with no card after 150 s and never in
+    // seven standalone runs, where the Kobayashi card lands in about 5 s. The
+    // lab's own state says which half stalled: the run (state "running", record
+    // length frozen, app paused or not) or the report (state "finished",
+    // report still null while buildReport awaits its census).
+    const lab = card ? null : await page.evaluate(() => {
+      const S = window.__solidify, L = S.lab;
+      return { state: L.runState, running: L.running, active: L.active, recorded: L.series?.length ?? -1,
+        lastFs: L.lastFs, plateau: L.plateau, programDone: !!L.run?.done, simTime: L.host.simTimeNow(), t0: L.t0,
+        report: !!L.report, resultsPanel: !!L.resultsPanel, appRunning: S.app.isRunning(), hidden: document.hidden };
+    });
+    return { card, at, fig, want, wantC, lab, pageErrors: pageErrors.splice(0) };
   };
   const kob = await pour(false);
   const cal = await pour(true);

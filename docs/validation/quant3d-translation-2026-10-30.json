@@ -1,0 +1,672 @@
+{
+  "format": "solidify-equilibrium-translation-diagnostic-v1",
+  "contract": {
+    "arms": [
+      {
+        "name": "epsilon-0-offset-0",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4
+      },
+      {
+        "name": "epsilon-0-offset-0.4",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4
+      },
+      {
+        "name": "epsilon-0.0171-offset-0",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0.0171,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4
+      },
+      {
+        "name": "epsilon-0.0171-offset-0.4",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0.0171,
+        "centerOffset": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4
+      }
+    ],
+    "tolerances": {
+      "centroid": 8e-05,
+      "minimumShift": 0.2,
+      "initialRelativeVolume": 0.0001
+    },
+    "physics": "unchanged default pure3D; latticeKinetics=false",
+    "coordinates": "shared actual adapter: (cell+.5-n/2)*dx-declaredCenterOffset; observed centroid never changes origin",
+    "volume": "translated arm shares its baseline phase-volume target; unchanged radius",
+    "clock": "original controlPeriod4; original integer step cap and JS horizon/count; 50 requested periods,51 observed checkpoints; exact Float32 uniform time reported separately",
+    "negativeControl": "actual translated GPU field, unchanged declaration, bypass fit/centroid adapter at t0; must refuse",
+    "scope": "four-arm diagnostic only; never full14/Q3 acceptance"
+  },
+  "source": "0fbf06779903837a42dc4fb81985554b5ab6f084",
+  "sourceHashes": {
+    "src/sim3d.ts": "6351143948ebebd018733ca124e5b3e5d478de2e7599e39e2e8131ec196170ba",
+    "src/shaders3d.ts": "f4f1fac066c0b59043f23f550433a8210e5e24cf3f79198b4cab3cf90919f0f4",
+    "src/shaders3d-quant.ts": "65c5eed498314967e9e151025598f8cf77963a89fc7204d243a0c58a86cd66b8",
+    "scripts/fixtures/quant3d-wulff-analysis.mjs": "7d282d0f8aefa755d743f64d2061554c0674348b3ddbbbe3529f21bfce8282ba",
+    "scripts/fixtures/quant3d-tip-analysis.mjs": "cb72a678945f2e426198a5f6a41a748e2257b8cab632f2f2a7c6690b1f4ddb58",
+    "scripts/research/quant3d-equilibrium-driver.mjs": "3f13c7bbcbb58a393f9e4665627c7b26556eaf8afabeaf38830ca214f2ab770d",
+    "scripts/research/quant3d-equilibrium-translation.mjs": "1708486aec3c810d95f928c580b1a7b6f4a0af48eaa987558abc5a5c84ae0da4",
+    "scripts/research/quant3d-equilibrium-translation.md": "19fb775e96fdd4fe20f58be343f32b174d63620601eba368adb469b1915d9fe4",
+    "scripts/research/quant3d-readback.mjs": "5b0d3ece3239b28275c6773f1324af344ffa065cd729b25fad58c8690e2b74a7",
+    "scripts/browser-cleanup.mjs": "0b2e5b6790d0c63d5271b51c14509507910f69c2924f7334589e63fa8e82b5b1"
+  },
+  "metadata": {
+    "hardware": {
+      "vendor": "intel",
+      "architecture": "xe-2lpg",
+      "device": "",
+      "description": "",
+      "isFallbackAdapter": false
+    },
+    "deviceLimits": {
+      "maxBufferSize": 268435456,
+      "maxTextureDimension3D": 2048
+    },
+    "compiledSourceHashes": {
+      "flux": "daeb196529bea5f11dd3fb4a2c62325104061e1b56b6bc6a81ecb149d0694efc",
+      "purePhase": "4e60cc421b0723f77c5802f172d6e8f9e8f2dab78363e8051801007573154976",
+      "pureTransport": "c6065681d943ec6e47e98abb05d0a2507b112b737518b1e45481f9d1ba4ffc6c"
+    },
+    "build": "0fbf067"
+  },
+  "completed": true,
+  "diagnosticPassed": true,
+  "accepted": false,
+  "fullMatrixCompleted": false,
+  "q3Accepted": false,
+  "sourceStable": true,
+  "deviceErrorLedgerRead": true,
+  "errors": [],
+  "comparisons": [
+    {
+      "epsilon": 0,
+      "epsilonEffectiveDifference": -2.7159674720528298e-05,
+      "temperatureDifference": -3.2782554626464844e-06,
+      "relativeD0Difference": 0.00014773875130336123,
+      "relativeSupport100Difference": -2.9704244375872157e-05,
+      "relativeSupport110Difference": 2.4614967546687794e-05,
+      "note": "paired diagnostic differences, no new fitted coefficient or acceptance band"
+    },
+    {
+      "epsilon": 0.0171,
+      "epsilonEffectiveDifference": -0.0001347428485342049,
+      "temperatureDifference": -1.4901161193847656e-06,
+      "relativeD0Difference": -5.624700912876257e-05,
+      "relativeSupport100Difference": -0.00025793742163304767,
+      "relativeSupport110Difference": 1.1588766867465239e-05,
+      "note": "paired diagnostic differences, no new fitted coefficient or acceptance band"
+    }
+  ],
+  "scope": "four paired equilibrium translation arms only; no full14, capillary calibration, moving kinetics or Q3 acceptance",
+  "finished": "2026-10-30T19:13:12.179Z",
+  "cases": [
+    {
+      "config": {
+        "name": "epsilon-0-offset-0",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4
+      },
+      "completed": true,
+      "initialLiveness": {
+        "passed": true,
+        "checks": {
+          "declaration": true,
+          "adapter": true,
+          "uploadedReadbackHash": true,
+          "finiteCentroid": true,
+          "centered": true,
+          "volume": true
+        }
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 2.972491779384967e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 0,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 2.478408695420131e-05,
+          "heldOut111Residual": 0.00018708353513083645
+        }
+      },
+      "centroidStable": true,
+      "fieldEvolved": true,
+      "targetVolume": 66257.30229489849,
+      "measurementCount": 51,
+      "controlCount": 250,
+      "terminalClock": {
+        "steps": 50000,
+        "dt": 0.02,
+        "uniformDt": 0.019999999552965164,
+        "declaredTime": 1000,
+        "uniformTime": 999.9999776482582,
+        "simTime": 1000
+      },
+      "terminalTranslation": {
+        "declaredOffset": [
+          0,
+          0,
+          0
+        ],
+        "appliedOffset": [
+          0,
+          0,
+          0
+        ],
+        "uploadedPhaseSha256": "1eb34dce8faf261ebb7c4dadf012ec4b20466556c80985ea43a7ee2f78081977",
+        "phaseSha256": "6e013a58bc767f2f59a88050105b35e3333c7f44fd3dedb214fcacd711aa38c9",
+        "volume": 66257.32198982712,
+        "centroidLab": [
+          -8.492364836570274e-08,
+          1.013493144070828e-07,
+          -1.4369157796311973e-07
+        ],
+        "centroidFrame": [
+          -8.492364836570274e-08,
+          1.013493144070828e-07,
+          -1.4369157796311973e-07
+        ]
+      },
+      "terminalSurface": {
+        "temperature": 0.9781858325004578,
+        "h100": 20.018994650457923,
+        "h110": 20.02304343454506,
+        "epsilon": -0.00010111333690210222,
+        "epsilonError": 2.478408695420131e-05,
+        "d0Effective": 0.21837093145232614,
+        "a1Effective": 0.8734837258093046,
+        "endpointHandling": {
+          "policy": "exact psi=.5 grid node: root0 or root1; original polynomial otherwise",
+          "root0": 0,
+          "root1": 0
+        }
+      }
+    },
+    {
+      "config": {
+        "name": "epsilon-0-offset-0.4",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0,
+        "centerOffset": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "targetVolume": 66257.30229489849
+      },
+      "completed": true,
+      "initialLiveness": {
+        "passed": true,
+        "checks": {
+          "declaration": true,
+          "adapter": true,
+          "uploadedReadbackHash": true,
+          "finiteCentroid": true,
+          "centered": true,
+          "volume": true,
+          "baselinePresent": true,
+          "hashChanged": true,
+          "translationLive": true
+        }
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 5.806567116017902e-08,
+          "epsilonSpan": 0,
+          "temperatureSpan": 0,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 2.406072483398935e-05,
+          "heldOut111Residual": 0.00019515448393078171
+        }
+      },
+      "centroidStable": true,
+      "fieldEvolved": true,
+      "targetVolume": 66257.30229489849,
+      "measurementCount": 51,
+      "controlCount": 250,
+      "terminalClock": {
+        "steps": 50000,
+        "dt": 0.02,
+        "uniformDt": 0.019999999552965164,
+        "declaredTime": 1000,
+        "uniformTime": 999.9999776482582,
+        "simTime": 1000
+      },
+      "terminalTranslation": {
+        "declaredOffset": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "appliedOffset": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "uploadedPhaseSha256": "378f272ea45110dd5e460d9789af609c19fd2280b300a8f311c159d12c2028c7",
+        "phaseSha256": "2dad35f18a6744e334d397ba3592b27ff57de6e3751705e8955b7a5676aa30c3",
+        "volume": 66257.29846177658,
+        "centroidLab": [
+          0.3999999228758511,
+          0.4000001368255505,
+          0.3999998066859536
+        ],
+        "centroidFrame": [
+          -7.712418958189489e-08,
+          1.3682550914101693e-07,
+          -1.9331408766389866e-07
+        ]
+      },
+      "terminalSurface": {
+        "temperature": 0.9781825542449951,
+        "h100": 20.018400001348667,
+        "h110": 20.023536301109385,
+        "epsilon": -0.00012827301162263052,
+        "epsilonError": 2.406072483398935e-05,
+        "d0Effective": 0.21840319330105984,
+        "a1Effective": 0.8736127732042394,
+        "endpointHandling": {
+          "policy": "exact psi=.5 grid node: root0 or root1; original polynomial otherwise",
+          "root0": 0,
+          "root1": 0
+        }
+      }
+    },
+    {
+      "config": {
+        "name": "epsilon-0.0171-offset-0",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0.0171,
+        "centerOffset": [
+          0,
+          0,
+          0
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4
+      },
+      "completed": true,
+      "initialLiveness": {
+        "passed": true,
+        "checks": {
+          "declaration": true,
+          "adapter": true,
+          "uploadedReadbackHash": true,
+          "finiteCentroid": true,
+          "centered": true,
+          "volume": true
+        }
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 2.6641625683332393e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 1.7881393432617188e-07,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 4.830083734886498e-05,
+          "heldOut111Residual": 0.00047935976830843554
+        }
+      },
+      "centroidStable": true,
+      "fieldEvolved": true,
+      "targetVolume": 66257.30229489849,
+      "measurementCount": 51,
+      "controlCount": 250,
+      "terminalClock": {
+        "steps": 55554,
+        "dt": 0.0180006338,
+        "uniformDt": 0.018000634387135506,
+        "declaredTime": 1000.0072101251999,
+        "uniformTime": 1000.0072427429259,
+        "simTime": 1000.0072101252032
+      },
+      "terminalTranslation": {
+        "declaredOffset": [
+          0,
+          0,
+          0
+        ],
+        "appliedOffset": [
+          0,
+          0,
+          0
+        ],
+        "uploadedPhaseSha256": "1eb34dce8faf261ebb7c4dadf012ec4b20466556c80985ea43a7ee2f78081977",
+        "phaseSha256": "4a26a46892a45e9287b73d7b772f5394078f405433ddd0c77d34e423b5518e86",
+        "volume": 66257.31994692095,
+        "centroidLab": [
+          -1.0933334520498193e-07,
+          -5.971570541449575e-08,
+          1.621478580365983e-09
+        ],
+        "centroidFrame": [
+          -1.0933334520498193e-07,
+          -5.971570541449575e-08,
+          1.621478580365983e-09
+        ]
+      },
+      "terminalSurface": {
+        "temperature": 0.9784582257270813,
+        "h100": 20.59509491263508,
+        "h110": 19.922425101809914,
+        "epsilon": 0.016601949245298106,
+        "epsilonError": 4.830083734886498e-05,
+        "d0Effective": 0.21820481756240995,
+        "a1Effective": 0.8728192702496398,
+        "endpointHandling": {
+          "policy": "exact psi=.5 grid node: root0 or root1; original polynomial otherwise",
+          "root0": 0,
+          "root1": 0
+        }
+      }
+    },
+    {
+      "config": {
+        "name": "epsilon-0.0171-offset-0.4",
+        "n": 96,
+        "dx": 0.8,
+        "radius": 20,
+        "lambda": 4,
+        "epsilon": 0.0171,
+        "centerOffset": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "maximumTime": 1000,
+        "measurementPeriod": 20,
+        "controlPeriod": 4,
+        "targetVolume": 66257.30229489849
+      },
+      "completed": true,
+      "initialLiveness": {
+        "passed": true,
+        "checks": {
+          "declaration": true,
+          "adapter": true,
+          "uploadedReadbackHash": true,
+          "finiteCentroid": true,
+          "centered": true,
+          "volume": true,
+          "baselinePresent": true,
+          "hashChanged": true,
+          "translationLive": true
+        }
+      },
+      "equilibrium": {
+        "ready": true,
+        "stationary": true,
+        "resolved": true,
+        "checks": {
+          "volumeError": 1.0501771896542778e-07,
+          "epsilonSpan": 0,
+          "temperatureSpan": 5.960464477539063e-08,
+          "support100Span": 0,
+          "support110Span": 0,
+          "epsilonError": 5.107455505560035e-05,
+          "heldOut111Residual": 0.0005788899761373532
+        }
+      },
+      "centroidStable": true,
+      "fieldEvolved": true,
+      "targetVolume": 66257.30229489849,
+      "measurementCount": 51,
+      "controlCount": 250,
+      "terminalClock": {
+        "steps": 55554,
+        "dt": 0.0180006338,
+        "uniformDt": 0.018000634387135506,
+        "declaredTime": 1000.0072101251999,
+        "uniformTime": 1000.0072427429259,
+        "simTime": 1000.0072101252032
+      },
+      "terminalTranslation": {
+        "declaredOffset": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "appliedOffset": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "uploadedPhaseSha256": "378f272ea45110dd5e460d9789af609c19fd2280b300a8f311c159d12c2028c7",
+        "phaseSha256": "463e2cbd66d9f93e86561bd3ab6ea858f505c897d8a994245e81df99b97a9f3d",
+        "volume": 66257.30925308923,
+        "centroidLab": [
+          0.39999982106271953,
+          0.4000000451141947,
+          0.39999985899332297
+        ],
+        "centroidFrame": [
+          -1.7893730394200307e-07,
+          4.511417159175179e-08,
+          -1.4100670061010696e-07
+        ]
+      },
+      "terminalSurface": {
+        "temperature": 0.9784567356109619,
+        "h100": 20.589782666955028,
+        "h110": 19.92265597814985,
+        "epsilon": 0.0164672063967639,
+        "epsilonError": 5.107455505560035e-05,
+        "d0Effective": 0.21819254419404457,
+        "a1Effective": 0.8727701767761783,
+        "endpointHandling": {
+          "policy": "exact psi=.5 grid node: root0 or root1; original polynomial otherwise",
+          "root0": 0,
+          "root1": 0
+        }
+      }
+    }
+  ],
+  "localStiffness": {
+    "scope": "four terminal spatial diagnostics; no coefficient/window/acceptance change or needle bound",
+    "auditSha256": "3422a00cef548295155b95d7aa3f3900031e8edb35df0c4f2276246eec73b05c",
+    "analysisSha256": "b9a6d77ed18057327b369e8ffb9d56410af6168c6fb7323c18a74b162c256a03",
+    "knownTruthAuditSha256": "94d1e63ffcedf4a9c0d074241a52e39a0c7de35226b42b0ca782c7245f69ec6f",
+    "originalFunctionHashes": {
+      "crossing": "c14ff5136a674e3de38b5700a4df736ed5eea80038b918518724c88ec58a2694",
+      "fit_surface": "9631eb39ab96651d0638aa3b9adff77d7139c81f07cacf6903abef1359ec48a6",
+      "extrapolate": "9e8cc694facf8f5e8125a50e784203bb15161d27d7bcd575fa1394cac7bb5fff",
+      "analyze": "5b7a2729a9c8297c7f2bd467f8c14bc2a86ef707cbf086108154157243e10eec"
+    },
+    "comparisons": [
+      {
+        "epsilon": 0,
+        "primaryOctic": {
+          "offset0": {
+            "radius": 20.270604465186135,
+            "sixFaceSpan": 0.0001420612325624404,
+            "relativeToSupportHarmonic": 0.01093288782152757,
+            "capillary100": 0.22109318056026955,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.0005348141657179895,
+            "maxCondition": 4634.756897450056
+          },
+          "offsetHalf": {
+            "radius": 19.786959751276658,
+            "sixFaceSpan": 0.00013771210901225572,
+            "relativeToSupportHarmonic": -0.013586120221948494,
+            "capillary100": 0.2158504605149717,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.023190584840042106,
+            "maxCondition": 10661.9878158693
+          },
+          "relativeRadiusChange": -0.023859412517279188,
+          "capillaryErrorDifference": -0.023725399005760095
+        },
+        "sexticSensitivity": {
+          "offset0": {
+            "radius": 20.288956831558867,
+            "sixFaceSpan": 0.00010204445695194408,
+            "relativeToSupportHarmonic": 0.011848154594524374,
+            "capillary100": 0.22129335135730344,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": 0.0014406668505642095,
+            "maxCondition": 485.672088480834
+          },
+          "offsetHalf": {
+            "radius": 19.756791941825842,
+            "sixFaceSpan": 0.00010627205446667176,
+            "relativeToSupportHarmonic": -0.015090037263214229,
+            "capillary100": 0.21552136824185145,
+            "nominalCapillary100": 0.220975,
+            "relativeCapillary100Error": -0.02467985861816291,
+            "maxCondition": 591.1433124288175
+          },
+          "relativeRadiusChange": -0.026229287890506936,
+          "capillaryErrorDifference": -0.026120525468727118
+        }
+      },
+      {
+        "epsilon": 0.0171,
+        "primaryOctic": {
+          "offset0": {
+            "radius": 14.969115986128246,
+            "sixFaceSpan": 8.498286839042635e-05,
+            "relativeToSupportHarmonic": -0.016078919277641823,
+            "capillary100": 0.16123065881915674,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.018650934677257647,
+            "maxCondition": 4634.756897450107
+          },
+          "offsetHalf": {
+            "radius": 14.905387089485545,
+            "sixFaceSpan": 6.739728742743978e-05,
+            "relativeToSupportHarmonic": -0.022775016356929245,
+            "capillary100": 0.160555347444871,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.022761295515641766,
+            "maxCondition": 10661.9878158693
+          },
+          "relativeRadiusChange": -0.004257358731254213,
+          "capillaryErrorDifference": -0.0041103608383841195
+        },
+        "sexticSensitivity": {
+          "offset0": {
+            "radius": 14.936730804340394,
+            "sixFaceSpan": 5.5705885442236536e-05,
+            "relativeToSupportHarmonic": -0.01820759962814633,
+            "capillary100": 0.16088184168122607,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.02077405055846715,
+            "maxCondition": 485.67208848083413
+          },
+          "offsetHalf": {
+            "radius": 14.911646404770318,
+            "sixFaceSpan": 5.4349372216933034e-05,
+            "relativeToSupportHarmonic": -0.022364643970082976,
+            "capillary100": 0.1606227704869081,
+            "nominalCapillary100": 0.1642949125,
+            "relativeCapillary100Error": -0.02235091736691419,
+            "maxCondition": 591.1433124287977
+          },
+          "relativeRadiusChange": -0.0016793768260714437,
+          "capillaryErrorDifference": -0.0015768668084470416
+        }
+      }
+    ],
+    "allTwelveVariantsAndAllWindowsPreserved": true,
+    "interpretation": "Inferred local capillary response depends on lattice position; smooth known-truth controls do not bound evolved-profile interpolation or needle error. No coefficient is fitted."
+  },
+  "preservation": {
+    "name": "q3-translation-evidence-2026-10-30.zip",
+    "bytes": 222225761,
+    "sha256": "4b88ecfc629e9582060fa9042ca8c32fda47d1b20d557f230b43d2b41d719c8d",
+    "members": 2647,
+    "rawCheckpointsVerified": 206,
+    "allMemberHashesVerified": true,
+    "zipCrcVerified": true,
+    "serverDigestMatches": true,
+    "releaseDraft": "https://github.com/fronkt/solidify/releases/tag/untagged-4ff2f3cab68d844e3925"
+  },
+  "exactSourceByteSupplement": {
+    "name": "q3-exact-source-bytes-2026-10-30.zip",
+    "bytes": 290530,
+    "sha256": "3b995223bb5633a6da7d80d101e60c44f987f8c637d48711872f9f306e61eb52",
+    "studies": 3,
+    "exactFilesVerified": 34,
+    "differentGitLineEndings": 25
+  },
+  "remaining": [
+    "Grid refinement of local stiffness including lattice phase and evolving profile interpolation",
+    "Independent moving-interface kinetic calibration away from principal planes and finite-speed stability",
+    "A complete unchanged-band literature reference pass before any Q3 promotion"
+  ]
+}

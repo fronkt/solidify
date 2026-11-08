@@ -51,7 +51,11 @@ export const P2 = {
   dTherm: 40,     // dimensionless thermal diffusivity (1 under Kobayashi)
   atCoef: 41,     // anti-trapping coefficient (0 = current off)
   frozenT: 42,    // u32: 1 = temperature is imposed, never solved
-  BYTES: 192,     // 48 slots — five spare after the pads below
+  // ---- D3.2: forced melt flow (docs/D3-CONVECTION-DESIGN.md)
+  flowOn: 43,     // u32: 1 = advect T (and Kobayashi c) with the LBM velocity
+  flowScale: 44,  // coupling coefficient: 1 physical; 0 and -1 are falsification arms
+  flowUin: 45,    // inlet speed at x = 0, cells per substep
+  BYTES: 192,     // 48 slots — two spare after the pads below
 } as const;
 
 const COMMON = /* wgsl */ `
@@ -99,9 +103,9 @@ struct Params {
   dTherm: f32,     // dimensionless thermal diffusivity — 1 under Kobayashi
   atCoef: f32,     // anti-trapping coefficient (0 = off)
   frozenT: u32,    // 1 = temperature imposed by the scenario, never solved
-  _pad1: f32,
-  _pad2: f32,
-  _pad3: f32,
+  flowOn: u32,     // D3.2: 1 = melt flow advects T (and Kobayashi c)
+  flowScale: f32,  // D3.2: advection coupling (1 physical)
+  flowUin: f32,    // D3.2: inlet speed at x = 0, cells per substep
   _pad4: f32,
   _pad5: f32,
 }
@@ -390,7 +394,63 @@ const AT_NONE = /* wgsl */ `
       let atDiv = 0.0;
 `;
 
-const TRANSPORT_CORE = (at: string) => /* wgsl */ `
+/**
+ * D3.2 advection by the lattice Boltzmann velocity (lbm.ts), split pass only.
+ *
+ * One LBM step per phase-field substep, velocity in cells per substep, so the
+ * advective change per substep is minus the sum of face fluxes u_face X_face
+ * with dt and dx cancelling. Face velocity and face value are central means of
+ * the two cells: each face is the same arithmetic from both sides (a + b is
+ * commutative in IEEE), so the fluxes telescope and X is conserved exactly
+ * apart from the boundary faces. Those are explicit: the free-slip y walls
+ * carry no normal flux; the inlet face at x = 0 brings u_in X_far in (X_far =
+ * the far-field temperature, or c0); the outlet face at x = n - 1 carries the
+ * cell's own value out (upwind). The velocity is superficial ((1 - phi) V, the
+ * drag holds it near zero in the solid), so the solid is not swept.
+ * Known limit (review 2026-11-07, open): the inlet always brings tFar, the
+ * pour's far-field temperature, while coolRate cools (and heatIn warms) the
+ * whole domain uniformly. With cooling on, the stream is warmer than the melt
+ * it replaces and acts as a heat source at the inlet; a reservoir that cools
+ * with the furnace is not modeled.
+ * Temperature is never advected when it is imposed (frozenT). Solute is
+ * advected only on the Kobayashi path; the calibrated alloy is refused for
+ * flow in this slice (flow.ts flowRefusal).
+ */
+const ADV_FACES = /* wgsl */ `
+  if (P.flowOn == 1u) {
+    let nI = i32(P.n);
+    let vC = textureLoad(vel, c, 0).xy;
+    let vE = textureLoad(vel, cid(P, c + vec2i(1, 0)), 0).xy;
+    let vW = textureLoad(vel, cid(P, c - vec2i(1, 0)), 0).xy;
+    let vN = textureLoad(vel, cid(P, c + vec2i(0, 1)), 0).xy;
+    let vS = textureLoad(vel, cid(P, c - vec2i(0, 1)), 0).xy;
+    var uE = 0.5 * (vC.x + vE.x);
+    var uW = 0.5 * (vC.x + vW.x);
+    var uN = 0.5 * (vC.y + vN.y);
+    var uS = 0.5 * (vC.y + vS.y);
+    if (c.y == nI - 1) { uN = 0.0; }
+    if (c.y == 0) { uS = 0.0; }
+    let k = P.flowScale;
+    if (P.frozenT == 0u) {
+      var fE = uE * 0.5 * (T + sE.g);
+      var fW = uW * 0.5 * (T + sW.g);
+      if (c.x == nI - 1) { fE = vC.x * T; }
+      if (c.x == 0) { fW = P.flowUin * P.tFar; }
+      TNew = TNew - k * (fE - fW + uN * 0.5 * (T + sN.g) - uS * 0.5 * (T + sS.g));
+    }
+    if (P.alloyOn == 1u && P.solver == 0u) {
+      var gE = uE * 0.5 * (conc + sE.b);
+      var gW = uW * 0.5 * (conc + sW.b);
+      if (c.x == nI - 1) { gE = vC.x * conc; }
+      if (c.x == 0) { gW = P.flowUin * P.c0; }
+      // the solute update's [0, 2] clamp ran BEFORE this flux; re-applied so
+      // the bound holds on what is stored (flow on only: off, nothing here runs)
+      cNew = clamp(cNew - k * (gE - gW + uN * 0.5 * (conc + sN.b) - uS * 0.5 * (conc + sS.b)), 0.0, 2.0);
+    }
+  }
+`;
+
+const TRANSPORT_CORE = (at: string, adv = "") => /* wgsl */ `
   let lapT   = (4.0 * (sE.g + sW.g + sN.g + sS.g) + sNE.g + sNW.g + sSE.g + sSW.g - 20.0 * T) * inv6dx2;
   var age = s.a;
   // temperature. dTherm is 1 under Kobayashi (where the heat equation carries a
@@ -513,7 +573,7 @@ ${at}
       }
     }
   }
-
+${adv}
 `;
 
 const STORES = /* wgsl */ `
@@ -575,6 +635,7 @@ ${COMMON}
 @group(0) @binding(5) var grainOut: texture_storage_2d<r32uint, write>;
 @group(0) @binding(6) var<storage, read_write> theta0: array<f32>;
 @group(0) @binding(7) var<storage, read_write> twinCtr: atomic<u32>;
+@group(0) @binding(8) var vel: texture_2d<f32>;   // D3.2: LBM velocity (a 1x1 zero texture when flow is off)
 
 @compute @workgroup_size(8, 8)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
@@ -583,7 +644,7 @@ ${LOADS}
   let aux = textureLoad(phiAux, c, 0);
   let phiNew = aux.r;
   let dPhi = aux.g;
-${TRANSPORT_CORE(AT_FACES)}${STORES}}
+${TRANSPORT_CORE(AT_FACES, ADV_FACES)}${STORES}}
 `;
 
 // ------------------------------------------------------------- stamp seeds
@@ -1132,12 +1193,17 @@ struct RParams {
   c0: f32,
   meltGlow: f32,    // material incandescence: 1 = steel-bright, 0.3 = zinc (no glow)
   lookFlags: u32,   // low bits: stain (0 none, 1 Klemm, 2 Beraha, 3 anodize); bit 8: EBSD map
+  scrubT: f32,      // replay time (sim units) when scrubOn
+  scrubOn: u32,     // 1: draw the solid as it stood at scrubT
+  flowRef: f32,     // D3.3: inlet speed, the streak overlay's brightness reference
+  _r1: f32,
 }
 const PI = 3.14159265359;
 @group(0) @binding(0) var<uniform> R: RParams;
 @group(0) @binding(1) var state: texture_2d<f32>;
 @group(0) @binding(2) var grain: texture_2d<u32>;
 @group(0) @binding(3) var<storage, read> theta0: array<f32>;
+@group(0) @binding(4) var vel: texture_2d<f32>;   // D3.3: LBM velocity (a 1x1 zero texture when no flow)
 
 struct VOut { @builtin(position) pos: vec4f, @location(0) uv: vec2f }
 
@@ -1154,9 +1220,24 @@ ${PALETTE_WGSL}
 
 fn cl(c: vec2i) -> vec2i { return clamp(c, vec2i(0), vec2i(i32(R.n) - 1)); }
 
+// Every state read in this pass goes through here. Live, it is the field.
+// Replaying, it is the field as it stood at R.scrubT, rebuilt from the one
+// piece of history the solver keeps: the time each cell crossed phi = 0.5.
+// A cell was solid then iff it is solid now and froze strictly before
+// scrubT (a whole batch freezes stamped with its START time, so strict is
+// what makes a replay at a frame boundary match that frame's live mask).
+// Temperature and solute were never stored: the melt reads at its far-field
+// values. Mould cells (age -1) are not history and pass through.
+fn loadState(c: vec2i) -> vec4f {
+  let s = textureLoad(state, c, 0);
+  if (R.scrubOn == 0u || s.a < -0.5) { return s; }
+  let wasSolid = s.r >= 0.5 && s.a < R.scrubT;
+  return vec4f(select(0.0, 1.0, wasSolid), R.tFar, R.c0, select(0.0, s.a, wasSolid));
+}
+
 // specimen-tilt relief height: solid stands proud, older solid stands prouder
 fn tiltH(pf: vec2f) -> f32 {
-  let s = textureLoad(state, cl(vec2i(pf)), 0);
+  let s = loadState(cl(vec2i(pf)));
   return s.r * (0.45 + 0.55 * clamp(s.a * 0.12, 0.0, 1.0));
 }
 
@@ -1165,10 +1246,10 @@ fn sampleState(p: vec2f) -> vec4f {
   let q = clamp(p - 0.5, vec2f(0.0), vec2f(f32(R.n) - 1.001));
   let i = vec2i(floor(q));
   let f = q - floor(q);
-  let s00 = textureLoad(state, cl(i), 0);
-  let s10 = textureLoad(state, cl(i + vec2i(1, 0)), 0);
-  let s01 = textureLoad(state, cl(i + vec2i(0, 1)), 0);
-  let s11 = textureLoad(state, cl(i + vec2i(1, 1)), 0);
+  let s00 = loadState(cl(i));
+  let s10 = loadState(cl(i + vec2i(1, 0)));
+  let s01 = loadState(cl(i + vec2i(0, 1)));
+  let s11 = loadState(cl(i + vec2i(1, 1)));
   return mix(mix(s00, s10, f.x), mix(s01, s11, f.x), f.y);
 }
 
@@ -1239,7 +1320,7 @@ fn fmain(in: VOut) -> @location(0) vec4f {
       if (k == 3) { d = vec2i(0, -st); }
       let nc = cl(ci + d);
       let nid = textureLoad(grain, nc, 0).r;
-      if (nid != 0u && nid != id && textureLoad(state, nc, 0).r > 0.5) {
+      if (nid != 0u && nid != id && loadState(nc).r > 0.5) {
         gb = 1.0;
         let dth = theta0[min(nid, ${MAX_GRAINS - 1}u)] - th0;
         let miso = abs(fract(dth / period + 0.5) - 0.5) * period;
@@ -1388,6 +1469,29 @@ fn fmain(in: VOut) -> @location(0) vec4f {
     let nrm = normalize(vec3f((hC - hR) * 22.0, (hU - hC) * 22.0, 1.0));
     let lit = clamp(dot(nrm, normalize(vec3f(-0.45, 0.7, 0.6))), 0.0, 1.0);
     col *= 0.38 + 0.9 * lit;
+  }
+
+  // D3.3 melt flow: streaks laid along the local velocity, their phase moving
+  // downstream at a rate set by the local speed, brightness by speed over the
+  // inlet speed. A picture of direction and relative speed, not of particle
+  // paths (it is not a time-integrated advection), and drawn only in liquid.
+  if ((R.lookFlags & 1024u) != 0u && inDomain && R.flowRef > 0.0) {
+    let v = textureLoad(vel, ci, 0).xy;
+    let sp = length(v);
+    if (sp > 1e-6) {
+      let dir = v / sp;
+      let along = dot(p, dir);
+      let across = dot(p, vec2f(-dir.y, dir.x));
+      let laneW = 7.0;
+      let lane = floor(across / laneW);
+      let lanePos = abs(fract(across / laneW) - 0.5) * 2.0;
+      let laneMask = 1.0 - smoothstep(0.12, 0.4, lanePos);
+      let rel = clamp(sp / R.flowRef, 0.0, 1.5);
+      let offset = hashf(u32(i32(lane) + 100000), 13u, 7u) * 48.0;
+      let ph = fract((along - offset) / 48.0 - R.time * 0.9 * rel);
+      let streak = smoothstep(0.0, 0.06, ph) * (1.0 - smoothstep(0.06, 0.45, ph));
+      col = mix(col, vec3f(0.80, 0.90, 1.0), streak * laneMask * min(rel, 1.0) * 0.6 * (1.0 - solidness));
+    }
   }
 
   // vignette + film grain (skip grain on ETCH and in pixel mode)

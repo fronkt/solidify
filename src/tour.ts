@@ -311,7 +311,7 @@ export const CHAPTERS: Chapter[] = [
   {
     title: "Heat treat it",
     body: "Heat treat uses a separate furnace clock. Supported rate laws budget grain-boundary migration; the solid fraction stays fixed.",
-    watch: "Annealing coarsens grains and can reduce Hall–Petch strength. Particle pinning changes the endpoint; primary recrystallization is not modeled.",
+    watch: "Annealing coarsens grains and can reduce Hall–Petch strength. Particle pinning changes the endpoint; 3D nuclei in worked metal grow new grains.",
     apply(a) { a.startHeat(); },
     hl: ["sec:MODES"],
   },
@@ -391,7 +391,7 @@ export const CHAPTERS: Chapter[] = [
     part: "THE INSTRUMENT",
     title: "Engine · advanced · modes",
     body: "ENGINE sets speed and grid. ADVANCED exposes model dials. MODES opens lab mode, heat treat, optimizer or challenge.",
-    watch: "Lab mode and heat treat work in both dimensions. Optimizer and challenge are 2D only. Export run saves your recorded data.",
+    watch: "Lab mode, heat treat and optimizer work in both dimensions. The 3D optimizer targets volume-equivalent diameter; challenge remains 2D only.",
     hl: ["sec:ENGINE", "sec:ADVANCED", "sec:MODES"],
   },
   {

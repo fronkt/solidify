@@ -10,7 +10,8 @@ export class Renderer {
   private pipe!: GPURenderPipeline;
   private rbuf!: GPUBuffer;
   private bg: GPUBindGroup[] = [];
-  private rdata = new ArrayBuffer(64);
+  private rdata = new ArrayBuffer(80);
+  private zeroVel!: GPUTexture;
 
   // view transform (zoom/pan) + retro toggles
   zoom = 1;
@@ -21,6 +22,10 @@ export class Renderer {
   stainMode = 0;   // ETCH tint etch: 0 none, 1 Klemm's, 2 Beraha's, 3 anodize
   ebsdOn = false;  // ORIENT as flat EBSD/IPF map
   tiltOn = false;  // specimen tilt: oblique 2.5D relief view of the field
+  /** replay time (sim units): draw the solid as it stood then; null = live */
+  scrubT: number | null = null;
+  /** D3.3: draw the melt-flow streaks over the lens (needs a flowing sim) */
+  flowView = true;
 
   constructor(device: GPUDevice, canvas: HTMLCanvasElement, sim: Simulation) {
     this.device = device;
@@ -39,7 +44,8 @@ export class Renderer {
       },
       primitive: { topology: "triangle-list" },
     });
-    this.rbuf = device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.zeroVel = device.createTexture({ size: [1, 1], format: "rgba32float", usage: GPUTextureUsage.TEXTURE_BINDING });
+    this.rbuf = device.createBuffer({ size: 80, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.rebind(sim);
   }
 
@@ -52,6 +58,7 @@ export class Renderer {
           { binding: 1, resource: sim.stateTexture(dir).createView() },
           { binding: 2, resource: sim.grainTexture(dir).createView() },
           { binding: 3, resource: { buffer: sim.theta0Buffer } },
+          { binding: 4, resource: (sim.flowVelocity ?? this.zeroVel).createView() },
         ],
       });
     }
@@ -158,7 +165,11 @@ export class Renderer {
     u[12] = sim.params.alloyOn;
     f[13] = sim.params.c0;
     f[14] = sim.params.meltGlow;
-    u[15] = (this.stainMode & 255) | (this.ebsdOn ? 256 : 0) | (this.tiltOn ? 512 : 0);
+    const flowing = this.flowView && sim.flowOn;
+    u[15] = (this.stainMode & 255) | (this.ebsdOn ? 256 : 0) | (this.tiltOn ? 512 : 0) | (flowing ? 1024 : 0);
+    f[16] = this.scrubT ?? 0;
+    u[17] = this.scrubT == null ? 0 : 1;
+    f[18] = flowing ? sim.flowCfg.u : 0;   // the inlet speed: the streaks' brightness reference
     this.device.queue.writeBuffer(this.rbuf, 0, this.rdata);
 
     const enc = this.device.createCommandEncoder();

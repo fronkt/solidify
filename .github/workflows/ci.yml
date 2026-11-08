@@ -22,6 +22,7 @@ jobs:
       # so unlike the rest of the verification suite they can be gated here.
       - run: node scripts/verify-units.mjs
       - run: node scripts/verify-rng.mjs
+      - run: node scripts/verify-optimizer3d-model.mjs
       - run: node scripts/verify-heattreat.mjs
       - run: node scripts/verify-thermal.mjs
       - run: node scripts/verify-fade.mjs
@@ -46,6 +47,19 @@ jobs:
       - run: node scripts/verify-plot.mjs
       - run: node scripts/verify-process-plots.mjs
       - run: node scripts/verify-run-export.mjs
+      # feature/visual: the replay ledger and its strict freeze-time rule,
+      # C3b's Avrami/bond-count arithmetic, D3.0's flow arithmetic
+      - run: node scripts/verify-replay.mjs
+      - run: node scripts/verify-recrystallize.mjs
+      - run: node scripts/verify-flow.mjs
+      # Geometry/verdict controls for the equilibrium 3D lattice regression.
+      # The actual phase evolution remains in the local real-GPU suite.
+      - run: node scripts/verify-quant3d-wulff.mjs --self-test
+      # Tip geometry and fixed-terminal protocol controls also run without a GPU.
+      - run: node scripts/verify-quant3d-tip.mjs --self-test
+      - run: node scripts/verify-quant3d-tip-lifecycle.mjs
+      - run: node scripts/verify-quant3d-readback.mjs
+      - run: node scripts/verify-quant3d-equilibrium-lifecycle.mjs
 
 # The rest of the headless verify-*.mjs suite (npm test) needs a WebGPU-capable
 # Chrome at a hardcoded local path and is not portable to this runner — see
