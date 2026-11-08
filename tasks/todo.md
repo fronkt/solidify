@@ -7404,3 +7404,73 @@ Expected wall time on the Arc 140V:
 It prints an ND2-ARM line per arm, then ND2-DECISION and FLOW-NOFLOW-D2
 RECORDED or FAILED. It writes docs/validation/flow-noflow-d2-<date>.json and
 raw rows under verify-out/.
+
+#### GPU run and reading (root, frozen 14242e4, 2026-11-07 20:21-20:28, Intel Arc 140V)
+
+Run conditions:
+- Tree clean before the run; the self-test passed in the same runner.
+- The port 5297 listener was this worktree's vite.
+- Served source verified, source stable, 0 errors.
+- Both arms staged as wanted (n 1024 and 2048, flow off, 54351 substeps
+  delivered). Neither tripped the stop rule.
+- The probe's last copy equals the end-of-run T row for both arms.
+- Contention: another session's headless Chrome (verify-shelf) and Blender
+  were running by the end. This is deterministic stepping with no timing
+  clause, and the two arms agree exactly.
+
+FLOW-NOFLOW-D2 RECORDED. Result:
+docs/validation/flow-noflow-d2-2026-11-08.json (the date is UTC).
+
+**Decision (the script's):**
+- N1024: valid, replica PASS (the m = 33 prefix reproduces tong3), DRIFTING.
+- N2048: valid, DRIFTING.
+- Box: **BOX-INDEPENDENT**, as predicted. The two arms agree to every printed
+  digit.
+- R*: not computed (N1024 is DRIFTING).
+tong3's NO VERDICT stands as recorded.
+
+| prefix m | 33 | 45 | 57 | 69 | 81 |
+|---|---:|---:|---:|---:|---:|
+| s_m | -4.454% | -3.897% | -3.198% | -2.701% | -2.276% |
+| V d0/D (last third) | 0.016273 | 0.015933 | 0.015726 | 0.015597 | 0.015512 |
+
+Reported:
+- Window 81's V d0/D is 8.8% below the exact 0.0170 and 13.8% below Tong's
+  no-flow 0.0180.
+- tau V / W is <= 0.117 throughout.
+- The first chunk below 0.0170 is chunk 18.
+- The drift over chunks 54-80 is -7.6e-6 per chunk (about -0.05% per chunk).
+- At the end, the west tip is 106 cells from x = 0.
+
+Probe (u on row n/2 ahead of the west tip; far field -0.55):
+
+| chunk | u at 2 l_D | u at 4 l_D | u at 8 l_D |
+|---|---:|---:|---:|
+| 0 | -0.550 | -0.550 | -0.550 |
+| 10 | -0.523 | -0.549 | -0.550 |
+| 32 | -0.512 | -0.546 | -0.550 |
+| 60 | -0.507 | -0.545 | -0.550 |
+| 80 | -0.506 | -0.544 | (beyond x = 0) |
+
+Reading (mine; none of this is a verdict):
+1. The slowing is the tip's own, not the box's. Doubling the box changes
+   nothing, and 8 l_D ahead of the tip the liquid never warms. Within 4 l_D
+   it keeps warming as the tip slows. This is the slow approach of a 2D free
+   dendrite tip to its steady state from a fast start, at this resolution.
+2. The approach is nearly complete but not by the frozen statistic. Per-chunk
+   speeds over chunks 55-80 lie in 0.01539-0.01560 (about +-0.7%), drifting
+   about -0.05% per chunk. The prefix statistic still reads -2.28% at m = 81
+   because its middle third (samples 27-53) contains the decline. The label
+   stays DRIFTING. A statistic on a late window, or a longer run, would be a
+   new protocol.
+3. Descriptive arithmetic only; NOT R*, and no band is applied. If the free
+   tip settles near 0.0155, then flow / no-flow = 0.021946 / 0.0155 ~ 1.42
+   against Tong's 1.372 (+3%). Both absolute speeds sit 11-14% below Tong's.
+   This solver's no-flow at dx 0.8 is ~9% below exact, while Tong's own is
+   ~6% above. So the flow coupling's speed-up looks close to Tong's, and the
+   absolute-speed gap is the no-flow baseline at the app's resolution.
+4. What is NOT shown: whether the dx 0.8 baseline deficit is resolution.
+   tong2's D2-T at dx 0.4 read +2.4% versus exact over 8 l_D, also drifting.
+   Checking it needs a long no-flow run at dx 0.4, which n 2048 allows since
+   the flow limit does not apply with flow off. Repeating the flow side at
+   dx 0.4 far from the inlet needs n > 1024 with flow on (option iii).
