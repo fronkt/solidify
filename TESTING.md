@@ -36,14 +36,25 @@ CI's browser-free count is unchanged (its new checks live in
   own polycrystal while random sites keep 1) and RX-SHARE-TUPLE (legacy 3/5/6/7
   links decode as the shipped decoder did; the 8th element only off the
   default). Design: `docs/C3B-RECRYSTALLIZATION-DESIGN.md`.
-- `verify-flow.mjs` (browser-free, five checks): the drag constant derived
+- `verify-flow.mjs` (browser-free, eight checks): the drag constant derived
   from the planar shear ODE on this repo's interface profile (2.7571 against
   Tong et al.'s 2.757, with an h = 2 arm that misses), the lattice stability
   envelope, the one refusal predicate, the 2D Ivantsov limit, and the flow
   setting as a function of the current dials (unchanged where setFlow latched
   it; across a Kobayashi-to-calibrated switch the stale one would carry a 3.1x
-  drag and a +0.5 W no-slip plane). Design:
-  `docs/D3-CONVECTION-DESIGN.md`.
+  drag and a +0.5 W no-slip plane). D3.5 adds the velocity inlet's three:
+  FLOW-INLET-ALGEBRA (the Zou-He reconstruction gives sum f = rho and
+  sum c f = (rho U, 0) to 1e-14 on 2000 non-equilibrium nodes; without the
+  transverse term it misses), FLOW-INLET-CPU (a Float64 reference of the
+  lattice step, `scripts/fixtures/lbm-ref.mjs`, on the GPU gates' two channels
+  with both inlets: an empty channel after a speed change delivers U to 4e-14
+  where the old inlet stays at 0.873 U; a disk of blockage 0.15 gets U at the
+  inlet and 1.000 to 1.009 U along the channel where the old inlet delivers
+  0.832 U; the GPU gates' verdict code passes on the reference and fails with
+  the old inlet planted as default), and FLOW-INLET-DEFAULT (the uniform's
+  inlet word is 0 unless the test-only "equilibrium" is named, every other word
+  as before, and no source file names the old inlet). About a minute of CPU.
+  Design: `docs/D3-CONVECTION-DESIGN.md` (D3.5 addendum).
 - `verify-visual-gpu.mjs` (GPU): every lens compiles and renders with the
   studio look on and off and while replaying; photo mode accumulates and
   restarts; the studio look's render-only cost (on / off <= 1.8, a planted 2x
@@ -95,7 +106,13 @@ CI's browser-free count is unchanged (its new checks live in
   other way), FLOW-UI (the rail control, an inert overlay, the scenario
   refusal, share-link restore), and FLOW-RECONFIGURE (the running flow
   re-derives its viscosity and drag width across a solver switch, and a dt the
-  envelope refuses switches it off with the reason). The pre-registered literature comparison
+  envelope refuses switches it off with the reason). D3.5 (the velocity
+  inlet, pre-registered in tasks/todo.md) adds FLOW-INLET-EMPTY,
+  FLOW-INLET-BLOCKED and FLOW-INLET-COLUMN (FlowSolver directly, each with a
+  must-miss arm on the pre-D3.5 equilibrium inlet and the same statistics as
+  the Float64 reference, which the script runs on the Node side first) and
+  FLOW-INLET-APP (the app's own flow, after the rail's speed dial, with a
+  crystal: the inlet column carries the dialled speed). The pre-registered literature comparison
   against Tong et al. 2001 is a study, not a regression gate:
   `scripts/research/flow-tip-tong.mjs` (protocol in tasks/todo.md). Its first
   run FAILED (ratios 1.259 / 1.329 / 1.356 against [1.26, 1.54], spread 7.4 %

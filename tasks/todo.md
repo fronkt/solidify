@@ -6256,3 +6256,410 @@ that port; see lessons.md on feature/flow-inlet).
   ../solidify-verify-rxrate/verify-out/pr8-0180a33-full-suite.log.
 - Open: the run-1 boot timeout is unexplained. If it recurs, BOOT-TIMEOUT will
   name what was pending.
+
+## D3.5 velocity inlet - 2026-11-07
+
+Branch feature/flow-inlet (from origin/v7-experiments 3b3fbdd), worktree
+../solidify-flowinlet, delegate session, CPU only. PRE-REGISTERED here and
+committed before any run of the new inlet, CPU or GPU. Design:
+docs/D3-CONVECTION-DESIGN.md, "D3.5 addendum: velocity inlet". Evidence: the
+D3.4 "Reading" on research/flow-domain (N2): mass flux uniform along the
+channel and short of U, 0.90 U at n 1024 and 0.82 U at n 848 (flow arm and
+coupling-0 control alike), inlet rho 1.006 vs outlet 0.998
+(docs/validation/flow-domain-2026-11-07.json on that branch).
+
+### Defect, verified in the code
+
+- src/lbm.ts at 3b3fbdd, pull(), lines 74-75: `} else if (sx < 0) { return
+  feq(i, 1.0, vec2f(L.uIn, 0.0)); // equilibrium inlet`. The three populations
+  with c_x = +1 enter at rho = 1, u = (U, 0); the other six of the inlet node
+  come from the interior, so u_inlet ~ U - (rho_i - 1)/3. D3.4's n 848 arm:
+  inlet rho 1.0061041 gives 0.8216 U by this formula against 0.8201 U
+  measured (inletUx), and the same in the coupling-0 control (0.8227 U).
+- docs/D3-CONVECTION-DESIGN.md section 1 names "Inlet: Zou-He velocity"; the
+  file header of lbm.ts says "equilibrium inlet". The design was not built.
+
+### Sizing (shipped inlet only, CPU, before this pre-registration)
+
+scripts/fixtures/lbm-ref.mjs is a Float64 reference of lbm.ts (same pull, mirror
+walls, zero-gradient outlet, TRT with Lambda 1/4, Guo source, implicit drag),
+written with both inlets; only the SHIPPED one has been run.
+scripts/research/flow-inlet-sizing.mjs (and an equivalent scratch run for the
+empty channel) at the D3.4 setting throughout: nu 3.465 (0.15 x 23.1, tau+
+10.895), U = 0.011404004977938682 (u_lat at lambda 2.4, D3.4's n 848 arm),
+drag width W 1.25 cells, h = deriveDragH() = 2.757148.
+
+- Blocked 128^2, disk centred (64, 63.5), radius 9.6 (blockage 0.15):
+  inlet-column velocity 0.83152 U, the same to 5 digits at 4728 / 9456 / 14184
+  steps (one viscous time n^2/nu = 4728); rho_in 1.00572, rho_out 0.99813,
+  density span 0.759 %. Radius 12.8: 0.79417 U, span 0.928 %; 16: 0.75351 U,
+  span 1.112 %.
+- Blocked 64^2, radius 6.4 / 9.6 / 12.8 / 16: 0.664 / 0.554 / 0.437 / 0.319 U,
+  spans 1.52 / 2.03 / 2.56 / 3.11 %. Rejected as a gate geometry: in Stokes
+  flow the pressure drop scales with the flux, so at full U a CORRECT inlet's
+  span would be 2.3 / 3.7 / 5.9 / 9.7 % and its column-mean velocity would rise
+  that far above U downstream (weak compressibility at nu 3.465 in a small
+  box, not an inlet property).
+- Empty 64^2 free-slip channel (no solid), started at uniform U/2 with the
+  inlet at U: 0.873248 U, level rho 1.004299, unchanged over 8 viscous times;
+  started from rest: 0.747312 U, level 1.008596. The zero-gradient outlet
+  leaves the density level free and the equilibrium inlet turns any level
+  above 1 into a deficit.
+
+### Statistic
+
+V(x) = mean over y of u_x(x, y) / U, per column x: the velocity that transport
+reads, and at x = 0 D3.4's inlet-column mean u_x. The mass flux
+Q(x) = mean_y rho u_x / U is reported, and its uniformity along the channel is
+a conservation witness, but it is not the pass statistic: with a zero-gradient
+outlet the density level is a neutral mode (design addendum), which scales
+rho u by an arbitrary level while leaving u unchanged.
+
+### Fixed setting (every D3.5 arm)
+
+FlowSolver used directly (src/lbm.ts), channel (inlet x = 0, zero-gradient
+outlet, free-slip y walls), nu 3.465, U = 0.011404004977938682, Lambda 1/4, h
+derived (FlowSolver's default), no body force. The inlet is the default
+(Zou-He velocity) unless an arm says `inlet: "equilibrium"`, the shipped inlet
+kept selectable ONLY as a FlowConfig option for these arms (the app never sets
+it; FLOW-INLET-DEFAULT below checks that).
+
+- Geometry A (empty, a speed change): n 64, no solid (width 0), populations
+  initialised to uniform (U/2, 0) at rho 1 (FlowSolver.init), inlet at U.
+  Read after 8000 steps (6.8 viscous times).
+- Geometry B (blocked): n 128; the drag reads phi from the .r channel of an
+  rgba32float texture holding Math.fround((1 - tanh((r - 9.6) / (sqrt2 x
+  1.25))) / 2), r the distance from cell (x, y) to (64, 63.5); width 1.25.
+  Populations initialised to uniform (U, 0) at rho 1 (the app's start). Read
+  after 14000 and after 16000 steps (3.4 viscous times); verdicts at 16000.
+
+### GPU gates (scripts/verify-flow-gpu.mjs; written now, run by the root only)
+
+- FLOW-INLET-EMPTY (a). Geometry A, default inlet: |V(x) - 1| <= 1e-3 for all
+  64 columns and max |u_y| / U <= 1e-4 over the field. MUST-MISS arm: the same
+  with inlet "equilibrium" must give max_x V(x) < 0.98 (sized: 0.873).
+- FLOW-INLET-BLOCKED (b). Geometry B. Pass, default inlet at 16000:
+  (b1) V(x) in [0.98, 1.02] for all 128 columns. Validity, required on BOTH
+  arms so that the must-miss arm fails on the deficit and not on a broken run:
+  (b2) steady, max_x |V16000(x) - V14000(x)| <= 1e-4; (b3) conserving,
+  max_x |Q(x) / Q(0) - 1| <= 2e-3; (b4) blocked, at node (64, 63)
+  |u| <= 0.01 U and K >= 0.99 x 2 h nu / W^2, and the largest u_x on column 64
+  >= 1.05 U (the flow goes round). (b5) the default arm agrees with the CPU
+  reference run at the same step (lbm-ref.mjs, computed by the harness on the
+  Node side): max_x |V_gpu(x) - V_cpu(x)| <= 2e-3.
+  MUST-MISS arm, inlet "equilibrium": (b1) must fail with every column
+  < 0.98 (sized 0.832); (b2)-(b4) must hold; |V_gpu(0) - V_cpu(0)| <= 0.01
+  against the CPU reference's equilibrium arm (it is the shipped inlet's
+  predicted deficit). Reported: rho_in > rho_out (D3.4's direction).
+  Band sizing: the defect at this geometry is 0.168 below U (D3.4: 0.18), more
+  than 8 times the 2 % half-band; a correct inlet is predicted at +0.9 % (the
+  span), inside it with 1.1 % to spare.
+- FLOW-INLET-COLUMN (c). From FLOW-INLET-BLOCKED's default arm at 16000: every
+  inlet node (x = 0, y = 0..127, both corners) has |u_x / U - 1| <= 1e-4 and
+  |u_y| / U <= 1e-4. f32 sizing: nine-term sums of populations <= 0.45 round to
+  ~3e-8, ~3e-6 of U, so the band is >30x the expected error. MUST-MISS: the
+  equilibrium arm's inlet nodes (sized |u_x / U - 1| ~ 0.17).
+- FLOW-INLET-APP (integration: the inlet the app actually runs, through
+  sim.ts's configure, which names no inlet). Kobayashi pure melt staged as
+  FLOW-DIRECTION (setSeed 0x51f0, solver 0, scen 0, heatIn 0, coolRate 0,
+  alloyOn 0, twinProb 0, noiseAmp 0, reset(0.35), addSeed at the centre r 4,
+  3 x stepSync(0)); flow on at u 0.02, 20 x stepSync(50); then
+  S.app.setFlowU(0.03) (the rail's speed dial, which re-initialises at the new
+  speed) and 20 x stepSync(50). Pass: every inlet node of sim.flowVelocity has
+  |u_x / 0.03 - 1| <= 1e-4 and |u_y| / 0.03 <= 1e-4. Liveness: the crystal's
+  west reach on row n/2 > 20 cells, and the solver's step counter advanced by
+  2000 over the 40 stepSync(50) calls. Reported, not gating: V(x) min/max,
+  rho_in, rho_out, and the same run with the solver's configure patched to add
+  inlet "equilibrium" (expected to miss the 1e-4 band; not sized, because the
+  app path cannot be reproduced on the CPU).
+- FLOW-OFF-IDENTITY (d): unchanged, against scripts/fixtures/flow-off-baseline.json.
+  Nothing on the flow-off path changes (proof below), so it must pass as is.
+
+### Existing FLOW-* gates (e): what should and should not move
+
+- FLOW-SHEAR-DECAY, FLOW-DRAG-PROFILE (periodic x): the periodic path's
+  arithmetic is unchanged (the moment sums keep their order); expected the S0
+  values (viscosity 0.0999885; drag offsets as recorded).
+- FLOW-FREESTREAM (channel, uniform start at U, no solid): a uniform stream is
+  an exact fixed point of both inlets (rho (1 - U) = A + 2C gives rho = 1 on
+  equilibrium populations); band 1e-3 unchanged, expected f32 round-off.
+- FLOW-INERT-ARMS: unchanged. At u 0 the reconstruction is f1 = f3,
+  f5 = f7 - (f2 - f4)/2, f8 = f6 + (f2 - f4)/2: on the uniform resting lattice
+  every pair stays symmetric, the velocity stays exactly 0, and the advection
+  adds exactly nothing; coupling 0 multiplies by 0. Expected bit-identical.
+- FLOW-UNIFORM-MELT (no solid, uniform start): unchanged.
+- FLOW-DIRECTION: its VALUES are expected to move, legitimately: with a crystal
+  the shipped inlet under-delivered, the velocity inlet delivers U, so the
+  upstream ratio should rise above S0's 1.13 and the downstream ratio fall below
+  0.89 (reversed arm 0.87). Thresholds unchanged (> 1.05, < 0.95, < 1).
+- FLOW-UI, FLOW-RECONFIGURE: unchanged (configure is compared on nu and width).
+- FLOW-TIP-TONG (research, scripts/research/flow-tip-tong.mjs): not run and
+  not re-scored here; its ratios will move. A new Tong comparison needs its own
+  pre-registration (protocol below, if written).
+
+### Browser-free checks (scripts/verify-flow.mjs, in CI)
+
+- FLOW-INLET-ALGEBRA. 2000 seeded draws: known populations feq(rho, u) x
+  (1 + e_i), rho in [0.95, 1.05], u_x, u_y in [-0.05, 0.05], e_i in
+  [-0.05, 0.05], inlet U in [0, 0.05]. After zouHeWest: |sum f - rho|,
+  |sum c_x f - rho U|, |sum c_y f| and |(f1 - f3) - (2/3) rho U| all <= 1e-14.
+  Fixed point: knowns at equilibrium (rho0, (U, 0)) reconstruct f1, f5, f8 and
+  rho0 within 1e-15. MUST-MISS: the same reconstruction without the transverse
+  term (f5 = f7 + rho U/6, f8 = f6 + rho U/6) misses |sum c_y f| by > 1e-4.
+- FLOW-INLET-CPU. Geometries A and B on lbm-ref.mjs, both inlets, Float64:
+  A default: |V(x) - 1| <= 1e-6 every column, |u_y| / U <= 1e-6; A equilibrium:
+  max V < 0.98. B default: (b1)-(b4) as on the GPU; every inlet node
+  |u_x / U - 1| <= 1e-12 and |u_y| / U <= 1e-12 (both corners); mirror symmetry
+  about y = 63.5, max |u_x(x, y) - u_x(x, 127 - y)| / U and
+  max |u_y(x, y) + u_y(x, 127 - y)| / U <= 1e-9 (the two corners treated
+  alike). B equilibrium: every column < 0.98, V(0) within 1e-4 of the sized
+  0.83152, rho_in > rho_out, its (b2)-(b4) hold. Expected, not a band: B
+  default V(x) from 1.000 at the inlet to ~1.009 at the outlet.
+- FLOW-INLET-DEFAULT. The uniform packing (factored out of FlowSolver as a pure
+  function) writes inlet word 0 by default and for "velocity", 1 for
+  "equilibrium", and every other word as the pre-D3.5 packing did (re-stated
+  verbatim in the check) on a periodic, a channel and a dragged config. Static
+  guard: no src/*.ts other than lbm.ts contains `inlet: "equilibrium"` (or
+  with ' or `); MUST-MISS: the guard's pattern matches a planted line.
+
+### Flow-off identity proof (browser-free, one-off)
+
+scripts/research/flow-inlet-identity.mjs, base 3b3fbdd vs HEAD: every exported
+WGSL string of src/shaders.ts hashes the same (SHA-256); src/shaders.ts and
+src/sim.ts are byte-identical to the base; the LBM WGSL differs (the witness
+that the comparison sees a change); `new FlowSolver` occurs only in sim.ts
+setFlow. Result recorded here. FLOW-OFF-IDENTITY (GPU) stays the runtime proof.
+
+### Plan
+
+- [x] Commit this pre-registration + design addendum + reference + sizing; push
+      (da91d87).
+- [x] FLOW-INLET-ALGEBRA / -CPU / -DEFAULT in verify-flow.mjs; run; record.
+- [x] WGSL: Zou-He in lbm.ts (uniform word 3 = inlet), header and docs (977e640).
+- [x] Identity proof; typecheck, build, the 26 browser-free CI scripts.
+- [x] GPU gates written in verify-flow-gpu.mjs, NOT run; TESTING.md counts.
+- [x] Copy (science page; README has no flow text): one sentence, HELD until
+      the root's run.
+- [x] Root: run verify-flow-gpu.mjs on the frozen head (commands in the
+      status below). Run 2 on a304254: 15/15 OK (results below). The held
+      science-page sentence may ship.
+
+### Status (2026-11-07, delegate): built and checked off the GPU; GPU not run
+
+CPU results (first runs of the new inlet, after da91d87; every pre-registered
+browser-free clause passed on its first run, no band was changed):
+
+- FLOW-INLET-ALGEBRA: worst |sum f - rho| 4.4e-16, |sum c_x f - rho U| 2.8e-17,
+  |sum c_y f| 1.4e-17, normal pair 2.1e-17 over 2000 draws (band 1e-14); fixed
+  point 1.1e-16 (band 1e-15); without the transverse term |sum c_y f| = 0.042
+  (must exceed 1e-4).
+- FLOW-INLET-CPU, geometry A (empty 64^2, started at U/2, 8000 steps): velocity
+  inlet max |V - 1| = 4.1e-14, u_y 2.1e-14 U, level 1.005768; equilibrium arm
+  0.873248 U everywhere (level 1.004299), as sized.
+- FLOW-INLET-CPU, geometry B (128^2, disk r 9.6, 16000 steps): velocity inlet
+  V = 1.000000 at the inlet rising to 1.00944 at the outlet (predicted ~1.009);
+  steady 2e-15 between 14000 and 16000; mass flux uniform to 5.8e-14
+  (Q = 1.00953); inlet nodes |u_x / U - 1| <= 1.2e-15 and |u_y| / U <= 6e-16,
+  corners included; mirror symmetry 1.5e-14; disk centre |u| 0.0051 U,
+  K / dragK 0.99993; largest u_x on the disk's column 1.510 U; rho_in 1.00953,
+  rho_out 1.00011 (span 0.94 %), level 1.00480. Equilibrium arm: V(0) 0.831517
+  (sized 0.83152), up to 0.837826 at the outlet; rho_in 1.00572 > rho_out
+  0.99813 (D3.4's direction); inlet nodes off by up to 0.2295 in u_x and
+  0.0854 in u_y (both / U); valid run (steady 1.9e-15, conserving 9e-14,
+  disk centre 0.0041 U, gap 1.267 U).
+- Added after the pre-registration, before any GPU run, no band changed: the
+  GPU gates' verdict code lives in lbm-ref.mjs inletVerdicts (pure), and
+  FLOW-INLET-CPU runs it on the reference's own statistics (all three pass)
+  and on a planted run with the old inlet as the default (all three fail).
+- FLOW-INLET-DEFAULT: inlet word 0 for default and "velocity", 1 for
+  "equilibrium"; with no inlet named the whole 48-byte uniform equals the
+  pre-D3.5 packing on all three configs; 70 src files scanned, no offender;
+  the guard matches both planted lines.
+- verify-flow.mjs: 8/8 OK in ~45 s (the CPU reference is ~40 s of it).
+
+Flow-off identity proof (scripts/research/flow-inlet-identity.mjs 3b3fbdd, on
+the committed 977e640, tree clean): FLOW-INLET-OFF-IDENTITY OK. 12 exported
+WGSL strings of src/shaders.ts (ANNEAL, FLUX, HOMOG, HTMASK, HT_COMMON, PALETTE,
+PHI, RENDER, STAMP, STATS, TRANSPORT, UPDATE) hash identically at base and
+head; src/shaders.ts and src/sim.ts are unchanged; src/lbm.ts is the only src
+file changed; LBM_WGSL differs (4a7f78d3... -> 55009915..., the witness);
+`new FlowSolver` occurs only at src/sim.ts:193, inside setFlow.
+
+typecheck and build pass. The 26 browser-free CI entries (ci.yml's run lines,
+incl. the --self-test modes) all exit 0 on the tree with the D3.5 code, the
+TESTING.md entries and the held science-page sentence (CI-SCRIPT-COUNT and
+TESTING-CHECK-COUNT OK; verify-flow 47 s). verify-scroll-order was not run
+(it launches Chrome). The GPU script's Node-side path (the page's base64
+encoder, the decoder, fieldOfTexture, inletStats, inletVerdicts) was run in a
+scratch harness on f32-rounded reference fields: all three verdicts pass,
+f32 rounding moving V by 8.7e-9. Its in-page half has not run anywhere.
+
+GPU run for the root (one GPU owner; nothing here has touched the GPU):
+
+```text
+cd ../solidify-flowinlet          # feature/flow-inlet, frozen at the head named in the report
+npx vite --port 5199 --strictPort  # or any free port; pass it as the 2nd argument below
+node scripts/verify-flow-gpu.mjs verify-out 5199
+```
+
+The script first runs the Float64 reference on the Node side (~45 s), then the
+browser. A pass is every line OK and "done": the existing FLOW-SHEAR-DECAY,
+FLOW-DRAG-PROFILE, FLOW-FREESTREAM, FLOW-OFF-IDENTITY, FLOW-INERT-ARMS,
+FLOW-UNIFORM-MELT, FLOW-DIRECTION, FLOW-UI, FLOW-RECONFIGURE, plus
+FLOW-INLET-EMPTY (velocity max |V - 1| <= 1e-3; arm Vmax < 0.98, expected
+0.873), FLOW-INLET-BLOCKED (V in [0.98, 1.02], expected 1.000 to 1.009;
+within 2e-3 of the reference; arm expected 0.83 within 0.01 of the reference's
+0.8315, valid), FLOW-INLET-COLUMN (velocity inlet nodes <= 1e-4; arm ~0.23) and
+FLOW-INLET-APP (inlet column at 0.03 within 1e-4 after the dial; crystal west
+reach > 20; 2000 substeps and 2000 lattice steps; the old-inlet arm is
+reported only). FLOW-DIRECTION's ratios are expected to move outward from
+S0's 1.13 / 0.89 / 0.87 with its thresholds unchanged.
+
+Copy HELD: science/index.html now says, in the melt-flow row, "The inlet now
+delivers the speed set on the dial even with a crystal in the channel; the
+Tong comparison above was measured before that fix, when the inlet delivered
+0.84 to 0.94 of the dial in those runs." (0.84 / 0.94: D3.4's replicas of the
+11-01 runs, D20-1024 0.837 and D32-1024 0.940 inlet-column velocity.) It is
+in its own commit and must not ship unless FLOW-INLET-EMPTY, -BLOCKED,
+-COLUMN and -APP pass on the root's run; on a failure, revert that commit.
+
+### GPU run on frozen a304254 (root, 2026-11-07, Intel Arc 140V)
+
+Run 1 (16:16-16:20, port 5199): ABORTED before any gate printed. Puppeteer's
+default 180 s protocol timeout fired on the first in-page evaluate ("FLOW
+harness error ProtocolError: Runtime.callFunctionOn timed out"; page errors
+none). No verdict, kept as a harness abort. Evidence on the cause:
+- Another session's Orbital WebGPU probes (headless Chrome, D:\orbital\probe,
+  results diag1/diag2/diag3 ending 16:19:48 / 16:20:51 / 16:21:07) overlapped
+  the run.
+- Minutes later a third party's `timeout 120 node scripts/run-tests.mjs` held
+  port 5199 and served a checkout without src/lbm.ts.
+- A diagnostic probe on port 5297 (verify-out, not committed) compiled the new
+  LBM_WGSL with zero compilation messages and stepped, read back and
+  validated a 64^2 FlowSolver in under 1 s with no validation error.
+Hence the cause was the environment, not the shader. Not proven beyond that.
+
+Run 2 (16:26:18-16:27:08, port 5297; the runner checked the served
+src/lbm.ts was this checkout's, tree clean before and after, no other
+headless Chrome at start or end): **15/15 OK, "done", page errors none.**
+Log: docs/validation/flow-inlet-gpu-2026-11-07.txt.
+- FLOW-INLET-EMPTY: velocity max |V - 1| 4.5e-5 (band 1e-3), u_y 1.7e-5 U;
+  equilibrium arm Vmax 0.873163 (ref 0.873248), misses as required.
+- FLOW-INLET-BLOCKED: V 1.00000 to 1.00939 (band [0.98, 1.02]; predicted 1.000
+  to 1.009), within 5.7e-5 of the Float64 reference (band 2e-3), steady 1.1e-6,
+  conserving 5.6e-5, disk centre 0.0051 U, K/dragK 0.99993, gap 1.510 U.
+  Equilibrium arm: V(0) 0.831517, 3.6e-7 from the reference, rho_in 1.00572 >
+  rho_out 0.99813, valid, misses as required.
+- FLOW-INLET-COLUMN: velocity inlet nodes 6.6e-7 (u_x) / 1.6e-7 (u_y) of U
+  (band 1e-4); equilibrium arm 0.2295 / 0.0854, misses.
+- FLOW-INLET-APP: after the dial to 0.03, inlet column 3.9e-7 / 1.2e-7 of U
+  (band 1e-4), west reach 42 > 20, 2000 substeps and 2000 lattice steps; V
+  0.99985 to 1.0162. Old-inlet arm (info only): inlet off by 0.189, V 0.854 to
+  0.870, misses.
+- Unchanged gates as expected: FLOW-SHEAR-DECAY nu 0.0999885 (S0 value),
+  FLOW-DRAG-PROFILE offsets h -0.0111 W, x2 +0.3193 W, /2 -0.3807 W,
+  FLOW-FREESTREAM 1.5e-5, FLOW-OFF-IDENTITY 7/7 equal to 2fc221d,
+  FLOW-INERT-ARMS, FLOW-UNIFORM-MELT, FLOW-UI, FLOW-RECONFIGURE.
+- PREDICTION NOT BORNE OUT: FLOW-DIRECTION was expected to move outward from
+  S0's 1.13 / 0.89 / 0.87. It gave 1.132 / 0.892 / 0.868, the same integer
+  reaches as S0 (no flow 38/37, forward 43/33, reversed 33/42). The gate
+  passes, since its thresholds are unchanged. The likely reason is that its
+  statistic is a whole-cell reach and the inlet change is below one cell at
+  this staging. FLOW-INLET-APP supports that: on the same staging, its
+  old-inlet arm delivers 0.85-0.87 U yet gives the same west reach (42) as
+  the velocity inlet. So the prediction was wrong about the size of the
+  effect, and no gate depends on it.
+
+### Full suite on the PR head (root, frozen 847dfea, 2026-11-07 17:53-18:41)
+
+**45/45 scripts, exit 0**, 382 OK lines, no FAIL verdict. The guard confirmed
+for the whole run that the 5199 listener was this worktree's vite. The
+FLOW-INLET-* numbers repeat run 2's to the printed digits.
+Log: ../solidify-verify-v7/verify-out/pr11-847dfea-full-suite.log.
+
+### Merged head with PR 8 (frozen c2c825d, 2026-11-07 20:29 to 11-08 00:02)
+
+Every one of the 47 scripts passed on c2c825d, but not in one clean run. The
+machine was saturated by other sessions (Blender, Chrome automation, CPU
+77-100%) for the whole evening.
+
+- Full-suite runs 1 and 2 died on load timeouts (OPT3-ACCEPTANCE 300 s; the
+  vite server never answered).
+- Run 3 passed the first 40 scripts. The 41st, verify-scale3d, hit a 30 s
+  navigation timeout.
+- The remaining 7 scripts were run one by one on the same tree, each with its
+  own vite on 5199 and an ownership check. scale3d, 3d, recrystallize-gpu,
+  recrystallize-rate-gpu and flow-gpu passed. My first attempt at scale3d and
+  3d omitted their port argument and tested nothing; rerun with it, both pass.
+- verify-visual-gpu: VIS-STUDIO-COST failed 3 of 4 times on c2c825d and passed
+  on the 4th. The 2 fails under heavy load (rafHz 26.6) failed on linearity
+  and, once, ratio 2.14. The fail on a quiet machine was linearity only: the
+  "on" arm's residual was 82.6 ms against the 10%-of-span allowance of
+  76.5 ms, while its ratio was 0.925. Its other 10 checks passed every time.
+  Control on 484fb02 (v7 without this PR): 2/2 pass, ratios 1.07 / 1.06.
+  This PR changes only src/lbm.ts, which that render path does not use.
+  Reading: the 3-point linearity witness flakes on timing noise. The cost it
+  guards (ratio <= 1.8) held in every run not starved by load.
+- [ ] Follow-up: VIS-STUDIO-COST's linearity witness is flaky (3 points, a 10%
+  residual allowance, 1-2 s of timing). Re-register it with more points or
+  repeats before relying on it as a gate.
+
+Logs: ../solidify-verify-v7/verify-out/pr11-merged-c2c825d-r3-*,
+pr11-c2c825d-rest*-*.log, pr11-c2c825d-visual-r3.log, v7-484fb02-visual-control.log.
+
+### Next Tong comparison - PROTOCOL ONLY (pre-registered 2026-11-07; not built, not run)
+
+Follows the D3.4 reading (H_D supported: the 11-01 lambda trend was the box;
+N2 fixed by D3.5; N3: windows must be stationary). FLOW-TIP-TONG stays FAILED
+as recorded on 11-01; this is a new comparison with its own verdict. Runs only
+on a head that passed the D3.5 GPU gates.
+
+- Rows (Tong et al. 2001 Table II, eps4 0.05, U d0/D 0.035, Delta 0.55,
+  Pr 23.1; boxes inferred in d0 per D3.4 L5): Tong's own lambda = D / a2:
+  D2 = 3.19 (box 1479 d0, Tong V d0/D 0.0247), D3 = 4.79 (1384 d0, 0.0248),
+  D4 = 6.38 at 921 / 1658 / 3315 d0 (0.0265 / 0.0240 / 0.0244). Same-D ratios
+  against Table I (box-mismatched, as published): 1.372 / 1.417 / 1.550,
+  1.404, 1.427.
+- Staging: the 11-01 / D3.4 staging (calibrated pure melt, Delta 0.55,
+  eps4 0.05, dt = 0.15 dx^2 / D~, solved T, latent 1, noise 0, theta0 0, seed
+  r 8 W0 at the box centre, inoculant 0, coupling 1, the D3.5 inlet), full
+  square box (Tong simulated half with a symmetry plane, D3.4 L1). Side in W0
+  as Tong's row: 409.6 / 256 / 128 / 230.4 / 460.8.
+  Tier P (primary, the app's staging, dx 0.8 W0): n 512 / 320 / 160 / 288 /
+  576 (1478 / 1387 / 924 / 1663 / 3326 d0). Tier T (Tong's resolution,
+  dx 0.4 W0): n 1024 / 640 / 320 / 576 for the first four rows; the 3315 d0 row
+  needs n 1152 > 1024 (flowRefusal) and is not run in tier T. n 160 is below
+  the D3.4 script's N_MIN 256: the script must show Simulation accepts it or
+  drop that arm and say so.
+- Window: 33 equal chunks over T = min(8 l_D / V_KR, s / (1.5 V_KR)), s = side/2
+  - 8 - 38.4 W0 (the tip may approach the inlet to the stop margin), V_KR =
+  0.017 D~ lambda / a1 W0 per tau0, l_D = D~ / V_KR. Substeps (tier P / T):
+  D2 17919 (543 x 33) / 71709 (2173 x 33); D3 6138 / 24618; D4-921 990 /
+  3993; D4-1658 3894 / 15576; D4-3315 5544 / n/a. T is 6.5 / 5.0 / 1.4 / 5.6
+  / 8.0 l_D: the 921 d0 row (1.4 l_D; also Tong's own outlier, 9 % fast) is
+  information only. Stop rule as D3.4 (west tip within 32 cells of x = 0:
+  the arm is invalid).
+- Statistic per row: v = -dx x least-squares slope of the west tip (phi = 0.5
+  on row n/2, sub-cell) over the last third of the samples; R = v_flow /
+  v_noflow, same geometry and schedule; V d0/D of the flow run.
+- Stationarity (validity): |v_last / v_mid - 1| <= 0.02 in BOTH runs of a row
+  (v_mid over the middle third). A non-stationary row is reported and cannot
+  pass or fail.
+- Verdict per tier, over its valid non-information rows: R in [1.26, 1.54]
+  (FLOW-TIP-TONG's band) on every row; the spread of R over the rows < 5 % of
+  their mean; |V d0/D / V_Tong(row) - 1| <= 0.10 on every row (sized: Tong's
+  own rows move 1.7 % between 1658 and 3315 d0, his no-flow values sit +0.6 to
+  +5.9 % from exact, this solver's dx 0.8 no-flow -4.4 % at lambda 3.2). A tier
+  with fewer than two valid rows has no verdict. The app may call the flow
+  quantitative only if tier P passes; tier T alone says the solver can
+  reproduce Tong at his resolution, which the app does not run.
+- Falsification at D2 tier P: coupling 0 must give R exactly 1 (traces equal)
+  and fail; coupling -1 must give R < 1 and fail. Liveness of the inlet: every
+  flow run ends with inlet-column mean u_x / U within 1e-4 of 1.
+- Reported: the resolution step R(T) - R(P) per row; the inlet distance at the
+  end in d0 and nu / U; V3 mirror as in D3.4.
+- Cost on the Arc 140V from D3.4's per-arm times (flow 1.9-2.7 ms and no flow
+  0.6-0.9 ms per 1024^2-substep; at n 640 0.83 / 0.34 ms per substep, used as
+  the floor for smaller grids): tier P ~ 30 s flow + 12 s no flow, tier T
+  ~ 235 s + 77 s, falsification ~ 30 s; about 6.5 min of stepping, plan for
+  <= 20 min with setup.

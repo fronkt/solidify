@@ -205,3 +205,99 @@ Mater. Trans. A 31:2545, doi:10.1007/s11661-000-0199-7).
 Honest scope for slice 1: one benchmarked number (Tong's upstream ratio for a
 dimensionless pure melt); everything else is a conservation/analytic check or
 labelled qualitative.
+
+## D3.5 addendum: velocity inlet (2026-11-07)
+
+Section 1 names a Zou-He velocity inlet; the shader shipped an equilibrium
+inlet instead. This addendum records the defect, the replacement and how it
+composes with the rest of the step. Gates: tasks/todo.md, "D3.5 velocity
+inlet - 2026-11-07".
+
+Defect (lbm.ts at 3b3fbdd, pull(), lines 74-75): a population that would
+stream in from x < 0 is `feq(i, 1.0, vec2f(L.uIn, 0.0))`. Only the three
+populations with c_x = +1 (1, 5, 8) come from there; the other six of the
+inlet node come from the interior. Summing the x momentum with c_s^2 = 1/3
+gives, to first order in U and in rho_i - 1 (rho_i the interior density next
+to the inlet),
+
+  u_inlet ~ U - (rho_i - 1) / 3   (lattice units).
+
+So the inlet fixes the density of what enters as well as its velocity, and
+any overpressure inside the channel cuts the delivered speed. D3.4 measured
+inlet rho 1.0061 at n 848: (0.0061 / 3) / 0.011404 = 0.178, i.e. 0.82 U
+predicted against 0.820 U measured. Two routes to an overpressure:
+
+- Blockage: a crystal needs a pressure drop to push the flow past it (Stokes
+  regime, Re < 1, so the drop scales with the flux and with nu, which is 3.465
+  in lattice units at Pr 23.1).
+- History: the outlet is zero-gradient, so nothing fixes the density level
+  (any uniform rho with uniform u is a steady state of the walls and the
+  outlet). A start-up or speed-change compression wave raises the level and it
+  stays. CPU reference (scripts/fixtures/lbm-ref.mjs, the shipped inlet) on an
+  EMPTY 64^2 free-slip channel at nu 3.465: started at U/2 it settles at
+  0.873 U (level 1.0043), from rest at 0.747 U. The rail's speed dial
+  re-initialises the populations at the new speed (main.ts setFlowU ->
+  sim.setFlow(true)), so the dial itself starts from a steady stream; but the
+  level is set by every transient after that (the uniform start inside an
+  existing crystal, the crystal's growth), so the delivered speed depended on
+  the run's history as well as on the blockage.
+
+The same mismatch reached transport: ADV_FACES brings u_in X_far in through
+the face at x = -1/2 using the dialled speed, while cell 0's lattice velocity
+was ~0.82 U, so cell 0 saw a spurious divergence of ~0.18 U per substep.
+
+Replacement: the Zou & He (1997) velocity inlet on the west nodes. After the
+pull, with the six known populations of the node,
+
+  rho (1 - U) = f0 + f2 + f4 + 2 (f3 + f6 + f7)
+  f1 = f3 + (2/3) rho U
+  f5 = f7 - (f2 - f4)/2 + (1/6) rho U
+  f8 = f6 + (f2 - f4)/2 + (1/6) rho U
+
+which gives sum f = rho and sum c f = (rho U, 0) exactly (the normal pair by
+non-equilibrium bounce-back, f1 - f1eq = f3 - f3eq; the transverse correction
+on the diagonals zeroes the y momentum). It is local (the node's own pulled
+populations), so it fits the pull kernel without another pass. Alternatives
+not taken: equilibrium at the local density (feq(rho_local, U)) discards the
+non-equilibrium part and imposes u only to first order; Ladd's velocity
+bounce-back puts the condition at the half-way face to second order, where
+the gates and the velocity texture read the node.
+
+Composition. Zou-He replaces the three unknown populations BEFORE the moments;
+the node then collides like every other node (TRT, Guo source, implicit drag).
+At a liquid, force-free inlet node (K = 0 and no body force: every channel the
+app runs) F = 0 and the stored velocity (m + F/2) / (rho (1 + K/2)) is (U, 0)
+exactly. If a crystal grows into column 0 (K > 0), the populations still carry
+rho U and the drag slows the stored velocity to U / (1 + K/2), as the old inlet
+did; a uniform body force in channel mode (no app path sets one) would shift it
+by F / (2 rho). Under TRT the reconstruction sets the antisymmetric
+non-equilibrium part of the normal pair to zero and keeps the symmetric parts
+of the known populations, so no new relaxation parameter enters at the inlet.
+
+Corners. At (0, 0) and (0, n - 1) the pull fills the known populations first,
+the free-slip mirror supplying those that would come from beyond the wall
+(f2, f6 at y = 0; f4, f7 at y = n - 1). The three with c_x = +1 are then
+inlet unknowns whatever the mirror did (f5 at (0, 0) crosses both edges; the
+inlet owns it). Both conditions require u_y = 0 at the corner, so they agree;
+the field stays mirror-symmetric about y = (n - 1)/2.
+
+Outlet: kept zero-gradient. A velocity inlet fixes the flux; in a steady state
+continuity carries the same mass flux through every column, and the outlet
+only has to let it out. The density level stays a neutral mode: it shifts the
+mass flux rho u but not the velocity u that advection reads, so the D3.5 gates
+read the column-mean velocity and keep the mass flux's uniformity as a
+conservation witness. A pressure outlet would pin the level and nothing the
+phase field reads needs it; it would also be a second boundary change in one
+slice.
+
+Expected behaviour. The inlet column carries (U, 0) to f32 precision. With a
+blockage, the pressure drop that pushes U past it makes rho fall along the
+channel, so the column-mean velocity rises from U at the inlet to U (1 + s)
+at the outlet, s the density span. The shipped inlet's CPU sizing at the gate
+geometry (n 128, disk of radius 9.6 cells, blockage 0.15) gives 0.832 U with a
+span of 0.76 %; the drop scales with the flux, so the velocity inlet should
+give s ~ 0.9 %. The span is a weak-compressibility property of the lattice at
+nu 3.465 (it grows as nu U / n at fixed blockage: ~6 % at n 64 with blockage
+0.4), not of the inlet; the old inlet hid it inside the deficit. The shipped
+inlet stays selectable only as a test-harness option (FlowConfig.inlet =
+"equilibrium"), for the must-miss arms; the app never sets it.

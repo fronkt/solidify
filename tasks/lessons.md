@@ -893,3 +893,20 @@ reason the predicate never asked about. Reading the field at batch 60 gave
 **Rule.** When a gate reads state, read it at the moment the pre-registration
 names, inside the block that produced it. Report that state's time next to the
 verdict so a departure shows up in the output.
+
+## The GPU and the test port are shared with other sessions
+
+On 11-07 the first D3.5 GPU run aborted on puppeteer's 180 s protocol timeout
+before any gate ran. Other sessions' WebGPU probes were running on the same
+iGPU at the same time. A few minutes later a third party's suite held port
+5199, so my diagnostic page loaded a different checkout that had no
+src/lbm.ts. run-tests.mjs only waits for "something answers on 5199", so a
+squatter would silently become the server under test.
+
+**Rule.** Before a GPU gate run, check that the port is free. Prefer a unique
+port where the script takes one. Confirm that the served file is this
+checkout's (fetch a source file and match a line only this head has). For the
+fixed-port suite, keep checking for the whole run that the 5199 listener's
+command line names this worktree. Log other headless Chrome processes at the
+start and end, so a timing or timeout failure can be read against
+contention.
