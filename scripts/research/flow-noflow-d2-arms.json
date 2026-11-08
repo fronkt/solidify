@@ -1,0 +1,9 @@
+{
+ "study": "Tong follow-up (ii): no-flow tip stationarity at D2",
+ "protocol": "tasks/todo.md, Tong follow-up (ii): no-flow tip stationarity at D2 - PROTOCOL (80be923), amended before any run",
+ "protocolCommit": "d4b885674877c851514be0a43c1f1893061ad93b",
+ "arms": [
+  { "id": "N1024", "n": 1024, "seedX": 512, "seedY": 512, "chunk": 671, "chunks": 81, "substeps": 54351, "replica": true },
+  { "id": "N2048", "n": 2048, "seedX": 1024, "seedY": 1024, "chunk": 671, "chunks": 81, "substeps": 54351 }
+ ]
+}

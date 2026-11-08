@@ -94,6 +94,22 @@ CPU-only self-test (`flow-tong3-selftest.mjs`); `--plan` prints the arms and GPU
 cost; `--run --port N` needs a Vite server for this tree and writes
 `docs/validation/flow-tong3-<date>.json`.
 
+## Tong follow-up (ii): no-flow stationarity at D2
+
+`flow-noflow-d2.mjs` follows tong3 (tasks/todo.md, "Tong follow-up (ii): no-flow
+tip stationarity at D2", with its amendment before any run). Two no-flow arms
+at tong3's tier-P staging run 81 chunks: N1024 and N2048, each with a centred
+seed. Nested prefix windows (m 33 to 81) give STEADY or DRIFTING and m*.
+N1024's first 33 chunks must replicate tong3's recorded no-flow speed. The two
+boxes give the box rule, and R* is reported only when N1024 is STEADY; it never
+re-scores tong3. A read-only probe records u ahead of the west tip. Arms are in
+`flow-noflow-d2-arms.json`. It imports flow-domain, tong2 and tong3 unchanged;
+the self-test checks that they equal their frozen heads. With no option it
+runs a CPU-only self-test (`flow-noflow-d2-selftest.mjs`, which also drives the
+real Simulation at n 2048 with flow off on a recording device). `--plan`
+prints the arms and the GPU cost. `--run --port N` needs a Vite server for
+this tree and writes `docs/validation/flow-noflow-d2-<date>.json`.
+
 ## Runner lifecycle controls
 
 `node scripts/verify-quant3d-tip-lifecycle.mjs` runs the real benchmark CLI with a
