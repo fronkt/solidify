@@ -7114,10 +7114,14 @@ Reading (mine; none of this is a verdict):
 1. The no-flow run is the one that fails, and the reason is intrinsic. Its
    west tip gives the same speed and the same -4.45% in all three geometries,
    agreeing to 1e-9 although the seed moves 256 cells and the east tip ends
-   197 to 936 d0 from the east wall. So the deceleration is not a wall or box
-   effect. It is the free tip still relaxing from the seed at 8 l_D / V_KR:
-   at dx 0.8 and lambda 3.19 the no-flow transient is longer than this
-   window. The flow tip relaxes faster (it is stationary to 0.2-1.7%).
+   197 to 936 d0 from the east wall. So the deceleration is not a
+   wall-proximity effect. CORRECTED the same evening (before any further run):
+   the identity does NOT exclude a box-wide effect, since all three share one
+   n 1024 box and one heat budget. Nor is it a slow relaxation from the seed:
+   the per-chunk no-flow speed levels off near V d0/D 0.0172 (chunks 9-14),
+   then drifts down steadily to 0.0161 by chunk 32. The flow tip levels off at
+   0.0219 from chunk 13 and stays (stationary to 0.2-1.7%). The cause of the
+   no-flow drift is open; step (ii) below tests it.
 2. A counterfactual, NOT a verdict, and no band is moved by it: had the
    no-flow run been stationary, the frozen rule would have given FAIL on the
    V clause (-11.1% against +-10%), with R = 1.349 inside [1.26, 1.54]. A
