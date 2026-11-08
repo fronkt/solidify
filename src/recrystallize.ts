@@ -184,3 +184,100 @@ export function freeGrainIds(ctr: number, nextId: number, top: number, margin = 
   if (!Number.isFinite(ctr) || ctr > top) return 0;
   return Math.max(0, ctr - nextId - margin);
 }
+
+// ---- C3b-3 and C3b-4a (design section 6) ---------------------------------
+
+/** the steady mode's batch ceiling: one field readback and one stamp per batch */
+export const RX_BIRTH_BATCHES = 16;
+
+export interface BirthBatch {
+  /** born after this many sweeps of the next anneal call (0: before it) */
+  sweep: number;
+  count: number;
+}
+
+/**
+ * A constant nucleation rate on the sweep clock: `count` nuclei over `window`
+ * sweeps, lumped into B = min(count, window, batches) batches at
+ * t_b = floor(b window / B), batch b carrying round((b+1) count / B) -
+ * round(b count / B) nuclei. So every batch holds at least one, the counts sum
+ * to `count`, and the number born by the end of batch b is within half a
+ * nucleus of the constant-rate line count (b+1)/B. A window of one sweep or
+ * less is a single batch at sweep 0: the at-once (site-saturated) event.
+ */
+export function birthSchedule(count: number, window: number, batches = RX_BIRTH_BATCHES): BirthBatch[] {
+  const c = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+  if (c === 0) return [];
+  const w = Number.isFinite(window) ? Math.max(1, Math.floor(window)) : 1;
+  const nb = Number.isFinite(batches) ? Math.max(1, Math.floor(batches)) : 1;
+  const B = Math.min(c, w, nb);
+  const out: BirthBatch[] = [];
+  for (let b = 0; b < B; b++) {
+    out.push({ sweep: Math.floor((b * w) / B), count: Math.round(((b + 1) * c) / B) - Math.round((b * c) / B) });
+  }
+  return out;
+}
+
+/** an explicit schedule's shape: integer sweeps >= 0, strictly increasing,
+ *  integer counts >= 1 summing to `count` */
+export function scheduleShapeOk(s: readonly BirthBatch[], count: number): boolean {
+  if (!Array.isArray(s) || s.length === 0) return false;
+  let sum = 0;
+  for (let b = 0; b < s.length; b++) {
+    const { sweep, count: c } = s[b];
+    if (!Number.isInteger(sweep) || sweep < 0 || !Number.isInteger(c) || c < 1) return false;
+    if (b > 0 && !(sweep > s[b - 1].sweep)) return false;
+    sum += c;
+  }
+  return sum === count;
+}
+
+/** the 13 lexicographically positive offsets of the 26-neighbour stencil:
+ *  each unordered neighbour pair is visited once */
+const HALF26: number[][] = CUBIC26.filter(([x, y, z]) => z > 0 || (z === 0 && (y > 0 || (y === 0 && x > 0))));
+
+/**
+ * The treatable voxels as HTMASK3_WGSL decides them, without particles:
+ * solid (phi >= 0.5, compared in the f32 the GPU stored), a real grain id (not
+ * 0, not the pore census) and not mould wall. `mould` may be null (no mould
+ * rasterized: the mask texture is all open).
+ */
+export function treatableVoxels(ids: ArrayLike<number>, phi: ArrayLike<number>,
+  mould: ArrayLike<number> | null, poreId: number): Uint8Array {
+  const ok = new Uint8Array(ids.length);
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    ok[i] = phi[i] >= 0.5 && id !== 0 && id !== poreId && !(mould && mould[i] !== 0) ? 1 : 0;
+  }
+  return ok;
+}
+
+/**
+ * Grain-boundary sites (C3b-4a): the treatable voxels with at least one
+ * treatable 26-neighbour INSIDE the domain that carries a different id. No
+ * wrap (the anneal clamps), and an untreatable neighbour (liquid, pore,
+ * mould) is a free surface, not a boundary. Linear indices (z n + y) n + x,
+ * ascending. Thirteen half-offset passes instead of 26 per voxel.
+ */
+export function boundarySites(ids: ArrayLike<number>, ok: ArrayLike<number>, n: number): Uint32Array {
+  const N = n * n * n;
+  const mark = new Uint8Array(N);
+  for (const [dx, dy, dz] of HALF26) {
+    const x0 = Math.max(0, -dx), x1 = Math.min(n, n - dx);
+    const y0 = Math.max(0, -dy), y1 = Math.min(n, n - dy);
+    const z0 = Math.max(0, -dz), z1 = Math.min(n, n - dz);
+    const off = (dz * n + dy) * n + dx;
+    for (let z = z0; z < z1; z++) for (let y = y0; y < y1; y++) {
+      const row = (z * n + y) * n;
+      for (let x = x0; x < x1; x++) {
+        const a = row + x, b = a + off;
+        if (ok[a] && ok[b] && ids[a] !== ids[b]) { mark[a] = 1; mark[b] = 1; }
+      }
+    }
+  }
+  let count = 0;
+  for (let i = 0; i < N; i++) count += mark[i];
+  const out = new Uint32Array(count);
+  for (let i = 0, j = 0; i < N; i++) if (mark[i]) out[j++] = i;
+  return out;
+}

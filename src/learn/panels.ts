@@ -56,6 +56,7 @@ export const PANEL_LEARN: readonly LearnEntry[] = [
       "particle radius": "particle size, in grid cells",
       "cold work": "stored deformation energy (bond energies)",
       "nuclei": "strain-free grains in the worked metal",
+      "nucleation": "where and when the nuclei are born",
     },
   },
   {

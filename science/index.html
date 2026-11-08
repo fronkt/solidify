@@ -933,7 +933,7 @@
     the two halves of "the pre-v7 furnace, unchanged"), and the pinned arm must sit on the
     measured law, not merely stop (<code>GG-PIN-LIMIT</code>).
 
-    <b>Cold work drives; recrystallization is site-saturated, on the sweep clock</b>. The sweep
+    <b>Cold work drives; recrystallization runs on the sweep clock</b>. The sweep
     budget is bought by the grain-growth law's Arrhenius integral, so this furnace cannot yet price
     a recrystallization anneal below the grain-growth window: such a schedule buys nearly zero
     sweeps and nothing happens. In the volume, the nuclei dial plants strain-free nuclei after the
@@ -941,8 +941,14 @@
     difference alone grows them. A lone nucleus grows only above a bond-count threshold
     (a radius-2 nucleus first grows at about 12 J_b on this 26-neighbour lattice), so an isolated
     nucleus can consume only grains deformed past it. On cast fabrics the most deformed quarter of the grains recrystallizes 0.31 to 0.36 more than the least deformed quarter, against at most 0.02 when every grain carries the same stored energy, and on a single crystal the kinetics follow the Johnson-Mehl-Avrami-Kolmogorov form against one nucleus's own volume (slopes 0.99 to 1.05 on three seeds). Recovery slows the fronts, so in the panel recrystallization can stall short of completion, and the fitted Avrami exponent there is low (about 0.6 on a copper cast). The Avrami exponent on the card is fitted on the
-    Monte Carlo sweep clock and is not a real-time exponent. Constant-rate nucleation,
-    boundary-only sites and particle effects on recrystallization are not modeled: a dialed dispersion is held back while nuclei are dialed, and the card says so. And while the dial is up the Σ3
+    Monte Carlo sweep clock and is not a real-time exponent. A nucleation select offers two
+    more modes, alone or together: a steady rate, with the births spread evenly over the
+    treatment's sweeps (a site already recrystallized when its batch is due is skipped, as in the
+    Johnson-Mehl-Avrami-Kolmogorov theory, where nuclei form at a fixed rate per unit of the whole
+    volume), and grain-boundary sites, voxels with a differently labeled neighbor in the deformed
+    matrix. Theory gives an Avrami exponent of 4 for a constant rate at constant growth speed;
+    nuclei crowded onto the boundaries are expected to lower it. The checks of both against this
+    model have not been run yet. Particle effects on recrystallization are not modeled: a dialed dispersion is held back while nuclei are dialed, and the card says so. And while the dial is up the Σ3
     annealing-twin pass is held back, because a plate allocated GPU-side mid-anneal would inherit
     a work-fabric value belonging to an id nobody had used.
     <b>The hold is isothermal by construction</b>: the solver's temperature field is the as-cast

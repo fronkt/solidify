@@ -21,7 +21,26 @@ async function boot(page, hash = "") {
     if ((t === "warning" || t === "warn") && /binding size|minimum (buffer )?binding size/i.test(m.text()))
       bindWarnings.push(m.text());
   });
-  await page.goto("http://localhost:5199/app/" + hash, { waitUntil: "networkidle0", timeout: 30000 });
+  // Diagnostics only (a full suite once timed out here, 18 min in, never in
+  // standalone reruns): on a navigation timeout, print what was still in
+  // flight and the document state, then fail exactly as before.
+  const inflight = new Map();
+  const t0 = Date.now();
+  page.on("request", r => inflight.set(r, Date.now() - t0));
+  page.on("requestfinished", r => inflight.delete(r));
+  page.on("requestfailed", r => inflight.delete(r));
+  try {
+    await page.goto("http://localhost:5199/app/" + hash, { waitUntil: "networkidle0", timeout: 30000 });
+  } catch (e) {
+    const state = await Promise.race([
+      page.evaluate(() => ({ ready: document.readyState, solidify: !!window.__solidify, scripts: document.scripts.length })).catch(x => String(x).slice(0, 120)),
+      new Promise(r => setTimeout(() => r("evaluate did not return in 5 s"), 5000)),
+    ]);
+    console.log("BOOT-TIMEOUT", JSON.stringify({ error: String(e?.message ?? e).slice(0, 160), state,
+      pending: [...inflight].map(([r, at]) => ({ url: r.url().replace("http://localhost:5199", ""), type: r.resourceType(), sinceMs: at })).slice(0, 20),
+      pendingCount: inflight.size }));
+    throw e;
+  }
   try { await page.waitForFunction("!!window.__solidify", { timeout: 15000 }); }
   catch { await page.reload({ waitUntil: "networkidle0" }); await page.waitForFunction("!!window.__solidify", { timeout: 20000 }); }
   await new Promise(r => setTimeout(r, 1000));

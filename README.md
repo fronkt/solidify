@@ -480,6 +480,10 @@ happens. Cold work here is the field and the drive. In the volume, the nuclei di
 strain-free nuclei after the deposit: site-saturated (all at once), at uniformly random sites,
 radius 2 cells, stored energy 0, then grown by the existing anneal's stored-energy difference
 alone. The card reports the recrystallized fraction and an Avrami exponent fitted on the Monte
-Carlo sweep clock, which is not a real-time exponent. Constant-rate nucleation, boundary-only
-nucleation sites and particle effects on recrystallization are not modeled: a dialed dispersion
-is held back while nuclei are dialed, and the card says so.
+Carlo sweep clock, which is not a real-time exponent. A nucleation select (C3b-3/4a) also
+offers a steady rate, the births spread evenly over the treatment's sweeps in up to 16 batches
+(a site already recrystallized when its batch is due is skipped, the JMAK phantom), and
+grain-boundary sites, voxels with a differently labeled treatable neighbor, classified once
+before any nucleus; the two combine. Their GPU kinetics gates are pre-registered and have not
+been run yet (tasks/todo.md). Particle effects on recrystallization are not modeled: a dialed
+dispersion is held back while nuclei are dialed, and the card says so.
