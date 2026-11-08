@@ -1,8 +1,11 @@
 # Testing
 
 Visual and science expansion, 2026-11-01 (feature/visual): six scripts on
-top of the merged 39, so the local suite registers 45 and CI gates twenty-six
-browser-free scripts.
+top of the merged 39, so the local suite registered 45 and CI gates twenty-six
+browser-free scripts. C3b-3/4a (feature/rx-rate, 2026-11-07) adds one GPU
+script, `verify-recrystallize-rate-gpu.mjs`, so the local suite registers 46;
+CI's browser-free count is unchanged (its new checks live in
+`verify-recrystallize.mjs`, already in CI).
 
 - `verify-replay.mjs` (browser-free, eight checks): the replay ledger refuses
   after remelting (with a live threshold), clears on a reset, keeps its first
@@ -16,13 +19,23 @@ browser-free scripts.
   the source wiring is read back: reset bumps `fieldGen` first, both frame-loop
   reads are stamped and guarded ahead of every consumer); the ledger owns the scrub, which ends when the strip is
   withdrawn, on a reset and on a mark, and is refused while marked.
-- `verify-recrystallize.mjs` (browser-free, five checks): the Avrami fit
+- `verify-recrystallize.mjs` (browser-free, ten checks): the Avrami fit
   recovers exact JMAK exponents, is sweep-clock invariant and refuses thin
   windows; the bond counter reproduces the cited triangular thresholds and the
   26-neighbour flat-front barrier of 8; a CPU Poisson-sphere model on 64³ gives
   slope 1 against one nucleus's volume; the free grain-id count is zero once
   growth twins have wrapped the u32 counter past 0 (the old rule handed out ids
-  past every per-id buffer) and unchanged below the wrap. Design: `docs/C3B-RECRYSTALLIZATION-DESIGN.md`.
+  past every per-id buffer) and unchanged below the wrap. C3b-3/4a (protocols:
+  tasks/todo.md, "C3b-3 and C3b-4a - 2026-11-07") add RX-BIRTH-SCHEDULE (the
+  constant-rate batches against a rate checker that rejects a front-loaded and
+  a one-short schedule), RX-BOUNDARY-CLASSIFIER (hand-counted synthetic fields,
+  no wrap, pores and liquid are not boundaries, and a brute-force 26-loop),
+  RX-RATE-CPU (slope 1 against the extended volume of the actual schedule with
+  phantoms, the site-saturated construction must miss), RX-BOUNDARY-CPU
+  (boundary sites bend the Poisson construction below 0.85 on the GPU gate's
+  own polycrystal while random sites keep 1) and RX-SHARE-TUPLE (legacy 3/5/6/7
+  links decode as the shipped decoder did; the 8th element only off the
+  default). Design: `docs/C3B-RECRYSTALLIZATION-DESIGN.md`.
 - `verify-flow.mjs` (browser-free, five checks): the drag constant derived
   from the planar shear ODE on this repo's interface profile (2.7571 against
   Tong et al.'s 2.757, with an h = 2 arm that misses), the lattice stability
@@ -52,6 +65,20 @@ browser-free scripts.
   particles), RX3-PLACED (clipped nuclei count, an in-flight read does not
   zero the count), HT3-BUSY-RELEASE (a throw in a treatment releases the
   panel) and RX3-PIN-HELD (the dispersion is held back while nuclei are dialed).
+- `verify-recrystallize-rate-gpu.mjs` (GPU, C3b-3/4a, pre-registered in
+  tasks/todo.md, "C3b-3 and C3b-4a - 2026-11-07"; written by a CPU-only
+  delegate and not yet run): RX3-RATE-SCHEDULE (births at their sweeps, the
+  phantom rule against the field each batch was tested on, one batch at sweep
+  0 bit-identical to `nucleate`, an aborted anneal leaves later batches
+  unborn), RX3-RATE-JMAK (slope 1 against the extended volume built from lone
+  nuclei born at each batch sweep; the site-saturated construction must miss),
+  RX3-BOUNDARY-SITES (every boundary-mode centre on a voxel an in-page
+  classifier calls boundary; random sites must not be), RX3-BOUNDARY-JMAK (on
+  a one-drive Voronoi polycrystal, slope 1 against the union of the measured
+  free-growth shape for both site kinds; the Poisson construction must miss
+  for boundary sites) and RX3-MODES-PANEL (the nucleation select end to end:
+  seven dials, the 8-element tuple, the card against the sim's event log,
+  legacy restores).
 - `verify-flow-gpu.mjs` (GPU): D3.1's standalone lattice Boltzmann solver,
   fluid only. A free-slip shear wave recovers the set viscosity within 1 %;
   body-force flow over this repo's diffuse solid puts its apparent no-slip

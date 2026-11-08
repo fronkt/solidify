@@ -197,3 +197,197 @@ Slices:
 - C3b-1: G5, G7. C3b-2: panel, figures, share link, docs.
 - C3b-3: constant-rate nucleation (n = 4 expected). C3b-4: boundary-only
   sites, particles, twins inside RX grains.
+
+## 6. Addendum, 2026-11-07: C3b-3 (constant rate) and C3b-4a (boundary sites)
+
+Written before any code, on feature/rx-rate fast-forwarded to c3b021d (PR 7's
+head with the S0 review fixes: freeIds, the treatment's pin in nucleate, the
+placed count). Pre-registrations: tasks/todo.md, "C3b-3 and C3b-4a -
+2026-11-07".
+
+### 6.1 Where the new modes live
+
+`Sim3D.nucleate()` keeps its body: it IS the at-once, random-site path and
+every existing caller keeps calling it. The two new modes go through a second
+entry, `Sim3D.nucleateEvent(count, opts)`, which draws its orientations and
+random sites in exactly the order `nucleate` does (every quaternion for the
+range first, then x, y, z per nucleus, all from stream("recrystallization")).
+So an event with one batch at sweep 0 and random sites is the at-once event
+bit for bit (a gate, RX3-RATE-SCHEDULE), and a steady event differs from the
+at-once event of the same seed only in WHEN each nucleus is born. `nucleate`
+gains no parameter; it only drops a pending schedule (null assignments) so two
+events can never interleave.
+
+### 6.2 Constant rate on the sweep clock (C3b-3)
+
+- Schedule (pure, `birthSchedule(count, window, batches = 16)` in
+  recrystallize.ts): B = min(count, max(1, window), batches) batches at sweeps
+  t_b = floor(b window / B), b = 0..B-1, carrying
+  c_b = round((b+1) count / B) - round(b count / B) nuclei (every c_b >= 1,
+  sum = count, cumulative within 0.5 of the constant-rate line count (b+1)/B at
+  each batch end). window <= 1 is one batch at sweep 0, i.e. at once. Births in
+  [t_b, t_b+1) are lumped at t_b; the kinetics gate uses the actual schedule,
+  so the lumping is part of the expectation, not an error in it.
+- Clock: a birth "at sweep t" happens after t sweeps of the NEXT `anneal` call
+  have been delivered, after that call's sample hook for t (so a sample at t
+  reads the field before the births) and before sweep t + 1. Batch 0 at sweep
+  0 is stamped inside `nucleateEvent` itself, before the anneal. Births never
+  restart or reorder the salts or the recovery ordinate: they sit between
+  submits exactly where the sample hook already does.
+- The panel's steady window is the whole delivered treatment (`total` sweeps,
+  up to 16 batches): a constant nucleation rate during the hold, the textbook
+  definition. Recovery lowers the drive as the hold goes on, so late nuclei
+  may not grow (H_S = H0/(1 + rec H0); an r = 2 nucleus first grows near
+  H = 12 on the RX3-NUCLEUS-LADDER). That is the model's physics, stated on the
+  card, not hidden by a shorter window. Fork for Frank: a "drive window"
+  (births only while the most deformed grains still exceed the flat-front
+  barrier of 8 J_b) would keep more nuclei alive but couples the schedule to
+  the recovery law.
+- Sites already recrystallized when a nucleus is due: the schedule is a rate
+  per unit TOTAL volume, as in JMAK, so every site is drawn uniformly over the
+  domain up front and, when its batch is due, the field is read back once and
+  a nucleus whose centre voxel already carries an id of this event is a
+  PHANTOM: not stamped, its id left unused. Only earlier batches make
+  phantoms; within a batch overlaps resolve as in the at-once stamp (first in
+  list order wins, a later sphere claims only what is still matrix). A centre
+  on a voxel the mask will not treat behaves exactly as in `nucleate` (the
+  sphere's treatable part is stamped, possibly nothing).
+- Id budget: unchanged in shape. The whole range is allocated off the down
+  counter up front through `freeIds` (the at-once rule), so an event cannot run
+  dry mid-anneal and cannot meet a growth twin (twins are held back while cold
+  work is dialled, and nuclei need cold work). When fewer ids are free the
+  schedule is rebuilt for k = min(count, free) over the same window: the same
+  shape at a lower rate, reported as placed below requested. Phantom ids are
+  spent; X counts raw voxels over [lo, hi], so unused ids do not bias it. A
+  wrapped cast or counter refuses as before. An explicit schedule (fixtures)
+  that does not fit the free ids refuses instead of being rescaled.
+- Anneal: a pending schedule is consumed by the next `anneal` call; births due
+  after its last delivered sweep (an abort, or a shorter call) are recorded as
+  not born and dropped when it returns. `deposit`, `clearStored`, `reset` and
+  `nucleate` drop a pending schedule. With none pending, `anneal` issues the
+  same submits and awaits as before (one null test per sweep).
+
+### 6.3 Boundary-only sites (C3b-4a)
+
+- A voxel is a boundary site when it is treatable (HTMASK3's predicate
+  without particles: phi >= 0.5, id not 0 and not PORE, not mould) and at
+  least one of its 26 neighbours INSIDE the domain (no wrap: the anneal clamps)
+  is treatable and carries a different id. Liquid, pores and mould are free
+  surfaces, not grain boundaries. The 26-stencil matches the anneal's bond
+  count. Pure: `boundarySites(ids, ok, n)` in recrystallize.ts, 13 half-offset
+  passes.
+- Classified once, in `nucleateEvent`, from the field as it stands after the
+  deposit and before any nucleus (`readGrainVolume`, `readPhiVolume` and the
+  CPU mould mask): the deformed matrix's own boundaries. Every nucleus of the
+  event, steady or not, draws its centre uniformly from that list
+  (rxRng.int(list length) per nucleus, in id order, after the orientations).
+  Later batches are phantoms when the site is already recrystallized
+  (nucleation on the parent boundaries, swallowed sites lost). An empty list
+  (a single crystal) refuses with a sentence and moves nothing.
+- Particles: the panel holds the dispersion back while nuclei are dialled
+  (S0 F3), so the classifier ignoring particle voxels cannot meet a pinned
+  panel run. A fixture that pins and asks for boundary sites gets sites that
+  may sit in particles (stamped where treatable, as any centre is).
+
+### 6.4 What is expected, and why the gates do not assume a constant velocity
+
+1. Constant rate, random sites. Avrami's extended volume (Avrami 1940,
+   doi:10.1063/1.1750631; its abstract, read via OpenAlex, relates the actual
+   transformed volume to an extended volume for randomly distributed nuclei,
+   reducing the problem to finding the extended volume): with sites uniform in
+   space and phantoms included, X(S) = 1 - exp(-X_ext(S)),
+   X_ext(S) = sum_b c_b V(t_b, S) / V_domain, where V(t, S) is the volume at
+   sweep S of a nucleus born at t growing alone. So ln(-ln(1-X)) against
+   ln X_ext has slope 1 and intercept 0 whatever V does. The trap: V(t, S) is
+   NOT V1(S - t). Recovery makes the front speed a function of the global
+   sweep count S, so a nucleus born late grows slower than a fresh one of the
+   same age; the gate therefore MEASURES V(t_b, S) on a lone nucleus born at
+   t_b in its own run (same anneal sweep indices, so the same salts and the
+   same recovery ordinate), the RX3-JMAK doctrine extended to birth times.
+   Textbook: constant rate I and constant speed v give
+   X_ext = (pi/3) I v^3 S^4, so n = 4 (derived here from the integral; the 2D
+   analogue for continuous nucleation is LA-UR-86-421's comparison in section
+   1). Here n is reported on the sweep clock only: the inserted radius r0 = 2,
+   the finite window and recovery all pull it below 4 (CPU sizing on the
+   gate's geometry: 2.7-3.1). Departures the band absorbs: a phantom's sphere
+   can stick out of the grain that swallowed its site by up to r0 (CPU sizing:
+   slope 1.01-1.05 at r0 = 2); size-dependent growth is inside the measured
+   V(t_b, S); lattice anisotropy is common to every nucleus (the
+   extended-volume argument needs one convex shape, not a sphere).
+2. Boundary sites, all at once. With every nucleus born together and one
+   growth law, the transformed region is exactly the union of the free-growth
+   shape translated to every site (equal speeds: the first front to reach a
+   point is the nearest site's). For Poisson sites its expectation is the JMAK
+   form; boundary sites are correlated on a 2D network, nuclei on one boundary
+   impinge on each other first and a covered boundary then thickens like a
+   slab, so X follows the distance a front has travelled rather than V1 and
+   ln(-ln(1-X)) against ln V1 bends below slope 1. The classic treatment is
+   Cahn, Acta Metall. 4 (1956) 449, doi:10.1016/0001-6160(56)90041-4, grain
+   faces idealized as random planes: UNVERIFIED (closed; no abstract in
+   OpenAlex or Crossref, Unpaywall lists no copy, ScienceDirect refused the
+   fetch; secondary summaries say site-saturated boundary nucleation turns
+   linear in time late). No band rests on it. The gate computes the union
+   directly from the event's actual centres and the measured shape of one
+   nucleus grown alone, so the expected slope of ln(-ln(1-X)) against
+   ln(-ln(1-U)) is 1 on ANY site set, and the Poisson construction
+   1 - exp(-N V1/V) is the negative control that boundary sites must fail
+   (slope < 0.85) while random sites on the same polycrystal pass it. CPU
+   sizing (union of balls, the gate's geometry: 12 Voronoi grains in 96^3,
+   600 sites, interior box): boundary 0.69, random 1.03-1.06 against ln V1;
+   sweep-clock n 1.33 against 1.66-1.76. The fixture's matrix carries ONE
+   stored energy, so every front obeys one growth law; on the cast's
+   heterogeneous fabric neither construction is expected to hold (RX3-PANEL's
+   n of 0.61 is that case).
+3. Boundary sites at a steady rate: structural gates only (both mechanisms
+   are gated separately); kinetics reported, not gated.
+
+### 6.5 UI, share link, feature-off
+
+- One select, "nucleation", after the nuclei dial (the eighth form cell; NOT
+  a range input, so the panel still has seven dials and the gates that find
+  dials positionally are untouched): `random, at once` (default),
+  `random, steady`, `boundaries, at once`, `boundaries, steady`. Volume only,
+  reset to the default on every open like every other dial. In a two-column
+  form the eighth cell sits beside the seventh, so the panel does not grow; in
+  one column it adds one select row.
+- Card: the default mode's card is byte-what it was. Other modes add a clause
+  to the recrystallized row ("on grain boundaries"; "steady: B batches over N
+  sweeps, P sites already recrystallized", plus "U not born" after an abort)
+  and swap the Avrami row's reference sentence (steady random sites: constant
+  rate with constant-speed growth gives 4). Placed counts every batch.
+- Share: an 8th tuple element (the mode, 1-3) is packed only when nuclei > 0
+  and the mode is not the default, so every existing link keeps its shape; the
+  decoder accepts 3/5/6/7/8 elements (still whole-rejecting any non-finite
+  element), snaps the 8th to an integer in 0..3 and applies it in the volume
+  only. Pack and apply move to a pure module (src/heatshare.ts) so a
+  browser-free gate can round-trip legacy tuples against the old decoder's
+  field values.
+- Feature-off: the default mode calls `nucleate` as before; `anneal` with
+  nothing pending is unchanged; a 3/5/6/7-element link decodes to the same
+  dials; the default card and the 7-element tuple are unchanged. Existing
+  RX/HT/SE gates run the same code they ran.
+
+### 6.6 C3b-4 remainder (scoping only, not built)
+
+- Particles with nuclei: today the panel holds the dispersion back while
+  nuclei are dialled. To lift that: (1) X's denominator must exclude particle
+  voxels (they keep their deformed ids and can never recrystallize), i.e. a
+  census over treatable voxels rather than all solid; (2) the stamp already
+  takes the pin (S0); (3) the boundary classifier would need the particle
+  predicate (the HTMASK3 hash replicated on the CPU, or COPY_SRC on the mask
+  texture); (4) gate: LA-UR-90-459's result (OSTI 7168388, read in section 1),
+  particles stop completion at low H and have no effect at high H,
+  pre-registered as a direction on X_end against f at two drives.
+- Twins inside RX grains: blocked twice. `twinEvent` takes a parent only below
+  `nextId`, and every RX id sits on the down counter above it; and Sigma-3
+  twinning is held back while cold work is dialled because a twin born at the
+  deposit's fabric value can eat its parent. A build would: (1) let
+  `twinEvent` take parents in the current event's [lo, hi] (rxRange tells RX
+  ids from twin ids, which share the counter); (2) give each such twin its
+  parent's stored energy on the CPU at allocation (0 for an RX parent: the CPU
+  already reads the counter, so it knows the id; nothing on the GPU writes H);
+  (3) re-enable twinning for RX parents only, keeping it held back for
+  deformed ones; (4) budget: twins and nuclei then split one counter, so the
+  host's per-grain twin budget must count the event's ids; (5) gates: Sigma-3
+  registry of every RX-hosted twin, H(twin) = H(parent) in both mirrors, no
+  twin in a deformed parent, budget saturation reported.
