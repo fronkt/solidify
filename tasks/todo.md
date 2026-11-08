@@ -7154,3 +7154,90 @@ keep the bands):
 - (iii) The resolution step at the same box (dx 0.4 at 2957 d0) needs
   n 2048, above the 1024 flow limit (D3.4 N1). Not runnable without a new
   design.
+
+### Tong follow-up (ii): no-flow tip stationarity at D2 - PROTOCOL (pre-registered 2026-11-07; not built, not run)
+
+Frank, 2026-11-07, after tong3: "Continue Flow next step", so option (ii).
+
+The design used the tong3 per-chunk no-flow trace, stated here so it is on
+record: the speed levels off near 0.0172 (chunks 9-14), then drifts to
+0.0161 by chunk 32. Nothing here re-scores tong3. Its NO VERDICT and the
+counterfactual V-clause FAIL (-11.1% against +-10%) stand as recorded.
+
+Questions:
+- At tong3's staging, does the no-flow west tip reach a stationary speed?
+  When, and at what value?
+- Is the drift a box effect?
+- What is the flow/no-flow ratio against that speed?
+
+**Arms (no flow only; every input as tong3 tier P except n and run length).**
+- N1024: n 1024, dx 0.8 W0, seed centred (512, 512); box 2957 d0.
+- N2048: n 2048, dx 0.8 W0, seed centred (1024, 1024); box 5913 d0. If the
+  harness or Simulation refuses n 2048 with flow off, the arm is reported as
+  not run and the box question stays open.
+- Both: 81 chunks of 671 substeps (54351 substeps), T81 = 2609 tau0 = 19.6
+  l_D / V_KR. The first 33 chunks are exactly tong3's window.
+
+Sizing:
+- At about 0.0165 the west tip travels about 378 cells, so N1024's tip ends
+  >= 120 cells (~5.9 l_D) from x = 0. The N, S and E arms are symmetric.
+- The heat diffusion length is sqrt(D~ T81) = 72 W0 = 90 cells, against 512
+  cells to N1024's walls. Hence the prediction below.
+
+**Statistic.** Nested prefix windows of the first m samples, m in {33, 45,
+57, 69, 81}. On each prefix, tong2's definitions apply unchanged:
+- v_last over the last third and v_mid over the middle third;
+- s_m = v_last / v_mid - 1;
+- V d0/D from v_last;
+- tau V / W.
+
+**Validity.**
+- V1 complete: samples, chunks in full, flow off throughout, finite, no
+  errors, served source admitted.
+- The stop rule as tong2.
+- Replica (N1024 only): its m = 33 prefix must reproduce tong3's no-flow
+  (P768) V d0/D 0.0162725 within 1e-6 relative, and s_33 = -4.454% within
+  0.01 points. tong3 showed seed-position independence to 1e-9.
+
+**Decision (computed by the script, per arm).**
+- STEADY if |s_81| <= 0.02. Then m* is the smallest m with |s_m| <= 0.02
+  for that and every larger window, and V*_noflow is window 81's V d0/D.
+- DRIFTING if |s_81| > 0.02: no stationary no-flow speed within 19.6 l_D /
+  V_KR at this staging. The drift per chunk is reported.
+- Box test (both arms valid):
+  - BOX-INDEPENDENT if |V81(N2048) / V81(N1024) - 1| <= 0.005 and
+    |s_81(N2048) - s_81(N1024)| <= 0.005;
+  - BOX-DEPENDENT if either difference is > 0.02;
+  - otherwise UNRESOLVED.
+  Prediction: BOX-INDEPENDENT, since the heat diffusion length is far below
+  the wall distance.
+- R* (only if N1024 is STEADY) = 0.021946 / V*_noflow(N1024). The numerator
+  is tong3 P768's flow speed, stationary and inlet-converged. R* is reported
+  against [1.26, 1.54] and Tong's 1.372. It is a measurement, not a verdict:
+  - it does not change tong3's NO VERDICT;
+  - it cannot make the flow quantitative, because tong3's V clause comes
+    from the flow run alone.
+- Reported:
+  - the per-chunk speed series;
+  - the first chunk below the exact 0.0170;
+  - V*_noflow against the exact 0.0170 and Tong's no-flow 0.0180;
+  - tau V / W of every window.
+
+**Probe (reported, never gating).** Build it only if the driver can read the
+temperature on row n/2 without any src/ change; otherwise say "not
+available". At each sample, record u at 2, 4 and 8 l_D_KR (l_D_KR = 16.3 W0)
+ahead of the west tip, against -Delta = -0.55. This shows whether the liquid
+ahead of a slowing no-flow tip warms.
+
+**Cost.** N1024: 54351 x ~0.98 ms ~ 53 s. N2048: ~4x, ~3.6 min. Plan for
+<= 10 min. Order: N1024, then N2048.
+
+**Build.** A new research script reusing tong2/tong3 machinery unchanged.
+The self-test covers:
+- the prefix statistic on synthetic traces (steady, drifting, late-steady);
+- the replica pass and fail;
+- the box rule and its edges;
+- R* only when STEADY, and never touching tong3's verdict;
+- admission refusal;
+- planted defects.
+Commit the build before the GPU run, which is the root's.
