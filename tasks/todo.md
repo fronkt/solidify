@@ -6973,3 +6973,105 @@ CPU or GPU. No arm, window, statistic, band or threshold changes.
    22110 = 670 x 33 and 88473 = 2681 x 33. The frozen formula gives 22143 and
    88539 (71c272a corrected the window, not the cost lines). The estimate moves
    by +0.15%. It is not a criterion.
+
+#### Status (build, 2026-11-07, delegate): built and checked on the CPU; GPU not run
+
+- Built (2436398, after the amendment 72729d2): scripts/research/flow-tong3.mjs,
+  flow-tong3-arms.json, flow-tong3-selftest.mjs and a README section. It
+  imports flow-tong2.mjs unchanged and does not modify it; that file is
+  byte-identical to 21e73ee, the head the tong2 run froze, and the self-test
+  checks this. From tong2 it takes the staging arithmetic, runArm / runOne (the
+  D3.4 driver and its served-source metadata underneath), the statistic,
+  assess (V1, stop rule, stationarity in both runs, inlet liveness), the
+  falsification, the admission and the contention log. It adds four things:
+  the uncapped window, the bound as a validity clause, the convergence clause
+  and the one-row verdict. `--run` refuses before Chrome unless the hashed
+  files and src/ are clean, src/ equals a304254, and flow-tong2.mjs and
+  flow-domain.mjs equal 21e73ee.
+- Readings that need no amendment:
+  - tau V / W is the protocol's formula on each run's statistic V d0/D (the
+    last third). With tau0 = W0 = 1 in the staging, it equals v in W0 per
+    tau0. It is reported for all four P768 runs and every other run.
+  - The downstream gap is the east tip on row n/2 at the last sample to the
+    outlet face x = n - 1/2. It is reported in cells, d0 and nu / U for every
+    run.
+  - When several NO VERDICT reasons hold, all are listed. "Arm invalid"
+    stands in for "not converged" when P640 or P768 is invalid; C is still
+    reported.
+  - P512's speed ratio to P640 and to P768 is reported.
+  - Tier I is read only into the information block.
+  - Order as written: P768 (no flow, flow, coupling 0, coupling -1), P640,
+    P512, I512; one page per arm; n 1024 throughout, so the grid never
+    changes.
+- CPU results: `node scripts/research/flow-tong3.mjs` (self-test) 10/10 OK in
+  a few seconds.
+  - PROTOCOL: the 71c272a text sits verbatim at the head of the amended
+    section, with 17 quoted clauses present.
+  - TONG2-UNCHANGED: tong2's files equal 21e73ee, and the shared clause values
+    match.
+  - PARSE: 14 hostile arm files are refused, including the first draft's
+    670 / 2681 chunks.
+  - WINDOW: 671 x 33 = 22143 and 2683 x 33 = 88539 from T = 8 D~ / V_KR^2 =
+    1063.08 tau0. T, V_KR and dt equal Python to 1e-14. T equals tong2's own
+    uncapped tTravel, and the same window is used in both tiers.
+  - BOUND-FORMULA: Tong's 0.0247 gives 0.178 and the exact no-flow 0.0170
+    gives 0.123.
+  - VERDICT, on synthetic traces through tong2's assess and tong3's decide:
+    - PASS case: passes.
+    - Band misses: a V miss high or low and an R miss high or low each FAIL
+      on their own clause; both together FAIL on both; the edges hold.
+    - Convergence: a pass, a miss (C 0.015), the edges 0.0099 / 0.0101, P640
+      invalid and P640 missing all behave as written.
+    - Bound: an out-of-bound flow run (0.2001), no-flow run and P640 each give
+      NO VERDICT. An in-bound 0.1999 arm reaches the bands (FAIL on V).
+    - Stationarity: a miss in the flow run or the no-flow run gives NO
+      VERDICT; the 0.0199 edge passes.
+    - A dead inlet and the stop rule each give NO VERDICT.
+    - P512 invalid and tier I stopped, invalid or missing never change the
+      verdict, and a good tier I does not rescue a failing tier P.
+    - Falsification: both arms are shown. Each negative control (coupling 0
+      off by 1e-6 cells, coupling -1 in band, at R 1.05, with a dead inlet,
+      arms missing, P768 missing) gives NO VERDICT. A non-stationary
+      coupling -1 arm is still shown.
+    - Two reasons at once are both listed.
+  - MOCK-RUN and MOCK-FAILURES: D3.4's driver through tong2's runArm against a
+    mock app, for each arm type.
+    - P768 with both falsification arms: coupling 0 traces and raw rows are
+      bit-equal, R is exactly 1, and the tau V / W of all four runs equals the
+      mock speeds.
+    - P640 is a plain arm; I512 runs at dx 0.4, seed radius 20 cells and
+      chunk 2683. The mock verdict is PASS, with C at 6e-14.
+    - Failure cases: a stop rule in tier I, a dead inlet, a failed readback
+      (step restored), and a flow run at tau V / W 0.21, which is invalid only
+      through the bound.
+  - ADMISSION: the same source is admitted, also via fetch when the import
+    throws. A changed served src/lbm.ts is refused before any staging, and so
+    is a fetch 404 fallback.
+  - Planted defects each turned the self-test red, 16 in all. In tong3:
+    - the window: the tong2 inlet cap, and a floored chunk;
+    - the bound: on one run only, loosened, or not gating;
+    - convergence: edge 0.02, and C against P512;
+    - gating: P512 or tier I made to gate, and the falsification ignored;
+    - the bands: a one-sided V band, and a widened R band;
+    - the formulas: a wrong tau V / W, a reversed outlet gap, and the verdict
+      read from P640.
+    In tong2.mjs: raw-byte admission, which also turns TONG2-UNCHANGED red.
+- Also: the tong2 self-test still passes 11/11 and D3.4's still passes;
+  typecheck passes; verify-flow.mjs passes 8/8 (28 s).
+- [ ] GPU run (root session only; nothing here has touched a GPU or a browser):
+
+```text
+cd ../solidify-tong2                   # research/flow-tong2, frozen at the head named in the report
+npx vite --port 5297 --strictPort
+node scripts/research/flow-tong3.mjs --run --port 5297
+```
+
+Expected wall time on the Arc 140V:
+- about 10 min of stepping at tong2's measured n 1024 times (flow 2.28 ms and
+  no flow 0.98 ms per substep, from D2-T on 21e73ee);
+- 11.3 min by the protocol's upper-bound model (`--plan`);
+- plan for <= 25 min (the tong2 run took 6 min wall).
+
+It prints a T3-ARM line per arm, then T3-VERDICT and FLOW-TONG3 RECORDED or
+FAILED. FAILED means an incomplete run, not a physics failure. It writes
+docs/validation/flow-tong3-<date>.json and raw rows under verify-out/.
