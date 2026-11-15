@@ -1,0 +1,9 @@
+{
+ "study": "Tong follow-up (iv): no-flow tip resolution at D2",
+ "protocol": "tasks/todo.md, Tong follow-up (iv): no-flow tip resolution at D2 - PROTOCOL (82931ec), amended before any run",
+ "protocolCommit": "82931ec43ddb9f38d569f8850b5946de1ee8ac67",
+ "arms": [
+  { "id": "R1024", "n": 1024, "dx": 0.8, "seedX": 512, "seedY": 512, "chunk": 671, "chunks": 81, "substeps": 54351, "replica": true },
+  { "id": "H2048", "n": 2048, "dx": 0.4, "seedX": 1024, "seedY": 1024, "chunk": 2684, "chunks": 81, "substeps": 217404 }
+ ]
+}

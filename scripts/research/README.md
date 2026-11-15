@@ -110,6 +110,28 @@ real Simulation at n 2048 with flow off on a recording device). `--plan`
 prints the arms and the GPU cost. `--run --port N` needs a Vite server for
 this tree and writes `docs/validation/flow-noflow-d2-<date>.json`.
 
+## Tong follow-up (iv): no-flow tip resolution at D2
+
+`flow-noflow-dx.mjs` follows follow-up (ii) (tasks/todo.md, "Tong follow-up
+(iv): no-flow tip resolution at D2", with its amendment before any run). Two
+no-flow arms share one physical box (819.2 W0) and one set of sample times:
+R1024 at dx 0.8 W0 ((ii)'s N1024 again) and H2048 at dx 0.4 W0. H2048's chunk
+is 2684 = 4 x 671, carried in the staging object that (ii)'s run loop reads, so
+every sample lands at R1024's sample time; chunk 2683 (tong3's rounding) is
+refused. R1024 must replicate (ii)'s recorded prefix windows. A late-window
+statistic over chunks 54-80 labels each arm SETTLED or MOVING. The decision
+compares H2048's late speed with R1024's and with the exact 0.0170
+(OVERSHOOT, RESOLUTION, NOT RESOLUTION, PARTLY RESOLUTION, OTHER; NO DECISION
+or NOT TESTED otherwise). It re-scores neither tong3 nor (ii). Arms are in
+`flow-noflow-dx-arms.json`. It imports `flow-noflow-d2.mjs` unchanged; the
+self-test and `--run` check that this file, its self-test and arms, and
+everything (ii) froze are git-blob identical to (ii)'s GPU head 14242e4. With no
+option it runs a CPU-only self-test (`flow-noflow-dx-selftest.mjs`). That test
+also drives the real Simulation at both arms' staging on a recording device,
+and it imports planted-defect copies of the script, each of which must fail.
+`--plan` prints the arms, run length and GPU cost. `--run --port N` needs a
+Vite server for this tree and writes `docs/validation/flow-noflow-dx-<date>.json`.
+
 ## Runner lifecycle controls
 
 `node scripts/verify-quant3d-tip-lifecycle.mjs` runs the real benchmark CLI with a
