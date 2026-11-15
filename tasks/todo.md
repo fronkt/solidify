@@ -7624,3 +7624,58 @@ flow-noflow-dx-arms.json and flow-noflow-dx-selftest.mjs.
   - NO DECISION and NOT TESTED paths;
   - planted defects.
 - Commit the build before the GPU run, which is the root's.
+
+#### Amendment before any run (2026-11-15, follow-up iv)
+
+Written by the build delegate (CPU only) before any run of this protocol, CPU or
+GPU. No arm, run length, statistic or threshold changes. Each item settles a
+point the text leaves open; none corrects a number. The protocol's figures were
+rechecked against the recorded JSONs and hold: 0.015519 (range
+0.015391-0.015684), -7.6e-6 per chunk, drift_L -1.28%, 4.4e-5, 0.017410 /
+0.016584 = +5.0%, 106 cells, 5.3 ms per substep.
+
+1. Invalid arm against NO DECISION (the text says both). The decision section
+   reads "both arms valid and both SETTLED under L; otherwise NO DECISION". The
+   validity section reads "An invalid arm ... The decision then reads NOT
+   TESTED". Resolution, in this precedence:
+   - NOT TESTED if either arm is invalid or not run, with the reasons; the
+     question stays open. H2048 is "not run" when the app does not stage n 2048
+     (stage() throws before any substep) or the page is not admitted.
+   - NO DECISION only when both arms are valid and at least one is MOVING.
+   - In both cases V_L, drift_L, d and e are reported wherever they can be
+     computed.
+2. "(ii)'s recorded N1024 values" (not pinned). They are decision.N1024.vd0D[m]
+   and decision.N1024.s[m], m in {33, 45, 57, 69, 81}, in
+   docs/validation/flow-noflow-d2-2026-11-08.json as committed in 22f3c7d.
+   - That file postdates 14242e4, so it is git-blob checked against 22f3c7d.
+     The loader also requires it to be (ii)'s completed run on 14242e4 with
+     N1024 valid.
+   - The comparison uses those doubles, not the six-digit table in (ii)'s
+     reading, as (ii)'s amendment item 1 did for tong3.
+   - "Per-chunk agreement" is the largest |v_k(R1024) / v_k(ii) - 1| over
+     k = 1..80, with the k where it occurs. Reported only.
+3. "R1024's sample times" (not defined). They are the times runNoflow
+   accumulates at R1024's staging: sample k at the sum of k + 1 chunks of
+   671 x dt(0.8). They do not depend on R1024 having run, so H2048's clause can
+   be read even when R1024 is invalid.
+4. Statistic L with a missing v_k (not stated). L needs all 27 v_k, k = 54..80,
+   finite. Otherwise it is not computed and the arm has no L label; such an arm
+   has already failed V1 or tripped the stop rule. b is the least-squares slope
+   of v_k against k, the same arithmetic as (ii)'s "drift per chunk". The 26 in
+   drift_L is 80 - 54.
+5. Run order after an invalid R1024 (not stated). Both arms run in order
+   whatever R1024's validity, as (ii)'s script did. Only a served-source or
+   software-adapter refusal stops the run, as in (ii). An H2048 run after an
+   invalid R1024 is reported as data, and the decision reads NOT TESTED.
+6. (ii)'s own replica clause (N1024's m = 33 against tong3) is not a clause
+   here. "V1 as (ii)" is (ii)'s completeness clauses and stop rule. R1024 is
+   gated by item 2's replica only.
+7. Reported quantities the text names but does not define (reported only,
+   never gating):
+   - "tau V / W of every window": the five prefix windows, as (ii), and the L
+     window (tau V_L / W).
+   - "beside exact and Tong": V_inf / 0.0170 - 1 and V_inf / 0.0180 - 1, for
+     p = 1 and p = 2.
+   - "the end gap": the west tip's last position from the inlet face at
+     x = -1/2, in cells as (ii), and in W0 (cells x dx).
+   - "the wall time": each arm's wall time as (ii)'s runArm records it.
