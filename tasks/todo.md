@@ -7679,3 +7679,123 @@ rechecked against the recorded JSONs and hold: 0.015519 (range
    - "the end gap": the west tip's last position from the inlet face at
      x = -1/2, in cells as (ii), and in W0 (cells x dx).
    - "the wall time": each arm's wall time as (ii)'s runArm records it.
+
+#### Status (build, 2026-11-15, delegate): built and checked on the CPU; GPU not run
+
+- Built (a60ef70, after the amendment 0acbb71):
+  scripts/research/flow-noflow-dx.mjs, flow-noflow-dx-arms.json,
+  flow-noflow-dx-selftest.mjs, and a README section. No src/ change; no existing
+  script edited.
+  - Imported unchanged: flow-noflow-d2.mjs (runArm, runNoflow, the probe,
+    prefixes, label, perChunk, assess with V1 and the stop rule, and its
+    preconditions), with flow-tong2.mjs, flow-tong3.mjs and flow-domain.mjs
+    underneath.
+  - Freeze, checked as git blobs (the blob at the freezing commit = the blob at
+    HEAD = the working-tree file through git's own filters):
+    - at 14242e4: flow-noflow-d2.mjs, its self-test and arms; flow-domain.mjs;
+      flow-tong2.mjs, its self-test and arms; flow-tong3.mjs, its self-test and
+      arms; tong3's result JSON; scripts/browser-cleanup.mjs;
+    - at 22f3c7d: (ii)'s result JSON (amendment item 2).
+    The self-test checks all 13 and catches a planted edit to three of them.
+    `--run` refuses unless they hold, this script's hashed files and src/ are
+    clean, and (ii)'s own preconditions pass (src/ = a304254).
+- How the fixed chunk reaches the run. (ii)'s runNoflow advances by
+  g.staging.chunk and adds staging.chunk x dt to the sample time, so the chunk
+  has to live in the staging object, not only on the arm.
+  - H2048's staging is tong3's staging at dx 0.4 and side 819.2 W0 with chunk
+    2684 in place of 2683; tong3Chunk 2683 is kept for the record. g.chunk 2684
+    and g.substeps 217404 follow from it.
+  - In floating point dt(0.4) is exactly dt(0.8) / 4. The assert reads 0. All
+    81 sample times are bit-identical to R1024's, which are bit-identical to
+    (ii)'s recorded N1024 times.
+  - 2683 is 3.73e-4 off; the arm-file parser refuses it through the assert
+    itself, and 2685 likewise.
+  - R1024's staging equals (ii)'s N1024 staging to the last double.
+- What runArm / runNoflow read from the arm, at dx 0.4: dx 0.4, dt 0.012004964,
+  D~ and l_D (16.3 W0) as tong3's staging; seed radius 20 cells; seed (1024,
+  1024); probe at 81.5 / 163 / 326 cells (2 / 4 / 8 l_D); the stop rule's 32
+  cells unchanged (12.8 W0 at this dx). Box 819.2 W0 = 2956 d0 and T81 2609.9
+  tau0 = 19.6 l_D / V_KR in both arms.
+- CPU results: `node scripts/research/flow-noflow-dx.mjs` (self-test) 14/14 OK,
+  about 30 s:
+  - PROTOCOL: 82931ec's section with 24 quoted clauses, kept verbatim at the
+    head of the amended section at 0acbb71.
+  - CONSTANTS: rules, arms, commits and the freeze map against the self-test's
+    own literals.
+  - PARSE: 15 hostile arm files refused, chunks 2683 and 2685 by the
+    sample-time assert.
+  - STAGING: the items above.
+  - LATE: L on synthetic traces (settled, moving, and the 0.02 edge at 0.0199 /
+    0.0201 and exactly 0.02); only k = 54..80 used; a missing v_k gives no L. On
+    (ii)'s recorded N1024: V_L 0.0155194, b = (ii)'s recorded -7.626e-6 per
+    chunk exactly, drift_L -1.2777%, SETTLED (the protocol's 0.015519 and
+    -1.28%).
+  - REGIONS: every region, each edge (0.03 inclusive, 0.02 inclusive for
+    PARTLY and exclusive for NOT RESOLUTION), and the first-match order.
+  - REPLICA: (ii)'s recorded trace reproduces all ten recorded doubles exactly
+    (relV 0, 0 points). Each clause fails and passes on its own tolerance in
+    each of the five windows. The planted 2e-6 shift fails in every window;
+    5e-7 passes. The loader refuses a JSON from another run, protocol,
+    incomplete or with N1024 invalid.
+  - WORLDS: PARTLY RESOLUTION (V_L 0.0163: d +5.03%, e -4.12%), RESOLUTION,
+    OVERSHOOT, NOT RESOLUTION, OTHER, both sides of the 3% edge. NO DECISION for
+    H2048 MOVING and for R1024 MOVING. NOT TESTED for H2048 or R1024 not run,
+    H2048 refused at n 2048, H2048 stopped, H2048 at 2683-chunk times, R1024
+    shifted 2e-6 (also with H2048 MOVING, so NOT TESTED wins), R1024 flow on,
+    and served source not verified. The reported two-grid estimates, d_k and
+    the descriptive ratio (NOT R*) are checked.
+  - MOCK-RUN: (ii)'s runArm against a mock app. 81 advances of 671 at n 1024
+    and 81 of 2684 at n 2048; dx / dt staged 0.8 / 0.04802 and 0.4 / 0.01200;
+    seeds [512, 512, r 10] and [1024, 1024, r 20]; flow never on. H2048's
+    sample times equal R1024's, which equal (ii)'s. The probe reads u at the
+    dx 0.4 cell offsets, and its last copy equals the end row.
+  - MOCK-FAILURES: an app that refuses n 2048 (H2048 not run, NOT TESTED), the
+    stop rule at dx 0.4, a failed readback, and a failing probe that leaves the
+    arm valid.
+  - ADMISSION: a changed served src/sim.ts is refused before any staging.
+  - FROZEN: the 13 files, and the three planted edits caught.
+  - SIM-ACCEPTS: the real src/sim.ts, loaded through Vite's module runner in
+    middleware mode (no port, no websocket) as (ii)'s self-test does, on a
+    recording device. At n 2048, dx 0.4 one advance delivers 2684 substeps
+    through the real stepSync; at n 1024, dx 0.8 it delivers 671. Flow never
+    on, n/8 x n/8 workgroups, copies aligned, nothing over the default limits.
+  - PLANTED: 36 planted defects, each a mutated copy of the script imported
+    from a data: URL. Each turned at least one behavioural check red, never the
+    literal CONSTANTS check alone; the unmutated copy passes every check. They
+    cover:
+    - the replica: tolerances, window 33 only, not gating, the run-path tag,
+      (ii)'s tong3 clause applied, a reference from any run;
+    - the chunk: 2683 in the staging with 2684 on the arm (the trap), the assert
+      at 1e-3, sample times not gating or compared with themselves, H2048
+      staged at dx 0.8, probe cells at dx 0.8;
+    - L: window 53..80, 27 instead of 26, V_L as the last value, a strict or a
+      0.03 SETTLED edge;
+    - the decision: each region edge, two order swaps, e against 0.0180, d
+      inverted, MOVING ignored, invalid arms decided, a missing H2048 not NOT
+      TESTED, invalid read as NO DECISION;
+    - the reported quantities: two-grid over 2^p, the descriptive ratio over
+      H2048, exact 0.0180;
+    - the freeze: a dropped file, the wrong commit, the working tree ignored.
+- Also: (ii)'s self-test (`node scripts/research/flow-noflow-d2.mjs`; its
+  self-test file has no entry point of its own) 13/13 PASSED; the tong2 and
+  tong3 self-tests pass; typecheck passes; `--run`'s preconditions refuse with
+  the build uncommitted and pass at a60ef70.
+- Not shown on the CPU: real WebGPU at n 2048 with dx 0.4. Allocation does not
+  depend on dx, and (ii)'s N2048 ran at n 2048. The run records the staged
+  grid, and stage() throws unless sim.n === 2048.
+- [ ] GPU run (root session only; nothing here has touched a GPU or a browser):
+
+```text
+cd ../solidify-tong2                   # research/flow-tong2, frozen at the head named in the report
+npx vite --port 5297 --strictPort
+node scripts/research/flow-noflow-dx.mjs --run --port 5297
+```
+
+Expected wall time on the Arc 140V, from `--plan` at (ii)'s recorded arm wall
+time per substep:
+- R1024 about 68 s; H2048 about 1153 s (19.2 min);
+- about 20-21 min in all, page loads included; plan for <= 35 min.
+
+It prints an NDX-ARM line per arm, then NDX-DECISION and FLOW-NOFLOW-DX RECORDED
+or FAILED. It writes docs/validation/flow-noflow-dx-<date>.json (the date is UTC)
+and raw rows under verify-out/flow-noflow-dx-<date>/.
