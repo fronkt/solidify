@@ -7474,3 +7474,153 @@ Reading (mine; none of this is a verdict):
    Checking it needs a long no-flow run at dx 0.4, which n 2048 allows since
    the flow limit does not apply with flow off. Repeating the flow side at
    dx 0.4 far from the inlet needs n > 1024 with flow on (option iii).
+
+## Session plan - 2026-11-15 (Frank: "continue Solidify next steps")
+
+State on arrival (git/gh, 2026-11-15): production main = dbdc386 (v7, 11-08);
+nothing pushed since. Open: draft PRs #6, #9, #10; research/flow-tong2 (tong2,
+tong3, follow-up ii) has no PR. Follow-up (ii)'s reading, item 4, leaves one
+question the flow track can answer on this machine.
+
+- [ ] F1 Pre-register Tong follow-up (iv) below and commit it before any build.
+- [ ] F2 Build it (CPU only, delegate): script, arms file, self-test; commit.
+- [ ] F3 Review the build (root): self-test, typecheck, diff against (ii).
+- [ ] F4 GPU run (root, port 5297, served-source check, contention log).
+- [ ] F5 Record the result and reading here; push.
+- [ ] H1 Draft PR for research/flow-tong2 -> v7-experiments (research files only:
+  scripts/research, docs/validation, tasks; no src/ change).
+
+Left for Frank (not started): Q3c direct narrow ladder (lambda 3.2 ~4.6 h, 2.8
+~10 h on the Arc, or a cloud GPU); inlet-temperature model; C3b steady-window
+and UI choices; VIS-STUDIO-COST re-registration; backlog features.
+
+### Tong follow-up (iv): no-flow tip resolution at D2 - PROTOCOL (pre-registered 2026-11-15; not built, not run)
+
+Follows follow-up (ii)'s reading, item 4: "What is NOT shown: whether the
+dx 0.8 baseline deficit is resolution." Nothing here re-scores tong3 (NO
+VERDICT, counterfactual V-clause FAIL) or follow-up (ii) (both arms DRIFTING,
+BOX-INDEPENDENT). Nothing here can make the flow quantitative: the flow side at
+dx 0.4 far from the inlet needs n > 1024 with flow on (option iii), which
+flowRefusal forbids.
+
+Question: at follow-up (ii)'s staging, does halving dx (0.8 -> 0.4 W0) bring the
+late no-flow tip speed to the exact 0.0170?
+
+Known before this protocol (on record so the prediction can be checked):
+- tong2, same box (409.6 W0) and window (6.5 l_D): D2-T (dx 0.4, n 1024)
+  V d0/D 0.017410 against D2-P (dx 0.8, n 512) 0.016584. Halving dx gave +5.0%.
+  Both were drifting (s -3.0% / -3.5%).
+- Follow-up (ii) N1024 (dx 0.8, 819.2 W0, 19.6 l_D): the per-chunk speeds over
+  chunks 54-80 average 0.015519 (range 0.015391-0.015684), least-squares drift
+  -7.6e-6 per chunk. N2048 matched it per chunk within 4.4e-5 relative.
+- Tong's own no-flow at his dx 0.4: 0.0180 (+5.9% against exact).
+
+**Arms (no flow only; every input as follow-up (ii) N1024 except as stated).**
+- R1024 (replica): n 1024, dx 0.8 W0, seed (512, 512), 81 chunks of 671
+  (54351 substeps). This is (ii)'s N1024 again, on today's browser and driver.
+- H2048: n 2048, dx 0.4 W0, seed (1024, 1024).
+  - The box is 819.2 W0, the same physical box as R1024.
+  - dt = 0.15 dx^2 / D~, a quarter of R1024's.
+  - The chunk is 2684 = 4 x 671, so every sample lands at R1024's sample time.
+    tong3's staging rounds to 2683; this protocol fixes 2684. The script
+    asserts that |2684 dt(0.4) / (671 dt(0.8)) - 1| < 1e-12.
+  - 81 chunks = 217404 substeps.
+  - The seed is r 8 W0 = 20 cells. The probe is (ii)'s, at 2, 4 and 8 l_D,
+    computed in cells at this dx.
+- Order: R1024, then H2048. If the app refuses n 2048 at dx 0.4 with flow off,
+  H2048 is reported as not run and the question stays open.
+
+Sizing:
+- At dx 0.8 the west tip ended 106 cells (84.8 W0) from x = 0. A tip 6% faster
+  over the same time travels about 19 W0 further. That leaves about 66 W0 =
+  165 cells at dx 0.4, against the stop rule's 32 cells.
+- The heat diffusion length is 72 W0, against 409.6 W0 to the walls.
+
+**Statistics (both arms).**
+1. Follow-up (ii)'s prefix statistic, unchanged: s_m and V d0/D for m in
+   {33, 45, 57, 69, 81}, label STEADY if |s_81| <= 0.02, else DRIFTING.
+   Reported for comparability. Both arms are expected to read DRIFTING, as in
+   (ii), because the middle third of each prefix holds the decline.
+2. Late-window statistic L (new). Take the per-chunk speeds v_k as defined in
+   (ii)'s amendment, item 3, over k = 54..80 (27 values).
+   - V_L is their mean.
+   - b is the least-squares slope of v_k against k.
+   - drift_L = 26 b / V_L, the fractional change across the window.
+   - The arm is SETTLED if |drift_L| <= 0.02, else MOVING.
+   This rule was chosen after seeing (ii)'s N1024 trace, which reads drift_L
+   -1.28% (SETTLED). For R1024 it is therefore not an independent test. For
+   H2048 it is pre-registered.
+
+**Validity.**
+- V1 as (ii): 81 samples, every chunk delivered in full, flow off throughout,
+  finite, no errors, served source admitted, the stop rule not tripped.
+- R1024 replica: every prefix window's V d0/D within 1e-6 relative of (ii)'s
+  recorded N1024 values, and every s_m within 0.01 points. This is the
+  tolerance (ii) used against tong3; (ii) met it at 8.2e-8. Per-chunk agreement
+  is reported only.
+- H2048 sample times: every sample time within 1e-9 relative of R1024's.
+- An invalid arm is reported with its windows and labels, marked invalid. The
+  decision then reads NOT TESTED, with the reason.
+
+**Decision (computed by the script).** It needs both arms valid and both
+SETTLED under L; otherwise NO DECISION, with V_L, drift_L, d and e reported.
+- d = V_L(H2048) / V_L(R1024) - 1 (the resolution step).
+- e = V_L(H2048) / 0.0170 - 1 (the fine grid against exact).
+- First match, in this order:
+  - OVERSHOOT if e > +0.03 (reported beside Tong's own +5.9%).
+  - RESOLUTION if |e| <= 0.03: the fine grid brings the free tip within 3% of
+    exact, so the dx 0.8 deficit is resolution.
+  - NOT RESOLUTION if |d| < 0.02: halving dx moves the late speed by less than
+    2%.
+  - PARTLY RESOLUTION if d >= +0.02: refinement moves the speed toward exact
+    but leaves it more than 3% short.
+  - OTHER otherwise (refinement moves the speed away from exact).
+- Prediction: PARTLY RESOLUTION. Carrying tong2's matched-window step (+5.0%)
+  to the late window gives V_L(H2048) ~ 0.0163 (e ~ -4%).
+
+**Reported only (never gating).**
+- Two-grid estimates of the dx -> 0 late speed for an assumed order p = 1 and
+  p = 2: V_inf = V_0.4 + (V_0.4 - V_0.8) / (2^p - 1), beside exact and Tong.
+  Two grids cannot determine p, so neither is a result.
+- Both arms' per-chunk series, and d_k = v_k(H2048) / v_k(R1024) - 1 per chunk.
+  This shows whether the resolution step itself changes over time.
+- tau V / W of every window, the probe, the end gap, the wall time.
+- Descriptive arithmetic, NOT R*: 0.021946 / V_L(R1024), tong3's dx 0.8 flow
+  speed over the dx 0.8 late no-flow speed.
+
+What each outcome changes:
+- RESOLUTION or PARTLY RESOLUTION: at its default dx 0.8 the app's free tip
+  runs slow from grid resolution, by about d. The science page could say so,
+  which is a copy change for Frank to OK. The flow label stays QUALITATIVE
+  either way.
+- NOT RESOLUTION: the deficit has another cause, for example a tip still
+  approaching steady state at 19.6 l_D, or the calibration. A longer run would
+  be the next question.
+- NO DECISION, OVERSHOOT or OTHER: reported as it stands, and the next step is
+  Frank's.
+
+**Cost.**
+- R1024: about 70 s, as (ii).
+- H2048: 217404 substeps at about 5.3 ms each ((ii)'s N2048 wall time per
+  substep, probe included), about 19 min.
+- Plan for <= 35 min.
+- Stepping is deterministic with no timing clause, so contention or battery
+  throttling lengthens the wall time only.
+
+**Build.** A new script, scripts/research/flow-noflow-dx.mjs, with
+flow-noflow-dx-arms.json and flow-noflow-dx-selftest.mjs.
+- It imports flow-noflow-d2.mjs unchanged (the probe, runNoflow, runArm,
+  prefixes, label, perChunk). It hash-checks that file and everything (ii)
+  froze, against (ii)'s GPU head 14242e4, before a run and in the self-test.
+- New code: per-arm dx and chunk (with the sample-time assert), the replica
+  against (ii)'s recorded JSON, statistic L, and the decision.
+- The self-test covers:
+  - L on synthetic traces (settled, moving, and the 0.02 edge);
+  - every decision region, its edges and the first-match order;
+  - replica pass, and fail on a planted 2e-6 shift;
+  - the sample-time mismatch refused (chunk 2683);
+  - the arms file validated;
+  - admission refusal;
+  - NO DECISION and NOT TESTED paths;
+  - planted defects.
+- Commit the build before the GPU run, which is the root's.
