@@ -7482,12 +7482,12 @@ nothing pushed since. Open: draft PRs #6, #9, #10; research/flow-tong2 (tong2,
 tong3, follow-up ii) has no PR. Follow-up (ii)'s reading, item 4, leaves one
 question the flow track can answer on this machine.
 
-- [ ] F1 Pre-register Tong follow-up (iv) below and commit it before any build.
-- [ ] F2 Build it (CPU only, delegate): script, arms file, self-test; commit.
-- [ ] F3 Review the build (root): self-test, typecheck, diff against (ii).
-- [ ] F4 GPU run (root, port 5297, served-source check, contention log).
-- [ ] F5 Record the result and reading here; push.
-- [ ] H1 Draft PR for research/flow-tong2 -> v7-experiments (research files only:
+- [x] F1 Pre-register Tong follow-up (iv) below and commit it before any build (82931ec).
+- [x] F2 Build it (CPU only, delegate): script, arms file, self-test; commit (0acbb71 amendment, a60ef70 build, 80b8f55 status).
+- [x] F3 Review the build (root): self-test, typecheck, diff against (ii). Root reran both self-tests (14/14, 13/13) and read the decision code; typecheck was the delegate's.
+- [x] F4 GPU run (root, port 5297, served-source check, contention log): RESOLUTION, below.
+- [x] F5 Record the result and reading here; push.
+- [x] H1 (#12) Draft PR for research/flow-tong2 -> v7-experiments (research files only:
   scripts/research, docs/validation, tasks; no src/ change).
 
 Left for Frank (not started): Q3c direct narrow ladder (lambda 3.2 ~4.6 h, 2.8
@@ -7799,3 +7799,91 @@ time per substep:
 It prints an NDX-ARM line per arm, then NDX-DECISION and FLOW-NOFLOW-DX RECORDED
 or FAILED. It writes docs/validation/flow-noflow-dx-<date>.json (the date is UTC)
 and raw rows under verify-out/flow-noflow-dx-<date>/.
+
+#### GPU run and reading (root, frozen 80b8f55, 2026-11-15 03:36-03:46, Intel Arc 140V)
+
+Run conditions:
+- Tree clean before the run. Both self-tests passed in the same session (iv
+  14/14 with 36 planted defects caught; ii 13/13).
+- The port 5297 listener was this worktree's vite (PID command line checked;
+  it served this checkout's src/lbm.ts). Served source verified, source
+  stable, 0 errors.
+- No other headless Chrome at start or end. CPU about 24% at start. On AC
+  power, with a keep-awake hold for the run.
+- Both arms staged as wanted (n 1024 at dx 0.8, n 2048 at dx 0.4, flow off,
+  54351 and 217404 substeps delivered). Neither tripped the stop rule. The
+  probe's last copy equals the end-of-run T row in both arms.
+- Wall time: R1024 37 s, H2048 552 s. The 20-min estimate was high, as the
+  build delegate expected.
+
+FLOW-NOFLOW-DX RECORDED. Result:
+docs/validation/flow-noflow-dx-2026-11-15.json. Raw rows are under
+verify-out/flow-noflow-dx-2026-11-15/ (gitignored).
+
+**Decision (the script's): RESOLUTION.** The prediction was PARTLY
+RESOLUTION, so the prediction was wrong.
+- R1024 is valid. The replica is exact: every prefix window, s_m and all 80
+  per-chunk speeds equal (ii)'s recorded doubles (difference 0).
+- H2048 is valid. All 81 sample times equal R1024's (difference 0).
+- L: R1024 V_L 0.015519, drift_L -1.28%, SETTLED. H2048 V_L 0.016531,
+  drift_L -0.87%, SETTLED.
+- d = +6.52% (the resolution step). e = -2.76% against the exact 0.0170,
+  inside the 3% band by 0.24 points.
+
+| prefix m | 33 | 45 | 57 | 69 | 81 |
+|---|---:|---:|---:|---:|---:|
+| s_m, dx 0.8 (R1024) | -4.454% | -3.897% | -3.198% | -2.701% | -2.276% |
+| s_m, dx 0.4 (H2048) | -3.657% | -3.114% | -2.545% | -2.109% | -1.736% |
+| V d0/D, dx 0.8 | 0.016273 | 0.015933 | 0.015726 | 0.015597 | 0.015512 |
+| V d0/D, dx 0.4 | 0.017153 | 0.016867 | 0.016696 | 0.016591 | 0.016525 |
+
+By (ii)'s frozen prefix statistic, H2048 reads STEADY (|s_81| 1.74% <= 2%,
+m* = 81), where R1024 reads DRIFTING. That label is reported, not used by
+the decision.
+
+Reported:
+- Per-chunk resolution step d_k = v_k(dx 0.4) / v_k(dx 0.8) - 1: +1.2% at
+  chunk 1, +2.7% at 5, +4.1% at 10, +4.6% at 20, +6.0% at 33, +6.0% at 54,
+  +6.6% at 60, +7.1% at 70, +7.0% at 80; mean over 54-80 +6.5%.
+- First chunk below exact: dx 0.8 chunk 18, dx 0.4 chunk 32. dx 0.4's
+  per-chunk speeds over 54-80 lie in 0.016466-0.016623.
+- Two-grid estimates (not results; two grids cannot fix the order): p = 1
+  gives 0.01754 (+3.2% vs exact, -2.5% vs Tong); p = 2 gives 0.01687
+  (-0.8% vs exact, -6.3% vs Tong).
+- tau V / W over L: 0.112 (dx 0.8), 0.119 (dx 0.4), inside the 0.2 bound.
+- End gap: dx 0.8 105.9 cells = 84.8 W0; dx 0.4 170.6 cells = 68.2 W0.
+- Probe at chunk 80 (u at 2 / 4 l_D ahead): dx 0.8 -0.506 / -0.544; dx 0.4
+  -0.512 / -0.543. The 8 l_D point is beyond x = 0 in both.
+- Descriptive arithmetic, NOT R*: 0.021946 / 0.015519 = 1.414 against
+  Tong's 1.372 (+3.1%).
+
+Reading (mine; none of this is a verdict):
+1. Most of the dx 0.8 deficit is grid resolution. At dx 0.4 the free tip
+   settles within 3% of exact, and the dx 0.8 tip runs about 6.5% slower
+   than the dx 0.4 tip over the late window. Halving dx at fixed W0 changes
+   dx / W0 only. So this says nothing against a thin-interface or calibration
+   contribution to the remaining -2.8%.
+2. The margin is thin. e sits 0.24 points inside the band, and the dx 0.4 tip
+   is still slowing (-0.87% across the late window, about -0.03% per chunk).
+   A longer run would probably end just outside -3%. The verdict is the
+   pre-registered rule at this window, nothing more.
+3. My prediction failed because the resolution step grows with time. I
+   carried tong2's +5.0% from 6.5 l_D, but the step keeps growing to about
+   7% as the tip slows. So a coarse-grid error measured early on understates
+   it later.
+4. For the flow: with the coarse-grid no-flow tip about 6.5% slow, the
+   absolute flow speeds 11-14% below Tong's are probably mostly the same grid
+   effect, and the speed-up ratio (descriptive 1.41 against 1.37) is the
+   closer quantity. That needs the flow run at dx 0.4 to show, and it needs
+   n > 1024 with flow on (option iii). flowRefusal forbids that today, so it
+   would be a src change. tong3's NO VERDICT stands, and the flow stays
+   QUALITATIVE.
+5. What the app could say, if Frank OKs a copy change: at the default dx
+   0.8 W0, a free 2D tip at lambda 3.19 runs about 6-7% slow from grid
+   resolution, and halving dx brings it within 3% of the exact solution.
+
+Next (Frank's call):
+- (a) stop the flow track here;
+- (b) the science-page accuracy note in reading item 5;
+- (c) option iii, lifting the n <= 1024 flow limit to run the flow side at
+  dx 0.4.
