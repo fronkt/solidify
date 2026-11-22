@@ -43,7 +43,7 @@ Executed in headless Chrome WebGPU on an integrated laptop GPU (`2048x2048` full
 
 ![NIST PFHub Benchmark 3 comparison](results-b3-2048/pfhub_b3_comparison.png)
 
-## Uploading to Zenodo & PFHub
-1. Ensure [`codemeta.json`](../codemeta.json) and the `v8.0.0` release are live on `https://github.com/fronkt/solidify`.
-2. Zenodo dataset deposit staged at `https://zenodo.org/deposit/24437743` (reserved DOI: **`10.5281/zenodo.24437743`**) containing all 8 files in `pfhub/results-b3-2048/`.
-3. Publish the Zenodo deposit and submit the dataset URLs + `https://github.com/fronkt/solidify` via the official [PFHub Upload Portal](https://pages.nist.gov/pfhub/simulations/upload_form/).
+## Zenodo & NIST PFHub Submission
+1. [`codemeta.json`](../codemeta.json) and release [`v8.0.0`](https://github.com/fronkt/solidify/releases/tag/v8.0.0) are live on `https://github.com/fronkt/solidify`.
+2. Permanent Zenodo dataset published at **https://doi.org/10.5281/zenodo.24437743** (`https://zenodo.org/records/24437743`) containing all 8 files in `pfhub/results-b3-2048/`.
+3. Submitted to `usnistgov/pfhub` (`_data/codes.yaml` + `_data/simulations/solidify_3a/meta.yaml`).

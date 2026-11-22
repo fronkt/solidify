@@ -60,6 +60,7 @@ Because hour-scale furnace anneals span $\sim 10^{11}$ calibrated solidification
 | Benchmark | Published / Analytical Reference | SOLIDIFY Measurement | Agreement |
 |---|---|---|---|
 | 2D steady tip velocity $V d_0 / D$ | Karma & Rappel (1998): `0.0170` ($\Delta=0.55, \varepsilon_4=0.05$) | `0.01679` | `1.2 %` |
+| NIST PFHub Benchmark 3 ($t = 1500$, $[0,960]^2$) | Published Penn State MOOSE (`moose_itg_3a`) | $F=1.991\times 10^6$, $f_s=0.01693$, $x_{\text{tip}}=258.1$ (`507 s`) | `+0.14 %` / `-0.31 %` / `-2.25 %` |
 | 2D parabolic tip radius $\rho / d_0$ | Tong et al. (2001): `27.6` | `28.8` | `4.4 %` |
 | 2D critical nucleus radius $R^*$ | Gibbs–Thomson $d_0/\Delta = 22.10\,W_0$ | `22.21 W_0` (profile `0.997 W_0`) | `0.5 %` |
 | Anti-trapping effective partition $k_{\text{eff}}$ | True $k = 0.15$ across $W_0/d_0$ | `0.135–0.150` ON (`0.186–0.209` OFF) | Width-independent |
@@ -73,6 +74,6 @@ Equally important for classroom reliability, `SOLIDIFY` documents and tests its 
 
 # Classroom Adoption, Reproducibility, and Availability
 
-`SOLIDIFY` is distributed under the MIT License at [solidify.frankcai.dev](https://solidify.frankcai.dev/) with source code at [github.com/fronkt/solidify](https://github.com/fronkt/solidify). Four turnkey 50-minute undergraduate MSE lab modules with deterministic share links, Run-Export ZIP submission checklists, and an instructor solution key are provided in `docs/labs/`, alongside a Purdue nanoHUB Jupyter analysis companion (`nanohub/`) and a reproducible NIST PFHub Benchmark 3 export script (`scripts/export-pfhub-b3.mjs`). Formal classroom pre/post learning-gain assessment is planned with university partner courses.
+`SOLIDIFY` is distributed under the MIT License at [solidify.frankcai.dev](https://solidify.frankcai.dev/) with source code and release `v8.0.0` at [github.com/fronkt/solidify](https://github.com/fronkt/solidify). Four turnkey 50-minute undergraduate MSE lab modules with deterministic share links, Run-Export ZIP submission checklists, and an instructor solution key are provided in `docs/labs/`, alongside a Purdue nanoHUB Jupyter analysis companion (`nanohub/` with root `/middleware/invoke`) and a reproducible NIST PFHub Benchmark 3 WebGPU dataset archived at Zenodo (`doi:10.5281/zenodo.24437743`). Formal classroom pre/post learning-gain assessment is planned with university partner courses.
 
 # References

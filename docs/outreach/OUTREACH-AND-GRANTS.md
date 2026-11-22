@@ -16,10 +16,11 @@ I am writing to submit (and request your current Word/LaTeX author template for)
 **Title:** *SOLIDIFY: A Real-Time, Browser-Native WebGPU Phase-Field Laboratory for Teaching Dendritic Solidification, Alloy Chemistry, and Heat Treatment*  
 **Author:** Frank Cai (Purdue University, ORCID `0009-0003-0041-1459`)  
 **Live Tool:** https://solidify.frankcai.dev/  
-**Source & Turnkey Lab Pack (MIT License):** https://github.com/fronkt/solidify
+**Source, Release `v8.0.0` & Turnkey Lab Pack (MIT License):** https://github.com/fronkt/solidify  
+**NIST PFHub Benchmark 3 Dataset (Zenodo DOI):** https://doi.org/10.5281/zenodo.24437743
 
 **Brief Summary:**  
-SOLIDIFY runs real-time 2D (`2048^2`) and 3D (`192^3`) phase-field solidification (Kobayashi similarity mode and a quantitative Karma–Rappel thin-interface solver with anti-trapping current matching published 2D solvability tip velocity to 1.2% and tip radius to 4.4%), a 118-element periodic alloy composer with CALPHAD-reconciled binary phase diagrams, foundry Lab Mode thermal analysis (cooling curves, step-block casting, Niyama porosity, Sievert's H2 rejection), and Arrhenius-coupled Monte Carlo Potts heat treatment directly in a standard browser with zero installation. The manuscript pairs the instrument with four ready-to-assign 50-minute undergraduate MSE laboratory worksheets, Run-Export ZIP grading workflows, and an explicit claim-by-claim transparency framework documenting where the model is quantitative versus qualitative.
+SOLIDIFY runs real-time 2D (`2048^2`) and 3D (`192^3`) phase-field solidification (Kobayashi similarity mode and a quantitative Karma–Rappel thin-interface solver with anti-trapping current verified against Karma–Rappel 1998 tip velocity to 1.2%, Tong et al. 2001 tip radius to 4.4%, and a full `t = 1500` NIST PFHub Benchmark 3 run matching published Penn State MOOSE within +0.14% on free energy, -0.31% on solid fraction, and -2.25% on tip position in 507 s on a laptop GPU), a 118-element periodic alloy composer with CALPHAD-reconciled binary phase diagrams, foundry Lab Mode thermal analysis (cooling curves, step-block casting, Niyama porosity, Sievert's H2 rejection), and Arrhenius-coupled Monte Carlo Potts heat treatment directly in a standard browser with zero installation. The manuscript pairs the instrument with four ready-to-assign 50-minute undergraduate MSE laboratory worksheets, Run-Export ZIP grading workflows, a Purdue nanoHUB companion Jupyter module, and an explicit claim-by-claim transparency framework documenting where the model is quantitative versus qualitative.
 
 Could you confirm the current JME submission instructions and share the latest formatting template so I can finalize the submission package?
 
