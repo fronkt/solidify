@@ -1,0 +1,116 @@
+{
+  "benchmark": {
+    "id": "3a",
+    "version": "1"
+  },
+  "metadata": {
+    "author": {
+      "first": "Frank",
+      "last": "Cai",
+      "email": "cai485@purdue.edu",
+      "github_id": "fronkt",
+      "orcid": "0009-0003-0041-1459"
+    },
+    "timestamp": "2026-11-22T09:12:39.984Z",
+    "implementation": {
+      "name": "SOLIDIFY",
+      "version": "8.0.0",
+      "repo": {
+        "url": "https://github.com/fronkt/solidify",
+        "version": "main"
+      }
+    },
+    "summary": "Browser-native WebGPU Karma-Rappel 2D thin-interface solver (9-point explicit stencil, WGSL f32) solved on a full 4-fold symmetric 2048x2048 domain [-960,+960]^2 (1024x1024 quadrant [0,960]^2, dx=0.9375, dt=1.2742e-2, 117720 steps to t=1500).",
+    "hardware": {
+      "cpu_architecture": "x64",
+      "acc_architecture": "WebGPU (GPU compute shader)",
+      "parallel_model": "WebGPU WGSL compute",
+      "clock_rate": 0,
+      "cores": 8,
+      "nodes": 1
+    },
+    "simulation": {
+      "wall_time_s": 551.79,
+      "full_grid": "2048x2048",
+      "quadrant_grid": "1024x1024",
+      "dx": 0.9375,
+      "dt": 0.0127420998980632,
+      "steps": 117720,
+      "t_final": 1500,
+      "contour_points": 612
+    }
+  },
+  "final_metrics": {
+    "time": 1500,
+    "free_energy": 1991160.9527640447,
+    "tip_position": 258.0694511789752,
+    "solid_fraction": 0.016931199085393877,
+    "contour_points": 612,
+    "vs_published_1500": {
+      "moose_itg_3a": {
+        "tip_diff_pct": -2.25,
+        "F_diff_pct": 0.143,
+        "fs_diff_pct": -0.31
+      },
+      "inl_moose_3a": {
+        "tip_diff_pct": -8.14,
+        "F_diff_pct": 0.756,
+        "fs_diff_pct": -9.85
+      },
+      "PRISMS_PF_3a_cubic": {
+        "tip_diff_pct": -12.26,
+        "F_diff_pct": 0.97,
+        "fs_diff_pct": -12.31
+      },
+      "memphis_3a": {
+        "tip_diff_pct": 19.01
+      }
+    }
+  },
+  "data": [
+    {
+      "name": "free_energy",
+      "url": "free_energy.csv",
+      "format": {
+        "type": "csv",
+        "parse": {
+          "time": "number",
+          "free_energy": "number"
+        }
+      }
+    },
+    {
+      "name": "tip_position",
+      "url": "tip_position.csv",
+      "format": {
+        "type": "csv",
+        "parse": {
+          "time": "number",
+          "tip_position": "number"
+        }
+      }
+    },
+    {
+      "name": "solid_fraction",
+      "url": "solid_fraction.csv",
+      "format": {
+        "type": "csv",
+        "parse": {
+          "time": "number",
+          "solid_fraction": "number"
+        }
+      }
+    },
+    {
+      "name": "phase_field_1500",
+      "url": "phase_field_1500.csv",
+      "format": {
+        "type": "csv",
+        "parse": {
+          "x": "number",
+          "y": "number"
+        }
+      }
+    }
+  ]
+}

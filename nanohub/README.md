@@ -1,15 +1,17 @@
-# Publishing SOLIDIFY on nanoHUB (Purdue University)
+# SOLIDIFY on nanoHUB (Purdue University)
 
-This folder packages **SOLIDIFY** as a nanoHUB Jupyter-backed interactive learning module + Run-Export analysis workbench so students and instructors worldwide can launch the live WebGPU instrument, run all four undergraduate MSE labs, and analyze exported cooling-curve, Scheil, and Hall–Petch datasets directly inside nanoHUB — earning a **citable nanoHUB DOI** and **tracked global usage & classroom metrics**.
+This repository is ready for direct GitHub registration as a Purdue nanoHUB Jupyter learning tool (executable root [`/middleware/invoke`](../middleware/invoke) -> [`nanohub/notebooks/Solidify_Interactive_Lab.ipynb`](notebooks/Solidify_Interactive_Lab.ipynb)).
 
-## Included Files
-- `middleware/invoke` — nanoHUB middleware launcher (`start_jupyter`)
-- `notebooks/Solidify_Interactive_Lab.ipynb` — interactive lab guide, deep-link launcher to [solidify.frankcai.dev](https://solidify.frankcai.dev/app/), and Run-Export ZIP/CSV quantitative analyzer (includes embedded sample dataset so every cell executes out of the box)
+## Contents
+- `/middleware/invoke`: Root nanoHUB executable launch wrapper (`git update-index --chmod=+x middleware/invoke`) invoking `start_jupyter` on the interactive lab notebook.
+- `nanohub/notebooks/Solidify_Interactive_Lab.ipynb`: Interactive Jupyter notebook combining one-click launchers into the live WebGPU instrument (`https://solidify.frankcai.dev/app/`) with a Python Run-Export ZIP/CSV analyzer (cooling-curve $dT/dt$, Gulliver-Scheil A356/AZ91 validation, and Hall-Petch yield-strength curves, plus a built-in sample dataset).
 
-## Step-by-Step Deployment on nanoHUB.org
-1. Log in at [nanohub.org](https://nanohub.org) (use your `@purdue.edu` account).
-2. Navigate to **Contribute → Register a New Tool** (or contact the Purdue nanoHUB developer support team directly to fast-track an external WebGPU + Jupyter companion module).
-3. Reserve tool short name: `solidify` (title: *SOLIDIFY: Real-Time WebGPU Phase-Field Solidification & Metallurgy Lab*).
-4. Push or mirror this `nanohub/` directory into the assigned nanoFORGE / GitHub tool repository so `middleware/invoke` and `notebooks/Solidify_Interactive_Lab.ipynb` sit at the tool root (ensure `chmod +x middleware/invoke`).
-5. Test inside your nanoHUB workspace (`Test` environment) and verify all notebook cells run cleanly with the embedded sample data and ZIP upload widget.
-6. Submit **Request Installation** → verify in **nanoHUB Apps** → fill out Tool Description, Author ORCID (`0009-0003-0041-1459`), References, and MIT License → click **Publish** to mint your permanent **nanoHUB DOI**.
+## Publishing on nanoHUB.org (5-minute checklist)
+1. Sign in at `https://nanohub.org/` with your Purdue account.
+2. On GitHub (`https://github.com/fronkt/solidify/settings/access`), invite **`nanohub-apps`** as a collaborator so nanoHUB can pull and build updates automatically.
+3. Open `https://nanohub.org/tools/create` and fill in:
+   - **Tool Short Name:** `solidify` (matches `-t solidify` in `/middleware/invoke`)
+   - **Repository Host:** `Host GIT repository on GitHub`
+   - **Repository URL:** `https://github.com/fronkt/solidify`
+   - **Type:** `Publish as a Jupyter notebook`
+4. Visit `https://nanohub.org/tools/solidify/status` and click **have it installed for testing**, then verify the notebook launches cleanly and request publication to mint an official citable **nanoHUB DOI** and begin tracked educator/student usage metrics.

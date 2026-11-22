@@ -1,0 +1,98 @@
+metadata:
+  author:
+    first: Frank
+    last: Cai
+    email: cai485@purdue.edu
+    github_id: fronkt
+  timestamp: 'Sun, 22 Nov 2026 09:12:39 GMT'
+  summary: >-
+    Browser-native WebGPU Karma-Rappel 2D thin-interface phase-field solver
+    (SOLIDIFY v8.0.0, 9-point explicit stencil in WGSL float32) on a full 4-fold
+    symmetric 2048x2048 domain [-960,+960]^2 (1024x1024
+    benchmark quadrant [0,960]^2, dx = 0.9375,
+    dt = 0.012742, 117720 explicit steps to t = 1500).
+  implementation:
+    name: solidify
+    repo:
+      url: 'https://github.com/fronkt/solidify'
+      version: v8.0.0
+    container_url: 'https://solidify.frankcai.dev/'
+  hardware:
+    cpu_architecture: x64
+    acc_architecture: WebGPU
+    parallel_model: gpu
+    clock_rate: '0'
+    cores: '8'
+    nodes: '1'
+benchmark:
+  id: 3a
+  version: '1'
+data:
+  - name: run_time
+    values:
+      - wall_time: '551.79'
+        sim_time: '1500'
+  - name: free_energy
+    url: 'bm3_results.csv'
+    format:
+      type: csv
+      parse:
+        time: number
+        free_energy: number
+    description: Free energy as a function of time
+    type: line
+    transform:
+      - type: formula
+        expr: datum.time
+        as: x
+      - type: formula
+        expr: datum.free_energy
+        as: 'y'
+  - name: tip_position
+    url: 'bm3_results.csv'
+    format:
+      type: csv
+      parse:
+        time: number
+        tip_position: number
+    description: Tip position as a function of time
+    type: line
+    transform:
+      - type: formula
+        expr: datum.time
+        as: x
+      - type: formula
+        expr: datum.tip_position
+        as: 'y'
+  - name: solid_fraction
+    url: 'bm3_results.csv'
+    format:
+      type: csv
+      parse:
+        time: number
+        solid_fraction: number
+    description: Solid area fraction as a function of time
+    type: line
+    transform:
+      - type: formula
+        expr: datum.time
+        as: x
+      - type: formula
+        expr: datum.solid_fraction
+        as: 'y'
+  - name: phase_field_1500
+    url: 'phase_field_1500.csv'
+    format:
+      type: csv
+      parse:
+        x: number
+        'y': number
+    description: Zero level set of the order parameter at t=1500.
+    type: line
+    transform:
+      - type: formula
+        expr: datum.x
+        as: x
+      - type: formula
+        expr: datum.y
+        as: 'y'
