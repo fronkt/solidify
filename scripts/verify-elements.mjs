@@ -755,7 +755,7 @@ block("EL-DOC-CLAIMS", () => {
   const CLAIMS = [
     ["pair count", `${nB} × ${nEl} = ${nB * nEl}`],
     ["assessed count", `Exactly ${assessed} are ASSESSED`],
-    ["refusal count", `The other ${nB * nEl - assessed} are the content`],
+    ["refusal count", `the other ${nB * nEl - assessed} are computed refusals`],
     ["base-independent refusals", `${notASolute} elements are refused before the base is even consulted`],
     ["non-primordial count", `the ${notPrim} elements that are not primordial`],
     ["elements carrying a coefficient row", `only ${soluteSyms.size} of the ${nEl} elements carry a coefficient row`],
@@ -765,20 +765,14 @@ block("EL-DOC-CLAIMS", () => {
     ["Mn over liquid Fe", `manganese ${fmt(p("fe", "Mn", 100))} atm`],
     ["Cu-30Zn", `Cu-30Zn computes ${fmt(p("cu", "Zn", 30))} atm and brass is real`],
     ["liquidus-vs-Tm cost", `moves the answer by ${Math.round(liveShift * 100)} % for the only assessed pair`],
-    ["Fe-C size factor", `it returns a meaningless ${feC.dRpct.toFixed(1)} %`],
+    ["Fe-C size factor", `returns a meaningless ${feC.dRpct.toFixed(1)} %`],
     ["Hagg ratio for Fe-C", `Fe-C's ${feC.hagg.toFixed(3)} sits just`],
     ["Hagg limit", `r/R < ${E.HAGG_LIMIT}`],
-    // BOUNDED ON BOTH SIDES, because a bare joined list is satisfied by any
-    // PREFIX of itself: dropping fe-Ag from the table would leave
-    // "cu-Pb, al-Bi, al-In, al-Pb", which `html.includes` still finds inside the
-    // five-item sentence. The claim carries the words on either side of the
-    // list, so a shortened list fails and a lengthened one fails too. The count
-    // is gated as the word the prose actually sets.
-    ["checked monotectics", `name - ${Object.keys(E.DEMIX_CHECKED).join(", ")} - and`],
+    ["checked monotectics", `name (${Object.keys(E.DEMIX_CHECKED).join(", ")})`],
     ["monotectic count", `${["zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"][Object.keys(E.DEMIX_CHECKED).length] ?? "?"} monotectic systems have been`],
   ];
   const missing = CLAIMS.filter(([, v]) => !html.includes(v.replace(/\s+/g, " "))).map(([k, v]) => `${k}: "${v}"`);
-  const sectionPresent = /opens onto the whole periodic table/.test(html)
+  const sectionPresent = /18-column periodic table/.test(html)
     && /zero solute-solute interaction/.test(html);
   const allFinite = CLAIMS.every(([, v]) => !/NaN|Infinity|undefined|null/.test(v));
   check("EL-DOC-CLAIMS", missing.length === 0 && sectionPresent && allFinite && CLAIMS.length >= 12,

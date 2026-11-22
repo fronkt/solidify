@@ -5,69 +5,531 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%230a0a0a"/><text x="32" y="46" font-family="Arial,Helvetica,sans-serif" font-size="40" text-anchor="middle" fill="%23f2f2f2">S</text></svg>' />
   <title>SOLIDIFY · the science</title>
-  <meta name="description" content="The phase-field model behind SOLIDIFY: equations, numerics, what is quantitative, what is qualitative, and how it was verified." />
-  <!-- the design system: every color, type size and radius below is a token
-       from this file (docs/DESIGN.md) -->
+  <meta name="description" content="The phase-field, alloy, and heat-treatment physics behind SOLIDIFY, with live WebGPU experiments, quantitative benchmarks, and model boundaries." />
   <link rel="stylesheet" href="/src/design/tokens.css" />
   <style>
-    /* Long form, editorial: one reading column of Inter body at 16 px, section
-       titles in the heading role (Inter 22 px, sentence case) under a
-       nav-style section number, equations and tables set between 1 px rules,
-       figures square-edged, notes as panels. The frame is 760 px for tables,
-       equations and figures; running text keeps a 36em measure inside it
-       (576 px, about 72 characters a line of Inter, not 96). Not ch: Inter's
-       "0" is wider than its average letter, so 68ch measured 87 a line. */
-    .doc { max-width: calc(760px + 2 * var(--gutter)); margin: 0 auto; padding: 0 var(--gutter) var(--s-24); }
-    .pageHead { padding: calc(var(--header-h) + var(--s-20)) 0 var(--s-16); border-bottom: 1px solid var(--rule); }
-    .pageHead h1 { margin: var(--s-5) 0 0; font: 400 var(--t-display-2)/1.02 var(--font-display); letter-spacing: var(--track-display); color: var(--fg); }
-    .pageHead .lead { margin: var(--s-6) 0 0; max-width: 46ch; font: 400 var(--t-body-l)/1.6 var(--font-body); color: var(--fg-2); }
-    .doc h2 { margin: var(--s-20) 0 var(--s-6); font: 400 var(--t-heading)/1.1 var(--font-body); letter-spacing: var(--track-body); color: var(--fg); }
-    .doc h2 .secN { display: block; margin-bottom: var(--s-3); font: 400 var(--t-nav)/1 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg-3); font-variant-numeric: tabular-nums; }
-    .doc p:not(.kicker), .doc li { font: 400 var(--t-body)/1.65 var(--font-body); letter-spacing: var(--track-body); color: var(--fg-2); }
-    .doc p:not(.kicker) { margin: 0 0 var(--s-4); }
-    .doc > p:not(.kicker), .doc > ul, .note p { max-width: 36em; }
-    /* emphasis is brightness, not weight (DESIGN.md: Inter 500 is for buttons
-       and the active item only) */
-    .doc b { color: var(--fg); font-weight: 400; }
-    .doc i { font-style: italic; }
-    .doc code { font: 400 0.84em/1 var(--font-mono); color: var(--fg-2); overflow-wrap: anywhere; }
-    .doc ul { margin: 0 0 var(--s-4); padding-left: var(--s-5); }
-    .doc li { margin-bottom: var(--s-2); }
-    .doc li::marker { color: var(--fg-3); }
-    .doc sub, .doc sup { font-size: 0.72em; }
-    /* an equation: set in the body face, larger, between 1 px rules; its gloss under it */
-    .eq { margin: var(--s-6) 0; padding: var(--s-4) 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
-      font: 400 var(--t-body-l)/1.5 var(--font-body); color: var(--fg); overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
-    .eq + .eq { margin-top: calc(-1 * var(--s-6)); border-top: 0; }
-    .eq .c { margin-top: var(--s-1); font: 400 var(--t-ui)/1.5 var(--font-body); color: var(--fg-3); white-space: normal; }
-    /* a boxed aside: the panel spec, on --surface */
-    .note { margin: var(--s-8) 0; padding: var(--s-6); background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-panel);
-      font: 400 var(--t-body)/1.65 var(--font-body); color: var(--fg-2); }
-    .note .t { margin: 0 0 var(--s-3); padding-bottom: var(--s-3); border-bottom: 1px solid var(--rule);
-      font: 400 var(--t-nav)/1.3 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav); color: var(--fg); }
-    /* the note's paragraphs: 12 px apart, none after the last, so the panel's
-       padding is even. It has to outrank .doc p:not(.kicker) above. */
-    .doc .note p:not(.kicker) { margin: var(--s-3) 0 0; }
-    /* tables: 1 px rules, nav-style heads, no fills */
-    .doc table { width: 100%; margin: var(--s-6) 0 var(--s-8); border-collapse: collapse; border-top: 1px solid var(--rule-strong); }
-    .doc th, .doc td { padding: var(--s-3) var(--s-4) var(--s-3) 0; text-align: left; vertical-align: top; border-bottom: 1px solid var(--rule); }
-    .doc th { font: 400 var(--t-nav-tool)/1.3 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav); color: var(--fg-3); }
-    .doc td { font: 400 var(--t-ui)/1.55 var(--font-body); color: var(--fg-2); }
-    .doc td:first-child { color: var(--fg); }
-    .doc td b { color: var(--fg); font-weight: 400; }
-    /* figures: square-edged, no frame */
-    .doc img { display: block; width: 100%; height: auto; margin: var(--s-8) 0; border-radius: var(--r-media); }
-    .refs li { font-size: var(--t-ui); line-height: 1.6; }
-    @media (max-width: 759px) {
-      .pageHead { padding-top: calc(var(--header-h) + var(--s-12)); padding-bottom: var(--s-10); }
-      .doc h2 { margin-top: var(--s-16); }
-      /* a wide table scrolls inside its own box instead of widening the page */
-      .doc table { display: block; overflow-x: auto; }
+    /* Editorial monograph grid: wide 1160 px visual stage with sticky section
+       index on desktop, comfortable 38em measure for prose, and square-edged
+       interactive experiments carrying the only color on the page. */
+    .sciShell {
+      max-width: calc(1160px + 2 * var(--gutter));
+      margin: 0 auto;
+      padding: 0 var(--gutter) var(--s-24);
+    }
+    .pageHead {
+      padding: calc(var(--header-h) + var(--s-16)) 0 var(--s-12);
+      border-bottom: 1px solid var(--rule);
+    }
+    .pageHead h1 {
+      margin: var(--s-4) 0 0;
+      font: 400 var(--t-display)/1.0 var(--font-display);
+      letter-spacing: var(--track-display);
+      color: var(--fg);
+    }
+    .pageHead .lead {
+      margin: var(--s-5) 0 0;
+      max-width: 54ch;
+      font: 400 var(--t-body-l)/1.6 var(--font-body);
+      color: var(--fg-2);
+    }
+    .heroStats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--s-6);
+      margin-top: var(--s-10);
+      padding-top: var(--s-6);
+      border-top: 1px solid var(--rule);
+    }
+    .heroStat dt {
+      font: 400 var(--t-nav-tool)/1.3 var(--font-display);
+      text-transform: uppercase;
+      letter-spacing: var(--track-nav);
+      color: var(--fg-3);
+    }
+    .heroStat dd {
+      margin: var(--s-2) 0 0;
+      font: 400 clamp(24px, 2.5vw, 34px)/1.1 var(--font-display);
+      color: var(--fg);
+      font-variant-numeric: tabular-nums;
+    }
+    .heroStat small {
+      display: block;
+      margin-top: var(--s-1);
+      font: 400 var(--t-ui-min)/1.4 var(--font-body);
+      color: var(--fg-3);
+    }
+
+    /* Two-column layout: sticky TOC + main visual stream */
+    .sciLayout {
+      display: grid;
+      grid-template-columns: 196px minmax(0, 1fr);
+      gap: var(--s-12);
+      align-items: start;
+      margin-top: var(--s-12);
+    }
+    .sciToc {
+      position: sticky;
+      top: calc(var(--header-h) + var(--s-6));
+      border-top: 1px solid var(--rule);
+      padding-top: var(--s-4);
+    }
+    .sciToc__title {
+      margin: 0 0 var(--s-3);
+      font: 400 var(--t-nav-tool)/1.2 var(--font-display);
+      text-transform: uppercase;
+      letter-spacing: var(--track-nav);
+      color: var(--fg-3);
+    }
+    .sciToc ol { list-style: none; margin: 0; padding: 0; }
+    .sciToc li { margin: 0; }
+    .sciToc a {
+      display: flex;
+      align-items: baseline;
+      gap: var(--s-2);
+      padding: 6px 0;
+      border-left: 1px solid var(--rule);
+      padding-left: var(--s-3);
+      font: 400 var(--t-ui)/1.35 var(--font-body);
+      color: var(--fg-3);
+      text-decoration: none;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .sciToc a span {
+      font: 400 var(--t-tick)/1 var(--font-mono);
+      color: var(--fg-4);
+    }
+    .sciToc a:hover, .sciToc a.is-active {
+      color: var(--fg);
+      border-left-color: var(--fg);
+    }
+    .sciToc a.is-active span { color: var(--fg-3); }
+
+    /* Sections & typography */
+    .sciSec {
+      padding-top: var(--s-16);
+      border-top: 1px solid var(--rule);
+      margin-top: var(--s-16);
+    }
+    .sciSec:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+    .sciSec h2 {
+      margin: 0 0 var(--s-5);
+      font: 400 clamp(26px, 3vw, 36px)/1.08 var(--font-display);
+      letter-spacing: var(--track-display);
+      color: var(--fg);
+    }
+    .sciSec h2 .secN {
+      display: block;
+      margin-bottom: var(--s-2);
+      font: 400 var(--t-nav-tool)/1 var(--font-display);
+      letter-spacing: var(--track-nav);
+      color: var(--fg-3);
+      font-variant-numeric: tabular-nums;
+    }
+    .sciSec p, .sciSec li {
+      font: 400 var(--t-body)/1.65 var(--font-body);
+      color: var(--fg-2);
+    }
+    .sciSec p { margin: 0 0 var(--s-4); max-width: 40em; }
+    .sciSec b { color: var(--fg); font-weight: 400; }
+    .sciSec ul { margin: 0 0 var(--s-5); padding-left: var(--s-5); max-width: 40em; }
+    .sciSec li { margin-bottom: var(--s-2); }
+    .sciSec li::marker { color: var(--fg-3); }
+    .sciSec sub, .sciSec sup { font-size: 0.72em; }
+    .sciSec code { font: 400 0.85em/1 var(--font-mono); color: var(--fg); }
+
+    /* Equations grid */
+    .eqGrid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0 var(--s-8);
+      margin: var(--s-6) 0 var(--s-8);
+      border-top: 1px solid var(--rule);
+    }
+    .eq {
+      padding: var(--s-4) 0;
+      border-bottom: 1px solid var(--rule);
+      font: 400 var(--t-body-l)/1.45 var(--font-body);
+      color: var(--fg);
+      overflow-x: auto;
+    }
+    .eq--full { grid-column: 1 / -1; }
+    .eq .c {
+      margin-top: var(--s-1);
+      font: 400 var(--t-ui)/1.45 var(--font-body);
+      color: var(--fg-3);
+    }
+
+    /* Interactive lab panels */
+    .labBox {
+      margin: var(--s-8) 0;
+      padding: var(--s-6);
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: var(--r-panel);
+    }
+    .labBox__head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--s-3);
+      padding-bottom: var(--s-4);
+      margin-bottom: var(--s-5);
+      border-bottom: 1px solid var(--rule);
+    }
+    .labBox__title {
+      font: 400 var(--t-nav)/1.2 var(--font-display);
+      text-transform: uppercase;
+      letter-spacing: var(--track-nav);
+      color: var(--fg);
+    }
+    .labBox__sub {
+      font: 400 var(--t-ui-min)/1.4 var(--font-mono);
+      color: var(--fg-3);
+    }
+    .labSplit {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      gap: var(--s-6);
+      align-items: start;
+    }
+    .labSplit--wide { grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr); }
+    .labStage {
+      position: relative;
+      background: var(--bg-media);
+      aspect-ratio: 1;
+      overflow: hidden;
+    }
+    .labStage canvas, .labStage img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: var(--r-media);
+    }
+    .labStage img { display: none; }
+    .pillGroup {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--s-2);
+      margin-bottom: var(--s-4);
+    }
+    .ctrlLabel {
+      display: block;
+      margin: 0 0 var(--s-2);
+      font: 400 var(--t-nav-tool)/1.2 var(--font-display);
+      text-transform: uppercase;
+      letter-spacing: var(--track-nav);
+      color: var(--fg-3);
+    }
+    .rangeRow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--s-3);
+      margin-bottom: var(--s-2);
+      font: 400 var(--t-ui)/1.3 var(--font-body);
+      color: var(--fg-2);
+    }
+    .rangeRow output, .monoVal {
+      font: 400 var(--t-value)/1.3 var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      color: var(--fg);
+    }
+    .sciRange {
+      width: 100%;
+      accent-color: var(--fg);
+      margin-bottom: var(--s-4);
+      cursor: pointer;
+    }
+    .miniSpec {
+      list-style: none;
+      margin: var(--s-4) 0;
+      padding: 0;
+      border-top: 1px solid var(--rule);
+    }
+    .miniSpec li {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: var(--s-3);
+      padding: var(--s-2) 0;
+      margin: 0;
+      border-bottom: 1px solid var(--rule);
+      font: 400 var(--t-ui)/1.4 var(--font-body);
+      color: var(--fg-3);
+    }
+    .miniSpec li b {
+      font: 400 var(--t-value)/1.4 var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      color: var(--fg);
+      text-align: right;
+    }
+    .miniSpec li b.is-text {
+      font-family: var(--font-body);
+      font-size: var(--t-ui);
+    }
+    .labNote {
+      margin: var(--s-3) 0 var(--s-4);
+      font: 400 var(--t-ui)/1.55 var(--font-body);
+      color: var(--fg-2);
+      max-width: none;
+    }
+    .svgFrame {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: var(--bg);
+      border: 1px solid var(--rule);
+    }
+    .legendRow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--s-4);
+      margin-top: var(--s-2);
+      font: 400 var(--t-tick)/1.3 var(--font-body);
+      color: var(--fg-3);
+    }
+    .legendItem { display: inline-flex; align-items: center; gap: 6px; }
+    .sw { display: inline-block; width: 14px; height: 2px; }
+    .sw--1 { background: var(--data-1); }
+    .sw--2 { background: var(--data-2); }
+    .sw--3 { background: var(--data-3); }
+    .sw--4 { background: var(--data-4); }
+
+    /* Bar compare (anti-trapping & benchmarks) */
+    .barTrack {
+      height: 6px;
+      background: var(--bg);
+      border: 1px solid var(--rule);
+      margin: 6px 0 var(--s-3);
+      position: relative;
+    }
+    .barFill { height: 100%; transition: width 0.2s var(--ease); }
+    .barFill--1 { background: var(--data-1); }
+    .barFill--2 { background: var(--data-2); }
+    .barFill--3 { background: var(--data-3); }
+
+    /* Cooling curve dual figure */
+    .coolGrid {
+      display: grid;
+      grid-template-columns: 1.65fr 1fr;
+      gap: var(--s-4);
+      align-items: stretch;
+    }
+
+    /* Visual feature cards for 3D & numerics */
+    .cardGrid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--s-4);
+      margin: var(--s-6) 0 var(--s-8);
+    }
+    .infoCard {
+      padding: var(--s-5);
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: var(--r-panel);
+    }
+    .infoCard h3 {
+      margin: 0 0 var(--s-2);
+      font: 400 var(--t-nav)/1.25 var(--font-display);
+      text-transform: uppercase;
+      letter-spacing: var(--track-nav);
+      color: var(--fg);
+    }
+    .infoCard p {
+      margin: 0;
+      font: 400 var(--t-ui)/1.55 var(--font-body);
+      color: var(--fg-2);
+      max-width: none;
+    }
+
+    /* Benchmark cards */
+    .benchGrid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--s-4);
+      margin: var(--s-6) 0 var(--s-8);
+    }
+    .benchCard {
+      padding: var(--s-5);
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: var(--r-panel);
+    }
+    .benchCard__top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: var(--s-2);
+    }
+    .benchCard__name {
+      font: 400 var(--t-ui)/1.35 var(--font-body);
+      color: var(--fg);
+    }
+    .benchCard__err {
+      font: 400 var(--t-value)/1.2 var(--font-mono);
+      color: var(--data-3);
+      white-space: nowrap;
+    }
+    .benchCard__vals {
+      margin-top: var(--s-2);
+      font: 400 var(--t-ui-min)/1.45 var(--font-mono);
+      color: var(--fg-2);
+    }
+    .benchCard__ref {
+      margin-top: var(--s-1);
+      font: 400 var(--t-tick)/1.4 var(--font-body);
+      color: var(--fg-3);
+    }
+
+    /* Collapsible deep-dive disclosures */
+    details.deepDive {
+      margin: var(--s-6) 0;
+      padding: var(--s-4) var(--s-5);
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: var(--r-panel);
+    }
+    details.deepDive summary {
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--s-3);
+      font: 400 var(--t-nav)/1.3 var(--font-display);
+      text-transform: uppercase;
+      letter-spacing: var(--track-nav);
+      color: var(--fg);
+    }
+    details.deepDive summary::-webkit-details-marker { display: none; }
+    details.deepDive summary::after {
+      content: "+";
+      font: 400 18px/1 var(--font-mono);
+      color: var(--fg-3);
+    }
+    details.deepDive[open] summary::after { content: "−"; color: var(--fg); }
+    details.deepDive .ddBody {
+      margin-top: var(--s-4);
+      padding-top: var(--s-4);
+      border-top: 1px solid var(--rule);
+    }
+    details.deepDive .ddBody p { max-width: 62ch; font-size: var(--t-ui); line-height: 1.6; }
+
+    /* Media figure strip */
+    .mediaPair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--s-4);
+      margin: var(--s-6) 0;
+    }
+    .mediaFig { margin: 0; }
+    .mediaFig img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      object-fit: cover;
+      border-radius: var(--r-media);
+      background: var(--bg-media);
+    }
+    .mediaFig figcaption {
+      margin-top: var(--s-2);
+      font: 400 var(--t-ui-min)/1.45 var(--font-body);
+      color: var(--fg-3);
+    }
+
+    /* Filterable scope matrix */
+    .scopeList {
+      margin-top: var(--s-4);
+      border-top: 1px solid var(--rule-strong);
+    }
+    .scopeRow {
+      display: grid;
+      grid-template-columns: 200px 116px minmax(0, 1fr);
+      gap: var(--s-4);
+      align-items: baseline;
+      padding: var(--s-4) 0;
+      border-bottom: 1px solid var(--rule);
+    }
+    .scopeRow[hidden] { display: none; }
+    .scopeRow__claim { font: 400 var(--t-ui)/1.45 var(--font-body); color: var(--fg); }
+    .scopeBadge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3px 8px;
+      border: 1px solid var(--rule-strong);
+      border-radius: var(--r-tag);
+      font: 400 var(--t-tick)/1.2 var(--font-display);
+      text-transform: uppercase;
+      letter-spacing: var(--track-nav);
+      color: var(--fg-2);
+      width: fit-content;
+    }
+    .scopeBadge--quant { border-color: var(--fg); color: var(--fg); }
+    .scopeRow__desc { font: 400 var(--t-ui)/1.55 var(--font-body); color: var(--fg-2); }
+
+    /* Tables inside deep dives */
+    .sciTable {
+      width: 100%;
+      border-collapse: collapse;
+      margin: var(--s-4) 0;
+      border-top: 1px solid var(--rule-strong);
+    }
+    .sciTable th, .sciTable td {
+      padding: var(--s-2) var(--s-3) var(--s-2) 0;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--rule);
+    }
+    .sciTable th {
+      font: 400 var(--t-nav-tool)/1.3 var(--font-display);
+      text-transform: uppercase;
+      letter-spacing: var(--track-nav);
+      color: var(--fg-3);
+    }
+    .sciTable td { font: 400 var(--t-ui-min)/1.5 var(--font-body); color: var(--fg-2); }
+    .sciTable td:first-child { color: var(--fg); }
+
+    /* Labs CTA banner */
+    .labsBanner {
+      margin: var(--s-8) 0;
+      padding: var(--s-6);
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: var(--r-panel);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: var(--s-6);
+      align-items: center;
+    }
+    .labsBanner h3 {
+      margin: 0 0 var(--s-2);
+      font: 400 var(--t-heading)/1.2 var(--font-body);
+      color: var(--fg);
+    }
+    .labsBanner p { margin: 0; font: 400 var(--t-ui)/1.55 var(--font-body); color: var(--fg-2); max-width: 56ch; }
+
+    /* References */
+    .refs { padding-left: var(--s-5); max-width: 58em; }
+    .refs li { font: 400 var(--t-ui-min)/1.6 var(--font-body); color: var(--fg-2); margin-bottom: var(--s-2); }
+
+    @media (max-width: 960px) {
+      .sciLayout { grid-template-columns: minmax(0, 1fr); gap: var(--s-6); }
+      .sciToc { position: static; padding-bottom: var(--s-4); border-bottom: 1px solid var(--rule); }
+      .sciToc ol { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); }
+      .sciToc a { border-left: 0; padding: 4px 0; }
+      .heroStats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .labSplit, .labSplit--wide, .coolGrid, .eqGrid, .cardGrid, .benchGrid, .mediaPair, .labsBanner {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .scopeRow { grid-template-columns: minmax(0, 1fr); gap: var(--s-2); }
     }
   </style>
 </head>
 <body>
-  <!-- the site header (tokens.css .hdr, src/design/header.ts) -->
   <header class="hdr" id="topnav">
     <a class="hdr__mark" href="../">SOLIDIFY</a>
     <div class="hdr__right">
@@ -90,951 +552,534 @@
     </div>
   </header>
 
-  <main class="doc">
+  <main class="sciShell">
     <div class="pageHead">
       <p class="kicker">How it works</p>
       <h1>The science</h1>
-      <p class="lead">What the instrument actually solves, why it looks like real metallography, and where the model's honesty ends.</p>
+      <p class="lead">The phase-field equations SOLIDIFY solves on your GPU, interactive experiments that show how each physical term shapes the microstructure, and the benchmarks that define the model's exact limits.</p>
+      <dl class="heroStats">
+        <div class="heroStat">
+          <dt>Tip velocity vs. Karma–Rappel</dt>
+          <dd>1.2 %<small>0.01679 vs. 0.0170 (2D solvability)</small></dd>
+        </div>
+        <div class="heroStat">
+          <dt>3D volumetric solver</dt>
+          <dd>192³<small>7.1M voxels, raymarched live</small></dd>
+        </div>
+        <div class="heroStat">
+          <dt>Element screening</dt>
+          <dd>708<small>25 assessed pairs, 683 computed refusals</small></dd>
+        </div>
+        <div class="heroStat">
+          <dt>Verification suite</dt>
+          <dd>47<small>automated physics and UI scripts</small></dd>
+        </div>
+      </dl>
     </div>
 
-    <h2><span class="secN">01</span> The model</h2>
-    <p>SOLIDIFY integrates the <b>Kobayashi (1993) anisotropic phase-field model</b> for an undercooled
-    melt, extended to many grains and a dilute solute. Two coupled fields live on every cell of a
-    512²–2048² grid: an order parameter <i>φ</i> (0 = liquid, 1 = solid) and a temperature <i>T</i>,
-    with a solute concentration <i>c</i> and a solidification-age channel alongside.</p>
-    <div class="eq">
-      τ ∂φ/∂t &nbsp;=&nbsp; ∇·(ε² ∇φ) + anisotropy terms + φ(1−φ)(φ − ½ + m)
-      <div class="c">interface relaxation: surface energy vs. thermodynamic driving force</div>
+    <div class="sciLayout">
+      <aside class="sciToc" aria-label="Sections">
+        <p class="sciToc__title">Contents</p>
+        <ol>
+          <li><a href="#s-model"><span>01</span> The equations</a></li>
+          <li><a href="#s-dendrites"><span>02</span> Why dendrites grow</a></li>
+          <li><a href="#s-alloys"><span>03</span> Alloys &amp; phase diagrams</a></li>
+          <li><a href="#s-foundry"><span>04</span> Nucleation &amp; 3D casting</a></li>
+          <li><a href="#s-calibrated"><span>05</span> Quantitative calibration</a></li>
+          <li><a href="#s-heattreat"><span>06</span> Heat treatment</a></li>
+          <li><a href="#s-scope"><span>07</span> Quantitative vs. qualitative</a></li>
+          <li><a href="#s-refs"><span>08</span> References</a></li>
+        </ol>
+      </aside>
+
+      <div>
+        <!-- ================================================= 01. THE MODEL -->
+        <section class="sciSec" id="s-model">
+          <h2><span class="secN">01</span> The equations</h2>
+          <p>SOLIDIFY solves the <b>Kobayashi (1993) anisotropic phase-field model</b> in real time on WebGPU compute shaders, extended to multiple grains and a dilute alloy solute field, alongside a quantitative <b>Karma–Rappel thin-interface solver</b>. On every cell of a 512²–2048² 2D grid (or up to 192³ in 3D), the GPU evolves an order parameter <i>φ</i> (0 = liquid, 1 = solid), temperature <i>T</i>, solute concentration <i>c</i>, solidification age, and crystallographic grain ID.</p>
+
+          <div class="eqGrid">
+            <div class="eq eq--full">
+              τ ∂φ/∂t = ∇·(ε² ∇φ) + anisotropy terms + φ(1 − φ)(φ − ½ + m)
+              <div class="c">Phase-field evolution: interfacial energy balanced against thermodynamic driving force.</div>
+            </div>
+            <div class="eq">
+              ε(θ) = ε̄ (1 + δ cos j(θ − θ₀))
+              <div class="c">j-fold surface-energy anisotropy (j = 4 cubic, j = 6 hexagonal).</div>
+            </div>
+            <div class="eq">
+              m(T, c) = (α/π) atan(γ(1 − m<sub>L</sub>c − T))
+              <div class="c">Driving force from local undercooling, depressed by solute pile-up.</div>
+            </div>
+            <div class="eq">
+              ∂T/∂t = ∇²T + K ∂φ/∂t
+              <div class="c">Thermal diffusion coupled with latent heat released at the advancing front.</div>
+            </div>
+            <div class="eq">
+              ∂c/∂t = ∇·(D(φ)∇c) + (1 − k) c ∂φ/∂t
+              <div class="c">Solute diffusion with interface rejection set by partition coefficient k.</div>
+            </div>
+          </div>
+
+          <p>Nothing in the simulator is scripted or pre-baked: there are no drawn branch templates or particle systems. Every arm, side-branch, grain boundary, and recalescence plateau emerges directly from integrating these partial differential equations on a compact 9-point Laplacian stencil with ping-pong storage textures and GPU backpressure fencing.</p>
+
+          <div class="cardGrid">
+            <div class="infoCard">
+              <h3>Compact 9-point stencil</h3>
+              <p>Naive central differences decouple checkerboard sublattices and tear the interface. SOLIDIFY uses a compact 9-point Laplacian paired with a dedicated flux texture carrying εε′φ<sub>x</sub>, εε′φ<sub>y</sub>, and ε².</p>
+            </div>
+            <div class="infoCard">
+              <h3>Single-pass GPU reductions</h3>
+              <p>Solid fraction, mean liquid temperature, per-grain pixel counts (ASTM E112 grain number), and virtual thermocouple probes are reduced directly on the GPU without stalling the frame loop.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================== 02. WHY DENDRITES -->
+        <section class="sciSec" id="s-dendrites">
+          <h2><span class="secN">02</span> Why dendrites grow</h2>
+          <p>A flat solid front advancing into an undercooled liquid is inherently unstable: any small bump protrudes into colder liquid, sheds latent heat faster, and accelerates ahead of its neighbors. That feedback loop is the <b>Mullins–Sekerka instability</b>. Latent heat (K ∂φ/∂t) warms the liquid around each tip so growth self-limits to a characteristic tip radius, while crystallographic anisotropy ε(θ) locks the primary trunks onto crystal axes and thermal noise seeds side-branches.</p>
+
+          <div class="labBox" id="demoAniso">
+            <div class="labBox__head">
+              <span class="labBox__title">Interactive experiment · symmetry and instability</span>
+              <span class="labBox__sub" id="sciSimStatus">Initializing WebGPU…</span>
+            </div>
+            <div class="labSplit">
+              <div class="labStage">
+                <canvas id="sciSimCanvas" width="512" height="512" aria-label="Live WebGPU dendritic solidification preview"></canvas>
+                <img id="sciSimFallback" src="../snowflake.jpg" alt="Six-fold dendrite grown by the phase-field model" />
+              </div>
+              <div>
+                <span class="ctrlLabel">Microstructure regime</span>
+                <div class="pillGroup">
+                  <button class="btn btn--sm" type="button" data-mode="cubic" aria-pressed="true">4-fold cubic</button>
+                  <button class="btn btn--sm" type="button" data-mode="hex" aria-pressed="false">6-fold snowflake</button>
+                  <button class="btn btn--sm" type="button" data-mode="seaweed" aria-pressed="false">Seaweed</button>
+                  <button class="btn btn--sm" type="button" data-mode="cet" aria-pressed="false">Columnar + grains</button>
+                </div>
+
+                <span class="ctrlLabel">Characterization lens</span>
+                <div class="pillGroup">
+                  <button class="btn btn--sm" type="button" data-lens="0" aria-pressed="true">MELT</button>
+                  <button class="btn btn--sm" type="button" data-lens="1" aria-pressed="false">ORIENT</button>
+                  <button class="btn btn--sm" type="button" data-lens="3" aria-pressed="false">FIELD</button>
+                  <button class="btn btn--sm" type="button" data-lens="2" aria-pressed="false">ETCH</button>
+                  <button class="btn btn--sm" type="button" id="sciSimReset">Reset</button>
+                </div>
+
+                <p class="labNote" id="sciSimNote"></p>
+
+                <ul class="miniSpec">
+                  <li><span>Anisotropy symmetry</span><b class="is-text" id="sciSimSym">4-fold (j = 4)</b></li>
+                  <li><span>Anisotropy strength δ</span><b id="sciSimDelta">0.050</b></li>
+                  <li><span>Live solid fraction</span><b id="sciSimSolid">—</b></li>
+                </ul>
+
+                <a class="btn btn--more btn--sm" id="sciSimOpen" href="../app/">Open in full instrument</a>
+              </div>
+            </div>
+          </div>
+
+          <p>Each nucleus carries an orientation θ₀ in a grain-ID field that propagates along the moving front. When two grains meet, solidification stops and a <b>grain boundary</b> freezes in with no extra penalty term. Enabling growth twinning occasionally rotates a newly claimed domain by π/j in 2D (or exact Σ3 60° about ⟨111⟩ in 3D); the twin survives only if it outgrows its parent, reproducing feathery twin competition in aluminum direct-chill casting and rare 12-branched snowflakes.</p>
+        </section>
+
+        <!-- ========================================== 03. ALLOYS & DIAGRAMS -->
+        <section class="sciSec" id="s-alloys">
+          <h2><span class="secN">03</span> Alloy chemistry and phase diagrams</h2>
+          <p>In an alloy, growing solid rejects solute whenever the partition coefficient k &lt; 1. Solute builds up ahead of the advancing front, depressing the local melting point and driving <b>constitutional undercooling</b>. The alloy composer combines textbook dilute-limit liquidus slopes m<sub>i</sub> (K/wt%) and partition coefficients k<sub>i</sub> into the two standard solidification metrics:</p>
+
+          <div class="eqGrid">
+            <div class="eq">
+              ΔT<sub>L</sub> = Σ m<sub>i</sub>c<sub>i</sub>
+              <div class="c">Total liquidus depression across added solutes.</div>
+            </div>
+            <div class="eq">
+              Q = Σ m<sub>i</sub>c<sub>i</sub>(k<sub>i</sub> − 1)
+              <div class="c">Easton–StJohn growth restriction factor; collapses to pseudo-binary k<sub>eff</sub> = 1 − Q / |ΔT<sub>L</sub>|.</div>
+            </div>
+          </div>
+
+          <p>Because the solver carries a single solid phase field <i>φ</i>, SOLIDIFY pairs every alloy with a linearized binary phase diagram drawn directly from cited invariant data (table version <b>1.2.0</b>, cross-checked against openly licensed CALPHAD assessments in <a href="https://github.com/fronkt/solidify/blob/main/docs/PHASE-RECONCILIATION.md">docs/PHASE-RECONCILIATION.md</a>). Whenever a composition crosses maximum solid solubility or reaches an invariant reaction, the composer prints what equilibrium and Gulliver–Scheil leave behind alongside the single primary phase the solver actually grows.</p>
+
+          <div class="labBox" id="demoAlloy">
+            <div class="labBox__head">
+              <span class="labBox__title">Interactive explorer · binary chords and Scheil segregation</span>
+              <span class="labBox__sub">Drag composition to cross solid solubility</span>
+            </div>
+            <div class="pillGroup">
+              <button class="btn btn--sm" type="button" data-sys="al-si" aria-pressed="true">Al–Si (eutectic)</button>
+              <button class="btn btn--sm" type="button" data-sys="fe-c" aria-pressed="false">Fe–C (peritectic)</button>
+              <button class="btn btn--sm" type="button" data-sys="mg-al" aria-pressed="false">Mg–Al (Scheil eutectic)</button>
+            </div>
+            <div class="labSplit labSplit--wide">
+              <div>
+                <svg class="svgFrame" id="alloySvg" viewBox="0 0 500 220" role="img" aria-label="Interactive binary chord phase diagram"></svg>
+                <div class="legendRow">
+                  <span class="legendItem"><i class="sw sw--1"></i>Liquidus chord</span>
+                  <span class="legendItem"><i class="sw sw--3"></i>Solidus chord</span>
+                  <span class="legendItem"><i class="sw sw--2"></i>Selected pour</span>
+                </div>
+              </div>
+              <div>
+                <div class="rangeRow">
+                  <label for="alloyWt">Solute addition</label>
+                  <output id="alloyWtVal">7.0 wt% Si</output>
+                </div>
+                <input class="sciRange" id="alloyWt" type="range" min="0.1" max="12.0" step="0.1" value="7.0" />
+
+                <ul class="miniSpec">
+                  <li><span>Liquidus shift |ΔT<sub>L</sub>|</span><b id="alloyDtl">46.2 K</b></li>
+                  <li><span>Growth restriction Q</span><b id="alloyQ">40.7 K</b></li>
+                  <li><span>Phases</span><b class="is-text" id="alloyEq">(Al) + (Si)</b></li>
+                  <li><span>Eutectic share</span><b class="is-text" id="alloyScheil">Lever 49 % · Scheil 51 %</b></li>
+                </ul>
+
+                <a class="btn btn--more btn--sm" id="alloyPourLink" href="../app/#alloy=al:Si7.0">Pour this alloy in SOLIDIFY</a>
+              </div>
+            </div>
+          </div>
+
+          <p>Opening the composer reveals an 18-column periodic table covering <b>all 118 elements</b> across the 6 base melts (<b>6 × 118 = 708</b> base-element pairs). <b>Exactly 25 are ASSESSED</b> (backed by both a cited coefficient row and a cited invariant); the other <b>683 are computed refusals</b> that explain why a pair cannot be poured, using tabulated boiling-point vapor pressures, Hume–Rothery size factors, Hägg interstitial ratios, and checked miscibility gaps.</p>
+
+          <details class="deepDive">
+            <summary>Full chemistry screening data and calibration boundaries</summary>
+            <div class="ddBody">
+              <p><b>Periodic table screening (6 × 118 = 708 pairs):</b> All 118 elements are laid out in 18 columns and classified at 1 wt%, or at half their invariant composition where that is smaller (without that rule, three of the twenty-five pourable pairs, al-Ti, fe-C and mg-Zr, would refuse on open). Across the table, only 16 of the 118 elements carry a coefficient row in any base, and 47 elements are refused before the base is even consulted (including the 35 elements that are not primordial). Switching the base from aluminum to iron moves 14 of the 118 cells into a different tier and leaves 104 where they were, while a fume stripe appears under 10 more elements whose tier does not change at all (including Na, K, Ca, and Cd) because every one of their boiling points falls between aluminum's 660 °C and iron's 1538 °C (cesium boils 11 K above the aluminum melting point and calcium 54 K below the iron one). All 9 presets and all 25 legacy pairs remain bit-identical across the open periodic table.</p>
+              <p><b>Vapor pressure and atomic size advisories:</b> Using Clausius–Clapeyron and Raoult's law at the pure base melting point, zinc reads 59 atm over liquid iron, magnesium 16 atm over liquid iron, mercury 39 atm over liquid aluminum, and manganese 0.037 atm over liquid iron. Evaluating at the depressed liquidus instead moves the answer by 3 % for the only assessed pair reaching the fume band (Cu–30Zn computes 1.4 atm and brass is real because zinc's activity in copper is strongly non-ideal, so vapor pressure advises rather than refuses). For interstitial atoms (C, N, B, H), Hume–Rothery's substitutional radius test returns a meaningless −39.6 % for Fe–C; SOLIDIFY screens those four elements with Hägg's interstitial criterion r/R &lt; 0.59 instead, where Fe–C's 0.604 sits just above the limit (consistent with orthorhombic Fe<sub>3</sub>C). Five monotectic systems have been checked and refused by name (cu-Pb, al-Bi, al-In, al-Pb, fe-Ag), and all multi-solute mixes assume zero solute–solute interaction.</p>
+              <p><b>Phase-diagram bounds and calibrated freezing range ΔT₀:</b> Calibration uses the poured mix's own weighted slope and partition rather than the base metal's Al–4Cu defaults (−3.4 K/wt% and 0.17). That corrects 4340 steel from 1504 K down to 78 K, puts IN718 at 65 K (published ~76 K), and puts AZ91 at 121 K (published ~130 K). When a mix crosses solid solubility (such as A356 at 7 wt% Si past Al–Si's 1.65 wt% solubility limit toward the 12.6 wt% / 577 °C eutectic), the steady-state planar reference liquid reaches 53 wt% Si, giving a 303 K model interval against 35 K of real primary freezing (a factor of 8.7). SOLIDIFY labels that state <b>EXTRAPOLATED GAUGE</b> and prints both numbers. Mixes whose weighted partition falls outside (0, 1) (such as A356+TiB at k<sub>eff</sub> = −0.59, mixing peritectic Ti with eutectic Si) decline mix-specific calibration and fall back to the base coefficients.</p>
+              <p><b>Equilibrium vs. Scheil fractions:</b> For A356 (7 wt% Si), the lever rule predicts 49 % eutectic and Gulliver–Scheil predicts 51 %. Below the solubility limit, Scheil still predicts non-equilibrium second phase: AZ91 (9 wt% Al, below Mg–Al's 12.9 wt% limit) predicts 11.9 % eutectic β-Mg<sub>17</sub>Al<sub>12</sub>, and AA2024 predicts 8.8 % eutectic Cu phase. Fractions below 1 % are suppressed because the chord partition and dilute-limit partition tables disagree by ratios from 0.68 to 3.30 across all invariant rows (and from 0.68 to 2.34 across the eutectic verification subset). For peritectics such as Fe–C (δ-ferrite limit 0.09 wt%, peritectic product 0.17 wt%, peritectic liquid 0.53 wt% at 1495 °C, slider ceiling 0.52 wt%), SOLIDIFY names the equilibrium phase (γ-austenite for 1045 steel) and refuses a single-tie-line fraction.</p>
+              <p><b>Methodological note on grain refinement comparisons:</b> An early release compared grain-refined A356+TiB (normalized liquidus 0.821) against Al–1Zn (normalized liquidus 0.993) at equal bath temperature and equal elapsed time, which confounded liquidus offset and solid fraction. When controlled to equal undercooling below each alloy's own liquidus and read at matched solid fraction, growth restriction clearly slows solidification (~2× longer to reach 20 % solid), while final grain counts across both charges match within experimental scatter (within 15 % under controlled nucleation).</p>
+            </div>
+          </details>
+        </section>
+
+        <!-- ===================================== 04. NUCLEATION & 3D FOUNDRY -->
+        <section class="sciSec" id="s-foundry">
+          <h2><span class="secN">04</span> Nucleation, recalescence, and 3D casting</h2>
+          <p>In a real melt, nucleation rate is not an independent dial. A foundry controls the <b>inoculant population</b> (n<sub>max</sub> potential particles with Gaussian activation undercoolings N(ΔT<sub>N</sub>, ΔT<sub>σ</sub>), following Thévoz–Desbiolles–Rappaz and Greer's athermal free-growth model). Each particle fires once when the melt reaches a new maximum undercooling. The moment latent heat warms the melt back up (<b>recalescence</b>), undercooling drops and nucleation shuts itself off automatically.</p>
+
+          <div class="labBox" id="demoCooling">
+            <div class="labBox__head">
+              <span class="labBox__title">Animated mechanism · the recalescence ratchet</span>
+              <span class="labBox__sub" id="coolState">Cooling toward liquidus</span>
+            </div>
+            <div class="pillGroup">
+              <button class="btn btn--sm" type="button" data-cool="furnace" aria-pressed="true">Slow cooling (0.08)</button>
+              <button class="btn btn--sm" type="button" data-cool="quench" aria-pressed="false">Fast cooling (0.45)</button>
+              <button class="btn btn--sm" type="button" id="coolReplay">Replay curve</button>
+            </div>
+            <div class="coolGrid">
+              <svg class="svgFrame" id="coolSvg" viewBox="0 0 440 190" role="img" aria-label="Animated foundry cooling curve with recalescence"></svg>
+              <svg class="svgFrame" id="histSvg" viewBox="0 0 240 190" role="img" aria-label="Gaussian inoculant activation histogram"></svg>
+            </div>
+            <div class="legendRow">
+              <span class="legendItem"><i class="sw sw--1"></i>Melt cooling curve T(t)</span>
+              <span class="legendItem"><i class="sw sw--2"></i>Current state / max ΔT reached</span>
+              <span class="legendItem"><i class="sw sw--3"></i>Activated inoculant sites</span>
+            </div>
+            <p class="labNote" id="coolNote"></p>
+            <ul class="miniSpec">
+              <li><span>Peak undercooling ΔT<sub>max</sub></span><b id="coolNadir">0.0 K</b></li>
+              <li><span>Activated grains (same inoculant charge)</span><b id="coolGrains">~300</b></li>
+            </ul>
+          </div>
+
+          <p><b>Lab mode</b> turns the sandbox into a controlled foundry pour: you set atmosphere (air, argon, vacuum), inoculant charge, pre-pour hold time (modeling TiB<sub>2</sub>/Al<sub>3</sub>Ti refiner fade), mold shape, cooling program, and an optional as-cast Hall–Petch strength target before pouring. When the casting freezes, the report card extracts thermal landmarks (T<sub>L</sub>, T<sub>N</sub>, recalescence ΔT<sub>r</sub>, T<sub>S</sub>), reconstructs solid fraction via a Newtonian zero curve, logs Sievert's dissolved hydrogen, computes the Clyne–Davies hot-tearing timing ratio, and checks the grain census against your latched specification.</p>
+
+          <div class="mediaPair">
+            <figure class="mediaFig">
+              <img src="../dendrite3d.jpg" alt="Six-armed cubic dendrite solved in the 3D volumetric WebGPU phase-field engine" loading="lazy" />
+              <figcaption><b>Volumetric 3D solver (up to 192³):</b> 7.1 million voxels stepped on GPU with quaternion crystal frames, raymarched live with free serial sectioning, stereology comparison, and STL export.</figcaption>
+            </figure>
+            <figure class="mediaFig">
+              <img src="../hero.jpg" alt="Polycrystalline steel dendrites freezing under incandescent thermal rendering" loading="lazy" />
+              <figcaption><b>Foundry defects and molds:</b> Feed-path flood tracking flags unfed shrinkage pores, voxel-level Niyama index (|∇T|/√Ṫ) paints shrinkage risk on section planes, and rasterized step blocks measure section-thickness sensitivity directly.</figcaption>
+            </figure>
+          </div>
+
+          <div class="eqGrid">
+            <div class="eq">
+              a(n̂) = 1 + δ(4 Σ n̂′<sub>i</sub>⁴ − 3)
+              <div class="c">3D cubic ⟨100⟩ anisotropy in each grain's quaternion frame (6 primary arms).</div>
+            </div>
+            <div class="eq">
+              Ny = |∇T| / √Ṫ
+              <div class="c">Local Niyama porosity index recorded at freezing; judged against steel's 0.775 K<sup>½</sup>·s<sup>½</sup>·mm<sup>−1</sup> radiographic criterion.</div>
+            </div>
+          </div>
+
+          <p>The 3D solver also supports hexagonal basal/c-axis habits (plates and needles), icosahedral 5-fold interface symmetry, faceted {100} cusped growth, Bridgman directional solidification, moving Beer–Lambert laser welding, and a helical single-crystal <b>grain selector</b> ("pigtail") that filters dozens of chill-floor grains down to one orientation, just as industrial turbine blades are cast.</p>
+        </section>
+
+        <!-- ======================================== 05. CALIBRATED SOLVER -->
+        <section class="sciSec" id="s-calibrated">
+          <h2><span class="secN">05</span> Quantitative calibration and benchmarks</h2>
+          <p>In the default Kobayashi mode, interface width and relaxation time are visual dials: dendrite shapes are physically motivated, but tip radii cannot be tied to a material's capillary length. Switching on the <b>calibrated solver</b> applies Karma and Rappel's (1998) thin-interface asymptotics and Echebarria–Folch–Karma–Plapp's (2004) dilute-alloy anti-trapping formulation:</p>
+
+          <div class="eqGrid">
+            <div class="eq eq--full">
+              d₀ = a₁ W₀ / λ &nbsp;&nbsp;·&nbsp;&nbsp; τ₀ = a₂ λ W₀² / D
+              <div class="c">a₁ = 5√2/8 = 0.8839 and a₂ = 0.6267 (for h(φ) = φ). Choosing λ locks W₀, τ₀, physical cell pitch, and physical timestep to the alloy's capillary length d₀ and diffusivity D.</div>
+            </div>
+          </div>
+
+          <p>For Al–4.5Cu, this fixes d₀ = 3.2 nm, W₀ = 109 nm, and a cell pitch of 0.087 µm (an 89 µm field of view at 1024²). The coupling parameter <b>λ</b> is purely a numerical convergence knob setting W₀/d₀. In alloys with zero solid diffusivity, finite interface width artificially traps solute unless an <b>anti-trapping current</b> cancels the excess flux.</p>
+
+          <div class="labBox" id="demoInterface">
+            <div class="labBox__head">
+              <span class="labBox__title">Interactive physics · diffuse interface and anti-trapping current</span>
+              <span class="labBox__sub">Drag W₀/d₀ and toggle anti-trapping</span>
+            </div>
+            <div class="labSplit labSplit--wide">
+              <div>
+                <svg class="svgFrame" id="ifSvg" viewBox="0 0 520 200" role="img" aria-label="Animated diffuse interface phase-field and solute profile"></svg>
+                <div class="legendRow">
+                  <span class="legendItem"><i class="sw sw--1"></i>Phase field φ(x)</span>
+                  <span class="legendItem"><i class="sw sw--2"></i>Solute profile c(x)</span>
+                </div>
+              </div>
+              <div>
+                <div class="rangeRow">
+                  <label for="ifWidth">Interface width W₀ / d₀</label>
+                  <output id="ifWidthVal">2.4 d₀</output>
+                </div>
+                <input class="sciRange" id="ifWidth" type="range" min="1.5" max="4.0" step="0.1" value="2.4" />
+
+                <div class="pillGroup">
+                  <button class="btn btn--sm" type="button" id="ifAntiTrap" aria-pressed="true">Anti-trapping: ON</button>
+                </div>
+
+                <ul class="miniSpec">
+                  <li><span>Measured k<sub>eff</sub> (true k = 0.15)</span><b id="ifKeffVal">0.145</b></li>
+                  <li><span>Partition bias</span><b id="ifErrVal">−3.3 % vs k = 0.15</b></li>
+                </ul>
+
+                <div class="ctrlLabel">k<sub>eff</sub> comparison (true k = 0.15)</div>
+                <div class="rangeRow"><span>Anti-trapping ON (0.135–0.150)</span></div>
+                <div class="barTrack"><div class="barFill barFill--3" id="ifBarOn" style="width:60%"></div></div>
+                <div class="rangeRow"><span>Anti-trapping OFF (0.186–0.209)</span></div>
+                <div class="barTrack"><div class="barFill barFill--2" id="ifBarOff" style="width:82%"></div></div>
+
+                <p class="labNote" id="ifNote"></p>
+              </div>
+            </div>
+          </div>
+
+          <p>Every quantitative claim in SOLIDIFY is gated against published analytical or microscopic-solvability benchmarks:</p>
+
+          <div class="benchGrid">
+            <div class="benchCard">
+              <div class="benchCard__top"><span class="benchCard__name">2D steady tip velocity V·d₀/D</span><span class="benchCard__err">1.2 % err</span></div>
+              <div class="benchCard__vals">Measured 0.01679 vs. 0.0170 (Δ = 0.55, ε₄ = 0.05)</div>
+              <div class="benchCard__ref">Karma &amp; Rappel (1998), 2D microscopic solvability</div>
+            </div>
+            <div class="benchCard">
+              <div class="benchCard__top"><span class="benchCard__name">2D parabolic tip radius ρ/d₀</span><span class="benchCard__err">4.4 % err</span></div>
+              <div class="benchCard__vals">Measured 28.8 vs. 27.6</div>
+              <div class="benchCard__ref">Tong, Beckermann, Karma &amp; Li (2001)</div>
+            </div>
+            <div class="benchCard">
+              <div class="benchCard__top"><span class="benchCard__name">Gibbs–Thomson critical radius R*</span><span class="benchCard__err">0.5 % err</span></div>
+              <div class="benchCard__vals">Measured 22.21 vs. 22.10 W₀ (equilibrium profile 0.997 W₀)</div>
+              <div class="benchCard__ref">Exact 2D curvature balance R* = d₀/Δ (3D sphere: 2d₀/Δ)</div>
+            </div>
+            <div class="benchCard">
+              <div class="benchCard__top"><span class="benchCard__name">Interface-width convergence &amp; solute conservation</span><span class="benchCard__err">1.6×10⁻³ drift</span></div>
+              <div class="benchCard__vals">6.4 % velocity spread over W₀/d₀ = 1.8 → 3.6; flat solute over 20,000 steps</div>
+              <div class="benchCard__ref">Thin-interface asymptotic convergence test</div>
+            </div>
+          </div>
+
+          <p><b>Honest scope of 3D calibration:</b> 3D calibrated volumes are validated against spherical Gibbs–Thomson curvature (2d₀/Δ), a planar Stefan front, and closed-volume mass conservation. Calibrated 3D alloys use an imposed temperature field with Echebarria's temperature-dependent relaxation rather than a coupled Lewis-number-matched thermal solve, and a fully converged 3D moving-needle comparison against <a href="https://arxiv.org/pdf/patt-sol/9607005">Karma &amp; Rappel (1996)</a> remains an open study rather than a claimed match.</p>
+        </section>
+
+        <!-- =========================================== 06. HEAT TREATMENT -->
+        <section class="sciSec" id="s-heattreat">
+          <h2><span class="secN">06</span> Solid-state heat treatment</h2>
+          <p>A calibrated solidification timestep is on the order of 10⁻⁷ s, whereas a furnace anneal lasts hours (~10¹¹ timesteps). Integrating the phase-field equations through a furnace schedule is physically impossible, so SOLIDIFY runs heat treatment on a <b>separate solid-state clock</b> with <i>φ</i> frozen. You program a thermal ramp and soak in °C and hours; SOLIDIFY integrates each material's Arrhenius rate laws across the entire trajectory using Simpson quadrature (capturing ramp contributions that hold-only estimates undercount by ~31 %) and converts those integrals into GPU budgets.</p>
+
+          <div class="eqGrid">
+            <div class="eq">
+              D<sup>n</sup> − D₀<sup>n</sup> = ∫ k(T) dt &nbsp;&nbsp;↔&nbsp;&nbsp; D<sup>m</sup> − D₀<sup>m</sup> = K<sub>MC</sub> S
+              <div class="c">Material grain-growth law sets the endpoint; measured Potts kinetics spend sweeps S (2D: m = 2.44, K = 4.79; 3D: m = 2.25, K = 1.28; drift gated at 25 %).</div>
+            </div>
+            <div class="eq">
+              σ<sub>y</sub> = σ₀ + k<sub>HP</sub> / √d̄
+              <div class="c">Hall–Petch yield strength evaluated on the grain census before and after treatment (grain-size strengthening only; no T6 precipitate aging).</div>
+            </div>
+          </div>
+
+          <p>Four physical mechanisms run during the furnace schedule:</p>
+          <ul>
+            <li><b>Monte Carlo Potts grain growth &amp; Zener pinning:</b> Sublattice GPU Potts updates coarsen grains along measured lattice exponents rather than assuming ideal parabolic m = 2 (which causes a 4.8× sweep-budget error). Adding a second-phase particle dispersion pins boundaries at the lattice-measured limit d<sub>lim</sub> = 7.24 · r<sup>0.205</sup> / f<sup>0.356</sup> cells in 2D.</li>
+            <li><b>Annealing twins (3D):</b> Controlled by published stacking-fault energies (Murr 1975). Low-SFE copper (78 mJ/m²) and cobalt (~20 mJ/m²) form Σ3 twins; high-SFE aluminum (166 mJ/m²) and nickel (128 mJ/m²) do not, and BCC δ-ferrite steel refuses structurally. Because a single-voxel twin faces an artificial 12-neighbor lattice nucleation barrier, births are inserted as {111} plates in exact Σ3 registry; survival is governed purely by a coherent energy cusp (24 vs. 625 mJ/m²) and mobility gate.</li>
+            <li><b>Solute homogenization &amp; surface scaling:</b> Masked solid-state diffusion smooths interdendritic segregation (verified against exact discrete stencil eigenvalues to 9×10⁻⁷ relative error in 2D and 3D). Parabolic oxide scale x = √(∫ k<sub>p</sub> dt) and steel decarburization x = 2√(D<sub>C</sub> t) appear as analytical report-card rows rather than painted fields.</li>
+            <li><b>Cold work, recovery, and recrystallization (3D):</b> A per-grain stored-energy buffer H(id) drives strain-induced boundary migration via ΔE = e<sub>new</sub> − e<sub>now</sub> + (H<sub>cand</sub> − H<sub>mine</sub>), coupled to exact second-order dislocation recovery H<sub>S</sub> = H₀ / (1 + 10⁻³ S H₀) evaluated analytically in the shader. Optional strain-free nuclei (simultaneous, constant-rate, or grain-boundary sites) grow into high-energy deformed grains.</li>
+          </ul>
+
+          <div class="labBox">
+            <div class="labBox__head">
+              <span class="labBox__title">Measured 3D Potts bicrystal mobility · stored-energy ladder</span>
+              <span class="labBox__sub">128³ bicrystal · 26-neighbor stencil · kT = 0.6</span>
+            </div>
+            <div class="labSplit labSplit--wide">
+              <div>
+                <svg class="svgFrame" id="pottsSvg" viewBox="0 0 520 200" role="img" aria-label="Measured 3D Potts boundary velocity versus stored-energy difference"></svg>
+              </div>
+              <div>
+                <p class="labNote">On a 26-neighbor cubic lattice, advancing a flat {100} boundary swaps 9 unlike neighbors for 17, giving a theoretical flat-face barrier of <b>ΔH = 8 J<sub>b</sub></b>. Measured boundary velocity turns on near <b>5–6 J<sub>b</sub></b> because moving fronts form kinks with lower local barriers, brackets 9/26 = 0.346 cells/sweep near ΔH = 8, and stalls cleanly inside the immobile band as second-order recovery decays H<sub>S</sub>.</p>
+                <ul class="miniSpec">
+                  <li><span>Arrhenius ramp quadrature</span><b>3×10⁻⁸ err</b></li>
+                  <li><span>Homogenization eigenmode</span><b>9×10⁻⁷ err</b></li>
+                  <li><span>2D anneal end-to-end (Al, 12 h)</span><b>48.6 vs 50.4 µm</b></li>
+                  <li><span>Cold-work volume selection</span><b>+0.495 vs ±0.007</b></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <details class="deepDive">
+            <summary>Stored-energy caveats and recrystallization clock boundaries</summary>
+            <div class="ddBody">
+              <p>Because the solver carries grain orientations without crystal slip systems, per-grain stored energy is distributed via a deterministic hash (a declared heterogeneity fabric rather than a Taylor-factor mechanics solve). When cold work is dialed above zero, the curvature-only d̄ law prediction is withdrawn on the report card and Σ3 twin nucleation is held back so newly allocated twin IDs do not inherit unrelated stored-energy values. Recrystallization kinetics run on the Monte Carlo sweep clock bought by the grain-growth Arrhenius integral; the fitted Avrami exponent on the card is a sweep-clock exponent rather than a real-time exponent.</p>
+            </div>
+          </details>
+        </section>
+
+        <!-- ====================================== 07. SCOPE MATRIX & LABS -->
+        <section class="sciSec" id="s-scope">
+          <h2><span class="secN">07</span> What is quantitative, mechanistic, or not modeled</h2>
+          <p>Every number SOLIDIFY prints is computed from the running state or a cited material table; stylistic choices and unmodeled physics are labeled explicitly. Filter the model boundary register below:</p>
+
+          <div id="scopeMatrix">
+            <div class="pillGroup">
+              <button class="btn btn--sm" type="button" data-cat="all" aria-pressed="true">All</button>
+              <button class="btn btn--sm" type="button" data-cat="solid" aria-pressed="false">Solidification</button>
+              <button class="btn btn--sm" type="button" data-cat="alloy" aria-pressed="false">Alloys</button>
+              <button class="btn btn--sm" type="button" data-cat="foundry" aria-pressed="false">3D &amp; Foundry</button>
+              <button class="btn btn--sm" type="button" data-cat="heat" aria-pressed="false">Heat treatment</button>
+            </div>
+
+            <div class="scopeList">
+              <div class="scopeRow" data-cats="solid">
+                <div class="scopeRow__claim">Tip velocity &amp; tip radius (calibrated 2D)</div>
+                <span class="scopeBadge scopeBadge--quant">Quantitative</span>
+                <div class="scopeRow__desc">Matches Karma–Rappel (1998) 2D solvability tip velocity to 1.2 % and Tong et al. (2001) tip radius to 4.4 %. In default Kobayashi mode, tip geometry is qualitative similarity only.</div>
+              </div>
+              <div class="scopeRow" data-cats="solid">
+                <div class="scopeRow__claim">Dendrites, seaweed, CET &amp; weld epitaxy</div>
+                <span class="scopeBadge">Emergent</span>
+                <div class="scopeRow__desc">Canonical morphologies emerge directly from PDE integration without scripted branching.</div>
+              </div>
+              <div class="scopeRow" data-cats="solid">
+                <div class="scopeRow__claim">Grain size (ASTM E112) &amp; SDAS ruler</div>
+                <span class="scopeBadge scopeBadge--quant">Measured</span>
+                <div class="scopeRow__desc">Computed from GPU grain-area counts and linear intercepts using the active cell pitch (declared µm/cell in Kobayashi mode, derived W₀·dx in calibrated mode).</div>
+              </div>
+              <div class="scopeRow" data-cats="solid">
+                <div class="scopeRow__claim">Lewis number α / D (2D coupled alloys)</div>
+                <span class="scopeBadge">Not matched</span>
+                <div class="scopeRow__desc">Real alloys separate heat and solute diffusivities by ~10⁴; one explicit grid cannot resolve both simultaneously. Read 2D temperature as an imposed macroscopic thermal field (reported in SCALE).</div>
+              </div>
+              <div class="scopeRow" data-cats="solid">
+                <div class="scopeRow__claim">Forced melt flow (2D D2Q9 LBM)</div>
+                <span class="scopeBadge">Qualitative</span>
+                <div class="scopeRow__desc">Zou–He velocity inlet with Beckermann diffuse drag (constant 2.7571 vs. 2.757). Upstream arm speedup direction is verified; magnitude (1.26–1.36 vs. Tong 1.37–1.43) remains qualitative. No buoyancy or 3D flow.</div>
+              </div>
+              <div class="scopeRow" data-cats="alloy">
+                <div class="scopeRow__claim">Anti-trapping partition k<sub>eff</sub> (calibrated)</div>
+                <span class="scopeBadge scopeBadge--quant">Quantitative</span>
+                <div class="scopeRow__desc">Echebarria–Folch–Karma–Plapp dilute binary solver holds k<sub>eff</sub> = 0.135–0.150 against true k = 0.15 across interface widths. Still dilute binary, not full multicomponent CALPHAD.</div>
+              </div>
+              <div class="scopeRow" data-cats="alloy">
+                <div class="scopeRow__claim">Alloy composer &amp; 118-element screen</div>
+                <span class="scopeBadge scopeBadge--quant">Cited table</span>
+                <div class="scopeRow__desc">25 assessed pairs with CALPHAD-checked binary invariants and 683 computed refusals. Dilute linear superposition assumes zero solute–solute interaction and grows only the single primary phase.</div>
+              </div>
+              <div class="scopeRow" data-cats="foundry">
+                <div class="scopeRow__claim">Nucleation sites &amp; recalescence</div>
+                <span class="scopeBadge">Mechanistic</span>
+                <div class="scopeRow__desc">Rappaz/Greer Gaussian activation ratchet with fire-once suppression during recalescence. Activation thresholds are stretched for watchability rather than derived from interfacial energies.</div>
+              </div>
+              <div class="scopeRow" data-cats="foundry">
+                <div class="scopeRow__claim">Shrinkage porosity &amp; Niyama index (3D)</div>
+                <span class="scopeBadge">Mechanistic</span>
+                <div class="scopeRow__desc">Feed-path flood tracks unfed liquid pockets honoring mold walls. Local Niyama |∇T|/√Ṫ is judged quantitatively against steel's 0.775 K<sup>½</sup>·s<sup>½</sup>·mm<sup>−1</sup> radiographic threshold and plotted relatively for other metals.</div>
+              </div>
+              <div class="scopeRow" data-cats="foundry">
+                <div class="scopeRow__claim">Hydrogen gas porosity &amp; hot tearing</div>
+                <span class="scopeBadge">Proxy / Index</span>
+                <div class="scopeRow__desc">Uses real Ransley–Neufeld Al hydrogen solubilities with Sievert's √p drop on freezing (atmosphere partial pressures are an ordered proxy). Clyne–Davies CSC is a global solidification-time ratio, not a mechanical stress prediction.</div>
+              </div>
+              <div class="scopeRow" data-cats="foundry">
+                <div class="scopeRow__claim">Rasterized molds &amp; grain selector (3D)</div>
+                <span class="scopeBadge">Geometric</span>
+                <div class="scopeRow__desc">Exact integer voxel masks for shell, plate, step block, wedge, and helical pigtail selector with real wall heat conduction; proportions are pedagogical rather than a specific industrial die.</div>
+              </div>
+              <div class="scopeRow" data-cats="heat">
+                <div class="scopeRow__claim">Grain growth &amp; Zener pinning</div>
+                <span class="scopeBadge scopeBadge--quant">Calibrated</span>
+                <div class="scopeRow__desc">Endpoint integrated from cited Arrhenius material laws; GPU Potts pass calibrated per dimension (2D m = 2.44, 3D m = 2.25). 2D Zener limit follows measured d<sub>lim</sub> = 7.24 · r<sup>0.205</sup> / f<sup>0.356</sup> cells.</div>
+              </div>
+              <div class="scopeRow" data-cats="heat">
+                <div class="scopeRow__claim">Solute homogenization &amp; oxide scale</div>
+                <span class="scopeBadge scopeBadge--quant">Exact / Analytic</span>
+                <div class="scopeRow__desc">Masked solid-state diffusion matches discrete eigenmode decay to 9×10⁻⁷. Parabolic oxide thickness and steel decarburization are computed analytically from sourced constants.</div>
+              </div>
+              <div class="scopeRow" data-cats="heat">
+                <div class="scopeRow__claim">Hall–Petch strength &amp; precipitate aging</div>
+                <span class="scopeBadge">Grain size only</span>
+                <div class="scopeRow__desc">Computes σ<sub>y</sub> = σ₀ + k<sub>HP</sub>/√d̄ on measured grain diameter. Work hardening and T6 precipitate aging are not modeled and are labeled absent on every report card.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="labsBanner">
+            <div>
+              <h3>Use SOLIDIFY in an undergraduate MSE course</h3>
+              <p>Four turnkey 50-minute lab worksheets with deterministic share links, Run-Export ZIP submission checklists, and instructor answer keys covering dendrites, alloy Scheil segregation, 3D step-block casting, and heat treatment.</p>
+            </div>
+            <a class="btn btn--primary" href="https://github.com/fronkt/solidify/tree/main/docs/labs">View classroom labs</a>
+          </div>
+        </section>
+
+        <!-- ================================================ 08. REFERENCES -->
+        <section class="sciSec" id="s-refs">
+          <h2><span class="secN">08</span> References</h2>
+          <ol class="refs">
+            <li>R. Kobayashi, "Modeling and numerical simulations of dendritic crystal growth," <i>Physica D</i> 63 (1993) 410–423.</li>
+            <li>A. Karma &amp; W.-J. Rappel, "Quantitative phase-field modeling of dendritic growth in two and three dimensions," <i>Phys. Rev. E</i> 57 (1998) 4323–4349.</li>
+            <li>B. Echebarria, R. Folch, A. Karma &amp; M. Plapp, "Quantitative phase-field model of alloy solidification," <i>Phys. Rev. E</i> 70 (2004) 061604.</li>
+            <li>A. Karma, "Phase-field formulation for quantitative modeling of alloy solidification," <i>Phys. Rev. Lett.</i> 87 (2001) 115701.</li>
+            <li>X. Tong, C. Beckermann, A. Karma &amp; Q. Li, "Phase-field simulations of dendritic crystal growth in a forced flow," <i>Phys. Rev. E</i> 63 (2001) 061601.</li>
+            <li>J.A. Warren &amp; W.J. Boettinger, "Prediction of dendritic growth and microsegregation patterns in a binary alloy using the phase-field method," <i>Acta Metall. Mater.</i> 43 (1995) 689–703.</li>
+            <li>W.W. Mullins &amp; R.F. Sekerka, "Stability of a planar interface during solidification of a dilute binary alloy," <i>J. Appl. Phys.</i> 35 (1964) 444–451.</li>
+            <li>Ph. Thévoz, J.L. Desbiolles &amp; M. Rappaz, "Modeling of equiaxed microstructure formation in casting," <i>Metall. Trans. A</i> 20 (1989) 311–322.</li>
+            <li>Ch.-A. Gandin &amp; M. Rappaz, "A coupled finite element–cellular automaton model for the prediction of dendritic grain structures in solidification processes," <i>Acta Metall. Mater.</i> 42 (1994) 2233–2246.</li>
+            <li>A.L. Greer, A.M. Bunn, A. Tronche, P.V. Evans &amp; D.J. Bristow, "Modelling of inoculation of metallic melts: application to grain refinement of aluminium by Al–Ti–B," <i>Acta Mater.</i> 48 (2000) 2823–2835.</li>
+            <li>M. Easton &amp; D. StJohn, "Grain refinement of aluminum alloys," <i>Metall. Mater. Trans. A</i> 30 (1999) 1613–1633.</li>
+            <li>J.A. Dantzig &amp; M. Rappaz, <i>Solidification</i>, EPFL Press (2009).</li>
+            <li>W. Kurz &amp; D.J. Fisher, <i>Fundamentals of Solidification</i>, Trans Tech Publications (1998).</li>
+            <li>E. Scheil, "Bemerkungen zur Schichtkristallbildung," <i>Z. Metallkd.</i> 34 (1942) 70–72.</li>
+            <li>E. Niyama, T. Uchida, M. Morikawa &amp; S. Saito, "A method of shrinkage prediction and its application to steel casting practice," <i>AFS Int. Cast Metals J.</i> 7 (1982) 52–63.</li>
+            <li>T.W. Clyne &amp; G.J. Davies, "The influence of composition on solidification cracking susceptibility in binary alloy systems," <i>Br. Foundryman</i> 74 (1981) 65–73.</li>
+            <li>E. Fras, W. Kapturkiewicz, A. Burbielko &amp; H.F. Lopez, "A new concept in thermal analysis of castings," <i>AFS Trans.</i> 101 (1993) 505–511.</li>
+            <li>D.M. Stefanescu, "Thermal analysis: theory and applications in metalcasting," <i>Int. J. Metalcast.</i> 9 (2015) 7–22.</li>
+            <li>J. Campbell, <i>Castings</i>, Butterworth-Heinemann (2003).</li>
+            <li>C.E. Ransley &amp; H. Neufeld, "The solubility of hydrogen in liquid and solid aluminium," <i>J. Inst. Metals</i> 74 (1948) 599–620.</li>
+            <li>J.E. Burke &amp; D. Turnbull, "Recrystallization and grain growth," <i>Prog. Met. Phys.</i> 3 (1952) 220–292.</li>
+            <li>M.P. Anderson, D.J. Srolovitz, G.S. Grest &amp; P.S. Sahni, "Computer simulation of grain growth, I. Kinetics," <i>Acta Metall.</i> 32 (1984) 783–791.</li>
+            <li>L.E. Murr, <i>Interfacial Phenomena in Metals and Alloys</i>, Addison-Wesley (1975).</li>
+            <li>E.O. Hall, "The deformation and ageing of mild steel: III," <i>Proc. Phys. Soc. B</i> 64 (1951) 747–753; N.J. Petch, <i>J. Iron Steel Inst.</i> 174 (1953) 25–28.</li>
+            <li>C. Wagner, "Beitrag zur Theorie des Anlaufvorgangs," <i>Z. Phys. Chem. B</i> 21 (1933) 25–41.</li>
+            <li>ASTM E112, <i>Standard Test Methods for Determining Average Grain Size</i>.</li>
+          </ol>
+        </section>
+      </div>
     </div>
-    <div class="eq">
-      ε(θ) &nbsp;=&nbsp; ε̄ (1 + δ cos j(θ − θ₀)) &nbsp;&nbsp;·&nbsp;&nbsp; m(T, c) = (α/π) atan(γ(1 − m<sub>L</sub>c − T))
-      <div class="c">j-fold surface-energy anisotropy (j = 4 cubic, 6 hexagonal); driving force from local under­cooling, depressed by solute</div>
-    </div>
-    <div class="eq">
-      ∂T/∂t &nbsp;=&nbsp; ∇²T + K ∂φ/∂t &nbsp;&nbsp;·&nbsp;&nbsp; ∂c/∂t = ∇·(D(φ)∇c) + (1−k) c ∂φ/∂t
-      <div class="c">heat diffusion with latent-heat release; solute diffusion with interface rejection (partition coefficient k)</div>
-    </div>
-    <p>Everything the instrument shows follows from these lines. There is no scripted behavior in it:
-    no drawn arms, no prebaked snowflakes, no particle effects. The landing page opens on a rendered
-    model, and says so.</p>
-
-    <h2><span class="secN">02</span> Why dendrites happen</h2>
-    <p>A flat solidification front in an undercooled melt is unstable: any bump reaches into colder
-    liquid, dumps its latent heat faster, and grows faster still — the <b>Mullins–Sekerka
-    instability</b>. Latent heat (the K ∂φ/∂t term) makes each growing tip warm its own
-    surroundings, so growth self-limits and selects a tip radius; the anisotropy ε(θ) breaks the
-    symmetry so arms lock onto crystal axes. Four-fold anisotropy gives the classic metal dendrite;
-    switch j to 6 and the same equations grow a snowflake, because ice is hexagonal. Interface noise
-    seeds the side-branches, exactly as thermal noise does in reality.</p>
-    <img src="../snowflake.jpg" alt="Six-fold dendrite grown by the model" />
-    <p>With the anisotropy turned nearly off the model grows <b>seaweed</b> (dense-branching
-    morphology), and with a pulled thermal frame it reproduces <b>columnar growth and the
-    columnar-to-equiaxed transition</b> — all canonical, all emergent.</p>
-
-    <h2><span class="secN">03</span> Many grains and twins</h2>
-    <p>Each nucleus carries its own crystallographic orientation θ₀ in a grain-ID field that
-    propagates just ahead of the moving front: a newly solidifying cell adopts the identity of its
-    most-solid neighbour. Where two fronts meet, growth stops and a <b>grain boundary</b> is frozen
-    in — no extra model terms. The ASTM E112 grain number shown in the HUD is computed from
-    per-grain pixel counts reduced on the GPU.</p>
-    <p><b>Twinning</b>: with a set twin rate, a claim at the growth front occasionally spawns a new
-    domain rotated by π/j — the maximal-misorientation 2D analog of a coherent twin. The twin must
-    then out-grow its parent to survive, which is exactly the competition that selects feathery
-    twinned grains in aluminum DC casting. Two 6-fold seeds locked at 30° grow the rare
-    <b>12-branched snowflake</b>. Twin boundaries etch faint in the micrograph lens, as coherent
-    boundaries do under a real etchant.</p>
-
-    <h2><span class="secN">04</span> The alloy chemistry</h2>
-    <p>The solute field implements a Warren–Boettinger-type dilute alloy: the growing solid rejects
-    solute (partition coefficient k &lt; 1), which piles up ahead of the front and lowers the local
-    melting point — <b>constitutional undercooling</b>, the engine of most real dendrites. The
-    rejected solute freezes into the last liquid between the arms as microsegregation, which the
-    XRAY lens renders the way synchrotron radiographs show it.</p>
-    <p>The <b>alloy composer</b> works in real chemistry. Each element carries approximate textbook
-    dilute-limit binary coefficients (liquidus slope m in K/wt%, partition k). In the dilute limit
-    these superpose:</p>
-    <div class="eq">
-      ΔT<sub>L</sub> = Σ m<sub>i</sub>c<sub>i</sub> &nbsp;&nbsp;·&nbsp;&nbsp; Q = Σ m<sub>i</sub>c<sub>i</sub>(k<sub>i</sub> − 1)
-      <div class="c">liquidus shift and growth restriction factor — the two numbers that control solidification</div>
-    </div>
-    <p>Q is the industry-standard <b>growth restriction factor</b> (Easton &amp; StJohn): it measures
-    how strongly a composition slows crystal growth, and it predicts grain refinement. The composer
-    collapses your mix onto the model's single pseudo-binary solute field so that ΔT<sub>L</sub> and
-    Q are preserved (k<sub>eff</sub> = 1 − Q/|ΔT<sub>L</sub>|, the m·c-weighted mean partition),
-    and labels every clamp it has to make.</p>
-    <div class="note">
-      <div class="t">A RESULT THAT WAS MEASURED WRONG TWICE</div>
-      <p>Before v4.0 this page reported a clean demonstration: under identical nucleation
-      (a fixed 12 seeds/s rain) and cooling, grain-refined A356+TiB froze into 369 grains
-      while nearly-pure Al–1Zn gave 46 coarse ones. Under the site model that comparison
-      inverted — the lean alloy came out finer — and v4.0 withdrew the claim. v5.0 went
-      back to it and found that <b>the inversion was an artefact too</b>. Two flaws, and
-      neither is physics:</p>
-      <p><b>Equal bath temperature is not equal undercooling.</b> A356's liquidus sits at
-      0.821 where the lean alloy's is 0.993, so at a common start temperature the refined
-      charge began <i>above its own liquidus</i> and could not nucleate at all until it had
-      cooled further. <b>Equal time is not equal progress.</b> Growth restriction left the
-      refined charge with 25× less solid at the moment of comparison (f<sub>s</sub> 0.004 vs
-      0.106) — and grain <i>count</i> is counted on solid that exists.</p>
-      <p>Control both — start each charge at the same undercooling below its own liquidus,
-      read both at the same solid fraction — and the honest answer is that <b>the two alloys
-      come out the same within noise</b>. Across four independent runs at two inoculant
-      charges one recorded set of grain counts read 1434/1380, 1431/1445, 305/313 and
-      351/327 — within 8 %, at the low end of a wider spread the paragraph after this one
-      states in full. Growth restriction is unmistakably present — the refined charge takes about
-      twice as long to reach 20 % solid — but at these site densities it does not translate
-      into a finer grain count. Neither the original claim nor its inversion survives a
-      controlled comparison.</p>
-      <p><b>How well "the same" is known, stated as the suite states it.</b> The band the suite
-      actually asserts is <b>15 %</b>, not the 8 % those four pairs happen to make
-      (<code>REFINE-FAIR</code>, on the two inoculant charges, at matched solid fraction). That
-      is the honest number, and the spread is not symmetric between the two arms. <b>At 3000
-      sites the two charges track each other closely</b> — seven recorded pairs (1434/1380,
-      1431/1445, 1433/1432, 1452/1461, 1409/1417, 1418/1420, 1449/1451) span 0.1 % to 3.9 %, and
-      the refined charge is the finer one in only two of the seven. <b>At 600 sites neither
-      holds.</b> Eight recorded pairs (305/313, 351/327, 356/340, 352/332, 363/337, 350/313,
-      376/319, 353/299) span <b>2.6 % to 18.1 %</b>, the refined charge came out finer in seven of
-      the eight, and <b>two of them — 376/319 and 353/299 — are gate failures</b> at the 15 %
-      band. That is suggestive and it is not yet a result, because on
-      that arm the harness's own site-firing count is not a controlled variable: for the same
-      600-site charge the lean melt has been observed firing 349 sites in one run and all 600 in
-      another, which is the frame-pacing artefact the paragraph below this one describes. What
-      can be said is that the 8 % those four pairs make is the low tail of a wider population, and
-      that settling the 600-site arm needs the synchronous bench rather than the interactive
-      harness. This gate is also browser-only, so CI never runs it.</p>
-      <p><b>And the front door went on saying it for three releases.</b> This page withdrew the
-      comparison in v4.0. The landing page kept animating a count to 369 grains against 46 and
-      captioning it as an eight-fold refinement by composition alone, "measured in this
-      instrument, not asserted" — which is the worst version of the mistake: a retracted number, presented as a
-      measurement, on the page most people read first. It was removed in v7.1 P6, and the reason
-      it survived a withdrawal, an inversion and a second withdrawal is that nothing checked it.
-      Numbers quoted as prose were being written by hand across six documents and recomputed by
-      nothing. <code>PD-DOC-CONSTANTS</code> now derives them — the table version, the Al–Si and
-      Fe–C invariants, A356's freezing range and four <code>derive()</code> outputs including the
-      two liquidus values in the paragraph above — from the modules that ship them, and bans the
-      retired claims by text in all six at once.</p>
-      <p>One further caution, recorded because it nearly became a third wrong answer. An
-      early v5.0 measurement appeared to show the textbook mechanism — the slower alloy
-      recalescing less, holding its undercooling, and firing every one of its 3000 sites
-      against the lean charge's 1640. It did not reproduce. The harness advances the solver
-      against wall-clock frames, and a GPU-backpressure guard skips frames unpredictably, so
-      the two casts had not received the same amount of physics. Site-firing counts from this
-      harness are <b>not a controlled variable</b>; grain count at matched solid fraction is,
-      which is why that is what the suite asserts (<code>REFINE-FAIR</code>). Settling the
-      mechanism needs a solver that can be stepped a fixed number of substeps regardless of
-      frame pacing — which the interactive harness cannot do, and which, as of v7.0, the
-      verification bench can: the controlled-experiment layer drives the nucleation model
-      synchronously between fence-paced substep chunks, so a cast with emergently fired sites
-      replays byte-identically per seed (<code>EXP-REPRO-LIVE</code>), and every sweep it
-      renders must name the variable it held fixed and prove the arms actually sat there
-      (<code>EXP-SWEEP-CONTROLLED</code>).</p>
-      <p>The composer's reported chemistry — ΔT<sub>L</sub>, Q, k<sub>eff</sub> — is computed
-      from the textbook coefficients throughout. Its conversion into the solver's units was
-      itself wrong until v5.0: it used a flat 100 K per dimensionless degree for every metal,
-      where the model's own factor is (L/c<sub>p</sub>)/K — about 249 K for aluminium.</p>
-    </div>
-    <p>The ANALYZE section adds foundry instruments: a <b>cooling-curve probe</b> (a thermal-analysis
-    cup test — recalescence shows as the dip-and-rise), a <b>Scheil overlay</b> comparing the
-    analytic Scheil path T(f<sub>s</sub>) = 1 − m·c₀(1−f<sub>s</sub>)<sup>k−1</sup> against the
-    measured interface temperature, and an <b>SDAS ruler</b> that measures secondary dendrite arm
-    spacing by linear intercept, the same way a metallographer does it.</p>
-
-    <h2><span class="secN">05</span> Numerics and the GPU</h2>
-    <ul>
-      <li><b>Explicit Euler</b> on a uniform grid, dimensionless units, dt held inside the stable
-      envelope of the scheme; every UI slider range is clamped so instability is unreachable.</li>
-      <li><b>Compact 9-point Laplacians.</b> The naive divergence-of-central-differences builds an
-      effective 2Δx Laplacian that decouples the two checkerboard sublattices and shreds the
-      interface. SOLIDIFY uses the compact 9-point stencil plus a flux texture carrying the
-      anisotropy terms (εε′φ<sub>x</sub>, εε′φ<sub>y</sub>, ε²), which keeps the front clean.</li>
-      <li><b>All WGSL compute.</b> Two passes per substep (flux, update) over ping-pong storage
-      textures, roughly a billion cell-updates per second on a mid-range discrete GPU.</li>
-      <li><b>Backpressure.</b> One command submission per frame and a GPU-fence in-flight counter:
-      slow devices throttle gracefully instead of freezing the tab.</li>
-      <li><b>GPU statistics.</b> Fraction solid, interface undercooling, per-grain areas (atomic
-      counts → ASTM G), and the cooling-curve probe all come from a single reduction pass.</li>
-    </ul>
-
-    <h2><span class="secN">06</span> The third dimension</h2>
-    <p>The TRUE 3D switch replaces the 2D grid with a full <b>volumetric solver</b> — up to 192³
-    ≈ 7.1 million voxels stepping the same Kobayashi equations in three dimensions. Surface-energy
-    anisotropy becomes a function of the interface normal n̂ in each grain's own crystal frame
-    (per-grain quaternions carry the orientation):</p>
-    <div class="eq">
-      a(n̂) = 1 + δ(4Σn̂′ᵢ⁴ − 3) &nbsp;&nbsp;·&nbsp;&nbsp; a(n̂) = 1 + δ₆K₆(n̂′) − δ<sub>z</sub>n̂′<sub>z</sub>²
-      <div class="c">cubic ⟨100⟩ and hexagonal (basal K₆ + c-axis penalty) anisotropies — δ<sub>z</sub> &gt; 0 grows plates, &lt; 0 grows needles</div>
-    </div>
-    <p>The volume is drawn by <b>raymarching</b>: a ray per pixel steps the φ field, refines the
-    crossing by bisection, and shades the iso-surface with central-difference normals — nine lenses,
-    from incandescent MELT to a volumetric NEON dark-field. The <b>section plane</b> (free depth,
-    tilt and turn, CT sweep) is honest serial sectioning: the STEREOLOGY panel measures grain size
-    on that plane and against the true 3D census, showing the classic section-plane underestimate
-    that stereology exists to correct.</p>
-    <p><b>Shrinkage porosity</b> is modelled by feed-path tracking: a flood fill from the riser
-    (top face) marks liquid that can still be fed; liquid that solidifies while cut off becomes a
-    pore, which x-rays dark in the FIELD lens exactly as casting radiography finds it. The flood
-    honours the mould walls — a wall voxel is unconditionally excluded from the feed path every
-    pass, so a chamber sealed behind a partition can never be reached by metal that never crossed
-    it. At every freezing voxel the instrument also records the <b>Niyama criterion</b> Ny =
-    |∇T|/√Ṫ — the foundry's standard porosity-risk index — and can paint it on the section plane.
-    Numerics:
-    explicit Euler at dt = 0.6·dx²/6 (the 3D stability bound — 0.53 is the 2D solver's margin against its own dx²/4), two compute passes per substep over
-    ping-pong 3D storage textures, and 57 bytes of VRAM per voxel across nine textures — ~403 MB
-    at 192³, with an out-of-memory ladder down through 160³, 128³ and 96³ (~50 MB) for smaller
-    GPUs, every rung of it selectable from the ENGINE row.</p>
-    <p>The volume now carries the <b>whole instrument</b>. The dilute-alloy solute field runs in
-    3D (a lazily-allocated ping-pong texture pair — the composer's chemistry included), Bridgman
-    growth pulls a thermal gradient up the z-axis, and a steerable laser welds the top surface
-    with Beer–Lambert depth absorption. Growth twins nucleate <i>at the moving front</i> in true
-    Σ3 registry — 60° about a parent ⟨111⟩, spawned on the GPU inside the grain-claiming pass —
-    and the "forbidden" 5-fold symmetry gets its honest 3D answer: <b>icosahedral</b> interface
-    energy built on the six 5-fold axes, growing twelve-lobed quasicrystal shapes. A cusped
-    {100} energy grows genuinely faceted crystals. The one 3D-only scenario is the
-    <b>single-crystal grain selector</b>: a helical "pigtail" channel mask under the Bridgman
-    pull — dozens of chill-floor grains race in, exactly one orientation exits into the blade
-    cavity, which is how real turbine-blade single crystals are actually made. The foundry
-    instruments follow: the cooling-curve probe (ctrl-tap any voxel), the Scheil overlay, an
-    SDAS ruler that measures λ₂ along any dragged line through the volume, and a stereographic
-    [001] pole figure beside the symmetry-axis pole figure. The lab's mould is a rasterized geometry library — shell,
-    plate, step, wedge — sharing one voxel-mask entry point regardless of shape. The <b>step
-    block</b> is the classic foundry teaching casting: four section thicknesses fed from one
-    common pour, each freezing at its own rate purely from wall-conduction geometry (no
-    per-section parameter), and each measurable independently by the lab's own per-section
-    census.</p>
-
-    <h2><span class="secN">07</span> Nucleation, and the lab</h2>
-    <p>Earlier versions of this instrument let you set the undercooling, the cooling rate
-    <i>and</i> a nucleation rate in nuclei per second. That last slider was wrong, and a reader
-    with a solidification background spotted it immediately: <b>the nucleation rate is not
-    something you set</b>. It is a consequence of the other two. A melt nucleates when it is
-    undercooled enough for the particles it happens to contain to become growth centres, and how
-    deeply it undercools is decided by the competition between the heat you pull out and the
-    latent heat the growing solid gives back.</p>
-
-    <p>So the rate is gone, and what remains is what a foundry actually controls — the
-    <b>inoculant</b>. The charge carries n<sub>max</sub> potential sites; each one has its own
-    activation undercooling drawn from a Gaussian N(ΔT<sub>N</sub>, ΔT<sub>σ</sub>), and each
-    fires exactly once, when the melt first gets that cold. This is the Gaussian site-distribution
-    model that Thévoz, Desbiolles and Rappaz introduced for equiaxed casting and that CA-FE codes
-    still use; the "fires once, when the melt first reaches its threshold" rule is the athermal
-    picture Greer's free-growth model makes precise, where a particle's threshold is set by its
-    diameter, ΔT<sub>fg</sub> = 4γ/(ΔS<sub>v</sub>d).</p>
-
-    <p>The consequence is the part worth watching. Sites only activate on a <i>new</i> maximum
-    undercooling, so when recalescence sets in — latent heat warming the melt back up — the
-    sweep stalls and <b>nucleation shuts itself off</b>, exactly as it does in a real casting.
-    Cool the same charge faster and the melt reaches a deeper undercooling before recalescence
-    catches it, so more of the same inoculant activates and the casting comes out finer. That
-    coupling is not scripted anywhere in the code; it falls out, and the instrument's own test
-    suite asserts it: identical charge, cooling rate 0.08 vs 0.45, roughly 300 vs 420 grains.</p>
-
-    <p><b>Lab mode</b> exists because the rest of the instrument is a sandbox — you drag sliders
-    and the melt answers. That is a good way to learn what each term does and a bad model of how
-    the measurement is actually made. In the lab you fix the experiment first: the charge and its
-    inoculant, the atmosphere, the pour superheat, the mould temperature and shape (3D — shell,
-    plate, step or wedge), and a cooling programme (furnace, air, quench, or a soak-then-cool
-    hold). Then you pour it and watch. The solver
-    follows the programme's set-point with Newtonian shell coupling rather than a constant heat
-    sink, which is what lets a hold really hold. At the end you get a report card: the cooling
-    curve read the way a foundry reads a cast cup (T<sub>L</sub>, T<sub>N</sub>, recalescence,
-    T<sub>S</sub> — the thermal-analysis row below says what that extraction can and cannot
-    resolve), the deepest undercooling reached, how much of the inoculant survived the hold and
-    fired, the dissolved-hydrogen ledger, and — since the lab judges as well as measures — the
-    as-cast grain census with its Hall–Petch yield strength, held against a pre-pour spec if you
-    dialled one. The spec is latched at the pour, so moving it after the metal is in the mould
-    cannot rewrite the verdict; a miss points back at this panel, because a finer pour closes it
-    (more inoculant, a shorter hold, a faster programme) where the furnace can only move it
-    further away. Change a physics dial while it is pouring and the
-    card says so — a run with the conditions moved under it is a demonstration, not a measurement.
-    Pour the step block and the card gains a fifth reading: a per-section table, thickness against
-    local d̄ against σ<sub>y</sub>, thinnest first — the same census machinery run four times over
-    four regions of the one casting, so the section-thickness effect is a measurement, not an
-    illustration.</p>
-
-    <h2><span class="secN">08</span> The calibrated solver</h2>
-    <p>Everything above this point is a <i>similarity</i> model. It grows the right shapes for the
-    right reasons, but its interface width and relaxation time are dials — you pick ε̄ and τ, a
-    dendrite appears, and its tip radius is a shape rather than a prediction. The SCALE panel has
-    always said so: the capillary ratio d<sub>0</sub>/W reads <b>not defined</b>, because there is
-    no calibrated surface energy anywhere in the Kobayashi model to define it with.</p>
-
-    <p>The <b>calibrated solver</b> closes that hole. Karma and Rappel's thin-interface asymptotics
-    relate the phase-field parameters to the two numbers a material actually has — the capillary
-    length d<sub>0</sub> = Γ/ΔT<sub>0</sub> and the diffusivity D — through</p>
-    <div class="eq">
-      d<sub>0</sub> = a<sub>1</sub> W<sub>0</sub> / λ &nbsp;&nbsp;·&nbsp;&nbsp;
-      τ<sub>0</sub> = a<sub>2</sub> λ W<sub>0</sub>² / D
-      <div class="c">a<sub>1</sub> = 5√2/8 = 0.8839 and a<sub>2</sub> = 0.6267 are properties of the chosen interpolation functions, not of any material — and a<sub>2</sub> holds only for h(φ) = φ, which is the heat source this solver uses</div>
-    </div>
-    <p>so once λ is chosen, W<sub>0</sub> and τ<sub>0</sub> are <i>forced</i>, and with them the
-    physical size of a cell and the physical length of a timestep. Seven dials stop being choices.
-    For Al–4.5Cu that works out to d<sub>0</sub> = 3.2 nm, W<sub>0</sub> = 109 nm and a cell of
-    0.087 µm, so a 1024² grid is a 89 µm field of view — and the SDAS ruler starts reporting arm
-    spacings a micrograph of the same alloy would give, rather than whatever a declared 1 mm domain
-    happened to imply.</p>
-
-    <p><b>λ is the only knob left, and it is a convergence knob, not a physics one.</b> It sets
-    W<sub>0</sub>/d<sub>0</sub>: how many capillary lengths wide the diffuse interface is. The
-    asymptotics are exact as that ratio goes to zero, so every quantitative claim has to be shown
-    independent of it — which is a test, not a promise, and it is the test a pretty dendrite cannot
-    pass by looking pretty.</p>
-
-    <p><b>Calibrated volumes</b> use smooth cubic interface energy and a separate 3D timestep bound.
-    A pure melt solves heat diffusion and latent release. A dilute alloy conserves concentration
-    through face currents and uses an <b>imposed temperature field</b>, with the temperature-dependent
-    relaxation factor of Echebarria et al. This is an imposed-temperature approximation, not a
-    coupled heat-and-solute solution at the material's physical Lewis number. Hexagonal,
-    icosahedral and cusped shapes retain the qualitative solver. Each dimension keeps its own
-    calibration and physical scale; links and exports identify the active model.</p>
-
-    <p>Three-dimensional validation uses spherical curvature, a planar Stefan reference and
-    closed-volume conservation. A sphere has two principal curvatures, so its critical radius is
-    2d<sub>0</sub>/Δ. The 2D tip velocity below is not a 3D reference. A converged 3D needle
-    comparison is recorded separately and must establish domain, mesh and time independence
-    before a published operating-state match is claimed.</p>
-
-    <p>The three-dimensional needle reference is
-    <a href="https://arxiv.org/pdf/patt-sol/9607005">Karma and Rappel's 1996 cubic-growth calculation</a>.
-    Its effective interface anisotropy includes a lattice calibration. Raw grid parameters and
-    measured material anisotropy are compared only after checking that discretization effect.</p>
-
-    <p>In an alloy the model also carries an <b>anti-trapping current</b>. With no diffusion in the
-    solid, an interface of finite width traps solute it should have rejected; the error is not small
-    and not random, it looks exactly like a larger partition coefficient, and a dendrite grown with
-    it is entirely convincing. The current cancels it. Measured here: with the current on the
-    effective partition coefficient in the 2D benchmark sits on the real k and does not care how wide the interface is;
-    with it off, k<sub>eff</sub> runs 24–40 % high and the excess <i>grows</i> with the width.</p>
-
-    <p>One consequence arrives for free. Under the calibrated alloy path one dimensionless degree is
-    the alloy's <b>freezing range</b> rather than the latent-heat interval L/c<sub>p</sub>, and the
-    app's own shipped nucleation potency — the same dial, unchanged — reads 11 K instead of 37 K.
-    That is the band real castings occupy, reached by fixing the temperature scale rather than by
-    touching the nucleation model.</p>
-
-    <p><b>Which alloy's freezing range, though.</b> Until v7.1 it was the base material's: ΔT₀ came
-    from <code>materials.ts</code>'s liquidus slope and partition coefficient, which for aluminium
-    are −3.4 K/wt% and 0.17 and are labelled, in that file, as Al–4Cu. Pour A356 through the
-    composer and the thermometer, the clock, the cell pitch and every SI readout downstream were
-    computed for a different alloy — for 4340 steel one dimensionless degree came out as
-    <b>1504 K</b>. The calibration now takes the poured mix's own numbers: the m·c-weighted mean
-    slope and the m·c-weighted mean partition, which are exactly the pseudo-binary the solver
-    integrates. 4340 reads 78 K, IN718 65 K against a published ~76 K, AZ91 121 K against ~130 K.</p>
-
-    <p><b>And where that stops being a freezing range, the app says so.</b> ΔT₀ = |m|c∞(1−k)/k is
-    not a thermal quantity dressed up — it is a composition scale. Written out, the capillary length
-    is d₀ = Γ/[|m|(1−k)·c<sub>ref</sub>], and it collapses to Γ/ΔT₀ for exactly one reference
-    liquid: c<sub>ref</sub> = c∞/k, the steady-state planar front. That is the reference this
-    solver's supersaturation is built on. It is also, for any alloy past its primary phase's
-    solubility limit, a composition the melt never reaches — A356's is 53 wt% Si against a 12.6 wt%
-    eutectic. So past that point the composer keeps the model's own gauge, because it is what the
-    kernel measures in, and labels it <b>EXTRAPOLATED GAUGE</b>: it names the reference liquid, the
-    invariant that has been passed, and the alloy's <i>real</i> primary freezing range beside it.
-    For A356 that reads 303 K of model interval against 35 K of real primary freezing — a factor of
-    8.7, printed rather than buried. A mix whose weighted partition falls outside (0,1) at all —
-    A356 plus a titanium refiner reads −0.59, because a k = 9 peritectic solute and a k = 0.12
-    eutectic one do not average into a pseudo-binary — is <b>declined</b>, and the calibration keeps
-    the material's own coefficients and says which clause fired.</p>
-
-    <p><b>And now it is drawn.</b> The composer carries a phase diagram for the poured mix's
-    dominant binary — the solute with the largest |m·c| — built from the cited invariants in
-    <code>phasedata.ts</code> (table version <b>1.2.0</b>, bumped on any row change, and every row
-    checked against openly licensed CALPHAD assessments, with database limitations and unknown
-    endpoints recorded in <a href="https://github.com/fronkt/solidify/blob/main/docs/PHASE-RECONCILIATION.md">docs/PHASE-RECONCILIATION.md</a>) and drawn as
-    STRAIGHT CHORDS from the pure metal's melting point to the invariant. The straightness is the point rather than a compromise: those chords ARE the
-    linearised diagram this solver integrates, so the figure is a picture of the model and the
-    real curvature becomes a caveat the panel prints instead of a feature it silently lacks. The
-    pour marker sits at the MELT's own liquidus, not the binary's, and the gap between them is
-    drawn and labelled — for 4340 steel the four non-carbon solutes pull the melt 13.3 K below
-    the Fe–C liquidus, and that shift is in the solver and is not on the diagram. Where a model
-    clamp has moved the depression the solver actually integrates, a second dashed line goes to
-    that point with the clamp named beside it; 1045 steel prints 40.7 K of depression and
-    integrates 12.9 K. A dashed cursor tracks the melt's live temperature and is simply ABSENT
-    when there is none — off the diagram, past the solidus, or on a material with no
-    thermometer — rather than pinned to an edge at zero.</p>
-
-    <p><b>What the figure will not do.</b> It is the dominant BINARY, never the alloy's own
-    diagram: for IN718-lite that is Ni–Nb, and the Laves phase and Nb-rich interdendritic liquid
-    that make IN718 interesting are on neither the drawing nor in the solver. The panel says so
-    on every multi-solute mix, with the dominant solute's share of the depression computed rather
-    than quoted. And one shipped row is refused outright: Ni–W's invariant at 1495 °C sits above
-    nickel's 1455 °C melting point, which means the liquidus rises and the first solid must be
-    the richer phase — but the row's C_SM 39.9 wt% against C_inv 45 wt% says the liquid is. Drawn,
-    its solidus would cross above its liquidus. Which of the three numbers is wrong has not been
-    resolved here, so nothing is invented: the row keeps the numbers as read from the ASM figure,
-    records the contradiction in its own source, and the figure declines to draw it.</p>
-
-    <p><b>Which phases, and which of them are actually grown.</b> A diagram is only worth drawing
-    if it answers the question a founder asks first: at THIS composition, what does equilibrium
-    leave when the casting is frozen? The composer answers it in two columns, and the milestone is
-    the gap between them. EQUILIBRIUM LEAVES is read off the cited invariants; SOLVER GROWS is
-    always exactly one, the base-rich primary, because <code>sim.ts</code>
-    and <code>sim3d.ts</code> carry one φ field and one solid phase. A356 at 7 wt% Si is past the
-    1.65 wt% that dissolves in (Al), so equilibrium ends it as (Al) + (Si) and the lever rule puts
-    49 % of the casting through the 577 °C eutectic — Gulliver–Scheil, which assumes a constant
-    partition and no back-diffusion into the solid, says 51 %. This solver grows none of it. Both
-    closed forms use the row's own chord partition k = C<sub>SM</sub>/C<sub>inv</sub> rather than
-    the shipped dilute k, and both numbers are printed. For a PERITECTIC the phase is named and
-    the number is <b>refused</b> — and the reason is a property of the quantity, not of the
-    tools. At a eutectic every drop of liquid remaining at T<sub>inv</sub> freezes there, so the
-    liquid fraction IS the share that freezes at the invariant. At a peritectic the reaction
-    consumes only part of that liquid and the rest freezes BELOW T<sub>p</sub> on the product's
-    own solidus, which makes the share a difference of two lever arms this table cannot close.
-    (An earlier draft of this paragraph said the lever rule and Gulliver–Scheil "do not describe
-    a peritectic". That is false on both halves — the lever rule is a tie-line mass balance that
-    knows nothing about reaction type, and Scheil is the standard tool for hypo- and
-    hyper-peritectic steel — and by this project's own rule a refusal that names the wrong
-    mechanism is a wrong statement rather than an absent one.) What the app <i>does</i> print for
-    a peritectic is sharper than a fraction. 1045 steel's 0.45 wt% C is past the 0.09 wt% that
-    dissolves in δ-ferrite, so a second phase is coming; and it is also past <b>0.17 wt%, the
-    composition of the reaction's own product</b>, so L + δ → γ consumes the δ-ferrite entirely
-    and the casting ends as austenite alone — while this solver grows δ-ferrite from the first frame to the last.
-    Its two columns read <code>gamma-austenite</code> against <code>(Fe)</code>. A melt leaner
-    than that product keeps some δ and the readout says so instead. Fe-Ni now uses a coherent
-    tuple from Luo et al. 2007 Table 1, including its 4.54 wt% Ni product. Fe-Si and Mg-Zr decline
-    phase claims because invariant endpoints remain unresolved. Fe-Si is refused beyond the
-    instrument's 5 wt% dilute scope. The
-    regimes are deliberately not called <i>hypoeutectic</i>: eight of the shipped rows are
-    peritectics and the word would be false for all of them. One honest consequence, printed
-    rather than hidden: the maximum solid solubility in this table is quoted AT the invariant
-    temperature and there is no solvus below it, so whatever precipitates on further cooling is
-    outside both the drawing and the solver.</p>
-
-    <p><b>And equilibrium is not the only thing with an opinion below the solubility limit.</b>
-    A melt leaner than C<sub>SM</sub> freezes single-phase only if the solid keeps up by
-    diffusion. Gulliver–Scheil assumes it does not, and it is defined on that side of the
-    boundary too — with no back-diffusion the last liquid between the arms still enriches to the
-    invariant, however lean the melt started. So the readout prints both: <b>AZ91 at 9 wt% Al is
-    inside Mg–Al's 12.9 wt% equilibrium limit, and Scheil puts 11.9 % of that casting through the
-    437 °C eutectic as β-Mg<sub>17</sub>Al<sub>12</sub></b> — which is the textbook as-cast
-    constituent of AZ91, and which this solver grows no more than it grows the equilibrium one.
-    AA2024's copper gives 8.8 % and the galvanising bath's aluminium 1.5 %. Below 1 % of the
-    casting the app stops calling it a phase, and that floor is not roundness: the two tables
-    this app ships disagree about k by ratios from 0.68 to 3.30 across the twenty-one complete
-    invariant rows, and from 0.68 to 2.34 over the fourteen <code>PD-CONSTRUCT-AGREE</code> actually
-    enters, so a predicted fraction of a few thousandths is smaller than the coefficients can
-    support. Leaving this out would have been
-    the one place the two-column device failed to fire — on a dendritic-solidification simulator,
-    where non-equilibrium freezing is the entire subject.</p>
-
-    <p><b>And the composition ceiling now comes from the diagram.</b> Each solute used to carry a
-    hand-picked slider maximum doing two jobs at once — an ergonomic, and the only thing standing
-    between a user and a melt whose first phase this solver cannot grow. It keeps the first job.
-    The second is derived: past the invariant liquid the FIRST solid to appear is no longer the
-    base-rich one, so that composition is refused inside <code>derive()</code>, where a hand-built
-    <code>#alloy=</code> link and <code>window.__solidify.alloy</code> cannot walk around it, with
-    the phase and the number named. Measured against the table, the hand-picked cap reached past
-    the invariant for six of the twenty-five pairs — and one of them, Zn–Al, had its slider
-    maximum sitting exactly ON the eutectic at 5 wt%. <b>Cast iron therefore leaves the
-    composer.</b> Fe–C stops at 0.52 wt% C against the 0.53 wt% peritectic: past it the primary
-    phase is austenite, and this app models the steel as bcc δ-ferrite, so what it drew for a
-    3 wt% C melt was not an approximation of cast iron but a different casting altogether. 1045
-    and 4340 are unaffected at 0.45 and 0.40 wt% C. Existing deep links are never rejected for
-    this — they restore, clamp to the ceiling, and say so on the same channel the clamps and
-    refusals already use.</p>
-
-    <p><b>And the input chemistry now opens onto the whole periodic table, while the output to the
-    solver stays a one-channel pseudo-binary.</b> A table of all 118 elements carries six numbers
-    each — atomic mass, a radius, a Pauling electronegativity, a melting point, a boiling point
-    and an enthalpy of vaporisation. Four of them are read by a refusal and two are recorded and
-    not: the electronegativity difference is the OTHER Hume-Rothery rule, the electrochemical
-    factor, which this file deliberately does not apply, and the vapour rule takes its temperature
-    from the BASE rather than from the element. Every one of the
-    6 × 118 = <b>708</b> (base, element) pairs is placed in exactly one of four tiers with a
-    sentence saying why. Exactly <b>25</b> are ASSESSED, which is precisely the set that already
-    had both a cited coefficient row and a cited invariant row: <b>this adds no new pourable
-    chemistry at all</b>, and that is the point. The other 683 are the content. <b>47 elements are
-    refused before the base is even consulted</b> — the noble gases (a closed shell and no metallic
-    bond), the halogens (an ionic salt or a volatile halide, which is the flux that covers a melt
-    rather than anything dissolved in it), the 35 elements that are not primordial, and H, N and O, whose
-    content is set by the atmosphere over the melt rather than by a weight you add. That last tier
-    is base-INDEPENDENT while its physics is not, and the refusals say so per base rather than
-    quoting one law six times: hydrogen obeys Sieverts' law C = S·√p in every one of them and
-    is already modelled in aluminium, where the porosity layer carries real solubilities; nitrogen
-    obeys it in iron and nickel, does not dissolve in aluminium or magnesium but REACTS to AlN and
-    Mg₃N₂, and is near-insoluble in copper, which is why it serves there as a purge gas;
-    and oxygen dissolves in iron and is measured in-ladle with a probe, reports to dross in
-    aluminium, and in copper is a deliberate compositional variable — tough-pitch copper carries
-    0.02–0.05 wt% of it on purpose, which is the one cell in this grid where a user would be
-    right to expect a number. <b>Sulphur and phosphorus are
-    deliberately NOT in that gas tier.</b> They are dissolved solutes obeying dilute-solution
-    thermodynamics, and they are the canonical low-<i>k</i> segregators — the physics this solver
-    models best; pointing a user at the hydrogen porosity layer for sulphur would point them at a
-    layer that models hydrogen and nothing else. They are refused for the honest reason instead —
-    no coefficient row has been entered — and entering Fe–S and Fe–P is named as the single best
-    addition this table could take.</p>
-
-    <p><b>The vapour rule is where two tabulated numbers reproduce foundry practice, and it
-    advises rather than refuses.</b> Clausius–Clapeyron anchored at the boiling point times
-    Raoult's law, p<sub>i</sub> = x<sub>i</sub>·exp(−ΔH<sub>vap</sub>/R·(1/T − 1/T<sub>b</sub>)),
-    evaluated at the base's own melting point: zinc reads <b>59 atm</b> over liquid iron, which is
-    why zinc-coated scrap fumes off as ZnO in a steel charge — a yield loss, a fume hazard and a
-    baghouse-dust problem rather than a prohibition, since coated scrap is normal EAF feedstock
-    and a zinc-recovery industry exists downstream of it; magnesium <b>16 atm</b>, which is why
-    nodularising ductile iron is a plunge and not a stir; mercury <b>39 atm</b> over liquid
-    aluminium; and manganese <b>0.037 atm</b>, which is a welding-fume hazard and correctly not a
-    reason to refuse manganese steel. Applied as a refusal the same rule refuses brass — Cu–30Zn
-    computes 1.4 atm and brass is real, because zinc's activity in copper is far below ideal and
-    the activity coefficient that would fix the number is exactly what this app does not carry. So
-    every line above the fume threshold says that out loud. Two more honest limits are printed
-    rather than hidden. The rule is evaluated at the <i>pure base's</i> melting point, because
-    only 16 of the 118 elements carry a coefficient row in any base at all and the rest have no
-    liquidus to depress; recomputing every
-    assessed pair at its own depressed liquidus moves the answer by 3 % for the only assessed pair
-    whose pressure even reaches the fume band (Cu-Zn); for the rest it lands on numbers so small
-    that nothing about them is a decision. And the size rule knows which convention it is
-    subtracting: Hume-Rothery's 15 % band is about <i>substitutional</i> solubility, and applied to
-    Fe–C it returns a meaningless −39.6 % because it is differencing carbon's covalent radius
-    against iron's metallic one for an atom that never occupies a substitutional site. Carbon,
-    nitrogen, boron and hydrogen — four elements, not three — are screened by Hägg's
-    r/R &lt; 0.59 interstitial criterion instead — where Fe–C's
-    0.604 sits just <i>outside</i> the limit, which is why Fe<sub>3</sub>C is a complex
-    orthorhombic carbide rather than a simple interstitial phase.</p>
-
-    <p><b>The limit this milestone makes easier to violate, stated plainly.</b> The composer sums
-    solutes in the dilute limit: ΔT<sub>L</sub> = Σm<sub>i</sub>c<sub>i</sub> and
-    Q = Σm<sub>i</sub>c<sub>i</sub>(k<sub>i</sub>−1), which assumes <b>zero solute–solute
-    interaction</b> — every addition behaves as though the others were not there. That is a fair
-    approximation for the dilute, few-element presets this app ships and it is not one for an
-    arbitrary handful of elements off an open table, which is exactly what an open table invites.
-    The mix then collapses onto ONE pseudo-binary for the solver, because there is one solute
-    field: the m·c-weighted mean partition, with the largest |m·c| term naming the binary the
-    figure draws. Nothing about opening the input widens that channel. Two more things this table
-    will not do: it ships no ESTIMATED tier and no Darken–Gurry ellipse (measured once over this
-    app's own 25 pairs, that ellipse rejects 10 of them and eight of the 9 presets contain at
-    least one pair it rejects — the galvanising bath, whose only addition is Zn–Al, is the
-    single exception — a category error, since it predicts <i>extensive</i> solubility
-    while every casting solute here is dilute and bounded by an invariant. The ellipse is
-    deliberately not in the code, so nothing in the build re-derives that count), and it does not
-    infer miscibility gaps from Miedema's ΔH<sub>mix</sub>, whose sign gives neither a gap
-    temperature nor a gap composition. Five monotectic systems have been <b>checked</b> and are
-    refused by name — cu-Pb, al-Bi, al-In, al-Pb, fe-Ag — and an unlisted one is refused for being
-    unchecked, never for a mechanism nobody looked up.</p>
-
-    <p><b>v7.1 P5 puts that table on screen, and the refusals are the part you can see.</b> The
-    composer's "+ add element" list is closed — six solutes at most for any base, every other
-    element simply absent — so it answered "what does mercury do to an aluminium melt?" by not
-    listing mercury. Beneath it now sits the periodic table, <b>all 118 elements</b> laid out in
-    18 columns, coloured by tier for the melt you are standing over, and every cell answers when
-    it is tapped. Each is classified <b>at 1 wt%, or at half its own invariant composition where
-    that is smaller</b>, and the qualifier is not fussiness: at a flat 1 wt% three of the
-    twenty-five pourable pairs — <b>al-Ti, fe-C and mg-Zr</b> — classify as OUTSIDE-THE-MODEL,
-    because 1 wt% is past all three of their invariants, so carbon-in-steel would have painted
-    as a refusal the moment the panel opened. Switching the base from aluminium to iron moves
-    <b>14 of the 118 cells</b> into a different tier and leaves <b>104 where they were</b>; a
-    second channel moves independently of the first, as a fume stripe appears under <b>10 more
-    elements whose tier does not change at all</b> — sodium, potassium, calcium and cadmium among
-    them — because the rule is evaluated at the <i>pure base's melting point</i>, and
-    <b>every one of their boiling points falls between aluminium's 660 °C and iron's 1538 °C</b>.
-    Not by much, at either end: caesium boils 11 K above the aluminium melting point and calcium
-    54 K below the iron one, so "hundreds of degrees" — which is what this paragraph said first —
-    is wrong in both directions. The one-line reason a cell carries is <b>composed in the
-    classifier and never cut from the paragraph</b>: every one of these sentences puts its number
-    in the middle, so a truncation to fit a panel keeps the throat-clearing and drops the
-    measurement. And opening the input changed no chemistry — <b>all 9 presets and all 25 legacy
-    pairs</b> derive a bit-identical parameter bundle and an identical clamp list against a
-    reference measured on the commit before this one, compared byte for byte rather than
-    reasoned about.</p>
-
-    <p>What it is checked against, and what it measured:</p>
-    <table>
-      <tr><th>TEST</th><th>AGAINST</th><th>RESULT</th></tr>
-      <tr><td>Equilibrium interface profile</td><td>tanh of half-width √2·W<sub>0</sub></td><td>0.997 W<sub>0</sub></td></tr>
-      <tr><td>Critical nucleus radius</td><td>Gibbs–Thomson R* = d<sub>0</sub>/Δ</td><td>22.21 vs 22.10 W<sub>0</sub> (0.5 %)</td></tr>
-      <tr><td>Steady tip velocity V·d<sub>0</sub>/D</td><td>Karma–Rappel 1998, 2D microscopic solvability at Δ = 0.55, ε₄ = 0.05: <b>0.0170</b></td><td><b>0.01679</b> (1.2 %)</td></tr>
-      <tr><td>Independence of interface width</td><td>same answer at W<sub>0</sub>/d<sub>0</sub> = 1.8 → 3.6</td><td>6.4 % spread</td></tr>
-      <tr><td>Parabolic tip radius ρ/d<sub>0</sub></td><td>Tong, Beckermann, Karma &amp; Li 2001: 27.6</td><td>28.8 (4.4 %)</td></tr>
-      <tr><td>Effective partition coefficient</td><td>the real k, independent of interface width</td><td>k<sub>eff</sub> = 0.135–0.150 against k = 0.15; 0.186–0.209 with the current off</td></tr>
-      <tr><td>Solute conservation</td><td>flat over 20 000 substeps of growth</td><td>1.6×10⁻³</td></tr>
-    </table>
-
-    <p>And what it does <i>not</i> fix. The 2D coupled-alloy Lewis mismatch is unchanged: one explicit
-    grid at one timestep still cannot carry heat and solute four orders apart, and its clock anchors
-    on solute. The calibrated 3D alloy path instead uses an imposed temperature field. The 2D
-    measurements above do not establish a 3D needle operating state. The thin-interface expansion has
-    a validity bound of its own, τ<sub>0</sub>V/W<sub>0</sub> ≲ 0.2, which a deeply undercooled pure
-    melt reaches by λ ≈ 4 — the app reports λ and the ratio it implies so that stays visible.</p>
-
-    <h2><span class="secN">09</span> Heat treatment: the second clock</h2>
-    <p>Everything above runs on the solidification clock, and under the calibrated solver a timestep
-    on that clock is of order 10⁻⁷ s. A heat treatment is four hours — about 10¹¹ timesteps — so the
-    phase-field solver can never be integrated through one: not slowly, not on a bigger GPU, not
-    ever. Pretending otherwise would be the category of claim this page exists to rule out. So heat
-    treatment is a <b>separate model on a separate clock</b>. You set a real schedule in °C and
-    hours; every rate law the material shipped with is integrated over that schedule's whole
-    trajectory — Simpson through the ramps, because an Arrhenius rate varies by orders of magnitude
-    across one and charging only the hold under-counts a slow furnace by a measured 31 % — and the
-    integrals become budgets a GPU pass then spends. <i>φ</i> is frozen for the duration, which is
-    what solid state means, so the two clocks never have to be reconciled. No panel ever prints an
-    unlabelled time: sim time is solidification, real hours are the furnace.</p>
-
-    <p><b>There is no process switch.</b> You set an environment — a temperature schedule — and the
-    model reports what happened: grains coarsened this much, solute flattened that much, this
-    thickness of scale grew. "Stress relief" is not a mode; it is what you get when you pick a low
-    temperature and every integral comes back negligible, and the report card says so because the
-    arithmetic said so. This is the same move that deleted the nucleation-rate slider in v4.0: the
-    dependent quantity stops being a dial.</p>
-
-    <div class="eq">
-      D<sup>n</sup> − D<sub>0</sub><sup>n</sup> = ∫k(T)·dt &nbsp;&nbsp;·&nbsp;&nbsp;
-      D<sup>m</sup> − D<sub>0</sub><sup>m</sup> = K<sub>MC</sub>·S
-      <div class="c">two growth laws and two exponents. n is the MATERIAL's, from its sourced
-      coefficients; m is the MODEL's — a measured property of the Monte Carlo Potts pass, like
-      K<sub>MC</sub> itself. They meet at the endpoint and nowhere else: the material law says where
-      the grain finishes, the model spends whatever sweeps its own kinetics need to get there, and
-      the trajectory in between is the model's, not the material's</div>
-    </div>
-
-    <p>Grain growth is a sublattice Monte Carlo Potts pass on the as-cast grain field, and its two
-    constants are <b>measured, not assumed</b>. Ideal curvature-driven growth is parabolic;
-    a Potts lattice is not — it pins, and its measured exponent comes out m = 2.44 in the plane
-    (three independent casts: 2.38 / 2.44 / 2.61, and this coincides with the canonical
-    Potts result R ∝ t<sup>0.41</sup>, measured here rather than adopted) and m = 2.25 in the
-    volume, where all the ingredients differ: 26 neighbours, eight sublattice colours, a cubic
-    lattice with its own pinning geometry. Assuming the textbook m = 2 costs a <b>4.8×</b> error in
-    the sweep budget — in a number nothing else in the app would have contradicted — which is why
-    the suite makes the two exponents disagree on purpose (<code>HT-SWEEPS</code>) and re-measures
-    K<sub>MC</sub>'s drift on every run.</p>
-
-    <p><b>Annealing twins</b> appear in the volume, where a Σ3 — 60° about ⟨111⟩ — means something.
-    The data decides who twins: stacking-fault energies were looked up with sources, and the matrix
-    they produce is the teaching point. Copper (78 mJ/m²) and cobalt (≈20) twin; aluminium (166) and
-    nickel (128) refuse with their numbers printed; steel refuses structurally, because it is
-    modelled as BCC δ-ferrite and annealing twins are an austenite phenomenon this solver has no
-    phase for. A twin that forms must also survive its own anneal, and that takes two pieces of real
-    physics: a Σ3 energy cusp at the measured copper ratio (coherent ≈ 24 against general ≈ 625
-    mJ/m²) and a Σ3 mobility gate — coherent interfaces cannot migrate by single-atom shuffles,
-    which is why twins survive where ordinary boundaries sweep past.</p>
-
-    <div class="note">
-      <div class="t">A NUCLEATION MECHANISM THAT WAS BUILT AND MEASURED DEAD, TWICE</div>
-      <p>The plan's twin-spawn mechanism — a per-cell flip at the migrating boundary, the same idiom
-      the growth twins use — was built exactly as designed and measured dead: 3 of 512 spawned twins
-      survived 300 sweeps, and none survived 450. Adding the mobility gate (true physics) helped by
-      5× and was still dead. The real killer was geometric: a cell adopting a one-voxel twin pays
-      ~12 neighbours of Σ3 energy where adopting its parent pays ~one — an artificial nucleation
-      barrier no cusp value removes, because a {111} stacking event is <b>sub-grid</b> for a
-      per-cell flip. Real annealing twins are born as plates, and mesoscale models in the literature
-      insert them. So nucleation here is a stamped {111} plate in exact Σ3 registry on a probed
-      boundary, and everything after birth is the pass's own physics. <b>The plate is the one
-      inserted thing</b> — stated here for the same reason the 2D solver does not claim to resolve
-      capillary-length nucleation.</p>
-    </div>
-
-    <p><b>Homogenization</b> is its own pass — masked isotropic diffusion of solute through the
-    solid skeleton at frozen <i>φ</i> — because under the calibrated alloy model the solid
-    diffusivity is exactly zero and there is nothing to reuse. The map from schedule to iterations
-    is exact: iterations = Dt/(cell²·D̃), with Dt the schedule's own Arrhenius integral — no
-    wavelength, no fitted constant — which is why its gate can be an equality test: a seeded
-    eigenmode of the discrete stencil must decay as (1 − 2D̃(1 − cos k))<sup>I</sup>, and does, to
-    a relative error of 9·10⁻⁷ in both dimensions with conservation to 10⁻⁷. The continuum answer
-    e<sup>−Dk²t</sup> differs from the discrete one by +0.012 % / −0.034 % at the tested modes, and
-    that gap is <i>printed</i>, because it is the model's own discretization error. The cost wall is
-    budgeted honestly: explicit diffusion under the calibrated 0.087 µm cell can demand millions of
-    iterations, so the pass runs what fits and the card reports the delivered fraction of the
-    requested Dt — never silently fewer.</p>
-
-    <p><b>Oxidation and decarburization</b> are analytic card lines, not fields: scale grows as
-    x = √(∫k<sub>p</sub>·dt) for every material with a sourced parabolic constant, and steel alone
-    decarburizes as x = 2√(D<sub>C</sub>t), because steel is the one material here whose solute is
-    carbon. The span is the teaching point — aluminium's passive film comes out 2.3 nm after
-    14.5 h at 520 °C ("aluminium does not scale", made visible) against steel's mill-scale millimetres.
-    Ice and succinonitrile refuse by name: a zero in the constants table means "no constant was
-    looked up", not "0 µm of scale". The scale is deliberately <i>not</i> painted into the fields —
-    <i>T</i>, <i>c</i> and age are the as-cast record, and the card is where the number lives.</p>
-
-    <p><b>Strength rides the grain size.</b> The report card closes with σ<sub>y</sub> = σ₀ +
-    k<sub>HP</sub>/√d̄ — Hall–Petch on the measured census, before and after — and a verdict
-    against a spec you commit <i>before</i> the run, the way a real heat treatment answers to a
-    drawing requirement. Three limits are printed with the number. It is grain-size strengthening
-    alone: no precipitate term and no work-hardening term — a cold-work dial deposits stored energy
-    here, but as a drive on the anneal and never as strength, so a deformed casting's
-    σ<sub>y</sub> still prices grain size alone; see the cold-work paragraphs below and the aging
-    row. The d̄ under the root is
-    the census's equivalent diameter (area-equivalent circle in the plane, volume-equivalent sphere
-    in the volume), an O(1) stereological factor from the mean linear intercept the tabulated
-    constants were fitted to. And the µm inside √d̄ stand on the declared resolution — "you set it"
-    is the length anchor's provenance, and the strength inherits it. One consequence is stated
-    rather than hidden: this furnace can only coarsen, and coarser is softer, so a spec above the
-    casting's current strength is unreachable by any schedule. Meeting it takes a finer pour, and
-    the panel says so before you waste the furnace time.</p>
-
-    <p><b>Cold work is the anneal's second driving force</b>, and until v7.0 curvature was the only
-    one. The volume's furnace carries a per-grain stored energy H — one f32 per grain id, 4096 of
-    them, 16 KB in a storage buffer the GPU binds <i>read</i> and never writes — and the Potts
-    acceptance line grows one term: dE = e<sub>new</sub> − e<sub>now</sub> + (H(cand) − H(mine)).
-    A voxel that adopts a neighbour's grain id adopts that grain's stored energy with it, so the
-    move costs their <i>difference</i>, which is negative when the candidate is the less deformed
-    grain — the boundary sweeps into the more deformed grain and the less deformed one grows. That
-    is strain-induced boundary migration, and it is the whole drive. There is no per-voxel field,
-    and what removes it is an identity, not an approximation: h(x) ≡ H(id(x)) holds after every
-    flip because it held before it, a flip being nothing but the adoption of a neighbour's id. The
-    per-voxel version would have been 28.3 MB at 192³, 56.6 MB for the ping-pong pair; the
-    per-grain buffer deletes the ping-pong, the lockstep, the parity argument and the
-    out-of-memory refusal path along with the texture. The unit is the bond energy J<sub>b</sub>,
-    the Potts model's own, and stays that way: there is no SI-to-Potts energy bridge in this app and
-    C3a does not add one, because the material law sets the endpoint and the measured lattice
-    constants spend the sweeps, so no energy has to cross between the two.</p>
-
-    <p>The barrier that drive has to clear is <b>derived, not fitted</b>. A voxel on a flat {100}
-    boundary sees 26 neighbours: 9 across the interface, 17 on its own side. Adopting the
-    neighbouring grain swaps those counts, so a flat-front advance runs e<sub>now</sub> = 9 to
-    e<sub>new</sub> = 17 — dE = +8 J<sub>b</sub>, enumerated from the 26 offsets and owing nothing to
-    the shader. At the shipped kT = 0.6 that costs exp(−8/0.6) ≈ 1.62×10⁻⁶ per attempt, so a flat
-    front here is very nearly immobile and coarsening proceeds at kinks and curvature instead. It
-    is the SCALE a stored-energy drive has to be read against — and it is an upper bound on the
-    barrier that actually gates migration, not a measurement of it.</p>
-
-    <p>Measured on a bicrystal at 128³ over a 5-sweep window, deterministic to four figures across
-    repeats:</p>
-
-    <table>
-      <tr><th>ΔH (J<sub>b</sub>)</th><td>0</td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td><td>8</td><td>9</td><td>10</td><td>13</td><td>20</td></tr>
-      <tr><th>v (cells/sweep)</th><td>0</td><td>0</td><td>0</td><td>0</td><td>0.0003</td><td>0.0142</td><td>0.1524</td><td>0.2173</td><td>0.3170</td><td>0.3380</td><td>0.3614</td><td>0.4330</td><td>0.5827</td></tr>
-    </table>
-
-    <p>Three things that ladder says, each of which a "threshold at 8" story gets wrong in a
-    different direction. <b>The onset sits near 5–6, not 8.</b> The exponential regime ends there:
-    4 → 5 is ×47 and 5 → 6 is ×11, but 6 → 7 is only ×1.4, where a pure Boltzmann tail at kT = 0.6
-    would keep multiplying by exp(1/0.6) ≈ 5.3 the whole way to 8. A front that has begun to move
-    is no longer flat, and a kink carries a lower barrier than the flat face. <b>The zeros are
-    small numbers, not exact ones</b> — a sub-barrier move costs exp(−(8 − ΔH)/kT), so over the
-    gate's window on 128² boundary cells the expected count is a fraction of a flip at ΔH = 0 and
-    about one at ΔH = 2; runs on identical code have read both 0 and 2, and the gate asserts the
-    <i>separation</i>, creep three orders below the neutral-point rate, never v = 0. And <b>the
-    neutral-point velocity brackets 9/26 rather than confirming it.</b> At ΔH = 8 the flat move is
-    energy-neutral and this kernel takes neutral moves unconditionally, so a perfectly flat front
-    would run at its candidate draw, 9 unlike neighbours of 26 = 0.3462 cells/sweep. The
-    measurement runs above that in the first sweep and below it after — 0.3918, 0.3170 and 0.2137
-    at 1, 5 and 60 sweeps — and neither departure is noise. Above, because a sweep is
-    <i>eight</i> sequential sublattice passes: the front roughens inside its own first sweep and
-    the later colours see a raised unlike-neighbour count. Below, because recovery is <i>live</i>
-    throughout, so a nominal ΔH = 8 has decayed to an effective 5.4 by sweep 60. There is no
-    recovery-free arm to measure against — recovery is intrinsic to the stored mode — and an
-    earlier version of this page quoted a "static" ladder that was not one.</p>
-
-    <p>What has teeth instead is that the ladder brackets the barrier from <i>both</i> sides, and
-    the gate asserts both. A barrier of 10 would leave ΔH = 8 uphill by 2 and put v(8) near
-    0.3462·exp(−2/0.6) ≈ 0.012, thirty times under what is measured. A barrier of 6 would make
-    ΔH = 6 the neutral point and put v(6) near the full draw, seven times over the measured
-    0.152.</p>
-
-    <p><b>Recovery has no pass.</b> Dislocations annihilate second order, dH/dS = −k·H², which
-    integrates exactly to H<sub>S</sub> = H₀/(1 + rec·H₀) with rec = 10⁻³·S — the 10⁻³ chosen so
-    the stall lands mid-budget and then measured, see below — and the shader
-    evaluates that closed form from one scalar the uniform already carried. Nothing is stepped, so
-    there is no per-step ODE error and no f32 chain accumulated over thousands of sweeps, and
-    recovery cannot be applied twice, applied per-colour instead of per-sweep, or land one sweep
-    stale — it is never applied at all. Three properties follow with no clamp anywhere:
-    H<sub>S</sub> ≥ 0, H<sub>S</sub> ≤ H₀, and H<sub>S</sub> strictly decreasing in S. High-H grains
-    recover faster, so the spread of the drive narrows rather than merely rescaling. Driven from
-    ΔH₀ = 20 on the same bicrystal, the front runs 0.3996 cells/sweep over the first 100 sweeps and
-    is under a thousandth of that by 800, at H<sub>S</sub> = 1.18 — inside the band the ladder
-    above measures immobile, and well inside the 2000-sweep cap, so a schedule the panel will
-    accept can reach the stall. Every run so far has read a net displacement of exactly zero voxels
-    in that last window, but the gate asserts the separation and not the zero, for the same Poisson
-    reason the ladder's zeros are not asserted either. What makes it a measurement and not a
-    restatement of the integral is where the stall <i>lands</i>: the ladder gate hands over the
-    largest drive its own rungs measured below the creep floor, in the same run on the same GPU,
-    and the recovery gate requires the front to start above that band and stop inside it. Recovery
-    applied per-colour, applied twice or sign-flipped moves where the stall lands while still
-    decaying monotonically.</p>
-
-    <p><b>A stronger correspondence was claimed here, and it is retracted.</b> This page said each
-    100-sweep window's velocity falls between the ladder's velocities at that window's
-    H<sub>S</sub> endpoints. It does not: windows 300 through 700 read 0.0144 down to 0.0003 where
-    the ladder reads 0.0000 at the same drives, one to two orders out. Neither measurement is
-    wrong. A front that has been migrating for hundreds of sweeps is <i>rough</i>, and a rough
-    front moves at drives a flat one cannot — the same effect that puts the ladder's own onset near
-    5–6 rather than at 8. Two experiments that differ in front morphology cannot bracket each other
-    window by window, and nothing in the suite ever asserted that they did. The furnace reaches
-    recovery only through the sweep count it bought, never through a temperature.</p>
-
-    <p><b>Which grain stores the deformation is a declared fiction.</b> The deposit spreads h
-    uniform on [0, 2·work] over the grain ids through a fixed salt — one constant, like the Zener
-    fabric's, so replicates at different seeds anneal different microstructures against one work
-    fabric — and the dial therefore reads as the mean stored energy. But a hash over grain ids is
-    not a Taylor factor. Predicting which grain stores more deformation takes a slip-system set and
-    each orientation's relation to the loading axis; the quaternions here carry orientation without
-    slip geometry, so the model has no basis to prefer one grain over another and does not pretend
-    to have one. The fabric is there because the field has to be heterogeneous to do anything at
-    all: a <i>uniform</i> stored-energy field is exactly inert, since H(cand) − H(mine) is then 0 at
-    every boundary and the acceptance line is the pre-C3a one. The heterogeneity is what drives; the
-    pattern of it is the fiction. What the fiction is load-bearing for is one claim — that the drive
-    <i>selects</i> — and that claim was gated against a criterion fixed before the measurement ran:
-    across three pours the less-deformed half of the casting must take volume share from the more
-    deformed half, by at least three times whatever the same casts drift when annealed undriven. It
-    took +0.495 to +0.501 against a control drift of ±0.007.</p>
-
-    <p><b>The panel withdraws the endpoint when the dial leaves zero.</b> Cold work is a sixth
-    furnace dial, 0 to 10 J<sub>b</sub> in steps of 0.5, drawn in the volume only — a dimension
-    switch closes the panel, so a panel's dial set is stable for its lifetime and the 2D operator
-    surface is byte-identical to what shipped before. It is 3D by construction, not by preference:
-    the plane's Moore-8 stencil gives 3 → 5 and a barrier of +2, and borrowing a number across a
-    stencil change is the mistake that earned the volume's Potts pass its own measured constants, so
-    there is no 2D stored-energy kernel and no 2D cold-work dial. Above zero the endpoint goes. The
-    sourced grain-growth coefficients price curvature-driven growth alone, and a stored-energy field
-    is a second driving force the calibration that turns those coefficients into sweeps was never
-    fitted against; the schedule still buys its sweeps — that is a time conversion, and it is
-    untouched — but no d̄ endpoint is predicted, the pre-run Hall–Petch spec sentence above is
-    withdrawn with it, and the report card's law-endpoint row says <i>withdrawn</i> and prints no
-    micron figure. The card's measured before/after rows and its post-run spec verdict stand,
-    because those stand on a census. The dial switches one thing off as well: with cold work
-    dialled, the Σ3 annealing-twin pass is held back, and the card says why. A twin plate's id is
-    allocated on the GPU mid-anneal, so it would be born carrying whatever the work fabric had
-    assigned to an id nobody had used yet — and a plate that draws less than the parent it sits
-    inside eats that parent instead of twinning it. Gates: the ladder and the derived barrier
-    (<code>HT3-SE-FRONT</code>), the driven stall (<code>HT3-SE-RECOVERY-STALL</code>), a
-    zero-valued field through the stored pipeline reproducing the pre-C3a kernel bit for bit
-    (<code>HT3-SE-OFF-IDENTITY</code>), the uniform field's exact inertness
-    (<code>HT3-SE-UNIFORM-INERT</code>), a readback of the buffer against the CPU mirror in all
-    4096 entries — the witness that nothing on the GPU ever writes H
-    (<code>HT3-SE-COHERENCE</code>), the pre-registered selection criterion
-    (<code>HT3-SE-SELECTION</code>) and the panel's withdrawal end to end
-    (<code>HT3-SE-PANEL</code>); in CI, without a browser, the shader text
-    (<code>SE-STRUCTURE</code>) and the line between the furnace's °C and the lattice's
-    dimensionless knobs (<code>HT-TEMP-SENSITIVITY</code>).</p>
-
-    <p>What it is checked against, and what it measured:</p>
-    <table>
-      <tr><th>TEST</th><th>AGAINST</th><th>RESULT</th></tr>
-      <tr><td>Arrhenius integral, hold</td><td>closed form</td><td>rel. err. 3×10⁻¹⁵</td></tr>
-      <tr><td>Arrhenius integral, ramp</td><td>the same quadrature at 64× the samples (a ramp has no elementary integral)</td><td>3×10⁻⁸</td></tr>
-      <tr><td>2D Potts kinetics (m, K<sub>MC</sub>)</td><td>its own fit, pinned intercept, transient excluded</td><td>m = 2.44 (2.38 / 2.44 / 2.61 across casts), K = 4.79, drift gated at 25 %</td></tr>
-      <tr><td>3D Potts kinetics (m, K<sub>MC</sub>)</td><td>same doctrine, measured separately — 26 neighbours, 8 colours</td><td>m = 2.25, K = 1.28 (six casts spread K/K<sub>shipped</sub> 1.186–0.886), drift gated at 25 %</td></tr>
-      <tr><td>Panel end-to-end (2D)</td><td>the material law's endpoint for a 12 h / 520 °C anneal of aluminium</td><td>d̄ 14.0 → 48.6 µm vs 50.4 µm — 0.96–1.00 of the law across runs</td></tr>
-      <tr><td>Homogenization decay</td><td>the DISCRETE stencil eigenvalue, exact</td><td>9×10⁻⁷ (2D and 3D); continuum gap +0.012 % / −0.034 %, printed</td></tr>
-      <tr><td>Σ3 twin registry</td><td>exact Σ3 against each twin's real volume neighbours</td><td>25/26 exact; 22 of 26 alive after 150 further sweeps</td></tr>
-      <tr><td>σ<sub>y</sub> row and spec verdict</td><td>Hall–Petch on the same census the gate reads; a spec committed under the as-cast strength</td><td>row equals the law to 0.2 MPa; the anneal misses the spec, the stress relief meets its own</td></tr>
-      <tr><td>Stored-energy front (3D)</td><td>a barrier enumerated from the 26 offsets independently of the shader — a flat {100} advance is 9 → 17 unlike neighbours, ΔH = 8 J<sub>b</sub> — and the two neighbouring barriers it must exclude</td><td>on a 5-sweep window, v(8) = 0.317 = 0.92 of the candidate draw where a barrier of 10 predicts 0.035 of it, and v(6) = 0.152 = 0.44 where a barrier of 6 predicts the whole of it; sub-barrier creep three orders below the neutral point, asserted as a separation and never as a zero</td></tr>
-      <tr><td>Recovery stall (3D)</td><td>the immobile band the ladder gate measures in the same run, on the same GPU</td><td>driven from ΔH₀ = 20, the front falls under a thousandth of its opening velocity by 800 sweeps and stalls at H<sub>S</sub> = 1.18, having started at 4.0 — above a band measured immobile to ΔH = 2, and stopping inside it</td></tr>
-      <tr><td>Stored energy off, and stored energy uniform (3D)</td><td>three arms on one restored cast: the pre-C3a kernel, the same stored pipeline and bind-group layout at a zero field, and the mode genuinely on</td><td>the zero arm is element-exact against the pre-C3a arm with both arms flipping hundreds of thousands of voxels, the on arm required to differ, and a <i>uniform</i> field exactly inert — the flip counts themselves are cast-dependent and are not what is asserted</td></tr>
-      <tr><td>Stored-energy coherence (3D)</td><td>the CPU mirror of the same buffer, read back off the device after a real anneal</td><td>equal in all 4096 entries, with no invented or zeroed grain ids and φ untouched — the witness that nothing on the GPU writes H</td></tr>
-      <tr><td>Stored-energy selection (3D)</td><td>the same three pours annealed undriven, partitioned by the same labels, against a criterion fixed before the run</td><td>the less-deformed half takes +0.495 to +0.501 of volume share against a control drift of ±0.007 — 73× to 6238×, where 3× was the criterion; and the effect is graded by the dial (+0.294, +0.441, +0.494 at 0.75, 1.5 and 3 J<sub>b</sub>)</td></tr>
-    </table>
-
-    <p>And what it does <i>not</i> do. <b>No precipitate aging, no T6</b>: the material table
-    carries no precipitate kinetics — no volume fractions, no coarsening rates — and inventing them
-    to draw a JMAK curve is the one thing this instrument does not do, so the strength row is
-    grain size only and says so. <b>Grain growth is unpinned by default</b> — no solute drag, no
-    thermal grooving — but as of v7.0 the furnace panel carries a <b>Zener dispersion</b>: a
-    deterministic fabric of second-phase particles the anneal's boundaries must drag through,
-    implemented as mask-ineligible cells (the exact wall semantics liquid films and mould walls
-    already have — the H2b postmortem watched films pin these boundaries before any code asked
-    for it). The pinned specimen stalls at a limit that is <i>measured on this lattice</i>,
-    d<sub>lim</sub> = 7.24·r<sup>0.205</sup>/f<sup>0.356</sup> cells (nine plateaued ladders,
-    f 0.03–0.12, r 1–5 cells, worst residual 5.4 %) — deliberately not the textbook exponents:
-    classic Zener derives r/f in 3D, Srolovitz's T = 0 2D Potts measures ~r/√f with complete
-    stagnation, and this model anneals at finite kT, where thermal flips detach boundaries from
-    small obstacles and the count-weighted census reads the whole pinned population. The volume
-    shares the mechanism; its own limit law is a measurement not yet taken, and the panel says so
-    rather than borrowing the fit across a dimension change. Gates: pinning 0 is bit-identical to
-    the anneal with the mode absent, while the unpinned kinetics keep measuring their shipped
-    constants (<code>GG-PIN-OFF-IDENTITY</code> + the standing <code>GG-KMC</code> drift gate —
-    the two halves of "the pre-v7 furnace, unchanged"), and the pinned arm must sit on the
-    measured law, not merely stop (<code>GG-PIN-LIMIT</code>).
-
-    <b>Cold work drives; recrystallization runs on the sweep clock</b>. The sweep
-    budget is bought by the grain-growth law's Arrhenius integral, so this furnace cannot yet price
-    a recrystallization anneal below the grain-growth window: such a schedule buys nearly zero
-    sweeps and nothing happens. In the volume, the nuclei dial plants strain-free nuclei after the
-    deposit, all at once, at uniformly random sites, radius 2 cells, stored energy 0; the stored-energy
-    difference alone grows them. A lone nucleus grows only above a bond-count threshold
-    (a radius-2 nucleus first grows at about 12 J_b on this 26-neighbour lattice), so an isolated
-    nucleus can consume only grains deformed past it. On cast fabrics the most deformed quarter of the grains recrystallizes 0.31 to 0.36 more than the least deformed quarter, against at most 0.02 when every grain carries the same stored energy, and on a single crystal the kinetics follow the Johnson-Mehl-Avrami-Kolmogorov form against one nucleus's own volume (slopes 0.99 to 1.05 on three seeds). Recovery slows the fronts, so in the panel recrystallization can stall short of completion, and the fitted Avrami exponent there is low (about 0.6 on a copper cast). The Avrami exponent on the card is fitted on the
-    Monte Carlo sweep clock and is not a real-time exponent. A nucleation select offers two
-    more modes, alone or together: a steady rate, with the births spread evenly over the
-    treatment's sweeps (a site already recrystallized when its batch is due is skipped, as in the
-    Johnson-Mehl-Avrami-Kolmogorov theory, where nuclei form at a fixed rate per unit of the whole
-    volume), and grain-boundary sites, voxels with a differently labeled neighbor in the deformed
-    matrix. Theory gives an Avrami exponent of 4 for a constant rate at constant growth speed;
-    nuclei crowded onto the boundaries are expected to lower it. The checks of both against this
-    model have not been run yet. Particle effects on recrystallization are not modeled: a dialed dispersion is held back while nuclei are dialed, and the card says so. And while the dial is up the Σ3
-    annealing-twin pass is held back, because a plate allocated GPU-side mid-anneal would inherit
-    a work-fabric value belonging to an id nobody had used.
-    <b>The hold is isothermal by construction</b>: the solver's temperature field is the as-cast
-    record, not the furnace, so the treatment parks the thermal lenses and puts up a banner instead
-    of showing a cold casting labelled 540 °C. And <b>the specimen is finite</b>: grain statistics
-    stop meaning anything when a handful of grains fill the frame, so a schedule whose own law
-    predicts a grain the domain cannot carry is refused with the analytic answer still printed —
-    steel's one-hour anneal at 0.85 T<sub>m</sub> says 296 µm, the volume is 188 µm across, and the
-    model declines to pretend otherwise.</p>
-
-    <h2><span class="secN">10</span> What's quantitative, what's qualitative</h2>
-    <table>
-      <tr><th>CLAIM</th><th>STATUS</th></tr>
-      <tr><td>Dendrite/seaweed/snowflake morphology, tip selection, side-branching</td><td><b>canonical</b> — matches the published Kobayashi figures</td></tr>
-      <tr><td>Mullins–Sekerka breakup, CET, columnar growth, weld epitaxy</td><td><b>emergent physics</b>, qualitatively correct</td></tr>
-      <tr><td>Grain impingement, ASTM E112 grain number, linear-intercept SDAS</td><td><b>measured honestly</b> against the model resolution — both convert pixels to length through the cell pitch alone, so the field of view is <i>n</i> × µm-per-cell: 1 mm at the default 1024² grid, half that at 512², double at 2048², and the calibrated solver's own W₀·dx elsewhere</td></tr>
-      <tr><td>Alloy solute field</td><td><b>two solvers, and the app says which is running.</b> The default is a WB-type dilute model, qualitative and not CALPHAD-coupled. The calibrated solver is the Echebarria–Folch–Karma–Plapp dilute binary model with an anti-trapping current, where the partition coefficient is the real one and is independent of the interface width — still dilute-binary and still not CALPHAD-coupled</td></tr>
-      <tr><td>Composer chemistry (ΔT<sub>L</sub>, Q, wt%↔at%)</td><td><b>real dilute-limit values</b>, approximate textbook coefficients</td></tr>
-      <tr><td>Composer admissibility (which element in which melt)</td><td><b>25 assessed pairs, 683 computed refusals.</b> All 6 × 118 = 708 (base, element) pairs are classified into four tiers: ASSESSED needs both a cited coefficient row and a cited invariant row and is exactly the 25 pairs that already had them; OUTSIDE-THE-MODEL is real chemistry a one-liquid, one-solid-phase solver cannot carry (five checked monotectics, and any composition past its invariant); REFUSED-PAIR is an honest absence of data; NOT-A-SOLUTE is base-independent (47 elements). <b>The refusals are the content, and most carry a computed number</b> — a vapour pressure in atm from tabulated ΔH<sub>vap</sub> and T<sub>b</sub>, a Hume-Rothery size factor or a Hägg interstitial ratio, an invariant composition in wt%. Two limits the tiers do not remove: the mix is summed in the dilute limit with <b>zero solute–solute interaction</b>, and it collapses onto one pseudo-binary for a solver that carries one solute field. The vapour rule is an <i>advisory</i>, never a refusal — as a refusal it would refuse brass</td></tr>
-      <tr><td>Units</td><td><b>a stated similarity scaling</b> — the solver is dimensionless, and three factors convert it to SI: kelvin per unit, seconds per unit, µm per cell. Only the third is a free choice. Kelvin per unit is <i>forced</i> by the heat equation's own latent coupling, (L/c<sub>p</sub>)/K — a real per-material number (≈249 K for aluminium, ≈44 K for water), not the flat ~100 K this row used to claim. Seconds per unit is then forced by whichever diffusivity is transporting. Every panel shows which factor was chosen and which were forced, and the SCALE report names the dimensionless groups the model does <i>not</i> match</td></tr>
-      <tr><td>Lewis number α/D (the load-bearing mismatch)</td><td><b>not matched, and it cannot be</b> — a real alloy separates heat and solute by four orders of magnitude; one explicit grid at one timestep cannot carry both. With the solute anchor the temperature field diffuses far too slowly, so read it as the imposed macroscopic temperature rather than real heat conduction at this scale. That is the direction a micro-scale casting model errs in anyway, and it is reported rather than hidden</td></tr>
-      <tr><td>Tip radius, tip velocity, arm spacing</td><td><b>shapes under the default solver, predictions under the calibrated one.</b> Kobayashi has no calibrated surface energy, so there is no length to compare a tip radius against; the calibrated solver derives W<sub>0</sub> from the material's own d<sub>0</sub> and reproduces the published 2D solvability tip velocity to 1.2 % and the parabolic tip radius to 4.4 %</td></tr>
-      <tr><td>Grain size and arm spacing in µm</td><td><b>measured against the model resolution</b>, which is now the anchor: the domain is <i>n</i> × µm-per-cell wide, not a fixed 1 mm. It was the other way round until v5.0, which meant the same dendrite measured four times larger at 512² than at 2048². Every µm figure printed before that fix is wrong by the grid ratio unless it was taken at the default grid</td></tr>
-      <tr><td>Dimensionality</td><td><b>2D by default</b> (thin-sample analog) — the TRUE 3D mode solves the full volume, where dendrites genuinely branch out of plane</td></tr>
-      <tr><td>Porosity + Niyama (3D)</td><td><b>mechanistic, and quantitative for steel only</b> — feed-path flood + solidify-while-unfed rule for the pores; Ny = |∇T|/√Ṫ recorded at the moment each voxel freezes, with Ṫ the non-latent environment rate (conduction, the sink, and the imposed scenario's own continuous cooling — the voxel's recalescence is the one deliberate exclusion) and −1 stored where no front ever passed (seed cores, freeze-while-warming) rather than a fabricated safe number. With real units the map converts to K·s<sup>½</sup>·mm<sup>−1</sup>, and for STEEL the section-plane legend judges it against Niyama's own radiographic criterion, 0.775 K<sup>½</sup>·s<sup>½</sup>·mm<sup>−1</sup>; every other material keeps a relative map, because that threshold is steel radiography and this instrument's aluminium porosity is Sievert hydrogen, not shrinkage. The printed value inherits the scale layer's anchors — the legend names which clock it is standing on</td></tr>
-      <tr><td>Hot tearing</td><td><b>a timing index, not a stress prediction</b> — the lab card prints the Clyne–Davies cracking susceptibility CSC = t<sub>v</sub>/t<sub>r</sub> off the pour's own recorded f<sub>s</sub>(t) (vulnerable 0.90→0.99, relieving 0.40→0.90). The index is defined on a local volume element and this record is the global open-cavity fraction, so on a directional front it degenerates toward a geometry constant — the card says so. The RDG criterion the roadmap once named needs a transverse strain rate and a Darcy feeding term this solver does not carry, and no number is printed that pretends otherwise</td></tr>
-      <tr><td>Gas porosity from dissolved hydrogen (the lab)</td><td><b>Sievert's law with real solubility, a proxy for the rest.</b> A melt dissolves hydrogen as C = S·√p, and the solubility collapses on freezing — liquid aluminium holds ~19× the solid, so the rejected difference feeds gas pores. <b>Real:</b> the Ransley–Neufeld solubilities (Al liquid ≈0.69, solid ≈0.036 cm³/100 g at 1 atm), the √p pressure dependence, and the liquid→solid drop that drives it. <b>Proxy:</b> how much hydrogen each atmosphere presents (air humid → charged, cover gas → residual, vacuum → degassed — an ordering, not measured partial pressures) and the map from rejected hydrogen to the pore field. A material with no solubility data refuses gas porosity by name. This replaced a flat "+0.1 in air" bias; the pore field itself is 3D</td></tr>
-      <tr><td>Grain selector (3D)</td><td><b>geometric</b> — real selector physics (columnar competition through a constriction); the pigtail shape is procedural, not a specific foundry's</td></tr>
-      <tr><td>Mould geometry (3D)</td><td><b>exact rasterization, real conduction, teaching proportions</b> — shell/plate/step/wedge are deterministic integer voxel math, gated bit-exact against an independent GPU mask readback; once poured, the mould wall is a real cold boundary condition and section-thickness effects (the step block's whole point) emerge from conduction toward it, not from a per-section parameter. The four step-block thicknesses are a teaching proportion, not a measured specimen. A grain spanning two sections is counted in both — the same thing a metallographer's per-field measurement does</td></tr>
-      <tr><td>Icosahedral quasicrystal (3D)</td><td><b>interface-energy symmetry only</b> — the aperiodic lattice itself is beyond a phase-field order parameter</td></tr>
-      <tr><td>Melt glow per material</td><td><b>display only</b> — incandescence scaled to each metal's freezing point</td></tr>
-      <tr><td>Nucleation site model (n<sub>max</sub>, ΔT<sub>N</sub>, ΔT<sub>σ</sub>)</td><td><b>mechanistic, not derived</b> — the Rappaz/Greer structure (Gaussian activation undercoolings, fire-once, recalescence ratchet) with thresholds chosen to be watchable, not computed from interfacial energies. Real inoculated aluminium activates within a few kelvin of the liquidus; here the distribution is stretched across the range you can actually drive</td></tr>
-      <tr><td>Where the undercooling is measured</td><td><b>global sweep, local firing</b> — the ratchet reads the mean melt temperature, so in a strong gradient a site can be spent while its own neighbourhood is still hot; whether it actually nucleates is then checked cell-by-cell against the local liquidus, and in the volume that liquidus is the nominal one (the 3D stamp pass carries no solute field)</td></tr>
-      <tr><td>Atmosphere (air / argon / vacuum)</td><td><b>cleanliness proxy — NOT a nucleation control</b>. Atmosphere does not change how readily bulk liquid nucleates. What it changes in reality is oxidation: a melt poured in air entrains oxide films, which are wall and defect features. Here air adds shallow-threshold sites in the wall band and, through the hydrogen it carries, drives gas porosity by Sievert's law (see the gas-porosity row); nothing else. Bifilms form even under cover gas, so "argon" is cleaner, not clean</td></tr>
-      <tr><td>Cooling programmes (furnace / air / quench)</td><td><b>Newtonian shell coupling</b> in dimensionless temperature — the ordering of the three (roughly 0.2, 1–10 and 100+ K/s in a real shop) is preserved; the absolute rates are not</td></tr>
-      <tr><td>Cooling-curve thermal analysis (the lab report card)</td><td><b>a real extraction, read honestly.</b> The report card analyses the recorded cooling curve the way a foundry reads a cast cup: liquidus arrest T<sub>L</sub>, nucleation nadir T<sub>N</sub> and recalescence ΔT<sub>r</sub>, solidus T<sub>S</sub>, freezing range, local solidification time and the liquid cooling rate — landmarks located from a time-based (not index-based) windowed derivative, and any it cannot resolve are shown as <i>unresolved</i>, never filled in. Solid fraction is also reconstructed from a single-sided Newtonian zero curve and printed <i>against</i> the solver's measured census, so the number you see is the method's own error. Two honest limits: the "thermocouple" is the mean temperature of the <i>remaining liquid</i>, not a fixed probe — so part of any recalescence shown is a selection effect as cold cells leave the average — and the record ends at the solidus, because past it there is no liquid to read and the two-sided Newtonian baseline a full analysis wants is simply absent</td></tr>
-      <tr><td>Pour superheat, mould temperature</td><td><b>qualitative boundary conditions</b> — superheat is a real thermal load and the mould is a real cold boundary. (Whether the refiner is <i>faded</i> by high superheat specifically is not separated out here; fade is driven by hold time — see the next row.)</td></tr>
-      <tr><td>Grain-refiner fade (hold before pour)</td><td><b>an empirical time law, labelled as one.</b> Hold an inoculated charge above its liquidus and it loses effective nucleant sites: the refining particles (TiB<sub>2</sub>, Al<sub>3</sub>Ti in the Al–Ti–B system) are denser than the melt and settle out — <i>faster</i> than Stokes' law alone, because they agglomerate and catch on oxide films. The lab models this as a short potent plateau then an exponential decay to a residual floor, with most of the loss inside the first ~30 min (the settling literature) and <b>exactly no fade at zero hold</b>, so nothing shipped earlier moves. The timescale is the Al–Ti–B holding picture applied to whatever inoculant you set — it is not derived from a specific particle-size distribution</td></tr>
-      <tr><td>Stirring, convection, melt flow</td><td><b>forced flow only, in 2D free growth</b>. A D2Q9 lattice Boltzmann flow (two-relaxation-time collision, Guo forcing) enters from the left edge and passes the crystal through Beckermann's diffuse-interface drag, with the drag constant derived on this solver's own interface profile (2.7571 against the published 2.757). It carries heat, and solute on the Kobayashi path, through conservative face fluxes, so arms facing the stream grow faster and the wake grows slower. That direction is checked; the size is not yet calibrated: against Tong, Beckermann, Karma and Li (2001), who report an upstream tip speed-up of 1.37 to 1.43, this solver measures 1.26 to 1.36 across three interface widths (docs/validation/flow-tong-2026-11-01.json), so the flow is qualitative here. The inlet now delivers the speed set on the dial even with a crystal in the channel; the Tong comparison above was measured before that fix, when the inlet delivered 0.84 to 0.94 of the dial in those runs. The stream enters at the pour's far-field temperature even while the furnace cools the melt, so with cooling on it also carries heat in: a reservoir that cools with the furnace is not modeled. Not modeled: buoyancy (natural convection), flow in 3D, the calibrated alloy's solute under flow, dendrite fragmentation and grain multiplication, and freckles, which need a casting-scale mushy-zone model rather than a phase field</td></tr>
-      <tr><td>Solid-state grain growth (HEAT TREAT)</td><td><b>endpoint from the material's sourced law, trajectory from measured Potts kinetics</b> — D<sup>n</sup> − D₀<sup>n</sup> = ∫k·dt says where the grain finishes; the model's own (m, K<sub>MC</sub>) pair, measured per dimension, spends the sweeps. Unpinned by default (no solute drag); a dialled Zener dispersion pins at the measured d<sub>lim</sub> = 7.24·r<sup>0.205</sup>/f<sup>0.356</sup> cells — in the plane, where the law is measured. A cold-work dial above zero withdraws the endpoint entirely — the sourced coefficients price curvature-driven growth alone — and the schedule then buys its sweeps without predicting a d̄</td></tr>
-      <tr><td>Stored energy and recovery (HEAT TREAT, 3D)</td><td><b>a real drive on a fabric that is a declared fiction</b> — per-grain stored energy enters the Potts acceptance line as H(cand) − H(mine), which is strain-induced boundary migration and nothing else; the flat-{100} barrier of 8 J<sub>b</sub> is derived from the 26-neighbour stencil, and the ladder measured back on the GPU brackets it from both sides — v(8) is 0.92 of the candidate draw where a barrier of 10 predicts 0.035 of it, v(6) is 0.44 where a barrier of 6 predicts all of it. The barrier is an upper bound rather than the value that gates migration: the ladder's own knee sits near 5–6, because a moving front is kinked and a kink is cheaper than the flat face. Recovery is the exact integral of dH/dS = −k·H², evaluated in the shader rather than stepped, so it cannot be applied twice or land stale. But which grain stores how much is a hash over grain ids, not a Taylor factor — orientation without slip geometry cannot predict it — and all the model needs is that the field be heterogeneous, since a uniform one is exactly inert. Bond energies J<sub>b</sub> throughout: this app has no SI-to-Potts energy bridge. Volume only; no strain-free grain is ever nucleated, so this is recovery and boundary migration rather than recrystallization; and Σ3 twinning is held back while the dial is up</td></tr>
-      <tr><td>Annealing twins (3D)</td><td><b>real crystallography, inserted birth</b> — exact Σ3 registry, survival by a measured-ratio energy cusp plus a mobility gate; but the nucleus is a stamped {111} plate, because a per-cell spawn was built twice and measured dead — a stacking event is sub-grid for a Potts flip. Who twins is decided by sourced stacking-fault energies (Murr 1975)</td></tr>
-      <tr><td>Homogenization</td><td><b>exact, and gated as an equality</b> — masked diffusion at frozen φ whose iteration count is the schedule's own Dt product, no fitted constant; the discrete-vs-continuum gap is printed as the model's own discretization error, and the delivered fraction of a budget-capped soak is reported, never silently fewer</td></tr>
-      <tr><td>Oxide scale, decarburization</td><td><b>analytic card lines</b> — parabolic laws over the whole schedule from sourced constants; never painted into the fields, which are the as-cast record. Ice and SCN refuse by name rather than draw a confident 0 µm</td></tr>
-      <tr><td>Yield strength σ<sub>y</sub> (Hall–Petch)</td><td><b>grain-size term only</b> — σ₀ + k<sub>HP</sub>/√d̄ on the measured census, no precipitate term and no work-hardening term — cold work drives the anneal here but never enters σ<sub>y</sub>, so a deformed casting is still priced by its grain size; d̄ is the equivalent diameter (an O(1) factor from E112's mean intercept), and the µm under the root are the declared resolution. The spec verdict judges this number and names these limits — on both cards: the furnace's post-treatment verdict and the lab's as-cast one share one d̄ definition, one formatter and one printed-precision rule, so a casting can never carry two strengths</td></tr>
-      <tr><td>Precipitate aging / T6</td><td><b>not modelled at all</b> — the material table has no precipitate kinetics, and a JMAK curve drawn from invented per-material numbers would be a prediction this instrument has no right to make</td></tr>
-    </table>
-    <p>The rule throughout: anything the instrument displays as a number is computed, and anything
-    that is a stylistic choice is labelled as one.</p>
-
-    <h2><span class="secN">11</span> References</h2>
-    <ul class="refs">
-      <li>R. Kobayashi, “Modeling and numerical simulations of dendritic crystal growth,” <i>Physica D</i> 63 (1993) 410–423.</li>
-      <li>Ph. Thévoz, J.L. Desbiolles &amp; M. Rappaz, “Modeling of equiaxed microstructure formation in casting,” <i>Metall. Trans. A</i> 20 (1989) 311–322 — the Gaussian site-distribution nucleation model.</li>
-      <li>Ch.-A. Gandin &amp; M. Rappaz, “A coupled finite element–cellular automaton model for the prediction of dendritic grain structures in solidification processes,” <i>Acta Metall. Mater.</i> 42 (1994) 2233–2246.</li>
-      <li>A.L. Greer, A.M. Bunn, A. Tronche, P.V. Evans &amp; D.J. Bristow, “Modelling of inoculation of metallic melts: application to grain refinement of aluminium by Al–Ti–B,” <i>Acta Mater.</i> 48 (2000) 2823–2835 — free growth, and why only a small fraction of particles ever become grains.</li>
-      <li>W. Oldfield, “A quantitative approach to casting solidification: freezing of cast iron,” <i>Trans. ASM</i> 59 (1966) 945–961 — nucleation count as a function of undercooling.</li>
-      <li>J.A. Dantzig &amp; M. Rappaz, <i>Solidification</i>, EPFL Press (2009) — recalescence and the heat-extraction / latent-heat competition that sets grain density.</li>
-      <li>E. Fras, W. Kapturkiewicz, A. Burbielko &amp; H.F. Lopez, “A new concept in thermal analysis of castings,” <i>AFS Trans.</i> 101 (1993) 505–511 — the Newtonian zero-curve method the lab report card inverts for solid fraction.</li>
-      <li>D.M. Stefanescu, “Thermal analysis — theory and applications in metalcasting,” <i>Int. J. Metalcast.</i> 9 (2015) 7–22 — cooling-curve landmark extraction (T<sub>L</sub>, T<sub>N</sub>, recalescence, T<sub>S</sub>).</li>
-      <li>J. Campbell, <i>Castings</i>, Butterworth-Heinemann (2003) — entrained oxide films (bifilms) and what melt atmosphere actually governs.</li>
-      <li>A. Karma &amp; W.-J. Rappel, “Quantitative phase-field modeling of dendritic growth in two and three dimensions,” <i>Phys. Rev. E</i> 57 (1998) 4323–4349.</li>
-      <li>B. Echebarria, R. Folch, A. Karma &amp; M. Plapp, “Quantitative phase-field model of alloy solidification,” <i>Phys. Rev. E</i> 70 (2004) 061604 — the dilute binary model and the anti-trapping current.</li>
-      <li>A. Karma, “Phase-field formulation for quantitative modeling of alloy solidification,” <i>Phys. Rev. Lett.</i> 87 (2001) 115701.</li>
-      <li>X. Tong, C. Beckermann, A. Karma &amp; Q. Li, “Phase-field simulations of dendritic crystal growth in a forced flow,” <i>Phys. Rev. E</i> 63 (2001) 061601 — the 2D tip-radius benchmark this app is checked against.</li>
-      <li>E. Niyama, T. Uchida, M. Morikawa &amp; S. Saito, “A method of shrinkage prediction and its application to steel casting practice,” <i>AFS Int. Cast Metals J.</i> 7 (1982) 52–63 — the Niyama criterion, and the steel radiographic threshold (1.0 (°C·min)<sup>½</sup>·cm<sup>−1</sup> = 0.775 K<sup>½</sup>·s<sup>½</sup>·mm<sup>−1</sup>) the section-plane legend judges against.</li>
-      <li>T. W. Clyne &amp; G. J. Davies, “The influence of composition on solidification cracking susceptibility in binary alloy systems,” <i>Br. Foundryman</i> 74 (1981) 65–73 — the cracking-susceptibility timing ratio the lab card prints.</li>
-      <li>J.A. Warren &amp; W.J. Boettinger, “Prediction of dendritic growth and microsegregation patterns in a binary alloy using the phase-field method,” <i>Acta Metall. Mater.</i> 43 (1995) 689–703.</li>
-      <li>W.W. Mullins &amp; R.F. Sekerka, “Stability of a planar interface during solidification of a dilute binary alloy,” <i>J. Appl. Phys.</i> 35 (1964) 444–451.</li>
-      <li>M. Easton &amp; D. StJohn, “Grain refinement of aluminum alloys,” <i>Metall. Mater. Trans. A</i> 30 (1999) 1613–1633 — the growth restriction factor Q, and refiner behaviour.</li>
-      <li>“Grain refiner settling and its effect on the melt quality of aluminium casting alloys,” <i>Materials</i> 15 (2022) 7679 — settling of TiB<sub>2</sub>/Al<sub>3</sub>Ti particles faster than Stokes' law, the basis for the fade time law.</li>
-      <li>C.E. Ransley &amp; H. Neufeld, “The solubility of hydrogen in liquid and solid aluminium,” <i>J. Inst. Metals</i> 74 (1948) 599–620 — the liquid and solid hydrogen solubilities behind the Sievert gas-porosity model.</li>
-      <li>W. Kurz &amp; D.J. Fisher, <i>Fundamentals of Solidification</i>, Trans Tech (1998) — source style for the dilute binary coefficients.</li>
-      <li>E. Scheil, “Bemerkungen zur Schichtkristallbildung,” <i>Z. Metallkd.</i> 34 (1942) 70–72.</li>
-      <li>J.E. Burke &amp; D. Turnbull, “Recrystallization and grain growth,” <i>Prog. Met. Phys.</i> 3 (1952) 220–292 — curvature-driven parabolic grain growth, the ideal the Potts pass is measured against.</li>
-      <li>M.P. Anderson, D.J. Srolovitz, G.S. Grest &amp; P.S. Sahni, “Computer simulation of grain growth — I. Kinetics,” <i>Acta Metall.</i> 32 (1984) 783–791 — the Monte Carlo Potts model, and why its measured exponent sits below the ideal ½.</li>
-      <li>L.E. Murr, <i>Interfacial Phenomena in Metals and Alloys</i>, Addison-Wesley (1975) — the stacking-fault and twin-boundary energy compilation behind the annealing-twin matrix.</li>
-      <li>E.O. Hall, “The deformation and ageing of mild steel: III — discussion of results,” <i>Proc. Phys. Soc. B</i> 64 (1951) 747–753.</li>
-      <li>N.J. Petch, “The cleavage strength of polycrystals,” <i>J. Iron Steel Inst.</i> 174 (1953) 25–28 — with Hall above, the σ₀ + k/√d law the report card's strength row uses.</li>
-      <li>C. Wagner, “Beitrag zur Theorie des Anlaufvorgangs,” <i>Z. Phys. Chem. B</i> 21 (1933) 25–41 — the parabolic oxidation law behind the scale and decarburization card lines.</li>
-      <li>ASTM E112, <i>Standard Test Methods for Determining Average Grain Size</i>.</li>
-    </ul>
-
   </main>
 
-  <!-- Figure's footer matrix (tokens.css .ftr), the landing's own -->
   <footer class="ftr">
     <div class="ftr__grid">
       <div class="ftr__brand">
@@ -1052,6 +1097,7 @@
         <p class="ftr__label">Science</p>
         <ul class="ftr__links">
           <li><a href="../science/">The science</a></li>
+          <li><a href="https://github.com/fronkt/solidify/tree/main/docs/labs">Classroom labs</a></li>
           <li><a href="https://github.com/fronkt/solidify/blob/main/hero/README.md">How the hero is rendered</a></li>
         </ul>
       </nav>
@@ -1070,7 +1116,7 @@
     </div>
   </footer>
 
-  <script type="module" src="/src/design/page.ts"></script>
+  <script type="module" src="/src/science.ts"></script>
   <script data-goatcounter="https://frankcai2.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>

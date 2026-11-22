@@ -650,7 +650,7 @@ export class UI {
     });
 
     // ---- modes (what each one does is the section's learn text)
-    const modes = this.section(rail, "MODES");
+    const modes = this.section(rail, "MODES", true);
     const mrow0 = this.btnRow(modes, 2);
     // Lab, heat treat and the optimizer run in both dimensions. Challenge
     // keeps its 2D ASTM objective. Plain names, no glyph icons (DESIGN.md)
@@ -743,6 +743,7 @@ export class UI {
 
     // ---- scenario
     const scen = this.section(rail, "SCENARIO");
+    this.sections["SCENARIO"].root.classList.add("sec--group");
     const srow0 = this.btnRow(scen);
     const scenBtn = (v: number, label: string) => {
       const b = this.button(srow0, label, () => { p().scen = v; this.sync(); });
@@ -860,6 +861,7 @@ export class UI {
 
     // ---- look
     const look = this.section(rail, "LOOK");
+    this.sections["LOOK"].root.classList.add("sec--group");
     const pixChk = this.check(look, "pixel mode", () => host.getPixel() > 0, b => {
       host.setPixel(b ? this.lastPixel : 0);
     });

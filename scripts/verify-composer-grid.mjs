@@ -689,19 +689,14 @@ block("GRID-DOC-CLAIMS", () => {
   const CLAIMS = [
     ["every element is drawn", `all ${E.ELEMENTS.length} elements`, "science"],
     ["the column count", `laid out in ${cols.size} columns`, "science"],
-    ["the composition each cell is asked at", "at 1 wt%, or at half its own invariant composition where that is smaller", "science"],
+    ["the composition each cell is asked at", "at 1 wt%, or at half their invariant composition where that is smaller", "science"],
     ["the pairs a flat 1 wt% would refuse", lostAtOne.sort().join(", ").replace(/, ([^,]*)$/, " and $1"), "science"],
     ["how many pourable pairs there are", `three of the ${words[assessedAtProbe.length] ?? "?"} pourable pairs`, "science"],
     ["cells that change tier on the base switch", `moves ${changed.length} of the ${E.ELEMENTS.length} cells`, "science"],
     ["cells that do not", `leaves ${unchanged} where they were`, "science"],
     ["the independent vapour channel", `a fume stripe appears under ${gainedStripeOnly.length} more elements whose tier does not change at all`, "science"],
-    // AND THE MECHANISM, recomputed rather than asserted. The paragraph first
-    // said the iron liquidus stands "hundreds of degrees" above these boiling
-    // points; measured, caesium clears aluminium's melting point by 10 K and
-    // calcium sits 54 K under iron's, so the true statement is a BRACKET and
-    // not a magnitude — and it is checked as one below.
-    ["the bracket the stripe comes from", `every one of their boiling points falls between aluminium's ${(MAT.MATERIALS.al.si.Tm - 273.15).toFixed(0)} °C and iron's ${(MAT.MATERIALS.steel.si.Tm - 273.15).toFixed(0)} °C`, "science"],
-    ["the non-regression set", `all ${A.FAMOUS.length} presets and all ${pairs} legacy pairs`, "science"],
+    ["the bracket the stripe comes from", `every one of their boiling points falls between aluminum's ${(MAT.MATERIALS.al.si.Tm - 273.15).toFixed(0)} °C and iron's ${(MAT.MATERIALS.steel.si.Tm - 273.15).toFixed(0)} °C`, "science"],
+    ["the non-regression set", `All ${A.FAMOUS.length} presets and all ${pairs} legacy pairs`, "science"],
     // and the same numbers where the README states them, because a claim is
     // gated in every document that makes it or it is gated in none
     ["README: the cell count", `${E.ELEMENTS.length} cells coloured for the melt`, "readme"],
@@ -722,15 +717,15 @@ block("GRID-DOC-CLAIMS", () => {
   // the independent-stripe set, and the section is present at all
   const bareInteger = CLAIMS.filter(([, s]) => /^\d+$/.test(s.trim())).map(([k]) => k);
   const namedFour = ["Na", "K", "Ca", "Cd"].filter(s => !gainedStripeOnly.some(r => r.symbol === s));
-  const sectionPresent = flat.includes("v7.1 P5 puts that table on screen");
+  const sectionPresent = flat.includes("Periodic table screening");
   // the bracket claim, held against the data rather than against the sentence
   const tbs = gainedStripeOnly.map(r => r.Tb);
   const bracketHolds = tbs.length > 0 && tbs.every(t => t != null)
     && Math.min(...tbs) > MAT.MATERIALS.al.si.Tm && Math.max(...tbs) < MAT.MATERIALS.steel.si.Tm;
-  // and the margins the prose names, so "10 K" and "54 K" cannot rot either
+  // and the margins the prose names, so "11 K" and "54 K" cannot rot either
   const lowMargin = Math.round(Math.min(...tbs) - MAT.MATERIALS.al.si.Tm);
   const highMargin = Math.round(MAT.MATERIALS.steel.si.Tm - Math.max(...tbs));
-  const marginsNamed = flat.includes(`caesium boils ${lowMargin} K above the aluminium melting point and calcium ${highMargin} K below the iron one`);
+  const marginsNamed = flat.includes(`cesium boils ${lowMargin} K above the aluminum melting point and calcium ${highMargin} K below the iron one`);
 
   const ok = missing.length === 0 && bareInteger.length === 0
     && namedFour.length === 0 && sectionPresent

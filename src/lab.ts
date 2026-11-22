@@ -176,6 +176,7 @@ export class Lab {
   private curveView: PlotView | null = null;
   private curveModal: FigureHandle | null = null;
   private liveView: PlotView | null = null;
+  private liveWrap: HTMLElement | null = null;
   private liveModal: FigureHandle | null = null;
   /** the material identity the panel's dial ranges were derived from — a swap
    *  while the panel is open rebuilds it, so the spec ceiling is never another
@@ -269,6 +270,7 @@ export class Lab {
     this.panel = null;
     this.liveView?.destroy();
     this.liveView = null;
+    this.liveWrap = null;
     this.liveModal?.close();
     this.liveModal = null;
     this.curveModal?.close();
@@ -515,7 +517,8 @@ export class Lab {
 
     const live = document.createElement("div");
     live.className = "rplot";
-    live.style.height = "250px";
+    live.style.height = (this.running || this.series.length > 0) ? "250px" : "56px";
+    this.liveWrap = live;
     this.liveView = new PlotView(live, {
       id: "foundryLiveCurve",
       label: "live pour curve: open temperature, solid fraction, data and exports",
@@ -538,6 +541,9 @@ export class Lab {
     if (this.host.units().props !== this.propsAtBuild && !this.running) {
       this.buildPanel();
       return;
+    }
+    if (this.liveWrap) {
+      this.liveWrap.style.height = (this.running || this.series.length > 0) ? "250px" : "56px";
     }
     this.liveView?.set(this.liveFigure().fig);
     this.liveModal?.update();

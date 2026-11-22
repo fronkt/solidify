@@ -1,0 +1,8 @@
+#!/bin/sh
+# nanoHUB middleware invoke script for SOLIDIFY Interactive Solidification Lab
+# Follows the standard nanohub-simple-jupyter-tool pattern.
+
+/usr/bin/invoke_app "$@" -C "start_jupyter -T @tool notebooks/Solidify_Interactive_Lab.ipynb" \
+  -t solidify \
+  -u anaconda-7 \
+  -w headless

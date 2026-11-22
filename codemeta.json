@@ -1,0 +1,51 @@
+{
+  "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
+  "@type": "SoftwareSourceCode",
+  "name": "SOLIDIFY",
+  "description": "Zero-install, browser-native WebGPU phase-field solidification laboratory solving 2D and 3D dendritic growth (Kobayashi and quantitative Karma-Rappel with anti-trapping), dilute-alloy microsegregation, foundry thermal analysis, and Arrhenius-coupled Potts Monte Carlo heat treatment.",
+  "version": "8.0.0",
+  "dateCreated": "2026-07-19",
+  "datePublished": "2026-11-22",
+  "dateModified": "2026-11-22",
+  "license": "https://spdx.org/licenses/MIT",
+  "codeRepository": "https://github.com/fronkt/solidify",
+  "issueTracker": "https://github.com/fronkt/solidify/issues",
+  "url": "https://solidify.frankcai.dev/",
+  "programmingLanguage": [
+    "TypeScript",
+    "WGSL"
+  ],
+  "runtimePlatform": "WebGPU Browser (Chrome, Edge, Safari 26+, Firefox)",
+  "operatingSystem": [
+    "Windows",
+    "macOS",
+    "Linux"
+  ],
+  "applicationCategory": "Materials Science",
+  "keywords": [
+    "phase-field",
+    "dendritic solidification",
+    "Karma-Rappel",
+    "Kobayashi",
+    "WebGPU",
+    "materials science education",
+    "grain growth",
+    "NIST PFHub",
+    "nanoHUB"
+  ],
+  "author": [
+    {
+      "@type": "Person",
+      "@id": "https://orcid.org/0009-0003-0041-1459",
+      "givenName": "Frank",
+      "familyName": "Cai",
+      "email": "cai485@purdue.edu",
+      "affiliation": {
+        "@type": "Organization",
+        "name": "Purdue University"
+      }
+    }
+  ],
+  "developmentStatus": "active",
+  "isAccessibleForFree": true
+}

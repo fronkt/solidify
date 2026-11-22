@@ -487,3 +487,10 @@ grain-boundary sites, voxels with a differently labeled treatable neighbor, clas
 before any nucleus; the two combine. Their GPU kinetics gates are pre-registered and have not
 been run yet (tasks/todo.md). Particle effects on recrystallization are not modeled: a dialed
 dispersion is held back while nuclei are dialed, and the card says so.
+
+## Classroom Labs, Benchmarks, and Citation
+
+- **Undergraduate MSE Lab Pack ([`docs/labs/`](docs/labs/README.md)):** Four turnkey 50-minute laboratory worksheets (dendritic symmetry & Karma–Rappel calibration, alloy chemistry & Scheil segregation, 3D step-block casting & Niyama porosity, and Arrhenius heat treatment & Hall–Petch design) with deterministic share links, Run-Export ZIP checklists, and an instructor solution key.
+- **NIST PFHub & nanoHUB Packaging:** See [`pfhub/`](pfhub/README.md) for the Benchmark 3 dendritic-growth export harness and [`nanohub/`](nanohub/README.md) for the Purdue nanoHUB interactive Jupyter lab & Run-Export analyzer module.
+- **Citation:** Software citation metadata is provided in [`CITATION.cff`](CITATION.cff) and [`codemeta.json`](codemeta.json) (MIT License; ORCID `0009-0003-0041-1459`).
+

@@ -164,6 +164,13 @@
     body:not(.headOpen) #head { width: auto; max-width: clamp(120px, calc(var(--free-w) - 212px), 232px);
       padding: 6px 6px 6px 10px; }
     body:not(.headOpen) #headBody { display: none; }
+    /* on narrow phones keep the open head plate compact and never split a
+       single unit word mid-word ("dimensionles / s") */
+    @media (max-width: 444px) {
+      #head { padding: var(--s-2) 10px; }
+      #head .spec--tool .spec__row { gap: var(--s-1); }
+      #head .spec--tool .spec__value { font-size: var(--t-ui-min); overflow-wrap: break-word; }
+    }
 
     /* ---- the rail */
     /* overflow-wrap: anywhere lets no word, value or source string set a
@@ -178,6 +185,7 @@
        header reads --fg, a closed one --fg-3 */
     .sec { border-top: 1px solid var(--rule); }
     .sec:first-child { border-top: 0; }
+    .sec.sec--group { margin-top: var(--s-2); border-top-color: var(--rule-strong); }
     .sec h2 { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-3) 0;
       font: 400 var(--t-nav-tool)/1 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav); color: var(--fg-3); }
     .sec h2:hover, .sec h2:has(> .secHead[aria-expanded="true"]) { color: var(--fg); }

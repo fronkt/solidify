@@ -758,7 +758,7 @@ const r4 = x => (x == null || !Number.isFinite(x) ? null : +x.toFixed(4));
   const missing = CLAIMS.filter(([, v]) => !html.includes(norm(v))).map(([k, v]) => `${k}: "${v}"`);
   // liveness: the section must exist at all, and every claim must be a real
   // number rather than a NaN that trivially fails to appear
-  const sectionPresent = /EXTRAPOLATED GAUGE/.test(html) && /Which alloy's freezing range/.test(html);
+  const sectionPresent = /EXTRAPOLATED GAUGE/.test(html) && /Phase-diagram bounds and calibrated freezing range/.test(html);
   const allFinite = CLAIMS.every(([, v]) => !/NaN|Infinity|undefined/.test(v));
   check("PD-DOC-CALIBRATION", missing.length === 0 && sectionPresent && allFinite
     && CLAIMS.length >= 10, {

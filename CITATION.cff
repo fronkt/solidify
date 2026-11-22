@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+title: "SOLIDIFY: A Real-Time, Browser-Based WebGPU Phase-Field Solidification Instrument"
+message: "If you use SOLIDIFY in teaching, benchmarks, or research, please cite it using the metadata below."
+type: software
+authors:
+  - family-names: Cai
+    given-names: Frank
+    affiliation: "Purdue University, West Lafayette, IN, USA"
+    email: cai485@purdue.edu
+    orcid: "https://orcid.org/0009-0003-0041-1459"
+repository-code: "https://github.com/fronkt/solidify"
+url: "https://solidify.frankcai.dev/"
+abstract: >-
+  SOLIDIFY is a zero-install, browser-native WebGPU phase-field laboratory for
+  real-time 2D and 3D (up to 192^3 voxels) dendritic solidification, dilute-alloy
+  microsegregation, foundry casting thermal analysis, and Arrhenius-coupled
+  solid-state heat treatment. It pairs a qualitative multi-grain Kobayashi solver
+  with a quantitative Karma-Rappel thin-interface solver featuring an anti-trapping
+  current, a 118-element periodic alloy composer backed by cited binary invariants,
+  Monte Carlo Potts grain growth with stored energy and Zener pinning, and an
+  automated verification suite.
+keywords:
+  - phase-field modeling
+  - solidification
+  - dendritic growth
+  - materials science education
+  - WebGPU
+  - alloy metallurgy
+  - grain growth
+  - heat treatment
+license: MIT
+version: "8.0.0"
+date-released: "2026-11-22"
