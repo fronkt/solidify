@@ -2,7 +2,8 @@
 # nanoHUB root middleware invoke script for SOLIDIFY Interactive Solidification Lab.
 # Must be executable (git update-index --chmod=+x middleware/invoke).
 
-/usr/bin/invoke_app "$@" -C "start_jupyter -t solidify -T @tool nanohub/notebooks/Solidify_Interactive_Lab.ipynb" \
-  -t solidify \
+/usr/bin/invoke_app "$@" -t solidify \
+  -C "start_jupyter -t -c -T @tool nanohub/notebooks/Solidify_Interactive_Lab.ipynb" \
   -u anaconda-7 \
+  -r none \
   -w headless
