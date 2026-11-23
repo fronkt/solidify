@@ -1,5 +1,21 @@
 # Testing
 
+## Quick start
+
+```bash
+npm test            # full local verification suite (browser-free + WebGPU Chrome scripts)
+npm run typecheck   # tsc --noEmit
+npm run build       # static Vite build
+```
+
+`npm test` starts a local Vite server on port 5199, runs every `scripts/verify-*.mjs` script (driving a local WebGPU-capable Chrome via `puppeteer-core` for GPU tests), and shuts the server down afterward (`scripts/run-tests.mjs`).
+
+GitHub Actions CI (`.github/workflows/ci.yml`) runs `npm run typecheck`, `npm run build`, and the twenty-six browser-free scripts that do not require a local GPU or Chrome binary.
+
+---
+
+## Suite history and script inventory
+
 Visual and science expansion, 2026-11-01 (feature/visual): six scripts on
 top of the merged 39, so the local suite registered 45 and CI gates twenty-six
 browser-free scripts. C3b-3/4a (feature/rx-rate, 2026-11-07) adds one GPU

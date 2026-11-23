@@ -699,10 +699,10 @@ block("GRID-DOC-CLAIMS", () => {
     ["the non-regression set", `All ${A.FAMOUS.length} presets and all ${pairs} legacy pairs`, "science"],
     // and the same numbers where the README states them, because a claim is
     // gated in every document that makes it or it is gated in none
-    ["README: the cell count", `${E.ELEMENTS.length} cells coloured for the melt`, "readme"],
+    ["README: the cell count", `${E.ELEMENTS.length} cells colored for the melt`, "readme"],
     ["README: pourable against refused", `${assessedAtProbe.length} of the ${bases.length * E.ELEMENTS.length} (base, element) pairs are pourable and the other ${bases.length * E.ELEMENTS.length - assessedAtProbe.length} are refusals`, "readme"],
-    ["README: the mercury advisory's own numbers", `exerts ${hgAtm[0]} atm over liquid aluminium, and pure mercury would exert ${hgAtm[1]}`, "readme"],
-    ["README: the base switch", `recolours ${changed.length} cells and puts a fume stripe under ${words[gainedStripeOnly.length] ?? "?"} more`, "readme"],
+    ["README: the mercury advisory's own numbers", `exerts ${hgAtm[0]} atm over liquid aluminum, and pure mercury would exert ${hgAtm[1]}`, "readme"],
+    ["README: the base switch", `recolors ${changed.length} cells and puts a fume stripe under ${words[gainedStripeOnly.length] ?? "?"} more`, "readme"],
     ["README: the assessed tier did not grow", `exactly the ${pairs} pairs that already had both a cited coefficient row and a cited invariant`, "readme"],
   ];
 

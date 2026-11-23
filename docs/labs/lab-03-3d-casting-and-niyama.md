@@ -4,8 +4,7 @@
 **Prerequisites:** Heterogeneous nucleation, thermal analysis cooling curves, solidification shrinkage  
 **App link:** [solidify.frankcai.dev/app/](https://solidify.frankcai.dev/app/)
 
-## Learning Objectives
-By the end of this lab, you will be able to:
+## Goals
 1. Extract solidification landmarks ($T_L$, $T_N$, recalescence $\Delta T_r$, $T_S$) from a casting cooling curve and explain how recalescence halts nucleation.
 2. Measure how cooling rate controls final grain density and Hall–Petch yield strength from a fixed inoculant charge.
 3. Quantify the casting section-thickness effect using a 3D step-block mold and compare 2D serial-section grain measurements against a true 3D volumetric census (stereology).

@@ -1,6 +1,6 @@
 # Instructor Solution Key & Grading Rubric: SOLIDIFY Classroom Lab Pack
 
-This guide summarizes expected physical observations, representative quantitative outputs (v8 calibrated / verified builds), and common student misconceptions for Labs 1–4.
+This guide summarizes expected observations, reference numerical outputs (v8 calibrated builds), and common student misconceptions for Labs 1-4.
 
 ---
 
@@ -31,7 +31,7 @@ This guide summarizes expected physical observations, representative quantitativ
   - *C in Fe:* Hume–Rothery substitutional size difference gives $-39.6\%$ (wrong test for an interstitial). Hägg's interstitial ratio $r/R = 0.604$ sits just past the $0.59$ simple-interstitial limit, matching why $\text{Fe}_3\text{C}$ forms a complex orthorhombic carbide.
   - *Cu–30Zn:* Ideal Raoult's law predicts $1.4\text{ atm}$, yet brass is routinely cast because Zn has strong negative activity deviation in Cu, illustrating why vapor pressure must advise rather than hard-refuse.
 - **Part C (Controlled $Q$ Comparison):**
-  - Higher $Q$ slows solidification markedly (A356 takes ~2× longer than Al–1Zn to reach 20% solid at matched undercooling). Comparing at equal bath temperature confounds the liquidus shift ($0.821$ vs $0.993$), and comparing at equal elapsed time confounds solid fraction.
+  - Higher $Q$ slows solidification (A356 takes ~2x longer than Al-1Zn to reach 20% solid at matched undercooling). Comparing at equal bath temperature confounds the liquidus shift ($0.821$ vs. $0.993$), and comparing at equal elapsed time confounds solid fraction.
 
 ---
 
@@ -53,14 +53,14 @@ This guide summarizes expected physical observations, representative quantitativ
 
 - **Part A (Two Clocks & Arrhenius Coarsening):**
   - $4\text{ h} = 1.44 \times 10^4\text{ s}$; at $\Delta t \sim 10^{-7}\text{ s}$, direct phase-field integration would require $\sim 1.4 \times 10^{11}$ timesteps.
-  - At `200 °C` (4 h), Arrhenius integrals are negligible (stress-relief regime: virtually zero coarsening). At `520 °C` (12 h), grains coarsen substantially ($\bar{d}$ roughly triples from fine as-cast sizes, $\sigma_y$ drops), solute homogenizes, and Al passive oxide remains on the nanometer scale (~2 nm).
+  - At `200 °C` (4 h), Arrhenius integrals are negligible (stress-relief regime, near-zero coarsening). At `520 °C` (12 h), grains coarsen (roughly 3x from fine as-cast sizes, $\sigma_y$ drops), solute homogenizes, and the Al passive oxide stays ~2 nm thick.
   - Thermal lenses are parked during heat treatment because the stored temperature array $T$ is the as-cast solidification record, not the isothermal furnace temperature.
 - **Part B (Zener Pinning):**
   - Particle dispersions pin grain boundaries at $d_{\lim} = 7.24 \cdot r^{0.205} / f^{0.356}$ cells in 2D, preserving fine $\bar{d}$ and significantly higher Hall–Petch $\sigma_y$ after a 12 h soak. Smaller particle radius $r$ and higher area fraction $f$ tighten the pinning limit.
 - **Part C (SFE & Annealing Twins):**
   - Copper (SFE $78\text{ mJ/m}^2$) readily nucleates and retains coherent $\Sigma 3$ twins (protected by low coherent boundary energy and mobility gate). Aluminum ($166\text{ mJ/m}^2$) has too high an SFE; steel is modeled as BCC $\delta$-ferrite, whereas annealing twins are an FCC austenite phenomenon.
 - **Part D (Hall–Petch Spec & Aging Limit):**
-  - Pure grain-growth annealing only increases $\bar{d}$, which strictly lowers $\sigma_y = \sigma_0 + k_{\text{HP}}/\sqrt{\bar{d}}$. Meeting a higher strength spec requires a finer as-cast pour (more inoculant / faster quench) plus pinning or a milder anneal. Real heat-treatable Al alloys (A356-T6, 6061-T6) gain strength via **precipitation hardening** ($\text{Mg}_2\text{Si}$ / $\theta'$ precipitates), which SOLIDIFY explicitly declines to fabricate because precipitate kinetics are not modeled.
+  - Pure grain-growth annealing only increases $\bar{d}$, which lowers $\sigma_y = \sigma_0 + k_{\text{HP}}/\sqrt{\bar{d}}$. Meeting a higher strength spec requires a finer as-cast pour (more inoculant / faster quench) plus pinning or a milder anneal. Real heat-treatable Al alloys (A356-T6, 6061-T6) gain strength through **precipitation hardening** ($\text{Mg}_2\text{Si}$ / $\theta'$ precipitates), which SOLIDIFY does not model.
 
 ---
 

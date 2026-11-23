@@ -4,9 +4,8 @@
 **Prerequisites:** Basic solidification thermodynamics (undercooling, latent heat, Gibbs–Thomson effect)  
 **App link:** [solidify.frankcai.dev/app/](https://solidify.frankcai.dev/app/)
 
-## Learning Objectives
-By the end of this lab, you will be able to:
-1. Explain how latent-heat rejection drives the Mullins–Sekerka instability and sets dendritic morphology.
+## Goals
+1. Explain how latent-heat rejection drives the Mullins-Sekerka instability and sets dendrite shape.
 2. Predict how crystal symmetry ($j = 4$ cubic vs. $j = 6$ hexagonal) and anisotropy strength ($\delta \to 0$) govern primary trunk angles and seaweed branching.
 3. Distinguish a qualitative similarity phase-field model (Kobayashi) from a thin-interface calibrated model (Karma–Rappel) where physical length and time scales are locked to $d_0$ and $D$.
 4. Explain solute trapping and verify how an anti-trapping current restores width-independent partitioning.

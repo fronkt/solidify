@@ -4,9 +4,8 @@
 **Prerequisites:** Arrhenius kinetics, curvature-driven grain growth, Hall–Petch relation, stacking-fault energy  
 **App link:** [solidify.frankcai.dev/app/](https://solidify.frankcai.dev/app/)
 
-## Learning Objectives
-By the end of this lab, you will be able to:
-1. Explain why solid-state heat treatment operates on an Arrhenius-integrated hours clock separate from the microsecond solidification clock.
+## Goals
+1. Explain why solid-state heat treatment runs on an Arrhenius-integrated hours clock separate from the microsecond solidification clock.
 2. Predict grain coarsening and Hall–Petch yield strength evolution across thermal ramps and isothermal soaks.
 3. Quantify how second-phase particle dispersions (Zener pinning) stall grain coarsening at a finite limiting grain diameter.
 4. Contrast annealing-twin formation across metals of different stacking-fault energy (Cu vs. Al vs. BCC steel) and design a cast-plus-anneal route that satisfies a strength specification.

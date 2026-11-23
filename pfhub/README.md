@@ -1,37 +1,38 @@
-# NIST PFHub Benchmark 3 (Dendritic Growth) Submission Package
+# NIST PFHub Benchmark 3 (Dendritic Growth)
 
-This folder holds SOLIDIFY's reproducible setup and output bundle for **NIST Phase Field Community Hub (PFHub) Benchmark Problem 3: Dendritic Growth** ([pages.nist.gov/pfhub/benchmarks/benchmark3.ipynb/](https://pages.nist.gov/pfhub/benchmarks/benchmark3.ipynb/)).
+This directory contains SOLIDIFY's setup and results for **NIST Phase Field Community Hub (PFHub) Benchmark Problem 3: Dendritic Growth** ([pages.nist.gov/pfhub/benchmarks/benchmark3.ipynb/](https://pages.nist.gov/pfhub/benchmarks/benchmark3.ipynb/)).
 
-## Benchmark Specification Implemented
-- **Model:** Quantitative Karma–Rappel thin-interface phase-field solver (`solver = 1` in `src/sim.ts`, 9-point explicit stencil in WGSL float32).
-- **Domain & Symmetry:** Target benchmark quadrant $[0, 960]^2$, solved on the full 4-fold symmetric domain $[-960, +960]^2$ centered at $(n/2, n/2)$ so $x = 0$ and $y = 0$ are exact analytic mirror symmetry planes (even for $\phi$ and $U$; odd for the anisotropic cross fluxes $W W' \nabla\phi$), avoiding any clamped-corner boundary bias. All reported quantities are extracted over $[0, 960]^2$.
+## Benchmark setup
+
+- **Model:** Karma-Rappel thin-interface phase-field solver (`solver = 1` in `src/sim.ts`, 9-point explicit stencil in WGSL `f32`).
+- **Domain and symmetry:** Target quadrant $[0, 960]^2$, solved on the full 4-fold symmetric domain $[-960, +960]^2$ centered at $(n/2, n/2)$ so $x = 0$ and $y = 0$ are exact mirror planes (even for $\phi$ and $U$; odd for the anisotropic cross fluxes $W W' \nabla\phi$), avoiding corner-clamp bias. All reported quantities are extracted over $[0, 960]^2$.
 - **Parameters:** $W_0 = 1$, $\tau_0 = 1$, $D = 10$ ($\lambda = D / 0.6267 = 15.9566$), $m = 4$, $\varepsilon_4 = 0.05$, $\theta_0 = 0$, $\Delta = -0.3$, initial solid seed radius $R_0 = 8$ at $(0, 0)$, target time $t = 1500$.
-- **Free Energy & Contour:** Computes the exact NIST Benchmark 3 free energy integral
+- **Free energy and contour:** Computes the Benchmark 3 free-energy integral
   $$\mathcal{F} = \int_{[0,960]^2}\left[\frac{1}{2} W(\mathbf{n})^2 |\nabla\phi|^2 - \frac{1}{2}\phi^2 + \frac{1}{4}\phi^4 + \lambda U\phi\left(1 - \frac{2}{3}\phi^2 + \frac{1}{5}\phi^4\right)\right]\,dV$$
   and extracts the ordered zero level set ($\phi = 0$, $\psi = 0.5$) at $t = 1500$ via marching squares.
 
-## Generating the Submission Dataset
+## Running the exporter
 
-Run the reproducible WebGPU exporter from the repository root:
+Run the headless WebGPU exporter from the repository root:
 
 ```bash
-# Quick smoke check (short horizon)
+# Short smoke run
 node scripts/export-pfhub-b3.mjs --grid=512 --tmax=50 --sample-dt=25 --out=verify-out/pfhub-smoke
 
-# Full Benchmark 3 export (t = 1500 on full 2048x2048 => 1024x1024 quadrant [0,960]^2)
+# Full Benchmark 3 run (t = 1500 on 2048x2048 -> 1024x1024 quadrant [0,960]^2)
 node scripts/export-pfhub-b3.mjs --grid=2048 --tmax=1500 --sample-dt=50 --out=pfhub/results-b3-2048
 ```
 
-This writes the complete NIST PFHub & Zenodo bundle:
+Output files:
 1. `bm3_results.csv` (`time,free_energy,tip_position,solid_fraction`)
 2. `free_energy.csv`, `solid_fraction.csv`, `tip_position.csv`
-3. `phase_field_1500.csv` (`x,y` ordered $\phi = 0$ zero level-set contour at $t = 1500$)
-4. `meta.yaml` (official NIST PFHub YAML manifest)
-5. `pfhub.json` (machine-readable provenance, hardware, and published-code diff summary)
+3. `phase_field_1500.csv` (ordered `x,y` contour of $\phi = 0$ at $t = 1500$)
+4. `meta.yaml` (PFHub metadata manifest)
+5. `pfhub.json` (hardware, provenance, and comparison summary)
 
-## Benchmark 3 Results (`results-b3-2048`, $t = 1500$)
+## Results (`results-b3-2048`, $t = 1500$)
 
-Executed in headless Chrome WebGPU on an integrated laptop GPU (`2048x2048` full symmetric domain $[-960, +960]^2$, `1024x1024` benchmark quadrant $[0, 960]^2$, $dx = 0.9375\,W_0$, $dt = 0.012742\,\tau_0$, `117,720` explicit steps, `507.2 s` solver time / `551.8 s` total wall time including 31 full-field readbacks):
+Run in headless Chrome WebGPU on an integrated laptop GPU (`2048x2048` full symmetric domain $[-960, +960]^2$, `1024x1024` quadrant $[0, 960]^2$, $dx = 0.9375\,W_0$, $dt = 0.012742\,\tau_0$, `117,720` explicit steps, `507.2 s` solver time / `551.8 s` total wall time including 31 readbacks):
 
 | Code / Submission | Free Energy $\mathcal{F}(1500)$ | Solid Fraction $f_s(1500)$ | Tip Position $x_{\text{tip}}(1500)$ | Notes |
 |---|---|---|---|---|
@@ -43,7 +44,8 @@ Executed in headless Chrome WebGPU on an integrated laptop GPU (`2048x2048` full
 
 ![NIST PFHub Benchmark 3 comparison](results-b3-2048/pfhub_b3_comparison.png)
 
-## Zenodo & NIST PFHub Submission
-1. [`codemeta.json`](../codemeta.json) and release [`v8.0.0`](https://github.com/fronkt/solidify/releases/tag/v8.0.0) are live on `https://github.com/fronkt/solidify`.
-2. Permanent Zenodo dataset published at **https://doi.org/10.5281/zenodo.24437743** (`https://zenodo.org/records/24437743`) containing all 8 files in `pfhub/results-b3-2048/`.
-3. Submitted to `usnistgov/pfhub` (`_data/codes.yaml` + `_data/simulations/solidify_3a/meta.yaml`).
+## Dataset and submission links
+
+1. Code release: [`v8.0.0`](https://github.com/fronkt/solidify/releases/tag/v8.0.0) and [`codemeta.json`](../codemeta.json).
+2. Zenodo dataset (all 8 files in `pfhub/results-b3-2048/`): [10.5281/zenodo.24437743](https://doi.org/10.5281/zenodo.24437743) (`https://zenodo.org/records/24437743`).
+3. PFHub submission: `pfhub/pfhub-benchmarks#22` and the `pfhub` Zenodo Community.

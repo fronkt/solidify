@@ -4,42 +4,28 @@
 
 ```bash
 npm install
-npm run dev      # local dev server (needs a WebGPU browser: Chrome/Edge, Safari 26+, recent Firefox)
+npm run dev      # local dev server (requires a WebGPU browser: Chrome, Edge, Safari 26+, or recent Firefox)
 npm run build    # static build in dist/
-npm test         # headless verification suite — see TESTING.md
+npm test         # headless verification suite (see TESTING.md)
 ```
 
-## Where things live
+## Project layout
 
-- `src/shaders.ts` — the WGSL compute/render pipeline (the physics).
-- `src/` — everything else: UI panels, landing-page motion, materials/alloy data, analysis
-  instruments.
-- `science/index.html` — the equations/numerics/honesty page. If you change the model, update
-  this too — the whole point of the page is that it stays accurate.
-- `tasks/todo.md` — the build log and a running list of bugs found + fixed, with root causes.
-  Read it before touching the numerics or the scroll-driven landing; several subtle regressions
-  (checkerboard instability, pinned-scroll-trigger ordering, GPU submission backpressure) are
-  documented there so they don't get reintroduced.
+- `src/shaders.ts`, `src/shaders3d.ts`, `src/shaders3d-quant.ts`: WGSL compute and render pipelines.
+- `src/`: UI controls, landing-page motion, material/alloy tables, heat treatment, and analysis plots.
+- `science/index.html`: Equations, numerical methods, and model-limit documentation. Update this page if you change the physics or numerical constants.
+- `tasks/todo.md`: Running build log and regression notes (checkerboard instability, scroll-trigger ordering, GPU backpressure). Worth checking before changing the solvers or scroll-driven landing page.
 
 ## Filing issues
 
-Open a GitHub issue with: what you expected, what happened, your browser/GPU, and (if it's a
-rendering or physics bug) a screenshot. If it's a numerics bug, note which lens/material/scenario
-reproduces it — the simulation is deterministic given a seed, so exact repro steps matter.
+Include what you expected, what happened, your browser and GPU, and a screenshot for visual or physics bugs. For numerical issues, list the lens, material, and scenario.
 
-The fastest way to give exact repro steps is to **share the link**: since v7.0 a `#set=` link
-carries the run's RNG seed alongside the dials, so opening it pours the same casting rather than
-a statistically similar one. The seed is printed in the rail's ENGINE section (with a "new seed"
-button beside it) if you would rather quote it directly.
+The quickest way to provide a repro is a `#set=` share link. Share links encode the run's RNG seed along with all control values, so opening the link reproduces the exact same cast. You can also copy the seed directly from the `ENGINE` section of the rail.
 
 ## Pull requests
 
-Keep changes scoped — this is a from-scratch WebGPU/WGSL codebase with no framework, so small,
-reviewable diffs matter more than usual. Run `npm test` before opening a PR; if you're touching
-the compute shaders, sanity-check at least one lens by eye with `npm run dev` since the automated
-suite checks behavior (scroll order, UI state) rather than pixel-level physics
-correctness.
+Keep PRs small and focused. Run `npm test` (or the browser-free CI checks listed in `.github/workflows/ci.yml`) before opening a PR. If you modify compute or render shaders, inspect at least one lens interactively with `npm run dev`, since the headless suite covers UI state and regression gates rather than every visual detail.
 
 ## License
 
-MIT — see `LICENSE`.
+MIT. See [`LICENSE`](LICENSE).

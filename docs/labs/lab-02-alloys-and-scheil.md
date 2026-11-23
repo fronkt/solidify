@@ -4,9 +4,8 @@
 **Prerequisites:** Binary phase diagrams (eutectic & peritectic reactions, lever rule, Gulliver–Scheil equation)  
 **App link:** [solidify.frankcai.dev/app/#alloy=al:Si7,Mg0.35](https://solidify.frankcai.dev/app/#alloy=al:Si7,Mg0.35)
 
-## Learning Objectives
-By the end of this lab, you will be able to:
-1. Compute dilute-limit liquidus depression ($\Delta T_L$) and the Easton–StJohn growth restriction factor ($Q$) for multicomponent alloys.
+## Goals
+1. Compute dilute-limit liquidus depression ($\Delta T_L$) and the Easton-StJohn growth restriction factor ($Q$) for multicomponent alloys.
 2. Distinguish between equilibrium solidification (lever rule) and non-equilibrium dendritic freezing (Gulliver–Scheil) both above and below the solid solubility limit $C_{\text{SM}}$.
 3. Identify thermodynamic and physical reasons why candidate elements fail to form pourable dilute alloys (vapor boiling/fuming, immiscibility, interstitial size criteria).
 4. Design a controlled simulation experiment that avoids confounding bath temperature and solid fraction.
