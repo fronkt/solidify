@@ -1,6 +1,7 @@
 # SOLIDIFY
 
-**Live app:** [solidify.frankcai.dev](https://solidify.frankcai.dev/) (requires WebGPU: Chrome, Edge, Safari 26+, or recent Firefox)
+**Live app:** [solidify.frankcai.dev](https://solidify.frankcai.dev/) (requires WebGPU: Chrome, Edge, Safari 26+, or recent Firefox)  
+**nanoHUB tool:** [nanohub.org/resources/solidify](https://nanohub.org/resources/solidify) (DOI: [10.21981/C2CG-F533](https://doi.org/10.21981/C2CG-F533)) | **PFHub dataset:** [10.5281/zenodo.24437743](https://doi.org/10.5281/zenodo.24437743)
 
 SOLIDIFY is a browser-based WebGPU phase-field and Potts Monte Carlo solidification simulator. You can undercool a melt, nucleate crystals, watch dendrites grow and impinge into grains, and inspect the microstructure with metallographic lenses, cooling curves, grain-size histograms, and ASTM grain numbers.
 
@@ -127,5 +128,5 @@ Additional solid-state controls include:
 
 - **Undergraduate MSE lab pack ([`docs/labs/`](docs/labs/README.md)):** Four 50-minute lab worksheets (dendrites and calibration, alloy chemistry and Scheil segregation, 3D step-block casting and Niyama porosity, heat treatment and Hall-Petch specs) plus an instructor key.
 - **NIST PFHub Benchmark 3 ([`pfhub/`](pfhub/README.md)):** Reproducible WebGPU export script (`scripts/export-pfhub-b3.mjs`) and full $t = 1500$ ($2048^2$) dataset published on Zenodo ([10.5281/zenodo.24437743](https://doi.org/10.5281/zenodo.24437743)).
-- **Purdue nanoHUB ([`nanohub/`](nanohub/README.md)):** Root [`/middleware/invoke`](middleware/invoke) launcher and interactive Jupyter notebook for Run-Export ZIP analysis.
-- **Citation:** Metadata in [`CITATION.cff`](CITATION.cff) and [`codemeta.json`](codemeta.json) (MIT License; ORCID `0009-0003-0041-1459`).
+- **Purdue nanoHUB ([`nanohub/`](nanohub/README.md)):** Published interactive tool at [nanohub.org/resources/solidify](https://nanohub.org/resources/solidify) (DOI: [10.21981/C2CG-F533](https://doi.org/10.21981/C2CG-F533)), pairing the WebGPU lab with a Jupyter notebook for Run-Export ZIP analysis via [`/middleware/invoke`](middleware/invoke).
+- **Citation:** Metadata in [`CITATION.cff`](CITATION.cff) and [`codemeta.json`](codemeta.json) (MIT License; nanoHUB DOI `10.21981/C2CG-F533`; ORCID `0009-0003-0041-1459`).

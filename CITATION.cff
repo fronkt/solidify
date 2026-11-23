@@ -10,6 +10,17 @@ authors:
     orcid: "https://orcid.org/0009-0003-0041-1459"
 repository-code: "https://github.com/fronkt/solidify"
 url: "https://solidify.frankcai.dev/"
+doi: "10.21981/C2CG-F533"
+identifiers:
+  - type: doi
+    value: "10.21981/C2CG-F533"
+    description: "Published Purdue nanoHUB tool (v8.0.0, Resource 45643)"
+  - type: url
+    value: "https://nanohub.org/resources/solidify"
+    description: "Purdue nanoHUB tool landing page"
+  - type: doi
+    value: "10.5281/zenodo.24437743"
+    description: "NIST PFHub Benchmark 3 WebGPU verification dataset (t=1500, 2048^2)"
 abstract: >-
   SOLIDIFY is a zero-install, browser-native WebGPU phase-field laboratory for
   real-time 2D and 3D (up to 192^3 voxels) dendritic solidification, dilute-alloy
@@ -30,4 +41,4 @@ keywords:
   - heat treatment
 license: MIT
 version: "8.0.0"
-date-released: "2026-11-22"
+date-released: "2026-11-23"

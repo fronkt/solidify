@@ -4,13 +4,15 @@
   "name": "SOLIDIFY",
   "description": "Zero-install, browser-native WebGPU phase-field solidification laboratory solving 2D and 3D dendritic growth (Kobayashi and quantitative Karma-Rappel with anti-trapping), dilute-alloy microsegregation, foundry thermal analysis, and Arrhenius-coupled Potts Monte Carlo heat treatment.",
   "version": "8.0.0",
+  "identifier": "https://doi.org/10.21981/C2CG-F533",
   "dateCreated": "2026-07-19",
-  "datePublished": "2026-11-22",
-  "dateModified": "2026-11-22",
+  "datePublished": "2026-11-23",
+  "dateModified": "2026-11-23",
   "license": "https://spdx.org/licenses/MIT",
   "codeRepository": "https://github.com/fronkt/solidify",
   "issueTracker": "https://github.com/fronkt/solidify/issues",
   "url": "https://solidify.frankcai.dev/",
+  "sameAs": "https://nanohub.org/resources/solidify",
   "programmingLanguage": [
     "TypeScript",
     "WGSL"
