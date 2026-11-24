@@ -15,7 +15,7 @@ import { Tour, SCENES, SCENES3, type TourHost } from "./tour";
 import { Optimizer, type OptHost, type Recipe } from "./optimizer";
 import { Optimizer3D, Casting3DClock, type Recipe3D } from "./optimizer3d";
 import { copyRecipe3 } from "./optimizer3d-model";
-import { packShare, unpackShare, parseLabRoute, type ShareState } from "./share";
+import { packShare, unpackShare, parseLabRoute, parseEutecticRoute, type ShareState } from "./share";
 import { Challenge, type ChallengeHost } from "./challenge";
 import { Composer } from "./composer";
 import { derive as deriveAlloy, encodeMix, decodeMix, BASES, type Mix, type Derived as AlloyDerived } from "./alloy";
@@ -41,6 +41,8 @@ import { GuidedLabRunner } from "./labs/runner";
 import { GuidedLabPanel } from "./labs/panel";
 import { GuidedLabPicker } from "./labs/picker";
 import type { LabSnapshot } from "./labs/types";
+import { EutecticPanel } from "./eutecticpanel";
+import type { EutecticAlloyId } from "./eutectic";
 
 /** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
 const SPEED_MULTS = [1, 2, 4] as const;
@@ -89,12 +91,12 @@ async function boot() {
   const flowWhyNot = (): string | null => flowRefusal({
     dim3: mode === "3d", scenario: sim.params.scen, frozenTemperature: sim.params.frozenT === 1,
     alloy: sim.params.alloyOn === 1, calibrated: sim.params.solver === 1, grid: sim.n,
-    busyMode: heat?.active ? "heat treatment" : opt.active ? "optimizer" : challenge.active ? "challenge" : lab.active ? "lab mode" : null,
+    busyMode: eutectic?.isOpen() ? "eutectic mode" : heat?.active ? "heat treatment" : opt.active ? "optimizer" : challenge.active ? "challenge" : lab.active ? "lab mode" : null,
   });
   /** the replay strip is offered: the plain instrument, paused (a mode
    *  panel owns the stage otherwise, and hides the strip and its live button) */
   const replayOffered = (three: boolean): boolean => {
-    const plain = !opt.active && !opt3?.active && !lab.active && !heat?.active && !challenge.active;
+    const plain = !opt.active && !opt3?.active && !lab.active && !heat?.active && !challenge.active && !eutectic?.isOpen();
     return plain && (three ? sim3d != null && !running3d && !mode3dPending : !running);
   };
   // Grain isolation (3D): alt-tap or a long press picks the grain under the
@@ -778,7 +780,7 @@ async function boot() {
 
   /** lazy-create the 3D stack once, then start a fresh melt with a centre seed */
   const enter3D = async (armed = false) => {
-    if (mode3dPending || opt.active || challenge.active || !caps3d.supported) return;
+    if (mode3dPending || opt.active || challenge.active || eutectic?.isOpen() || !caps3d.supported) return;
     mode3dPending = true;
     try {
       if (!sim3d) {
@@ -889,6 +891,7 @@ async function boot() {
   // Declared before `app` so its guards can read `heat?.busy` without a TDZ
   // (the v2.0 boot-order lesson); constructed after the host adapters below.
   let heat: HeatPanel | null = null;
+  let eutectic: EutecticPanel | null = null;
   let guidedLab: GuidedLabRunner | null = null;
   let guidedPicker: GuidedLabPicker | null = null;
 
@@ -897,7 +900,7 @@ async function boot() {
   // here, so a member the tour needs and the rail does not (closeComposer) read
   // as an excess property on the literal. Naming all three hosts makes the
   // obligation explicit and puts the compile error on the interface it belongs to.
-  const app: UIHost & OptHost & TourHost = {
+  const app: UIHost & OptHost & TourHost & { startEutectic(alloy?: EutecticAlloyId): void } = {
     // ---- AppControl (scenes / tour)
     clearMelt(u) {
       if (heat?.busy || opt3?.active) return;
@@ -991,7 +994,7 @@ async function boot() {
       // the solver-paused interlock: a heat treatment freezes φ by definition,
       // so nothing — space bar, transport button, a tour scene — may restart
       // the solidification loop until the sweeps are spent
-      if (on && heat?.busy) return;
+      if (on && (heat?.busy || eutectic?.isOpen())) return;
       if (opt.active) opt.setRunning(on);
       else if (mode === "3d" && opt3?.active) opt3.setRunning(on);
       else if (mode === "3d") {
@@ -1021,7 +1024,7 @@ async function boot() {
     setFlowView(on) { renderer.flowView = on; },
     flowIssue: () => flowIssue,
     startOptimizer() {
-      if (challenge.active || lab.active || heat?.active || mode3dPending || quantPending3 || alloyPreparing3 || sharedRestore3Pending) return;
+      if (challenge.active || lab.active || heat?.active || eutectic?.isOpen() || mode3dPending || quantPending3 || alloyPreparing3 || sharedRestore3Pending) return;
       if (mode === "3d") {
         if (opt.active || !sim3d || opt3?.active) return;
         composer.close();
@@ -1030,14 +1033,37 @@ async function boot() {
       } else if (!opt3?.active) opt.start(sim.n);
       ui.sync();
     },
-    startChallenge() { if (mode === "2d" && !opt.active && !opt3?.active && !lab.active && !heat?.active) challenge.start(); },
+    startChallenge() { if (mode === "2d" && !opt.active && !opt3?.active && !lab.active && !heat?.active && !eutectic?.isOpen()) challenge.start(); },
     // lab and heat treat share the bottom-centre panel slot — one at a time
-    startLab() { if (!opt.active && !opt3?.active && !challenge.active && !heat?.active) { void opt3?.stop(); if (mode === "3d") cancelRecipe3(); lab.open(); } },
+    startLab() { if (!opt.active && !opt3?.active && !challenge.active && !heat?.active && !eutectic?.isOpen()) { void opt3?.stop(); if (mode === "3d") cancelRecipe3(); lab.open(); } },
     isLabOpen: () => lab.active,
     // both dimensions since H2b — the volume runs the 26-neighbour Potts pass
-    startHeat() { if (!opt.active && !opt3?.active && !challenge.active && !lab.active) { void opt3?.stop(); if (mode === "3d") cancelRecipe3(); heat?.open(); } },
+    startHeat() { if (!opt.active && !opt3?.active && !challenge.active && !lab.active && !eutectic?.isOpen()) { void opt3?.stop(); if (mode === "3d") cancelRecipe3(); heat?.open(); } },
+    startEutectic(alloy?: EutecticAlloyId) {
+      if (heat?.busy || mode3dPending || quantPending3 || alloyPreparing3 || sharedRestore3Pending) return;
+      if (eutectic?.isOpen()) {
+        if (alloy) eutectic.setAlloy(alloy);
+        return;
+      }
+      if (opt3?.active) {
+        void opt3.stop().then(() => app.startEutectic(alloy));
+        return;
+      }
+      tour.close();
+      composer.close();
+      if (lab.active) lab.close();
+      if (heat?.active) heat.close();
+      if (opt.active) opt.stop();
+      if (challenge.active) challenge.stop();
+      running = false;
+      running3d = false;
+      if (alloy) eutectic?.setAlloy(alloy);
+      eutectic?.open();
+      ui.sync();
+    },
+    isEutecticOpen: () => !!eutectic?.isOpen(),
     openGuidedLabs() {
-      if (opt.active || opt3?.active || challenge.active) return;
+      if (opt.active || opt3?.active || challenge.active || eutectic?.isOpen()) return;
       if (guidedPicker?.isOpen()) { guidedPicker.close(); return; }
       guidedPicker?.open();
     },
@@ -1046,6 +1072,7 @@ async function boot() {
     onTourOpen() {
       guidedPicker?.close(false);
       guidedLab?.closeLab();
+      eutectic?.close();
     },
     syncUI() { ui.sync(); },
     reveal(target) {
@@ -1201,7 +1228,7 @@ async function boot() {
       if (mode === "3d") apply3DMaterial();
       return true;
     },
-    openComposer() { if (!opt.active && !opt3?.active && !challenge.active) { if (mode === "3d") cancelRecipe3(); composer.open(); } },
+    openComposer() { if (!opt.active && !opt3?.active && !challenge.active && !eutectic?.isOpen()) { if (mode === "3d") cancelRecipe3(); composer.open(); } },
     // v7.1 P6: the tour calls this on leaving every chapter, so the one chapter
     // that opens the modal cannot leave it sitting over the next chapter's melt.
     // Unconditional on purpose — closing something already closed is a no-op,
@@ -1232,7 +1259,7 @@ async function boot() {
       ui.sync();
     },
     getGrid: () => sim.n,
-    setGrid(n) { if (n !== sim.n && !opt.active && !opt3?.active && !challenge.active && !heat?.busy) app.swapSim(n); },
+    setGrid(n) { if (n !== sim.n && !opt.active && !opt3?.active && !challenge.active && !heat?.busy && !eutectic?.isOpen()) app.swapSim(n); },
     getView: () => view,
     // a uniform volumetric heat source held while the button is down: it warms
     // the melt and remelts what has frozen. Named `anneal` until v6.0, which was
@@ -1307,6 +1334,7 @@ async function boot() {
         if (request !== modeSwitchRequest) return;
         if (mode === "3d") cancelRecipe3(false);
         if (heat?.active) heat.close();
+        if (eutectic?.isOpen()) eutectic.close();
         if (m === "3d") return enter3D();
         exit3D();
       };
@@ -1317,7 +1345,7 @@ async function boot() {
     closeTour() { tour.close(); },
     // a running experiment owns the solver — switching dimension mid-pour would
     // silently discard the run the report card is about to describe
-    canSwitchMode: () => caps3d.supported && !opt.active && !opt3?.active && !challenge.active
+    canSwitchMode: () => caps3d.supported && !opt.active && !opt3?.active && !challenge.active && !eutectic?.isOpen()
       && !mode3dPending && !alloyPreparing3 && !sharedRestore3Pending && !lab.running && !heat?.busy,
     // ascending, and always including whatever rung the OOM ladder actually
     // landed on — otherwise a GPU that fell back shows an empty selection
@@ -1328,7 +1356,7 @@ async function boot() {
     },
     getGrid3: () => grid3,
     setGrid3(n) {
-      if (n === grid3 || !caps3d.supported || heat?.busy || opt3?.active) return;
+      if (n === grid3 || !caps3d.supported || heat?.busy || opt3?.active || eutectic?.isOpen()) return;
       cancelRecipe3();
       grid3 = n;
       if (mode === "3d") void swapSim3D(n);
@@ -1580,7 +1608,7 @@ async function boot() {
   const opt = new Optimizer(app);
   opt3 = new Optimizer3D({
     sim: () => mode === "3d" && !mode3dPending && !quantPending3 && !alloyPreparing3 && !sharedRestore3Pending
-      && !opt.active && !challenge.active && !lab.active && !heat?.active ? sim3d : null,
+      && !opt.active && !challenge.active && !lab.active && !heat?.active && !eutectic?.isOpen() ? sim3d : null,
     nuc: () => nuc3, units: unitsNow, meta: plotMeta, contextKey: contextKey3,
     renderOnce() {
       if (!sim3d || !renderer3d || mode !== "3d") return;
@@ -1973,6 +2001,21 @@ async function boot() {
   };
   heat = new HeatPanel(heatHost);
 
+  // ---------------------------------------------------------- EUTECTIC MODE
+  eutectic = new EutecticPanel({
+    device,
+    canvas,
+    getMaterial: () => material,
+    onClose() {
+      if (mode === "3d" && sim3d && renderer3d) {
+        renderer3d.render(sim3d, view3d, performance.now() / 1000, slicePlane(slice, sim3d.n), slice.style);
+      } else {
+        renderer.render(sim, view, performance.now() / 1000);
+      }
+    },
+    onSync() { ui.sync(); },
+  });
+
   /** Archive owners' actual observations, each with its own latched clock.
    * The GPU fields are not a restart checkpoint; the setup link reopens the
    * seeded initial state. Capturing never pauses or changes the experiment. */
@@ -1992,7 +2035,8 @@ async function boot() {
       const mixState = pouredLive({ ...active.params, alloyOn: three ? Number(sim3d!.alloyActive) : sim.params.alloyOn });
       // Render first so a just-resized viewport has its final backing size
       // before the image's µm-per-pixel scale is computed.
-      if (three) renderer3d!.render(sim3d!, view3d, performance.now() / 1000, slicePlane(slice, sim3d!.n), slice.style);
+      if (eutectic?.isOpen()) eutectic.tick();
+      else if (three) renderer3d!.render(sim3d!, view3d, performance.now() / 1000, slicePlane(slice, sim3d!.n), slice.style);
       else renderer.render(sim, view, performance.now() / 1000);
       const snapshot: RunSnapshot = {
         exportedAt: new Date().toISOString(), build: BUILD, solver: plotMeta().solver, mode: three ? "3d" : "2d",
@@ -2018,11 +2062,12 @@ async function boot() {
         ...(["fs", three ? "pore" : "dt", "grains", "hist"] as const).map(k => hud.figure(k)),
         ...(three ? [an3.figure("probe"), an3.figure("scheil"), an3.figure("ipf"), an3.figure("pole")]
           : [analyze.figure("probe"), analyze.figure("scheil"), analyze.figure("tex")]),
-        ...lab.exportFigures(), ...(heat?.exportFigures() ?? []), ...opt.exportFigures(), ...(opt3?.exportFigures() ?? []),
+        ...lab.exportFigures(), ...(heat?.exportFigures() ?? []), ...(eutectic?.exportFigures() ?? []), ...opt.exportFigures(), ...(opt3?.exportFigures() ?? []),
       ];
       const labReport = guidedLab?.buildLabReport() ?? null;
       const agingExport = heat?.agingExportPayload() ?? null;
-      const entries = runEntries(snapshot, figures, labReport, agingExport);
+      const eutecticExport = eutectic?.exportPayload() ?? null;
+      const entries = runEntries(snapshot, figures, labReport, agingExport, eutecticExport);
       // Copy the freshly presented frame before yielding: a WebGPU canvas
       // otherwise discards its drawing buffer between tasks.
       entries.push({ name: "micrograph.png", data: await micrographPNG(canvas, snapshot) });
@@ -2173,6 +2218,7 @@ async function boot() {
       composer.close();
       if (lab.active) lab.close();
       if (heat?.active) heat.close();
+      if (eutectic?.isOpen()) eutectic.close();
       if (opt.active) opt.stop();
       if (opt3?.active) void opt3.stop();
       if (challenge.active) challenge.stop();
@@ -2193,6 +2239,7 @@ async function boot() {
     idOrHash: string | number,
     opts: { applySetup?: boolean; restart?: boolean } = {},
   ): Promise<boolean> => {
+    if (eutectic?.isOpen()) eutectic.close();
     if (opt.active) opt.stop();
     if (opt3?.active) await opt3.stop();
     if (challenge.active) challenge.stop();
@@ -2240,7 +2287,7 @@ async function boot() {
   document.getElementById("labsBtn")?.addEventListener("click", () => app.openGuidedLabs());
 
   (window as unknown as Record<string, unknown>).__solidify = {
-    app, opt, opt3, tour, ui, challenge, composer, analyze, lab, heat, hud,
+    app, opt, opt3, tour, ui, challenge, composer, analyze, lab, heat, eutectic, hud,
     guidedLab: runner, guidedPanel, guidedPicker: picker,
     recipe3dState: () => ({ schedule: recipeSchedule3, recipe: appliedRecipe3, clock: recipeClock3?.snapshot() ?? null }),
     // the composer's chemistry, for headless physics checks that need to set
@@ -2459,6 +2506,7 @@ async function boot() {
   };
 
   canvas.addEventListener("pointerdown", e => {
+    if (eutectic?.isOpen()) return;
     if (mode === "3d") { p3.down(e); return; }
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pts.size === 2) {
@@ -2485,6 +2533,7 @@ async function boot() {
     seedAt(e);
   });
   canvas.addEventListener("pointermove", e => {
+    if (eutectic?.isOpen()) return;
     if (mode === "3d") { p3.move(e); return; }
     if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pinch && pts.size === 2) {
@@ -2513,6 +2562,7 @@ async function boot() {
   });
   for (const ev of ["pointerup", "pointercancel"] as const)
     canvas.addEventListener(ev, e => {
+      if (eutectic?.isOpen()) return;
       if (mode === "3d") { p3.up(e, ev === "pointerup"); return; }
       pts.delete(e.pointerId);
       if (pts.size < 2) pinch = null;
@@ -2527,6 +2577,7 @@ async function boot() {
     });
   canvas.addEventListener("contextmenu", e => e.preventDefault());
   canvas.addEventListener("wheel", e => {
+    if (eutectic?.isOpen()) return;
     e.preventDefault();
     if (mode === "3d") { p3.wheel(e); return; }
     renderer.zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0016));
@@ -2547,7 +2598,7 @@ async function boot() {
     // the alloy composer and an enlarged plot are modals: their own keys
     // (Escape, Tab) are handled there, and Space or a digit must not run,
     // pause or re-lens the melt behind them
-    if (composer.isOpen() || document.querySelector("#app > .tmodal")) return;
+    if (composer.isOpen() || document.querySelector("#app > .tmodal") || eutectic?.isOpen()) return;
     const kbFocused = kbNav && e.target instanceof Element && e.target.matches("button, select");
     if (e.code === "Space" && !kbFocused) { e.preventDefault(); app.setRun(!app.isRunning()); ui.sync(); }
     if (mode === "3d") {
@@ -2658,12 +2709,16 @@ async function boot() {
     const dt = Math.min(0.1, Math.max(0, (t - last) / 1000));
     last = Math.max(last, t);
     if (dt > 0) fps = fps * 0.95 + (1 / dt) * 0.05;
-    slicePanelUI.update(mode === "3d" && view3d === 2);
+    slicePanelUI.update(mode === "3d" && view3d === 2 && !eutectic?.isOpen());
     // the composer's phase diagram, beside the slice panel and for the same
     // reason: both sit ABOVE the 2D/3D branch below, so they keep ticking in
     // the volume where the `return` at the end of the 3D block would otherwise
     // strand them. Both early-out when closed.
     composer.tick();
+    if (eutectic?.isOpen()) {
+      eutectic.tick();
+      return;
+    }
 
     // ------------------------------------------------------- TRUE-3D branch
     if (mode === "3d") {
@@ -3235,11 +3290,22 @@ async function boot() {
     if (runner.getActiveLab()?.id === def.id) return;
     void startGuidedLab(def.id, { applySetup: !preserveExisting });
   };
+  const applyEutecticRoute = (route: ReturnType<typeof parseEutecticRoute>) => {
+    if (!route) return;
+    app.startEutectic(route.alloy);
+  };
   if (!bootTour) {
-    const labRoute = parseLabRoute(location.hash, location.search);
-    applyLabRoute(labRoute, Boolean(shared) || bootAlloyApplied);
+    const eutRoute = parseEutecticRoute(location.hash, location.search);
+    if (eutRoute) {
+      applyEutecticRoute(eutRoute);
+    } else {
+      const labRoute = parseLabRoute(location.hash, location.search);
+      applyLabRoute(labRoute, Boolean(shared) || bootAlloyApplied);
+    }
   }
   window.addEventListener("hashchange", () => {
+    const eutRoute = parseEutecticRoute(location.hash);
+    if (eutRoute) { applyEutecticRoute(eutRoute); return; }
     applyLabRoute(parseLabRoute(location.hash), false);
   });
   ui.sync();

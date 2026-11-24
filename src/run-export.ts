@@ -86,6 +86,62 @@ export interface RunSnapshot {
   lab?: unknown;
   /** Recorded search/replay metadata, with its own latched objective and setup. */
   optimizer3d?: unknown;
+  /** Optional 2D binary eutectic snapshot summary for run-export archives. */
+  eutectic?: RunEutecticExport | null;
+}
+
+export interface RunEutecticExport {
+  alloy: string;
+  pullVUmS: number;
+  c0Off: number;
+  gradGKmm: number;
+  lambdaUm: number | null;
+  lambdaMinUm: number;
+  lambda2VUm3s: number | null;
+  fAlpha: number;
+  fAlphaLever: number;
+  dTFrontK: number;
+  dTMinK: number;
+  meanC: number;
+  step: number;
+}
+
+export function formatEutecticCsv(
+  e: RunEutecticExport,
+  prov?: { seed?: string; build?: string; share?: string },
+): string {
+  const fmt = (v: number | null | undefined) =>
+    v != null && Number.isFinite(v) ? Number(v.toPrecision(8)).toString() : "";
+  const lines = [
+    "# SOLIDIFY figure data: 2D binary eutectic growth (Folch-Plapp 2005 + Jackson-Hunt 1966)",
+    `# alloy: ${e.alloy}`,
+    ...(prov?.seed ? [`# seed: ${prov.seed}`] : []),
+    `# pull_V_um_s: ${fmt(e.pullVUmS)}`,
+    `# c0_off: ${fmt(e.c0Off)}`,
+    `# grad_G_K_mm: ${fmt(e.gradGKmm)}`,
+    `# step: ${fmt(e.step)}`,
+    "# units: pull_V_um_s (um/s), c0_off (dimensionless), grad_G_K_mm (K/mm), lambda_um (um), lambda_min_um (um), lambda2_V_um3_s (um^3/s), f_alpha (fraction), f_alpha_lever (fraction), dT_front_K (K), dT_min_K (K), mean_c (dimensionless), step (count)",
+    ...(prov?.share ? [`# share: ${prov.share}`] : []),
+    ...(prov?.build ? [`# build: ${prov.build}`] : []),
+    "# rows: 1",
+    "alloy,pull_V_um_s,c0_off,grad_G_K_mm,lambda_um,lambda_min_um,lambda2_V_um3_s,f_alpha,f_alpha_lever,dT_front_K,dT_min_K,mean_c,step",
+    [
+      /[",\n]/.test(e.alloy) ? `"${e.alloy.replaceAll('"', '""')}"` : e.alloy,
+      fmt(e.pullVUmS),
+      fmt(e.c0Off),
+      fmt(e.gradGKmm),
+      fmt(e.lambdaUm),
+      fmt(e.lambdaMinUm),
+      fmt(e.lambda2VUm3s),
+      fmt(e.fAlpha),
+      fmt(e.fAlphaLever),
+      fmt(e.dTFrontK),
+      fmt(e.dTMinK),
+      fmt(e.meanC),
+      fmt(e.step),
+    ].join(","),
+  ];
+  return lines.join("\n") + "\n";
 }
 
 export interface RunAgingCurvePoint {
@@ -166,6 +222,7 @@ export function runEntries(
   figures: Figure[],
   labReport?: GuidedLabReport | null,
   aging?: RunAgingExport | null,
+  eutectic?: RunEutecticExport | null,
 ): ArchiveEntry[] {
   const datasets = figures.filter(hasFigureData).map((f, i) => ({
     file: `data/${String(i + 1).padStart(2, "0")}-${slug(f.title) || "series"}.csv`,
@@ -176,6 +233,7 @@ export function runEntries(
     columns: f.columns.map(c => ({ ...c, values: c.values.map(x => Number.isFinite(x) ? x : null) })),
     csv: toCSV(f.title, f.columns, f.bridge, f.prov),
   }));
+  const eut = eutectic ?? snapshot.eutectic ?? null;
   const agingSummary = aging
     ? {
         alloy: aging.alloy,
@@ -190,9 +248,14 @@ export function runEntries(
         points: aging.curve.length,
       }
     : undefined;
+  const eutecticSummary = eut
+    ? { ...eut, file: "data/eutectic.csv" }
+    : undefined;
+  const { eutectic: _snapEut, ...baseSnapshot } = snapshot;
   const manifest = {
-    format: "solidify-run", version: 1, ...snapshot,
+    format: "solidify-run", version: 1, ...baseSnapshot,
     ...(agingSummary ? { aging: agingSummary } : {}),
+    ...(eutecticSummary ? { eutectic: eutecticSummary } : {}),
     reproducibility: "The setup link restores the initial setup and seed. This archive records observations and an image; it does not restore the current GPU field or an in-progress anneal.",
     datasets: datasets.map(({ csv: _csv, ...d }) => d),
     notes: [
@@ -207,17 +270,20 @@ export function runEntries(
     "micrograph.png: current rendered view, scale, material, seed, and solver.",
     "data/*.csv: every available instrument dataset with its own provenance and units.",
     ...(aging ? ["data/aging-curve.csv: precipitation age-hardening strength curve and temper summary."] : []),
+    ...(eut ? ["data/eutectic.csv: 2D binary eutectic lamellar spacing, Jackson-Hunt comparison, and phase-fraction summary."] : []),
     ...(labReport ? ["lab-report.json: guided lab progress, latched measurements, and summary table."] : []),
     "",
     manifest.reproducibility, "", ...manifest.notes,
     ...(datasets.length ? [] : ["", "No series were recorded yet. The setup and current image are included."]),
     "", snapshot.setupLink, "",
   ].join("\n");
+  const seedHex = snapshot.seed.toString(16).padStart(8, "0");
   return [
     { name: "README.txt", data: utf8.encode(readme) },
     { name: "run.json", data: utf8.encode(JSON.stringify(manifest, null, 2) + "\n") },
     ...datasets.map(d => ({ name: d.file, data: utf8.encode(d.csv) })),
     ...(aging ? [{ name: "data/aging-curve.csv", data: utf8.encode(agingCurveCSV(snapshot, aging)) }] : []),
+    ...(eut ? [{ name: "data/eutectic.csv", data: utf8.encode(formatEutecticCsv(eut, { seed: seedHex, build: snapshot.build, share: snapshot.setupLink })) }] : []),
     ...(labReport ? [{ name: "lab-report.json", data: utf8.encode(JSON.stringify(labReport, null, 2) + "\n") }] : []),
   ];
 }

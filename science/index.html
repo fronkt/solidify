@@ -797,6 +797,19 @@
               <p><b>Methodological note on grain refinement comparisons:</b> An early release compared grain-refined A356+TiB (normalized liquidus 0.821) against Al–1Zn (normalized liquidus 0.993) at equal bath temperature and equal elapsed time, which confounded liquidus offset and solid fraction. When controlled to equal undercooling below each alloy's own liquidus and read at matched solid fraction, growth restriction clearly slows solidification (~2× longer to reach 20 % solid), while final grain counts across both charges match within experimental scatter (within 15 % under controlled nucleation).</p>
             </div>
           </details>
+
+          <p><b>2D binary lamellar eutectic mode (Folch–Plapp 2005 &amp; Jackson–Hunt 1966):</b> While the main dendritic solver carries one solid phase field, the dedicated <b>eutectic</b> mode evolves a three-phase simplex (p<sub>α</sub> + p<sub>β</sub> + p<sub>L</sub> = 1) coupled to a conserved chemical-potential solute field on WebGPU using the Folch &amp; Plapp (2005) tilt functions (eliminating spurious third-phase intrusion at triple junctions) in a moving directional frame. Live lamellar spacing λ and front undercooling ΔT are compared directly against the Jackson &amp; Hunt (1966) analytical curve across Al–33.2Cu, Sn–38.1Pb, Al–12.6Si, and a dimensionless symmetric reference:</p>
+
+          <div class="eqGrid">
+            <div class="eq">
+              ΔT(λ) = K₁ V λ + K₂ / λ
+              <div class="c">Jackson–Hunt constitutional + curvature front undercooling; minimum undercooling occurs at λ²V = K₂ / K₁.</div>
+            </div>
+            <div class="eq">
+              p<sub>α</sub> + p<sub>β</sub> + p<sub>L</sub> = 1 &nbsp;&nbsp;·&nbsp;&nbsp; ∂c/∂t = ∇·(D p<sub>L</sub> ∇μ)
+              <div class="c">Folch–Plapp simplex projection and conservative liquid solute diffusion (2D isotropic interface; enlarged width for interactive GPU stepping; faceted Al–Si flake kinetics are not modeled).</div>
+            </div>
+          </div>
         </section>
 
         <!-- ===================================== 04. NUCLEATION & 3D FOUNDRY -->
@@ -1043,6 +1056,11 @@
                 <span class="scopeBadge scopeBadge--quant">Cited table</span>
                 <div class="scopeRow__desc">25 assessed pairs with CALPHAD-checked binary invariants and 683 computed refusals. Dilute linear superposition assumes zero solute–solute interaction and grows only the single primary phase.</div>
               </div>
+              <div class="scopeRow" data-cats="alloy">
+                <div class="scopeRow__claim">Binary lamellar eutectic (2D Folch–Plapp)</div>
+                <span class="scopeBadge">Mechanistic</span>
+                <div class="scopeRow__desc">Dedicated 3-phase simplex solver (p<sub>α</sub> + p<sub>β</sub> + p<sub>L</sub> = 1) with conserved solute diffusion and Jackson–Hunt ΔT(λ) comparison for Al–Cu, Sn–Pb, Al–Si, and symmetric reference. Interface width is enlarged for real-time GPU stepping and Al–Si faceted flake kinetics are not modeled.</div>
+              </div>
               <div class="scopeRow" data-cats="foundry">
                 <div class="scopeRow__claim">Nucleation sites &amp; recalescence</div>
                 <span class="scopeBadge">Mechanistic</span>
@@ -1170,6 +1188,8 @@
             <li>J.A. Dantzig &amp; M. Rappaz, <i>Solidification</i>, EPFL Press (2009).</li>
             <li>W. Kurz &amp; D.J. Fisher, <i>Fundamentals of Solidification</i>, Trans Tech Publications (1998).</li>
             <li>E. Scheil, "Bemerkungen zur Schichtkristallbildung," <i>Z. Metallkd.</i> 34 (1942) 70–72.</li>
+            <li>K.A. Jackson &amp; J.D. Hunt, "Lamellar and rod eutectic growth," <i>Trans. Metall. Soc. AIME</i> 236 (1966) 1129–1142.</li>
+            <li>R. Folch &amp; M. Plapp, "Quantitative phase-field modeling of two-phase growth," <i>Phys. Rev. E</i> 72 (2005) 011602.</li>
             <li>E. Niyama, T. Uchida, M. Morikawa &amp; S. Saito, "A method of shrinkage prediction and its application to steel casting practice," <i>AFS Int. Cast Metals J.</i> 7 (1982) 52–63.</li>
             <li>T.W. Clyne &amp; G.J. Davies, "The influence of composition on solidification cracking susceptibility in binary alloy systems," <i>Br. Foundryman</i> 74 (1981) 65–73.</li>
             <li>E. Fras, W. Kapturkiewicz, A. Burbielko &amp; H.F. Lopez, "A new concept in thermal analysis of castings," <i>AFS Trans.</i> 101 (1993) 505–511.</li>

@@ -125,6 +125,18 @@ export const PANEL_LEARN: readonly LearnEntry[] = [
     text: "Guided labs walk through real solidification and heat-treatment tasks while checking the live solver "
       + "state. Measurements latch automatically as each step completes and export with your run archive.",
   },
+  {
+    id: "panel:eutectic",
+    text: "Eutectic mode grows alternating alpha and beta lamellae in 2D using the Folch–Plapp phase-field model. "
+      + "Compare the live lamellar spacing and front undercooling against the Jackson–Hunt minimum curve.",
+    hints: {
+      "alloy": "binary eutectic system and constants",
+      "pull speed V": "directional solidification velocity",
+      "composition c₀": "off-eutectic shift (sets α/β share)",
+      "gradient G": "thermal gradient across the front",
+      "seed pairs": "initial α/β lamellar pairs seeded",
+    },
+  },
 ];
 
 registerLearn(PANEL_LEARN);

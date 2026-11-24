@@ -72,6 +72,9 @@ export interface UIHost extends AppControl {
   isLabOpen(): boolean;
   /** open the HEAT TREAT panel — the second clock, in either dimension */
   startHeat(): void;
+  /** open the 2D Folch–Plapp lamellar eutectic panel */
+  startEutectic(): void;
+  isEutecticOpen(): boolean;
   /** open the Guided Labs picker or bring the active lab dock into focus */
   openGuidedLabs(): void;
   isGuidedLabOpen(): boolean;
@@ -674,6 +677,11 @@ export class UI {
     labsBtn.title = "structured hands-on labs with live physics checks";
     this.hintFor(mrow1, "guided labs");
     this.binds.push({ update: () => labsBtn.setAttribute("aria-expanded", String(host.isGuidedLabOpen())) });
+    const mrow2 = this.btnRow(modes);
+    const eutBtn = this.button(mrow2, "eutectic", () => { host.startEutectic(); this.sync(); });
+    eutBtn.title = "2D lamellar eutectic growth · Folch–Plapp phase field · Jackson–Hunt";
+    this.hintFor(mrow2, "eutectic");
+    this.binds.push({ update: () => eutBtn.setAttribute("aria-expanded", String(host.isEutecticOpen())) });
     const optimizerNote = document.createElement("div");
     optimizerNote.id = "optimizerModeNote";
     optimizerNote.className = "matnote";

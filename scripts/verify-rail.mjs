@@ -1224,6 +1224,7 @@ await samplePanel("2d", "lab", () => window.__solidify.app.startLab(), () => win
 await samplePanel("2d", "heat treat", () => window.__solidify.app.startHeat(), () => window.__solidify.heat.close());
 await samplePanel("2d", "optimizer", () => window.__solidify.app.startOptimizer(), () => window.__solidify.opt.stop());
 await samplePanel("2d", "challenge", () => window.__solidify.app.startChallenge(), () => window.__solidify.challenge.stop());
+await samplePanel("2d", "eutectic", () => window.__solidify.app.startEutectic(), () => window.__solidify.eutectic.close());
 // (v8 U1b review) a heat treat panel carrying a real report: a 4 h anneal of
 // a seeded 512² aluminum casting (verify-heattreat-gpu's pour). With learn
 // mode on its card took the uncapped panel to -48px at 1024x768, header and
@@ -1334,6 +1335,7 @@ await samplePanel("2d", "lab, rail hidden", () => window.__solidify.app.startLab
 await samplePanel("2d", "heat treat, rail hidden", () => window.__solidify.app.startHeat(), () => window.__solidify.heat.close());
 await samplePanel("2d", "optimizer, rail hidden", () => window.__solidify.app.startOptimizer(), () => window.__solidify.opt.stop());
 await samplePanel("2d", "challenge, rail hidden", () => window.__solidify.app.startChallenge(), () => window.__solidify.challenge.stop());
+await samplePanel("2d", "eutectic, rail hidden", () => window.__solidify.app.startEutectic(), () => window.__solidify.eutectic.close());
 await toggleRail();
 // with the analysis column still open, so RAIL-HIDE measures it too
 await sampleHide("2d");
@@ -1886,7 +1888,7 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   // learn toggle, CONTROLS, the switch and #head's lines, with the view cube
   // and the scale bar each in at least one.
   const EXPECT = ["views", "railToggle", "learnToggle", "dimSwitch", "viewcube", "hud", "apanels", "apanels3", "scalebar",
-    "sembar", "hint", "transport", "slicePop", "foundry", "heattreat", "lab", "readouts"];
+    "sembar", "hint", "transport", "slicePop", "foundry", "heattreat", "lab", "eutectic", "readouts"];
   const missing = EXPECT.filter(n => !seenChrome.has(n));
   const notOpened = panelOpened.filter(p => !p.appeared);
   const hiddenOpened = panelOpened.filter(p => p.rail === "hidden").length;
@@ -1936,9 +1938,9 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   const treatedOk = !!treated?.ret && treated.ret.armed === true && treated.ret.fs > 0.9 && treated.ret.card > 100;
   const ok = bad.length === 0 && overTransport.length === 0 && clash.length === 0 && offTop.length === 0 && panelBad.length === 0
     && thinSliders.length === 0 && missing.length === 0 && notOpened.length === 0
-    && panelOpened.length === 13 && hiddenOpened === 6 && hiddenSamples === 14 * VIEWPORTS.length
-    && audits.length === 26 * VIEWPORTS.length && slidersMeasured >= 100
-    && audits.filter(p => p.learn).length === 13 * VIEWPORTS.length && learnUnopened.length === 0
+    && panelOpened.length === 15 && hiddenOpened === 7 && hiddenSamples === 16 * VIEWPORTS.length
+    && audits.length === 30 * VIEWPORTS.length && slidersMeasured >= 100
+    && audits.filter(p => p.learn).length === 15 * VIEWPORTS.length && learnUnopened.length === 0
     && uncapped.length === 0 && panelCapped && treatedOk
     && topMissing.length === 0 && topSomewhere.length === 0 && chromeSamples.every(s => s.transportSeen)
     && hintUnder.length === 0 && phoneSamples.length === 36 && phoneBad.length === 0
@@ -2120,7 +2122,7 @@ const proseDash = s => typeof s === "string" && s.includes("—") && s !== "—"
 {
   const bad = uiCopySamples.filter(s => s.bad.length).map(s => ({ mode: s.mode, what: s.what, bad: s.bad.slice(0, 3) }));
   const seen = new Set(uiCopySamples.flatMap(s => s.seen));
-  const required = ["rail", "foundry", "lab", "heattreat", "challenge"];
+  const required = ["rail", "foundry", "lab", "heattreat", "challenge", "eutectic"];
   const missing = required.filter(n => !seen.has(n));
   const tourCopy = tourHl.copy;
   const tourLive = tourHl.shown && tourCopy?.seen.includes("tour") && tourCopy.chars > 50;

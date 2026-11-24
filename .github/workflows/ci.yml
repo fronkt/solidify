@@ -64,6 +64,8 @@ jobs:
       - run: node scripts/verify-guided-labs.mjs
       # v8.3 Precipitation hardening: Shercliff-Ashby (1990) T6 age-hardening kinetics & back-compat
       - run: node scripts/verify-aging.mjs
+      # v8.4 2D Binary Eutectic: Folch-Plapp (2005) 3-phase simplex & Jackson-Hunt (1966) scaling
+      - run: node scripts/verify-eutectic.mjs
 
 # The rest of the headless verify-*.mjs suite (npm test) needs a WebGPU-capable
 # Chrome at a hardcoded local path and is not portable to this runner — see

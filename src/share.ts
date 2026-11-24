@@ -131,3 +131,38 @@ export function parseLabRoute(hash: string, search = ""): LabRoute | null {
   };
   return scan(hash) ?? scan(search);
 }
+
+export type EutecticRouteAlloy = "alcu" | "pbsn" | "alsi" | "symmetric";
+
+export type EutecticRoute = { kind: "eutectic"; alloy?: EutecticRouteAlloy };
+
+const EUTECTIC_ALLOY_IDS = new Set<string>(["alcu", "pbsn", "alsi", "symmetric"]);
+
+/**
+ * Parse `#eutectic`, `#eutectic=<alloyId>`, `?eutectic`, or `?eutectic=<alloyId>`
+ * without disturbing `#set=`, `#alloy=`, or `#lab=` payloads. Hash takes
+ * precedence over query string; unknown alloy values open the default alloy.
+ */
+export function parseEutecticRoute(hash: string, search = ""): EutecticRoute | null {
+  const scan = (raw: string): EutecticRoute | null => {
+    const body = raw.replace(/^[#?]/, "");
+    if (!body) return null;
+    for (const part of body.split("&")) {
+      if (!part) continue;
+      if (part === "eutectic" || part === "eutectic=1" || part === "eutectic=true") {
+        return { kind: "eutectic" };
+      }
+      if (!part.startsWith("eutectic=")) continue;
+      const tail = part.slice(9);
+      let decoded = tail;
+      try { decoded = decodeURIComponent(tail); } catch { /* malformed escape: keep raw */ }
+      const val = decoded.trim().toLowerCase();
+      if (EUTECTIC_ALLOY_IDS.has(val)) {
+        return { kind: "eutectic", alloy: val as EutecticRouteAlloy };
+      }
+      return { kind: "eutectic" };
+    }
+    return null;
+  };
+  return scan(hash) ?? scan(search);
+}
