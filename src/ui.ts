@@ -72,12 +72,19 @@ export interface UIHost extends AppControl {
   isLabOpen(): boolean;
   /** open the HEAT TREAT panel — the second clock, in either dimension */
   startHeat(): void;
-  /** open the 2D Folch–Plapp lamellar eutectic panel */
+  /** open the 2D Folch–Plapp lamellar eutectic engine */
   startEutectic(): void;
   isEutecticOpen(): boolean;
-  /** open the 2D/3D Cahn–Hilliard spinodal decomposition panel */
+  /** open the 2D/3D Cahn–Hilliard spinodal decomposition engine */
   startSpinodal(): void;
   isSpinodalOpen(): boolean;
+  /** 3-engine switcher + shared #views lens bar routing */
+  activeEngine(): "solidify" | "eutectic" | "spinodal";
+  setEngine(engine: "solidify" | "eutectic" | "spinodal"): void;
+  getEngineLens(): 0 | 1 | 2;
+  setEngineLens(lens: 0 | 1 | 2): void;
+  getEngineLensNames(): readonly [string, string, string];
+  getEngineTitle(): string;
   /** open the Guided Labs picker or bring the active lab dock into focus */
   openGuidedLabs(): void;
   isGuidedLabOpen(): boolean;
@@ -200,6 +207,8 @@ export class UI {
   private sections: Record<string, { root: HTMLElement; setOpen: (b: boolean) => void }> = {};
   private viewBtns: HTMLButtonElement[] = [];
   private viewBtns3: HTMLButtonElement[] = [];
+  private viewBtnsAlt: HTMLButtonElement[] = [];
+  private engineBtns: HTMLButtonElement[] = [];
   private runBtn!: HTMLButtonElement;
   private resetBtn!: HTMLButtonElement;
   private multBtn!: HTMLButtonElement;
@@ -289,6 +298,15 @@ export class UI {
     this.railRoom();
   }
 
+  /** unhide #rail on desktop when opening an alternate engine so the inspector is immediately visible */
+  revealForEngine() {
+    const rail = document.getElementById("rail")!;
+    if (!document.body.classList.contains("railCramped") && innerWidth - rail.offsetWidth >= RAIL_ROOM) {
+      this.setRailHidden(false);
+    }
+    rail.scrollTop = 0;
+  }
+
   /** whether the canvas is narrow (the lens bar under the head plate,
    *  app/index.html .narrow, the CSS's --lens-under-head), and whether the
    *  open rail leaves the chrome beside it too little room (.railCramped,
@@ -359,6 +377,16 @@ export class UI {
       el.append(b);
       this.viewBtns3.push(b);
     });
+    for (let i = 0; i < 3; i++) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "tabs__tab";
+      b.title = `engine lens ${i + 1}`;
+      b.style.display = "none";
+      b.addEventListener("click", () => { this.host.setEngineLens(i as 0 | 1 | 2); this.sync(); });
+      el.append(b);
+      this.viewBtnsAlt.push(b);
+    }
   }
 
   /** the 2D ↔ 3D activation switch, floating just below the CONTROLS button */
@@ -607,7 +635,33 @@ export class UI {
   }
 
   private buildRail() {
-    const rail = document.getElementById("rail")!;
+    const railEl = document.getElementById("rail")!;
+    const engSwitch = document.createElement("div");
+    engSwitch.id = "engineSwitch";
+    engSwitch.className = "tabs";
+    engSwitch.setAttribute("role", "tablist");
+    engSwitch.setAttribute("aria-label", "Simulation engine");
+    for (const [id, label] of [
+      ["solidify", "SOLIDIFY"],
+      ["eutectic", "EUTECTIC"],
+      ["spinodal", "SPINODAL"],
+    ] as const) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "tabs__tab";
+      b.setAttribute("role", "tab");
+      b.dataset.engine = id;
+      b.textContent = label;
+      b.setAttribute("aria-selected", String(id === "solidify"));
+      b.addEventListener("click", () => { this.host.setEngine(id); this.sync(); });
+      engSwitch.append(b);
+      this.engineBtns.push(b);
+    }
+    const modeHost = document.createElement("div");
+    modeHost.id = "railModeHost";
+    const rail = document.createElement("div");
+    rail.id = "railSolidify";
+    railEl.append(engSwitch, modeHost, rail);
     const host = this.host;
     const p = () => host.simParams();
 
@@ -680,16 +734,6 @@ export class UI {
     labsBtn.title = "structured hands-on labs with live physics checks";
     this.hintFor(mrow1, "guided labs");
     this.binds.push({ update: () => labsBtn.setAttribute("aria-expanded", String(host.isGuidedLabOpen())) });
-    const mrow2 = this.btnRow(modes, 2);
-    const eutBtn = this.button(mrow2, "eutectic", () => { host.startEutectic(); this.sync(); });
-    eutBtn.title = "2D lamellar eutectic growth · Folch–Plapp phase field · Jackson–Hunt";
-    this.binds.push({ update: () => eutBtn.setAttribute("aria-expanded", String(host.isEutecticOpen())) });
-    const spinBtn = this.button(mrow2, "spinodal", () => { host.startSpinodal(); this.sync(); });
-    spinBtn.title = "2D/3D Cahn–Hilliard spinodal decomposition · NIST PFHub Benchmark 1";
-    this.binds.push({ update: () => spinBtn.setAttribute("aria-expanded", String(host.isSpinodalOpen())) });
-    // insert spinodal first so eutectic sits directly below mrow2, matching left-to-right button order
-    this.hintFor(mrow2, "spinodal");
-    this.hintFor(mrow2, "eutectic");
     const optimizerNote = document.createElement("div");
     optimizerNote.id = "optimizerModeNote";
     optimizerNote.className = "matnote";
@@ -1205,17 +1249,38 @@ export class UI {
     this.scheilNote.textContent = host.getAlloyOn() ? "" : RAIL_CAVEATS.scheilNeedsAlloy.line;
     this.scheilNote.style.display = host.getAlloyOn() ? "none" : "";
 
+    const eng = host.activeEngine();
+    const alt = eng !== "solidify";
+    document.body.classList.toggle("engineAlt", alt);
+    document.body.classList.toggle("engineEutectic", eng === "eutectic");
+    document.body.classList.toggle("engineSpinodal", eng === "spinodal");
+    for (const b of this.engineBtns) {
+      b.setAttribute("aria-selected", String(b.dataset.engine === eng));
+    }
+
     const lensOn = (b: HTMLButtonElement, on: boolean) => {
       b.classList.toggle("is-on", on);
       b.setAttribute("aria-pressed", String(on));
     };
+    const viewsEl = document.getElementById("views")!;
+    viewsEl.classList.toggle("engine-views", alt);
+    const altLabels = host.getEngineLensNames();
+    const altLens = host.getEngineLens();
     this.viewBtns.forEach((b, i) => {
-      b.style.display = m3 ? "none" : "";
-      lensOn(b, !m3 && i === host.getView());
+      b.style.display = !alt && !m3 ? "" : "none";
+      lensOn(b, !alt && !m3 && i === host.getView());
     });
     this.viewBtns3.forEach((b, i) => {
-      b.style.display = m3 ? "" : "none";
-      lensOn(b, m3 && i === host.getView3d());
+      b.style.display = !alt && m3 ? "" : "none";
+      lensOn(b, !alt && m3 && i === host.getView3d());
+    });
+    this.viewBtnsAlt.forEach((b, i) => {
+      b.style.display = alt ? "" : "none";
+      if (alt) {
+        b.textContent = altLabels[i] ?? "";
+        b.title = `${eng} lens ${i + 1}`;
+      }
+      lensOn(b, alt && i === altLens);
     });
     // every set of toggles says which one is on to a screen reader too
     // (aria-pressed, which tokens.css draws as the inverted pill)
@@ -1247,21 +1312,29 @@ export class UI {
     this.recBtn.textContent = rec ? "■ stop" : "rec";
     this.recBtn.setAttribute("aria-label", rec ? "stop recording" : "record");
     this.recBtn.classList.toggle("recording", rec);
-    document.getElementById("matline")!.textContent =
-      host.getAlloyName() + (m3 ? ` · 3D ${host.getGrid3()}³` : "");
-    // the melt's own caveats, on the same surface as its name — textContent,
-    // not innerHTML, because these strings quote user-supplied element keys
-    const caveats = host.getAlloyCaveats();
-    const cav = document.getElementById("matcaveat")!;
-    cav.textContent = caveats.join(" · ");
-    cav.style.display = caveats.length ? "block" : "none";
-    this.readingsState();
+    if (alt) {
+      document.getElementById("matline")!.textContent = host.getEngineTitle();
+      const cav = document.getElementById("matcaveat")!;
+      cav.textContent = "";
+      cav.style.display = "none";
+      this.readingsState();
+    } else {
+      document.getElementById("matline")!.textContent =
+        host.getAlloyName() + (m3 ? ` · 3D ${host.getGrid3()}³` : "");
+      // the melt's own caveats, on the same surface as its name — textContent,
+      // not innerHTML, because these strings quote user-supplied element keys
+      const caveats = host.getAlloyCaveats();
+      const cav = document.getElementById("matcaveat")!;
+      cav.textContent = caveats.join(" · ");
+      cav.style.display = caveats.length ? "block" : "none";
+      this.readingsState();
+    }
     const grids = [512, 1024, 2048];
     this.gridBtns.forEach((b, i) => setPressed(b, grids[i] === host.getGrid()));
 
     // armed / paused indicator (the ML mode shows its own status instead)
     const armed = document.getElementById("armed")!;
-    if (!host.isRunning() && !host.isEngineering()) {
+    if (!alt && !host.isRunning() && !host.isEngineering()) {
       armed.style.display = "block";
       // ARMED at t = 0 (the melt is staged, nothing has run); what that means
       // is a learn line under it

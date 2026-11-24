@@ -99,11 +99,18 @@
     body.railCramped :is(#head, #views, #dimSwitch, #viewcube, #hud, #apanels, #apanels3, #scalebar, #thermbar, #sembar,
       #slicePop, #hint) { visibility: hidden; }
     body.railPhone :is(#transport, #tourBtn, #labsBtn, #armed) { visibility: hidden; }
-    /* and on such a narrow canvas (ui.ts .narrow, the rail open or not) a
-       mode panel, which takes the whole width there, would paint over the
-       head plate and the lens bar under it: they step out while it is open
+    /* and on such a narrow canvas (ui.ts .narrow, the rail open or not) an
+       expanded mode panel, which takes the whole width there, would paint over
+       the head plate and the lens bar under it: they step out while it is open
        (the panel reports the run itself) */
-    body.narrow:has(#app > .modepanel) :is(#head, #views, #scalebar, #thermbar, #sembar, #slicePop) { visibility: hidden; }
+    body.narrow:has(#app > .modepanel:not(.is-collapsed)) :is(#head, #views, #scalebar, #thermbar, #sembar, #slicePop) { visibility: hidden; }
+    /* alternate engines (eutectic, spinodal) swap #rail into their inspector
+       and hide solidification-only floating chrome */
+    body:not(.engineAlt) #railModeHost { display: none; }
+    body.engineAlt #railSolidify { display: none; }
+    body.engineAlt :is(#dimSwitch, #viewcube, #hud, #apanels, #apanels3, #scalebar, #thermbar, #sembar, #slicePop, #armed, #hint, #overlay) {
+      display: none !important;
+    }
     * { margin: 0; padding: 0; }
     html, body { height: 100%; overflow: hidden; }
     #canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
@@ -181,6 +188,26 @@
       border-left: 1px solid var(--rule); overflow-y: auto; overflow-wrap: anywhere;
       transition: transform 0.25s ease; scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent; }
     #rail.hidden { transform: translateX(100%); }
+    /* 3-engine workspace switcher at the top of #rail: crisp border/text for the
+       active tab (never a filled white pill, keeping #transport .run as the view's
+       sole primary pill) */
+    #engineSwitch {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-1);
+      padding: var(--s-2) 0; margin-bottom: var(--s-1);
+      border-bottom: 1px solid var(--rule);
+    }
+    #engineSwitch .tabs__tab {
+      min-height: 26px; padding: 4px 2px;
+      border: 1px solid transparent; border-radius: var(--r-button-tool);
+      background: transparent; color: var(--fg-3);
+      font: 400 var(--t-nav-tool)/1 var(--font-display); text-transform: uppercase; letter-spacing: var(--track-nav);
+      text-align: center; white-space: nowrap; overflow-wrap: normal; word-break: keep-all;
+    }
+    #engineSwitch .tabs__tab:hover { color: var(--fg); border-color: var(--rule-strong); }
+    #engineSwitch .tabs__tab[aria-selected="true"],
+    #engineSwitch .tabs__tab[aria-selected="true"]:hover {
+      color: var(--fg); border-color: var(--fg); background: transparent;
+    }
     /* sections: a nav-style header over a 1 px rule; an open section's
        header reads --fg, a closed one --fg-3 */
     .sec { border-top: 1px solid var(--rule); }
@@ -324,8 +351,16 @@
       transform: translateX(-50%);
       width: 312px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px var(--s-1); padding: var(--s-1);
       transition: left 0.25s ease, top 0.25s ease; anchor-name: --views; }
+    #views.engine-views {
+      width: 246px; grid-template-columns: repeat(3, minmax(0, 1fr));
+      top: calc(16px + 36 * var(--lens-own-row) + 36 * var(--learn-drop) + 220 * var(--lens-under-head));
+      left: min(max(391px, calc(var(--free-w) / 2), calc(var(--free-w) - 139px - (1px - var(--lens-own-row)) * 100000)),
+        calc(var(--free-w) - 139px));
+    }
     @supports (top: anchor(--head bottom)) {
       #views { top: max(calc(16px + 72 * var(--lens-own-row) + 36 * var(--learn-drop)),
+        calc(anchor(--head bottom) + 8px - (1px - var(--lens-under-head)) * 100000)); }
+      #views.engine-views { top: max(calc(16px + 36 * var(--lens-own-row) + 36 * var(--learn-drop)),
         calc(anchor(--head bottom) + 8px - (1px - var(--lens-under-head)) * 100000)); }
       /* under the plate the bar follows its bottom at once: a transition on
          top would slide it after a longer name or a caveat has already
@@ -337,6 +372,7 @@
     }
     @media (max-width: 343px) {
       body.narrow #views { left: 50%; width: calc(100vw - 32px); }
+      body.narrow #views.engine-views { width: min(246px, calc(100vw - 32px)); }
       body.narrow #views .tabs__tab { padding-left: 4px; padding-right: 4px; }
     }
 
@@ -362,12 +398,12 @@
        buttons) */
     #transport button[aria-pressed="true"], #transport button.recording { background: transparent; border-color: var(--fg); color: var(--fg); }
     #transport button[aria-pressed="true"]:hover, #transport button.recording:hover { background: transparent; border-color: var(--fg-2); }
-    /* One filled pill per view: while a mode panel is open its own primary
-       (pour and run, run treatment, apply recipe, start) is the view's, so
-       run / pause steps down to an outline pill. The panels leave the DOM on
-       close, so :has() follows them */
-    body:has(#app > .modepanel, #guidedPicker) #transport .run { background: transparent; border-color: var(--rule-strong); color: var(--fg); }
-    body:has(#app > .modepanel, #guidedPicker) #transport .run:hover { background: transparent; border-color: var(--fg); }
+    /* One filled pill per view: while an expanded mode panel is open its own
+       primary (pour and run, run treatment, apply recipe, start) is the view's,
+       so run / pause steps down to an outline pill. When collapsed its primary
+       is hidden inside .mp__body, so run / pause restores. */
+    body:has(#app > .modepanel:not(.is-collapsed), #guidedPicker) #transport .run { background: transparent; border-color: var(--rule-strong); color: var(--fg); }
+    body:has(#app > .modepanel:not(.is-collapsed), #guidedPicker) #transport .run:hover { background: transparent; border-color: var(--fg); }
     /* under the tour button (62 + 28 + 8): ARMED or PAUSED, and in learn
        mode what that means; backed like the other chrome, since it shows at
        t = 0, when the ETCH lens paints the melt near-white. Not uppercased:
@@ -904,47 +940,80 @@
        learn hint ("grain refiner particles added to the charge") keeps one
        line (RAIL-LEARN; at 520 the columns were 228 and it took two) */
     .modepanel { --cap: 560px; z-index: 6; }
-    #heattreat { --cap: 700px; }
-    #eutectic { --cap: 640px; }
-    #spinodal { --cap: 660px; }
-    #lab { --cap: 720px; }
+    #heattreat:not(.is-collapsed) { --cap: 700px; }
+    #lab:not(.is-collapsed) { --cap: 720px; }
+    /* ---- workflow panel minimize / auto-collapse HUD strip (v8.6) ---- */
+    .modepanel .mp__strip { display: none; align-items: center; gap: var(--s-2); min-height: 28px; cursor: pointer; }
+    .modepanel.is-collapsed {
+      --cap: 520px;
+      padding: var(--s-1) var(--s-2) var(--s-1) var(--s-3);
+      border-radius: var(--r-button-tool);
+      overflow: hidden;
+    }
+    .modepanel.is-collapsed > .phead,
+    .modepanel.is-collapsed > .lrnText,
+    .modepanel.is-collapsed > .mp__body { display: none !important; }
+    .modepanel.is-collapsed > .mp__strip { display: flex; }
+    .mp__title {
+      flex: none; font: 400 var(--t-nav-tool)/1 var(--font-display);
+      text-transform: uppercase; letter-spacing: var(--track-nav); color: var(--fg); white-space: nowrap;
+    }
+    .mp__sum {
+      flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font: 400 var(--t-ui-min)/1.2 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg-2);
+    }
+    .mp__acts { flex: none; display: flex; align-items: center; gap: var(--s-1); }
+    .mp__acts button, .mp__min { min-height: 24px; padding: 2px 8px; font-size: var(--t-ui-min); white-space: nowrap; }
+    .phead > .mp__min { margin-left: auto; }
+    .phead > .mp__min + .phead__end { margin-left: 0; }
+
+    /* ---- rail-swapped engine inspectors (#eutectic, #spinodal inside #railModeHost) ---- */
+    .railmode { padding: var(--s-2) 0 var(--s-4); color: var(--fg-2); font: 400 var(--t-ui)/1.45 var(--font-body); }
+    .railmode .phead { margin-bottom: var(--s-2); padding-bottom: var(--s-2); gap: var(--s-1) var(--s-2); }
+    .railmode .phead__end { order: 2; }
+    .railmode .phead__meta { flex: 1 0 100%; order: 3; }
+    .railmode .phead button, .railmode .railmode__bar button, .railmode .spin__grp button {
+      overflow-wrap: normal; word-break: keep-all; white-space: nowrap;
+    }
+    .railmode .fbform {
+      display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-2); margin-bottom: var(--s-3);
+    }
+    .railmode .fbrow { column-gap: var(--s-2); }
+    .railmode .fbrow .fblab { white-space: nowrap; overflow-wrap: normal; word-break: keep-all; }
     #eutectic .eut__bar, #spinodal .spin__bar {
       display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
       gap: var(--s-2); margin-bottom: var(--s-3);
     }
-    #eutectic .eut__lenses, #spinodal .spin__toggles, #spinodal .spin__grp {
+    #spinodal .spin__grp {
       display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1);
     }
-    #spinodal .spin__toggles { gap: var(--s-2); }
-    #eutectic .eut__lenses button, #spinodal .spin__grp button {
+    #eutectic .railmode__bar button, #spinodal .railmode__bar button, #spinodal .spin__grp button {
       min-height: 26px; padding: 2px 10px; font-size: var(--t-ui-min);
     }
-    /* Keep active toggles emphasized outlines so run/pause stays the view's single filled pill */
-    #eutectic .eut__lenses button[aria-pressed="true"],
+    /* Keep active toggles emphasized outlines so #transport .run stays the view's single filled pill */
     #spinodal .spin__grp button[aria-pressed="true"] {
       background: transparent; border-color: var(--fg); color: var(--fg);
     }
-    #eutectic .eut__lenses button[aria-pressed="true"]:hover,
     #spinodal .spin__grp button[aria-pressed="true"]:hover {
       background: transparent; border-color: var(--fg-2);
     }
     #eutectic .eut__stats, #spinodal .spin__stats {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 var(--s-5);
+      display: grid; grid-template-columns: minmax(0, 1fr); gap: 0;
       margin-bottom: var(--s-3); border-top: 1px solid var(--rule);
     }
     #eutectic .eut__stat, #spinodal .spin__stat {
       display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2);
       padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: var(--t-ui-min);
     }
-    #eutectic .eut__stat .q, #spinodal .spin__stat .q { color: var(--fg-3); white-space: nowrap; }
-    #eutectic .eut__stat .v, #spinodal .spin__stat .v { text-align: right; overflow-wrap: anywhere; }
+    #eutectic .eut__stat .q, #spinodal .spin__stat .q { color: var(--fg-3); white-space: nowrap; flex: none; }
+    #eutectic .eut__stat .v, #spinodal .spin__stat .v { text-align: right; min-width: 0; overflow-wrap: anywhere; }
     #spinodal .spin__plotbar {
       display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); margin-bottom: var(--s-1);
     }
     #spinodal .spin__plotcap {
       font: 400 var(--t-nav-tool)/1.2 var(--font-display); letter-spacing: var(--track-nav); color: var(--fg-3);
     }
-    #eutectic .eut__plot, #spinodal .spin__plot { width: 100%; height: 196px; min-width: 0; margin-bottom: var(--s-2); }
+    #eutectic .eut__plot, #spinodal .spin__plot { width: 100%; height: 170px; min-width: 0; margin-bottom: var(--s-2); }
     #eutectic .eut__caveat, #spinodal .spin__caveat { margin: var(--s-1) 0 0; font-size: var(--t-ui-min); line-height: 1.45; }
     .modepanel {
       --pw: max(min(var(--cap), calc(100vw - 2 * var(--center-inset) - 32px)), min(300px, calc(100vw - 32px)));

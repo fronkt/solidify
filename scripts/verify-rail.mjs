@@ -217,6 +217,7 @@ const PROBE = LONG => {
     return cs.visibility !== "hidden" && Number(cs.opacity) > 0;
   };
   const rail = () => document.getElementById("rail");
+  const solidRail = () => document.getElementById("railSolidify") ?? rail();
   /** the rail's content box, in viewport x: inside the border, the padding and the scrollbar */
   const contentBox = el => {
     const r = el.getBoundingClientRect();
@@ -298,7 +299,7 @@ const PROBE = LONG => {
     vis, proseDash,
     /** Actual visible control, tour and panel copy, including tooltips. */
     uiCopy() {
-      const roots = [...document.querySelectorAll("#rail, #tour, #guidedLab, #app > .modepanel, #slicePop, #apanels, #apanels3")].filter(vis);
+      const roots = [...document.querySelectorAll("#rail, #railModeHost > .railmode, #tour, #guidedLab, #app > .modepanel, #slicePop, #apanels, #apanels3")].filter(vis);
       const bad = [], seen = [];
       let chars = 0;
       for (const root of roots) {
@@ -342,7 +343,7 @@ const PROBE = LONG => {
     },
     /** what learn mode shows right now, per section header and per hint */
     learnState() {
-      const secs = [...rail().querySelectorAll(":scope > .sec")].filter(vis);
+      const secs = [...solidRail().querySelectorAll(":scope > .sec")].filter(vis);
       const heads = secs.map(s => {
         const h = s.querySelector(":scope > h2");
         const b = h.querySelector(".lrnInfo");
@@ -395,7 +396,7 @@ const PROBE = LONG => {
     /** open every collapsed section by clicking its heading, as a visitor does */
     expandAll() {
       let n = 0, open = 0;
-      for (const s of rail().querySelectorAll(":scope > .sec")) {
+      for (const s of solidRail().querySelectorAll(":scope > .sec")) {
         n++;
         const body = s.querySelector(":scope > .secbody");
         if (body.style.display === "none") s.querySelector(":scope > h2").click();
@@ -640,6 +641,75 @@ const PROBE = LONG => {
       if (!vis(sp)) return { visible: false };
       return { visible: true, ...rowAudit(sp, contentBox(sp)), ...hintAudit(sp) };
     },
+    /** (v8.6) rail-swapped engine inspector (#eutectic / #spinodal mounted in
+     *  #railModeHost): zero floating center modals, form rows inside rail
+     *  content box, and #views displaying 3 engine lens tabs */
+    engineState(rootId) {
+      const el = rail();
+      const box = contentBox(el);
+      const host = document.getElementById("railModeHost");
+      const panel = document.getElementById(rootId);
+      const floatingModals = document.querySelectorAll("#app > .modepanel").length;
+      const mountedInRail = !!host && !!panel && host.contains(panel) && vis(panel);
+      const fbRows = mountedInRail ? [...panel.querySelectorAll(".fbrow")].filter(vis) : [];
+      const fbBad = [];
+      let fbVals = 0, fbZeroVals = 0, fbSliders = 0;
+      for (const row of fbRows) {
+        const name = row.querySelector(".fblab")?.textContent?.trim() ?? "?";
+        if (getComputedStyle(row).display !== "grid") fbBad.push({ row: name, display: getComputedStyle(row).display });
+        const lab = row.querySelector(".fblab");
+        const ctrl = row.querySelector("input, select");
+        const val = row.querySelector(".fbval");
+        for (const [part, node] of [["label", lab], ["control", ctrl]]) {
+          if (!node) { fbBad.push({ row: name, missing: part }); continue; }
+          const b = node.getBoundingClientRect();
+          if (outside(b, box)) fbBad.push({ row: name, part, left: r1(b.left), right: r1(b.right), box: [r1(box.x0), r1(box.x1)] });
+        }
+        if (ctrl instanceof HTMLInputElement && ctrl.type === "range") {
+          fbSliders++;
+          const sw = ctrl.getBoundingClientRect().width;
+          if (sw < 48) fbBad.push({ row: name, thinSlider: r1(sw) });
+        }
+        if (val) {
+          fbVals++;
+          const b = val.getBoundingClientRect();
+          if (b.width < 1) { fbZeroVals++; fbBad.push({ row: name, zeroWidthValue: true }); }
+          if (outside(b, box)) fbBad.push({ row: name, part: "value", left: r1(b.left), right: r1(b.right), box: [r1(box.x0), r1(box.x1)] });
+        }
+      }
+      const viewsEl = document.getElementById("views");
+      const viewBtns = viewsEl ? [...viewsEl.querySelectorAll("button")].filter(vis) : [];
+      const lenses = viewBtns.map(b => (b.textContent ?? "").trim());
+      const engineViewsClass = !!viewsEl?.classList.contains("engine-views");
+      return {
+        floatingModals, mountedInRail,
+        fbRows: fbRows.length, fbVals, fbZeroVals, fbSliders, fbBad: fbBad.slice(0, 6),
+        engineViewsClass, lenses,
+      };
+    },
+    /** (v8.6) workflow panel collapse-strip geometry & state */
+    collapseState() {
+      const p = [...document.querySelectorAll("#app > .modepanel")].find(vis);
+      if (!p) return { present: false };
+      const b = p.getBoundingClientRect();
+      const body = p.querySelector(":scope > .mp__body");
+      const strip = p.querySelector(":scope > .mp__strip");
+      const minBtn = p.querySelector(".mp__min");
+      const setupBtn = [...(strip?.querySelectorAll("button") ?? [])].find(x => (x.textContent ?? "").trim().startsWith("setup"));
+      return {
+        present: true,
+        id: p.id || "challenge",
+        collapsed: p.classList.contains("is-collapsed"),
+        height: r1(b.height),
+        width: r1(b.width),
+        box: [r1(b.left), r1(b.top), r1(b.right), r1(b.bottom)],
+        bodyVisible: vis(body),
+        stripVisible: vis(strip),
+        minVisible: vis(minBtn),
+        minExpanded: minBtn?.getAttribute("aria-expanded") ?? null,
+        hasSetup: !!setupBtn && vis(setupBtn),
+      };
+    },
     /** (v8 D2) every color the chrome under `items` paints, as computed, on
      *  every rendered element and its ::before / ::after: achromatic (r, g
      *  and b within 2 of each other, or fully transparent), and no glow (a
@@ -705,7 +775,7 @@ const PROBE = LONG => {
      *  the live canvas shows through at 10% (0.90 alpha), so a fully
      *  saturated lens tints the rail by at most 25.5; font antialiasing is
      *  gray. An amber thumb (255, 180, 84) is 171 */
-    async huedPixels(b64, margin) {
+    async huedPixels(b64, margin, skipRects = [], clipW = 0, clipH = 0) {
       const img = new Image();
       img.src = "data:image/png;base64," + b64;
       await img.decode();
@@ -713,9 +783,23 @@ const PROBE = LONG => {
       const x = c.getContext("2d");
       x.drawImage(img, 0, 0);
       const d = x.getImageData(0, 0, img.width, img.height).data;
-      let hued = 0;
-      for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > margin) hued++;
-      return { px: d.length / 4, hued };
+      const sx = clipW > 0 ? img.width / clipW : 1;
+      const sy = clipH > 0 ? img.height / clipH : 1;
+      const rects = skipRects.map(r => [r[0] * sx, r[1] * sy, r[2] * sx, r[3] * sy]);
+      let px = 0, hued = 0;
+      if (!rects.length) {
+        for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > margin) hued++;
+        return { px: d.length / 4, hued };
+      }
+      for (let y = 0; y < img.height; y++) {
+        for (let col = 0; col < img.width; col++) {
+          if (rects.some(r => col >= r[0] && col < r[2] && y >= r[1] && y < r[3])) continue;
+          const i = (y * img.width + col) * 4;
+          px++;
+          if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > margin) hued++;
+        }
+      }
+      return { px, hued };
     },
     /** (v8 D2 review) two screenshots of one clip: how many pixels changed
      *  by more than 64 in some channel (a focus ring drawn, or not) */
@@ -834,6 +918,37 @@ const railHued = async () => {
   return page.evaluate((s, m) => window.__railProbe.huedPixels(s, m), b64, HUE_MARGIN);
 };
 const railPixels = async (mode, state) => railPixelSamples.push({ mode, state, ...(await railHued()) });
+/** (v8.6) pixel-level achromatic check for #rail while a rail-swapped engine
+ *  inspector (#eutectic / #spinodal) is mounted: masks out only embedded
+ *  PlotView <canvas> data curves so every chrome pixel (headers, engine tabs,
+ *  slider thumbs/tracks, pills, stats, caveats) is checked for 0 hued pixels */
+const railChromeHued = async () => {
+  const info = await S(() => {
+    const r = document.getElementById("rail");
+    const b = r.getBoundingClientRect();
+    const clip = { x: b.x, y: 0, width: Math.min(b.width, innerWidth - b.x), height: innerHeight };
+    const skip = [...r.querySelectorAll("canvas")].filter(c => window.__railProbe.vis(c)).map(c => {
+      const cb = c.getBoundingClientRect();
+      return [cb.left - clip.x - 1, cb.top - clip.y - 1, cb.right - clip.x + 1, cb.bottom - clip.y + 1];
+    });
+    return { clip, skip };
+  });
+  const b64 = await page.screenshot({ clip: info.clip, encoding: "base64" });
+  return page.evaluate((s, m, sk, w, h) => window.__railProbe.huedPixels(s, m, sk, w, h),
+    b64, HUE_MARGIN, info.skip, info.clip.width, info.clip.height);
+};
+/** (v8.6) pixel-level achromatic check for a collapsed workflow HUD strip */
+const panelStripHued = async () => {
+  const clip = await S(() => {
+    const p = [...document.querySelectorAll("#app > .modepanel")].find(el => window.__railProbe.vis(el));
+    if (!p) return null;
+    const b = p.getBoundingClientRect();
+    return { x: Math.max(0, b.left), y: Math.max(0, b.top), width: Math.min(b.width, innerWidth - Math.max(0, b.left)), height: Math.min(b.height, innerHeight - Math.max(0, b.top)) };
+  });
+  if (!clip || clip.width < 1 || clip.height < 1) return { px: 0, hued: 1 };
+  const b64 = await page.screenshot({ clip, encoding: "base64" });
+  return page.evaluate((s, m) => window.__railProbe.huedPixels(s, m), b64, HUE_MARGIN);
+};
 
 // the phone's rail (v8 D2 review): 270px, the narrowest the rail gets, where
 // the pills' words used to break inside themselves. Kept apart from
@@ -935,6 +1050,145 @@ async function samplePanel(mode, what, open, close) {
   panelOpened.push({ mode, what, rail: await railState(), appeared: fresh.length > 0, names: fresh, ret: ret ?? null });
   await sampleChrome(mode, what);
   await sampleLearnChrome(mode, what);
+  await page.evaluate(close);
+  await sleep(400);
+}
+
+// (v8.6) rail-swapped engines (#eutectic, #spinodal inside #railModeHost) and
+// workflow collapse-strip checks (.mp__min -> height <= 44px -> setup ▴)
+const engineRailSamples = [];
+const engineChromeSamples = [];
+const engineRailPixels = [];
+const collapseSamples = [];
+
+async function sampleEngine(name, rootId, open, close, expectedLenses, expectedHints, { dim3Lenses = null } = {}) {
+  await setVP(1440, 900);
+  await page.evaluate(open);
+  await sleep(600);
+  await settle();
+  // ensure rail is shown while inspecting the rail-mounted engine
+  if (await railState() === "hidden") await toggleRail();
+  // phone 390x844 (270px narrowest rail), learn off and on
+  await setVP(...PHONE);
+  if (await railState() === "hidden") await toggleRail();
+  for (const on of [false, true]) {
+    await page.evaluate(b => window.__railProbe.learnSet(b), on);
+    await sleep(150);
+    const m = await S(() => window.__railProbe.measure());
+    const st = await page.evaluate(id => window.__railProbe.engineState(id), rootId);
+    engineRailSamples.push({ engine: name, variant: "2d", vp: PHONE.join("x"), phone: true, railShown: await railState() === "shown",
+      expectedHints, expectedLenses, ...m, ...st });
+  }
+  await S(() => window.__railProbe.learnSet(false));
+  // desktop viewports, rail shown (learn off & on)
+  for (const [w, h] of VIEWPORTS) {
+    await setVP(w, h);
+    if (await railState() === "hidden") await toggleRail();
+    for (const on of [false, true]) {
+      await page.evaluate(b => window.__railProbe.learnSet(b), on);
+      await sleep(150);
+      uiCopySamples.push({ mode: "2d", what: `engine ${name}${on ? " · learn" : ""}`, vp: `${w}x${h}`, ...await S(() => window.__railProbe.uiCopy()) });
+      const m = await S(() => window.__railProbe.measure());
+      const st = await page.evaluate(id => window.__railProbe.engineState(id), rootId);
+      const c = await S(() => window.__railProbe.chrome());
+      engineRailSamples.push({ engine: name, variant: "2d", vp: `${w}x${h}`, phone: false, railShown: true,
+        expectedHints, expectedLenses, ...m, ...st });
+      engineChromeSamples.push({ engine: name, variant: "2d", rail: "shown", vp: `${w}x${h}`, learn: on,
+        expectedLenses, floatingModals: st.floatingModals, mountedInRail: st.mountedInRail,
+        engineViewsClass: st.engineViewsClass, lenses: st.lenses,
+        hits: c.hits, clash: c.clash, offTop: c.offTop, top: c.top, transportSeen: !!c.boxes.transport });
+      if (w === VIEWPORTS[0][0]) {
+        await achroma("2d", `engine ${name}${on ? " · learn" : ""}`);
+        engineRailPixels.push({ engine: name, variant: "2d", learn: on, ...(await railChromeHued()) });
+      }
+    }
+    await S(() => window.__railProbe.learnSet(false));
+  }
+  // toggle #rail hidden across desktop viewports: 0 clashes, 3 engine lenses stay clear
+  await toggleRail();
+  for (const [w, h] of VIEWPORTS) {
+    await setVP(w, h);
+    const st = await page.evaluate(id => window.__railProbe.engineState(id), rootId);
+    const c = await S(() => window.__railProbe.chrome());
+    engineChromeSamples.push({ engine: name, variant: "2d", rail: "hidden", vp: `${w}x${h}`, learn: false,
+      expectedLenses, floatingModals: st.floatingModals, mountedInRail: true,
+      engineViewsClass: st.engineViewsClass, lenses: st.lenses,
+      hits: c.hits, clash: c.clash, offTop: c.offTop, top: c.top, transportSeen: !!c.boxes.transport });
+  }
+  await toggleRail();
+  // optional 3D variant check (spinodal 3D: ISO 3D / SLICE / VOL)
+  if (dim3Lenses) {
+    await setVP(1440, 900);
+    await S(() => document.getElementById("spinDim3d")?.click());
+    await sleep(600);
+    await settle();
+    for (const [w, h] of [[1280, 720], [1440, 900], [960, 1000]]) {
+      await setVP(w, h);
+      const m = await S(() => window.__railProbe.measure());
+      const st = await page.evaluate(id => window.__railProbe.engineState(id), rootId);
+      const c = await S(() => window.__railProbe.chrome());
+      engineRailSamples.push({ engine: name, variant: "3d", vp: `${w}x${h}`, phone: false, railShown: true,
+        expectedHints, expectedLenses: dim3Lenses, ...m, ...st });
+      engineChromeSamples.push({ engine: name, variant: "3d", rail: "shown", vp: `${w}x${h}`, learn: false,
+        expectedLenses: dim3Lenses, floatingModals: st.floatingModals, mountedInRail: st.mountedInRail,
+        engineViewsClass: st.engineViewsClass, lenses: st.lenses,
+        hits: c.hits, clash: c.clash, offTop: c.offTop, top: c.top, transportSeen: !!c.boxes.transport });
+    }
+    await achroma("2d", `engine ${name} 3d`);
+    await setVP(1280, 720);
+    engineRailPixels.push({ engine: name, variant: "3d", learn: false, ...(await railChromeHued()) });
+    await toggleRail();
+    for (const [w, h] of [[1280, 720], [960, 1000]]) {
+      await setVP(w, h);
+      const st = await page.evaluate(id => window.__railProbe.engineState(id), rootId);
+      const c = await S(() => window.__railProbe.chrome());
+      engineChromeSamples.push({ engine: name, variant: "3d", rail: "hidden", vp: `${w}x${h}`, learn: false,
+        expectedLenses: dim3Lenses, floatingModals: st.floatingModals, mountedInRail: true,
+        engineViewsClass: st.engineViewsClass, lenses: st.lenses,
+        hits: c.hits, clash: c.clash, offTop: c.offTop, top: c.top, transportSeen: !!c.boxes.transport });
+    }
+    await toggleRail();
+  }
+  await page.evaluate(close);
+  await sleep(400);
+  await setVP(1440, 900);
+}
+
+async function sampleCollapse(mode, what, open, close) {
+  await setVP(1440, 900);
+  if (await railState() === "hidden") await toggleRail();
+  await page.evaluate(open);
+  await sleep(500);
+  await settle();
+  const expanded = await S(() => window.__railProbe.collapseState());
+  await S(() => document.querySelector("#app > .modepanel .mp__min")?.click());
+  await sleep(250);
+  await settle();
+  const vps = [];
+  for (const [w, h] of [[1440, 900], [1280, 720], [1024, 768], [960, 1000]]) {
+    await setVP(w, h);
+    const cs = await S(() => window.__railProbe.collapseState());
+    const c = await S(() => window.__railProbe.chrome());
+    const t = c.boxes.transport;
+    const meets = (a, b) => a[2] > b[0] && a[0] < b[2] && a[3] > b[1] && a[1] < b[3];
+    const overTransport = !!(t && cs.box && meets(cs.box, t));
+    const copy = await S(() => window.__railProbe.uiCopy());
+    uiCopySamples.push({ mode, what: `${what} · collapsed`, vp: `${w}x${h}`, ...copy });
+    vps.push({ vp: `${w}x${h}`, ...cs, hits: c.hits, clash: c.clash, offTop: c.offTop, overTransport, copyBad: copy.bad });
+  }
+  await setVP(1440, 900);
+  await achroma(mode, `${what} · collapsed`);
+  const achromaRead = await S(() => window.__railProbe.achroma(["#app > .modepanel", "transport"]));
+  const stripPixels = await panelStripHued();
+  // restore by clicking "setup ▴"
+  await S(() => {
+    const btns = [...document.querySelectorAll("#app > .modepanel .mp__strip button")];
+    btns.find(b => (b.textContent ?? "").trim().startsWith("setup"))?.click();
+  });
+  await sleep(250);
+  await settle();
+  const restored = await S(() => window.__railProbe.collapseState());
+  collapseSamples.push({ mode, what, expanded, vps, achromaBad: achromaRead.nBad, stripPixels, restored });
   await page.evaluate(close);
   await sleep(400);
 }
@@ -1224,8 +1478,15 @@ await samplePanel("2d", "lab", () => window.__solidify.app.startLab(), () => win
 await samplePanel("2d", "heat treat", () => window.__solidify.app.startHeat(), () => window.__solidify.heat.close());
 await samplePanel("2d", "optimizer", () => window.__solidify.app.startOptimizer(), () => window.__solidify.opt.stop());
 await samplePanel("2d", "challenge", () => window.__solidify.app.startChallenge(), () => window.__solidify.challenge.stop());
-await samplePanel("2d", "eutectic", () => window.__solidify.app.startEutectic(), () => window.__solidify.eutectic.close());
-await samplePanel("2d", "spinodal", () => window.__solidify.app.startSpinodal(), () => window.__solidify.spinodal.close());
+// (v8.6) rail-swapped engines (#eutectic, #spinodal inside #railModeHost) +
+// shared #views (3 engine lenses) + zero floating center modal
+await sampleEngine("eutectic", "eutectic", () => window.__solidify.app.startEutectic(), () => window.__solidify.eutectic.close(), ["PHASES", "SOLUTE", "ETCH"], 5);
+await sampleEngine("spinodal", "spinodal", () => window.__solidify.app.startSpinodal("pfhub1", "2d"), () => window.__solidify.spinodal.close(), ["COMP", "CHEM μ", "ETCH"], 4, { dim3Lenses: ["ISO 3D", "SLICE", "VOL"] });
+// (v8.6) workflow collapse-strip checks (.mp__min -> height <= 44px -> setup ▴)
+await sampleCollapse("2d", "lab", () => window.__solidify.app.startLab(), () => window.__solidify.lab.close());
+await sampleCollapse("2d", "heat treat", () => window.__solidify.app.startHeat(), () => window.__solidify.heat.close());
+await sampleCollapse("2d", "optimizer", () => window.__solidify.app.startOptimizer(), () => window.__solidify.opt.stop());
+await sampleCollapse("2d", "challenge", () => window.__solidify.app.startChallenge(), () => window.__solidify.challenge.stop());
 // (v8 U1b review) a heat treat panel carrying a real report: a 4 h anneal of
 // a seeded 512² aluminum casting (verify-heattreat-gpu's pour). With learn
 // mode on its card took the uncapped panel to -48px at 1024x768, header and
@@ -1336,8 +1597,6 @@ await samplePanel("2d", "lab, rail hidden", () => window.__solidify.app.startLab
 await samplePanel("2d", "heat treat, rail hidden", () => window.__solidify.app.startHeat(), () => window.__solidify.heat.close());
 await samplePanel("2d", "optimizer, rail hidden", () => window.__solidify.app.startOptimizer(), () => window.__solidify.opt.stop());
 await samplePanel("2d", "challenge, rail hidden", () => window.__solidify.app.startChallenge(), () => window.__solidify.challenge.stop());
-await samplePanel("2d", "eutectic, rail hidden", () => window.__solidify.app.startEutectic(), () => window.__solidify.eutectic.close());
-await samplePanel("2d", "spinodal, rail hidden", () => window.__solidify.app.startSpinodal(), () => window.__solidify.spinodal.close());
 await toggleRail();
 // with the analysis column still open, so RAIL-HIDE measures it too
 await sampleHide("2d");
@@ -1530,7 +1789,7 @@ learnRun.space = [];
 // and the button's own state (what a second press would change) holds
 for (const [where, sel, read] of [
   ["learn toggle", "#learnToggle", () => document.getElementById("learnToggle").getAttribute("aria-pressed")],
-  ["an \"i\"", "#rail > .sec:first-child .lrnInfo", () => document.querySelector("#rail > .sec:first-child .lrnInfo").getAttribute("aria-expanded")],
+  ["an \"i\"", "#railSolidify > .sec:first-child .lrnInfo", () => document.querySelector("#railSolidify > .sec:first-child .lrnInfo").getAttribute("aria-expanded")],
   ["ETCH lens", "#views button:nth-child(3)", () => String(window.__solidify.app.getView())],
 ]) {
   await page.click(sel);
@@ -1585,7 +1844,7 @@ await S(() => window.__railProbe.learnSet(false));
     // page whose storage works)
     let throws = false;
     try { void window.localStorage; } catch { throws = true; }
-    const h = document.querySelector("#rail > .sec:nth-child(2) > h2");
+    const h = document.querySelector("#railSolidify > .sec:nth-child(2) > h2");
     const body = h.parentElement.querySelector(":scope > .secbody");
     const openBefore = body.style.display;
     h.click();
@@ -1798,12 +2057,20 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   // off and on
   const phoneBad = phoneRail.filter(s => s.scroll > s.client).map(s => ({ ...brief(s), scrollWidth: s.scroll, clientWidth: s.client }));
   const phoneLive = phoneRail.length === 2 * 5 && phoneRail.every(s => s.railShown && s.width <= 271);
+  // (v8.6) rail-swapped engines (#eutectic, #spinodal) on desktop and 270px phone rail
+  const engBad = engineRailSamples.filter(s => s.scroll > s.client || !s.mountedInRail || s.floatingModals !== 0)
+    .map(s => ({ engine: s.engine, variant: s.variant, vp: s.vp, learn: s.learn, scrollWidth: s.scroll, clientWidth: s.client, floatingModals: s.floatingModals, mountedInRail: s.mountedInRail }));
+  const engPhone = engineRailSamples.filter(s => s.phone);
+  const engPhoneLive = engPhone.length === 4 && engPhone.every(s => s.railShown && s.width <= 271);
   const ok = bad.length === 0 && scrollbarSeen && railSamples.length === 2 * 5 * VIEWPORTS.length
-    && learnSamples === 5 * VIEWPORTS.length && phoneBad.length === 0 && phoneLive;
+    && learnSamples === 5 * VIEWPORTS.length && phoneBad.length === 0 && phoneLive
+    && engineRailSamples.length === 27 && engBad.length === 0 && engPhoneLive;
   check("RAIL-NO-HSCROLL", ok, {
     samples: railSamples.length, learnSamples, scrollbarSeen,
     railWidth: railSamples[0]?.width, clientWidth: [...new Set(railSamples.map(s => s.client))],
-    phone: { samples: phoneRail.length, live: phoneLive, railWidth: phoneRail[0]?.width }, bad: bad.slice(0, 8), phoneBad: phoneBad.slice(0, 4),
+    phone: { samples: phoneRail.length, live: phoneLive, railWidth: phoneRail[0]?.width },
+    engines: { samples: engineRailSamples.length, phoneLive: engPhoneLive, bad: engBad.slice(0, 6) },
+    bad: bad.slice(0, 8), phoneBad: phoneBad.slice(0, 4),
   });
 }
 
@@ -1817,10 +2084,17 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   // finding rows.
   const minPerSample = Math.min(...railSamples.map(s => s.vals));
   const allOpened = expands.every(e => e.open === e.sections && e.sections >= 10);
-  const ok = bad.length === 0 && zero === 0 && minPerSample >= 15 && vals >= 300 && allOpened;
+  // (v8.6) rail-swapped engines use .fbrow form grids inside #railModeHost
+  const engRowBad = engineRailSamples.filter(s => s.fbBad.length || s.fbZeroVals > 0
+    || s.fbRows < (s.engine === "eutectic" ? 5 : 4) || s.fbSliders < (s.engine === "eutectic" ? 4 : 3))
+    .map(s => ({ engine: s.engine, variant: s.variant, vp: s.vp, learn: s.learn, fbRows: s.fbRows, fbSliders: s.fbSliders, fbBad: s.fbBad }));
+  const ok = bad.length === 0 && zero === 0 && minPerSample >= 15 && vals >= 300 && allOpened
+    && engineRailSamples.length === 27 && engRowBad.length === 0;
   check("RAIL-ROWS-INSIDE", ok, {
     valuesMeasured: vals, fewestInOneSample: minPerSample, zeroWidthValues: zero,
-    sections: expands.map(e => `${e.mode} ${e.open}/${e.sections}`), bad: bad.slice(0, 6),
+    sections: expands.map(e => `${e.mode} ${e.open}/${e.sections}`),
+    engineRows: engineRailSamples.reduce((n, s) => n + s.fbRows, 0), engRowBad: engRowBad.slice(0, 6),
+    bad: bad.slice(0, 6),
   });
 }
 
@@ -1843,11 +2117,15 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   const split = [...railSamples, ...phoneRail].filter(s => s.nSplit)
     .map(s => ({ ...brief(s), learn: s.learn, n: s.nSplit, first: s.splitWords.slice(0, 4) }));
   const fewestWords = Math.min(...[...railSamples, ...phoneRail].map(s => s.words));
+  const engTextBad = engineRailSamples.filter(s => s.nTextBad || s.nSplit || s.elems < 30 || s.lines < 15 || s.words < 10)
+    .map(s => ({ engine: s.engine, variant: s.variant, vp: s.vp, learn: s.learn, nTextBad: s.nTextBad, textBad: s.textBad.slice(0, 3), nSplit: s.nSplit, splitWords: s.splitWords.slice(0, 3), elems: s.elems, lines: s.lines, words: s.words }));
   check("RAIL-TEXT-WRAPS", bad.length === 0 && fewest >= 150 && fewestLines >= 100 && fewestLearn >= 30
-    && phoneTextBad.length === 0 && split.length === 0 && fewestWords >= 60 && phoneRail.length === 10, {
+    && phoneTextBad.length === 0 && split.length === 0 && fewestWords >= 60 && phoneRail.length === 10
+    && engineRailSamples.length === 27 && engTextBad.length === 0, {
     fewestElementsInOneSample: fewest, fewestTextLinesInOneSample: fewestLines,
     fewestLearnElementsInALearnSample: fewestLearn, fewestControlWordsInOneSample: fewestWords,
     bad: bad.slice(0, 6), phoneBad: phoneTextBad.slice(0, 4), splitWords: split.slice(0, 6),
+    engTextBad: engTextBad.slice(0, 6),
   });
 }
 
@@ -1890,7 +2168,7 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   // learn toggle, CONTROLS, the switch and #head's lines, with the view cube
   // and the scale bar each in at least one.
   const EXPECT = ["views", "railToggle", "learnToggle", "dimSwitch", "viewcube", "hud", "apanels", "apanels3", "scalebar",
-    "sembar", "hint", "transport", "slicePop", "foundry", "heattreat", "lab", "eutectic", "spinodal", "readouts"];
+    "sembar", "hint", "transport", "slicePop", "foundry", "heattreat", "lab", "readouts"];
   const missing = EXPECT.filter(n => !seenChrome.has(n));
   const notOpened = panelOpened.filter(p => !p.appeared);
   const hiddenOpened = panelOpened.filter(p => p.rail === "hidden").length;
@@ -1938,17 +2216,43 @@ const brief = s => ({ mode: s.mode, state: s.state, vp: s.vp });
   const panelCapped = learnSamples.some(s => Object.entries(s.scrolls ?? {}).some(([n, v]) => n.startsWith("panel ") && v));
   const treated = panelOpened.find(p => p.what === "heat treat after a 4 h anneal");
   const treatedOk = !!treated?.ret && treated.ret.armed === true && treated.ret.fs > 0.9 && treated.ret.card > 100;
+  // (v8.6) rail-swapped engines: zero floating modal, 3 engine lens tabs
+  // clearing #head / #learnToggle / #railToggle / #rail across viewports,
+  // both with rail shown and rail hidden
+  const ENG_TOP = ["views", "head", "learnToggle", "railToggle"];
+  const engineBad = engineChromeSamples.filter(s =>
+    s.floatingModals !== 0 || !s.mountedInRail || !s.engineViewsClass
+    || s.lenses.length !== 3 || s.lenses.some((l, i) => l !== s.expectedLenses[i])
+    || s.hits.length || s.clash.length || s.offTop.length || !s.transportSeen
+    || ENG_TOP.some(n => !s.top.includes(n)))
+    .map(s => ({ engine: s.engine, variant: s.variant, rail: s.rail, vp: s.vp, floatingModals: s.floatingModals,
+      lenses: s.lenses, expectedLenses: s.expectedLenses, hits: s.hits, clash: s.clash.slice(0, 3), offTop: s.offTop }));
+  // (v8.6) workflow collapse-strip checks: clicking .mp__min on lab, heat treat,
+  // optimizer, challenge collapses to height <= 44px with 0 clashes / 0 hits /
+  // 0 transport overlap, and clicking setup ▴ restores cleanly
+  const collapseBad = collapseSamples.filter(s => {
+    const expOk = s.expanded.present && !s.expanded.collapsed && s.expanded.height > 80 && s.expanded.minVisible && s.expanded.bodyVisible && !s.expanded.stripVisible;
+    const resOk = s.restored.present && !s.restored.collapsed && s.restored.height > 80 && s.restored.bodyVisible && !s.restored.stripVisible;
+    const vpsOk = s.vps.length === 4 && s.vps.every(v =>
+      v.present && v.collapsed && v.height <= 44 && v.height >= 24 && v.stripVisible && !v.bodyVisible && v.hasSetup
+      && v.hits.length === 0 && v.clash.length === 0 && v.offTop.length === 0 && !v.overTransport && v.copyBad.length === 0);
+    return !(expOk && resOk && vpsOk);
+  }).map(s => ({ what: s.what, expanded: s.expanded, restored: s.restored, badVps: s.vps.filter(v => !(v.collapsed && v.height <= 44 && v.hits.length === 0 && v.clash.length === 0 && !v.overTransport)) }));
   const ok = bad.length === 0 && overTransport.length === 0 && clash.length === 0 && offTop.length === 0 && panelBad.length === 0
     && thinSliders.length === 0 && missing.length === 0 && notOpened.length === 0
-    && panelOpened.length === 17 && hiddenOpened === 8 && hiddenSamples === 18 * VIEWPORTS.length
-    && audits.length === 34 * VIEWPORTS.length && slidersMeasured >= 100
-    && audits.filter(p => p.learn).length === 17 * VIEWPORTS.length && learnUnopened.length === 0
+    && panelOpened.length === 13 && hiddenOpened === 6 && hiddenSamples === 14 * VIEWPORTS.length
+    && audits.length === 26 * VIEWPORTS.length && slidersMeasured >= 80
+    && audits.filter(p => p.learn).length === 13 * VIEWPORTS.length && learnUnopened.length === 0
     && uncapped.length === 0 && panelCapped && treatedOk
     && topMissing.length === 0 && topSomewhere.length === 0 && chromeSamples.every(s => s.transportSeen)
     && hintUnder.length === 0 && phoneSamples.length === 36 && phoneBad.length === 0
-    && phoneDisclosures.length === 8 && disclosureBad.length === 0;
+    && phoneDisclosures.length === 8 && disclosureBad.length === 0
+    && engineChromeSamples.length === 35 && engineBad.length === 0
+    && collapseSamples.length === 4 && collapseBad.length === 0;
   check("RAIL-CLEAR", ok, {
     samples: chromeSamples.length, learnSamples: learnSamples.length, hiddenSamples, panelAudits: audits.length, slidersMeasured,
+    engines: { samples: engineChromeSamples.length, bad: engineBad.slice(0, 6) },
+    collapse: { samples: collapseSamples.length, heights: collapseSamples.map(s => `${s.what}:${s.vps[0]?.height}px`), bad: collapseBad.slice(0, 4) },
     phone: phoneSamples.map(s => `${s.mode} ${s.what}: rail ${s.rail}, top ${s.top.join(" ")}`), phoneBad, hintUnder: hintUnder.slice(0, 4),
     disclosures: phoneDisclosures.length, disclosureBad,
     panels: panelOpened.map(p => `${p.mode} ${p.what}: ${p.names.join(", ")}`),
@@ -2064,6 +2368,15 @@ const proseDash = s => typeof s === "string" && s.includes("—") && s !== "—"
   const pHints = pAudits.filter(p => p.learn).reduce((n, p) => n + p.hints, 0);
   if (pHintBad.length || pDark.length || pLeak.length || !(pHints >= 100))
     why.push({ panelHints: pHints, hintBad: pHintBad.slice(0, 4), learnDark: pDark.slice(0, 4), learnLeak: pLeak.slice(0, 4) });
+  // (v8.6) rail-swapped engines (#eutectic, #spinodal): learn off renders
+  // nothing, learn on renders explanation + every declared hint on one line
+  const engLrnBad = engineRailSamples.filter(s => s.learn
+    ? (s.lrnVisible === 0 || s.nHintBad > 0 || s.hints !== s.expectedHints)
+    : (s.lrnVisible > 0 || s.nHintBad > 0))
+    .map(s => ({ engine: s.engine, variant: s.variant, vp: s.vp, learn: s.learn, lrnVisible: s.lrnVisible, hints: s.hints, expectedHints: s.expectedHints, hintBad: s.hintBad }));
+  const engHints = engineRailSamples.filter(s => s.learn).reduce((n, s) => n + s.hints, 0);
+  if (engLrnBad.length || !(engHints >= 9 * VIEWPORTS.length))
+    why.push({ engineLearn: { engHints, bad: engLrnBad.slice(0, 4) } });
   // every learn string any material or state can show is 1 to 2 sentences,
   // and every hint is short enough for one line
   const shape = sources.filter(([k, , t]) => (k === "learn" && (sentences(t) < 1 || sentences(t) > 2))
@@ -2098,6 +2411,7 @@ const proseDash = s => typeof s === "string" && s.includes("—") && s !== "—"
   const fixtureNode = ["a — b", "—x", "x—", " — "].every(proseDash) && !["—", "5–10 K", "Al–Cu"].some(proseDash);
   const fixture = fixtureNode && fixtureDom;
   const dom = railSamples.filter(s => s.nDashes).map(s => ({ ...brief(s), learn: s.learn, first: s.dashes.slice(0, 3) }))
+    .concat(engineRailSamples.filter(s => s.nDashes).map(s => ({ state: `engine ${s.engine} ${s.variant}`, vp: s.vp, learn: s.learn, first: s.dashes.slice(0, 3) })))
     .concat(pourRun.samples.filter(s => s.nDashes).map(s => ({ state: "poured mix, calibrated", learn: s.learn, first: s.dashes.slice(0, 3) })));
   const src = sources.filter(([, , t]) => proseDash(t)).map(([k, w, t]) => ({ kind: k, where: w, text: t.slice(0, 70) }));
   const tour = sources.filter(([k]) => k === "tour");
@@ -2144,7 +2458,10 @@ const proseDash = s => typeof s === "string" && s.includes("—") && s !== "—"
   // sample read enough elements, the tour sample really had the card on
   // screen, and the cube painted and drew its hover highlight
   const bad = achromaSamples.filter(s => s.nBad).map(s => ({ mode: s.mode, state: s.state, n: s.nBad, first: s.bad.slice(0, 3) }));
-  const fewest = Math.min(...achromaSamples.map(s => s.n));
+  const solidAchroma = achromaSamples.filter(s => !s.state.startsWith("engine "));
+  const engAchroma = achromaSamples.filter(s => s.state.startsWith("engine "));
+  const fewest = Math.min(...solidAchroma.map(s => s.n));
+  const fewestEngine = engAchroma.length ? Math.min(...engAchroma.map(s => s.n)) : 0;
   const tourSample = achromaSamples.find(s => s.state === "tour open");
   // the amber line is caught on its color (and on every currentColor edge
   // it tints, which is right: those paint amber too), the glow on its shadow
@@ -2184,12 +2501,17 @@ const proseDash = s => typeof s === "string" && s.includes("—") && s !== "—"
   // reported: it is why this read exists)
   const P = pixelFixture;
   const pixBad = railPixelSamples.filter(s => s.hued > 0).map(s => ({ mode: s.mode, state: s.state, hued: s.hued }));
+  const engPixBad = engineRailPixels.filter(s => s.hued > 0 || s.px <= 30000);
+  const collapsePixBad = collapseSamples.filter(s => s.achromaBad > 0 || s.stripPixels.hued > 0 || s.stripPixels.px <= 3000)
+    .map(s => ({ what: s.what, achromaBad: s.achromaBad, stripPixels: s.stripPixels }));
   const pixelOk = pixBad.length === 0 && railPixelSamples.length === 10 && railPixelSamples.every(s => s.px > 50000)
+    && engineRailPixels.length === 5 && engPixBad.length === 0
+    && collapseSamples.length === 4 && collapsePixBad.length === 0
     && P.before.hued === 0 && P.planted.hued > 200 && P.after.hued === 0;
   // the tour's highlight ring was on screen when the tour was read
   const hlSample = achromaSamples.find(s => s.state === "tour open · highlight");
   const hlOk = !!hlSample && tourHl.shown && tourHl.hl >= 1;
-  const ok = fixtureOk && bad.length === 0 && achromaSamples.length >= 30 && fewest >= 150 && tourOpen && !!tourSample && cubeOk
+  const ok = fixtureOk && bad.length === 0 && achromaSamples.length >= 30 && fewest >= 150 && engAchroma.length === 5 && fewestEngine >= 70 && tourOpen && !!tourSample && cubeOk
     && thin.length === 0 && extraOk && thermOk && pixelOk && hlOk;
   // every surface that painted a color, over all samples: in how many
   // samples, and its first offender
@@ -2199,9 +2521,11 @@ const proseDash = s => typeof s === "string" && s.includes("—") && s !== "—"
     byItem[item].samples++;
   }
   check("RAIL-ACHROMATIC", ok, {
-    therm: { ok: thermOk, fixture: T }, pixels: { ok: pixelOk, samples: railPixelSamples.length, fixture: P, bad: pixBad.slice(0, 4) },
+    therm: { ok: thermOk, fixture: T },
+    pixels: { ok: pixelOk, samples: railPixelSamples.length, engineSamples: engineRailPixels.length, collapseSamples: collapseSamples.length,
+      fixture: P, bad: pixBad.slice(0, 4), engBad: engPixBad.slice(0, 4), collapseBad: collapsePixBad.slice(0, 4) },
     tourHighlight: { ok: hlOk, ...tourHl },
-    samples: achromaSamples.length, fewestElements: fewest, fixture: achromaFixture, tourOpen,
+    samples: achromaSamples.length, fewestElements: fewest, fewestEngineElements: fewestEngine, fixture: achromaFixture, tourOpen,
     tourElements: tourSample?.n ?? null, cube: cubeRead, read: Object.fromEntries(Object.keys(FLOORS).map(k => [k, most(k)])),
     thin, extra: E, composerSvg: composerSample?.nSvg ?? null, badSamples: bad.length, byItem, bad: bad.slice(0, 3),
   });

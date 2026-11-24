@@ -130,11 +130,11 @@ export const PANEL_LEARN: readonly LearnEntry[] = [
     text: "Eutectic mode grows alternating alpha and beta lamellae in 2D using the Folch–Plapp phase-field model. "
       + "Compare the live lamellar spacing and front undercooling against the Jackson–Hunt minimum curve.",
     hints: {
-      "alloy": "binary eutectic system and constants",
-      "pull speed V": "directional solidification velocity",
-      "composition c₀": "off-eutectic shift (sets α/β share)",
-      "gradient G": "thermal gradient across the front",
-      "seed pairs": "initial α/β lamellar pairs seeded",
+      "alloy": "binary eutectic system",
+      "pull speed V": "directional growth velocity",
+      "composition c₀": "off-eutectic shift (α/β share)",
+      "gradient G": "thermal gradient at the front",
+      "seed pairs": "initial α/β lamellar pairs",
     },
   },
   {
@@ -142,10 +142,10 @@ export const PANEL_LEARN: readonly LearnEntry[] = [
     text: "Spinodal mode evolves conserved Cahn–Hilliard phase separation in 2D or a 3D raymarched sponge, "
       + "including NIST PFHub Benchmark 1. Watch free energy F(t) fall monotonically while domains coarsen as t^(1/3).",
     hints: {
-      "preset": "PFHub benchmark or alloy spinodal",
-      "composition c₀": "initial mean concentration (conserved)",
-      "gradient κ": "interface energy penalty (sets width)",
-      "mobility M": "Cahn–Hilliard diffusion mobility",
+      "preset": "PFHub benchmark or alloy system",
+      "composition c₀": "conserved mean concentration",
+      "gradient κ": "interface energy (sets width)",
+      "mobility M": "Cahn–Hilliard mobility",
     },
   },
 ];

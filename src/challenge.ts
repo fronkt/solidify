@@ -7,6 +7,7 @@ import { stream } from "./rng";
 import { LearnLayer, onLearnChange } from "./learn";
 import { panelText } from "./learn/panels";
 import { kv, num, panelHead, pill } from "./design/panel";
+import { attachModeCollapse, type ModeCollapseHandle } from "./modecollapse";
 
 export interface ChallengeFinishedEvent {
   targetG: number;
@@ -42,6 +43,7 @@ export class Challenge {
   private playerG: number | null = null;
   private playerScore = Infinity;
   private panel: HTMLElement | null = null;
+  private collapse: ModeCollapseHandle | null = null;
   /** learn mode's "i" on each panel's header (rebuilt with it) */
   private learn = new LearnLayer(() => this.learn.apply());
 
@@ -66,6 +68,7 @@ export class Challenge {
     this.phase = "idle";
     this.panel?.remove();
     this.panel = null;
+    this.collapse = null;
     this.host.restoreGrid();
     this.host.syncUI();
   }
@@ -82,8 +85,16 @@ export class Challenge {
     const head = panelHead("CHALLENGE", null, meta);
     this.learn = new LearnLayer(() => this.learn.apply());
     const ex = this.learn.explain(head, "about the challenge", panelText("challenge"), meta);
+    const holder = document.createElement("div");
+    holder.innerHTML = html;
+    const bodyEls = [...holder.children] as HTMLElement[];
     p.append(head, ex.body);
-    p.insertAdjacentHTML("beforeend", html);
+    this.collapse = attachModeCollapse(p, {
+      title: "CHALLENGE",
+      head,
+      bodyEls,
+      onExit: () => this.stop(),
+    });
     document.getElementById("app")!.append(p);
     this.panel = p;
     this.learn.apply();
@@ -99,6 +110,7 @@ export class Challenge {
       + `</div><div class="pactions pnav"></div>`);
     const nav = p.querySelector(".pnav")!;
     nav.append(pill("▶ start", () => this.beginPlayer(), "accent"), pill("cancel", () => this.stop()));
+    this.collapse?.setSummary(`target ASTM ${this.target.toFixed(1)} · ready`);
   }
 
   private beginPlayer() {
@@ -108,6 +120,8 @@ export class Challenge {
       + kv("target", `${num(`G ${this.target}`)} · steer <b>cooling rate</b>, <b>inoculant n_max</b>`)
       + kv("casting", `<span id="chTime" class="v">t 0.00 / ${TIME_LIMIT}</span>`)
       + `</div>`);
+    this.collapse?.setSummary(`target ASTM ${this.target.toFixed(1)} · your casting`);
+    this.collapse?.setCollapsed(true);
   }
 
   /** fed from the main stats poll */
@@ -116,6 +130,7 @@ export class Challenge {
     const t = this.host.simTime();
     const el = this.panel?.querySelector("#chTime");
     if (el) el.textContent = `t ${t.toFixed(2)} / ${TIME_LIMIT} · solid ${(s.fracSolid * 100).toFixed(0)} %`;
+    this.collapse?.setSummary(`target ASTM ${this.target.toFixed(1)} · your casting · ${(s.fracSolid * 100).toFixed(0)} %`);
     if (s.fracSolid > 0.92 || t >= TIME_LIMIT) void this.finishPlayer();
   }
 
@@ -127,6 +142,7 @@ export class Challenge {
     this.playerScore = this.playerG !== null ? Math.abs(this.playerG - this.target) : 8;
     this.panel?.remove();
     this.panel = null;
+    this.collapse = null;
     this.host.startAI(this.target, AI_CASTINGS, (aiScore, aiG) => this.verdict(aiScore, aiG));
   }
 
@@ -146,8 +162,10 @@ export class Challenge {
       + `<div class="pactions pnav"></div>`);
     const nav = p.querySelector(".pnav")!;
     nav.append(
-      pill("rematch", () => { this.active = false; this.panel?.remove(); this.panel = null; this.start(); }, "accent"),
+      pill("rematch", () => { this.active = false; this.panel?.remove(); this.panel = null; this.collapse = null; this.start(); }, "accent"),
       pill("close", () => this.stop()));
+    this.collapse?.setSummary(`${youWin ? "you win" : "optimizer wins"} · target ASTM ${this.target.toFixed(1)}`);
+    this.collapse?.setCollapsed(false);
     this.host.onChallengeFinished?.({
       targetG: this.target,
       playerG: this.playerG,

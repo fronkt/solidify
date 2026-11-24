@@ -2,10 +2,11 @@
  * SPINODAL — 2D/3D conserved Cahn–Hilliard spinodal decomposition mode
  * (Cahn & Hilliard 1958 + Lifshitz & Slyozov 1961 + NIST PFHub Benchmark 1).
  *
- * Floating `.modepanel` (`#spinodal`) following Figure-03 conventions:
- * pure achromatic chrome, one filled white primary pill (`▶ run` / `❚❚ pause`),
- * 2D / 3D toggle with canvas pointer-drag orbit in 3D, live `F(t)` and `L(t)`
- * diagnostics via `PlotView` + `openFigure`, CSV export, and honest caveats.
+ * Rail-swapped inspector (`#spinodal.railmode` mounted inside `#railModeHost`)
+ * following Figure-03 conventions: pure achromatic chrome, shared `#views` top
+ * lens bar and `#transport` bottom-left playback bar, 2D / 3D toggle with
+ * canvas pointer-drag orbit in 3D, live `F(t)` and `L(t)` diagnostics via
+ * `PlotView` + `openFigure`, CSV export, and honest caveats.
  */
 
 import {
@@ -40,16 +41,6 @@ export interface SpinodalHost {
 }
 
 const PRESET_ORDER: readonly SpinodalPresetId[] = ["pfhub1", "fecr", "alzn", "offcrit"];
-const LENS_LABELS_2D: readonly [SpinodalLens, string][] = [
-  [0, "comp"],
-  [1, "chem μ"],
-  [2, "etch"],
-];
-const LENS_LABELS_3D: readonly [SpinodalLens, string][] = [
-  [0, "iso 3D"],
-  [1, "slice"],
-  [2, "vol"],
-];
 const SUBSTEPS_2D = 64;
 const SUBSTEPS_3D = 24;
 const DIAG_INTERVAL_MS = 260;
@@ -92,6 +83,7 @@ export class SpinodalPanel {
   private explicitInitial: boolean;
   private _open = false;
   private _running = false;
+  private speedMult = 1;
   private plotMode: SpinodalPlotMode = "energy";
   private simInst: SpinodalSim | null = null;
   private rendererInst: SpinodalRenderer | null = null;
@@ -108,9 +100,7 @@ export class SpinodalPanel {
   private kappaValEl: HTMLElement | null = null;
   private mobInput: HTMLInputElement | null = null;
   private mobValEl: HTMLElement | null = null;
-  private runBtn: HTMLButtonElement | null = null;
   private dimBtns: Record<SpinodalDim, HTMLButtonElement | null> = { "2d": null, "3d": null };
-  private lensBtns: HTMLButtonElement[] = [];
   private plotBtns: Record<SpinodalPlotMode, HTMLButtonElement | null> = { energy: null, coarsening: null };
   private statEls: Record<string, HTMLElement> = {};
   private noteEl: HTMLElement | null = null;
@@ -198,6 +188,55 @@ export class SpinodalPanel {
     return this._running;
   }
 
+  setRunning(on: boolean): void {
+    if (!this._open) return;
+    this._running = on;
+    if (this._running) this.requestDiagnostics(false);
+    this.host.onSync();
+  }
+
+  reset(): void {
+    if (!this._open || !this.simInst) return;
+    this.stats = null;
+    this.simInst.reset(this.params);
+    this.rendererInst?.rebind(this.simInst);
+    this.rendererInst?.render(this.simInst);
+    this.requestDiagnostics(true);
+    this.updateReadouts();
+    this.updatePlot();
+    this.host.onSync();
+  }
+
+  setLens(lens: SpinodalLens): void {
+    const next: SpinodalLens = lens === 1 || lens === 2 ? lens : 0;
+    this.params = { ...this.params, lens: next };
+    if (this.rendererInst) {
+      this.rendererInst.lens = next;
+      if (this.simInst) this.rendererInst.render(this.simInst);
+    }
+    this.host.onSync();
+  }
+
+  getLens(): SpinodalLens {
+    return this.params.lens;
+  }
+
+  setSpeedMult(mult: number): void {
+    this.speedMult = Math.max(1, Math.min(4, Math.round(mult) || 1));
+  }
+
+  getDim(): SpinodalDim {
+    return this.params.dim;
+  }
+
+  getPresetLabel(): string {
+    return this.currentPreset().label;
+  }
+
+  getGridN(): number {
+    return this.params.dim === "3d" ? this.params.n3d : this.params.n2d;
+  }
+
   isOpen(): boolean {
     return this._open;
   }
@@ -241,6 +280,7 @@ export class SpinodalPanel {
     this.updateMetaAndNote();
     this.updateReadouts();
     this.updatePlot();
+    if (this._open) this.host.onSync();
   }
 
   setDim(dim: SpinodalDim): void {
@@ -249,7 +289,7 @@ export class SpinodalPanel {
     this.params = { ...this.params, dim };
     this.orbitDragging = false;
     this.orbitPointerId = -1;
-    this.syncDimAndLensButtons();
+    this.syncDimButtons();
     this.updateCanvasCursor();
     if (this.simInst) {
       this.stats = null;
@@ -324,9 +364,7 @@ export class SpinodalPanel {
     this.kappaValEl = null;
     this.mobInput = null;
     this.mobValEl = null;
-    this.runBtn = null;
     this.dimBtns = { "2d": null, "3d": null };
-    this.lensBtns = [];
     this.plotBtns = { energy: null, coarsening: null };
     this.statEls = {};
     this.noteEl = null;
@@ -337,7 +375,8 @@ export class SpinodalPanel {
   tick(): void {
     if (!this._open || !this.simInst || !this.rendererInst) return;
     if (this._running) {
-      this.simInst.step(this.params.dim === "3d" ? SUBSTEPS_3D : SUBSTEPS_2D);
+      const base = this.params.dim === "3d" ? SUBSTEPS_3D : SUBSTEPS_2D;
+      this.simInst.step(base * this.speedMult);
     }
     this.rendererInst.render(this.simInst);
     const now = performance.now();
@@ -453,7 +492,7 @@ export class SpinodalPanel {
 
     const p = document.createElement("div");
     p.id = "spinodal";
-    p.className = "modepanel plate tpanel";
+    p.className = "railmode";
 
     const meta = document.createElement("span");
     meta.id = "spinMeta";
@@ -464,7 +503,7 @@ export class SpinodalPanel {
     this.learn = new LearnLayer(() => this.syncLearn());
     const ex = this.learn.explain(head, "about spinodal", panelText("spinodal"), meta);
 
-    // 4 controls in .fbform (clean 2x2 grid on desktop, 1 col on narrow/phone)
+    // 4 controls in .fbform (single-column inside #rail)
     const form = document.createElement("div");
     form.className = "fbform";
     const cell = (row: HTMLElement): HTMLElement => {
@@ -542,47 +581,9 @@ export class SpinodalPanel {
 
     form.append(cell(presetRow), cell(c0Row), cell(kappaRow), cell(mobRow));
 
-    // Action bar: ONE filled primary pill (#spinRun), outline reset/csv, outline 2D/3D + lens toggles
+    // Action bar: 2D/3D dim toggle + export csv (#transport owns run/pause/reset; #views owns lenses)
     const bar = document.createElement("div");
-    bar.className = "spin__bar";
-
-    const acts = document.createElement("div");
-    acts.className = "pactions";
-    const runBtn = pill(
-      this._running ? "❚❚ pause" : "▶ run",
-      () => {
-        this._running = !this._running;
-        runBtn.textContent = this._running ? "❚❚ pause" : "▶ run";
-        if (this._running) this.requestDiagnostics(false);
-        this.host.onSync();
-      },
-      "accent",
-    );
-    runBtn.id = "spinRun";
-    this.runBtn = runBtn;
-
-    const resetBtn = pill("reset", () => {
-      if (!this.simInst) return;
-      this.stats = null;
-      this.simInst.reset(this.params);
-      this.rendererInst?.rebind(this.simInst);
-      this.rendererInst?.render(this.simInst);
-      this.requestDiagnostics(true);
-      this.updateReadouts();
-      this.updatePlot();
-    });
-
-    const csvBtn = pill("export csv", () => {
-      const csv = this.exportCsv();
-      download(
-        `solidify-spinodal-${this.params.preset}-${this.params.dim}.csv`,
-        new Blob([csv], { type: "text/csv;charset=utf-8" }),
-      );
-    });
-    acts.append(runBtn, resetBtn, csvBtn);
-
-    const toggles = document.createElement("div");
-    toggles.className = "spin__toggles";
+    bar.className = "spin__bar railmode__bar";
 
     const dims = document.createElement("div");
     dims.className = "spin__grp";
@@ -595,27 +596,16 @@ export class SpinodalPanel {
     this.dimBtns = { "2d": dim2, "3d": dim3 };
     dims.append(dim2, dim3);
 
-    const lenses = document.createElement("div");
-    lenses.className = "spin__grp";
-    lenses.setAttribute("role", "group");
-    lenses.setAttribute("aria-label", "Spinodal lens");
-    this.lensBtns = ([0, 1, 2] as const).map(id => {
-      const b = pill("", () => {
-        this.params = { ...this.params, lens: id };
-        if (this.rendererInst) {
-          this.rendererInst.lens = id;
-          if (this.simInst) this.rendererInst.render(this.simInst);
-        }
-        this.syncDimAndLensButtons();
-      });
-      lenses.append(b);
-      return b;
+    const csvBtn = pill("export csv", () => {
+      const csv = this.exportCsv();
+      download(
+        `solidify-spinodal-${this.params.preset}-${this.params.dim}.csv`,
+        new Blob([csv], { type: "text/csv;charset=utf-8" }),
+      );
     });
+    bar.append(dims, csvBtn);
 
-    toggles.append(dims, lenses);
-    bar.append(acts, toggles);
-
-    // Compact 2-column live spec-rail readouts
+    // Single-column live spec-rail readouts
     const statsGrid = document.createElement("div");
     statsGrid.id = "spinStats";
     statsGrid.className = "spin__stats";
@@ -684,11 +674,12 @@ export class SpinodalPanel {
       "Explicit periodic Cahn–Hilliard model; isotropic gradient energy; elastic coherency strain omitted.";
 
     p.append(head, ex.body, form, bar, statsGrid, plotBar, plotWrap, note, caveat);
-    document.getElementById("app")!.append(p);
+    const mount = document.getElementById("railModeHost") ?? document.getElementById("rail") ?? document.getElementById("app")!;
+    mount.append(p);
     this.panel = p;
 
     this.syncControls();
-    this.syncDimAndLensButtons();
+    this.syncDimButtons();
     this.syncPlotButtons();
     this.updateMetaAndNote();
     this.updateReadouts();
@@ -723,15 +714,9 @@ export class SpinodalPanel {
     if (this.mobValEl) this.mobValEl.textContent = this.params.mobility.toFixed(1);
   }
 
-  private syncDimAndLensButtons(): void {
+  private syncDimButtons(): void {
     this.dimBtns["2d"]?.setAttribute("aria-pressed", String(this.params.dim === "2d"));
     this.dimBtns["3d"]?.setAttribute("aria-pressed", String(this.params.dim === "3d"));
-    const labels = this.params.dim === "3d" ? LENS_LABELS_3D : LENS_LABELS_2D;
-    this.lensBtns.forEach((btn, i) => {
-      const [id, label] = labels[i];
-      btn.textContent = label;
-      btn.setAttribute("aria-pressed", String(this.params.lens === id));
-    });
   }
 
   private syncPlotButtons(): void {
@@ -759,8 +744,6 @@ export class SpinodalPanel {
   private updateReadouts(): void {
     if (!this.panel) return;
     const st = this.stats;
-
-    if (this.runBtn) this.runBtn.textContent = this._running ? "❚❚ pause" : "▶ run";
 
     const set = (k: string, text: string) => {
       const el = this.statEls[k];

@@ -1816,38 +1816,22 @@ export class SpinodalRenderer {
     });
 
     if (sim.dim === "3d" && this.bg3d) {
-      // Frame the 3D sponge inside the largest unobstructed canvas region beside #spinodal
+      // Center the 3D sponge cleanly in the unobstructed canvas left of #rail (or full screen when hidden)
       let ndcOffX = 0;
       let ndcOffY = 0;
-      let camDist = CAM_DIST;
+      const camDist = CAM_DIST;
       if (typeof document !== "undefined") {
-        const panelEl = document.getElementById("spinodal");
         const cw = this.canvas.clientWidth;
         const ch = this.canvas.clientHeight;
-        if (panelEl && cw > 0 && ch > 0) {
-          const pr = panelEl.getBoundingClientRect();
-          const cr = this.canvas.getBoundingClientRect();
-          if (pr.width > 0 && pr.height > 0) {
-            const leftW = pr.left - cr.left - 16;
-            const leftH = ch - 104;
-            const topH = pr.top - cr.top - 56;
-            const topW = cw - 320;
-            if (leftW >= 240 && leftH >= 200) {
-              const cxCss = (pr.left - cr.left) * 0.5;
-              const cyCss = ch * 0.49;
-              ndcOffX = 2 * (cxCss / cw) - 1;
-              ndcOffY = 1 - 2 * (cyCss / ch);
-              const box = Math.min(leftW, leftH);
-              camDist = Math.min(4.2, Math.max(CAM_DIST, (1.24 * ch) / (0.86 * box)));
-            } else if (topH >= 180 && topW >= 200) {
-              const cxCss = cw * 0.5;
-              const cyCss = (pr.top - cr.top + 48) * 0.5;
-              ndcOffX = 2 * (cxCss / cw) - 1;
-              ndcOffY = 1 - 2 * (cyCss / ch);
-              const box = Math.min(topW, topH);
-              camDist = Math.min(4.2, Math.max(CAM_DIST, (1.24 * ch) / (0.86 * box)));
-            }
-          }
+        if (cw > 0 && ch > 0) {
+          const railEl = document.getElementById("rail");
+          const cramped = document.body.classList.contains("railCramped");
+          const railVisible = !!railEl && !railEl.classList.contains("hidden") && !cramped;
+          const railW = railVisible ? railEl.getBoundingClientRect().width : 0;
+          const cxCss = railW > 0 ? (cw - railW) * 0.5 : cw * 0.5;
+          const cyCss = railW > 0 ? ch * 0.52 : ch * 0.5;
+          ndcOffX = 2 * (cxCss / cw) - 1;
+          ndcOffY = 1 - 2 * (cyCss / ch);
         }
       }
 

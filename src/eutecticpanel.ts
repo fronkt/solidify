@@ -1,10 +1,11 @@
 /**
  * EUTECTIC — 2D binary lamellar eutectic mode (Folch–Plapp 2005 + Jackson–Hunt 1966).
  *
- * Floating `.modepanel` (`#eutectic`) following Figure-03 conventions:
- * achromatic chrome, one filled white primary pill (`▶ run` / `❚❚ pause`),
- * live Jackson–Hunt `ΔT(λ)` plot via `PlotView` + `openFigure`, live lamellar
- * diagnostics, CSV export, and honest model caveats.
+ * Rail-swapped inspector (`#eutectic.railmode` mounted inside `#railModeHost`)
+ * following Figure-03 conventions: pure achromatic chrome, shared `#views` top
+ * lens bar and `#transport` bottom-left playback bar, live Jackson–Hunt `ΔT(λ)`
+ * plot via `PlotView` + `openFigure`, live lamellar diagnostics, CSV export,
+ * and honest model caveats.
  */
 
 import {
@@ -39,11 +40,6 @@ export interface EutecticHost {
 }
 
 const ALLOY_ORDER: readonly EutecticAlloyId[] = ["alcu", "pbsn", "alsi", "symmetric"];
-const LENS_LABELS: readonly [EutecticLens, string][] = [
-  [0, "phases"],
-  [1, "solute"],
-  [2, "etch"],
-];
 const SUBSTEPS_PER_FRAME = 48;
 const DIAG_INTERVAL_MS = 240;
 
@@ -80,6 +76,7 @@ export class EutecticPanel {
   private explicitInitial: boolean;
   private _open = false;
   private _running = false;
+  private speedMult = 1;
   private simInst: EutecticSim | null = null;
   private rendererInst: EutecticRenderer | null = null;
   private stats: EutecticStats | null = null;
@@ -91,8 +88,6 @@ export class EutecticPanel {
   private alloySelect: HTMLSelectElement | null = null;
   private pullValEl: HTMLElement | null = null;
   private gradValEl: HTMLElement | null = null;
-  private runBtn: HTMLButtonElement | null = null;
-  private lensBtns: HTMLButtonElement[] = [];
   private statEls: Record<string, HTMLElement> = {};
   private alloyCaveatEl: HTMLElement | null = null;
   private jhPlot: PlotView | null = null;
@@ -113,6 +108,47 @@ export class EutecticPanel {
 
   get running(): boolean {
     return this._running;
+  }
+
+  setRunning(on: boolean): void {
+    if (!this._open) return;
+    this._running = on;
+    if (this._running) this.requestDiagnostics(false);
+    this.host.onSync();
+  }
+
+  reset(): void {
+    if (!this._open || !this.simInst) return;
+    this.stats = null;
+    this.simInst.reset(this.params);
+    this.rendererInst?.rebind(this.simInst);
+    this.rendererInst?.render(this.simInst);
+    this.requestDiagnostics(true);
+    this.updateReadouts();
+    this.updatePlot();
+    this.host.onSync();
+  }
+
+  setLens(lens: EutecticLens): void {
+    const next: EutecticLens = lens === 1 || lens === 2 ? lens : 0;
+    this.params = { ...this.params, lens: next };
+    if (this.rendererInst) {
+      this.rendererInst.lens = next;
+      if (this.simInst) this.rendererInst.render(this.simInst);
+    }
+    this.host.onSync();
+  }
+
+  getLens(): EutecticLens {
+    return this.params.lens;
+  }
+
+  setSpeedMult(mult: number): void {
+    this.speedMult = Math.max(1, Math.min(4, Math.round(mult) || 1));
+  }
+
+  getAlloyLabel(): string {
+    return this.currentAlloy().label;
   }
 
   isOpen(): boolean {
@@ -152,6 +188,7 @@ export class EutecticPanel {
     this.updateCaveats();
     this.updateReadouts();
     this.updatePlot();
+    if (this._open) this.host.onSync();
   }
 
   open(): void {
@@ -198,8 +235,6 @@ export class EutecticPanel {
     this.alloySelect = null;
     this.pullValEl = null;
     this.gradValEl = null;
-    this.runBtn = null;
-    this.lensBtns = [];
     this.statEls = {};
     this.alloyCaveatEl = null;
     this.host.onClose();
@@ -209,7 +244,7 @@ export class EutecticPanel {
   tick(): void {
     if (!this._open || !this.simInst || !this.rendererInst) return;
     if (this._running) {
-      this.simInst.step(SUBSTEPS_PER_FRAME);
+      this.simInst.step(SUBSTEPS_PER_FRAME * this.speedMult);
     }
     this.rendererInst.render(this.simInst);
     const now = performance.now();
@@ -305,7 +340,7 @@ export class EutecticPanel {
 
     const p = document.createElement("div");
     p.id = "eutectic";
-    p.className = "modepanel plate tpanel";
+    p.className = "railmode";
 
     const alloy = this.currentAlloy();
     const meta = document.createElement("span");
@@ -321,7 +356,7 @@ export class EutecticPanel {
     this.learn = new LearnLayer(() => this.syncLearn());
     const ex = this.learn.explain(head, "about eutectic", panelText("eutectic"), meta);
 
-    // Controls form (.fbform, 2 columns on desktop, 1 on narrow/phone)
+    // Controls form (single-column inside #rail)
     const form = document.createElement("div");
     form.className = "fbform";
     const cell = (row: HTMLElement): HTMLElement => {
@@ -413,63 +448,16 @@ export class EutecticPanel {
 
     form.append(cell(alloyRow), cell(pullRow), cell(compRow), cell(gradRow), cell(pairsRow));
 
-    // Action bar: ONE filled primary pill (run/pause), outline reset + export csv, outline lens pills
+    // Action bar: outline export csv (#transport owns run/pause/reset; #views owns lenses)
     const bar = document.createElement("div");
-    bar.className = "eut__bar";
-
-    const acts = document.createElement("div");
-    acts.className = "pactions";
-    const runBtn = pill(
-      this._running ? "❚❚ pause" : "▶ run",
-      () => {
-        this._running = !this._running;
-        runBtn.textContent = this._running ? "❚❚ pause" : "▶ run";
-        if (this._running) this.requestDiagnostics(false);
-        this.host.onSync();
-      },
-      "accent",
-    );
-    runBtn.id = "eutRun";
-    this.runBtn = runBtn;
-
-    const resetBtn = pill("reset", () => {
-      if (!this.simInst) return;
-      this.stats = null;
-      this.simInst.reset(this.params);
-      this.rendererInst?.rebind(this.simInst);
-      this.rendererInst?.render(this.simInst);
-      this.requestDiagnostics(true);
-      this.updateReadouts();
-      this.updatePlot();
-    });
-
+    bar.className = "eut__bar railmode__bar";
     const csvBtn = pill("export csv", () => {
       const csv = this.exportCsv();
       download(`solidify-eutectic-${this.params.alloy}.csv`, new Blob([csv], { type: "text/csv;charset=utf-8" }));
     });
-    acts.append(runBtn, resetBtn, csvBtn);
+    bar.append(csvBtn);
 
-    const lenses = document.createElement("div");
-    lenses.className = "eut__lenses";
-    lenses.setAttribute("role", "group");
-    lenses.setAttribute("aria-label", "Eutectic lens");
-    this.lensBtns = LENS_LABELS.map(([id, label]) => {
-      const b = pill(label, () => {
-        this.params = { ...this.params, lens: id };
-        if (this.rendererInst) {
-          this.rendererInst.lens = id;
-          if (this.simInst) this.rendererInst.render(this.simInst);
-        }
-        this.lensBtns.forEach((btn, i) => btn.setAttribute("aria-pressed", String(LENS_LABELS[i][0] === id)));
-      });
-      b.setAttribute("aria-pressed", String(this.params.lens === id));
-      lenses.append(b);
-      return b;
-    });
-
-    bar.append(acts, lenses);
-
-    // Compact 2-column live spec-rail readouts
+    // Single-column live spec-rail readouts
     const statsGrid = document.createElement("div");
     statsGrid.id = "eutStats";
     statsGrid.className = "eut__stats";
@@ -521,7 +509,8 @@ export class EutecticPanel {
     this.alloyCaveatEl = alloyCaveat;
 
     p.append(head, ex.body, form, bar, statsGrid, plotWrap, baseCaveat, alloyCaveat);
-    document.getElementById("app")!.append(p);
+    const mount = document.getElementById("railModeHost") ?? document.getElementById("rail") ?? document.getElementById("app")!;
+    mount.append(p);
     this.panel = p;
 
     this.updateCaveats();
@@ -549,7 +538,6 @@ export class EutecticPanel {
     const jh = this.currentJh();
     const st = this.stats;
 
-    if (this.runBtn) this.runBtn.textContent = this._running ? "❚❚ pause" : "▶ run";
     if (this.pullValEl) {
       this.pullValEl.textContent = sym ? `${this.params.pullV.toFixed(0)} sim` : `${this.params.pullV.toFixed(0)} µm/s`;
     }

@@ -9,6 +9,7 @@ import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
 import { OPT_CAVEATS, panelText } from "./learn/panels";
 import { paintRange } from "./design/tool";
 import { kv, num, panelHead, pill } from "./design/panel";
+import { attachModeCollapse, type ModeCollapseHandle } from "./modecollapse";
 import type { Units } from "./units";
 import { bridgeOf, type Bridge } from "./plot/quantity";
 import type { Figure } from "./plot/figures";
@@ -200,6 +201,8 @@ export class Optimizer {
   private converged = false;
   private savedGrid = 1024;
   private panel!: HTMLElement;
+  private collapse: ModeCollapseHandle | null = null;
+  private stripStopBtn: HTMLButtonElement | null = null;
   private strip!: HTMLElement;
   private status!: HTMLElement;
   private report!: HTMLElement;
@@ -298,6 +301,32 @@ export class Optimizer {
     // finishes, then the loop halts (tick() gates on `running`)
     this.running = on;
     if (!this.finishing) this.refreshStatus();
+    this.collapse?.setCollapsed(on);
+    this.syncCollapseSummary();
+  }
+
+  private syncCollapseSummary() {
+    if (!this.collapse) return;
+    const err = this.bestError ?? (this.bestASTM != null ? Math.abs(this.bestASTM - this.targetASTM) : null);
+    const epTag = this.limit > 0 ? `${this.episode}/${this.limit}` : `${this.episode}`;
+    let sum: string;
+    if (this.running) {
+      if (this.episode === 0) {
+        sum = `eval 1${this.limit > 0 ? `/${this.limit}` : ""} · target ASTM G ${this.targetASTM}`;
+      } else if (err != null) {
+        sum = `eval ${epTag} · best |ΔG| ${err.toFixed(2)}`;
+      } else {
+        sum = `eval ${epTag} · target ASTM G ${this.targetASTM}`;
+      }
+    } else if (this.converged && this.bestRecipe) {
+      sum = err != null ? `done · best |ΔG| ${err.toFixed(2)}` : `done · ${this.episode} castings`;
+    } else if (this.episode > 0) {
+      sum = `paused · eval ${epTag}${err != null ? ` · best |ΔG| ${err.toFixed(2)}` : ""}`;
+    } else {
+      sum = `target ASTM G ${this.targetASTM} · paused`;
+    }
+    this.collapse.setSummary(sum);
+    this.collapse.setAction(this.running ? this.stripStopBtn : null);
   }
 
   private refreshStatus() {
@@ -319,6 +348,8 @@ export class Optimizer {
     this.plotModal?.close();
     this.plot?.destroy();
     this.plot = null;
+    this.collapse = null;
+    this.stripStopBtn = null;
     this.panel?.remove();
     this.host.swapSim(this.savedGrid);
     this.host.onOptimizerDone();
@@ -371,7 +402,14 @@ export class Optimizer {
       this.plotModal?.close();
       this.plotModal = openFigure(() => this.convergenceFigure()!);
     } });
-    p.append(head, ex.body, desc, strip, chart, report, status);
+    p.append(head, ex.body);
+    this.stripStopBtn = pill("stop", () => this.setRunning(false));
+    this.collapse = attachModeCollapse(p, {
+      title: "OPTIMIZER",
+      head,
+      bodyEls: [desc, strip, chart, report, status],
+      onExit: () => this.stop(),
+    });
     document.getElementById("app")!.append(p);
     this.panel = p;
     this.strip = strip;
@@ -411,9 +449,12 @@ export class Optimizer {
         this.strip.replaceChildren();
         this.report.style.display = "none";
         this.refreshStatus();
+        this.syncCollapseSummary();
       });
     }
     this.refreshStatus();
+    this.syncCollapseSummary();
+    if (this.running) this.collapse?.setCollapsed(true);
   }
 
   private beginEpisode() {
@@ -426,6 +467,7 @@ export class Optimizer {
     this.genome = this.queue.shift()!;
     this.stepsUsed = 0;
     this.episode++;
+    this.syncCollapseSummary();
     const g = this.genome.map(map);
     const sim = this.host.getSim();
     this.nuc.p.nmax = g[3];
@@ -506,6 +548,7 @@ export class Optimizer {
     this.genome = null;
     this.finishing = false;
     if (!this.running) this.refreshStatus();   // a pause landed mid-casting
+    this.syncCollapseSummary();
 
     if (this.limit > 0 && this.episode >= this.limit) {
       const cb = this.onDone;
@@ -559,6 +602,8 @@ export class Optimizer {
       this.report.style.display = "none";
       this.running = true;
       this.refreshStatus();
+      this.collapse?.setCollapsed(true);
+      this.syncCollapseSummary();
     });
     const linkB = pill("copy recipe link", () => {
       void navigator.clipboard.writeText(this.host.shareRecipeLink(this.bestRecipe!)).then(() => {
@@ -571,6 +616,8 @@ export class Optimizer {
     this.report.style.display = "block";
     fillLearnSlots(this.report);
     this.status.textContent = "paused on result";
+    this.collapse?.setCollapsed(false);
+    this.syncCollapseSummary();
     this.host.onOpt2dFinished?.({
       targetG: this.targetASTM,
       episodes: this.episode,

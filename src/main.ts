@@ -997,10 +997,12 @@ async function boot() {
     },
     // while the optimizer owns the stage, the transport drives IT, not the melt
     setRun(on) {
+      if (spinodal?.isOpen()) { spinodal.setRunning(on); return; }
+      if (eutectic?.isOpen()) { eutectic.setRunning(on); return; }
       // the solver-paused interlock: a heat treatment freezes φ by definition,
       // so nothing — space bar, transport button, a tour scene — may restart
       // the solidification loop until the sweeps are spent
-      if (on && (heat?.busy || eutectic?.isOpen() || spinodal?.isOpen())) return;
+      if (on && heat?.busy) return;
       if (opt.active) opt.setRunning(on);
       else if (mode === "3d" && opt3?.active) opt3.setRunning(on);
       else if (mode === "3d") {
@@ -1049,6 +1051,8 @@ async function boot() {
       if (heat?.busy || mode3dPending || quantPending3 || alloyPreparing3 || sharedRestore3Pending) return;
       if (eutectic?.isOpen()) {
         if (alloy) eutectic.setAlloy(alloy);
+        ui.revealForEngine();
+        ui.sync();
         return;
       }
       if (opt3?.active) {
@@ -1064,8 +1068,11 @@ async function boot() {
       if (challenge.active) challenge.stop();
       running = false;
       running3d = false;
+      eutectic?.setSpeedMult(speedMult);
       if (alloy) eutectic?.setAlloy(alloy);
       eutectic?.open();
+      statsClock = 1;
+      ui.revealForEngine();
       ui.sync();
     },
     isEutecticOpen: () => !!eutectic?.isOpen(),
@@ -1074,6 +1081,8 @@ async function boot() {
       if (spinodal?.isOpen()) {
         if (preset) spinodal.setPreset(preset);
         if (dim) spinodal.setDim(dim);
+        ui.revealForEngine();
+        ui.sync();
         return;
       }
       if (opt3?.active) {
@@ -1089,12 +1098,40 @@ async function boot() {
       if (challenge.active) challenge.stop();
       running = false;
       running3d = false;
+      spinodal?.setSpeedMult(speedMult);
       if (preset) spinodal?.setPreset(preset);
       if (dim) spinodal?.setDim(dim);
       spinodal?.open();
+      statsClock = 1;
+      ui.revealForEngine();
       ui.sync();
     },
     isSpinodalOpen: () => !!spinodal?.isOpen(),
+    activeEngine: () => (spinodal?.isOpen() ? "spinodal" : eutectic?.isOpen() ? "eutectic" : "solidify"),
+    setEngine(engine) {
+      if (engine === "eutectic") { app.startEutectic(); return; }
+      if (engine === "spinodal") { app.startSpinodal(); return; }
+      if (eutectic?.isOpen()) eutectic.close();
+      if (spinodal?.isOpen()) spinodal.close();
+      ui.sync();
+    },
+    getEngineLens: () => (spinodal?.isOpen() ? spinodal.getLens() : eutectic?.isOpen() ? eutectic.getLens() : 0),
+    setEngineLens(lens) {
+      if (spinodal?.isOpen()) spinodal.setLens(lens);
+      else if (eutectic?.isOpen()) eutectic.setLens(lens);
+    },
+    getEngineLensNames: () => (
+      spinodal?.isOpen()
+        ? (spinodal.getDim() === "3d" ? ["ISO 3D", "SLICE", "VOL"] : ["COMP", "CHEM μ", "ETCH"])
+        : ["PHASES", "SOLUTE", "ETCH"]
+    ),
+    getEngineTitle: () => (
+      spinodal?.isOpen()
+        ? `Spinodal ${spinodal.getDim().toUpperCase()} · ${spinodal.getPresetLabel()}`
+        : eutectic?.isOpen()
+          ? `Eutectic · ${eutectic.getAlloyLabel()}`
+          : alloyName
+    ),
     openGuidedLabs() {
       if (opt.active || opt3?.active || challenge.active || eutectic?.isOpen() || spinodal?.isOpen()) return;
       if (guidedPicker?.isOpen()) { guidedPicker.close(); return; }
@@ -1214,11 +1251,19 @@ async function boot() {
     setNucSpread(v) { if (opt3?.active) return; if (mode === "3d") cancelRecipe3(); restageNuc(N => { N.p.dTsig = v; }); },
     getNucFired: () => (mode === "3d" ? nuc3 : nuc).fired,
     getSubsteps: () => substeps,
-    isRunning: () => (opt.active ? opt.isRunning() : mode === "3d" ? opt3?.active ? opt3.isRunning() : running3d : running),
+    isRunning: () => (
+      spinodal?.isOpen() ? spinodal.running
+      : eutectic?.isOpen() ? eutectic.running
+      : opt.active ? opt.isRunning()
+      : mode === "3d" ? (opt3?.active ? opt3.isRunning() : running3d)
+      : running
+    ),
     isEngineering: () => opt.active || !!opt3?.active,
     getSpeedMult: () => speedMult,
     cycleSpeedMult() {
       speedMult = SPEED_MULTS[(SPEED_MULTS.indexOf(speedMult as 1 | 2 | 4) + 1) % SPEED_MULTS.length];
+      eutectic?.setSpeedMult(speedMult);
+      spinodal?.setSpeedMult(speedMult);
     },
     getMaterial: () => material,
     setMaterial(k) {
@@ -1306,6 +1351,8 @@ async function boot() {
     },
     quench() { if (opt3?.active) return; if (mode === "3d" && sim3d) { cancelRecipe3(); sim3d.quench(0.25); } else sim.quench(0.25); },
     resetArmed() {
+      if (spinodal?.isOpen()) { spinodal.reset(); return; }
+      if (eutectic?.isOpen()) { eutectic.reset(); return; }
       if (heat?.busy || opt3?.active) return;
       if (mode === "3d" && sim3d) {
         if (appliedRecipe3) { stageRecipe3(copyRecipe3(appliedRecipe3)); return; }
@@ -2652,9 +2699,13 @@ async function boot() {
     // the alloy composer and an enlarged plot are modals: their own keys
     // (Escape, Tab) are handled there, and Space or a digit must not run,
     // pause or re-lens the melt behind them
-    if (composer.isOpen() || document.querySelector("#app > .tmodal") || eutectic?.isOpen() || spinodal?.isOpen()) return;
+    if (composer.isOpen() || document.querySelector("#app > .tmodal")) return;
     const kbFocused = kbNav && e.target instanceof Element && e.target.matches("button, select");
     if (e.code === "Space" && !kbFocused) { e.preventDefault(); app.setRun(!app.isRunning()); ui.sync(); }
+    if (eutectic?.isOpen() || spinodal?.isOpen()) {
+      if (/^[1-3]$/.test(e.key)) { app.setEngineLens((parseInt(e.key, 10) - 1) as 0 | 1 | 2); ui.sync(); }
+      return;
+    }
     if (mode === "3d") {
       if (/^[1-9]$/.test(e.key)) { app.setView3d(parseInt(e.key) - 1); ui.sync(); }
       if (e.key === "Escape" && iso3) setIso3(null);
@@ -2771,10 +2822,34 @@ async function boot() {
     composer.tick();
     if (spinodal?.isOpen()) {
       spinodal.tick();
+      statsClock += dt;
+      if (statsClock > 0.25) {
+        statsClock = 0;
+        const dim = spinodal.getDim();
+        const grid = dim === "3d" ? `${spinodal.getGridN()}³` : `${spinodal.getGridN()}²`;
+        const lensName = app.getEngineLensNames()[spinodal.getLens()] ?? "";
+        ui.setReadouts([
+          ["engine", "Cahn–Hilliard"],
+          ["grid", grid],
+          ["lens", lensName],
+          ["fps", fps.toFixed(0)],
+        ]);
+      }
       return;
     }
     if (eutectic?.isOpen()) {
       eutectic.tick();
+      statsClock += dt;
+      if (statsClock > 0.25) {
+        statsClock = 0;
+        const lensName = app.getEngineLensNames()[eutectic.getLens()] ?? "";
+        ui.setReadouts([
+          ["engine", "Folch–Plapp 2D"],
+          ["grid", "256²"],
+          ["lens", lensName],
+          ["fps", fps.toFixed(0)],
+        ]);
+      }
       return;
     }
 

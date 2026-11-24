@@ -28,6 +28,7 @@ import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
 import { LAB_CAVEATS, LAB_CARDS, panelHintFor, panelText } from "./learn/panels";
 import { THERMAL_LEARN } from "./thermal";
 import { kv, num, panelHead, pill, quiet, warnWord } from "./design/panel";
+import { attachModeCollapse, type ModeCollapseHandle } from "./modecollapse";
 import { bridgeOf, type Bridge } from "./plot/quantity";
 import { coolingFigure, type Chem, type Figure } from "./plot/figures";
 import { livePourFigure } from "./plot/process";
@@ -145,6 +146,9 @@ export class Lab {
 
   private host: LabHost;
   private panel: HTMLElement | null = null;
+  private collapse: ModeCollapseHandle | null = null;
+  private stripAbortBtn: HTMLButtonElement | null = null;
+  private stripResultsBtn: HTMLButtonElement | null = null;
   private statusEl: HTMLElement | null = null;
   /** the Results button in the setup panel — disabled until a run finishes */
   private resultsBtn: HTMLButtonElement | null = null;
@@ -288,6 +292,9 @@ export class Lab {
     this.run.stop();
     this.panel?.remove();
     this.panel = null;
+    this.collapse = null;
+    this.stripAbortBtn = null;
+    this.stripResultsBtn = null;
     this.liveView?.destroy();
     this.liveView = null;
     this.liveWrap = null;
@@ -383,6 +390,7 @@ export class Lab {
     this.host.setRun(true);
     this.host.syncUI();
     this.refresh();
+    this.collapse?.setCollapsed(true);
   }
 
   abort() {
@@ -391,6 +399,7 @@ export class Lab {
     this.runState = "aborted";
     this.run.stop();
     this.host.setRun(false);
+    this.collapse?.setCollapsed(false);
     this.refresh();
   }
 
@@ -447,6 +456,7 @@ export class Lab {
     this.running = false;
     this.runState = "finished";
     this.host.setRun(false);
+    this.collapse?.setCollapsed(false);
     this.refresh();
     // measured now, once, while the sim is paused — never auto-shown; see
     // buildReport() and the Results button
@@ -544,7 +554,15 @@ export class Lab {
       label: "live pour curve: open temperature, solid fraction, data and exports",
       onOpen: () => this.openLiveCurve(),
     });
-    p.append(head, ex.body, form, note, row, status, live);
+    p.append(head, ex.body);
+    this.stripAbortBtn = pill("abort", () => this.abort());
+    this.stripResultsBtn = pill("results", () => this.toggleResults());
+    this.collapse = attachModeCollapse(p, {
+      title: "LAB MODE",
+      head,
+      bodyEls: [form, note, row, status, live],
+      onExit: () => this.close(),
+    });
     document.getElementById("app")!.append(p);
     this.panel = p;
     this.statusEl = status;
@@ -597,11 +615,28 @@ export class Lab {
     if (!this.statusEl) return;
     if (!this.running) {
       this.statusEl.textContent = this.hasResults ? "done · results ready" : "ready · nothing poured";
+      if (this.hasResults) {
+        this.collapse?.setSummary("done · open results");
+        this.collapse?.setAction(this.stripResultsBtn);
+      } else if (this.runState === "finished") {
+        this.collapse?.setSummary("done · measuring...");
+        this.collapse?.setAction(null);
+      } else if (this.runState === "aborted") {
+        this.collapse?.setSummary("aborted · ready");
+        this.collapse?.setAction(null);
+      } else {
+        this.collapse?.setSummary(`${this.setup.program} · ${this.setup.atmosphere} · ready`);
+        this.collapse?.setAction(null);
+      }
       return;
     }
     const last = this.series[this.series.length - 1];
     const uu = this.host.units();
     const T = (v: number) => (uu.known ? uu.fmtC(v) : v.toFixed(2));
+    this.collapse?.setSummary(last
+      ? `pouring · f_s ${(last.fs * 100).toFixed(0)}%${last.T != null ? ` · T ${T(last.T)}` : ""}`
+      : "pouring · cooling...");
+    this.collapse?.setAction(this.stripAbortBtn);
     this.statusEl.innerHTML =
       `<b>${this.run.name}</b> · stage ${num(`${this.run.stageIndex + 1}/${this.run.stageCount}`)} ` +
       // the stage's target in the same units as the set-point beside it

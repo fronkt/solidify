@@ -59,6 +59,7 @@ import { paintRange } from "./design/tool";
 import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
 import { HEAT_CAVEATS as HC, panelHintFor, panelText } from "./learn/panels";
 import { kv, kvFull, num, panelHead, pill, quiet, warnLine, warnWord } from "./design/panel";
+import { attachModeCollapse, type ModeCollapseHandle } from "./modecollapse";
 
 /**
  * The one definition of d̄ the H6 verdict stands on — ⟨A⟩-equivalent circle in
@@ -373,6 +374,8 @@ export class HeatPanel {
 
   private host: HeatHost;
   private panel: HTMLElement | null = null;
+  private collapse: ModeCollapseHandle | null = null;
+  private stripAbortBtn: HTMLButtonElement | null = null;
   private noteEl: HTMLElement | null = null;
   private caveatEl: HTMLElement | null = null;
   private runBtn: HTMLButtonElement | null = null;
@@ -619,6 +622,8 @@ export class HeatPanel {
     this.rxModal = null;
     this.panel?.remove();
     this.panel = null;
+    this.collapse = null;
+    this.stripAbortBtn = null;
     // the cache dies with the panel: a census outliving a close can belong to
     // the OTHER dimension after a mode switch, and a 3D plan reading a 2D
     // census computes d₀ = 0 µm with a straight face (caught by HT3-PANEL)
@@ -811,6 +816,8 @@ export class HeatPanel {
     this.rxModal?.close();
     this.rxModal = null;
     this.showRunProcess = false;
+    this.collapse = null;
+    this.stripAbortBtn = null;
     this.panel?.remove();
     const si = this.host.si();
     const tmC = si ? si.Tm - K0 : 1000;
@@ -1031,7 +1038,14 @@ export class HeatPanel {
       } });
     });
     this.rxBox = rxBox;
-    p.append(head, ex.body, form, caveat, note, row, agingBox, chart, rxBox, report);
+    p.append(head, ex.body);
+    this.stripAbortBtn = pill("abort", () => { this.abortReq = true; });
+    this.collapse = attachModeCollapse(p, {
+      title: "HEAT TREAT",
+      head,
+      bodyEls: [form, caveat, note, row, agingBox, chart, rxBox, report],
+      onExit: () => this.close(),
+    });
     document.getElementById("app")!.append(p);
     this.panel = p;
     this.noteEl = note;
@@ -1061,6 +1075,10 @@ export class HeatPanel {
     this.refreshAging();
     fillLearnSlots(this.noteEl);
     this.learn.apply();
+    const holdStr = fmtDur(this.holdMin * 60);
+    const hasReport = Boolean(this.reportEl?.textContent?.trim());
+    this.collapse?.setSummary(`${this.tC.toFixed(0)} °C · ${holdStr}${hasReport ? " · done" : " · ready"}`);
+    this.collapse?.setAction(null);
   }
 
   private refreshAging() {
@@ -1407,6 +1425,11 @@ export class HeatPanel {
     this.host.syncUI();
     this.refresh();
 
+    const holdStr = fmtDur(holdMin * 60);
+    this.collapse?.setSummary(`annealing · 0% · ${tC.toFixed(0)} °C · ${holdStr}`);
+    this.collapse?.setAction(this.stripAbortBtn);
+    this.collapse?.setCollapsed(true);
+
     const total = Math.min(plan.sweeps, this.consts().cap);
     const processSI = this.host.si()!;
     const processProv: Prov = { ...this.host.meta(), extra: [`Schedule: ${JSON.stringify(plan.sch)}`, `Material grain-growth law: n = ${processSI.ggN}; A0 = ${processSI.ggA0}; Q = ${processSI.ggQ} J/mol.`] };
@@ -1520,6 +1543,8 @@ export class HeatPanel {
         const onProg = (done: number) => {
           updateProcess(done);
           setStatus(`sweep ${done.toLocaleString()} / ${total.toLocaleString()} · isothermal hold`);
+          const pct = Math.min(100, Math.round((done / total) * 100));
+          this.collapse?.setSummary(`annealing · ${pct}% · ${tC.toFixed(0)} °C · ${holdStr}`);
           return !this.abortReq;
         };
         if (wantTwins) {
@@ -1557,6 +1582,8 @@ export class HeatPanel {
           const segB = await this.host.segregation();
           const gotI = await this.host.homogenize(run, done => {
             setStatus(`diffusion ${done.toLocaleString()} / ${run.toLocaleString()} iterations`);
+            const pct = run > 0 ? Math.min(100, Math.round((done / run) * 100)) : 100;
+            this.collapse?.setSummary(`diffusing · ${pct}% · ${tC.toFixed(0)} °C · ${holdStr}`);
             return !this.abortReq;
           });
           const segA = await this.host.segregation();
@@ -1572,6 +1599,8 @@ export class HeatPanel {
       }
     } finally {
       this.busy = false;
+      this.collapse?.setAction(null);
+      if (!this.closeReq) this.collapse?.setCollapsed(false);
     }
     const after = await this.host.measure();
     if (after) this.census = after;

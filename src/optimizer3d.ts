@@ -12,6 +12,7 @@ import { extent } from "./plot/layout";
 import { PlotView } from "./plot/view";
 import { openFigure, type FigureHandle } from "./plot/modal";
 import { panelHead, pill, kv, num } from "./design/panel";
+import { attachModeCollapse, type ModeCollapseHandle } from "./modecollapse";
 import { paintRange } from "./design/tool";
 import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
 import { OPT3_CAVEATS, panelText } from "./learn/panels";
@@ -216,6 +217,8 @@ export class Optimizer3D {
   private history: Opt3History[] = [];
   private status = "closed";
   private panel: HTMLElement | null = null;
+  private collapse: ModeCollapseHandle | null = null;
+  private stripStopBtn: HTMLButtonElement | null = null;
   private statusEl: HTMLElement | null = null;
   private report: HTMLElement | null = null;
   private strip: HTMLElement | null = null;
@@ -297,7 +300,8 @@ export class Optimizer3D {
     this.resetSearch(); this.strip?.replaceChildren();
     if (this.report) this.report.style.display = "none";
     if (this.slider) this.slider.value = String(value);
-    this.paintTarget(); this.paintPlot(); this.syncControls(); this.updateStatus("search reset · paused · run to restart"); this.host.onChange();
+    this.paintTarget(); this.paintPlot(); this.syncControls(); this.updateStatus("search reset · paused · run to restart");
+    this.collapse?.setCollapsed(false); this.syncCollapseSummary(); this.host.onChange();
   }
 
   isRunning() { return this.running; }
@@ -317,7 +321,28 @@ export class Optimizer3D {
     this.syncControls();
     if (on && this.report) this.report.style.display = "none";
     this.updateStatus(on ? `casting #${this.episode || 1} · ${this.limit} casting budget` : "paused · run to resume");
+    this.collapse?.setCollapsed(on);
+    this.syncCollapseSummary();
     this.host.onChange();
+  }
+
+  private syncCollapseSummary() {
+    if (!this.collapse) return;
+    const bestD = this.bestRecipe?.diameter;
+    let sum: string;
+    if (this.running) {
+      const ep = Math.max(1, this.episode);
+      const tail = bestD != null ? `best d̄ ${bestD.toFixed(1)} ${this.unit}` : `target ${this.target.toFixed(1)} ${this.unit}`;
+      sum = `casting ${ep}/${this.limit} · ${tail}`;
+    } else if (this.report?.style.display === "block") {
+      sum = bestD != null ? `done · best d̄ ${bestD.toFixed(1)} ${this.unit}` : `done · ${this.episode}/${this.limit} castings`;
+    } else if (this.episode > 0) {
+      sum = `paused · casting ${this.episode}/${this.limit}${bestD != null ? ` · best d̄ ${bestD.toFixed(1)} ${this.unit}` : ""}`;
+    } else {
+      sum = `target d̄ ${this.target.toFixed(1)} ${this.unit} · paused`;
+    }
+    this.collapse.setSummary(sum);
+    this.collapse.setAction(this.running ? this.stripStopBtn : null);
   }
 
   tick(multiplier = 1) {
@@ -354,6 +379,7 @@ export class Optimizer3D {
       this.lastClock = this.clock.snapshot();
       this.host.renderOnce();
       this.updateStatus(`casting #${this.episode}/${this.limit} · 0/${this.maxSteps} steps`);
+      this.syncCollapseSummary();
       return;
     }
     for (let batch = 0; batch < batches && this.running && current(); batch++) {
@@ -391,6 +417,7 @@ export class Optimizer3D {
     tile.append(this.host.captureThumb(), label); this.strip?.append(tile);
     if (this.strip) this.strip.scrollLeft = this.strip.scrollWidth;
     this.clock = null; this.candidate = null;
+    this.syncCollapseSummary();
     if (this.episode >= this.limit) { this.running = false; this.showReport(); this.host.onChange(); }
   }
 
@@ -426,6 +453,7 @@ export class Optimizer3D {
       this.currentRecipe = null; this.lastClock = null;
       this.active = false; this.stopping = false;
       this.plotModal?.close(); this.plot?.destroy(); this.plotModal = null; this.plot = null;
+      this.collapse = null; this.stripStopBtn = null;
       this.panel?.remove(); this.panel = null; this.statusEl = null;
       this.slider = null; this.targetLabel = null; this.budgetSelect = null; this.stepBudgetSelect = null;
       this.applyButton = null; this.moreButton = null; this.copyButton = null;
@@ -515,8 +543,15 @@ export class Optimizer3D {
     } });
     const report = document.createElement("div"); report.id = "opt3Report"; report.className = "oreport"; report.style.display = "none"; this.report = report;
     const status = document.createElement("div"); status.id = "opt3Status"; status.className = "pstatus q"; this.statusEl = status;
-    p.append(head, explain.body, note, budget, strip, chart, report, status);
-    document.getElementById("app")!.append(p); this.panel = p; this.paintPlot(); this.applyLearn(); this.syncControls();
+    p.append(head, explain.body);
+    this.stripStopBtn = pill("stop", () => this.setRunning(false));
+    this.collapse = attachModeCollapse(p, {
+      title: "3D OPTIMIZER",
+      head,
+      bodyEls: [note, budget, strip, chart, report, status],
+      onExit: () => { void this.stop(); },
+    });
+    document.getElementById("app")!.append(p); this.panel = p; this.paintPlot(); this.applyLearn(); this.syncControls(); this.syncCollapseSummary();
   }
 
   private paintTarget() {
@@ -561,6 +596,8 @@ export class Optimizer3D {
     actions.append(apply, more, link); this.report.append(actions); this.report.style.display = "block";
     this.updateStatus(error ? `paused · ${error}` : `paused on result · ${this.history.filter(r => r.valid).length}/${this.history.length} valid castings`);
     this.syncControls();
+    this.collapse?.setCollapsed(false);
+    this.syncCollapseSummary();
     if (!error) {
       const validEpisodes = this.history.filter(r => r.valid).length;
       this.host.onOpt3dFinished?.({
