@@ -40,6 +40,18 @@ export interface HeatDials {
   workJb: number;
   rxN: number;
   rxMode: number;
+  /** v8.3 opt-in Shercliff–Ashby precipitation aging (T6) toggle; omitted when false */
+  aging?: boolean;
+}
+
+/** v8.3 share flag (`ag` on `#set=`): 1 when aging is ON, omitted when OFF so legacy links stay byte-identical */
+export function packAgingFlag(aging?: boolean): 1 | undefined {
+  return aging ? 1 : undefined;
+}
+
+/** Strict whitelist decode for the `ag` share field (non-boolean / non-1 values decode false) */
+export function decodeAgingFlag(raw: unknown): boolean {
+  return raw === 1 || raw === true;
 }
 
 /** the dialled setup as a tuple, the shortest shape that carries it */
@@ -73,7 +85,12 @@ export interface HeatRanges {
  * kernel to spend them, and a dialled value no surface prints is the
  * lying-label case the pf snap was written for.
  */
-export function applyHeatSetup(t: readonly (number | undefined)[], r: HeatRanges, base: HeatDials): HeatDials {
+export function applyHeatSetup(
+  t: readonly (number | undefined)[],
+  r: HeatRanges,
+  base: HeatDials,
+  agingRaw?: unknown,
+): HeatDials {
   const [tt, h, s, pf, pr, wk, rxn, md] = t;
   const d: HeatDials = { ...base };
   d.tC = Math.min(r.tMax, Math.max(r.tMin, Math.round(tt as number)));
@@ -88,6 +105,7 @@ export function applyHeatSetup(t: readonly (number | undefined)[], r: HeatRanges
     d.rxN = Math.min(RX_MAX, Math.max(0, Math.round(rxn / RX_STEP) * RX_STEP));
   if (typeof md === "number" && Number.isFinite(md) && r.volume)
     d.rxMode = Math.min(RX_MODES.length - 1, Math.max(0, Math.round(md)));
+  if (agingRaw !== undefined) d.aging = decodeAgingFlag(agingRaw);
   return d;
 }
 

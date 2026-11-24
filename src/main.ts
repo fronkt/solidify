@@ -4,7 +4,7 @@ import { Renderer, type ViewMode } from "./render";
 import {
   Sim3D, DEFAULTS3D, GRID3_LADDER, type StatsResult3D, moldWallThickness, stepSectionBounds, type RxBatch,
 } from "./sim3d";
-import { heatTupleShapeOk } from "./heatshare";
+import { heatTupleShapeOk, packAgingFlag, decodeAgingFlag } from "./heatshare";
 import { LENS3_NAMES, ICOSA_DELTA_MAX, PORE_ID } from "./shaders3d";
 import { Renderer3D, slicePlane } from "./render3d";
 import { SlicePanel } from "./slicepanel";
@@ -1478,22 +1478,29 @@ async function boot() {
         // scen/alloy/twin/facet state never travelled)
         const p3 = { ...sim3d.params } as unknown as Record<string, number>;
         delete p3.weldX; delete p3.weldY;   // runtime-positional, like the 2D SKIP set
-        return location.origin + location.pathname + packShare({
+        const ag = heatAgingShare();
+        const state3: ShareState & { ag?: 1 } = {
           p: p3, u: undercool, v: view3d, m: material,
-          n: alloyName, mx: pouredShare(), nuc: [nuc3.p.nmax, nuc3.p.dTN, nuc3.p.dTsig], lab: labShare(), ht: heatShare(), d: 1, g3: sim3d.n,
+          n: alloyName, mx: pouredShare(), nuc: [nuc3.p.nmax, nuc3.p.dTN, nuc3.p.dTsig], lab: labShare(), ht: heatShare(),
+          ...(ag ? { ag } : {}),
+          d: 1, g3: sim3d.n,
           sl: [slice.axis, +slice.off.toFixed(3), Math.round(slice.tilt), Math.round(slice.turn), slice.style],
           seed: getSeed(), um: umPerCell, sched: recipeSchedule3,
           ...(appliedRecipe3 ? { opt3: { version: 1 as const, maxSteps: appliedRecipe3.maxSteps,
             target: appliedRecipe3.target, diameter: appliedRecipe3.diameter, unit: appliedRecipe3.unit,
             params: { ...appliedRecipe3.params } } } : {}),
-        });
+        };
+        return location.origin + location.pathname + packShare(state3);
       }
-      return location.origin + location.pathname + packShare({
+      const ag = heatAgingShare();
+      const state2: ShareState & { ag?: 1 } = {
         p: { ...sim.params }, u: undercool, v: view, m: material,
         n: alloyName, nuc: [nuc.p.nmax, nuc.p.dTN, nuc.p.dTsig], lab: labShare(), ht: heatShare(),
+        ...(ag ? { ag } : {}),
         fl: sim.flowOn ? sim.flowCfg.u : undefined,
         sched: recipeSchedule, seed: getSeed(), mx: pouredShare(), g2: sim.n, um: umPerCell,
-      });
+      };
+      return location.origin + location.pathname + packShare(state2);
     },
     shareRecipeLink(r: Recipe) {
       return location.origin + location.pathname + packShare({
@@ -1802,6 +1809,11 @@ async function boot() {
     materialKey: () => material,
     materialLabel: () => alloyName,
     alloyCaveats: () => alloyCaveats.slice(),
+    pouredMix: () => {
+      const three = mode === "3d" && sim3d != null;
+      const activeP = three ? { ...sim3d!.params, alloyOn: Number(sim3d!.alloyActive) } : sim.params;
+      return pouredLive(activeP).d && pouredMix ? pouredMix.mix : null;
+    },
     si: () => (MATERIALS[material] ?? MATERIALS.generic).si ?? null,
     alloyOn: () => (mode === "3d" && sim3d ? sim3d.params.alloyOn > 0 : sim.params.alloyOn > 0),
     gridN: () => (mode === "3d" && sim3d ? sim3d.n : sim.n),
@@ -2009,7 +2021,8 @@ async function boot() {
         ...lab.exportFigures(), ...(heat?.exportFigures() ?? []), ...opt.exportFigures(), ...(opt3?.exportFigures() ?? []),
       ];
       const labReport = guidedLab?.buildLabReport() ?? null;
-      const entries = runEntries(snapshot, figures, labReport);
+      const agingExport = heat?.agingExportPayload() ?? null;
+      const entries = runEntries(snapshot, figures, labReport, agingExport);
       // Copy the freshly presented frame before yielding: a WebGPU canvas
       // otherwise discards its drawing buffer between tasks.
       entries.push({ name: "micrograph.png", data: await micrographPNG(canvas, snapshot) });
@@ -2914,6 +2927,11 @@ async function boot() {
     return heat?.active ? heat.setup() : undefined;
   }
 
+  /** v8.3 aging (T6) share flag: omitted unless heat treat is open with aging ON */
+  function heatAgingShare(): 1 | undefined {
+    return packAgingFlag(Boolean(heat?.active && heat.getAgingOn()));
+  }
+
   // links made before v4.0 carry a wall-clock "seeds per second" rain; read it
   // as a site count so old setups still pour something recognisable
   function applyNucShare(N: Nucleation, s: ShareState) {
@@ -3086,7 +3104,8 @@ async function boot() {
         app.setFlowU(shared.fl);
         app.setFlowOn(true);
       }
-      if (heatTupleShapeOk(shared.ht) && !lab.active) heat?.open(shared.ht);
+      const sharedAging = decodeAgingFlag((shared as ShareState & { ag?: unknown }).ag);
+      if (heatTupleShapeOk(shared.ht) && !lab.active) heat?.open(shared.ht, sharedAging);
     };
     if (shared.d !== 1) openHeat();
     // a TRUE-3D setup link re-enters the 3D mode at its grid, staged ARMED

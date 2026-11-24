@@ -951,16 +951,17 @@
             </div>
             <div class="eq">
               σ<sub>y</sub> = σ₀ + k<sub>HP</sub> / √d̄
-              <div class="c">Hall–Petch yield strength evaluated on the grain census before and after treatment (grain-size strengthening only; no T6 precipitate aging).</div>
+              <div class="c">Hall–Petch yield strength evaluated on the grain census before and after treatment (grain-size baseline by default; opt-in Shercliff–Ashby T6 precipitation aging adds Δσ<sub>ss</sub> + Δσ<sub>ppt</sub> for Al–Cu, A356, and AA2024).</div>
             </div>
           </div>
 
-          <p>Four physical mechanisms run during the furnace schedule:</p>
+          <p>Five physical mechanisms run during the furnace schedule:</p>
           <ul>
             <li><b>Monte Carlo Potts grain growth &amp; Zener pinning:</b> Sublattice GPU Potts updates coarsen grains along measured lattice exponents rather than assuming ideal parabolic m = 2 (which causes a 4.8× sweep-budget error). Adding a second-phase particle dispersion pins boundaries at the lattice-measured limit d<sub>lim</sub> = 7.24 · r<sup>0.205</sup> / f<sup>0.356</sup> cells in 2D.</li>
             <li><b>Annealing twins (3D):</b> Controlled by published stacking-fault energies (Murr 1975). Low-SFE copper (78 mJ/m²) and cobalt (~20 mJ/m²) form Σ3 twins; high-SFE aluminum (166 mJ/m²) and nickel (128 mJ/m²) do not, and BCC δ-ferrite steel refuses structurally. Because a single-voxel twin faces an artificial 12-neighbor lattice nucleation barrier, births are inserted as {111} plates in exact Σ3 registry; survival is governed purely by a coherent energy cusp (24 vs. 625 mJ/m²) and mobility gate.</li>
             <li><b>Solute homogenization &amp; surface scaling:</b> Masked solid-state diffusion smooths interdendritic segregation (verified against exact discrete stencil eigenvalues to 9×10⁻⁷ relative error in 2D and 3D). Parabolic oxide scale x = √(∫ k<sub>p</sub> dt) and steel decarburization x = 2√(D<sub>C</sub> t) appear as analytical report-card rows rather than painted fields.</li>
             <li><b>Cold work, recovery, and recrystallization (3D):</b> A per-grain stored-energy buffer H(id) drives strain-induced boundary migration via ΔE = e<sub>new</sub> − e<sub>now</sub> + (H<sub>cand</sub> − H<sub>mine</sub>), coupled to exact second-order dislocation recovery H<sub>S</sub> = H₀ / (1 + 10⁻³ S H₀) evaluated analytically in the shader. Optional strain-free nuclei (simultaneous, constant-rate, or grain-boundary sites) grow into high-energy deformed grains.</li>
+            <li><b>Precipitation age-hardening (opt-in T6):</b> Integrates Shercliff &amp; Ashby's (1990) temperature-corrected kinetic parameter P = ∫ (dt / T) exp(−Q<sub>A</sub> / RT) across the ramp and hold for three cited aluminum systems: Al–Cu (T<sub>solvus</sub> = 505 °C), A356 Al–Si–Mg (515 °C), and AA2024 Al–Cu–Mg (495 °C), all at Q<sub>A</sub> = 130 kJ/mol. Solid-solution depletion Δσ<sub>ss</sub> = Δσ<sub>ss,0</sub> exp(−2P̄/3) and Friedel/Orowan precipitation Δσ<sub>ppt</sub> = 2 Δσ<sub>peak</sub> √P̄ / (1 + P̄) peak at P̄ = 1 (T6) and decay on overaging (T7); holding at or above T<sub>solvus</sub> redissolves precipitates into solutionized T4. Non-age-hardenable alloys are refused explicitly.</li>
           </ul>
 
           <div class="labBox">
@@ -1074,8 +1075,8 @@
               </div>
               <div class="scopeRow" data-cats="heat">
                 <div class="scopeRow__claim">Hall–Petch strength &amp; precipitate aging</div>
-                <span class="scopeBadge">Grain size only</span>
-                <div class="scopeRow__desc">Computes σ<sub>y</sub> = σ₀ + k<sub>HP</sub>/√d̄ on measured grain diameter. Work hardening and T6 precipitate aging are not modeled and are labeled absent on every report card.</div>
+                <span class="scopeBadge">Hall–Petch + T6</span>
+                <div class="scopeRow__desc">Computes σ<sub>y</sub> = σ₀ + k<sub>HP</sub>/√d̄ on measured grain diameter by default (work hardening is not modeled). Opt-in T6 aging adds the Shercliff–Ashby (1990) precipitation model for Al–Cu, A356, and AA2024 with solvus dissolution and refuses all other systems.</div>
               </div>
             </div>
           </div>
@@ -1180,6 +1181,7 @@
             <li>L.E. Murr, <i>Interfacial Phenomena in Metals and Alloys</i>, Addison-Wesley (1975).</li>
             <li>E.O. Hall, "The deformation and ageing of mild steel: III," <i>Proc. Phys. Soc. B</i> 64 (1951) 747–753; N.J. Petch, <i>J. Iron Steel Inst.</i> 174 (1953) 25–28.</li>
             <li>C. Wagner, "Beitrag zur Theorie des Anlaufvorgangs," <i>Z. Phys. Chem. B</i> 21 (1933) 25–41.</li>
+            <li>H.R. Shercliff &amp; M.F. Ashby, "A process model for age hardening of aluminum alloys: I. The model," <i>Acta Metall. Mater.</i> 38 (1990) 1789–1802.</li>
             <li>ASTM E112, <i>Standard Test Methods for Determining Average Grain Size</i>.</li>
           </ol>
         </section>

@@ -88,8 +88,75 @@ export interface RunSnapshot {
   optimizer3d?: unknown;
 }
 
+export interface RunAgingCurvePoint {
+  timeMin: number;
+  sigmaTotalMPa: number;
+  sigmaPptMPa: number;
+  sigmaSsMPa?: number;
+  pBar?: number;
+}
+
+export interface RunAgingExport {
+  alloy: string;
+  tC: number;
+  holdMin: number;
+  temper: string;
+  hpMPa: number;
+  ssMPa: number;
+  pptMPa: number;
+  totalMPa: number;
+  curve: RunAgingCurvePoint[];
+}
+
 export function hasFigureData(f: Figure): boolean {
   return f.columns.some(c => c.values.some(Number.isFinite));
+}
+
+function agingCurveCSV(snapshot: RunSnapshot, aging: RunAgingExport): string {
+  const fmt = (v: number | undefined) => (v != null && Number.isFinite(v) ? Number(v.toPrecision(8)).toString() : "");
+  const seedHex = snapshot.seed.toString(16).padStart(8, "0");
+  const hasSs = aging.curve.some(p => typeof p.sigmaSsMPa === "number" && Number.isFinite(p.sigmaSsMPa));
+  const hasPBar = aging.curve.some(p => typeof p.pBar === "number" && Number.isFinite(p.pBar));
+  const lines = [
+    "# SOLIDIFY figure data: Precipitation age-hardening curve (Shercliff-Ashby 1990)",
+    `# alloy: ${aging.alloy}`,
+    `# material: ${snapshot.material.name}`,
+    `# seed: ${seedHex}`,
+    `# grid: ${snapshot.grid}${snapshot.mode === "3d" ? "³" : "²"} cells (${snapshot.mode === "3d" ? "TRUE 3D" : "2D"})`,
+    `# solver: ${snapshot.solver}`,
+    `# aging_temperature_C: ${fmt(aging.tC)}`,
+    `# aging_hold_min: ${fmt(aging.holdMin)}`,
+    `# temper: ${aging.temper}`,
+    `# sigma_HP_MPa: ${fmt(aging.hpMPa)}`,
+    `# delta_sigma_ss_MPa: ${fmt(aging.ssMPa)}`,
+    `# delta_sigma_ppt_MPa: ${fmt(aging.pptMPa)}`,
+    `# sigma_total_MPa: ${fmt(aging.totalMPa)}`,
+    `# units: time_min (min), time_s (s), sigma_total_MPa (MPa), delta_sigma_ppt_MPa (MPa)${hasSs ? ", delta_sigma_ss_MPa (MPa)" : ""}${hasPBar ? ", P_bar (dimensionless)" : ""}`,
+    `# share: ${snapshot.setupLink}`,
+    `# build: ${snapshot.build}`,
+    `# rows: ${aging.curve.length}`,
+  ];
+  const cols = [
+    "time_min",
+    "time_s",
+    "sigma_total_MPa",
+    "delta_sigma_ppt_MPa",
+    ...(hasSs ? ["delta_sigma_ss_MPa"] : []),
+    ...(hasPBar ? ["P_bar"] : []),
+  ];
+  lines.push(cols.join(","));
+  for (const pt of aging.curve) {
+    const row = [
+      fmt(pt.timeMin),
+      fmt(pt.timeMin * 60),
+      fmt(pt.sigmaTotalMPa),
+      fmt(pt.sigmaPptMPa),
+      ...(hasSs ? [fmt(pt.sigmaSsMPa)] : []),
+      ...(hasPBar ? [fmt(pt.pBar)] : []),
+    ];
+    lines.push(row.join(","));
+  }
+  return lines.join("\n") + "\n";
 }
 
 /** Freeze every series and its own conversion before the asynchronous PNG
@@ -98,6 +165,7 @@ export function runEntries(
   snapshot: RunSnapshot,
   figures: Figure[],
   labReport?: GuidedLabReport | null,
+  aging?: RunAgingExport | null,
 ): ArchiveEntry[] {
   const datasets = figures.filter(hasFigureData).map((f, i) => ({
     file: `data/${String(i + 1).padStart(2, "0")}-${slug(f.title) || "series"}.csv`,
@@ -108,8 +176,23 @@ export function runEntries(
     columns: f.columns.map(c => ({ ...c, values: c.values.map(x => Number.isFinite(x) ? x : null) })),
     csv: toCSV(f.title, f.columns, f.bridge, f.prov),
   }));
+  const agingSummary = aging
+    ? {
+        alloy: aging.alloy,
+        tC: aging.tC,
+        holdMin: aging.holdMin,
+        temper: aging.temper,
+        hpMPa: aging.hpMPa,
+        ssMPa: aging.ssMPa,
+        pptMPa: aging.pptMPa,
+        totalMPa: aging.totalMPa,
+        file: "data/aging-curve.csv",
+        points: aging.curve.length,
+      }
+    : undefined;
   const manifest = {
     format: "solidify-run", version: 1, ...snapshot,
+    ...(agingSummary ? { aging: agingSummary } : {}),
     reproducibility: "The setup link restores the initial setup and seed. This archive records observations and an image; it does not restore the current GPU field or an in-progress anneal.",
     datasets: datasets.map(({ csv: _csv, ...d }) => d),
     notes: [
@@ -123,6 +206,7 @@ export function runEntries(
     "run.json: versioned setup, material constants, units, provenance, and recorded data.",
     "micrograph.png: current rendered view, scale, material, seed, and solver.",
     "data/*.csv: every available instrument dataset with its own provenance and units.",
+    ...(aging ? ["data/aging-curve.csv: precipitation age-hardening strength curve and temper summary."] : []),
     ...(labReport ? ["lab-report.json: guided lab progress, latched measurements, and summary table."] : []),
     "",
     manifest.reproducibility, "", ...manifest.notes,
@@ -133,6 +217,7 @@ export function runEntries(
     { name: "README.txt", data: utf8.encode(readme) },
     { name: "run.json", data: utf8.encode(JSON.stringify(manifest, null, 2) + "\n") },
     ...datasets.map(d => ({ name: d.file, data: utf8.encode(d.csv) })),
+    ...(aging ? [{ name: "data/aging-curve.csv", data: utf8.encode(agingCurveCSV(snapshot, aging)) }] : []),
     ...(labReport ? [{ name: "lab-report.json", data: utf8.encode(JSON.stringify(labReport, null, 2) + "\n") }] : []),
   ];
 }

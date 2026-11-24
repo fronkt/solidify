@@ -37,6 +37,8 @@
  */
 
 import { K0, R_GAS, type MaterialSI } from "./units";
+import type { Mix } from "./alloy";
+import { evaluateAgingForMaterial, type AgingEvaluation } from "./aging";
 
 // ---------------------------------------------------------------- the schedule
 
@@ -235,6 +237,40 @@ export function grainAfter(d0m: number, gg: number, si: MaterialSI): number {
 export function hallPetch(si: MaterialSI, dm: number): number {
   if (!(dm > 0)) return si.s0;
   return si.s0 + si.kHP / Math.sqrt(dm);
+}
+
+/**
+ * Yield strength, MPa, combining Hall–Petch with optional Shercliff–Ashby
+ * precipitation aging. When `aging` is omitted, null, or unsupported (the
+ * default aging-OFF path), this returns pure `hallPetch(si, dm)` unchanged.
+ */
+export function effectiveYieldMPa(
+  si: MaterialSI,
+  dm: number,
+  aging?: AgingEvaluation | null,
+): number {
+  const hp = hallPetch(si, dm);
+  if (!aging || !aging.supported) return hp;
+  return hp + aging.sigmaSsMPa + aging.sigmaPptMPa;
+}
+
+/**
+ * Evaluate optional Shercliff–Ashby precipitation aging for a schedule against
+ * the Hall–Petch baseline at `dAfterM` (metres). Returns `null` when `agingOn`
+ * is false so callers with aging OFF incur zero change from legacy behavior.
+ */
+export function evaluateScheduleAging(
+  agingOn: boolean,
+  materialKey: string,
+  pouredMix: Mix | null | undefined,
+  sch: HeatSchedule,
+  si: MaterialSI | null,
+  dAfterM: number,
+  samplesPerStage = 2048,
+): AgingEvaluation | null {
+  if (!agingOn || !si) return null;
+  const hp = hallPetch(si, dAfterM);
+  return evaluateAgingForMaterial(materialKey, pouredMix, sch, hp, samplesPerStage);
 }
 
 /**

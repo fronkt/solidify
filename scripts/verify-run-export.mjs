@@ -125,5 +125,55 @@ try {
     assert.equal(view.getUint32(end, true), 0x06054b50);
     assert.equal(view.getUint16(end + 10, true), withLab.length);
   });
+  await check("RUN-AGING-CSV", async () => {
+    const AG = await server.ssrLoadModule("/src/aging.ts");
+    const without = R.runEntries(snapshot, [fig], null, null);
+    assert.equal(without.length, entries.length);
+    assert.equal(without.find(e => e.name === "data/aging-curve.csv"), undefined);
+    assert.equal(JSON.parse(new TextDecoder().decode(without.find(e => e.name === "run.json").data)).aging, undefined);
+
+    const spec = AG.AGING_ALLOYS["al-cu"];
+    const curve = AG.agingCurve(spec, 170, 35, 60, 3_600_000, 25);
+    const agingPayload = {
+      alloy: spec.name,
+      tC: 170,
+      holdMin: 720,
+      temper: "peak-aged (T6)",
+      hpMPa: 35,
+      ssMPa: 23.1,
+      pptMPa: 190,
+      totalMPa: 248.1,
+      curve: curve.points.map(pt => ({
+        timeMin: pt.timeMin,
+        sigmaTotalMPa: pt.sigmaTotalMPa,
+        sigmaPptMPa: pt.sigmaPptMPa,
+        sigmaSsMPa: pt.sigmaSsMPa,
+        pBar: pt.pBar,
+      })),
+    };
+    const withAging = R.runEntries(snapshot, [fig], null, agingPayload);
+    assert.equal(withAging.length, entries.length + 1);
+    const csvEntry = withAging.find(e => e.name === "data/aging-curve.csv");
+    assert(csvEntry, "data/aging-curve.csv entry present");
+    const csv = new TextDecoder().decode(csvEntry.data);
+    assert.match(csv, /Shercliff-Ashby 1990/);
+    assert.match(csv, /# temper: peak-aged \(T6\)/);
+    assert.match(csv, /time_min,time_s,sigma_total_MPa,delta_sigma_ppt_MPa,delta_sigma_ss_MPa,P_bar/);
+    const dataLines = csv.trim().split("\n").filter(l => !l.startsWith("#"));
+    assert.equal(dataLines.length, 26, "header + 25 curve rows");
+
+    const manifest = JSON.parse(new TextDecoder().decode(withAging.find(e => e.name === "run.json").data));
+    assert.equal(manifest.aging.alloy, spec.name);
+    assert.equal(manifest.aging.temper, "peak-aged (T6)");
+    assert.equal(manifest.aging.file, "data/aging-curve.csv");
+    assert.equal(manifest.aging.points, 25);
+
+    const readme = new TextDecoder().decode(withAging.find(e => e.name === "README.txt").data);
+    assert.match(readme, /data\/aging-curve\.csv/);
+
+    const zip = R.zipStore(withAging);
+    const view = new DataView(zip.buffer);
+    assert.equal(view.getUint16(zip.length - 22 + 10, true), withAging.length);
+  });
 } finally { await server.close(); }
 process.exitCode = failed ? 1 : 0;

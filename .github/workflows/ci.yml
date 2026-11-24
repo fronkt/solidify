@@ -60,8 +60,10 @@ jobs:
       - run: node scripts/verify-quant3d-tip-lifecycle.mjs
       - run: node scripts/verify-quant3d-readback.mjs
       - run: node scripts/verify-quant3d-equilibrium-lifecycle.mjs
-      # v8.1 Guided Labs: curriculum schema, copy discipline, anti-cheese checks, lab-report schema
+      # v8.1/v8.2 Guided Labs: curriculum schema, copy discipline, anti-cheese checks, lab-report schema
       - run: node scripts/verify-guided-labs.mjs
+      # v8.3 Precipitation hardening: Shercliff-Ashby (1990) T6 age-hardening kinetics & back-compat
+      - run: node scripts/verify-aging.mjs
 
 # The rest of the headless verify-*.mjs suite (npm test) needs a WebGPU-capable
 # Chrome at a hardcoded local path and is not portable to this runner — see

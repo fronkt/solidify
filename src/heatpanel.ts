@@ -26,13 +26,19 @@
  */
 
 import {
-  canTreat, domainLimitUm, grainAfter, hallPetch, integrate, sweepsFor, frac,
+  canTreat, domainLimitUm, grainAfter, hallPetch, effectiveYieldMPa, integrate, sweepsFor, frac,
   scaleThickness, decarbDepth, fmtMPa, shownMPa, zenerLimitCells, recovered,
   recoveredMeanUniform, H_FLAT_3D,
   ZENER_K, ZENER_R_EXP, ZENER_F_EXP,
   INCIPIENT_FRAC, K_MC, M_MODEL, K_MC_3D, M_MODEL_3D, ROOM_C,
   type HeatSchedule, type TreatContext, type Integrals,
 } from "./heattreat";
+import {
+  resolveAgingAlloy, evaluateAging, agingCurve, SOLVUS_DISSOLUTION_NOTE,
+  type AgingResult, type AgingCurve,
+} from "./aging";
+import type { Mix } from "./alloy";
+import type { RunAgingExport } from "./run-export";
 import { K0, type MaterialSI, type Units } from "./units";
 import { bridgeOf, type Bridge } from "./plot/quantity";
 import type { Figure } from "./plot/figures";
@@ -40,6 +46,7 @@ import type { PlotMeta, Prov } from "./plot/csv";
 import { PlotView } from "./plot/view";
 import { openFigure, type FigureHandle } from "./plot/modal";
 import { heatTrajectory, heatProcessFigure, equivalentHeatTime, recrystallizationFigure, avramiFigure, type HeatPoint, type HeatMeasurement } from "./plot/process";
+import { agingFigure } from "./plot/aging";
 import { HOMOG_D2 } from "./shaders";
 import { HOMOG_D3, NUCLEUS_R_3D } from "./shaders3d";
 import { avramiFit, sweepSchedule, AVRAMI_WINDOW } from "./recrystallize";
@@ -47,7 +54,8 @@ import {
   WORK_MAX, WORK_STEP, RX_MAX, RX_STEP, RX_MODES, rxSteady, rxBoundary,
   packHeatSetup, applyHeatSetup, type HeatTuple,
 } from "./heatshare";
-import { range, select } from "./formbits";
+import { check, range, select } from "./formbits";
+import { paintRange } from "./design/tool";
 import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange } from "./learn";
 import { HEAT_CAVEATS as HC, panelHintFor, panelText } from "./learn/panels";
 import { kv, kvFull, num, panelHead, pill, quiet, warnLine, warnWord } from "./design/panel";
@@ -188,6 +196,8 @@ export interface HeatHost {
    * the grain-growth law running is still the previous material's.
    */
   alloyCaveats?(): string[];
+  /** Active Alloy Composer mix (if poured on the current base) so T6 aging distinguishes Al–Cu, A356, and AA2024. */
+  pouredMix?(): Mix | null;
   si(): MaterialSI | null;
   alloyOn(): boolean;
   /** does the material grow on a cubic lattice in 3D? (the Σ3 gate) */
@@ -414,6 +424,11 @@ export class HeatPanel {
   private rxN = 0;
   /** C3b-3/4a: the nucleation select, an index into RX_MODES (3D only) */
   private rxMode = 0;
+  /** v8.3: opt-in Shercliff–Ashby precipitation aging (OFF by default) */
+  private agingOn = false;
+  private agingCheck: HTMLInputElement | null = null;
+  private specInput: HTMLInputElement | null = null;
+  private specValEl: HTMLElement | null = null;
   private abortReq = false;
   /** exit pressed mid-run: abort first, close when the run loop hands back */
   private closeReq = false;
@@ -431,6 +446,14 @@ export class HeatPanel {
   private processPlot: PlotView | null = null;
   private processModal: FigureHandle | null = null;
   private processFigure: Figure | null = null;
+  // v8.3: live T6 age-hardening curve and spec-rail breakdown (shown only when agingOn)
+  private agingBox: HTMLElement | null = null;
+  private agingSpecEl: HTMLElement | null = null;
+  private agingPlotWrap: HTMLElement | null = null;
+  private agingPlot: PlotView | null = null;
+  private agingFigure: Figure | null = null;
+  private agingModal: FigureHandle | null = null;
+  private lastAging: { result: AgingResult; curve: AgingCurve; tC: number; holdMin: number } | null = null;
   // C3b: the last treatment's recrystallization kinetics and Avrami plot
   private rxPlots: PlotView[] = [];
   private rxBox: HTMLElement | null = null;
@@ -442,7 +465,77 @@ export class HeatPanel {
   /** The most recent treatment keeps its original material and furnace clock. */
   exportFigures(): Figure[] {
     const figure = this.recordedProcessFigure ?? this.processFigure;
-    return [...(figure ? [figure] : []), ...this.rxFigures];
+    return [
+      ...(figure ? [figure] : []),
+      ...(this.agingOn && this.agingFigure ? [this.agingFigure] : []),
+      ...this.rxFigures,
+    ];
+  }
+
+  getAgingOn(): boolean {
+    return this.agingOn;
+  }
+
+  setAgingOn(on: boolean): void {
+    this.agingOn = Boolean(on);
+    if (!this.agingOn) this.lastAging = null;
+    if (this.agingCheck) this.agingCheck.checked = this.agingOn;
+    this.syncSpecBounds();
+    this.refresh();
+    this.host.syncUI();
+  }
+
+  agingExportPayload(): RunAgingExport | null {
+    if (!this.agingOn) return null;
+    const res = resolveAgingAlloy(this.host.materialKey(), this.host.pouredMix?.());
+    if (!res.supported) return null;
+    if (this.lastAging && this.lastAging.result.alloyId === res.alloyId) {
+      const { result, curve, tC, holdMin } = this.lastAging;
+      return {
+        alloy: result.spec.name,
+        tC,
+        holdMin,
+        temper: result.temper,
+        hpMPa: result.sigmaHpMPa,
+        ssMPa: result.sigmaSsMPa,
+        pptMPa: result.sigmaPptMPa,
+        totalMPa: result.sigmaTotalMPa,
+        curve: curve.points.map(pt => ({
+          timeMin: pt.timeMin,
+          sigmaTotalMPa: pt.sigmaTotalMPa,
+          sigmaPptMPa: pt.sigmaPptMPa,
+          sigmaSsMPa: pt.sigmaSsMPa,
+          pBar: pt.pBar,
+        })),
+      };
+    }
+    const si = this.host.si();
+    const c = this.census;
+    if (!si || !c) return null;
+    const d0 = this.dBar(c);
+    if (!(d0 > 0)) return null;
+    const plan = this.plan(c);
+    const dEnd = plan.ok ? this.endUm(plan) : d0;
+    const hpMPa = hallPetch(si, dEnd * 1e-6);
+    const result = evaluateAging(res.spec, this.schedule(), hpMPa);
+    const curve = agingCurve(res.spec, this.tC, hpMPa);
+    return {
+      alloy: result.spec.name,
+      tC: this.tC,
+      holdMin: this.holdMin,
+      temper: result.temper,
+      hpMPa: result.sigmaHpMPa,
+      ssMPa: result.sigmaSsMPa,
+      pptMPa: result.sigmaPptMPa,
+      totalMPa: result.sigmaTotalMPa,
+      curve: curve.points.map(pt => ({
+        timeMin: pt.timeMin,
+        sigmaTotalMPa: pt.sigmaTotalMPa,
+        sigmaPptMPa: pt.sigmaPptMPa,
+        sigmaSsMPa: pt.sigmaSsMPa,
+        pBar: pt.pBar,
+      })),
+    };
   }
 
   private paintProcess(f: Figure) {
@@ -488,13 +581,15 @@ export class HeatPanel {
    *  by RX-SHARE-TUPLE), so every link without them keeps its old shape. */
   setup(): HeatTuple {
     return packHeatSetup({ tC: this.tC, holdMin: this.holdMin, specMPa: this.specMPa, pinF: this.pinF,
-      pinR: this.pinR, workJb: this.workJb, rxN: this.rxN, rxMode: this.rxMode });
+      pinR: this.pinR, workJb: this.workJb, rxN: this.rxN, rxMode: this.rxMode, aging: this.agingOn });
   }
 
-  open(restore?: HeatTuple) {
+  open(restore?: HeatTuple, aging?: boolean) {
     if (this.active) return;
     this.active = true;
     this.restore = restore ?? null;
+    this.agingOn = Boolean(aging);
+    this.lastAging = null;
     this.buildPanel();
     void this.host.measure().then(c => {
       if (c) this.census = c;
@@ -509,6 +604,19 @@ export class HeatPanel {
     this.processModal?.close();
     this.processPlot?.destroy();
     this.processPlot = null;
+    this.agingModal?.close();
+    this.agingModal = null;
+    this.agingPlot?.destroy();
+    this.agingPlot = null;
+    this.agingFigure = null;
+    this.agingBox = null;
+    this.agingSpecEl = null;
+    this.agingPlotWrap = null;
+    this.agingCheck = null;
+    this.specInput = null;
+    this.specValEl = null;
+    this.rxModal?.close();
+    this.rxModal = null;
     this.panel?.remove();
     this.panel = null;
     // the cache dies with the panel: a census outliving a close can belong to
@@ -664,9 +772,44 @@ export class HeatPanel {
 
   // -------------------------------------------------------------- the panel
 
+  private specBoundsFor(aging: boolean): { max: number; step: number } {
+    const si = this.host.si();
+    const hpMax = si ? Math.ceil(hallPetch(si, 4e-6)) : 100;
+    let max = hpMax;
+    if (aging) {
+      const res = resolveAgingAlloy(this.host.materialKey(), this.host.pouredMix?.());
+      if (res.supported) {
+        max = Math.ceil((hpMax + res.spec.deltaSigmaPeakMPa + res.spec.deltaSigmaSs0MPa + 20) / 10) * 10;
+      }
+    }
+    const step = max <= 5 ? 0.1 : max <= 100 ? 1 : 5;
+    return { max, step };
+  }
+
+  private syncSpecBounds(): void {
+    const inp = this.specInput;
+    if (!inp) return;
+    const { max, step } = this.specBoundsFor(this.agingOn);
+    inp.max = String(max);
+    inp.step = String(step);
+    if (this.specMPa > max) this.specMPa = max;
+    inp.value = String(this.specMPa);
+    if (this.specValEl) {
+      this.specValEl.textContent = this.specMPa > 0 ? `≥ ${fmtMPa(this.specMPa)} MPa` : "no spec";
+    }
+    paintRange(inp);
+  }
+
   private buildPanel() {
     this.processModal?.close();
     this.processPlot?.destroy();
+    this.agingModal?.close();
+    this.agingModal = null;
+    this.agingPlot?.destroy();
+    this.agingPlot = null;
+    this.agingFigure = null;
+    this.rxModal?.close();
+    this.rxModal = null;
     this.showRunProcess = false;
     this.panel?.remove();
     const si = this.host.si();
@@ -711,8 +854,7 @@ export class HeatPanel {
     // temperature's is: σ_y at a 4 µm grain — finer than any casting this
     // instrument pours — is the strongest number Hall–Petch can honestly ask
     // for here, and it spans SCN's 1 MPa to a superalloy's ~600
-    const specMax = si ? Math.ceil(hallPetch(si, 4e-6)) : 100;
-    const specStep = specMax <= 5 ? 0.1 : specMax <= 100 ? 1 : 5;
+    const { max: specMax, step: specStep } = this.specBoundsFor(this.agingOn);
     this.specMPa = 0;
     // the dispersion resets with the spec on every open — the docblock calls
     // it a processing choice LIKE the spec, and a panel that silently
@@ -725,22 +867,15 @@ export class HeatPanel {
     this.workJb = 0;
     this.rxN = 0;
     this.rxMode = 0;
-    // a share link's setup lands here, once, clamped to this material's own
-    // dial ranges — a hand-built link does not get to dial 2000 °C (and the
-    // decoder's Number.isFinite whitelist already rejected non-numbers whole).
-    // The clamps, the step snaps (a hand-built 0.0004 dispersion must not
-    // latch the pin ON while every surface prints "0.0 vol %") and the
-    // volume-only rule for work, nuclei and the nucleation mode are
-    // heatshare.ts's applyHeatSetup, moved there verbatim so RX-SHARE-TUPLE
-    // can pin the legacy shapes browser-free
     if (this.restore) {
       const d = applyHeatSetup(this.restore, { tMin, tMax, specMax, volume: this.host.getMode() === "3d" }, {
         tC: this.tC, holdMin: this.holdMin, specMPa: this.specMPa, pinF: this.pinF, pinR: this.pinR,
-        workJb: this.workJb, rxN: this.rxN, rxMode: this.rxMode,
-      });
+        workJb: this.workJb, rxN: this.rxN, rxMode: this.rxMode, aging: this.agingOn,
+      }, this.agingOn);
       this.tC = d.tC; this.holdMin = d.holdMin; this.specMPa = d.specMPa;
       this.pinF = d.pinF; this.pinR = d.pinR; this.workJb = d.workJb;
       this.rxN = d.rxN; this.rxMode = d.rxMode;
+      if (d.aging !== undefined) this.agingOn = d.aging;
       this.restore = null;
     }
     const umPC = this.host.umPerCell();
@@ -754,6 +889,11 @@ export class HeatPanel {
       panelHintFor(this.learn, "heat treat", row);
       return w;
     };
+    const specRow = range("spec σ_y", 0, specMax, specStep, this.specMPa,
+      v => { this.specMPa = v; this.refresh(); }, 0,
+      v => v > 0 ? `≥ ${fmtMPa(v)} MPa` : "no spec");
+    this.specInput = specRow.querySelector<HTMLInputElement>('input[type="range"]');
+    this.specValEl = specRow.querySelector<HTMLElement>(".fbval");
     form.append(
       cell(range("temperature", tMin, tMax, 5, this.tC,
         v => { this.tC = v; this.refresh(); }, 0,
@@ -761,9 +901,7 @@ export class HeatPanel {
       cell(range("hold time", 1, 720, 1, this.holdMin,
         v => { this.holdMin = v; this.refresh(); }, 0,
         v => v < 120 ? `${v.toFixed(0)} min` : `${(v / 60).toFixed(1)} h`)),
-      cell(range("spec σ_y", 0, specMax, specStep, this.specMPa,
-        v => { this.specMPa = v; this.refresh(); }, 0,
-        v => v > 0 ? `≥ ${fmtMPa(v)} MPa` : "no spec")),
+      cell(specRow),
       // the Zener dispersion (v7.0 C2), appended AFTER spec on purpose: the
       // panel gates drive the first three dials positionally
       cell(range("dispersion", 0, 0.12, 0.005, this.pinF,
@@ -801,6 +939,17 @@ export class HeatPanel {
       form.append(cell(select("nucleation", [...RX_MODES], RX_MODES[this.rxMode],
         v => { this.rxMode = Math.max(0, RX_MODES.indexOf(v as typeof RX_MODES[number])); this.refresh(); })));
     }
+    // v8.3: opt-in Shercliff–Ashby precipitation aging (checkbox switch, never
+    // a range input, so positional slider counts stay 5 in 2D and 7 in 3D)
+    const agingRow = check("aging (T6)", this.agingOn, b => {
+      this.agingOn = b;
+      if (!b) this.lastAging = null;
+      this.syncSpecBounds();
+      this.refresh();
+      this.host.syncUI();
+    });
+    this.agingCheck = agingRow.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    form.append(cell(agingRow));
 
     const note = document.createElement("div");
     note.id = "htNote";
@@ -831,6 +980,31 @@ export class HeatPanel {
     caveat.className = "pnote warnline";
     caveat.style.display = "none";
 
+    // v8.3: live T6 age-hardening curve + spec-rail breakdown (hidden when agingOn is false)
+    const agingBox = document.createElement("div");
+    agingBox.id = "htAging";
+    agingBox.className = "preport";
+    agingBox.hidden = true;
+    const agingSpec = document.createElement("div");
+    agingSpec.id = "htAgingSpec";
+    const agingPlotWrap = document.createElement("div");
+    agingPlotWrap.className = "agingplot";
+    agingPlotWrap.hidden = true;
+    agingPlotWrap.style.cssText = "width:100%;height:220px;min-width:0;margin-top:8px";
+    this.agingPlot = new PlotView(agingPlotWrap, {
+      id: "htAgingPlot",
+      label: "Precipitation age-hardening curve; open figure and data",
+      onOpen: () => {
+        if (!this.agingFigure) return;
+        this.agingModal?.close();
+        this.agingModal = openFigure(() => this.agingFigure!);
+      },
+    });
+    agingBox.append(agingSpec, agingPlotWrap);
+    this.agingBox = agingBox;
+    this.agingSpecEl = agingSpec;
+    this.agingPlotWrap = agingPlotWrap;
+
     const chart = document.createElement("div");
     chart.className = "processplot";
     chart.hidden = true;
@@ -857,7 +1031,7 @@ export class HeatPanel {
       } });
     });
     this.rxBox = rxBox;
-    p.append(head, ex.body, form, caveat, note, row, chart, rxBox, report);
+    p.append(head, ex.body, form, caveat, note, row, agingBox, chart, rxBox, report);
     document.getElementById("app")!.append(p);
     this.panel = p;
     this.noteEl = note;
@@ -884,8 +1058,73 @@ export class HeatPanel {
     // every branch below writes the note, then fills its learn slots
     this.writeNote();
     this.previewProcess();
+    this.refreshAging();
     fillLearnSlots(this.noteEl);
     this.learn.apply();
+  }
+
+  private refreshAging() {
+    if (!this.agingBox || !this.agingSpecEl || !this.agingPlotWrap) return;
+    if (!this.agingOn) {
+      this.agingBox.hidden = true;
+      this.agingPlotWrap.hidden = true;
+      this.agingFigure = null;
+      this.agingModal?.close();
+      return;
+    }
+    this.agingBox.hidden = false;
+    const res = resolveAgingAlloy(this.host.materialKey(), this.host.pouredMix?.());
+    if (!res.supported) {
+      this.agingPlotWrap.hidden = true;
+      this.agingFigure = null;
+      this.agingModal?.close();
+      this.agingSpecEl.className = "pnote warnline";
+      this.agingSpecEl.textContent = res.reason;
+      return;
+    }
+    const si = this.host.si();
+    const c = this.census;
+    const d0Um = c ? this.dBar(c) : 0;
+    if (!si || !(d0Um > 0)) {
+      this.agingPlotWrap.hidden = true;
+      this.agingFigure = null;
+      this.agingSpecEl.className = "pnote q";
+      this.agingSpecEl.textContent = "solidify a casting for the Hall–Petch baseline";
+      return;
+    }
+    const plan = this.plan(c);
+    const dEndUm = plan.ok ? this.endUm(plan) : d0Um;
+    const hpMPa = hallPetch(si, dEndUm * 1e-6);
+    const evalRes = evaluateAging(res.spec, this.schedule(), hpMPa);
+    const curve = agingCurve(res.spec, this.tC, hpMPa);
+    const peakInfo = evalRes.dissolved
+      ? warnLine(SOLVUS_DISSOLUTION_NOTE)
+      : evalRes.tPeakAtHoldMin != null && Number.isFinite(evalRes.tPeakAtHoldMin)
+        ? quiet(`peak at ${this.tC.toFixed(0)} °C ≈ ${fmtDur(evalRes.tPeakAtHoldMin * 60)}`)
+        : "";
+    const workCaveat = this.workJb > 0 && this.host.getMode() === "3d"
+      ? "work hardening not modeled; "
+      : "";
+    this.agingSpecEl.className = "kv";
+    this.agingSpecEl.innerHTML =
+      kv("temper", `<b>${evalRes.temper}</b>${peakInfo ? ` · ${peakInfo}` : ""}`)
+      + kv("Hall–Petch", `${num(`${fmtMPa(evalRes.sigmaHpMPa)} MPa`)} ${quiet(`+ solid solution ${fmtMPa(evalRes.sigmaSsMPa)} MPa`)}`)
+      + kv("precipitate Δσ_ppt", `${num(`+${fmtMPa(evalRes.sigmaPptMPa)} MPa`)} ${quiet(`· ${res.spec.label} (${res.spec.precipitates})`)}`)
+      + kv("total σ_y", `${num(`${fmtMPa(evalRes.sigmaTotalMPa)} MPa`)} ${quiet(`· ${workCaveat}Shercliff–Ashby 1990`)}`);
+
+    const prov = this.host.meta();
+    const fig = agingFigure({
+      curve,
+      result: evalRes,
+      holdMin: this.holdMin,
+      specMPa: this.specMPa,
+      bridge: bridgeOf(this.host.units(), prov.material),
+      prov,
+    });
+    this.agingFigure = fig;
+    this.agingPlotWrap.hidden = false;
+    this.agingPlot?.set(fig.fig);
+    this.agingModal?.update();
   }
 
   private emitPlan(plan: Plan) {
@@ -893,11 +1132,17 @@ export class HeatPanel {
     const si = this.host.si();
     const d0Um = this.census ? this.dBar(this.census) : 0;
     const currentSigmaY = si && d0Um > 0 ? hallPetch(si, d0Um * 1e-6) : null;
+    const agingRes = this.agingOn
+      ? resolveAgingAlloy(this.host.materialKey(), this.host.pouredMix?.())
+      : null;
+    const maxReachableSigmaY = currentSigmaY != null && agingRes?.supported
+      ? currentSigmaY + agingRes.spec.deltaSigmaPeakMPa + agingRes.spec.deltaSigmaSs0MPa
+      : currentSigmaY;
     const specUnreachable = !!(
       this.specMPa > 0
-      && currentSigmaY != null
+      && maxReachableSigmaY != null
       && (!plan.ok || !plan.work)
-      && shownMPa(this.specMPa) > shownMPa(currentSigmaY)
+      && shownMPa(this.specMPa) > shownMPa(maxReachableSigmaY)
     );
     const peakFracTm = plan.ok
       ? plan.ints.peakFracTm
@@ -1096,8 +1341,21 @@ export class HeatPanel {
     if (!(this.specMPa > 0) || !si) return "";
     const s = this.specMPa;
     const s0 = hallPetch(si, d0Um * 1e-6);
-    const s1 = hallPetch(si, dEndUm * 1e-6);
+    const s1Hp = hallPetch(si, dEndUm * 1e-6);
     const mpa = (v: number) => num(`${fmtMPa(v)} MPa`);
+    if (this.agingOn) {
+      const res = resolveAgingAlloy(this.host.materialKey(), this.host.pouredMix?.());
+      if (res.supported) {
+        const ag = evaluateAging(res.spec, this.schedule(), s1Hp);
+        const s1 = effectiveYieldMPa(si, dEndUm * 1e-6, ag);
+        const path = `σ_y (Hall–Petch + aging) ${num(fmtMPa(s0))} → ${num(`~${fmtMPa(s1)} MPa`)} (${ag.temper})`;
+        const solvusTail = ag.dissolved ? ` · ${SOLVUS_DISSOLUTION_NOTE}` : "";
+        return shownMPa(s1) >= shownMPa(s)
+          ? `<br>${path} · meets the ≥ ${mpa(s)} spec${solvusTail}`
+          : `<br>${warnLine(`${path} · misses the ≥ ${mpa(s)} spec${solvusTail}`)}`;
+      }
+    }
+    const s1 = s1Hp;
     if (shownMPa(s) > shownMPa(s0)) {
       return `<br>${warnLine(`spec ≥ ${mpa(s)} > current ${mpa(s0)}: ${HC.specUnreachable.line}`)}`
         + learnSlot(HC.specUnreachable.learn);
@@ -1135,6 +1393,7 @@ export class HeatPanel {
     const spec = this.specMPa;
     const tC = this.tC;
     const holdMin = this.holdMin;
+    const agingOn = this.agingOn;
     // the dispersion latches with it, for the same reason: the fabric the
     // boundaries dragged through is the one the card must describe, not the
     // one the dials show when the report renders (plan() read the same dials
@@ -1321,13 +1580,26 @@ export class HeatPanel {
     setStatus("");
     this.host.syncUI();
     if (this.closeReq) { this.closeReq = false; this.close(); return; }
+    const siDone = this.host.si();
+    const dAfterUm = after ? this.dBar(after) : plan.d0Um;
+    let agingAfter: AgingResult | null = null;
+    if (agingOn && siDone && after) {
+      const aRes = resolveAgingAlloy(this.host.materialKey(), this.host.pouredMix?.());
+      if (aRes.supported) {
+        const hpAfter = hallPetch(siDone, dAfterUm * 1e-6);
+        agingAfter = evaluateAging(aRes.spec, plan.sch, hpAfter);
+        this.lastAging = { result: agingAfter, curve: agingCurve(aRes.spec, tC, hpAfter), tC, holdMin };
+      } else {
+        this.lastAging = null;
+      }
+    } else if (!agingOn) {
+      this.lastAging = null;
+    }
     this.report(plan, before, after, delivered, total, twinLine, homogLine, spec,
-      rxEvent ? { event: rxEvent, S: rxS, X: rxX, x0: rxX0, tally: rxTally } : null);
+      rxEvent ? { event: rxEvent, S: rxS, X: rxX, x0: rxX0, tally: rxTally } : null, agingAfter);
     if (this.host.onHeatFinished) {
-      const siDone = this.host.si();
-      const dAfterUm = after ? this.dBar(after) : plan.d0Um;
       const sigmaBefore = siDone ? hallPetch(siDone, plan.d0Um * 1e-6) : 0;
-      const sigmaAfter = siDone && after ? hallPetch(siDone, dAfterUm * 1e-6) : 0;
+      const sigmaAfter = siDone && after ? effectiveYieldMPa(siDone, dAfterUm * 1e-6, agingAfter) : 0;
       const specMet = spec > 0 && siDone && after ? shownMPa(sigmaAfter) >= shownMPa(spec) : null;
       const ov = canTreat("oxide", this.ctx(before));
       const workJb = plan.work ?? 0;
@@ -1385,7 +1657,8 @@ export class HeatPanel {
 
   private report(plan: Plan & { ok: true }, before: Census, after: Census | null, delivered: number, total: number, twinLine = "", homogLine = "", spec = 0,
     rx: { event: { lo: number; hi: number; requested: number; placed: number } | { why: string }; S: number[]; X: number[]; x0: number;
-      tally?: RxTally | null } | null = null) {
+      tally?: RxTally | null } | null = null,
+    agingAfter: AgingResult | null = null) {
     if (!this.reportEl) return;
     // The card is a spec rail (.kv): each row's label in --fg-3, one space,
     // then what it says, so the text the gates read is the sentence the card
@@ -1435,12 +1708,25 @@ export class HeatPanel {
         const hp = plan.work ? HC.hallPetchWork : HC.hallPetch;
         rows.push(kv("σ_y", `${strong(fmtMPa(sb))} → ${strong(fmtMPa(sa) + " MPa")} `
           + dim(`· Hall–Petch on the measured ${est} d̄, ${hp.line}`), lrn(hp)));
+        const saTotal = agingAfter ? effectiveYieldMPa(si, this.dBar(after) * 1e-6, agingAfter) : sa;
+        if (agingAfter) {
+          rows.push(kv("aging (T6)", `<b>${agingAfter.temper}</b> · total σ_y ${strong(`${fmtMPa(saTotal)} MPa`)} `
+            + dim(`(Hall–Petch ${fmtMPa(agingAfter.sigmaHpMPa)} + solid solution ${fmtMPa(agingAfter.sigmaSsMPa)} + precipitate ${fmtMPa(agingAfter.sigmaPptMPa)} MPa · ${agingAfter.spec.label})`)
+            + (agingAfter.dissolved ? ` · ${warnLine(SOLVUS_DISSOLUTION_NOTE)}` : "")));
+        }
         if (spec > 0) {
           // HT-PANEL reads "met: the treated casting" / "missed: the treated
           // casting"; "met" is bright, "missed" a warning (its "!" is CSS)
-          const why = shownMPa(sb) < shownMPa(spec) ? HC.missedAsCast : HC.missedTrade;
-          const specV = strong(`${fmtMPa(spec)} MPa`), saV = strong(`${fmtMPa(sa)} MPa`);
-          rows.push(shownMPa(sa) >= shownMPa(spec)
+          const why = agingAfter
+            ? {
+                line: agingAfter.dissolved
+                  ? SOLVUS_DISSOLUTION_NOTE
+                  : `adjust aging temperature or hold time toward peak T6 (${agingAfter.spec.refTempC} °C × ${agingAfter.spec.refPeakHours} h)`,
+                learn: "Aging strength peaks near P̄ = 1 and drops when underaged, overaged, or held above the solvus.",
+              }
+            : (shownMPa(sb) < shownMPa(spec) ? HC.missedAsCast : HC.missedTrade);
+          const specV = strong(`${fmtMPa(spec)} MPa`), saV = strong(`${fmtMPa(saTotal)} MPa`);
+          rows.push(shownMPa(saTotal) >= shownMPa(spec)
             ? kv("spec", `σ_y ≥ ${specV} · <b>met</b>: the treated casting stands at ${saV}`)
             : kv("spec", `σ_y ≥ ${specV} · ${warnWord("missed")}: the treated casting stands at ${saV}`
               + dim(` · ${why.line}`), lrn(why)));

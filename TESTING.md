@@ -10,15 +10,15 @@ npm run build       # static Vite build
 
 `npm test` starts a local Vite server on port 5199, runs every `scripts/verify-*.mjs` script (driving a local WebGPU-capable Chrome via `puppeteer-core` for GPU tests), and shuts the server down afterward (`scripts/run-tests.mjs`).
 
-GitHub Actions CI (`.github/workflows/ci.yml`) runs `npm run typecheck`, `npm run build`, and the twenty-seven browser-free scripts that do not require a local GPU or Chrome binary.
+GitHub Actions CI (`.github/workflows/ci.yml`) runs `npm run typecheck`, `npm run build`, and the twenty-eight browser-free scripts that do not require a local GPU or Chrome binary.
 
 ---
 
 ## Suite history and script inventory
 
 Visual and science expansion, 2026-11-01 (feature/visual): six scripts on
-top of the merged 39, so the local suite registered 45 and CI gates twenty-seven
-browser-free scripts (including v8.1 Guided Labs `verify-guided-labs.mjs`). C3b-3/4a (feature/rx-rate, 2026-11-07) adds one GPU
+top of the merged 39, so the local suite registered 45 and CI gates twenty-eight
+browser-free scripts (including v8.1/v8.2 Guided Labs `verify-guided-labs.mjs` and v8.3 T6 aging `verify-aging.mjs`). C3b-3/4a (feature/rx-rate, 2026-11-07) adds one GPU
 script, `verify-recrystallize-rate-gpu.mjs`, so the local suite registers 46;
 CI's browser-free count is unchanged (its new checks live in
 `verify-recrystallize.mjs`, already in CI).
@@ -313,9 +313,9 @@ fade and Sievert gas porosity — bringing the CI-runnable set to five at the ti
 `verify-elements.mjs` twelve and v7.1 P5's `verify-composer-grid.mjs` thirteen, where v7.1 P6
 left it, v8's `verify-hero-manifest.mjs` fourteen and v8 U2's `verify-plot.mjs` fifteen.
 The v8 completion adds process-plot and run-export coverage. Q3 adds the Wulff
-and tip self-tests plus runner-lifecycle controls, and v8.1 Guided Labs adds
-`verify-guided-labs.mjs`, bringing the set to
-**twenty-seven browser-free scripts**, and
+and tip self-tests plus runner-lifecycle controls, v8.1/v8.2 Guided Labs adds
+`verify-guided-labs.mjs`, and v8.3 precipitation aging adds `verify-aging.mjs`, bringing the set to
+**twenty-eight browser-free scripts**, and
 `CI-SCRIPT-COUNT` derives that number from `ci.yml`'s own run lines and fails if any place this
 document states it disagrees). They run first in the
 suite for the same reason the first two do: they are instant, and a failure there means the
@@ -336,19 +336,27 @@ except `verify-hero.mjs`, which runs with WebGPU removed and needs no GPU; it st
 hardcoded Chrome path and the 5199 server, so it is not in CI either.
 **This is not portable to a generic hosted CI runner as-is** — the
 executable path and WebGPU/ANGLE availability are both host-specific, which is why CI gates
-only the OS-agnostic steps — typecheck, build, and the twenty-seven browser-free scripts
+only the OS-agnostic steps — typecheck, build, and the twenty-eight browser-free scripts
 (`verify-units.mjs`, `verify-rng.mjs`, `verify-optimizer3d-model.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`,
 `verify-fade.mjs`, `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
 `verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
 `verify-composer-grid.mjs`, `verify-hero-manifest.mjs`, `verify-plot.mjs`, `verify-process-plots.mjs`, `verify-run-export.mjs`,
 `verify-replay.mjs`, `verify-recrystallize.mjs`, `verify-flow.mjs`,
 `verify-quant3d-wulff.mjs --self-test`, `verify-quant3d-tip.mjs --self-test`, `verify-quant3d-tip-lifecycle.mjs`,
-`verify-quant3d-readback.mjs`, `verify-quant3d-equilibrium-lifecycle.mjs`, `verify-guided-labs.mjs`; see
+`verify-quant3d-readback.mjs`, `verify-quant3d-equilibrium-lifecycle.mjs`, `verify-guided-labs.mjs`, `verify-aging.mjs`; see
 `.github/workflows/ci.yml`) — rather than
 this suite. If you want to run the physics/UI verification yourself, do it locally.
 
 ## What each script checks
 
+- **`verify-aging.mjs`** (browser-free, v8.3 Precipitation Aging) runs seven checks over
+  the cited Shercliff–Ashby (1990) T6 age-hardening model (`src/aging.ts`, `src/plot/aging.ts`):
+  analytical peak/underaging/overaging invariants and solid-solution depletion, Arrhenius
+  time-temperature scaling and Simpson ramp+hold convergence, solvus dissolution reversion
+  (`T >= T_solvus` -> `Δσ_ppt = 0`, `solutionized (T4)`), alloy selectivity (`Al–Cu`, `A356`,
+  `AA2024` supported vs. Cu/Fe–C/Ni/Co/Mg/Zn/ice/SCN/5xxx refused), isothermal log-time
+  curve and figure metadata, `heattreat.ts` default-OFF Hall–Petch backward compatibility,
+  and `#set=` `ag` share-flag round-trip preserving legacy `HeatTuple` lengths.
 - **`verify-guided-labs.mjs`** (browser-free, v8.2 Guided Labs) runs six checks over
   curriculum schema (`7` labs, `32` steps, dynamic `#lab=N` routing), copy discipline
   (zero prose em dashes, American spelling, exact control casing), deterministic
@@ -362,9 +370,10 @@ this suite. If you want to run the physics/UI verification yourself, do it local
   validity, optimizer error versus its search penalty, and the furnace's separate
   physical clock and material-law prediction. Negative/zero liquid temperatures
   stay real; missing samples remain gaps. Pinning/stored energy withdraw the law.
-- **`verify-run-export.mjs`** (browser-free) runs six checks over dataset provenance,
+- **`verify-run-export.mjs`** (browser-free) runs seven checks over dataset provenance,
   empty runs, ZIP records and checksums, safe unique archive paths, physical
-  image scales, and optional `lab-report.json` bundling (`RUN-LAB-REPORT`). A prior Al–Cu record exported beside a current steel setup must
+  image scales, optional `lab-report.json` bundling (`RUN-LAB-REPORT`), and optional
+  `data/aging-curve.csv` bundling (`RUN-AGING-CSV`). A prior Al–Cu record exported beside a current steel setup must
   retain its own seed, units and share link. Browser verification additionally
   opens the real archive, decodes its PNG and checks the current view in 2D/3D.
 - **`verify-completion-gpu.mjs`** exercises the actual instrument: calibration
@@ -1672,7 +1681,7 @@ rebuilt to make that relationship emergent:
 **Physics-behaviour tests (v5.0).**
 
 - **`UNITS-*`** (`verify-units.mjs`) — the scaling layer, checked without a browser, so it is
-  the first of the twenty-seven browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0, the v7.1 arc added six more, v8 added figure/export checks, Q3 added its self-tests and runner-lifecycle controls, and v8.1 added Guided Labs). Ten checks: that kelvin-per-unit really is the heat
+  the first of the twenty-eight browser-free scripts CI can gate (`verify-heattreat.mjs` joined it in v6.0, the v7.1 arc added six more, v8 added figure/export checks, Q3 added its self-tests and runner-lifecycle controls, v8.1 added Guided Labs, and v8.3 added T6 aging). Ten checks: that kelvin-per-unit really is the heat
   equation's own `(L/c_p)/K` for four materials computed independently in the test; that the
   time factor is forced by whichever diffusivity is anchoring; that every converter round-trips;
   that an abstract material reads as *unknown* rather than as zero; that the undercooling dial's
@@ -2171,12 +2180,12 @@ spread K/K_shipped over 0.886–1.186, so `K_MC_TOL_3D` was re-measured from 15 
 that evidence recorded in the constant's own docblock. The drift prints on every run, and
 `HT3-PANEL` gates the same constant a second way — on an integral rather than a fit.
 
-`npm run typecheck` and `npm run build` plus the twenty-seven browser-free scripts — `verify-units.mjs`,
+`npm run typecheck` and `npm run build` plus the twenty-eight browser-free scripts — `verify-units.mjs`,
 `verify-rng.mjs`, `verify-optimizer3d-model.mjs`, `verify-heattreat.mjs`, `verify-thermal.mjs`, `verify-fade.mjs`,
 `verify-porosity.mjs`, `verify-experiment.mjs`, `verify-phasedata.mjs`,
 `verify-alloy.mjs`, `verify-phasediagram.mjs`, `verify-regimes.mjs`, `verify-elements.mjs`,
 `verify-composer-grid.mjs`, `verify-hero-manifest.mjs`, `verify-plot.mjs`,
 `verify-process-plots.mjs`, `verify-run-export.mjs`, `verify-replay.mjs`, `verify-recrystallize.mjs`,
 `verify-flow.mjs`, `verify-quant3d-wulff.mjs --self-test`,
-`verify-quant3d-tip.mjs --self-test`, `verify-quant3d-tip-lifecycle.mjs`, `verify-quant3d-readback.mjs`, `verify-quant3d-equilibrium-lifecycle.mjs` and `verify-guided-labs.mjs` — are the checks anyone on any OS can run
+`verify-quant3d-tip.mjs --self-test`, `verify-quant3d-tip-lifecycle.mjs`, `verify-quant3d-readback.mjs`, `verify-quant3d-equilibrium-lifecycle.mjs`, `verify-guided-labs.mjs` and `verify-aging.mjs` — are the checks anyone on any OS can run
 without a GPU, and are what CI actually gates on (`.github/workflows/ci.yml`).

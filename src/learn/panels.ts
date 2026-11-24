@@ -46,8 +46,8 @@ export const PANEL_LEARN: readonly LearnEntry[] = [
     // coefficients are literature values, some of them round placeholders
     // (ice, SCN), so they are not called "measured" anywhere in learn mode
     text: "Heat treat holds the frozen casting in a furnace, timed in real hours. The material's grain-growth law "
-      + "predicts the final grain size, and a Monte Carlo grain model then grows the grains by that much (its step "
-      + "count is set from the law), so you can watch the path and measure the result.",
+      + "drives Monte Carlo coarsening (plus optional T6 precipitation aging for Al alloys), so you can watch "
+      + "the path and measure the final strength.",
     hints: {
       "temperature": "hold temperature (T_m: melting point)",
       "hold time": "time at temperature, between the ramps",
@@ -57,6 +57,7 @@ export const PANEL_LEARN: readonly LearnEntry[] = [
       "cold work": "stored deformation energy (bond energies)",
       "nuclei": "strain-free grains in the worked metal",
       "nucleation": "where and when the nuclei are born",
+      "aging (T6)": "precipitation hardening for Al alloys",
     },
   },
   {
