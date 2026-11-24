@@ -137,6 +137,17 @@ export const PANEL_LEARN: readonly LearnEntry[] = [
       "seed pairs": "initial α/β lamellar pairs seeded",
     },
   },
+  {
+    id: "panel:spinodal",
+    text: "Spinodal mode evolves conserved Cahn–Hilliard phase separation in 2D or a 3D raymarched sponge, "
+      + "including NIST PFHub Benchmark 1. Watch free energy F(t) fall monotonically while domains coarsen as t^(1/3).",
+    hints: {
+      "preset": "PFHub benchmark or alloy spinodal",
+      "composition c₀": "initial mean concentration (conserved)",
+      "gradient κ": "interface energy penalty (sets width)",
+      "mobility M": "Cahn–Hilliard diffusion mobility",
+    },
+  },
 ];
 
 registerLearn(PANEL_LEARN);

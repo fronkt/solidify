@@ -166,3 +166,42 @@ export function parseEutecticRoute(hash: string, search = ""): EutecticRoute | n
   };
   return scan(hash) ?? scan(search);
 }
+
+export type SpinodalRoutePreset = "pfhub1" | "fecr" | "alzn" | "offcrit";
+export type SpinodalRouteDim = "2d" | "3d";
+export type SpinodalRoute = { kind: "spinodal"; preset?: SpinodalRoutePreset; dim?: SpinodalRouteDim };
+
+const SPINODAL_PRESET_IDS = new Set<string>(["pfhub1", "fecr", "alzn", "offcrit"]);
+
+/**
+ * Parse `#spinodal`, `#spinodal=<preset>`, `#spinodal=3d`, `#spinodal=<preset>:3d`,
+ * or `?spinodal=...` without disturbing `#set=`, `#alloy=`, `#lab=`, or `#eutectic`.
+ */
+export function parseSpinodalRoute(hash: string, search = ""): SpinodalRoute | null {
+  const scan = (raw: string): SpinodalRoute | null => {
+    const body = raw.replace(/^[#?]/, "");
+    if (!body) return null;
+    for (const part of body.split("&")) {
+      if (!part) continue;
+      if (part === "spinodal" || part === "spinodal=1" || part === "spinodal=true") {
+        return { kind: "spinodal" };
+      }
+      if (!part.startsWith("spinodal=")) continue;
+      const tail = part.slice(9);
+      let decoded = tail;
+      try { decoded = decodeURIComponent(tail); } catch { /* malformed escape: keep raw */ }
+      const val = decoded.trim().toLowerCase();
+      if (!val) return { kind: "spinodal" };
+      const [first, second] = val.split(":");
+      if (first === "2d" || first === "3d") {
+        return { kind: "spinodal", dim: first };
+      }
+      const route: SpinodalRoute = { kind: "spinodal" };
+      if (SPINODAL_PRESET_IDS.has(first)) route.preset = first as SpinodalRoutePreset;
+      if (second === "2d" || second === "3d") route.dim = second;
+      return route;
+    }
+    return null;
+  };
+  return scan(hash) ?? scan(search);
+}

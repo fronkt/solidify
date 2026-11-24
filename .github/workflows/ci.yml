@@ -66,6 +66,8 @@ jobs:
       - run: node scripts/verify-aging.mjs
       # v8.4 2D Binary Eutectic: Folch-Plapp (2005) 3-phase simplex & Jackson-Hunt (1966) scaling
       - run: node scripts/verify-eutectic.mjs
+      # v8.5 2D/3D Spinodal Decomposition: Cahn-Hilliard (1958), LSW (1961) & NIST PFHub Benchmark 1
+      - run: node scripts/verify-spinodal.mjs
 
 # The rest of the headless verify-*.mjs suite (npm test) needs a WebGPU-capable
 # Chrome at a hardcoded local path and is not portable to this runner — see

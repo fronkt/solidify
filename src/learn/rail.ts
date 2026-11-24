@@ -28,12 +28,13 @@ export const RAIL_LEARN: readonly LearnEntry[] = [
   },
   {
     id: "sec:MODES",
-    text: "Lab mode pours a planned experiment, heat treat anneals in real hours, eutectic grows 2D lamellar "
-      + "microstructures, and guided labs walk through them with live checks. The optimizer searches for a "
-      + "target grain size in 2D or 3D; challenge pits you against it in 2D only.",
+    text: "Lab mode pours a planned experiment, heat treat anneals in real hours, eutectic grows 2D lamellae, "
+      + "spinodal runs 2D/3D Cahn–Hilliard coarsening, and guided labs walk through them with live checks. "
+      + "The optimizer searches for a target grain size in 2D or 3D; challenge pits you against it in 2D only.",
     hints: {
       "guided labs": "hands-on labs with live physics checks",
-      "eutectic": "2D lamellar eutectic (Jackson–Hunt)",
+      "eutectic": "eutectic: 2D lamellar (Jackson–Hunt)",
+      "spinodal": "spinodal: 2D/3D Cahn–Hilliard (B1)",
     },
   },
   {

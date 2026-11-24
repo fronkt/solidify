@@ -88,6 +88,57 @@ export interface RunSnapshot {
   optimizer3d?: unknown;
   /** Optional 2D binary eutectic snapshot summary for run-export archives. */
   eutectic?: RunEutecticExport | null;
+  /** Optional 2D/3D Cahn-Hilliard spinodal summary for run-export archives. */
+  spinodal?: RunSpinodalExport | null;
+}
+
+export interface RunSpinodalExport {
+  preset: string;
+  dim: "2d" | "3d";
+  n: number;
+  c0: number;
+  kappa: number;
+  mobility: number;
+  simTime: number;
+  freeEnergy: number;
+  meanC: number;
+  massDrift: number;
+  domainL: number;
+  lswSlope: number | null;
+  samples: readonly { t: number; F: number; L: number; meanC: number }[];
+}
+
+export function formatSpinodalCsv(
+  s: RunSpinodalExport,
+  prov?: { seed?: string; build?: string; share?: string },
+): string {
+  const fmt = (v: number | null | undefined) =>
+    v != null && Number.isFinite(v) ? Number(v.toPrecision(8)).toString() : "";
+  const rows = s.samples.length > 0
+    ? s.samples
+    : [{ t: s.simTime, F: s.freeEnergy, L: s.domainL, meanC: s.meanC }];
+  const lines = [
+    "# SOLIDIFY figure data: Cahn-Hilliard spinodal decomposition (NIST PFHub Benchmark 1)",
+    `# preset: ${s.preset}`,
+    `# dimension: ${s.dim.toUpperCase()} (${s.n}${s.dim === "3d" ? "³" : "²"})`,
+    ...(prov?.seed ? [`# seed: ${prov.seed}`] : []),
+    `# c0: ${fmt(s.c0)}`,
+    `# kappa: ${fmt(s.kappa)}`,
+    `# mobility: ${fmt(s.mobility)}`,
+    `# sim_time: ${fmt(s.simTime)}`,
+    `# free_energy_F: ${fmt(s.freeEnergy)}`,
+    `# mean_c: ${fmt(s.meanC)}`,
+    `# mass_drift: ${fmt(s.massDrift)}`,
+    `# domain_L: ${fmt(s.domainL)}`,
+    `# lsw_slope_alpha: ${fmt(s.lswSlope)}`,
+    "# units: time (dimensionless), free_energy_F (dimensionless), domain_L (dimensionless), mean_c (dimensionless)",
+    ...(prov?.share ? [`# share: ${prov.share}`] : []),
+    ...(prov?.build ? [`# build: ${prov.build}`] : []),
+    `# rows: ${rows.length}`,
+    "time,free_energy_F,domain_L,mean_c",
+    ...rows.map(r => [fmt(r.t), fmt(r.F), fmt(r.L), fmt(r.meanC)].join(",")),
+  ];
+  return lines.join("\n") + "\n";
 }
 
 export interface RunEutecticExport {
@@ -223,6 +274,7 @@ export function runEntries(
   labReport?: GuidedLabReport | null,
   aging?: RunAgingExport | null,
   eutectic?: RunEutecticExport | null,
+  spinodal?: RunSpinodalExport | null,
 ): ArchiveEntry[] {
   const datasets = figures.filter(hasFigureData).map((f, i) => ({
     file: `data/${String(i + 1).padStart(2, "0")}-${slug(f.title) || "series"}.csv`,
@@ -234,6 +286,7 @@ export function runEntries(
     csv: toCSV(f.title, f.columns, f.bridge, f.prov),
   }));
   const eut = eutectic ?? snapshot.eutectic ?? null;
+  const spin = spinodal ?? snapshot.spinodal ?? null;
   const agingSummary = aging
     ? {
         alloy: aging.alloy,
@@ -251,11 +304,30 @@ export function runEntries(
   const eutecticSummary = eut
     ? { ...eut, file: "data/eutectic.csv" }
     : undefined;
-  const { eutectic: _snapEut, ...baseSnapshot } = snapshot;
+  const spinodalSummary = spin
+    ? {
+        preset: spin.preset,
+        dim: spin.dim,
+        n: spin.n,
+        c0: spin.c0,
+        kappa: spin.kappa,
+        mobility: spin.mobility,
+        simTime: spin.simTime,
+        freeEnergy: spin.freeEnergy,
+        meanC: spin.meanC,
+        massDrift: spin.massDrift,
+        domainL: spin.domainL,
+        lswSlope: spin.lswSlope,
+        file: "data/spinodal.csv",
+        points: spin.samples.length,
+      }
+    : undefined;
+  const { eutectic: _snapEut, spinodal: _snapSpin, ...baseSnapshot } = snapshot;
   const manifest = {
     format: "solidify-run", version: 1, ...baseSnapshot,
     ...(agingSummary ? { aging: agingSummary } : {}),
     ...(eutecticSummary ? { eutectic: eutecticSummary } : {}),
+    ...(spinodalSummary ? { spinodal: spinodalSummary } : {}),
     reproducibility: "The setup link restores the initial setup and seed. This archive records observations and an image; it does not restore the current GPU field or an in-progress anneal.",
     datasets: datasets.map(({ csv: _csv, ...d }) => d),
     notes: [
@@ -271,6 +343,7 @@ export function runEntries(
     "data/*.csv: every available instrument dataset with its own provenance and units.",
     ...(aging ? ["data/aging-curve.csv: precipitation age-hardening strength curve and temper summary."] : []),
     ...(eut ? ["data/eutectic.csv: 2D binary eutectic lamellar spacing, Jackson-Hunt comparison, and phase-fraction summary."] : []),
+    ...(spin ? ["data/spinodal.csv: Cahn-Hilliard spinodal free-energy decay, mass conservation, and LSW coarsening history."] : []),
     ...(labReport ? ["lab-report.json: guided lab progress, latched measurements, and summary table."] : []),
     "",
     manifest.reproducibility, "", ...manifest.notes,
@@ -284,6 +357,7 @@ export function runEntries(
     ...datasets.map(d => ({ name: d.file, data: utf8.encode(d.csv) })),
     ...(aging ? [{ name: "data/aging-curve.csv", data: utf8.encode(agingCurveCSV(snapshot, aging)) }] : []),
     ...(eut ? [{ name: "data/eutectic.csv", data: utf8.encode(formatEutecticCsv(eut, { seed: seedHex, build: snapshot.build, share: snapshot.setupLink })) }] : []),
+    ...(spin ? [{ name: "data/spinodal.csv", data: utf8.encode(formatSpinodalCsv(spin, { seed: seedHex, build: snapshot.build, share: snapshot.setupLink })) }] : []),
     ...(labReport ? [{ name: "lab-report.json", data: utf8.encode(JSON.stringify(labReport, null, 2) + "\n") }] : []),
   ];
 }

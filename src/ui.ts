@@ -75,6 +75,9 @@ export interface UIHost extends AppControl {
   /** open the 2D Folch–Plapp lamellar eutectic panel */
   startEutectic(): void;
   isEutecticOpen(): boolean;
+  /** open the 2D/3D Cahn–Hilliard spinodal decomposition panel */
+  startSpinodal(): void;
+  isSpinodalOpen(): boolean;
   /** open the Guided Labs picker or bring the active lab dock into focus */
   openGuidedLabs(): void;
   isGuidedLabOpen(): boolean;
@@ -677,11 +680,16 @@ export class UI {
     labsBtn.title = "structured hands-on labs with live physics checks";
     this.hintFor(mrow1, "guided labs");
     this.binds.push({ update: () => labsBtn.setAttribute("aria-expanded", String(host.isGuidedLabOpen())) });
-    const mrow2 = this.btnRow(modes);
+    const mrow2 = this.btnRow(modes, 2);
     const eutBtn = this.button(mrow2, "eutectic", () => { host.startEutectic(); this.sync(); });
     eutBtn.title = "2D lamellar eutectic growth · Folch–Plapp phase field · Jackson–Hunt";
-    this.hintFor(mrow2, "eutectic");
     this.binds.push({ update: () => eutBtn.setAttribute("aria-expanded", String(host.isEutecticOpen())) });
+    const spinBtn = this.button(mrow2, "spinodal", () => { host.startSpinodal(); this.sync(); });
+    spinBtn.title = "2D/3D Cahn–Hilliard spinodal decomposition · NIST PFHub Benchmark 1";
+    this.binds.push({ update: () => spinBtn.setAttribute("aria-expanded", String(host.isSpinodalOpen())) });
+    // insert spinodal first so eutectic sits directly below mrow2, matching left-to-right button order
+    this.hintFor(mrow2, "spinodal");
+    this.hintFor(mrow2, "eutectic");
     const optimizerNote = document.createElement("div");
     optimizerNote.id = "optimizerModeNote";
     optimizerNote.className = "matnote";

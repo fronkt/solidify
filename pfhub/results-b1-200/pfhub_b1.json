@@ -1,0 +1,139 @@
+{
+  "benchmark": {
+    "id": "1a",
+    "version": "1",
+    "name": "Spinodal Decomposition (2D Periodic Square)",
+    "url": "https://pages.nist.gov/pfhub/benchmarks/benchmark1.ipynb/"
+  },
+  "reference": {
+    "citation": "A. M. Jokisaari, P. W. Voorhees, J. E. Guyer, J. Warren, and O. G. Heinonen, Benchmark problems for numerical implementations of phase field models, Computational Materials Science 126 (2017) 139–151.",
+    "doi": "10.1016/j.commatsci.2016.09.022",
+    "benchmark_url": "https://pages.nist.gov/pfhub/benchmarks/benchmark1.ipynb/",
+    "parameters": {
+      "domain": "[0, 200]^2",
+      "boundary_conditions": "periodic",
+      "c_alpha": 0.3,
+      "c_beta": 0.7,
+      "rho_s": 5,
+      "kappa": 2,
+      "mobility": 5,
+      "c0": 0.5,
+      "eps": 0.01
+    },
+    "expected_properties": {
+      "initial_free_energy_approx": 319.1,
+      "initial_mean_c_200_approx": 0.50255,
+      "lyapunov_free_energy": "dF/dt <= 0 strictly monotone decay",
+      "mass_conservation": "d<c>/dt = 0 (conserved order parameter)",
+      "lsw_coarsening_exponent": 0.3333333333333333
+    }
+  },
+  "metadata": {
+    "author": {
+      "first": "Frank",
+      "last": "Cai",
+      "email": "cai485@purdue.edu",
+      "github_id": "fronkt",
+      "orcid": "0009-0003-0041-1459"
+    },
+    "timestamp": "2026-11-24T08:47:46.024Z",
+    "implementation": {
+      "name": "SOLIDIFY",
+      "version": "8.5.0",
+      "repo": {
+        "url": "https://github.com/fronkt/solidify",
+        "version": "main"
+      },
+      "discretization": "Periodic 2D 9-point Mehrstellen Laplacian explicit Cahn-Hilliard in centered WGSL f32"
+    },
+    "summary": "Browser-native WebGPU conserved Cahn-Hilliard 2D solver (SOLIDIFY v8.5.0, periodic 9-point Mehrstellen stencil in centered WGSL f32) on 200x200 [0,200]^2 (dx=1.0000, dt=3.3628e-3, 297374 explicit steps to t=1000.00).",
+    "hardware": {
+      "cpu_architecture": "x64",
+      "acc_architecture": "WebGPU (GPU compute shader)",
+      "parallel_model": "WebGPU WGSL compute",
+      "clock_rate": 0,
+      "cores": 8,
+      "nodes": 1,
+      "gpu_adapter": {
+        "vendor": "intel",
+        "architecture": "xe-2lpg",
+        "device": "",
+        "description": ""
+      }
+    },
+    "simulation": {
+      "wall_time_s": 15.39,
+      "solver_time_s": 4.09,
+      "grid": "200x200",
+      "domain": "[0, 200]^2",
+      "dx": 1,
+      "dt": 0.0033627717391304358,
+      "steps": 297374,
+      "t_target": 1000,
+      "t_final": 1000.0008831521789,
+      "sample_dt": 25,
+      "samples": 41
+    }
+  },
+  "checks": {
+    "all_valid": true,
+    "initial_free_energy": 319.0938158481041,
+    "final_free_energy": 84.37024895199957,
+    "free_energy_ratio": 0.26440577899560963,
+    "strictly_monotone_F": true,
+    "monotone_nonincreasing_F": true,
+    "max_energy_increase": 0,
+    "initial_mean_c": 0.5025476184286177,
+    "final_mean_c": 0.5025457829833031,
+    "final_mass_drift": -0.0000018354453146240957,
+    "max_abs_mass_drift": 0.0000018354453146240957,
+    "initial_domain_L": 308.05145771249414,
+    "final_domain_L": 22.314645000212806,
+    "lsw_slope": 0.19552559960911894
+  },
+  "final_metrics": {
+    "time": 1000.0008831521789,
+    "step": 297374,
+    "free_energy": 84.37024895199957,
+    "chem_energy": 42.47990051848084,
+    "grad_energy": 41.89034843351873,
+    "domain_L": 22.314645000212806,
+    "mean_c": 0.5025457829833031,
+    "min_c": 0.29581624269485474,
+    "max_c": 0.7056921720504761,
+    "mass_drift": -0.0000018354453146240957,
+    "max_abs_mass_drift": 0.0000018354453146240957,
+    "strictly_monotone_F": true,
+    "monotone_nonincreasing_F": true,
+    "lsw_slope": 0.19552559960911894
+  },
+  "data": [
+    {
+      "name": "bm1_results",
+      "url": "bm1_results.csv",
+      "format": {
+        "type": "csv",
+        "parse": {
+          "time": "number",
+          "free_energy": "number",
+          "chem_energy": "number",
+          "grad_energy": "number",
+          "domain_L": "number",
+          "mean_c": "number",
+          "mass_drift": "number"
+        }
+      }
+    },
+    {
+      "name": "free_energy",
+      "url": "free_energy.csv",
+      "format": {
+        "type": "csv",
+        "parse": {
+          "time": "number",
+          "free_energy": "number"
+        }
+      }
+    }
+  ]
+}
