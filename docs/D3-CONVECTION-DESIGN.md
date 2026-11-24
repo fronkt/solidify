@@ -97,12 +97,15 @@ et al. 2001 Table II. Every other path is labelled qualitative.
   alloy path is qualitative ("Schmidt: real not stated"). Kobayashi:
   qualitative, direction only.
 - Refusals via one pure flowRefusal(): scenario != 0; frozen-T pure melt;
-  2048^2 (each population buffer 151 MB > the default 128 MiB storage limit;
-  main.ts:52 requests no limits); 3D; heat treatment/optimizer/challenge;
-  any stability limit exceeded.
+  grids > 2048^2 (originally refused at 2048^2 when all 9 populations shared
+  one 144 MiB buffer above WebGPU's 128 MiB default storage-buffer binding
+  limit; lifted to 2048^2 in D3.6 via split 3-buffer planar SoA storage, see
+  addendum below); 3D; heat treatment/optimizer/challenge; any stability limit
+  exceeded.
 - Memory/cost: 2D state 68 B/cell (~71 MB at 1024^2); velocity texture
   rg32float always (8 B/cell); LBM populations 2 x 9 x f32 = 72 B/cell lazily
-  (~19 MB at 512^2, ~76 MB at 1024^2). Split step ~0.8 ms/substep at 1024^2;
+  (~19 MB at 512^2, ~76 MB at 1024^2, ~288 MiB total across two split 3-buffer
+  planar SoA sets at 2048^2 with max single binding 48 MiB <= 128 MiB). Split step ~0.8 ms/substep at 1024^2;
   LBM adds ~100 B/cell traffic, est. +35-50% (UNMEASURED; FLOW-COST info).
 
 ## 3. Touchpoints (at 1a988f6)
@@ -301,3 +304,24 @@ nu 3.465 (it grows as nu U / n at fixed blockage: ~6 % at n 64 with blockage
 0.4), not of the inlet; the old inlet hid it inside the deficit. The shipped
 inlet stays selectable only as a test-harness option (FlowConfig.inlet =
 "equilibrium"), for the must-miss arms; the app never sets it.
+
+## D3.6 addendum: planar SoA buffers for 2048^2 (2026-11-24)
+
+The single-buffer D2Q9 layout packed all 9 populations into one storage buffer
+(9 * n * n * 4 = 144 MiB at 2048^2), exceeding WebGPU's guaranteed 128 MiB
+maxStorageBufferBindingSize without requesting non-default adapter limits.
+
+Planar SoA layout (`src/lbm.ts`, `lbmBufferLayout` in `src/flow.ts`): each
+ping-pong set is split into three equal `array<f32>` buffers of `3 * n * n`
+floats (`12 * n * n` bytes = `48 MiB` each at `2048^2`), addressed planarly as
+`plane * n * n + y * n + x` for coalesced horizontal warp traffic:
+- `fA`: planes `0, 1, 2` (`48 MiB` at `2048^2`)
+- `fB`: planes `3, 4, 5` (`48 MiB` at `2048^2`)
+- `fC`: planes `6, 7, 8` (`48 MiB` at `2048^2`)
+
+This uses 6 storage-buffer bindings per compute pass (`<= 8` WebGPU guaranteed
+`maxStorageBuffersPerShaderStage`) with a maximum single binding of 48 MiB at
+2048^2 (`<= 128 MiB`), lifting `flowRefusal()` to allow `n <= 2048` while
+keeping TRT collision, Guo forcing, Beckermann drag, Zou-He velocity inlet, and
+free-slip wall physics identical. 2D melt flow remains labeled qualitative until
+the Tong et al. (2001) `dx = 0.4` (`2048^2`) pre-registered gate passes.

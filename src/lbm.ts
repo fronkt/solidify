@@ -28,7 +28,7 @@
  */
 
 import { shaderModule } from "./shaders";
-import { latticeOf, deriveDragH } from "./flow";
+import { latticeOf, deriveDragH, lbmBufferLayout } from "./flow";
 
 /** the TRT magic product (tau+ - 1/2)(tau- - 1/2) */
 export const TRT_LAMBDA = 0.25;
@@ -49,103 +49,154 @@ struct LP {
   _c: f32,
 }
 @group(0) @binding(0) var<uniform> L: LP;
-@group(0) @binding(1) var<storage, read> fIn: array<f32>;
-@group(0) @binding(2) var<storage, read_write> fOut: array<f32>;
-@group(0) @binding(3) var phiTex: texture_2d<f32>;
-@group(0) @binding(4) var velOut: texture_storage_2d<rgba32float, write>;
+// Planar SoA populations: 3 planes per buffer (each 12 * n * n bytes = 48 MiB at 2048^2)
+//   fA: planes 0, 1, 2 at offsets 0, n^2, 2*n^2
+//   fB: planes 3, 4, 5 at offsets 0, n^2, 2*n^2
+//   fC: planes 6, 7, 8 at offsets 0, n^2, 2*n^2
+@group(0) @binding(1) var<storage, read> fInA: array<f32>;
+@group(0) @binding(2) var<storage, read> fInB: array<f32>;
+@group(0) @binding(3) var<storage, read> fInC: array<f32>;
+@group(0) @binding(4) var<storage, read_write> fOutA: array<f32>;
+@group(0) @binding(5) var<storage, read_write> fOutB: array<f32>;
+@group(0) @binding(6) var<storage, read_write> fOutC: array<f32>;
+@group(0) @binding(7) var phiTex: texture_2d<f32>;
+@group(0) @binding(8) var velOut: texture_storage_2d<rgba32float, write>;
 
-const CX = array<i32, 9>(0, 1, 0, -1, 0, 1, -1, -1, 1);
-const CY = array<i32, 9>(0, 0, 1, 0, -1, 1, 1, -1, -1);
-const W = array<f32, 9>(4.0 / 9.0, 1.0 / 9.0, 1.0 / 9.0, 1.0 / 9.0, 1.0 / 9.0,
-                        1.0 / 36.0, 1.0 / 36.0, 1.0 / 36.0, 1.0 / 36.0);
-const OPP = array<u32, 9>(0u, 3u, 4u, 1u, 2u, 7u, 8u, 5u, 6u);
-// the population with its y velocity reversed (free-slip mirror)
-const MY = array<u32, 9>(0u, 1u, 4u, 3u, 2u, 8u, 7u, 6u, 5u);
-
-fn feq(i: u32, rho: f32, u: vec2f) -> f32 {
-  let cu = f32(CX[i]) * u.x + f32(CY[i]) * u.y;
-  return W[i] * rho * (1.0 + 3.0 * cu + 4.5 * cu * cu - 1.5 * dot(u, u));
+// Paired TRT collision with Guo forcing split by parity for opposite pair (i, opp(i)):
+//   ep = w * rho * (1 + 4.5 * cu^2 - 1.5 * u.u), em = 3 * w * rho * cu
+//   sSym = w * (9 * cu * cF - 3 * uF),           sAnti = 3 * w * cF
+fn trtPair(
+  fi: f32, fo: f32, w: f32, cu: f32, cF: f32,
+  rho: f32, uu: f32, uF: f32, wP: f32, wM: f32, sP: f32, sM: f32,
+) -> vec2f {
+  let wr = w * rho;
+  let ep = wr * (1.0 + 4.5 * cu * cu - uu);
+  let em = wr * (3.0 * cu);
+  let fp = 0.5 * (fi + fo);
+  let fm = 0.5 * (fi - fo);
+  let sSym = w * (9.0 * cu * cF - 3.0 * uF);
+  let sAnti = w * (3.0 * cF);
+  let dS = -wP * (fp - ep) + sP * sSym;
+  let dA = -wM * (fm - em) + sM * sAnti;
+  return vec2f(fi + dS + dA, fo + dS - dA);
 }
 
-fn at(x: i32, y: i32, i: u32) -> f32 {
-  return fIn[(u32(y) * L.n + u32(x)) * 9u + i];
-}
-
-// pull streaming: population i at (x, y) arrives from (x - cx, y - cy)
-fn pull(x: i32, y: i32, i: u32) -> f32 {
-  let n = i32(L.n);
-  var sx = x - CX[i];
-  var sy = y - CY[i];
-  var j = i;
-  // free-slip walls in y: a population that would come from outside is the
-  // mirror population of the cell it would have crossed
-  if (sy < 0 || sy >= n) { sy = y; j = MY[i]; }
-  if (L.channel == 0u) {
-    sx = (sx + n) % n;
-  } else if (sx < 0) {
-    // west inlet: the equilibrium populations of the pre-D3.5 inlet; with the
-    // velocity inlet (L.inlet == 0) main() replaces these three
-    return feq(i, 1.0, vec2f(L.uIn, 0.0));
-  } else if (sx >= n) {
-    sx = n - 1;                                // zero-gradient outlet
-  }
-  return at(sx, sy, j);
-}
-
-@compute @workgroup_size(8, 8)
+@compute @workgroup_size(16, 8)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
-  if (gid.x >= L.n || gid.y >= L.n) { return; }
-  let x = i32(gid.x);
-  let y = i32(gid.y);
-  var f: array<f32, 9>;
-  for (var i = 0u; i < 9u; i++) { f[i] = pull(x, y, i); }
-  // D3.5 Zou-He velocity inlet: of a west node's nine populations, the three
-  // with c_x = +1 (1, 5, 8) came from outside. They are rebuilt from the six
-  // known ones so that sum f = rho and sum c f = (rho U, 0): rho from
-  // rho (1 - U) = f0 + f2 + f4 + 2 (f3 + f6 + f7), the normal pair by
-  // non-equilibrium bounce-back, the diagonals with the transverse correction.
-  // At the corners the free-slip mirror has already supplied f2/f6 (y = 0) or
-  // f4/f7 (y = n - 1). The node then collides like any other.
-  if (L.channel == 1u && x == 0 && L.inlet == 0u) {
-    let r = (f[0] + f[2] + f[4] + 2.0 * (f[3] + f[6] + f[7])) / (1.0 - L.uIn);
-    let j = r * L.uIn;
-    let t = 0.5 * (f[2] - f[4]);
-    f[1] = f[3] + (2.0 / 3.0) * j;
-    f[5] = f[7] - t + j / 6.0;
-    f[8] = f[6] + t + j / 6.0;
+  let n = L.n;
+  if (gid.x >= n || gid.y >= n) { return; }
+  let x = gid.x;
+  let y = gid.y;
+  let n1 = n - 1u;
+  let n2 = n * n;
+  let n2x2 = 2u * n2;
+  let row = y * n;
+  let xm = select(x - 1u, n1, x == 0u);
+  let xp = select(x + 1u, select(0u, n1, L.channel == 1u), x == n1);
+  let westInlet = (L.channel == 1u && x == 0u);
+
+  // Unrolled pull streaming from planar SoA buffers:
+  //   0:(0,0)  1:(+1,0) 2:(0,+1) 3:(-1,0) 4:(0,-1) 5:(+1,+1) 6:(-1,+1) 7:(-1,-1) 8:(+1,-1)
+  // Free-slip y mirrors: MY = (0, 1, 4, 3, 2, 8, 7, 6, 5).
+  let f0 = fInA[row + x];
+  var f1: f32;
+  let f3 = fInB[row + xp];
+
+  var f2: f32;
+  var f5: f32;
+  var f6: f32;
+  if (y == 0u) {
+    f2 = fInB[n2 + x];
+    f5 = fInC[n2x2 + xm];
+    f6 = fInC[n2 + xp];
+  } else {
+    let rowM = row - n;
+    f2 = fInA[n2x2 + rowM + x];
+    f5 = fInB[n2x2 + rowM + xm];
+    f6 = fInC[rowM + xp];
   }
-  var rho = 0.0;
-  var m = vec2f(0.0);
-  for (var i = 0u; i < 9u; i++) {
-    rho += f[i];
-    m += vec2f(f32(CX[i]), f32(CY[i])) * f[i];
+
+  var f4: f32;
+  var f7: f32;
+  var f8: f32;
+  if (y == n1) {
+    f4 = fInA[n2x2 + row + x];
+    f7 = fInC[row + xp];
+    f8 = fInB[n2x2 + row + xm];
+  } else {
+    let rowP = row + n;
+    f4 = fInB[n2 + rowP + x];
+    f7 = fInC[n2 + rowP + xp];
+    f8 = fInC[n2x2 + rowP + xm];
   }
+
+  // D3.5 Zou-He velocity inlet (or pre-D3.5 equilibrium inlet when L.inlet == 1):
+  // of a west node's nine populations, the three with c_x = +1 (1, 5, 8) came
+  // from outside. Rebuilt from the six known ones so sum f = rho and
+  // sum c f = (rho U, 0). At the corners the free-slip mirror has already
+  // supplied f2/f6 (y = 0) or f4/f7 (y = n - 1).
+  if (westInlet) {
+    if (L.inlet == 0u) {
+      let r = (f0 + f2 + f4 + 2.0 * (f3 + f6 + f7)) / (1.0 - L.uIn);
+      let j = r * L.uIn;
+      let t = 0.5 * (f2 - f4);
+      f1 = f3 + (2.0 / 3.0) * j;
+      f5 = f7 - t + j * (1.0 / 6.0);
+      f8 = f6 + t + j * (1.0 / 6.0);
+    } else {
+      let q = 1.0 + 3.0 * L.uIn + 3.0 * L.uIn * L.uIn;
+      f1 = (1.0 / 9.0) * q;
+      f5 = (1.0 / 36.0) * q;
+      f8 = (1.0 / 36.0) * q;
+    }
+  } else {
+    f1 = fInA[n2 + row + xm];
+  }
+
+  let rho = f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8;
+  let m = vec2f(
+    f1 - f3 + f5 - f6 - f7 + f8,
+    f2 - f4 + f5 + f6 - f7 - f8,
+  );
   // implicit drag: F = -rho K u, so rho u = m + F/2 solves to u = m / (rho (1 + K/2))
   var K = 0.0;
+  let xy = vec2i(i32(x), i32(y));
   if (L.phiOn == 1u) {
-    let ph = clamp(textureLoad(phiTex, vec2i(x, y), 0).r, 0.0, 1.0);
+    let ph = clamp(textureLoad(phiTex, xy, 0).r, 0.0, 1.0);
     K = L.dragK * ph * ph;
   }
   let Fb = vec2f(L.fx, L.fy);
   let u = (m + 0.5 * Fb) / (rho * (1.0 + 0.5 * K));
   let F = Fb - rho * K * u;
-  textureStore(velOut, vec2i(x, y), vec4f(u, rho, K));
-  // TRT collision with Guo's source split by parity
-  for (var i = 0u; i < 9u; i++) {
-    let o = OPP[i];
-    let eq = feq(i, rho, u);
-    let eo = feq(o, rho, u);
-    let fp = 0.5 * (f[i] + f[o]);
-    let fm = 0.5 * (f[i] - f[o]);
-    let ep = 0.5 * (eq + eo);
-    let em = 0.5 * (eq - eo);
-    let c = vec2f(f32(CX[i]), f32(CY[i]));
-    let cu = dot(c, u);
-    let sAnti = W[i] * 3.0 * dot(c, F);
-    let sSym = W[i] * (9.0 * cu * dot(c, F) - 3.0 * dot(u, F));
-    fOut[(gid.y * L.n + gid.x) * 9u + i] = f[i] - L.omegaP * (fp - ep) - L.omegaM * (fm - em)
-      + (1.0 - 0.5 * L.omegaM) * sAnti + (1.0 - 0.5 * L.omegaP) * sSym;
-  }
+  textureStore(velOut, xy, vec4f(u, rho, K));
+
+  // Unrolled paired TRT collision with Guo forcing
+  let wP = L.omegaP;
+  let wM = L.omegaM;
+  let sP = 1.0 - 0.5 * wP;
+  let sM = 1.0 - 0.5 * wM;
+  let uu = 1.5 * dot(u, u);
+  let uF = dot(u, F);
+  const W0 = 4.0 / 9.0;
+  const W1 = 1.0 / 9.0;
+  const W5 = 1.0 / 36.0;
+
+  let o0 = f0 - wP * (f0 - W0 * rho * (1.0 - uu)) + sP * (W0 * (-3.0 * uF));
+  let p13 = trtPair(f1, f3, W1, u.x, F.x, rho, uu, uF, wP, wM, sP, sM);
+  let p24 = trtPair(f2, f4, W1, u.y, F.y, rho, uu, uF, wP, wM, sP, sM);
+  let p57 = trtPair(f5, f7, W5, u.x + u.y, F.x + F.y, rho, uu, uF, wP, wM, sP, sM);
+  let p68 = trtPair(f6, f8, W5, -u.x + u.y, -F.x + F.y, rho, uu, uF, wP, wM, sP, sM);
+
+  let dst = row + x;
+  fOutA[dst] = o0;
+  fOutA[n2 + dst] = p13.x;
+  fOutA[n2x2 + dst] = p24.x;
+  fOutB[dst] = p13.y;
+  fOutB[n2 + dst] = p24.y;
+  fOutB[n2x2 + dst] = p57.x;
+  fOutC[dst] = p68.x;
+  fOutC[n2 + dst] = p57.y;
+  fOutC[n2x2 + dst] = p68.y;
 }
 `;
 
@@ -196,7 +247,7 @@ export class FlowSolver {
   readonly n: number;
   private device: GPUDevice;
   private pipe: GPUComputePipeline;
-  private f: GPUBuffer[];
+  private f: [GPUBuffer, GPUBuffer, GPUBuffer][];
   private ubuf: GPUBuffer;
   readonly velTex: GPUTexture;
   private dummyPhi: GPUTexture;
@@ -214,8 +265,13 @@ export class FlowSolver {
     this.pipe = device.createComputePipeline({
       layout: "auto", compute: { module: shaderModule(device, LBM_WGSL, "lbm2d"), entryPoint: "main" },
     });
-    const bytes = n * n * 9 * 4;
-    this.f = [0, 1].map(() => device.createBuffer({ size: bytes, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC }));
+    const layout = lbmBufferLayout(n);
+    const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC;
+    this.f = [0, 1].map(() => [
+      device.createBuffer({ size: layout.sizesBytes[0], usage }),
+      device.createBuffer({ size: layout.sizesBytes[1], usage }),
+      device.createBuffer({ size: layout.sizesBytes[2], usage }),
+    ]);
     this.ubuf = device.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.velTex = device.createTexture({ size: [n, n], format: "rgba32float",
       usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC });
@@ -226,19 +282,37 @@ export class FlowSolver {
   /** the drag's phase field (the solver's state texture: phi in .r), or null */
   setPhi(tex: GPUTexture | null) { this.phi = tex; this.bgs.clear(); }
 
-  /** equilibrium populations at rho = 1 and the given velocity field */
+  /** equilibrium populations at rho = 1 and the given velocity field (planar SoA: 3 planes per buffer) */
   init(vel: (x: number, y: number) => [number, number]) {
-    const n = this.n, w = [4 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 36, 1 / 36, 1 / 36, 1 / 36];
-    const cx = [0, 1, 0, -1, 0, 1, -1, -1, 1], cy = [0, 0, 1, 0, -1, 1, 1, -1, -1];
-    const a = new Float32Array(n * n * 9);
+    const n = this.n, cells = n * n, cells2 = 2 * cells;
+    const w0 = 4 / 9, w1 = 1 / 9, w5 = 1 / 36;
+    const a = new Float32Array(cells * 3);
+    const b = new Float32Array(cells * 3);
+    const c = new Float32Array(cells * 3);
     for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-      const [ux, uy] = vel(x, y), uu = ux * ux + uy * uy;
-      for (let i = 0; i < 9; i++) {
-        const cu = cx[i] * ux + cy[i] * uy;
-        a[(y * n + x) * 9 + i] = w[i] * (1 + 3 * cu + 4.5 * cu * cu - 1.5 * uu);
-      }
+      const [ux, uy] = vel(x, y);
+      const uu = 1.5 * (ux * ux + uy * uy);
+      const base = 1 - uu;
+      const c5 = ux + uy, c6 = -ux + uy;
+      const idx = y * n + x;
+      // fA: planes 0, 1, 2
+      a[idx] = w0 * base;
+      a[cells + idx] = w1 * (base + 3 * ux + 4.5 * ux * ux);
+      a[cells2 + idx] = w1 * (base + 3 * uy + 4.5 * uy * uy);
+      // fB: planes 3, 4, 5
+      b[idx] = w1 * (base - 3 * ux + 4.5 * ux * ux);
+      b[cells + idx] = w1 * (base - 3 * uy + 4.5 * uy * uy);
+      b[cells2 + idx] = w5 * (base + 3 * c5 + 4.5 * c5 * c5);
+      // fC: planes 6, 7, 8
+      c[idx] = w5 * (base + 3 * c6 + 4.5 * c6 * c6);
+      c[cells + idx] = w5 * (base - 3 * c5 + 4.5 * c5 * c5);
+      c[cells2 + idx] = w5 * (base - 3 * c6 + 4.5 * c6 * c6);
     }
-    for (const b of this.f) this.device.queue.writeBuffer(b, 0, a);
+    for (const set of this.f) {
+      this.device.queue.writeBuffer(set[0], 0, a);
+      this.device.queue.writeBuffer(set[1], 0, b);
+      this.device.queue.writeBuffer(set[2], 0, c);
+    }
     this.cur = 0;
     this.steps = 0;
   }
@@ -252,6 +326,24 @@ export class FlowSolver {
 
   private bgsByPhi = new WeakMap<GPUTexture, GPUBindGroup[]>();
 
+  private makeBindGroup(dir: number, phiView: GPUTextureView): GPUBindGroup {
+    const src = this.f[dir], dst = this.f[1 - dir];
+    return this.device.createBindGroup({
+      layout: this.pipe.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: this.ubuf } },
+        { binding: 1, resource: { buffer: src[0] } },
+        { binding: 2, resource: { buffer: src[1] } },
+        { binding: 3, resource: { buffer: src[2] } },
+        { binding: 4, resource: { buffer: dst[0] } },
+        { binding: 5, resource: { buffer: dst[1] } },
+        { binding: 6, resource: { buffer: dst[2] } },
+        { binding: 7, resource: phiView },
+        { binding: 8, resource: this.velTex.createView() },
+      ],
+    });
+  }
+
   /**
    * One lattice step inside the CALLER's compute pass, the drag reading
    * `phiTex` (the solver's current state texture, phi in .r). The phase-field
@@ -261,22 +353,13 @@ export class FlowSolver {
   encodeStep(pass: GPUComputePassEncoder, phiTex: GPUTexture) {
     let groups = this.bgsByPhi.get(phiTex);
     if (!groups) {
-      groups = [0, 1].map(dir => this.device.createBindGroup({
-        layout: this.pipe.getBindGroupLayout(0),
-        entries: [
-          { binding: 0, resource: { buffer: this.ubuf } },
-          { binding: 1, resource: { buffer: this.f[dir] } },
-          { binding: 2, resource: { buffer: this.f[1 - dir] } },
-          { binding: 3, resource: phiTex.createView() },
-          { binding: 4, resource: this.velTex.createView() },
-        ],
-      }));
+      const phiView = phiTex.createView();
+      groups = [0, 1].map(dir => this.makeBindGroup(dir, phiView));
       this.bgsByPhi.set(phiTex, groups);
     }
     pass.setPipeline(this.pipe);
     pass.setBindGroup(0, groups[this.cur]);
-    const g = Math.ceil(this.n / 8);
-    pass.dispatchWorkgroups(g, g);
+    pass.dispatchWorkgroups(Math.ceil(this.n / 16), Math.ceil(this.n / 8));
     this.cur = 1 - this.cur;
     this.steps++;
   }
@@ -291,16 +374,7 @@ export class FlowSolver {
     const key = `${dir}`;
     let g = this.bgs.get(key);
     if (!g) {
-      g = this.device.createBindGroup({
-        layout: this.pipe.getBindGroupLayout(0),
-        entries: [
-          { binding: 0, resource: { buffer: this.ubuf } },
-          { binding: 1, resource: { buffer: this.f[dir] } },
-          { binding: 2, resource: { buffer: this.f[1 - dir] } },
-          { binding: 3, resource: (this.phi ?? this.dummyPhi).createView() },
-          { binding: 4, resource: this.velTex.createView() },
-        ],
-      });
+      g = this.makeBindGroup(dir, (this.phi ?? this.dummyPhi).createView());
       this.bgs.set(key, g);
     }
     return g;
@@ -312,10 +386,10 @@ export class FlowSolver {
     const enc = this.device.createCommandEncoder();
     const pass = enc.beginComputePass();
     pass.setPipeline(this.pipe);
-    const g = Math.ceil(this.n / 8);
+    const gx = Math.ceil(this.n / 16), gy = Math.ceil(this.n / 8);
     for (let i = 0; i < k; i++) {
       pass.setBindGroup(0, this.bg(this.cur));
-      pass.dispatchWorkgroups(g, g);
+      pass.dispatchWorkgroups(gx, gy);
       this.cur = 1 - this.cur;
     }
     pass.end();
@@ -341,7 +415,7 @@ export class FlowSolver {
   lattice() { return latticeOf(this.cfg.nu / 1, 1, this.cfg.uIn); }
 
   destroy() {
-    for (const b of this.f) b.destroy();
+    for (const set of this.f) for (const b of set) b.destroy();
     this.ubuf.destroy();
     this.velTex.destroy();
     this.dummyPhi.destroy();

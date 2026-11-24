@@ -55,23 +55,41 @@ const check = (name, ok, detail) => {
 }
 
 // 3. FLOW-REFUSAL — the one predicate, driven on every input it refuses and
-//    on the one configuration it must allow.
+//    on the configurations it must allow, plus the split SoA LBM buffer layout
+//    keeping 2048^2 under WebGPU's 128 MiB per-binding limit (6 <= 8 bindings).
 {
   const base = { dim3: false, scenario: 0, frozenTemperature: false, alloy: false, grid: 512, busyMode: null };
   const cases = {
     allowed: F.flowRefusal(base),
+    allowed2048: F.flowRefusal({ ...base, grid: 2048 }),
     dim3: F.flowRefusal({ ...base, dim3: true }),
     scenario: F.flowRefusal({ ...base, scenario: 2 }),
     frozenPure: F.flowRefusal({ ...base, frozenTemperature: true }),
     frozenAlloy: F.flowRefusal({ ...base, frozenTemperature: true, alloy: true }),
     calibratedAlloy: F.flowRefusal({ ...base, calibrated: true, alloy: true }),
     calibratedPure: F.flowRefusal({ ...base, calibrated: true }),
-    big: F.flowRefusal({ ...base, grid: 2048 }),
+    big4096: F.flowRefusal({ ...base, grid: 4096 }),
     busy: F.flowRefusal({ ...base, busyMode: "heat treatment" }),
   };
-  const ok = cases.allowed === null && cases.frozenAlloy === null && cases.calibratedPure === null
-    && [cases.dim3, cases.scenario, cases.frozenPure, cases.big, cases.busy, cases.calibratedAlloy].every(s => typeof s === "string" && s.length > 20);
-  check("FLOW-REFUSAL", ok, Object.fromEntries(Object.entries(cases).map(([k, v]) => [k, v === null ? "allowed" : "refused"])));
+  const lay2048 = F.lbmBufferLayout(2048);
+  const lay4096 = F.lbmBufferLayout(4096);
+  const layoutOk =
+    lay2048.bindingsPerStep === 6 &&
+    lay2048.bindingsPerStep <= 8 &&
+    lay2048.sizesBytes[0] === 50331648 &&
+    lay2048.sizesBytes[1] === 50331648 &&
+    lay2048.sizesBytes[2] === 50331648 &&
+    lay2048.maxBindingBytes === 50331648 &&
+    lay2048.maxBindingBytes <= 134217728 &&
+    lay2048.totalBytes === 2048 * 2048 * 9 * 4 &&
+    lay4096.maxBindingBytes > 134217728;
+  const ok = cases.allowed === null && cases.allowed2048 === null && cases.frozenAlloy === null && cases.calibratedPure === null
+    && [cases.dim3, cases.scenario, cases.frozenPure, cases.big4096, cases.busy, cases.calibratedAlloy].every(s => typeof s === "string" && s.length > 20)
+    && layoutOk;
+  check("FLOW-REFUSAL", ok, {
+    ...Object.fromEntries(Object.entries(cases).map(([k, v]) => [k, v === null ? "allowed" : "refused"])),
+    layout2048: lay2048,
+  });
 }
 
 // 4. IVANTSOV-2D — the no-flow limit the Tong comparison starts from: the 2D

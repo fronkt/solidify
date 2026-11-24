@@ -137,6 +137,39 @@ export interface FlowContext {
   busyMode: string | null;   // "heat treatment" | "optimizer" | "challenge" | null
 }
 
+export interface LbmBufferLayout {
+  /** Storage buffer bindings per LBM compute dispatch (3 read + 3 write <= 8 WebGPU minimum). */
+  bindingsPerStep: number;
+  /** Byte sizes of the 3 planar SoA population buffers per ping-pong set: fA (f0..f2), fB (f3..f5), fC (f6..f8). */
+  sizesBytes: [number, number, number];
+  /** Largest single storage-buffer binding in bytes (48 MiB at 2048² <= 128 MiB default WebGPU limit). */
+  maxBindingBytes: number;
+  /** Total population bytes for one ping-pong set (9 * n * n * 4 = 36 * n * n). */
+  totalBytes: number;
+}
+
+/**
+ * Planar SoA storage-buffer layout for D2Q9 LBM populations (3 scalar planes per buffer):
+ *   fA: array<f32> (planes f0, f1, f2) -> 12 * n * n bytes (48 MiB at 2048²)
+ *   fB: array<f32> (planes f3, f4, f5) -> 12 * n * n bytes (48 MiB at 2048²)
+ *   fC: array<f32> (planes f6, f7, f8) -> 12 * n * n bytes (48 MiB at 2048²)
+ * Keeps every binding under WebGPU's guaranteed 128 MiB maxStorageBufferBindingSize
+ * up to 2048², using 6 storage bindings per step (within the guaranteed 8-binding limit),
+ * with coalesced 4-byte reads/writes per direction plane.
+ */
+export function lbmBufferLayout(n: number): LbmBufferLayout {
+  const side = Math.max(0, Math.floor(n));
+  const cells = side * side;
+  const planeGroupBytes = cells * 12;
+  const sizesBytes: [number, number, number] = [planeGroupBytes, planeGroupBytes, planeGroupBytes];
+  return {
+    bindingsPerStep: 6,
+    sizesBytes,
+    maxBindingBytes: planeGroupBytes,
+    totalBytes: planeGroupBytes * 3,
+  };
+}
+
 /**
  * Why melt flow cannot run here, or null when it can. One predicate, so the
  * control, the share-link applier and the solver refuse for the same reasons.
@@ -147,7 +180,7 @@ export function flowRefusal(c: FlowContext): string | null {
   if (c.scenario !== 0) return "This scenario imposes its own temperature field, so there is nothing for the flow to carry. Use free growth.";
   if (c.frozenTemperature && !c.alloy) return "With the temperature field frozen, a pure melt has nothing for the flow to transport.";
   if (c.calibrated && c.alloy) return "Melt flow does not yet carry the calibrated alloy's solute; use the pure melt or the Kobayashi alloy.";
-  if (c.grid > 1024) return "At 2048² the flow's populations exceed the GPU's default storage-buffer limit. Use 1024² or smaller.";
+  if (c.grid > 2048) return "Above 2048² each split planar population buffer exceeds WebGPU's 128 MiB default storage-buffer binding limit. Use 2048² or smaller.";
   return null;
 }
 
