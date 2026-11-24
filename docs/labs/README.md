@@ -1,6 +1,6 @@
 # SOLIDIFY Classroom Labs (Undergraduate MSE)
 
-Seven hands-on labs for introductory materials science, phase transformations, physical metallurgy, foundry, transport, and inverse process-design courses. Everything runs directly in a WebGPU browser (Chrome, Edge, Safari 26+, or recent Firefox) at [solidify.frankcai.dev/app/#labs](https://solidify.frankcai.dev/app/#labs) with no install or account required.
+Nine hands-on labs for introductory materials science, phase transformations, physical metallurgy, foundry, transport, computational MSE, and inverse process-design courses. Everything runs directly in a WebGPU browser (Chrome, Edge, Safari 26+, or recent Firefox) at [solidify.frankcai.dev/app/#labs](https://solidify.frankcai.dev/app/#labs) with no install or account required.
 
 Each lab opens the in-app **Guided Labs** tracker (also available from `guided labs` under `MODES` in the right rail or the bottom-left quick pill), which checks experimental milestones against live simulation state, logs paired measurements into a `DATA` table, prints a light-mode PDF-ready summary (`print report`), and exports a reproducible ZIP archive (`export lab ZIP`) carrying `lab-report.json`.
 
@@ -15,6 +15,8 @@ Each lab opens the in-app **Guided Labs** tracker (also available from `guided l
 | [Lab 5](lab-05-cold-work-and-recrystallization.md) | [Launch Lab 5](https://solidify.frankcai.dev/app/#lab=5) | Cold Work, Recovery & Recrystallization | Physical Metallurgy, Thermomechanical Processing | 40 min | 3D Potts stored energy ($8\,J_b$ flat-`{100}` barrier), second-order recovery stall, curvature-law withdrawal, JMAK Avrami $n$ across nucleation modes |
 | [Lab 6](lab-06-directional-flow-and-selector.md) | [Launch Lab 6](https://solidify.frankcai.dev/app/#lab=6) | Directional Growth, Melt Flow & Selection | Solidification Processing, Transport & Texture | 40 min | Bridgman $G/V$ and $G \cdot V$ regimes, qualitative 2D LBM forced melt flow asymmetry, 3D helical pigtail grain selector, `[001]` stereographic pole figure |
 | [Lab 7](lab-07-inverse-optimization.md) | [Launch Lab 7](https://solidify.frankcai.dev/app/#lab=7) | Inverse Process Design & Optimization | Materials Design, Inverse Process Optimization | 40 min | Human vs. CMA-ES challenge (ASTM $G$), 5-parameter 2D CMA-ES schedule search, `256²` -> `1024²` scale-transfer verification, 3D volumetric $\bar{d}$ optimization |
+| [Lab 8](lab-08-eutectic-jackson-hunt.md) | [Launch Lab 8](https://solidify.frankcai.dev/app/#lab=8) | Binary Eutectic Lamellar Growth & Jackson–Hunt Scaling | Phase Transformations, Solidification Processing | 50 min | Folch–Plapp 3-phase simplex ($p_\alpha + p_\beta + p_L = 1$), lateral solute boundary layer, Jackson–Hunt $\Delta T(\lambda)$ U-curve ($\lambda^2 V = \text{const}$), off-eutectic lever rule |
+| [Lab 9](lab-09-spinodal-coarsening.md) | [Launch Lab 9](https://solidify.frankcai.dev/app/#lab=9) | Spinodal Decomposition, Lyapunov Decay & 3D Coarsening | Phase Transformations, Computational MSE | 50 min | NIST PFHub B1 Cahn–Hilliard benchmark, strict Lyapunov $d\mathcal{F}/dt \le 0$ and mass conservation, $\mu$ curvature flux, Fe–Cr LSW $t^{1/3}$ coarsening, 3D `64³` bicontinuous sponge |
 
 ## Student submissions and reproducibility
 

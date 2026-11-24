@@ -136,6 +136,15 @@ export class GuidedLabRunner {
 
     if (opts.applySetup !== false) {
       await lab.setup(this.host);
+    } else if (lab.hashId === 8 || lab.id === "eutectic-jh") {
+      this.host.startEutectic?.("alcu");
+    } else if (lab.hashId === 9 || lab.id === "spinodal-lsw") {
+      this.host.startSpinodal?.("pfhub1", "2d");
+    } else {
+      const cur = this.safeSnapshot();
+      if (cur?.eutectic?.open || cur?.spinodal?.open) {
+        this.host.closeModes();
+      }
     }
 
     const snap = this.safeSnapshot();

@@ -84,7 +84,7 @@ export function jacksonHuntFigure(
   const series: SeriesSpec[] = [
     {
       key: "jh",
-      label: "Jackson–Hunt ΔT(λ)",
+      label: "JH ΔT(λ)",
       slot: 0,
       xs,
       ys,
@@ -95,7 +95,7 @@ export function jacksonHuntFigure(
       ? [
           {
             key: "live",
-            label: "live GPU",
+            label: "GPU",
             slot: 1 as const,
             xs: [live!.lambdaUm!],
             ys: [live!.dTK!],
@@ -113,8 +113,8 @@ export function jacksonHuntFigure(
   ];
 
   const liveBadge = hasLive
-    ? `live λ ${fmtSig(live!.lambdaUm!)} ${xUnit} · ΔT ${fmtSig(live!.dTK!)} ${yUnit}`
-    : `λ_{min} ${fmtSig(lamMin)} ${xUnit} · ΔT_{min} ${fmtSig(dTMin)} ${yUnit}`;
+    ? `λ ${fmtSig(live!.lambdaUm!)} ${xUnit} · ${fmtSig(live!.dTK!)} ${yUnit}`
+    : `λ_{min} ${fmtSig(lamMin)} ${xUnit} · ${fmtSig(dTMin)} ${yUnit}`;
 
   const panel: PanelSpec = {
     y: {

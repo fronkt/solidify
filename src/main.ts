@@ -40,7 +40,7 @@ import { flowRefusal } from "./flow";
 import { GuidedLabRunner } from "./labs/runner";
 import { GuidedLabPanel } from "./labs/panel";
 import { GuidedLabPicker } from "./labs/picker";
-import type { LabSnapshot } from "./labs/types";
+import type { LabEutecticSnapshot, LabSnapshot, LabSpinodalSnapshot } from "./labs/types";
 import { EutecticPanel } from "./eutecticpanel";
 import type { EutecticAlloyId } from "./eutectic";
 import { SpinodalPanel } from "./spinodalpanel";
@@ -1133,7 +1133,7 @@ async function boot() {
           : alloyName
     ),
     openGuidedLabs() {
-      if (opt.active || opt3?.active || challenge.active || eutectic?.isOpen() || spinodal?.isOpen()) return;
+      if (opt.active || opt3?.active || challenge.active) return;
       if (guidedPicker?.isOpen()) { guidedPicker.close(); return; }
       guidedPicker?.open();
     },
@@ -2222,6 +2222,54 @@ async function boot() {
       ? { mix: pouredMix.mix, derived: pouredMix.derived }
       : null;
     const tEq = three ? tEq3() : tEq2();
+    let eutecticSnap: LabEutecticSnapshot | null = null;
+    if (eutectic?.isOpen()) {
+      const es = eutectic.sim();
+      const est = eutectic.getStats();
+      const ep = eutectic.exportPayload();
+      const valid = Boolean(est && est.valid);
+      eutecticSnap = {
+        open: true,
+        running: eutectic.running,
+        alloy: es?.params.alloy ?? "alcu",
+        lens: eutectic.getLens(),
+        pullV: es?.params.pullV ?? ep?.pullVUmS ?? 20,
+        c0Off: es?.params.c0Off ?? ep?.c0Off ?? 0,
+        seedPairs: es?.params.seedPairs ?? 6,
+        step: valid ? est!.step : (ep?.step ?? 0),
+        lambdaUm: valid ? est!.lambdaUm : null,
+        lambdaMinUm: ep?.lambdaMinUm ?? 0,
+        dTFrontK: valid ? est!.dTFrontK : 0,
+        fAlpha: valid ? est!.fAlpha : (ep?.fAlphaLever ?? 0.5),
+        fAlphaLever: ep?.fAlphaLever ?? 0.5,
+        maxSimplexErr: valid ? est!.maxSimplexErr : 1,
+      };
+    }
+    let spinodalSnap: LabSpinodalSnapshot | null = null;
+    if (spinodal?.isOpen()) {
+      const ss = spinodal.sim();
+      const sst = spinodal.getStats();
+      const sp = spinodal.exportPayload();
+      const valid = Boolean(sst && sst.valid);
+      const hist = ss?.history ?? [];
+      const initF = hist.length > 0 && Number.isFinite(hist[0].F) ? hist[0].F : (valid ? sst!.freeEnergy : 0);
+      spinodalSnap = {
+        open: true,
+        running: spinodal.running,
+        preset: ss?.params.preset ?? "pfhub1",
+        dim: spinodal.getDim(),
+        lens: spinodal.getLens(),
+        c0: ss?.params.c0 ?? sp?.c0 ?? 0.5,
+        step: valid ? sst!.step : 0,
+        simTime: valid ? sst!.simTime : 0,
+        freeEnergy: valid ? sst!.freeEnergy : initF,
+        initialFreeEnergy: initF,
+        meanC: valid ? sst!.meanC : (ss?.params.c0 ?? 0.5),
+        massDrift: valid ? sst!.massDrift : 1,
+        domainL: valid ? sst!.domainL : 0,
+        lswSlope: valid ? sst!.lswSlope : null,
+      };
+    }
     return {
       mode,
       can3d: caps3d.supported,
@@ -2285,6 +2333,8 @@ async function boot() {
       recipeActive: three ? Boolean(recipeSchedule3 || appliedRecipe3 || recipeClock3) : Boolean(recipeSchedule),
       composerOpen: composer.isOpen(),
       running: app.isRunning(),
+      eutectic: eutecticSnap,
+      spinodal: spinodalSnap,
     };
   };
 
@@ -2322,6 +2372,19 @@ async function boot() {
       if (opt.active) opt.stop();
       if (opt3?.active) void opt3.stop();
       if (challenge.active) challenge.stop();
+    },
+    startEutectic(alloy) {
+      const validAlloys: readonly EutecticAlloyId[] = ["alcu", "pbsn", "alsi", "symmetric"];
+      const id = alloy && (validAlloys as readonly string[]).includes(alloy) ? (alloy as EutecticAlloyId) : "alcu";
+      app.startEutectic(id);
+      eutectic?.setLens(0);
+    },
+    startSpinodal(preset, dim) {
+      const validPresets: readonly SpinodalPresetId[] = ["pfhub1", "fecr", "alzn", "offcrit"];
+      const id = preset && (validPresets as readonly string[]).includes(preset) ? (preset as SpinodalPresetId) : "pfhub1";
+      const d: SpinodalDim = dim === "3d" ? "3d" : "2d";
+      app.startSpinodal(id, d);
+      spinodal?.setLens(0);
     },
     setFlowOn: on => app.setFlowOn(on),
     syncUI: () => ui.sync(),
@@ -2834,6 +2897,7 @@ async function boot() {
           ["lens", lensName],
           ["fps", fps.toFixed(0)],
         ]);
+        guidedLab?.tick();
       }
       return;
     }
@@ -2849,6 +2913,7 @@ async function boot() {
           ["lens", lensName],
           ["fps", fps.toFixed(0)],
         ]);
+        guidedLab?.tick();
       }
       return;
     }

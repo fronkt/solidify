@@ -76,6 +76,7 @@ Output files in `pfhub/results-b1-200/`:
 2. `free_energy.csv` (`time,free_energy`)
 3. `meta.yaml` (PFHub Benchmark 1a metadata manifest)
 4. `pfhub_b1.json` (provenance, hardware, conservation, and monotonicity report)
+5. `pfhub_b1_comparison.png` (300-DPI 3-panel verification figure: free energy, mass conservation, and domain coarsening)
 
 ## Results (`results-b1-200`, $t = 0 \dots 1000$)
 
@@ -90,3 +91,11 @@ Run in headless Chrome WebGPU on an integrated Intel Xe2-LPG GPU (`200x200` peri
 | 500.0 | 96.591 | 48.659 | 47.931 | 19.51 | 0.502548 | +2.87e-7 |
 | 750.0 | 89.768 | 45.185 | 44.583 | 20.98 | 0.502547 | -7.34e-7 |
 | 1000.0 | 84.370 | 42.480 | 41.890 | 22.31 | 0.502546 | -1.84e-6 |
+
+![NIST PFHub Benchmark 1a verification](results-b1-200/pfhub_b1_comparison.png)
+
+## Dataset and submission bundle (Benchmark 1a)
+
+1. Code release: [`v8.6.0`](https://github.com/fronkt/solidify) and [`codemeta.json`](../codemeta.json).
+2. Publication bundle (5 files in `pfhub/results-b1-200/`): `bm1_results.csv`, `free_energy.csv`, `meta.yaml`, `pfhub_b1.json`, and `pfhub_b1_comparison.png`.
+3. Copy-paste Zenodo deposit metadata and `pfhub/pfhub-benchmarks` issue template: [`PFHUB_B1_SUBMISSION.md`](PFHUB_B1_SUBMISSION.md).

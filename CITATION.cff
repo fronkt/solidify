@@ -14,7 +14,7 @@ doi: "10.21981/C2CG-F533"
 identifiers:
   - type: doi
     value: "10.21981/C2CG-F533"
-    description: "Published Purdue nanoHUB tool (v8.0.0, Resource 45643)"
+    description: "Published Purdue nanoHUB tool (Resource 45643)"
   - type: url
     value: "https://nanohub.org/resources/solidify"
     description: "Purdue nanoHUB tool landing page"
@@ -24,21 +24,26 @@ identifiers:
 abstract: >-
   SOLIDIFY is a zero-install, browser-native WebGPU phase-field laboratory for
   real-time 2D and 3D (up to 192^3 voxels) dendritic solidification, dilute-alloy
-  microsegregation, foundry casting thermal analysis, and Arrhenius-coupled
-  solid-state heat treatment. It pairs a qualitative multi-grain Kobayashi solver
-  with a quantitative Karma-Rappel thin-interface solver featuring an anti-trapping
-  current, a 118-element periodic alloy composer backed by cited binary invariants,
-  Monte Carlo Potts grain growth with stored energy and Zener pinning, and an
-  automated verification suite.
+  microsegregation, 2D binary lamellar eutectic growth (Folch-Plapp / Jackson-Hunt),
+  2D/3D Cahn-Hilliard spinodal decomposition (NIST PFHub Benchmark 1a), foundry
+  casting thermal analysis, and Arrhenius-coupled solid-state heat treatment with
+  precipitation age-hardening. It pairs a unified three-engine workspace
+  (SOLIDIFY, EUTECTIC, SPINODAL) with a 118-element periodic alloy composer backed
+  by cited binary invariants, nine auto-verified Guided Labs, and an automated
+  verification suite.
 keywords:
   - phase-field modeling
   - solidification
   - dendritic growth
+  - lamellar eutectic
+  - spinodal decomposition
+  - Cahn-Hilliard
+  - NIST PFHub
   - materials science education
   - WebGPU
   - alloy metallurgy
   - grain growth
   - heat treatment
 license: MIT
-version: "8.0.0"
-date-released: "2026-11-23"
+version: "8.6.0"
+date-released: "2026-11-24"

@@ -1,11 +1,11 @@
 /**
- * verify-guided-labs.mjs — browser-free CI verification for SOLIDIFY v8.2 Guided Labs.
+ * verify-guided-labs.mjs — browser-free CI verification for SOLIDIFY v8.6 Guided Labs.
  *
  * Six checks:
- *   LAB-SCHEMA           7 labs, 32 steps, unique IDs, valid setup & predicates, dynamic #lab=N routes
- *   LAB-COPY             zero prose em dashes, American spelling, exact control/lens casing across all 7 labs
- *   LAB-TRAJECTORIES     deterministic pass trajectories for all 32 steps across Labs 1–7
- *   LAB-ANTI-CHEESE      rejects un-reset undercooling, stale latches, unseeded melts, 96³/128³/192³ bounds, Labs 5–7 guards
+ *   LAB-SCHEMA           9 labs, 40 steps, unique IDs, valid setup & predicates, dynamic #lab=N routes
+ *   LAB-COPY             zero prose em dashes, American spelling, exact control/lens casing across all 9 labs
+ *   LAB-TRAJECTORIES     deterministic pass trajectories for all 40 steps across Labs 1–9
+ *   LAB-ANTI-CHEESE      rejects un-reset undercooling, stale latches, unseeded melts, 96³/128³/192³ bounds, Labs 5–9 guards
  *   LAB-SKIP-AND-REPORT  skip status semantics, single-step reset, solidify-lab-report v1 round-trip
  *   LAB-REPORT-HTML      formatLabReportHtml() light-mode print CSS, achromatic palette, XSS & unsafe-URL escaping
  */
@@ -104,6 +104,8 @@ try {
       recipeActive: false,
       composerOpen: false,
       running: false,
+      eutectic: null,
+      spinodal: null,
       ...initial,
     };
 
@@ -149,7 +151,49 @@ try {
         snap.challengeActive = false;
         snap.optActive = false;
         snap.composerOpen = false;
+        snap.eutectic = null;
+        snap.spinodal = null;
         calls.push(["closeModes"]);
+      },
+      startEutectic(alloy = "alcu") {
+        snap.spinodal = null;
+        snap.eutectic = {
+          open: true,
+          running: true,
+          alloy,
+          lens: 0,
+          pullV: 20,
+          c0Off: 0,
+          seedPairs: 6,
+          step: 0,
+          lambdaUm: null,
+          lambdaMinUm: 2.1,
+          dTFrontK: 0,
+          fAlpha: 0.5,
+          fAlphaLever: 0.5,
+          maxSimplexErr: 0,
+        };
+        calls.push(["startEutectic", alloy]);
+      },
+      startSpinodal(preset = "pfhub1", dim = "2d") {
+        snap.eutectic = null;
+        snap.spinodal = {
+          open: true,
+          running: true,
+          preset,
+          dim,
+          lens: 0,
+          c0: 0.5,
+          step: 0,
+          simTime: 0,
+          freeEnergy: 320,
+          initialFreeEnergy: 320,
+          meanC: 0.5,
+          massDrift: 0,
+          domainL: 4.0,
+          lswSlope: null,
+        };
+        calls.push(["startSpinodal", preset, dim]);
       },
       syncUI() { calls.push(["syncUI"]); },
       reveal(target) { calls.push(["reveal", target]); },
@@ -161,14 +205,18 @@ try {
 
   // ----------------------------------------------------------------- LAB-SCHEMA
   await check("LAB-SCHEMA", async () => {
-    assert.equal(LABS.length, 7, "expected 7 labs");
+    assert.equal(LABS.length, 9, "expected 9 labs");
     const labIds = new Set();
     const stepIds = new Set();
-    const VALID_CATS = new Set(["2D", "TRUE 3D", "HEAT TREAT"]);
+    const VALID_CATS = new Set(["2D", "TRUE 3D", "HEAT TREAT", "ENGINES"]);
     const VALID_DIMS = new Set(["2D", "3D", "2D + 3D"]);
-    const expectedCounts = { "lab-1": 5, "lab-2": 5, "lab-3": 5, "lab-4": 5, "lab-5": 4, "lab-6": 4, "lab-7": 4 };
-    assert.deepEqual(LABS.map(l => l.hashId), [1, 2, 3, 4, 5, 6, 7], "hashIds must be 1..7");
-    assert.deepEqual(LABS.map(l => l.number), ["01", "02", "03", "04", "05", "06", "07"], "numbers must be 01..07");
+    const expectedCounts = {
+      "lab-1": 5, "lab-2": 5, "lab-3": 5, "lab-4": 5,
+      "lab-5": 4, "lab-6": 4, "lab-7": 4,
+      "eutectic-jh": 4, "spinodal-lsw": 4,
+    };
+    assert.deepEqual(LABS.map(l => l.hashId), [1, 2, 3, 4, 5, 6, 7, 8, 9], "hashIds must be 1..9");
+    assert.deepEqual(LABS.map(l => l.number), ["01", "02", "03", "04", "05", "06", "07", "08", "09"], "numbers must be 01..09");
 
     for (const lab of LABS) {
       assert(!labIds.has(lab.id), `duplicate lab id ${lab.id}`);
@@ -206,14 +254,45 @@ try {
       } else {
         assert(host.calls.some(c => c[0] === "setMode" && c[1] === "2d"), `${lab.id} setup enters 2d`);
       }
+      if (lab.id === "eutectic-jh") {
+        assert(host.calls.some(c => c[0] === "startEutectic" && c[1] === "alcu"), "lab 8 setup launches eutectic alcu");
+        assert.equal(host.snap.eutectic?.open, true);
+      } else if (lab.id === "spinodal-lsw") {
+        assert(host.calls.some(c => c[0] === "startSpinodal" && c[1] === "pfhub1" && c[2] === "2d"), "lab 9 setup launches spinodal pfhub1 2d");
+        assert.equal(host.snap.spinodal?.open, true);
+      }
       assert(host.calls.some(c => c[0] === "syncUI"), `${lab.id} setup calls syncUI`);
     }
 
-    assert.equal(stepIds.size, 32, "expected 32 total steps across 7 labs");
+    assert.equal(stepIds.size, 40, "expected 40 total steps across 9 labs");
     assert.equal(findLabDef(0), null);
-    assert.equal(findLabDef(8), null);
+    assert.equal(findLabDef(8)?.id, "eutectic-jh");
+    assert.equal(findLabDef(9)?.id, "spinodal-lsw");
+    assert.equal(findLabDef(10), null);
     assert.equal(findLabDef(""), null);
     assert.equal(findLabDef("nonexistent"), null);
+
+    // Switching across engine labs & back to Solidification clears stale engine state
+    {
+      const host = makeMockHost();
+      const runner = new GuidedLabRunner(host);
+      await runner.startLab(8, { restart: true });
+      assert.equal(host.snap.eutectic?.open, true);
+      assert.equal(host.snap.spinodal, null);
+      await runner.startLab(9, { restart: true });
+      assert.equal(host.snap.eutectic, null);
+      assert.equal(host.snap.spinodal?.open, true);
+      await runner.startLab(1, { restart: true });
+      assert.equal(host.snap.eutectic, null);
+      assert.equal(host.snap.spinodal, null);
+      // Even with applySetup: false, startLab still stages Lab 8/9 engines and closes stale engines for Labs 1–7
+      await runner.startLab(8, { applySetup: false });
+      assert.equal(host.snap.eutectic?.open, true);
+      await runner.startLab(9, { applySetup: false });
+      assert.equal(host.snap.spinodal?.open, true);
+      await runner.startLab(1, { applySetup: false });
+      assert.equal(host.snap.spinodal, null);
+    }
 
     // Dynamic #lab=N routing in src/share.ts
     assert.deepEqual(parseLabRoute("#labs"), { kind: "picker" });
@@ -221,9 +300,13 @@ try {
     assert.deepEqual(parseLabRoute("#lab=5"), { kind: "lab", ref: 5 });
     assert.deepEqual(parseLabRoute("#lab=6"), { kind: "lab", ref: 6 });
     assert.deepEqual(parseLabRoute("#lab=7"), { kind: "lab", ref: 7 });
+    assert.deepEqual(parseLabRoute("#lab=8"), { kind: "lab", ref: 8 });
+    assert.deepEqual(parseLabRoute("#lab=9"), { kind: "lab", ref: 9 });
     assert.deepEqual(parseLabRoute("#lab=12"), { kind: "lab", ref: 12 });
-    assert.deepEqual(parseLabRoute("", "?lab=6"), { kind: "lab", ref: 6 });
-    assert.deepEqual(parseLabRoute("#set=abc123&lab=7"), { kind: "lab", ref: 7 });
+    assert.deepEqual(parseLabRoute("", "?lab=8"), { kind: "lab", ref: 8 });
+    assert.deepEqual(parseLabRoute("#set=abc123&lab=9"), { kind: "lab", ref: 9 });
+    assert.deepEqual(parseLabRoute("#lab=eutectic-jh"), { kind: "lab", ref: "eutectic-jh" });
+    assert.deepEqual(parseLabRoute("#lab=spinodal-lsw"), { kind: "lab", ref: "spinodal-lsw" });
     assert.deepEqual(parseLabRoute("#lab=lab-5"), { kind: "lab", ref: "lab-5" });
     // Out-of-range numeric strings pass through as slug refs that resolve to null in findLabDef
     // so main.ts can open the picker with a helpful notice instead of silently dropping the link.
@@ -262,6 +345,14 @@ try {
         if (st.liveHint) {
           audit(`${lab.id}.${st.id}.hint2d`, st.liveHint(baseSnap, emptyMem));
           audit(`${lab.id}.${st.id}.hint3d`, st.liveHint({ ...baseSnap, mode: "3d" }, emptyMem));
+          audit(`${lab.id}.${st.id}.hintEut`, st.liveHint({
+            ...baseSnap,
+            eutectic: { open: true, running: false, alloy: "alcu", lens: 0, pullV: 20, c0Off: 0, seedPairs: 6, step: 120, lambdaUm: null, lambdaMinUm: 2.1, dTFrontK: 0.4, fAlpha: 0.5, fAlphaLever: 0.5, maxSimplexErr: 1e-6 },
+          }, emptyMem));
+          audit(`${lab.id}.${st.id}.hintSpin`, st.liveHint({
+            ...baseSnap,
+            spinodal: { open: true, running: false, preset: "pfhub1", dim: "2d", lens: 0, c0: 0.5, step: 100, simTime: 4, freeEnergy: 300, initialFreeEnergy: 320, meanC: 0.5, massDrift: 0, domainL: 5.2, lswSlope: null },
+          }, emptyMem));
         }
       }
       for (const row of lab.formatRows({})) {
@@ -298,6 +389,18 @@ try {
     assert(lab7.steps[1].action.includes("optimizer") && lab7.steps[1].action.includes("OPTIMIZER"));
     assert(lab7.steps[2].action.includes("apply recipe"));
     assert(lab7.steps[3].action.includes("TRUE 3D") && lab7.steps[3].action.includes("calibrated solver") && lab7.steps[3].action.includes("casting budget"));
+
+    const lab8 = findLabDef(8);
+    assert(lab8.steps[0].action.includes("EUTECTIC") && lab8.steps[0].action.includes("PHASES") && lab8.steps[0].action.includes("Al–Cu"));
+    assert(lab8.steps[1].action.includes("SOLUTE"));
+    assert(lab8.steps[2].action.includes("seed pairs") && lab8.steps[2].action.includes("Jackson–Hunt"));
+    assert(lab8.steps[3].action.includes("composition c₀"));
+
+    const lab9 = findLabDef(9);
+    assert(lab9.steps[0].action.includes("NIST PFHub B1") && lab9.steps[0].action.includes("SPINODAL") && lab9.steps[0].action.includes("COMP"));
+    assert(lab9.steps[1].action.includes("CHEM μ"));
+    assert(lab9.steps[2].action.includes("Fe–Cr (475 °C)") && lab9.steps[2].action.includes("Al–Zn"));
+    assert(lab9.steps[3].action.includes("3D") && lab9.steps[3].action.includes("ISO 3D") && lab9.steps[3].action.includes("SLICE") && lab9.steps[3].action.includes("VOL"));
 
     assert.deepEqual(issues, [], `copy violations:\n${issues.join("\n")}`);
   });
@@ -798,6 +901,118 @@ try {
       assert(rep.completedAt !== null);
       completedReports.push(rep);
     }
+
+    // --- Lab 8: Binary Eutectic Lamellar Growth & Jackson–Hunt Scaling ---
+    {
+      const host = makeMockHost({ can3d: true });
+      const runner = new GuidedLabRunner(host);
+      assert(await runner.startLab(8, { restart: true }));
+      const e = host.snap.eutectic;
+      assert(e && e.open && e.alloy === "alcu", "Lab 8 opens Al–Cu EUTECTIC");
+
+      // 8.1 eutectic-lamellae
+      e.step = 480;
+      e.lambdaUm = 2.18;
+      e.lambdaMinUm = 2.10;
+      e.dTFrontK = 0.72;
+      e.fAlpha = 0.502;
+      e.fAlphaLever = 0.500;
+      e.maxSimplexErr = 1.2e-7;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-lamellae"].status, "completed");
+
+      // 8.2 eutectic-solute-layer
+      runner.nextStep();
+      e.lens = 1;
+      e.step = 672;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-solute-layer"].status, "completed");
+
+      // 8.3 eutectic-jh-bowl
+      runner.nextStep();
+      e.seedPairs = 10;
+      e.step = 432;
+      e.lambdaUm = 1.31;
+      e.dTFrontK = 0.96;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-jh-bowl"].status, "completed");
+
+      // 8.4 eutectic-lever-shift
+      runner.nextStep();
+      e.c0Off = 0.16;
+      e.step = 384;
+      e.fAlpha = 0.421;
+      e.fAlphaLever = 0.420;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-lever-shift"].status, "completed");
+
+      const rep = runner.buildLabReport();
+      assert.equal(rep.labId, "eutectic-jh");
+      assert.equal(rep.hashId, 8);
+      assert.equal(rep.stepsCompleted, 4);
+      assert.equal(rep.stepsTotal, 4);
+      assert.equal(rep.table.length, 4);
+      assert(rep.completedAt !== null);
+      completedReports.push(rep);
+    }
+
+    // --- Lab 9: Spinodal Decomposition, Lyapunov Decay & 3D Coarsening ---
+    {
+      const host = makeMockHost({ can3d: true });
+      const runner = new GuidedLabRunner(host);
+      assert(await runner.startLab(9, { restart: true }));
+      const sp = host.snap.spinodal;
+      assert(sp && sp.open && sp.preset === "pfhub1" && sp.dim === "2d", "Lab 9 opens 2D PFHub B1 SPINODAL");
+
+      // 9.1 spinodal-pfhub-lyapunov
+      sp.step = 4800;
+      sp.simTime = 16.2;
+      sp.initialFreeEnergy = 320.0;
+      sp.freeEnergy = 112.4;
+      sp.meanC = 0.500001;
+      sp.massDrift = 1.0e-6;
+      sp.domainL = 11.4;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-pfhub-lyapunov"].status, "completed");
+
+      // 9.2 spinodal-chem-mu
+      runner.nextStep();
+      sp.lens = 1;
+      sp.simTime = 18.5;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-chem-mu"].status, "completed");
+
+      // 9.3 spinodal-lsw-coarsening
+      runner.nextStep();
+      sp.preset = "fecr";
+      sp.lens = 0;
+      sp.simTime = 24.0;
+      sp.freeEnergy = 98.5;
+      sp.domainL = 14.8;
+      sp.lswSlope = 0.324;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-lsw-coarsening"].status, "completed");
+
+      // 9.4 spinodal-3d-sponge
+      runner.nextStep();
+      sp.dim = "3d";
+      sp.simTime = 10.4;
+      sp.freeEnergy = 415.2;
+      sp.initialFreeEnergy = 980.0;
+      sp.massDrift = -2.4e-6;
+      sp.domainL = 12.6;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-3d-sponge"].status, "completed");
+
+      const rep = runner.buildLabReport();
+      assert.equal(rep.labId, "spinodal-lsw");
+      assert.equal(rep.hashId, 9);
+      assert.equal(rep.stepsCompleted, 4);
+      assert.equal(rep.stepsTotal, 4);
+      assert.equal(rep.table.length, 4);
+      assert(rep.completedAt !== null);
+      completedReports.push(rep);
+    }
   });
 
   // ----------------------------------------------------------- LAB-ANTI-CHEESE
@@ -1104,6 +1319,127 @@ try {
       });
       assert.equal(runner.getState().session.steps["opt-3d-volume-search"].status, "pending");
     }
+
+    // 8. Lab 8 anti-cheese: closed engine, low step, null lambdaUm, simplex error, wrong lens, default seedPairs, unshifted fAlpha
+    {
+      const host = makeMockHost();
+      const runner = new GuidedLabRunner(host);
+      await runner.startLab(8, { restart: true });
+      const e = host.snap.eutectic;
+
+      // 8.1 rejects step < 400, null lambdaUm, elevated simplex error, or closed panel
+      e.step = 350; e.lambdaUm = 2.1; e.maxSimplexErr = 1e-7;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-lamellae"].status, "pending");
+      e.step = 500; e.lambdaUm = null;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-lamellae"].status, "pending");
+      e.lambdaUm = 2.1; e.maxSimplexErr = 5e-4;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-lamellae"].status, "pending");
+      e.maxSimplexErr = 1e-7; e.open = false;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-lamellae"].status, "pending");
+      e.open = true;
+
+      // 8.2 rejects PHASES/ETCH lens or step < 600
+      runner.selectStep(1);
+      e.lens = 0; e.step = 700;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-solute-layer"].status, "pending");
+      e.lens = 2; e.step = 700;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-solute-layer"].status, "pending");
+      e.lens = 1; e.step = 550;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-solute-layer"].status, "pending");
+
+      // 8.3 rejects default seedPairs=6, step < 400, or dTFrontK <= 0
+      runner.selectStep(2);
+      e.seedPairs = 6; e.step = 500; e.dTFrontK = 0.8;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-jh-bowl"].status, "pending");
+      e.seedPairs = 10; e.step = 320; e.dTFrontK = 0.9;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-jh-bowl"].status, "pending");
+      e.step = 500; e.dTFrontK = 0;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-jh-bowl"].status, "pending");
+
+      // 8.4 rejects |c0Off| < 0.10, step < 300, or unshifted fAlpha (paused slider cheese)
+      runner.selectStep(3);
+      e.c0Off = 0.08; e.step = 400; e.fAlpha = 0.43;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-lever-shift"].status, "pending");
+      e.c0Off = 0.15; e.step = 200; e.fAlpha = 0.43;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-lever-shift"].status, "pending");
+      e.step = 400; e.fAlpha = 0.49;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["eutectic-lever-shift"].status, "pending");
+    }
+
+    // 9. Lab 9 anti-cheese: insufficient Lyapunov decay, mass drift, 3D SLICE on CHEM mu, pfhub1 on LSW step, 2D on 3D sponge
+    {
+      const host = makeMockHost();
+      const runner = new GuidedLabRunner(host);
+      await runner.startLab(9, { restart: true });
+      const sp = host.snap.spinodal;
+
+      // 9.1 rejects simTime < 15, F >= 0.78*F0, massDrift >= 1e-4, 3D dim, or non-pfhub1 preset
+      sp.initialFreeEnergy = 320; sp.freeEnergy = 120; sp.simTime = 12; sp.massDrift = 0;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-pfhub-lyapunov"].status, "pending");
+      sp.simTime = 16; sp.freeEnergy = 260; // 81.25% >= 78%
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-pfhub-lyapunov"].status, "pending");
+      sp.freeEnergy = 120; sp.massDrift = 2e-4;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-pfhub-lyapunov"].status, "pending");
+      sp.massDrift = 0; sp.dim = "3d";
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-pfhub-lyapunov"].status, "pending");
+      sp.dim = "2d"; sp.preset = "fecr";
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-pfhub-lyapunov"].status, "pending");
+      sp.preset = "pfhub1";
+
+      // 9.2 rejects lens !== 1, dim === "3d" (SLICE is not CHEM mu), or simTime < 15
+      runner.selectStep(1);
+      sp.lens = 0; sp.simTime = 20;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-chem-mu"].status, "pending");
+      sp.lens = 1; sp.dim = "3d";
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-chem-mu"].status, "pending");
+      sp.dim = "2d"; sp.simTime = 10;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-chem-mu"].status, "pending");
+
+      // 9.3 rejects pfhub1 preset, simTime < 20, or domainL <= 0
+      runner.selectStep(2);
+      sp.preset = "pfhub1"; sp.simTime = 25; sp.domainL = 12;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-lsw-coarsening"].status, "pending");
+      sp.preset = "fecr"; sp.simTime = 18; sp.domainL = 12;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-lsw-coarsening"].status, "pending");
+      sp.simTime = 25; sp.domainL = 0;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-lsw-coarsening"].status, "pending");
+
+      // 9.4 rejects dim === "2d", simTime < 8, or |massDrift| >= 1e-4
+      runner.selectStep(3);
+      sp.dim = "2d"; sp.simTime = 12; sp.massDrift = 0;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-3d-sponge"].status, "pending");
+      sp.dim = "3d"; sp.simTime = 6;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-3d-sponge"].status, "pending");
+      sp.simTime = 12; sp.massDrift = -5e-4;
+      runner.tick();
+      assert.equal(runner.getState().session.steps["spinodal-3d-sponge"].status, "pending");
+    }
   });
 
   // ------------------------------------------------------- LAB-SKIP-AND-REPORT
@@ -1163,6 +1499,23 @@ try {
     assert.equal(rep7.steps[3].status, "skipped");
     assert.equal(rep7.steps[3].skipReason, "no-3d");
 
+    // Lab 8 & Lab 9 skip/reset/report round-trip
+    await runner.startLab(8, { restart: true });
+    runner.skipStep("user");
+    const rep8 = JSON.parse(JSON.stringify(runner.buildLabReport()));
+    assert.equal(rep8.labId, "eutectic-jh");
+    assert.equal(rep8.hashId, 8);
+    assert.equal(rep8.stepsSkipped, 1);
+    assert.equal(rep8.stepsTotal, 4);
+
+    await runner.startLab(9, { restart: true });
+    runner.skipStep("user");
+    const rep9 = JSON.parse(JSON.stringify(runner.buildLabReport()));
+    assert.equal(rep9.labId, "spinodal-lsw");
+    assert.equal(rep9.hashId, 9);
+    assert.equal(rep9.stepsSkipped, 1);
+    assert.equal(rep9.stepsTotal, 4);
+
     runner.closeLab();
     assert.equal(runner.isActive(), false);
     assert.equal(runner.buildLabReport(), null);
@@ -1170,7 +1523,7 @@ try {
 
   // ----------------------------------------------------------- LAB-REPORT-HTML
   await check("LAB-REPORT-HTML", () => {
-    assert.equal(completedReports.length, 7, "expected completed reports for all 7 labs");
+    assert.equal(completedReports.length, 9, "expected completed reports for all 9 labs");
     for (const rep of completedReports) {
       const html = formatLabReportHtml(rep);
       assert(html.startsWith("<!doctype html>"), `${rep.labId}: missing doctype`);

@@ -10,7 +10,7 @@ export interface GuidedLabPickerHost {
 }
 
 type FilterKey = "ALL" | LabCategory;
-const FILTERS: readonly FilterKey[] = ["ALL", "2D", "TRUE 3D", "HEAT TREAT"];
+const FILTERS: readonly FilterKey[] = ["ALL", "2D", "TRUE 3D", "HEAT TREAT", "ENGINES"];
 
 /**
  * Full-catalog Guided Labs modal (`#guidedPicker`, `.tmodal` at z-index 40).

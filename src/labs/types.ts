@@ -16,9 +16,43 @@ import type { Census } from "../heatpanel";
 export type LabId = string;
 export type SkipReason = "user" | "no-3d";
 export type StepOutcome = "pending" | "completed" | "skipped";
-export type LabCategory = "2D" | "TRUE 3D" | "HEAT TREAT";
+export type LabCategory = "2D" | "TRUE 3D" | "HEAT TREAT" | "ENGINES";
 
 export type LabCaptureMap = Record<string, unknown>;
+
+export interface LabEutecticSnapshot {
+  open: boolean;
+  running: boolean;
+  alloy: string;
+  lens: number;
+  pullV: number;
+  c0Off: number;
+  seedPairs: number;
+  step: number;
+  lambdaUm: number | null;
+  lambdaMinUm: number;
+  dTFrontK: number;
+  fAlpha: number;
+  fAlphaLever: number;
+  maxSimplexErr: number;
+}
+
+export interface LabSpinodalSnapshot {
+  open: boolean;
+  running: boolean;
+  preset: string;
+  dim: "2d" | "3d";
+  lens: number;
+  c0: number;
+  step: number;
+  simTime: number;
+  freeEnergy: number;
+  initialFreeEnergy: number;
+  meanC: number;
+  massDrift: number;
+  domainL: number;
+  lswSlope: number | null;
+}
 
 export interface LabStereoSnapshot {
   n2: number;
@@ -291,6 +325,10 @@ export interface LabSnapshot {
   recipeActive: boolean;
   composerOpen: boolean;
   running: boolean;
+  /** Optional read-only snapshot of the 2D Folch–Plapp eutectic engine (null when closed). */
+  eutectic?: LabEutecticSnapshot | null;
+  /** Optional read-only snapshot of the 2D/3D Cahn–Hilliard spinodal engine (null when closed). */
+  spinodal?: LabSpinodalSnapshot | null;
 }
 
 /** Per-step memory managed by GuidedLabRunner so step definitions remain pure data + predicates. */
@@ -356,6 +394,8 @@ export interface LabRunnerHost {
   setRun(on: boolean): void;
   /** Close any active mode panel, tour, or composer before staging a fresh lab setup. */
   closeModes(): void;
+  startEutectic?(alloy?: string): void;
+  startSpinodal?(preset?: string, dim?: "2d" | "3d"): void;
   setFlowOn?(on: boolean): void;
   syncUI(): void;
   reveal?(target: string): void;

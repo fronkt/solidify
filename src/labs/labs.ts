@@ -1,9 +1,9 @@
 /**
- * Declarative 7-lab, 32-step undergraduate MSE curriculum for SOLIDIFY Guided Labs.
+ * Declarative 9-lab, 40-step undergraduate MSE curriculum for SOLIDIFY Guided Labs.
  *
  * Pure data + pure predicates with zero DOM or WebGPU runtime imports so Node CI
  * (`scripts/verify-guided-labs.mjs`) can validate schema, copy rules, and synthetic
- * trajectories directly. Adding Lab 8+ requires appending one `LabDef` entry to `LABS`.
+ * trajectories directly. Adding Lab 10+ requires appending one `LabDef` entry to `LABS`.
  */
 
 import type {
@@ -2648,7 +2648,505 @@ const LAB_7: LabDef = {
   ],
 };
 
-export const LABS: readonly LabDef[] = [LAB_1, LAB_2, LAB_3, LAB_4, LAB_5, LAB_6, LAB_7];
+// ----------------------------------------------------------------------- Lab 8
+
+const LAB_8: LabDef = {
+  id: "eutectic-jh",
+  hashId: 8,
+  number: "08",
+  title: "Binary Eutectic Lamellar Growth & Jackson–Hunt Scaling",
+  course: "Phase Transformations · Eutectic Solidification",
+  minutes: 45,
+  dimension: "2D",
+  category: "ENGINES",
+  summary:
+    "Grow coupled Al–Cu lamellae in EUTECTIC, inspect the SOLUTE boundary layer, perturb spacing on the Jackson–Hunt curve, and test off-eutectic lever fractions.",
+  async setup(host: LabRunnerHost) {
+    host.closeModes();
+    await host.setMode("2d");
+    host.startEutectic?.("alcu");
+    host.syncUI();
+  },
+  columns: [
+    { key: "setup", label: "setup" },
+    { key: "spacing", label: "spacing / ΔT" },
+    { key: "phases", label: "phase f_α" },
+  ],
+  formatRows(byStep): LabTableRow[] {
+    const rows: LabTableRow[] = [];
+    const s1 = byStep["eutectic-lamellae"];
+    if (s1 && Object.keys(s1).length) {
+      const fA = asNum(s1.fAlpha);
+      rows.push({
+        group: "8.1",
+        label: `${String(s1.alloy ?? "alcu")} (${fmtOrNA(s1.seedPairs)} pairs)`,
+        values: {
+          setup: `V ${fmtOrNA(s1.pullV)} µm/s`,
+          spacing: `λ ${fmtOrNA(s1.lambdaUm)} µm · ΔT ${fmtOrNA(s1.dTFrontK)} K`,
+          phases: fA != null ? `${(fA * 100).toFixed(1)} %` : "—",
+        },
+      });
+    }
+    const s2 = byStep["eutectic-solute-layer"];
+    if (s2 && Object.keys(s2).length) {
+      const fA = asNum(s2.fAlpha);
+      rows.push({
+        group: "8.2",
+        label: "SOLUTE lens",
+        values: {
+          setup: `step ${fmtOrNA(s2.step)}`,
+          spacing: `λ ${fmtOrNA(s2.lambdaUm)} µm · ΔT ${fmtOrNA(s2.dTFrontK)} K`,
+          phases: fA != null ? `${(fA * 100).toFixed(1)} %` : "—",
+        },
+      });
+    }
+    const s3 = byStep["eutectic-jh-bowl"];
+    if (s3 && Object.keys(s3).length) {
+      const fA = asNum(s3.fAlpha);
+      rows.push({
+        group: "8.3",
+        label: `JH (${fmtOrNA(s3.seedPairs)} pairs)`,
+        values: {
+          setup: `λ_min ${fmtOrNA(s3.lambdaMinUm)} µm`,
+          spacing: `λ ${fmtOrNA(s3.lambdaUm)} µm · ΔT ${fmtOrNA(s3.dTFrontK)} K`,
+          phases: fA != null ? `${(fA * 100).toFixed(1)} %` : "—",
+        },
+      });
+    }
+    const s4 = byStep["eutectic-lever-shift"];
+    if (s4 && Object.keys(s4).length) {
+      const fA = asNum(s4.fAlpha);
+      const fLev = asNum(s4.fAlphaLever);
+      rows.push({
+        group: "8.4",
+        label: `c₀ ${fmtOrNA(s4.c0Off)}`,
+        values: {
+          setup: fLev != null ? `lever ${(fLev * 100).toFixed(1)} %` : "—",
+          spacing: `λ ${fmtOrNA(s4.lambdaUm)} µm · ΔT ${fmtOrNA(s4.dTFrontK)} K`,
+          phases: fA != null ? `${(fA * 100).toFixed(1)} %` : "—",
+        },
+      });
+    }
+    return rows;
+  },
+  steps: [
+    {
+      id: "eutectic-lamellae",
+      title: "Steady Al–Cu lamellar growth",
+      action:
+        "Run Al–Cu in EUTECTIC with PHASES active until steady alternating α/β lamellae pass 400 steps and report spacing λ.",
+      reveal: ["#eutectic", "#transport"],
+      liveHint(snap) {
+        const e = snap.eutectic;
+        if (!e?.open) return "switch to EUTECTIC in the rail switcher";
+        if (e.step < 400) {
+          return `lamellar growth: step ${e.step} / 400${e.running ? "" : ": press ▶ run"}`;
+        }
+        if (e.lambdaUm == null || !Number.isFinite(e.lambdaUm)) return "waiting for lamellar spacing λ readback";
+        if (!(e.maxSimplexErr < 1e-4)) return "simplex error elevated: click reset";
+        return null;
+      },
+      check(snap) {
+        const e = snap.eutectic;
+        return Boolean(
+          e &&
+          e.open &&
+          e.step >= 400 &&
+          e.lambdaUm != null &&
+          Number.isFinite(e.lambdaUm) &&
+          e.lambdaUm > 0 &&
+          Number.isFinite(e.maxSimplexErr) &&
+          e.maxSimplexErr < 1e-4,
+        );
+      },
+      capture(snap) {
+        const e = snap.eutectic!;
+        return {
+          alloy: e.alloy,
+          seedPairs: e.seedPairs,
+          pullV: round(e.pullV, 1),
+          step: e.step,
+          lambdaUm: e.lambdaUm != null ? round(e.lambdaUm, 2) : null,
+          lambdaMinUm: round(e.lambdaMinUm, 2),
+          dTFrontK: round(e.dTFrontK, 2),
+          fAlpha: round(e.fAlpha, 3),
+          fAlphaLever: round(e.fAlphaLever, 3),
+          maxSimplexErr: Number(e.maxSimplexErr.toExponential(2)),
+        };
+      },
+      takeaway:
+        "Coupled α-Al and θ-Al₂Cu lamellae advance together by exchanging rejected solute laterally across triple junctions while preserving the simplex sum p_α + p_β + p_L = 1.",
+    },
+    {
+      id: "eutectic-solute-layer",
+      title: "Inspect the SOLUTE diffusion layer",
+      action:
+        "Switch the top lens bar to SOLUTE and let the coupled front advance past 600 steps to inspect the alternating boundary layer ahead of the α/β triple junctions.",
+      reveal: ["#views", "#eutectic"],
+      liveHint(snap) {
+        const e = snap.eutectic;
+        if (!e?.open) return "keep EUTECTIC open in the rail switcher";
+        if (e.lens !== 1) return "select SOLUTE on the top lens bar";
+        if (e.step < 600) {
+          return `SOLUTE active: step ${e.step} / 600${e.running ? "" : ": press ▶ run"}`;
+        }
+        return null;
+      },
+      check(snap) {
+        const e = snap.eutectic;
+        return Boolean(e && e.open && e.lens === 1 && e.step >= 600);
+      },
+      capture(snap) {
+        const e = snap.eutectic!;
+        return {
+          lens: "SOLUTE",
+          step: e.step,
+          lambdaUm: e.lambdaUm != null ? round(e.lambdaUm, 2) : null,
+          dTFrontK: round(e.dTFrontK, 2),
+          fAlpha: round(e.fAlpha, 3),
+        };
+      },
+      takeaway:
+        "The SOLUTE lens reveals the periodic liquid diffusion layer of thickness ~λ/2 where copper rejected ahead of α-Al feeds neighboring θ-Al₂Cu tips laterally.",
+    },
+    {
+      id: "eutectic-jh-bowl",
+      title: "Perturb spacing on the Jackson–Hunt curve",
+      action:
+        "Move seed pairs away from 6 in EUTECTIC and grow past 400 steps to watch the operating point climb the ΔT(λ) Jackson–Hunt bowl.",
+      reveal: ["#eutectic", "#eutJhPlot"],
+      liveHint(snap) {
+        const e = snap.eutectic;
+        if (!e?.open) return "keep EUTECTIC open in the rail switcher";
+        if (e.seedPairs === 6) return "change seed pairs away from 6 (for example 3 or 10) in EUTECTIC";
+        if (e.step < 400 || !(e.dTFrontK > 0)) {
+          return `seed pairs ${e.seedPairs}: step ${e.step} / 400${e.running ? "" : ": press ▶ run"}`;
+        }
+        return null;
+      },
+      check(snap) {
+        const e = snap.eutectic;
+        return Boolean(
+          e &&
+          e.open &&
+          e.seedPairs !== 6 &&
+          e.step >= 400 &&
+          Number.isFinite(e.dTFrontK) &&
+          e.dTFrontK > 0,
+        );
+      },
+      capture(snap) {
+        const e = snap.eutectic!;
+        return {
+          seedPairs: e.seedPairs,
+          step: e.step,
+          lambdaUm: e.lambdaUm != null ? round(e.lambdaUm, 2) : null,
+          lambdaMinUm: round(e.lambdaMinUm, 2),
+          dTFrontK: round(e.dTFrontK, 2),
+          fAlpha: round(e.fAlpha, 3),
+        };
+      },
+      takeaway:
+        "Wide spacing lengthens lateral diffusion (K₁Vλ) while tight spacing raises curvature undercooling (K₂/λ), so moving seed pairs off the minimum pushes the front up the ΔT(λ) bowl.",
+    },
+    {
+      id: "eutectic-lever-shift",
+      title: "Off-eutectic composition & lever rule",
+      action:
+        "Shift composition c₀ by at least ±0.10 in EUTECTIC and grow past 300 steps (click reset if needed) to verify the lever-rule phase-fraction shift.",
+      reveal: ["#eutectic", "#transport"],
+      liveHint(snap) {
+        const e = snap.eutectic;
+        if (!e?.open) return "keep EUTECTIC open in the rail switcher";
+        if (Math.abs(e.c0Off) < 0.10) {
+          return `shift composition c₀ to |c₀| ≥ 0.10 (now ${e.c0Off.toFixed(2)})`;
+        }
+        if (e.step < 300) {
+          return `c₀ ${e.c0Off.toFixed(2)}: step ${e.step} / 300${e.running ? "" : ": press ▶ run"}`;
+        }
+        if (Math.abs(e.fAlpha - 0.5) < 0.04) {
+          return `waiting for f_α shift away from 50 % (now ${(e.fAlpha * 100).toFixed(1)} % · click reset or press ▶ run)`;
+        }
+        return null;
+      },
+      check(snap) {
+        const e = snap.eutectic;
+        return Boolean(
+          e &&
+          e.open &&
+          Math.abs(e.c0Off) >= 0.10 &&
+          e.step >= 300 &&
+          Number.isFinite(e.fAlpha) &&
+          Math.abs(e.fAlpha - 0.5) >= 0.04,
+        );
+      },
+      capture(snap) {
+        const e = snap.eutectic!;
+        return {
+          c0Off: round(e.c0Off, 2),
+          step: e.step,
+          lambdaUm: e.lambdaUm != null ? round(e.lambdaUm, 2) : null,
+          dTFrontK: round(e.dTFrontK, 2),
+          fAlpha: round(e.fAlpha, 3),
+          fAlphaLever: round(e.fAlphaLever, 3),
+        };
+      },
+      takeaway:
+        "Shifting liquid composition c₀ off the eutectic point widens the richer phase and narrows the lean phase, tracking the binary lever-rule solid fraction behind the front.",
+    },
+  ],
+};
+
+// ----------------------------------------------------------------------- Lab 9
+
+const LAB_9: LabDef = {
+  id: "spinodal-lsw",
+  hashId: 9,
+  number: "09",
+  title: "Spinodal Decomposition, Lyapunov Decay & 3D Coarsening",
+  course: "Phase Transformations · Cahn–Hilliard Kinetics",
+  minutes: 45,
+  dimension: "2D + 3D",
+  category: "ENGINES",
+  summary:
+    "Verify NIST PFHub B1 free-energy decay and mass conservation in SPINODAL, inspect CHEM μ gradients, track Fe–Cr coarsening, and orbit the 3D sponge.",
+  async setup(host: LabRunnerHost) {
+    host.closeModes();
+    await host.setMode("2d");
+    host.startSpinodal?.("pfhub1", "2d");
+    host.syncUI();
+  },
+  columns: [
+    { key: "regime", label: "preset / dim" },
+    { key: "thermo", label: "F / mass drift" },
+    { key: "coarsen", label: "L / LSW α" },
+  ],
+  formatRows(byStep): LabTableRow[] {
+    const rows: LabTableRow[] = [];
+    const s1 = byStep["spinodal-pfhub-lyapunov"];
+    if (s1 && Object.keys(s1).length) {
+      rows.push({
+        group: "9.1",
+        label: "PFHub B1 (2D)",
+        values: {
+          regime: `t ${fmtOrNA(s1.simTime)}`,
+          thermo: `F ${fmtOrNA(s1.freeEnergy)} (${fmtOrNA(s1.fRatioPct, " %")})`,
+          coarsen: `L ${fmtOrNA(s1.domainL)}`,
+        },
+      });
+    }
+    const s2 = byStep["spinodal-chem-mu"];
+    if (s2 && Object.keys(s2).length) {
+      rows.push({
+        group: "9.2",
+        label: "CHEM μ lens",
+        values: {
+          regime: `2D · t ${fmtOrNA(s2.simTime)}`,
+          thermo: `F ${fmtOrNA(s2.freeEnergy)}`,
+          coarsen: `L ${fmtOrNA(s2.domainL)}`,
+        },
+      });
+    }
+    const s3 = byStep["spinodal-lsw-coarsening"];
+    if (s3 && Object.keys(s3).length) {
+      rows.push({
+        group: "9.3",
+        label: `${String(s3.preset ?? "fecr")} (2D)`,
+        values: {
+          regime: `t ${fmtOrNA(s3.simTime)}`,
+          thermo: `F ${fmtOrNA(s3.freeEnergy)}`,
+          coarsen: `L ${fmtOrNA(s3.domainL)} · α ${fmtOrNA(s3.lswSlope)}`,
+        },
+      });
+    }
+    const s4 = byStep["spinodal-3d-sponge"];
+    if (s4 && Object.keys(s4).length) {
+      rows.push({
+        group: "9.4",
+        label: `3D 64³ (${String(s4.preset ?? "pfhub1")})`,
+        values: {
+          regime: `t ${fmtOrNA(s4.simTime)}`,
+          thermo: `F ${fmtOrNA(s4.freeEnergy)} · Δ ${fmtOrNA(s4.massDrift)}`,
+          coarsen: `L ${fmtOrNA(s4.domainL)}`,
+        },
+      });
+    }
+    return rows;
+  },
+  steps: [
+    {
+      id: "spinodal-pfhub-lyapunov",
+      title: "NIST PFHub B1 Lyapunov decay",
+      action:
+        "Evolve NIST PFHub B1 in 2D SPINODAL with COMP active past t = 15 until free energy F drops below 78 % of its initial value while mean ⟨c⟩ stays conserved.",
+      reveal: ["#spinodal", "#spinPlot"],
+      liveHint(snap) {
+        const sp = snap.spinodal;
+        if (!sp?.open) return "switch to SPINODAL in the rail switcher";
+        if (sp.dim !== "2d") return "select 2D in SPINODAL";
+        if (sp.preset !== "pfhub1") return "select NIST PFHub B1 in SPINODAL";
+        const ratio = sp.initialFreeEnergy > 0 ? sp.freeEnergy / sp.initialFreeEnergy : 1;
+        if (sp.simTime < 15 || ratio >= 0.78) {
+          return `t ${sp.simTime.toFixed(1)} / 15 · F/F₀ ${(ratio * 100).toFixed(0)} %${sp.running ? "" : ": press ▶ run"}`;
+        }
+        if (!(Math.abs(sp.massDrift) < 1e-4)) return "mass drift exceeded 1e-4: click reset";
+        return null;
+      },
+      check(snap) {
+        const sp = snap.spinodal;
+        return Boolean(
+          sp &&
+          sp.open &&
+          sp.dim === "2d" &&
+          sp.preset === "pfhub1" &&
+          sp.simTime >= 15 &&
+          sp.initialFreeEnergy > 0 &&
+          Number.isFinite(sp.freeEnergy) &&
+          sp.freeEnergy >= 0 &&
+          sp.freeEnergy < sp.initialFreeEnergy * 0.78 &&
+          Number.isFinite(sp.massDrift) &&
+          Math.abs(sp.massDrift) < 1e-4,
+        );
+      },
+      capture(snap) {
+        const sp = snap.spinodal!;
+        const fRatioPct = sp.initialFreeEnergy > 0 ? round((sp.freeEnergy / sp.initialFreeEnergy) * 100, 1) : null;
+        return {
+          preset: sp.preset,
+          dim: sp.dim,
+          simTime: round(sp.simTime, 2),
+          freeEnergy: round(sp.freeEnergy, 2),
+          initialFreeEnergy: round(sp.initialFreeEnergy, 2),
+          fRatioPct,
+          meanC: round(sp.meanC, 4),
+          massDrift: Number(Math.abs(sp.massDrift).toExponential(2)),
+          domainL: round(sp.domainL, 2),
+        };
+      },
+      takeaway:
+        "The conserved Cahn–Hilliard PDE drives total free energy F(t) monotonically downward as a Lyapunov functional while the zero-sum periodic stencil conserves ⟨c⟩.",
+    },
+    {
+      id: "spinodal-chem-mu",
+      title: "Inspect CHEM μ potential gradients",
+      action:
+        "Switch the top lens bar to CHEM μ while 2D SPINODAL is past t = 15 to visualize the curvature-driven chemical-potential gradients powering domain coarsening.",
+      reveal: ["#views", "#spinodal"],
+      liveHint(snap) {
+        const sp = snap.spinodal;
+        if (!sp?.open) return "keep SPINODAL open in the rail switcher";
+        if (sp.dim !== "2d") return "stay in 2D SPINODAL to inspect CHEM μ";
+        if (sp.lens !== 1) return "select CHEM μ on the top lens bar";
+        if (sp.simTime < 15) {
+          return `CHEM μ active: t ${sp.simTime.toFixed(1)} / 15${sp.running ? "" : ": press ▶ run"}`;
+        }
+        return null;
+      },
+      check(snap) {
+        const sp = snap.spinodal;
+        return Boolean(sp && sp.open && sp.dim === "2d" && sp.lens === 1 && sp.simTime >= 15);
+      },
+      capture(snap) {
+        const sp = snap.spinodal!;
+        return {
+          lens: "CHEM μ",
+          dim: sp.dim,
+          simTime: round(sp.simTime, 2),
+          freeEnergy: round(sp.freeEnergy, 2),
+          domainL: round(sp.domainL, 2),
+        };
+      },
+      takeaway:
+        "In CHEM μ, elevated chemical potential around tightly curved lobes drives diffusive flux toward flatter interfaces, coarsening the microstructure via Gibbs–Thomson ripening.",
+    },
+    {
+      id: "spinodal-lsw-coarsening",
+      title: "Alloy coarsening & LSW scaling",
+      action:
+        "Switch preset in SPINODAL to Fe–Cr (475 °C) (or Al–Zn or Off-critical droplets), run past t = 20, and track domain L(t) against the t^(1/3) LSW slope.",
+      reveal: ["#spinodal", "#spinPlotL"],
+      liveHint(snap) {
+        const sp = snap.spinodal;
+        if (!sp?.open) return "keep SPINODAL open in the rail switcher";
+        if (sp.preset === "pfhub1") return "switch preset to Fe–Cr (475 °C), Al–Zn, or Off-critical droplets";
+        if (sp.simTime < 20 || !(sp.domainL > 0)) {
+          return `${sp.preset}: t ${sp.simTime.toFixed(1)} / 20${sp.running ? "" : ": press ▶ run"}`;
+        }
+        return null;
+      },
+      check(snap) {
+        const sp = snap.spinodal;
+        return Boolean(
+          sp &&
+          sp.open &&
+          sp.preset !== "pfhub1" &&
+          sp.simTime >= 20 &&
+          Number.isFinite(sp.domainL) &&
+          sp.domainL > 0,
+        );
+      },
+      capture(snap) {
+        const sp = snap.spinodal!;
+        return {
+          preset: sp.preset,
+          dim: sp.dim,
+          simTime: round(sp.simTime, 2),
+          freeEnergy: round(sp.freeEnergy, 2),
+          massDrift: Number(Math.abs(sp.massDrift).toExponential(2)),
+          domainL: round(sp.domainL, 2),
+          lswSlope: sp.lswSlope != null && Number.isFinite(sp.lswSlope) ? round(sp.lswSlope, 3) : null,
+        };
+      },
+      takeaway:
+        "Once compositions saturate near the binodal wells, diffusion-limited coarsening enters the Lifshitz–Slyozov–Wagner scaling regime L(t) ~ t^(1/3) as interfacial area shrinks.",
+    },
+    {
+      id: "spinodal-3d-sponge",
+      title: "3D bicontinuous spinodal sponge",
+      action:
+        "Click 3D in SPINODAL and evolve past t = 8 with conserved ⟨c⟩, then orbit the 64³ raymarched sponge across ISO 3D, SLICE, and VOL.",
+      reveal: ["#spinDim3d", "#views"],
+      liveHint(snap) {
+        const sp = snap.spinodal;
+        if (!sp?.open) return "keep SPINODAL open in the rail switcher";
+        if (sp.dim !== "3d") return "click 3D in SPINODAL to switch to the 64³ solver";
+        if (sp.simTime < 8) {
+          return `3D sponge: t ${sp.simTime.toFixed(1)} / 8${sp.running ? "" : ": press ▶ run"}`;
+        }
+        if (!(Math.abs(sp.massDrift) < 1e-4)) return "mass drift exceeded 1e-4: click reset";
+        return null;
+      },
+      check(snap) {
+        const sp = snap.spinodal;
+        return Boolean(
+          sp &&
+          sp.open &&
+          sp.dim === "3d" &&
+          sp.simTime >= 8 &&
+          Number.isFinite(sp.massDrift) &&
+          Math.abs(sp.massDrift) < 1e-4,
+        );
+      },
+      capture(snap) {
+        const sp = snap.spinodal!;
+        return {
+          preset: sp.preset,
+          dim: "3d",
+          simTime: round(sp.simTime, 2),
+          freeEnergy: round(sp.freeEnergy, 2),
+          meanC: round(sp.meanC, 4),
+          massDrift: Number(Math.abs(sp.massDrift).toExponential(2)),
+          domainL: round(sp.domainL, 2),
+          lswSlope: sp.lswSlope != null && Number.isFinite(sp.lswSlope) ? round(sp.lswSlope, 3) : null,
+        };
+      },
+      takeaway:
+        "Near critical composition c₀ = 0.5, 3D spinodal decomposition percolates into an interconnected bicontinuous sponge whose saddle-shaped necks pinch off as domains coarsen.",
+    },
+  ],
+};
+
+export const LABS: readonly LabDef[] = [LAB_1, LAB_2, LAB_3, LAB_4, LAB_5, LAB_6, LAB_7, LAB_8, LAB_9];
 
 export function findLabDef(idOrHash: string | number, catalog: readonly LabDef[] = LABS): LabDef | null {
   const raw = String(idOrHash).trim().toLowerCase();

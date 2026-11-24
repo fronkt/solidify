@@ -1,6 +1,6 @@
 # Instructor Solution Key & Grading Rubric: SOLIDIFY Classroom Lab Pack
 
-This guide summarizes expected observations, reference numerical outputs (v8 calibrated builds), and common student misconceptions for Labs 1–7.
+This guide summarizes expected observations, reference numerical outputs (v8 calibrated builds), and common student misconceptions for Labs 1–9.
 
 ---
 
@@ -104,11 +104,43 @@ This guide summarizes expected observations, reference numerical outputs (v8 cal
 
 ---
 
+## Lab 8: Binary Eutectic Lamellar Growth & Jackson–Hunt Scaling
+
+- **Part A (Steady Al–Cu Lamellae & Simplex Conservation):**
+  - Default `Al–33.2 wt% Cu` parameters ($c_\alpha = 5.65$, $c_E = 33.2$, $c_\beta = 52.5\text{ wt\% Cu}$, $D_L = 3.0 \times 10^{-9}\text{ m}^2/\text{s}$, $|m_\alpha| = 4.9$, $|m_\beta| = 3.4\text{ K/wt\%}$, $\Gamma_\alpha = 2.4 \times 10^{-7}$, $\Gamma_\beta = 1.3 \times 10^{-7}\text{ K}\cdot\text{m}$, $\sin\theta = 0.5$ at isotropic 120° triple junctions) yield $f_\alpha = 0.4120$, $P(f_\alpha) = 0.03223$, $K_1 = 0.004170\text{ K}\cdot\text{s}/\mu\text{m}^2$, $K_2 = 0.3692\text{ K}\cdot\mu\text{m}$, and $\lambda_{\min}^2 V = K_2 / K_1 = 88.53\ \mu\text{m}^3/\text{s}$ (literature: $88.5\ \mu\text{m}^3/\text{s}$).
+  - At `pull speed V = 20 µm/s`, the Jackson–Hunt extremum sits at $\lambda_{\min} = 2.10\ \mu\text{m}$ and $\Delta T_{\min} = 0.351\text{ K}$. Folch–Plapp (2005) Eq. 17 tilt functions keep the simplex error $\max|p_\alpha + p_\beta + p_L - 1| < 10^{-4}$ with zero spurious third-phase intrusion along $\alpha/\beta$, $\alpha/L$, and $\beta/L$ boundaries.
+- **Part B (Solute Diffusion Boundary Layer):**
+  - In **`SOLUTE`**, Cu piles up ahead of $\alpha$-Al lamellae ($c_\alpha < c_E$) and depletes ahead of $\theta$-$\text{Al}_2\text{Cu}$ lamellae ($c_\beta > c_E$). Lateral diffusion between adjacent lamellae decays exponentially ahead of the front over $\sim \lambda / (2\pi)$, allowing steady isothermal growth at low undercooling.
+- **Part C (Jackson–Hunt $\Delta T(\lambda)$ U-Curve & Pull Speed):**
+  - Differentiating $\Delta T(\lambda) = K_1 V \lambda + K_2 / \lambda$ gives $\partial \Delta T / \partial \lambda = K_1 V - K_2 / \lambda^2 = 0 \implies \lambda_{\min}^2 V = K_2 / K_1$ and $\Delta T_{\min} = 2\sqrt{K_1 K_2 V}$. At $V = 80\ \mu\text{m/s}$, $\lambda_{\min} = 1.05\ \mu\text{m}$ (halved) and $\Delta T_{\min} = 0.702\text{ K}$ (doubled), while $\lambda_{\min}^2 V = 88.53\ \mu\text{m}^3/\text{s}$ is invariant.
+  - Decreasing `seed pairs` (`3–4 pairs`, coarse $\lambda > \lambda_{\min}$) increases constitutional undercooling ($K_1 V \lambda$) due to longer lateral diffusion paths; increasing `seed pairs` (`9–10 pairs`, fine $\lambda < \lambda_{\min}$) raises Gibbs–Thomson curvature undercooling ($K_2 / \lambda$) and can trigger lamellar termination/pinch-off.
+  - *Model boundary:* Interface width $W$ is enlarged for interactive 2D GPU stepping, and real `Al–12.6 wt% Si` grows faceted diamond-cubic Si flakes whose irregular spacing sits $2\text{–}3\times$ wider than the regular Jackson–Hunt extremum.
+- **Part D (Off-Eutectic Lever Rule):**
+  - With `c0Off` mapping $c_0 = c_E + \delta c_0 \cdot \frac{1}{2}(c_\beta - c_\alpha)$, shifting `composition c₀` to `−0.15` ($29.69\text{ wt\% Cu}$) raises lever $f_\alpha$ from $41.2\%$ to $48.7\%$; shifting to `+0.15` ($36.71\text{ wt\% Cu}$) lowers lever $f_\alpha$ to $33.7\%$ (in the symmetric Folch–Plapp dimensionless frame, `c0Off = ±0.15` shifts $f_\alpha$ from $50\%$ to $57.5\%$ / $42.5\%$). Live phase fractions widen the majority lamellae to satisfy mass balance.
+
+---
+
+## Lab 9: Spinodal Decomposition, Lyapunov Decay & 3D Coarsening
+
+- **Part A (NIST PFHub Benchmark 1a & Conservation):**
+  - Double-well curvature at $c_0 = 0.5$ ($c_\alpha = 0.3, c_\beta = 0.7, \rho_s = 5.0$): $f''(0.5) = 2\rho_s[0 - 2(0.2)(0.2)] = -0.8 < 0$ (unstable inside the spinodal). Linear Cahn–Hilliard amplification $\omega(k) = -M k^2 (f''(c_0) + \kappa k^2)$ gives cutoff $k_c = \sqrt{-f''/\kappa} = \sqrt{0.8/2.0} = 0.6325$, peak wavenumber $k_{\max} = k_c/\sqrt{2} = 0.4472$, fastest wavelength $\lambda_{\max} = 2\pi / k_{\max} = 14.05$, and $\omega_{\max} = M (f'')^2 / (4\kappa) = 0.400$. Modes with $k > k_c$ ($\lambda < 2\pi/k_c \approx 9.93$) are stabilized by gradient energy $\frac{1}{2}\kappa |\nabla c|^2$.
+  - Integrating by parts under periodic boundaries yields $d\mathcal{F}/dt = \int \mu (\partial c / \partial t)\,dV = -\int M |\nabla \mu|^2\,dV \le 0$. Reference SOLIDIFY PFHub B1a run (`200²`, $dx = 1.0$, $dt = 0.003363$, 297,374 steps): $\mathcal{F}(0) = 319.094 \to \mathcal{F}(25) = 200.528 \to \mathcal{F}(1000) = 84.370$ (`strictly_monotone_F: true`, `max ΔF = 0`), late-stage interface equipartition $F_{\text{chem}}(1000) = 42.480 \approx F_{\text{grad}}(1000) = 41.890$ (exact 1D tanh profile satisfies $f(c) = \frac{1}{2}\kappa (dc/dx)^2$), and conserved $\langle c \rangle = 0.502548 \to 0.502546$ ($\max |\Delta\langle c \rangle| = 1.84 \times 10^{-6}$).
+- **Part B (Chemical Potential Lens `CHEM μ`):**
+  - High-curvature tips, necks, and small domains carry larger $|\mu|$ via $-\kappa \nabla^2 c$ than flat interfaces ($\mu \approx 0$). Solute flux $\mathbf{J} = -M \nabla \mu$ transfers mass from curved features to flatter domains, reducing total interfacial area and free energy.
+- **Part C (Alloy Presets & LSW Coarsening):**
+  - `Fe–Cr (475 °C)` ($c_0 = 0.50$, symmetric volume fraction) forms an interconnected bicontinuous maze, whereas `Off-critical droplets` ($c_0 = 0.42$, 30 % minority phase) breaks into isolated droplets coarsening via Ostwald ripening.
+  - Asymptotic infinite-domain Lifshitz–Slyozov–Wagner scaling predicts $L(t) \propto t^{1/3}$. Finite-box periodic simulations (`[0, 200]²`) exhibit a lower effective exponent (e.g., $\alpha = 0.196$ over $t \in [25, 1000]$ with $L: 10.72 \to 22.31$) because interfacial width is non-negligible early on and the finite domain holds only a few wavelengths at late times.
+- **Part D (3D `64³` Bicontinuous Sponge & Model Boundaries):**
+  - The 3D solver uses a periodic 19-point isotropic Laplacian (`λ_max = 16 / (3 dx²)`) with centered `f32` storage, keeping $|\Delta\langle c\rangle| < 10^{-4}$ while forming a continuous 3D interpenetrating channel network visible in **`ISO 3D`**, **`SLICE`**, and **`VOL`**.
+  - *Model boundaries:* Omitting elastic coherency strain produces isotropic rounded domains instead of $\langle 100 \rangle$-aligned cuboids/plates seen in real lattice-mismatched alloys; explicit 4th-order Cahn–Hilliard stepping requires $\Delta t \propto \Delta x^4 / (M \kappa)$ for biharmonic CFL stability.
+
+---
+
 ## Suggested Grading Rubric (20 pts per lab)
 
 | Criterion | Points | Evidence |
 |---|---|---|
-| Reproducible data, printable report & Run-Export ZIP | 4 | Valid seed, no unintended mid-pour intervention flag, complete measurements |
-| Quantitative calculations / plots | 6 | Correct units, Scheil / Hall–Petch / Avrami / scale-transfer comparisons |
-| Physical mechanism explanations | 6 | Clear causal link between governing PDEs / thermodynamics and observations |
-| Awareness of model boundaries | 4 | Accurate identification of what the solver models vs. omits (e.g., $Le$, single phase, T6, sweep clock, qualitative LBM) |
+| Reproducible data, printable report & Run-Export ZIP | 4 | Valid seed, no unintended mid-pour intervention flag, complete measurements (plus CSV export for Labs 8–9) |
+| Quantitative calculations / plots | 6 | Correct units, Scheil / Hall–Petch / Avrami / scale-transfer / Jackson–Hunt $\Delta T(\lambda)$ / Cahn–Hilliard $k_{\max}$ & LSW slope comparisons |
+| Physical mechanism explanations | 6 | Clear causal link between governing PDEs / thermodynamics (simplex solute exchange, Lyapunov decay, curvature $\mu$) and observations |
+| Awareness of model boundaries | 4 | Accurate identification of what the solver models vs. omits (e.g., $Le$, single phase, T6, sweep clock, qualitative LBM, enlarged eutectic $W$ / Al–Si faceting, omitted elastic coherency strain) |
