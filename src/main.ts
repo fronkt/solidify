@@ -191,6 +191,7 @@ async function boot() {
   let fps = 60;
   let material = "generic";
   let alloyName = MATERIALS.generic.label;
+  let presetId: string | null = null;
   /**
    * The alloy that was actually POURED, if one was — the composer's mix, its
    * derived chemistry, and the material key it was poured onto.
@@ -802,6 +803,7 @@ async function boot() {
       running3d = !armed;
       renderer3d!.resetView();
       mode = "3d";
+      presetId = null;
       umPerCell = sim3d.umPerCell;
       document.body.classList.add("mode3d");
       hud.reset();
@@ -819,6 +821,7 @@ async function boot() {
     quantPending3 = false;
     queuedLambda3 = undefined;
     mode = "2d";
+    presetId = null;
     umPerCell = sim.umPerCell;
     probeMark3.style.display = "none";   // the frame loop's 3D branch stops updating it
     ruler3(null);
@@ -1039,6 +1042,7 @@ async function boot() {
       guidedPicker?.open();
     },
     isGuidedLabOpen: () => !!guidedLab?.isActive(),
+    onPreset(name) { presetId = name; },
     onTourOpen() {
       guidedPicker?.close(false);
       guidedLab?.closeLab();
@@ -1509,6 +1513,8 @@ async function boot() {
       app.resetArmed();          // does not clear the schedule (clearMelt does)
       ui.sync();
     },
+    onOpt2dFinished: ev => guidedLab?.emit({ kind: "opt-2d-finished", ...ev }),
+    onOpt2dApplied: ev => guidedLab?.emit({ kind: "opt-2d-applied", ...ev }),
   };
 
   // the analysis columns' figures read the live units and the run's identity
@@ -1585,6 +1591,8 @@ async function boot() {
       opt3WasActive = active; ui.sync();
     },
     restoreArmed: () => app.resetArmed(), applyRecipe: stageRecipe3, shareRecipeLink: recipeLink3,
+    onOpt3dFinished: ev => guidedLab?.emit({ kind: "opt-3d-finished", material, ...ev }),
+    onOpt3dApplied: ev => guidedLab?.emit({ kind: "opt-3d-applied", material, ...ev }),
   });
   const composer = new Composer({
     reportLinkRefusals(refusals) {
@@ -1708,6 +1716,7 @@ async function boot() {
     startAI(target, limit, onDone) { opt.start(sim.n, { target, limit, onDone }); },
     simTime: () => sim.simTime,
     syncUI() { ui.sync(); },
+    onChallengeFinished: ev => guidedLab?.emit({ kind: "challenge-finished", ...ev }),
   };
   const challenge = new Challenge(chHost);
 
@@ -2092,6 +2101,8 @@ async function boot() {
       sliceSweep: slice.sweep,
       fracSolid: s?.fracSolid ?? 0,
       grainCount: s?.grainCount ?? 0,
+      astm: !three ? (lastStats?.astm ?? null) : null,
+      eqDiamUm: three ? (lastStats3?.eqDiamUm ?? null) : null,
       simTime: app.simTimeNow(),
       interfaceTC,
       scheilOn: three ? an3.scheilOn : analyze.scheilOn,
@@ -2101,9 +2112,20 @@ async function boot() {
       nyRiskFrac: three ? (lastStats3?.nyRiskFrac ?? null) : null,
       poreFrac: three ? (lastStats3?.poreFrac ?? null) : null,
       pouredMix: liveMix,
+      flowOn: !three && sim.flowOn,
+      flowSpeed: !three ? sim.flowCfg.u : 0,
+      flowView: !three && renderer.flowView,
+      bridgmanG: p.gradG,
+      bridgmanV: p.pullV,
+      poleFigureOn: three && (an3.ipfOn || an3.poleOn),
+      pole001On: three && an3.ipfOn,
+      presetId,
       labActive: lab.active,
       labRunning: lab.running,
       heatActive: !!heat?.active,
+      challengeActive: challenge.active,
+      optActive: opt.active || !!opt3?.active,
+      recipeActive: three ? Boolean(recipeSchedule3 || appliedRecipe3 || recipeClock3) : Boolean(recipeSchedule),
       composerOpen: composer.isOpen(),
       running: app.isRunning(),
     };
@@ -2113,8 +2135,11 @@ async function boot() {
     snapshot: buildLabSnapshot,
     meta: () => ({ build: BUILD, seed: getSeed(), setupLink: app.shareLink() }),
     applyScene(name) {
-      if (mode === "3d") SCENES3[name]?.(app);
-      else SCENES[name]?.(app);
+      if (mode === "3d") {
+        if (SCENES3[name]) { SCENES3[name](app); presetId = name; }
+      } else {
+        if (SCENES[name]) { SCENES[name](app); presetId = name; }
+      }
     },
     setMode: m => app.setMode(m),
     setMaterial: key => app.setMaterial(key),
@@ -2139,6 +2164,7 @@ async function boot() {
       if (opt3?.active) void opt3.stop();
       if (challenge.active) challenge.stop();
     },
+    setFlowOn: on => app.setFlowOn(on),
     syncUI: () => ui.sync(),
     reveal: target => app.reveal(target),
     clearReveals: () => app.clearReveals(),
@@ -2194,6 +2220,7 @@ async function boot() {
     reveal: target => app.reveal(target),
     clearReveals: () => app.clearReveals(),
     exportZip: async () => { await exportRun(true); },
+    buildReport: () => runner.buildLabReport(),
     hideRail: () => ui.setRailHidden(true),
   });
 
@@ -2900,6 +2927,7 @@ async function boot() {
   // boot scene: a lone dendrite, instantly; ?tour=1 deep link opens the tour;
   // #alloy=… deep link pours a shared composition and runs it
   SCENES.dendrite(app);
+  presetId = "dendrite";
   const bootTour = new URLSearchParams(location.search).has("tour");
   if (bootTour) tour.goto(0);
   let bootAlloyApplied = false;
@@ -3173,7 +3201,7 @@ async function boot() {
       }).finally(() => { sharedRestore3Pending = false; ui.sync(); });
     }
   }
-  // guided-labs deep link (#lab=1..4, #labs, ?lab=1..4, ?labs)
+  // guided-labs deep link (#lab=N, #labs, ?lab=N, ?labs)
   const applyLabRoute = (route: ReturnType<typeof parseLabRoute>, preserveExisting: boolean) => {
     if (!route) return;
     if (route.kind === "picker") {

@@ -99,9 +99,10 @@ export type LabRoute =
   | { kind: "lab"; ref: number | string };
 
 /**
- * Parse `#lab=1..4`, `#labs`, `?lab=1..4`, or `?labs` without disturbing
- * `#set=` or `#alloy=` payloads. Hash takes precedence over query string; an
- * explicit `lab=<id>` takes precedence over bare `labs` within the same source.
+ * Parse `#lab=N` (any positive integer or slug), `#labs`, `?lab=N`, or `?labs`
+ * without disturbing `#set=` or `#alloy=` payloads. Hash takes precedence over
+ * query string; an explicit `lab=<id>` takes precedence over bare `labs` within
+ * the same source.
  */
 export function parseLabRoute(hash: string, search = ""): LabRoute | null {
   const scan = (raw: string): LabRoute | null => {
@@ -119,7 +120,11 @@ export function parseLabRoute(hash: string, search = ""): LabRoute | null {
       let decoded = tail;
       try { decoded = decodeURIComponent(tail); } catch { /* malformed escape: keep raw */ }
       const val = decoded.trim();
-      if (/^[1-9]\d*$/.test(val)) return { kind: "lab", ref: Number(val) };
+      if (/^[1-9]\d*$/.test(val)) {
+        const n = Number(val);
+        if (Number.isSafeInteger(n)) return { kind: "lab", ref: n };
+        continue;
+      }
       if (/^[a-z0-9-]+$/i.test(val)) return { kind: "lab", ref: val.toLowerCase() };
     }
     return picker ? { kind: "picker" } : null;

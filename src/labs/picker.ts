@@ -32,6 +32,7 @@ export class GuidedLabPicker {
 
   open(notice?: string): void {
     this.close(false);
+    this.filter = "ALL";
     this.opener =
       document.activeElement instanceof HTMLElement && document.activeElement !== document.body
         ? document.activeElement
@@ -70,6 +71,13 @@ export class GuidedLabPicker {
       listWrap.textContent = "";
       const allLabs = this.host.labs();
       const visible = this.filter === "ALL" ? allLabs : allLabs.filter(l => l.category === this.filter);
+      if (visible.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "glp__empty";
+        empty.textContent = "No labs in this category.";
+        listWrap.append(empty);
+        return;
+      }
       const progress = this.host.progress();
       const activeId = this.host.activeLabId();
       const can3d = this.host.can3d();
@@ -176,17 +184,41 @@ export class GuidedLabPicker {
       tabBar.setAttribute("role", "tablist");
       tabBar.setAttribute("aria-label", "Filter guided labs");
       const btns: HTMLButtonElement[] = [];
+      const selectFilter = (next: FilterKey, focusBtn = false) => {
+        this.filter = next;
+        btns.forEach((btn, i) => {
+          const on = FILTERS[i] === this.filter;
+          btn.setAttribute("aria-selected", String(on));
+          btn.tabIndex = on ? 0 : -1;
+          if (on && focusBtn) btn.focus();
+        });
+        listWrap.scrollTop = 0;
+        renderList();
+      };
       for (const f of FILTERS) {
         const b = document.createElement("button");
         b.type = "button";
         b.className = "tabs__tab";
         b.setAttribute("role", "tab");
         b.setAttribute("aria-selected", String(f === this.filter));
+        b.tabIndex = f === this.filter ? 0 : -1;
         b.textContent = f;
-        b.addEventListener("click", () => {
-          this.filter = f;
-          btns.forEach((btn, i) => btn.setAttribute("aria-selected", String(FILTERS[i] === this.filter)));
-          renderList();
+        b.addEventListener("click", () => selectFilter(f));
+        b.addEventListener("keydown", e => {
+          const cur = FILTERS.indexOf(f);
+          if (e.key === "ArrowRight") {
+            e.preventDefault();
+            selectFilter(FILTERS[(cur + 1) % FILTERS.length], true);
+          } else if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            selectFilter(FILTERS[(cur + FILTERS.length - 1) % FILTERS.length], true);
+          } else if (e.key === "Home") {
+            e.preventDefault();
+            selectFilter(FILTERS[0], true);
+          } else if (e.key === "End") {
+            e.preventDefault();
+            selectFilter(FILTERS[FILTERS.length - 1], true);
+          }
         });
         btns.push(b);
         tabBar.append(b);
@@ -200,7 +232,7 @@ export class GuidedLabPicker {
     const foot = document.createElement("div");
     foot.className = "glp__foot";
     const note = document.createElement("span");
-    note.textContent = "Browser-local progress · export ZIP from any lab";
+    note.textContent = "Browser-local progress · export ZIP or print report from any lab";
     const link = document.createElement("a");
     link.href = "https://github.com/fronkt/solidify/tree/main/docs/labs";
     link.target = "_blank";

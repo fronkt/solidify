@@ -1,9 +1,9 @@
 /**
- * Declarative 4-lab, 20-step undergraduate MSE curriculum for SOLIDIFY Guided Labs.
+ * Declarative 7-lab, 32-step undergraduate MSE curriculum for SOLIDIFY Guided Labs.
  *
  * Pure data + pure predicates with zero DOM or WebGPU runtime imports so Node CI
  * (`scripts/verify-guided-labs.mjs`) can validate schema, copy rules, and synthetic
- * trajectories directly. Adding Lab 5+ requires appending one `LabDef` entry to `LABS`.
+ * trajectories directly. Adding Lab 8+ requires appending one `LabDef` entry to `LABS`.
  */
 
 import type {
@@ -1608,7 +1608,1047 @@ const LAB_4: LabDef = {
   ],
 };
 
-export const LABS: readonly LabDef[] = [LAB_1, LAB_2, LAB_3, LAB_4];
+const RX_MODE_LABELS = [
+  "random, at once",
+  "random, steady",
+  "boundaries, at once",
+  "boundaries, steady",
+] as const;
+
+function rxModeLabel(mode: number | undefined): string {
+  const idx = typeof mode === "number" && Number.isInteger(mode) && mode >= 0 && mode < RX_MODE_LABELS.length ? mode : 0;
+  return RX_MODE_LABELS[idx];
+}
+
+function fmtOrNA(v: unknown, suffix = ""): string {
+  const n = asNum(v);
+  return n != null ? `${n}${suffix}` : "n/a";
+}
+
+function recoveredPeakJb(workJb: number, rec: number): number {
+  const h0 = Math.max(0, 2 * workJb);
+  return h0 / (1 + Math.max(0, rec) * h0);
+}
+
+// ----------------------------------------------------------------------- Lab 5
+
+const LAB_5: LabDef = {
+  id: "lab-5",
+  hashId: 5,
+  number: "05",
+  title: "Cold Work, Recovery & Recrystallization",
+  course: "Physical Metallurgy · Thermomechanical Processing",
+  minutes: 40,
+  dimension: "3D",
+  category: "HEAT TREAT",
+  requires3d: true,
+  summary:
+    "Contrast sub-barrier vs active 3D cold work, measure second-order recovery, and fit Avrami exponents across nucleation modes.",
+  async setup(host: LabRunnerHost) {
+    host.closeModes();
+    if (host.snapshot().can3d) {
+      await host.setMode("3d");
+      host.setCalibrated(false);
+      host.setMaterial("al");
+      host.setParams({
+        scen: 0,
+        heatIn: 0,
+        facet: 0,
+        twinProb: 0,
+        pPore: 0,
+        delta: 0.045,
+        noiseAmp: 0.012,
+        latent: 1.5,
+        coolRate: 0.35,
+      });
+      host.setUndercool(0.75);
+      host.setInoculant(600);
+      host.clearMelt(0.75);
+      host.setView(1); // ORIENT
+      host.setSpeed(22);
+      host.setRun(false);
+    } else {
+      await host.setMode("2d");
+      host.setCalibrated(false);
+      host.setMaterial("al");
+      host.setRun(false);
+    }
+    host.syncUI();
+  },
+  columns: [
+    { key: "drive", label: "work / mode" },
+    { key: "kinetics", label: "recovery / X" },
+    { key: "result", label: "d̄ / Avrami n" },
+  ],
+  formatRows(byStep): LabTableRow[] {
+    const rows: LabTableRow[] = [];
+    const s1 = byStep["cold-work-barrier"];
+    for (const [k, label] of [
+      ["subBarrier", "sub-barrier"],
+      ["aboveBarrier", "active SIBM"],
+    ] as const) {
+      const m = asMap(s1?.[k]);
+      if (!m) continue;
+      rows.push({
+        group: "5.1",
+        label,
+        values: {
+          drive: `${fmtOrNA(m.coldWorkJb)} J_b (0–${fmtOrNA(m.peakStartJb)})`,
+          kinetics: `rec ${fmtOrNA(m.recovery)} · ${fmtOrNA(m.sweeps)} sw`,
+          result: `${fmtOrNA(m.d0Um)} → ${fmtOrNA(m.dAfterUm)} µm`,
+        },
+      });
+    }
+    const s2 = byStep["recovery-withdrawal"];
+    if (s2 && Object.keys(s2).length) {
+      rows.push({
+        group: "5.2",
+        label: "recovery",
+        values: {
+          drive: `${fmtOrNA(s2.coldWorkJb)} J_b · withdrawn`,
+          kinetics: `${fmtOrNA(s2.peakStartJb)} → ${fmtOrNA(s2.peakEndJb)} J_b`,
+          result: asNum(s2.recoveredMeanJb) != null ? `mean ${asNum(s2.recoveredMeanJb)} J_b` : "—",
+        },
+      });
+    }
+    const s3 = byStep["rx-site-saturated"];
+    if (s3 && Object.keys(s3).length) {
+      rows.push({
+        group: "5.3",
+        label: "at once",
+        values: {
+          drive: `${fmtOrNA(s3.rxNuclei)} · random`,
+          kinetics: `X ${fmtOrNA(s3.rxFraction)} · r² ${fmtOrNA(s3.avramiR2)}`,
+          result: asNum(s3.avramiN) != null ? `n ${asNum(s3.avramiN)}` : "—",
+        },
+      });
+    }
+    const s4 = byStep["rx-mode-contrast"];
+    const steady = asMap(s4?.steady);
+    if (steady) {
+      rows.push({
+        group: "5.4",
+        label: "steady",
+        values: {
+          drive: `${fmtOrNA(steady.rxNuclei)} · random`,
+          kinetics: `X ${fmtOrNA(steady.rxFraction)} · r² ${fmtOrNA(steady.avramiR2)}`,
+          result: asNum(steady.avramiN) != null ? `n ${asNum(steady.avramiN)}` : "—",
+        },
+      });
+    }
+    const boundary = asMap(s4?.boundary);
+    if (boundary) {
+      rows.push({
+        group: "5.4",
+        label: "boundaries",
+        values: {
+          drive: `${fmtOrNA(boundary.rxNuclei)} · ${String(boundary.rxModeLabel ?? "boundaries")}`,
+          kinetics: `X ${fmtOrNA(boundary.rxFraction)} · r² ${fmtOrNA(boundary.avramiR2)}`,
+          result: asNum(boundary.avramiN) != null ? `n ${asNum(boundary.avramiN)}` : "—",
+        },
+      });
+    }
+    return rows;
+  },
+  steps: [
+    {
+      id: "cold-work-barrier",
+      title: "Sub-barrier vs active cold work (3D SIBM)",
+      requires3d: true,
+      action:
+        "Press ▶ run until solid fraction passes 90 %, pause, open heat treat (aluminum · Al–Cu, 490–520 °C, 45–90 min), and run both a sub-barrier cold work (1.0–2.5 J_b) and an active cold work (≥ 6.0 J_b, nuclei none).",
+      reveal: ["#transport", "sec:MODES", "#heattreat"],
+      liveHint(snap, mem) {
+        if (snap.mode !== "3d") return "switch TRUE 3D ON";
+        if (!snap.heatActive && snap.fracSolid < 0.90) {
+          return `3D solid ${(snap.fracSolid * 100).toFixed(0)} % / 90 %${snap.running ? "" : ": press ▶ run"}`;
+        }
+        if (!snap.heatActive) return "pause and open heat treat in MODES";
+        if (!mem.latched.subBarrier && !mem.latched.aboveBarrier) {
+          return "run cold work 1.0–2.5 J_b and ≥ 6.0 J_b (nuclei none, 490–520 °C, 45–90 min)";
+        }
+        if (!mem.latched.subBarrier) return "now run sub-barrier cold work (1.0–2.5 J_b, nuclei none)";
+        if (!mem.latched.aboveBarrier) return "now run active cold work (≥ 6.0 J_b, nuclei none)";
+        return null;
+      },
+      subgoals: [
+        {
+          id: "subBarrier",
+          label: "sub-barrier cold work (1.0–2.5 J_b)",
+          match(_snap, ev) {
+            const w = ev?.kind === "heat-finished" ? (ev.coldWorkJb ?? 0) : 0;
+            return (
+              ev?.kind === "heat-finished" &&
+              ev.dim === "3d" &&
+              !ev.aborted &&
+              w >= 1.0 &&
+              w <= 2.5 &&
+              (ev.rxNuclei ?? 0) === 0 &&
+              ev.sweeps >= 40
+            );
+          },
+          capture(_snap, ev) {
+            const e = ev as Extract<LabEvent, { kind: "heat-finished" }>;
+            const w = e.coldWorkJb ?? 0;
+            const rec = e.recovery ?? 0;
+            return {
+              material: e.material,
+              tC: round(e.tC, 0),
+              holdMin: round(e.holdMin, 0),
+              coldWorkJb: round(w, 1),
+              peakStartJb: round(2 * w, 1),
+              recovery: round(rec, 3),
+              recoveredMeanJb: e.recoveredMeanJb != null ? round(e.recoveredMeanJb, 2) : null,
+              d0Um: round(e.d0Um, 1),
+              dAfterUm: round(e.dAfterUm, 1),
+              sweeps: e.sweeps,
+              lawWithdrawn: e.lawWithdrawn ?? true,
+            };
+          },
+        },
+        {
+          id: "aboveBarrier",
+          label: "active cold work (≥ 6.0 J_b)",
+          match(_snap, ev) {
+            const w = ev?.kind === "heat-finished" ? (ev.coldWorkJb ?? 0) : 0;
+            return (
+              ev?.kind === "heat-finished" &&
+              ev.dim === "3d" &&
+              !ev.aborted &&
+              w >= 6.0 &&
+              (ev.rxNuclei ?? 0) === 0 &&
+              ev.sweeps >= 40
+            );
+          },
+          capture(_snap, ev) {
+            const e = ev as Extract<LabEvent, { kind: "heat-finished" }>;
+            const w = e.coldWorkJb ?? 0;
+            const rec = e.recovery ?? 0;
+            return {
+              material: e.material,
+              tC: round(e.tC, 0),
+              holdMin: round(e.holdMin, 0),
+              coldWorkJb: round(w, 1),
+              peakStartJb: round(2 * w, 1),
+              recovery: round(rec, 3),
+              recoveredMeanJb: e.recoveredMeanJb != null ? round(e.recoveredMeanJb, 2) : null,
+              d0Um: round(e.d0Um, 1),
+              dAfterUm: round(e.dAfterUm, 1),
+              sweeps: e.sweeps,
+              lawWithdrawn: e.lawWithdrawn ?? true,
+            };
+          },
+        },
+      ],
+      takeaway:
+        "Far below the 26-neighbor flat-{100} barrier (8 J_b, onset near 5–6 J_b) boundaries barely respond to stored energy, whereas above it low-strain grains consume high-strain neighbors and the curvature growth law is withdrawn.",
+    },
+    {
+      id: "recovery-withdrawal",
+      title: "Second-order recovery & endpoint withdrawal",
+      requires3d: true,
+      action:
+        "In 3D heat treat, set cold work to 8.0–10.0 J_b (nuclei none) with a schedule delivering at least 180 MC sweeps (for example 500–520 °C, 60–90 min on aluminum · Al–Cu) and click ▶ run treatment.",
+      reveal: ["#heattreat"],
+      liveHint(snap) {
+        if (snap.mode !== "3d") return "switch TRUE 3D ON";
+        if (!snap.heatActive) return "open heat treat in MODES";
+        return "set cold work 8.0–10.0 J_b (nuclei none) at 500–520 °C for 60–90 min (≥ 180 MC sweeps)";
+      },
+      check(_snap, ev) {
+        return (
+          ev?.kind === "heat-finished" &&
+          ev.dim === "3d" &&
+          !ev.aborted &&
+          (ev.coldWorkJb ?? 0) >= 8.0 &&
+          (ev.rxNuclei ?? 0) === 0 &&
+          ev.sweeps >= 180 &&
+          (ev.recovery ?? 0) >= 0.15 &&
+          ev.lawWithdrawn === true
+        );
+      },
+      capture(_snap, ev) {
+        const e = ev as Extract<LabEvent, { kind: "heat-finished" }>;
+        const w = e.coldWorkJb ?? 0;
+        const rec = e.recovery ?? 0;
+        const peakEnd = e.recoveredPeakJb ?? recoveredPeakJb(w, rec);
+        return {
+          tC: round(e.tC, 0),
+          holdMin: round(e.holdMin, 0),
+          coldWorkJb: round(w, 1),
+          peakStartJb: round(2 * w, 1),
+          peakEndJb: round(peakEnd, 2),
+          recoveredMeanJb: e.recoveredMeanJb != null ? round(e.recoveredMeanJb, 2) : null,
+          recovery: round(rec, 3),
+          sweeps: e.sweeps,
+          d0Um: round(e.d0Um, 1),
+          dAfterUm: round(e.dAfterUm, 1),
+          lawWithdrawn: true,
+        };
+      },
+      takeaway:
+        "Second-order recovery H_S = H₀ / (1 + rec·H₀) drains the most deformed grains fastest, narrowing the driving spread until boundary migration stalls while keeping the curvature law endpoint withdrawn.",
+    },
+    {
+      id: "rx-site-saturated",
+      title: "Site-saturated recrystallization & Avrami n",
+      requires3d: true,
+      action:
+        "In 3D heat treat (cold work 8.0–10.0 J_b, 500–520 °C, 60–90 min), set nuclei to 150–400 with nucleation on random, at once and click ▶ run treatment to fit the Avrami exponent n.",
+      reveal: ["#heattreat"],
+      liveHint(snap) {
+        if (snap.mode !== "3d") return "switch TRUE 3D ON";
+        if (!snap.heatActive) return "open heat treat in MODES";
+        return "set cold work 8.0–10.0 J_b, nuclei 150–400, nucleation random, at once, and ▶ run treatment";
+      },
+      check(_snap, ev) {
+        return (
+          ev?.kind === "heat-finished" &&
+          ev.dim === "3d" &&
+          !ev.aborted &&
+          (ev.coldWorkJb ?? 0) >= 8.0 &&
+          (ev.rxNuclei ?? 0) >= 100 &&
+          (ev.rxMode ?? 0) === 0 &&
+          ev.avramiN != null &&
+          Number.isFinite(ev.avramiN) &&
+          (ev.avramiPoints ?? 0) >= 4
+        );
+      },
+      capture(_snap, ev) {
+        const e = ev as Extract<LabEvent, { kind: "heat-finished" }>;
+        return {
+          coldWorkJb: round(e.coldWorkJb ?? 0, 1),
+          rxNuclei: e.rxNuclei ?? 0,
+          rxPlaced: e.rxPlaced ?? 0,
+          rxMode: 0,
+          rxModeLabel: rxModeLabel(0),
+          rxFraction: e.rxFraction != null ? round(e.rxFraction, 2) : null,
+          avramiN: e.avramiN != null ? round(e.avramiN, 2) : null,
+          avramiR2: e.avramiR2 != null ? round(e.avramiR2, 3) : null,
+          avramiPoints: e.avramiPoints ?? null,
+          sweeps: e.sweeps,
+          dAfterUm: round(e.dAfterUm, 1),
+        };
+      },
+      takeaway:
+        "Strain-free nuclei (0 J_b) sweep deformed grains along a sigmoidal JMAK curve; the fitted Avrami exponent n is measured on the Monte Carlo sweep clock rather than furnace seconds.",
+    },
+    {
+      id: "rx-mode-contrast",
+      title: "Steady-rate vs grain-boundary nucleation",
+      requires3d: true,
+      action:
+        "Keep cold work 8.0–10.0 J_b and nuclei 150–400, then run both nucleation on random, steady and a grain-boundary mode (boundaries, at once or boundaries, steady) to compare their Avrami exponents.",
+      reveal: ["#heattreat"],
+      liveHint(snap, mem) {
+        if (snap.mode !== "3d") return "switch TRUE 3D ON";
+        if (!snap.heatActive) return "open heat treat in MODES";
+        if (!mem.latched.steady && !mem.latched.boundary) {
+          return "run nucleation random, steady and boundaries, at once (or boundaries, steady)";
+        }
+        if (!mem.latched.steady) return "now run nucleation random, steady (cold work 8.0–10.0 J_b, nuclei 150–400)";
+        if (!mem.latched.boundary) return "now run nucleation boundaries, at once or boundaries, steady";
+        return null;
+      },
+      subgoals: [
+        {
+          id: "steady",
+          label: "random, steady (constant rate)",
+          match(_snap, ev) {
+            return (
+              ev?.kind === "heat-finished" &&
+              ev.dim === "3d" &&
+              !ev.aborted &&
+              (ev.coldWorkJb ?? 0) >= 8.0 &&
+              (ev.rxNuclei ?? 0) >= 100 &&
+              ev.rxMode === 1 &&
+              ev.avramiN != null &&
+              Number.isFinite(ev.avramiN) &&
+              (ev.avramiPoints ?? 0) >= 4
+            );
+          },
+          capture(_snap, ev) {
+            const e = ev as Extract<LabEvent, { kind: "heat-finished" }>;
+            return {
+              coldWorkJb: round(e.coldWorkJb ?? 0, 1),
+              rxNuclei: e.rxNuclei ?? 0,
+              rxPlaced: e.rxPlaced ?? 0,
+              rxMode: 1,
+              rxModeLabel: rxModeLabel(1),
+              rxFraction: e.rxFraction != null ? round(e.rxFraction, 2) : null,
+              avramiN: e.avramiN != null ? round(e.avramiN, 2) : null,
+              avramiR2: e.avramiR2 != null ? round(e.avramiR2, 3) : null,
+              avramiPoints: e.avramiPoints ?? null,
+              sweeps: e.sweeps,
+            };
+          },
+        },
+        {
+          id: "boundary",
+          label: "boundaries, at once or steady",
+          match(_snap, ev) {
+            return (
+              ev?.kind === "heat-finished" &&
+              ev.dim === "3d" &&
+              !ev.aborted &&
+              (ev.coldWorkJb ?? 0) >= 8.0 &&
+              (ev.rxNuclei ?? 0) >= 100 &&
+              (ev.rxMode === 2 || ev.rxMode === 3) &&
+              ev.avramiN != null &&
+              Number.isFinite(ev.avramiN) &&
+              (ev.avramiPoints ?? 0) >= 4
+            );
+          },
+          capture(_snap, ev) {
+            const e = ev as Extract<LabEvent, { kind: "heat-finished" }>;
+            const mode = e.rxMode ?? 2;
+            return {
+              coldWorkJb: round(e.coldWorkJb ?? 0, 1),
+              rxNuclei: e.rxNuclei ?? 0,
+              rxPlaced: e.rxPlaced ?? 0,
+              rxMode: mode,
+              rxModeLabel: rxModeLabel(mode),
+              rxFraction: e.rxFraction != null ? round(e.rxFraction, 2) : null,
+              avramiN: e.avramiN != null ? round(e.avramiN, 2) : null,
+              avramiR2: e.avramiR2 != null ? round(e.avramiR2, 3) : null,
+              avramiPoints: e.avramiPoints ?? null,
+              sweeps: e.sweeps,
+            };
+          },
+        },
+      ],
+      takeaway:
+        "Staggering births over sweeps (random, steady) raises the JMAK slope toward the constant-rate limit, whereas crowding nuclei onto grain boundaries triggers earlier impingement and bends n downward.",
+    },
+  ],
+};
+
+// ----------------------------------------------------------------------- Lab 6
+
+const LAB_6: LabDef = {
+  id: "lab-6",
+  hashId: 6,
+  number: "06",
+  title: "Directional Growth, Melt Flow & Selection",
+  course: "Solidification Processing · Transport & Texture",
+  minutes: 40,
+  dimension: "2D + 3D",
+  category: "TRUE 3D",
+  requires3d: true,
+  summary:
+    "Contrast 2D Bridgman G/V regimes, test qualitative LBM melt flow asymmetry, and stage the 3D helical grain selector with [001] pole figures.",
+  async setup(host: LabRunnerHost) {
+    host.closeModes();
+    await host.setMode("2d");
+    host.setFlowOn?.(false);
+    host.setCalibrated(false);
+    host.setMaterial("ni");
+    host.applyScene("bridgman");
+    host.setRun(false);
+    host.syncUI();
+  },
+  columns: [
+    { key: "regime", label: "regime / flow" },
+    { key: "params", label: "G, V / speed" },
+    { key: "outcome", label: "readout" },
+  ],
+  formatRows(byStep): LabTableRow[] {
+    const rows: LabTableRow[] = [];
+    const s1 = byStep["bridgman-gv-contrast"];
+    for (const [k, label] of [
+      ["highGV", "high G/V"],
+      ["lowGV", "low G/V"],
+    ] as const) {
+      const m = asMap(s1?.[k]);
+      if (!m) continue;
+      rows.push({
+        group: "6.1",
+        label,
+        values: {
+          regime: asNum(m.gvRatio) != null ? `G/V ${asNum(m.gvRatio)}` : "—",
+          params: `G ${fmtOrNA(m.gradG)} · V ${fmtOrNA(m.pullV)}`,
+          outcome: `${fmtOrNA(m.grainCount)} gr · f_s ${fmtOrNA(m.fracSolidPct)} %`,
+        },
+      });
+    }
+    const s2 = byStep["lbm-melt-flow"];
+    const still = asMap(s2?.still);
+    if (still) {
+      rows.push({
+        group: "6.2",
+        label: "still melt",
+        values: {
+          regime: "flow OFF",
+          params: "u 0.000",
+          outcome: `f_s ${fmtOrNA(still.fracSolidPct)} % · t ${fmtOrNA(still.simTime)}`,
+        },
+      });
+    }
+    const flowing = asMap(s2?.flowing);
+    if (flowing) {
+      rows.push({
+        group: "6.2",
+        label: "LBM flow",
+        values: {
+          regime: "qualitative 2D",
+          params: asNum(flowing.flowSpeed) != null ? `u ${asNum(flowing.flowSpeed)} cell/step` : "—",
+          outcome: `f_s ${fmtOrNA(flowing.fracSolidPct)} % · t ${fmtOrNA(flowing.simTime)}`,
+        },
+      });
+    }
+    const s3 = byStep["selector-3d-staging"];
+    if (s3 && Object.keys(s3).length) {
+      rows.push({
+        group: "6.3",
+        label: "3D selector",
+        values: {
+          regime: `${fmtOrNA(s3.gridN)}³ pigtail`,
+          params: `G ${fmtOrNA(s3.gradG)} · V ${fmtOrNA(s3.pullV)}`,
+          outcome: `${fmtOrNA(s3.grainCount)} gr · f_s ${fmtOrNA(s3.fracSolidPct)} %`,
+        },
+      });
+    }
+    const s4 = byStep["selector-pole-figure"];
+    if (s4 && Object.keys(s4).length) {
+      rows.push({
+        group: "6.4",
+        label: "[001] texture",
+        values: {
+          regime: "SLICE + [001]",
+          params: `depth ${Math.round((asNum(s4.sliceOff) ?? 0) * 100)} %`,
+          outcome: `${fmtOrNA(s4.grainCount)} gr · f_s ${fmtOrNA(s4.fracSolidPct)} %`,
+        },
+      });
+    }
+    return rows;
+  },
+  steps: [
+    {
+      id: "bridgman-gv-contrast",
+      title: "Bridgman gradient G vs pull speed V",
+      action:
+        "In SCENARIO (bridgman), run a high-G/V pass (gradient ≥ 0.12, pull speed ≤ 1.5) past 25 % solid, then click reset and chill wall, set a low-G/V pass (gradient ≤ 0.10, pull speed ≥ 3.5), and run past 25 % solid.",
+      reveal: ["sec:SCENARIO", "sec:MELT · PROCESS", "#transport"],
+      liveHint(snap, mem) {
+        if (snap.mode !== "2d") return "switch TRUE 3D OFF for 2D bridgman first";
+        if (snap.params.scen !== 1) return "select bridgman in SCENARIO or PRESETS";
+        const hi = mem.latched.highGV;
+        const lo = mem.latched.lowGV;
+        if (!hi && !lo) {
+          return `set G ≥ 0.12, V ≤ 1.5 (now G ${snap.bridgmanG.toFixed(3)}, V ${snap.bridgmanV.toFixed(1)}) · solid ${(snap.fracSolid * 100).toFixed(0)} % / 25 %`;
+        }
+        const prevEpoch = asNum((hi ?? lo)?.resetEpoch);
+        if (prevEpoch != null && snap.resetEpoch === prevEpoch) {
+          return "click reset and chill wall before starting the second G/V pass";
+        }
+        if (!hi) {
+          return `high G/V pass: set gradient ≥ 0.12, pull speed ≤ 1.5 · solid ${(snap.fracSolid * 100).toFixed(0)} % / 25 %`;
+        }
+        return `low G/V pass: set gradient ≤ 0.10, pull speed ≥ 3.5 · solid ${(snap.fracSolid * 100).toFixed(0)} % / 25 %`;
+      },
+      subgoals: [
+        {
+          id: "highGV",
+          label: "high G/V (G ≥ 0.12, V ≤ 1.5, ≥ 25 %)",
+          match(snap, _ev, mem) {
+            const otherEpoch = asNum(mem.latched.lowGV?.resetEpoch);
+            return (
+              snap.mode === "2d" &&
+              snap.params.scen === 1 &&
+              snap.bridgmanG >= 0.12 &&
+              snap.bridgmanV <= 1.5 &&
+              snap.fracSolid >= 0.25 &&
+              snap.grainCount >= 3 &&
+              (otherEpoch == null || snap.resetEpoch !== otherEpoch)
+            );
+          },
+          capture(snap) {
+            return {
+              gradG: round(snap.bridgmanG, 3),
+              pullV: round(snap.bridgmanV, 1),
+              gvRatio: round(snap.bridgmanG / Math.max(1e-6, snap.bridgmanV), 4),
+              coolGV: round(snap.bridgmanG * snap.bridgmanV, 3),
+              grainCount: snap.grainCount,
+              fracSolidPct: round(snap.fracSolid * 100, 1),
+              resetEpoch: snap.resetEpoch,
+            };
+          },
+        },
+        {
+          id: "lowGV",
+          label: "low G/V (G ≤ 0.10, V ≥ 3.5, ≥ 25 %)",
+          match(snap, _ev, mem) {
+            const otherEpoch = asNum(mem.latched.highGV?.resetEpoch);
+            return (
+              snap.mode === "2d" &&
+              snap.params.scen === 1 &&
+              snap.bridgmanG <= 0.10 &&
+              snap.bridgmanV >= 3.5 &&
+              snap.fracSolid >= 0.25 &&
+              snap.grainCount >= 3 &&
+              (otherEpoch == null || snap.resetEpoch !== otherEpoch)
+            );
+          },
+          capture(snap) {
+            return {
+              gradG: round(snap.bridgmanG, 3),
+              pullV: round(snap.bridgmanV, 1),
+              gvRatio: round(snap.bridgmanG / Math.max(1e-6, snap.bridgmanV), 4),
+              coolGV: round(snap.bridgmanG * snap.bridgmanV, 3),
+              grainCount: snap.grainCount,
+              fracSolidPct: round(snap.fracSolid * 100, 1),
+              resetEpoch: snap.resetEpoch,
+            };
+          },
+        },
+      ],
+      takeaway:
+        "High G/V keeps the directional front compact while misaligned columns are crowded out; lowering G/V with faster pull speed V increases cooling rate G·V and drives finer branched dendrites.",
+    },
+    {
+      id: "lbm-melt-flow",
+      title: "Qualitative 2D melt flow & arm asymmetry",
+      action:
+        "Click dendrite in PRESETS and grow past 10 % solid with melt flow OFF, then click dendrite again, enable melt flow in SCENARIO (flow speed ≥ 0.02, show flow ON), and grow past 10 % solid.",
+      reveal: ["sec:PRESETS", "sec:SCENARIO", "#views"],
+      liveHint(snap, mem) {
+        if (snap.mode !== "2d") return "stay in 2D mode (melt flow is 2D free growth only)";
+        if (snap.gridN > 1024) return "choose 1024² or 512² in ENGINE for melt flow";
+        if (snap.params.scen !== 0 || snap.resetEpoch <= mem.enteredAtEpoch) {
+          return "click dendrite in PRESETS to stage a fresh free-growth melt";
+        }
+        const still = mem.latched.still;
+        const flowing = mem.latched.flowing;
+        if (!still && !flowing) {
+          return snap.flowOn
+            ? `flowing run: u ${snap.flowSpeed.toFixed(3)} · solid ${(snap.fracSolid * 100).toFixed(1)} % / 10 %`
+            : `still run: solid ${(snap.fracSolid * 100).toFixed(1)} % / 10 %${snap.running ? "" : ": press ▶ run"}`;
+        }
+        const prevEpoch = asNum((still ?? flowing)?.resetEpoch);
+        if (prevEpoch != null && snap.resetEpoch === prevEpoch) {
+          return "click dendrite in PRESETS (or reset and seed) for a fresh comparison run";
+        }
+        if (!flowing) {
+          if (!snap.flowOn) return "enable melt flow in SCENARIO (flow speed ≥ 0.02, show flow ON)";
+          if (snap.flowSpeed < 0.02) return `raise flow speed ≥ 0.020 (now ${snap.flowSpeed.toFixed(3)})`;
+          return `flowing run: solid ${(snap.fracSolid * 100).toFixed(1)} % / 10 %`;
+        }
+        if (snap.flowOn) return "turn melt flow OFF and click dendrite for the still-melt baseline";
+        return `still run: solid ${(snap.fracSolid * 100).toFixed(1)} % / 10 %`;
+      },
+      subgoals: [
+        {
+          id: "still",
+          label: "still dendrite (melt flow OFF, ≥ 10 %)",
+          match(snap, _ev, mem) {
+            const otherEpoch = asNum(mem.latched.flowing?.resetEpoch);
+            return (
+              snap.mode === "2d" &&
+              snap.params.scen === 0 &&
+              snap.resetEpoch > mem.enteredAtEpoch &&
+              !snap.flowOn &&
+              snap.fracSolid >= 0.10 &&
+              (otherEpoch == null || snap.resetEpoch !== otherEpoch)
+            );
+          },
+          capture(snap) {
+            return {
+              flowOn: false,
+              flowSpeed: 0,
+              simTime: round(snap.simTime, 3),
+              fracSolidPct: round(snap.fracSolid * 100, 1),
+              resetEpoch: snap.resetEpoch,
+            };
+          },
+        },
+        {
+          id: "flowing",
+          label: "LBM flow ON (flow speed ≥ 0.02, ≥ 10 %)",
+          match(snap, _ev, mem) {
+            const otherEpoch = asNum(mem.latched.still?.resetEpoch);
+            return (
+              snap.mode === "2d" &&
+              snap.params.scen === 0 &&
+              snap.resetEpoch > mem.enteredAtEpoch &&
+              snap.flowOn &&
+              snap.flowSpeed >= 0.02 &&
+              snap.fracSolid >= 0.10 &&
+              (otherEpoch == null || snap.resetEpoch !== otherEpoch)
+            );
+          },
+          capture(snap) {
+            return {
+              flowOn: true,
+              flowSpeed: round(snap.flowSpeed, 4),
+              flowView: snap.flowView,
+              simTime: round(snap.simTime, 3),
+              fracSolidPct: round(snap.fracSolid * 100, 1),
+              resetEpoch: snap.resetEpoch,
+            };
+          },
+        },
+      ],
+      takeaway:
+        "Forced left-to-right LBM flow thins the upstream thermal boundary layer and sweeps latent heat into the downstream wake, making the windward arm outgrow the leeward arm; this 2D channel solver is qualitative and omits buoyancy.",
+    },
+    {
+      id: "selector-3d-staging",
+      title: "3D helical pigtail grain selector",
+      requires3d: true,
+      action:
+        "Switch TRUE 3D ON, click selector in PRESETS, and let the 64 chill-floor grains climb competitively into the helical pigtail past 12 % solid.",
+      reveal: ["#dimSwitch", "sec:PRESETS", "#views"],
+      liveHint(snap) {
+        if (snap.mode !== "3d") return "switch TRUE 3D ON";
+        if (snap.params.scen !== 3) return "click selector in PRESETS";
+        if (snap.fracSolid < 0.12) {
+          return `selector solid ${(snap.fracSolid * 100).toFixed(1)} % / 12 %${snap.running ? " (tip: ×2 or ×4 speeds growth)" : ": press ▶ run"}`;
+        }
+        return null;
+      },
+      check(snap) {
+        return (
+          snap.mode === "3d" &&
+          snap.params.scen === 3 &&
+          snap.fracSolid >= 0.12 &&
+          snap.grainCount >= 1
+        );
+      },
+      capture(snap) {
+        return {
+          gridN: snap.gridN,
+          gradG: round(snap.bridgmanG, 2),
+          pullV: round(snap.bridgmanV, 1),
+          grainCount: snap.grainCount,
+          fracSolidPct: round(snap.fracSolid * 100, 1),
+          simTime: round(snap.simTime, 3),
+        };
+      },
+      takeaway:
+        "The 3D selector stages 64 chill-floor grains racing up a helical pigtail under directional pull; competitive channel geometry narrows survival without guaranteeing a single exiting grain.",
+    },
+    {
+      id: "selector-pole-figure",
+      title: "[001] pole figure & section texture",
+      requires3d: true,
+      action:
+        "Keep the 3D selector past 15 % solid, enable pole figure [001] in VOLUME · 3D, switch to SLICE, and move depth in SECTION PLANE to inspect texture from starter block to pigtail.",
+      reveal: ["sec:VOLUME · 3D", "#views", "#slicePop"],
+      liveHint(snap, mem) {
+        if (snap.mode !== "3d" || snap.params.scen !== 3) return "stay on the 3D selector preset";
+        if (snap.fracSolid < 0.15) return `selector solid ${(snap.fracSolid * 100).toFixed(1)} % / 15 %`;
+        if (!snap.pole001On && !snap.poleFigureOn) return "enable pole figure [001] in VOLUME · 3D";
+        if (snap.viewName !== "SLICE") return "select SLICE on the lens bar";
+        if (!snap.sliceSweep && mem.enteredSliceOff != null && Math.abs(snap.sliceOff - mem.enteredSliceOff) < 0.08) {
+          return "drag depth in SECTION PLANE (or enable CT sweep)";
+        }
+        return null;
+      },
+      check(snap, _ev, mem) {
+        return (
+          snap.mode === "3d" &&
+          snap.params.scen === 3 &&
+          snap.fracSolid >= 0.15 &&
+          (snap.pole001On || snap.poleFigureOn) &&
+          snap.viewName === "SLICE" &&
+          (snap.sliceSweep || (mem.enteredSliceOff != null && Math.abs(snap.sliceOff - mem.enteredSliceOff) >= 0.08))
+        );
+      },
+      capture(snap) {
+        return {
+          gridN: snap.gridN,
+          sliceOff: round(snap.sliceOff, 2),
+          grainCount: snap.grainCount,
+          fracSolidPct: round(snap.fracSolid * 100, 1),
+          poleFigureOn: true,
+        };
+      },
+      takeaway:
+        "Each dot in pole figure [001] projects a grain's [001] crystal axis toward the center pull axis and scales by diameter, making directional alignment visible alongside serial sections.",
+    },
+  ],
+};
+
+// ----------------------------------------------------------------------- Lab 7
+
+const LAB_7: LabDef = {
+  id: "lab-7",
+  hashId: 7,
+  number: "07",
+  title: "Inverse Process Design & Optimization",
+  course: "Materials Design · Inverse Process Optimization",
+  minutes: 40,
+  dimension: "2D + 3D",
+  category: "2D",
+  requires3d: true,
+  summary:
+    "Compete against CMA-ES in 2D challenge, converge and live-verify a 2D recipe on the full grid, and run current-grid 3D diameter optimization.",
+  async setup(host: LabRunnerHost) {
+    host.closeModes();
+    await host.setMode("2d");
+    host.setFlowOn?.(false);
+    host.setCalibrated(false);
+    host.setMaterial("al");
+    host.applyScene("rain");
+    host.setRun(false);
+    host.syncUI();
+  },
+  columns: [
+    { key: "target", label: "target" },
+    { key: "search", label: "measured / best" },
+    { key: "outcome", label: "error / verdict" },
+  ],
+  formatRows(byStep): LabTableRow[] {
+    const rows: LabTableRow[] = [];
+    const s1 = byStep["challenge-human-vs-cmaes"];
+    if (s1 && Object.keys(s1).length) {
+      rows.push({
+        group: "7.1",
+        label: "challenge",
+        values: {
+          target: asNum(s1.targetG) != null ? `ASTM G ${asNum(s1.targetG)}` : "—",
+          search: `you ${fmtOrNA(s1.playerG)} · opt ${fmtOrNA(s1.aiG)}`,
+          outcome: typeof s1.verdict === "string" && s1.verdict ? s1.verdict : "—",
+        },
+      });
+    }
+    const s2 = byStep["opt-2d-cmaes"];
+    if (s2 && Object.keys(s2).length) {
+      rows.push({
+        group: "7.2",
+        label: `2D CMA-ES (${fmtOrNA(s2.episodes)})`,
+        values: {
+          target: asNum(s2.targetG) != null ? `ASTM G ${asNum(s2.targetG)}` : "—",
+          search: `G ${fmtOrNA(s2.bestG)} · ${fmtOrNA(s2.nmax)} sites`,
+          outcome: asNum(s2.bestError) != null ? `|ΔG| ${asNum(s2.bestError)}` : "—",
+        },
+      });
+    }
+    const s3 = byStep["opt-2d-apply-verify"];
+    const ver = asMap(s3?.verified);
+    const app = asMap(s3?.applied);
+    if (app || ver) {
+      const searchG = asNum(app?.searchG);
+      const liveG = asNum(ver?.liveG);
+      const deltaG = asNum(ver?.deltaFromTarget);
+      rows.push({
+        group: "7.3",
+        label: `full ${asNum(ver?.gridN) ?? 1024}² verify`,
+        values: {
+          target: searchG != null ? `search G ${searchG}` : "—",
+          search: liveG != null ? `live G ${liveG}` : "applied",
+          outcome: ver ? (deltaG != null ? `|ΔG| ${deltaG}` : "verified") : "pending cast",
+        },
+      });
+    }
+    const s4 = byStep["opt-3d-volume-search"];
+    if (s4 && Object.keys(s4).length) {
+      const unit = String(s4.unit ?? "µm");
+      rows.push({
+        group: "7.4",
+        label: `3D ${fmtOrNA(s4.gridN)}³ (${fmtOrNA(s4.episodes)})`,
+        values: {
+          target: asNum(s4.targetDiam) != null ? `d̄ ${asNum(s4.targetDiam)} ${unit}` : "—",
+          search: asNum(s4.bestDiam) != null ? `best ${asNum(s4.bestDiam)} ${unit}` : "—",
+          outcome: asNum(s4.relErrorPct) != null ? `err ${asNum(s4.relErrorPct)} %` : "—",
+        },
+      });
+    }
+    return rows;
+  },
+  steps: [
+    {
+      id: "challenge-human-vs-cmaes",
+      title: "Human vs CMA-ES challenge (2D)",
+      action:
+        "Open challenge in MODES, click ▶ start, steer cooling rate and inoculant n_max to hit the target ASTM G, and let the 10-casting optimizer finish the verdict.",
+      reveal: ["sec:MODES", "sec:MELT · PROCESS"],
+      liveHint(snap) {
+        if (snap.mode !== "2d") return "switch TRUE 3D OFF (challenge is 2D only)";
+        if (!snap.challengeActive) return "open challenge in MODES and click ▶ start";
+        return "steer cooling rate and inoculant n_max, then wait for the 10-casting optimizer verdict";
+      },
+      check(_snap, ev) {
+        return ev?.kind === "challenge-finished" && Number.isFinite(ev.targetG) && Number.isFinite(ev.aiScore);
+      },
+      capture(_snap, ev) {
+        const e = ev as Extract<LabEvent, { kind: "challenge-finished" }>;
+        return {
+          targetG: round(e.targetG, 1),
+          playerG: e.playerG != null ? round(e.playerG, 2) : null,
+          playerScore: round(e.playerScore, 2),
+          aiG: e.aiG != null ? round(e.aiG, 2) : null,
+          aiScore: round(e.aiScore, 2),
+          youWin: e.youWin,
+          verdict: e.youWin ? "you win" : "optimizer wins",
+        };
+      },
+      takeaway:
+        "Recalescence couples cooling rate and inoculant n_max nonlinearly, so manual steering often overshoots while CMA-ES adapts its search distribution across ten 256² castings.",
+    },
+    {
+      id: "opt-2d-cmaes",
+      title: "2D CMA-ES schedule optimization",
+      action:
+        "Click close in CHALLENGE, open optimizer in MODES, choose a target ASTM G, and press ▶ run until OPTIMIZER reports a best recipe.",
+      reveal: ["sec:MODES", "#transport"],
+      liveHint(snap) {
+        if (snap.mode !== "2d") return "stay in 2D mode for the 2D optimizer";
+        if (snap.challengeActive) return "click close in CHALLENGE first";
+        if (!snap.optActive) return "open optimizer in MODES";
+        if (!snap.running) return "press ▶ run in transport to start CMA-ES castings";
+        return "CMA-ES searching on 256²: wait for the recipe report";
+      },
+      check(_snap, ev) {
+        return (
+          ev?.kind === "opt-2d-finished" &&
+          ev.episodes >= 12 &&
+          ev.bestG != null &&
+          Number.isFinite(ev.bestG)
+        );
+      },
+      capture(_snap, ev) {
+        const e = ev as Extract<LabEvent, { kind: "opt-2d-finished" }>;
+        return {
+          targetG: round(e.targetG, 1),
+          episodes: e.episodes,
+          bestG: e.bestG != null ? round(e.bestG, 2) : null,
+          bestError: e.bestError != null ? round(e.bestError, 2) : null,
+          converged: e.converged,
+          undercool: round(e.recipe.undercool, 2),
+          nmax: Math.round(e.recipe.nmax),
+          cool: e.recipe.cool.map(v => round(v, 3)),
+        };
+      },
+      takeaway:
+        "Separable CMA-ES tunes five coupled parameters (undercooling, inoculant n_max, and three-stage cooling) on 256² castings to minimize |ΔG|.",
+    },
+    {
+      id: "opt-2d-apply-verify",
+      title: "Apply & live-verify recipe on full grid",
+      action:
+        "Click apply recipe in OPTIMIZER, then press ▶ run to solidify the full-grid casting past 85 % solid and compare live ASTM G against the 256² search result.",
+      reveal: ["#labReport", "#transport"],
+      liveHint(snap, mem) {
+        if (!mem.latched.applied) {
+          return snap.optActive
+            ? "click apply recipe in OPTIMIZER"
+            : "open optimizer in MODES, finish a search, and click apply recipe";
+        }
+        if (!snap.recipeActive) return "applied recipe cleared: re-apply from OPTIMIZER before running";
+        if (snap.fracSolid < 0.85) {
+          return `full-grid verify: solid ${(snap.fracSolid * 100).toFixed(0)} % / 85 %${snap.running ? "" : ": press ▶ run"}`;
+        }
+        return null;
+      },
+      subgoals: [
+        {
+          id: "applied",
+          label: "apply recipe to full grid",
+          match(snap, ev) {
+            if (ev?.kind === "opt-2d-applied" && Number.isFinite(ev.targetG)) return true;
+            // Also accept an armed/freshly-started full-grid recipe applied just before advancing to Step 7.3.
+            return (
+              snap.mode === "2d" &&
+              !snap.optActive &&
+              !snap.challengeActive &&
+              snap.recipeActive &&
+              snap.fracSolid < 0.25
+            );
+          },
+          capture(snap, ev) {
+            if (ev?.kind === "opt-2d-applied") {
+              return {
+                targetG: round(ev.targetG, 1),
+                searchG: ev.recipe.astm != null ? round(ev.recipe.astm, 2) : null,
+                undercool: round(ev.recipe.undercool, 2),
+                nmax: Math.round(ev.recipe.nmax),
+                resetEpoch: snap.resetEpoch,
+              };
+            }
+            return {
+              targetG: null,
+              searchG: null,
+              undercool: round(snap.lastResetUndercool, 2),
+              nmax: Math.round(snap.inoculant),
+              resetEpoch: snap.resetEpoch,
+            };
+          },
+        },
+        {
+          id: "verified",
+          label: "full-grid cast ≥ 85 % solid",
+          match(snap, _ev, mem) {
+            return (
+              Boolean(mem.latched.applied) &&
+              snap.mode === "2d" &&
+              !snap.optActive &&
+              !snap.challengeActive &&
+              snap.recipeActive &&
+              snap.fracSolid >= 0.85 &&
+              snap.astm != null &&
+              snap.grainCount >= 3
+            );
+          },
+          capture(snap, _ev, mem) {
+            const targetG = asNum(mem.latched.applied?.targetG);
+            const liveG = snap.astm!;
+            return {
+              gridN: snap.gridN,
+              liveG: round(liveG, 2),
+              deltaFromTarget: targetG != null ? round(Math.abs(liveG - targetG), 2) : null,
+              grainCount: snap.grainCount,
+              fracSolidPct: round(snap.fracSolid * 100, 1),
+            };
+          },
+        },
+      ],
+      takeaway:
+        "Replaying the 256² CMA-ES recipe on the full 1024² grid tests scale transfer: a schedule optimized on a fast proxy domain must always be verified on the target casting size.",
+    },
+    {
+      id: "opt-3d-volume-search",
+      title: "Current-grid 3D diameter optimization",
+      requires3d: true,
+      action:
+        "Switch TRUE 3D ON (choose 96³ in ENGINE for speed, aluminum · Al–Cu in MATERIAL, calibrated solver OFF), open optimizer in MODES, set casting budget to 4 or 8, and press ▶ run until the 3D search finishes.",
+      reveal: ["#dimSwitch", "sec:ENGINE", "sec:MODES", "#transport"],
+      liveHint(snap) {
+        if (snap.mode !== "3d") return "switch TRUE 3D ON (tip: choose 96³ in ENGINE for fast episodes)";
+        if (snap.calibrated) return "turn calibrated solver OFF in SCALE (3D optimizer uses Kobayashi)";
+        if (!snap.optActive) return "open optimizer in MODES and set casting budget to 4 or 8";
+        if (!snap.running) return "press ▶ run in transport to start 3D CMA-ES castings";
+        return "3D CMA-ES running on current grid: press ×2 or ×4 in transport to speed up";
+      },
+      check(_snap, ev) {
+        return (
+          ev?.kind === "opt-3d-finished" &&
+          ev.episodes >= 4 &&
+          ev.validEpisodes >= 1 &&
+          ev.bestDiam != null &&
+          Number.isFinite(ev.bestDiam)
+        );
+      },
+      capture(_snap, ev) {
+        const e = ev as Extract<LabEvent, { kind: "opt-3d-finished" }>;
+        return {
+          material: e.material,
+          gridN: e.gridN,
+          targetDiam: round(e.targetDiam, 1),
+          bestDiam: e.bestDiam != null ? round(e.bestDiam, 1) : null,
+          unit: e.unit,
+          episodes: e.episodes,
+          validEpisodes: e.validEpisodes,
+          relErrorPct: e.bestRelError != null ? round(e.bestRelError * 100, 1) : null,
+        };
+      },
+      takeaway:
+        "The 3D optimizer runs real castings directly on the active grid without proxy-grid transfer, minimizing relative error on sphere-equivalent volume grain diameter d̄ under the qualitative Kobayashi model.",
+    },
+  ],
+};
+
+export const LABS: readonly LabDef[] = [LAB_1, LAB_2, LAB_3, LAB_4, LAB_5, LAB_6, LAB_7];
 
 export function findLabDef(idOrHash: string | number, catalog: readonly LabDef[] = LABS): LabDef | null {
   const raw = String(idOrHash).trim().toLowerCase();

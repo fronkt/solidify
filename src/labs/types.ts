@@ -95,6 +95,11 @@ export type LabEvent =
       specMPa: number;
       currentSigmaY: number | null;
       dPredUm: number | null;
+      coldWorkJb?: number;
+      lawWithdrawn?: boolean;
+      rxNuclei?: number;
+      rxMode?: number;
+      sweeps?: number;
     }
   | {
       kind: "heat-finished";
@@ -118,6 +123,95 @@ export type LabEvent =
       twinsSpawned: number;
       twinVerdictOk: boolean;
       twinRefusalWhy: string;
+      /** 3D cold-work mean stored energy deposited (J_b); 0 when as-cast or 2D. */
+      coldWorkJb?: number;
+      /** Accumulated recovery ordinate rec = HT_RECOVER_3D * S; 0 when unworked. */
+      recovery?: number;
+      /** Mean recovered stored energy (J_b) after delivered sweeps. */
+      recoveredMeanJb?: number;
+      /** Peak grain recovered stored energy (J_b) from 2 * coldWorkJb. */
+      recoveredPeakJb?: number;
+      /** True when stored energy withdrew the curvature growth-law endpoint. */
+      lawWithdrawn?: boolean;
+      /** Requested 3D recrystallization nuclei count; 0 when none. */
+      rxNuclei?: number;
+      /** Placed 3D recrystallization nuclei count; 0 when none. */
+      rxPlaced?: number;
+      /** Nucleation mode index into RX_MODES (0..3). */
+      rxMode?: number;
+      /** Final recrystallized volume fraction X in [0, 1], or null if no event. */
+      rxFraction?: number | null;
+      /** Fitted JMAK Avrami exponent n on the Monte Carlo sweep clock, or null. */
+      avramiN?: number | null;
+      /** Avrami fit r^2, or null if unfitted. */
+      avramiR2?: number | null;
+      /** Points inside the Avrami fit window, or null if unfitted. */
+      avramiPoints?: number | null;
+      /** Optional SIBM share shift metric when measured. */
+      sibmShareDelta?: number | null;
+    }
+  | {
+      kind: "challenge-finished";
+      targetG: number;
+      playerG: number | null;
+      playerScore: number;
+      aiG: number | null;
+      aiScore: number;
+      youWin: boolean;
+    }
+  | {
+      kind: "opt-2d-finished";
+      targetG: number;
+      episodes: number;
+      bestG: number | null;
+      bestError: number | null;
+      converged: boolean;
+      recipe: {
+        undercool: number;
+        nmax: number;
+        cool: [number, number, number];
+        astm: number | null;
+      };
+    }
+  | {
+      kind: "opt-2d-applied";
+      targetG: number;
+      recipe: {
+        undercool: number;
+        nmax: number;
+        cool: [number, number, number];
+        astm: number | null;
+      };
+    }
+  | {
+      kind: "opt-3d-finished";
+      material: string;
+      gridN: number;
+      targetDiam: number;
+      unit: "µm" | "cells";
+      episodes: number;
+      validEpisodes: number;
+      bestDiam: number | null;
+      bestRelError: number | null;
+      recipe: {
+        undercool: number;
+        nmax: number;
+        cool: [number, number, number];
+        diameter: number | null;
+      } | null;
+    }
+  | {
+      kind: "opt-3d-applied";
+      material: string;
+      gridN: number;
+      targetDiam: number;
+      unit: "µm" | "cells";
+      recipe: {
+        undercool: number;
+        nmax: number;
+        cool: [number, number, number];
+        diameter: number | null;
+      };
     };
 
 /** Live read-only simulation & UI state polled at 4 Hz and passed alongside every LabEvent. */
@@ -159,6 +253,10 @@ export interface LabSnapshot {
   sliceSweep: boolean;
   fracSolid: number;
   grainCount: number;
+  /** Live 2D ASTM grain number (null in 3D or when < 3 grains). */
+  astm: number | null;
+  /** Live 3D volume-equivalent grain diameter in µm (null in 2D or before census). */
+  eqDiamUm: number | null;
   simTime: number;
   interfaceTC: number | null;
   scheilOn: boolean;
@@ -168,9 +266,29 @@ export interface LabSnapshot {
   nyRiskFrac: number | null;
   poreFrac: number | null;
   pouredMix: { mix: Mix; derived: AlloyDerived } | null;
+  /** True when 2D LBM forced melt flow is running. */
+  flowOn: boolean;
+  /** 2D LBM inlet speed in cells per substep. */
+  flowSpeed: number;
+  /** True when the 2D flow streak overlay is enabled. */
+  flowView: boolean;
+  /** Active Bridgman thermal gradient dial (gradG). */
+  bridgmanG: number;
+  /** Active Bridgman pull speed dial (pullV). */
+  bridgmanV: number;
+  /** True when either 3D pole figure panel ([001] or symmetry family) is enabled. */
+  poleFigureOn: boolean;
+  /** True specifically when 3D pole figure [001] is enabled. */
+  pole001On: boolean;
+  /** Last applied scene preset id (e.g. "bridgman", "dendrite", "selector"), or null. */
+  presetId: string | null;
   labActive: boolean;
   labRunning: boolean;
   heatActive: boolean;
+  challengeActive: boolean;
+  optActive: boolean;
+  /** True when an applied 2D or 3D optimizer recipe schedule is staged/running. */
+  recipeActive: boolean;
   composerOpen: boolean;
   running: boolean;
 }
@@ -238,6 +356,7 @@ export interface LabRunnerHost {
   setRun(on: boolean): void;
   /** Close any active mode panel, tour, or composer before staging a fresh lab setup. */
   closeModes(): void;
+  setFlowOn?(on: boolean): void;
   syncUI(): void;
   reveal?(target: string): void;
   clearReveals?(): void;
@@ -252,7 +371,7 @@ export interface LabDef {
   title: string;
   course: string;
   minutes: number;
-  dimension: "2D" | "2D + 3D";
+  dimension: "2D" | "3D" | "2D + 3D";
   category: LabCategory;
   summary: string;
   requires3d?: boolean;

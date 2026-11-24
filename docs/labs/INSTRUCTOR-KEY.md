@@ -1,6 +1,6 @@
 # Instructor Solution Key & Grading Rubric: SOLIDIFY Classroom Lab Pack
 
-This guide summarizes expected observations, reference numerical outputs (v8 calibrated builds), and common student misconceptions for Labs 1-4.
+This guide summarizes expected observations, reference numerical outputs (v8 calibrated builds), and common student misconceptions for Labs 1–7.
 
 ---
 
@@ -64,11 +64,51 @@ This guide summarizes expected observations, reference numerical outputs (v8 cal
 
 ---
 
+## Lab 5: Cold Work, Recovery & Recrystallization (3D)
+
+- **Part A (Sub-Barrier vs. Active SIBM):**
+  - On the 26-neighbor simple-cubic Potts lattice, advancing a flat `{100}` face swaps 9 unlike neighbors for 17, giving a theoretical flat-front barrier of $\Delta H = 8\,J_b$. Curved, kinked boundaries turn on near $5\text{–}6\,J_b$.
+  - At `cold work = 1.0–2.5 J_b` (peak $2\text{–}5\,J_b$), boundaries remain nearly pinned against stored energy; at `≥ 6.0 J_b`, low-strain grains actively consume high-strain neighbors (SIBM). Whenever `cold work > 0`, SOLIDIFY withdraws the curvature-only grain-growth prediction and withholds $\Sigma 3$ annealing twins so newly allocated twin IDs cannot inherit unrelated stored energies.
+- **Part B (Second-Order Recovery):**
+  - Analytical second-order dislocation recovery $H_S = H_0 / (1 + \text{rec}\cdot H_0)$ (with $\text{rec} = 10^{-3} S$) drains high-$H_0$ grains proportionally fastest, collapsing the driving-force spread $\Delta H$ across boundaries until migration stalls inside the immobile band.
+  - Schedules of `500–520 °C` for `60–90 min` on 3D `aluminum · Al–Cu` safely deliver $\ge 180$ sweeps while staying below the `96³` domain-limit cap.
+- **Part C (Primary Recrystallization & Avrami $n$):**
+  - Ideal constant-velocity 3D JMAK limits are $n = 3$ for site-saturated random sites (`random, at once`) and $n = 4$ for constant-rate random sites (`random, steady`).
+  - Staggering births across batches (`random, steady`) raises the fitted slope $n$ relative to `random, at once`, whereas restricting sites to grain boundaries (`boundaries, at once` or `boundaries, steady`) causes earlier impingement along 2D boundary sheets and lowers $n$.
+  - *Common misconception:* Students often quote Avrami $n$ as a real-time furnace-seconds exponent. Emphasize that SOLIDIFY fits $n$ on the **Monte Carlo sweep clock** $S$ (not linear in furnace seconds across ramps) and assigns per-grain stored energy from a deterministic hash fabric rather than crystal-plasticity slip mechanics.
+
+---
+
+## Lab 6: Directional Growth, Melt Flow & Selection
+
+- **Part A (Bridgman $G$ vs. $V$):**
+  - High $G/V$ (`gradient ≥ 0.12`, `pull speed ≤ 1.5`) maintains a tight, steeper thermal front where favorably oriented columns crowd out misaligned grains; low $G/V$ (`gradient ≤ 0.10`, `pull speed ≥ 3.5`) raises $G \cdot V$ and produces finer, heavily side-branched dendrites.
+- **Part B (Qualitative 2D LBM Melt Flow):**
+  - Left-to-right forced flow (`flow speed ≥ 0.02`, `show flow` ON) compresses the thermal boundary layer ahead of the upstream tip (speeding windward growth) and advects latent heat into the downstream wake (slowing leeward growth). Beckermann's diffuse drag ($h \approx 2.7571$ vs. Tong's $2.757$) places the effective no-slip wall at $\phi = 0.5$.
+  - *Model boundary:* SOLIDIFY's 2D D2Q9 channel flow is explicitly **qualitative** (upstream speedup magnitude 1.26–1.36 vs. Tong et al. 1.37–1.43) and omits thermal/solutal buoyancy and 3D convection.
+- **Part C (3D Helical Grain Selector & `[001]` Pole Figure):**
+  - The 3D `selector` preset stages 64 chill-floor grains (`8 × 8` jittered grid) racing into a helical pigtail under directional pull. Competitive geometry progressively filters misaligned orientations upward through the spiral, visible in serial **`SLICE`** sections and in the tightening cluster near the center of **`pole figure [001]`** (dot diameter scaled by grain size).
+  - *Honesty check:* SOLIDIFY guarantees competitive staging of the 64 chill-floor grains, not that every run exits as a single crystal.
+
+---
+
+## Lab 7: Inverse Process Design & Optimization
+
+- **Part A (Human vs. CMA-ES Challenge):**
+  - Nonlinear coupling between `cooling rate`, `inoculant n_max`, and the recalescence ratchet causes manual steering to overshoot or undershoot target ASTM $G$; separable CMA-ES adapts its mean and diagonal covariance across ten `256²` castings to minimize $|\Delta G|$.
+- **Part B (2D CMA-ES & Full-Grid Verification):**
+  - The 2D optimizer searches 5 coupled genes (`undercooling`, `inoculant n_max`, and early/mid/late 3-stage `cooling rate`) on `256²` proxy castings (`≥ 12` episodes).
+  - Clicking **`apply recipe`** transfers that schedule to the full `1024²` grid. Differences between `256²` search $G$ and live `1024²` verification $G$ highlight finite-domain statistics, boundary-to-area ratio changes, and stochastic nucleation scatter.
+- **Part C (Current-Grid 3D Volume Optimization):**
+  - Unlike 2D proxy optimization, 3D `optimizer` executes every episode directly on the active 3D grid (`96³` recommended for speed, `calibrated solver` OFF / Kobayashi model) with locked rail controls to guarantee deterministic comparability across episodes, minimizing relative error on sphere-equivalent diameter $\bar{d}$.
+
+---
+
 ## Suggested Grading Rubric (20 pts per lab)
 
 | Criterion | Points | Evidence |
 |---|---|---|
-| Reproducible data & Run-Export ZIP | 4 | Valid seed, no unintended mid-pour intervention flag, complete measurements |
-| Quantitative calculations / plots | 6 | Correct units, Scheil / Hall–Petch / step-block comparisons |
+| Reproducible data, printable report & Run-Export ZIP | 4 | Valid seed, no unintended mid-pour intervention flag, complete measurements |
+| Quantitative calculations / plots | 6 | Correct units, Scheil / Hall–Petch / Avrami / scale-transfer comparisons |
 | Physical mechanism explanations | 6 | Clear causal link between governing PDEs / thermodynamics and observations |
-| Awareness of model boundaries | 4 | Accurate identification of what the solver models vs. omits (e.g., $Le$, single phase, T6) |
+| Awareness of model boundaries | 4 | Accurate identification of what the solver models vs. omits (e.g., $Le$, single phase, T6, sweep clock, qualitative LBM) |

@@ -131,6 +131,11 @@ export interface HeatPlanEvent {
   specMPa: number;
   currentSigmaY: number | null;
   dPredUm: number | null;
+  coldWorkJb?: number;
+  lawWithdrawn?: boolean;
+  rxNuclei?: number;
+  rxMode?: number;
+  sweeps?: number;
 }
 
 export interface HeatFinishedEvent {
@@ -154,6 +159,19 @@ export interface HeatFinishedEvent {
   twinsSpawned: number;
   twinVerdictOk: boolean;
   twinRefusalWhy: string;
+  coldWorkJb?: number;
+  recovery?: number;
+  recoveredMeanJb?: number;
+  recoveredPeakJb?: number;
+  lawWithdrawn?: boolean;
+  rxNuclei?: number;
+  rxPlaced?: number;
+  rxMode?: number;
+  rxFraction?: number | null;
+  avramiN?: number | null;
+  avramiR2?: number | null;
+  avramiPoints?: number | null;
+  sibmShareDelta?: number | null;
 }
 
 export interface HeatHost {
@@ -884,6 +902,10 @@ export class HeatPanel {
     const peakFracTm = plan.ok
       ? plan.ints.peakFracTm
       : (plan.peakFracTm ?? (si ? (this.tC + K0) / si.Tm : 0));
+    const m3 = this.host.getMode() === "3d";
+    const coldWorkJb = plan.ok ? (plan.work ?? 0) : (m3 ? this.workJb : 0);
+    const rxNuclei = plan.ok ? (plan.rx ?? 0) : (m3 && this.workJb > 0 ? this.rxN : 0);
+    const rxMode = plan.ok ? (plan.rxMode ?? 0) : (rxNuclei > 0 ? this.rxMode : 0);
     this.host.onHeatPlan({
       dim: this.host.getMode(),
       material: this.host.materialKey(),
@@ -896,6 +918,11 @@ export class HeatPanel {
       specMPa: this.specMPa,
       currentSigmaY,
       dPredUm: plan.ok ? plan.dPredUm : (plan.dPredUm ?? null),
+      coldWorkJb,
+      lawWithdrawn: coldWorkJb > 0,
+      rxNuclei,
+      rxMode,
+      sweeps: plan.ok ? plan.sweeps : 0,
     });
   }
 
@@ -1303,6 +1330,20 @@ export class HeatPanel {
       const sigmaAfter = siDone && after ? hallPetch(siDone, dAfterUm * 1e-6) : 0;
       const specMet = spec > 0 && siDone && after ? shownMPa(sigmaAfter) >= shownMPa(spec) : null;
       const ov = canTreat("oxide", this.ctx(before));
+      const workJb = plan.work ?? 0;
+      const rec = workJb > 0 ? (this.host.storedRec?.() ?? 0) : 0;
+      const recoveredMeanJb = workJb > 0 ? recoveredMeanUniform(workJb, rec) : 0;
+      const recoveredPeakJb = workJb > 0 ? recovered(2 * workJb, rec) : 0;
+      const rxModeVal = plan.rxMode ?? 0;
+      const rxOk = Boolean(plan.rx && rxEvent && !("why" in rxEvent));
+      const rxPlaced = rxOk && rxEvent && !("why" in rxEvent)
+        ? (rxModeVal !== 0 && rxTally ? rxTally.placed : rxEvent.placed)
+        : 0;
+      const rxFraction = rxOk ? (rxX.length ? rxX[rxX.length - 1] : rxX0) : null;
+      const rxFit = rxOk ? avramiFit(rxS, rxX, AVRAMI_WINDOW, rxX0) : null;
+      const avramiN = rxFit && !("why" in rxFit) ? rxFit.n : null;
+      const avramiR2 = rxFit && !("why" in rxFit) ? rxFit.r2 : null;
+      const avramiPoints = rxFit && !("why" in rxFit) ? rxFit.used : null;
       this.host.onHeatFinished({
         dim: this.host.getMode(),
         material: this.host.materialKey(),
@@ -1324,6 +1365,19 @@ export class HeatPanel {
         twinsSpawned,
         twinVerdictOk: twinV?.ok === true,
         twinRefusalWhy: twinV && !twinV.ok ? twinV.why : (workHoldsTwins ? HC.twinsHeldBack.line : ""),
+        coldWorkJb: workJb,
+        recovery: rec,
+        recoveredMeanJb,
+        recoveredPeakJb,
+        lawWithdrawn: workJb > 0,
+        rxNuclei: plan.rx ?? 0,
+        rxPlaced,
+        rxMode: rxModeVal,
+        rxFraction,
+        avramiN,
+        avramiR2,
+        avramiPoints,
+        sibmShareDelta: null,
       });
     }
     this.refresh();

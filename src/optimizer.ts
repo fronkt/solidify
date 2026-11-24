@@ -17,6 +17,20 @@ import { PlotView } from "./plot/view";
 import { openFigure, type FigureHandle } from "./plot/modal";
 import { convergenceFigure, type ConvergenceSample } from "./plot/process";
 
+export interface Opt2dFinishedEvent {
+  targetG: number;
+  episodes: number;
+  bestG: number | null;
+  bestError: number | null;
+  converged: boolean;
+  recipe: Recipe;
+}
+
+export interface Opt2dAppliedEvent {
+  targetG: number;
+  recipe: Recipe;
+}
+
 export interface OptHost {
   units(): Units;
   meta(): PlotMeta;
@@ -29,6 +43,9 @@ export interface OptHost {
   applyRecipe(r: Recipe): void;
   /** a #set= deep link that restores this recipe, shareable */
   shareRecipeLink(r: Recipe): string;
+  /** Optional read-only hooks for Guided Labs (zero behavior change when omitted). */
+  onOpt2dFinished?(ev: Opt2dFinishedEvent): void;
+  onOpt2dApplied?(ev: Opt2dAppliedEvent): void;
 }
 
 // ---------------------------------------------------------- separable CMA-ES
@@ -528,8 +545,13 @@ export class Optimizer {
     // verify-optimizer finds this button by the word "apply"
     const applyB = pill("apply recipe", () => {
       const rec = this.bestRecipe!;
+      const targetG = this.targetASTM;
       this.stop();
       this.host.applyRecipe(rec);
+      this.host.onOpt2dApplied?.({
+        targetG,
+        recipe: { undercool: rec.undercool, nmax: rec.nmax, cool: [...rec.cool], astm: rec.astm },
+      });
     }, "accent");
     const moreB = pill("keep searching", () => {
       this.converged = false;
@@ -549,6 +571,14 @@ export class Optimizer {
     this.report.style.display = "block";
     fillLearnSlots(this.report);
     this.status.textContent = "paused on result";
+    this.host.onOpt2dFinished?.({
+      targetG: this.targetASTM,
+      episodes: this.episode,
+      bestG: r.astm,
+      bestError: r.astm == null ? null : Math.abs(r.astm - this.targetASTM),
+      converged: onTarget,
+      recipe: { undercool: r.undercool, nmax: r.nmax, cool: [...r.cool], astm: r.astm },
+    });
   }
 
   /** drive one animation frame while active (only when the transport is running) */

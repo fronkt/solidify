@@ -75,6 +75,8 @@ export interface UIHost extends AppControl {
   /** open the Guided Labs picker or bring the active lab dock into focus */
   openGuidedLabs(): void;
   isGuidedLabOpen(): boolean;
+  /** Optional read-only hook when a preset button is clicked in the rail. */
+  onPreset?(name: string): void;
   getSubsteps(): number;
   isRunning(): boolean;
   isEngineering(): boolean;
@@ -610,11 +612,16 @@ export class UI {
       this.button(prow, name, () => {
         if (host.getMode() === "3d") SCENES3[name](host as unknown as TourHost);
         else SCENES[name](host);
+        host.onPreset?.(name);
         this.sync();
       });
     }
     // 3D-only bonus preset: the single-crystal selector
-    const selBtn = this.button(prow, "selector", () => { SCENES3.selector(host as unknown as TourHost); this.sync(); });
+    const selBtn = this.button(prow, "selector", () => {
+      SCENES3.selector(host as unknown as TourHost);
+      host.onPreset?.("selector");
+      this.sync();
+    });
     this.only3d.push(selBtn);
 
     // ---- material identity (qualitative parameter bundles)

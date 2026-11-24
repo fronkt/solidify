@@ -349,12 +349,15 @@ this suite. If you want to run the physics/UI verification yourself, do it local
 
 ## What each script checks
 
-- **`verify-guided-labs.mjs`** (browser-free, v8.1 Guided Labs) runs five checks over
-  curriculum schema (`4` labs, `20` steps), copy discipline (zero prose em dashes,
-  American spelling, exact control casing), deterministic event/snapshot pass
-  trajectories for all twenty steps, anti-cheese rejection guards (un-reset
-  undercooling, stale step latches, unseeded calibrated melts, and 96³ domain
-  safety), and skip/report schema integrity (`solidify-lab-report` v1).
+- **`verify-guided-labs.mjs`** (browser-free, v8.2 Guided Labs) runs six checks over
+  curriculum schema (`7` labs, `32` steps, dynamic `#lab=N` routing), copy discipline
+  (zero prose em dashes, American spelling, exact control casing), deterministic
+  event/snapshot pass trajectories for all thirty-two steps across Labs 1–7, anti-cheese
+  rejection guards (un-reset undercooling, stale step latches, unseeded calibrated melts,
+  96³/128³/192³ domain safety, same-epoch Bridgman/LBM rejection, and 2D/3D optimizer
+  guards), skip/report schema integrity (`solidify-lab-report` v1), and printable HTML
+  report verification (`formatLabReportHtml()` `@media print`, achromatic CSS, and
+  XSS/unsafe-URL escaping).
 - **`verify-process-plots.mjs`** (browser-free) runs three checks over live-pour
   validity, optimizer error versus its search penalty, and the furnace's separate
   physical clock and material-law prediction. Negative/zero liquid temperatures

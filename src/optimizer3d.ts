@@ -19,6 +19,31 @@ import { CAST3_BATCH, CAST3_COMPLETE, CAST3_MAX_STEPS, OPT3_EPISODES,
   copyRecipe3, coolingAt3, genomeRecipe3, measureCasting3, type Recipe3D, type Casting3Measurement } from "./optimizer3d-model";
 export type { Recipe3D } from "./optimizer3d-model";
 
+export interface Opt3dRecipeSummary {
+  undercool: number;
+  nmax: number;
+  cool: [number, number, number];
+  diameter: number | null;
+}
+
+export interface Opt3dFinishedEvent {
+  gridN: number;
+  targetDiam: number;
+  unit: "µm" | "cells";
+  episodes: number;
+  validEpisodes: number;
+  bestDiam: number | null;
+  bestRelError: number | null;
+  recipe: Opt3dRecipeSummary | null;
+}
+
+export interface Opt3dAppliedEvent {
+  gridN: number;
+  targetDiam: number;
+  unit: "µm" | "cells";
+  recipe: Opt3dRecipeSummary;
+}
+
 export interface Opt3Host {
   sim(): Sim3D | null;
   nuc(): Nucleation;
@@ -31,6 +56,9 @@ export interface Opt3Host {
   restoreArmed(): void;
   applyRecipe(recipe: Recipe3D): void | Promise<void>;
   shareRecipeLink(recipe: Recipe3D): string;
+  /** Optional read-only hooks for Guided Labs (zero behavior change when omitted). */
+  onOpt3dFinished?(ev: Opt3dFinishedEvent): void;
+  onOpt3dApplied?(ev: Opt3dAppliedEvent): void;
 }
 
 export interface Opt3StartOpts { limit?: number; maxSteps?: number; target?: number }
@@ -410,7 +438,16 @@ export class Optimizer3D {
     const recipe = copyRecipe3(this.bestRecipe);
     await this.stop();
     if (!this.saved || this.host.sim() !== this.saved.sim || this.host.contextKey() !== this.saved.key || getSeed() !== recipe.seed) return false;
-    try { await this.host.applyRecipe(recipe); return true; }
+    try {
+      await this.host.applyRecipe(recipe);
+      this.host.onOpt3dApplied?.({
+        gridN: recipe.grid,
+        targetDiam: recipe.target,
+        unit: recipe.unit,
+        recipe: { undercool: recipe.undercool, nmax: recipe.nmax, cool: [...recipe.cool], diameter: recipe.diameter },
+      });
+      return true;
+    }
     catch (error) {
       this.status = `Recipe was not applied: ${message(error)}`;
       if (this.saved && this.host.sim() === this.saved.sim && this.host.contextKey() === this.saved.key) {
@@ -524,6 +561,21 @@ export class Optimizer3D {
     actions.append(apply, more, link); this.report.append(actions); this.report.style.display = "block";
     this.updateStatus(error ? `paused · ${error}` : `paused on result · ${this.history.filter(r => r.valid).length}/${this.history.length} valid castings`);
     this.syncControls();
+    if (!error) {
+      const validEpisodes = this.history.filter(r => r.valid).length;
+      this.host.onOpt3dFinished?.({
+        gridN: this.saved?.sim.n ?? 0,
+        targetDiam: this.target,
+        unit: this.unit,
+        episodes: this.episode,
+        validEpisodes,
+        bestDiam: best?.diameter ?? null,
+        bestRelError: best && Number.isFinite(this.best) ? this.best : null,
+        recipe: best
+          ? { undercool: best.undercool, nmax: best.nmax, cool: [...best.cool], diameter: best.diameter }
+          : null,
+      });
+    }
   }
 
   private figure(): Figure | null {

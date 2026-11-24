@@ -1,4 +1,6 @@
 import type {
+  GuidedLabReport,
+  GuidedLabReportStep,
   LabCaptureMap,
   LabDef,
   LabId,
@@ -9,6 +11,7 @@ import type {
   SkipReason,
   StepProgress,
 } from "./types";
+import { formatLabReportHtml } from "./runner";
 import { panelHead, pill, plotModal } from "../design/panel";
 import { LearnLayer, isLearnOn, onLearnChange } from "../learn";
 import { panelText } from "../learn/panels";
@@ -27,6 +30,7 @@ export interface GuidedLabPanelHost {
   reveal(target: string): void;
   clearReveals(): void;
   exportZip(): Promise<void> | void;
+  buildReport?(): GuidedLabReport | null;
   hideRail?(): void;
 }
 
@@ -75,6 +79,23 @@ function headlineCapture(cap: LabCaptureMap | undefined, depth = 0): string {
     const v = cap[k];
     return typeof v === "number" && Number.isFinite(v) ? v : null;
   };
+  const avramiN = num("avramiN");
+  if (avramiN !== null) return `n ${avramiN.toFixed(2)}`;
+  const rxFrac = num("rxFraction");
+  if (rxFrac !== null) return `X ${rxFrac.toFixed(2)}`;
+  const recJb = num("recoveredMeanJb");
+  if (recJb !== null) return `H ${fmtCell(recJb)} J_b`;
+  const bestDiam = num("bestDiam");
+  if (bestDiam !== null) {
+    const unit = typeof cap.unit === "string" && cap.unit ? cap.unit : "µm";
+    return `d̄ ${fmtCell(bestDiam)} ${unit}`;
+  }
+  const bestG = num("bestG") ?? num("liveG");
+  if (bestG !== null) return `G ${bestG.toFixed(1)}`;
+  const gvRatio = num("gvRatio");
+  if (gvRatio !== null) return `G/V ${fmtCell(gvRatio)}`;
+  const flowSpeed = num("flowSpeed");
+  if (flowSpeed !== null) return `u ${flowSpeed.toFixed(3)}`;
   const sdas = num("sdasUm") ?? num("lambda2Um");
   if (sdas !== null) return `λ₂ ${fmtCell(sdas)} µm`;
   const sy = num("sigmaAfter") ?? num("sigmaY_MPa");
@@ -663,7 +684,7 @@ export class GuidedLabPanel {
       body.append(this.buildDataView(lab, st.tableRows));
     }
 
-    // Persistent 1-row footer: export lab ZIP + reset setup
+    // Persistent footer: export lab ZIP, print report (outline pill), reset setup
     const foot = document.createElement("div");
     foot.className = "gl__foot";
     const exportBtn = pill(
@@ -672,6 +693,13 @@ export class GuidedLabPanel {
       "gl__export" + (allDone ? " gl__export--ready" : ""),
     );
     exportBtn.title = "Download run bundle with lab-report.json";
+
+    const printBtn = pill(
+      "print report",
+      () => this.handlePrintReport(),
+      "gl__print",
+    );
+    printBtn.title = "Open light-mode printable lab report for Print or Save as PDF";
 
     const resetBtn = pill(
       "reset setup",
@@ -690,7 +718,7 @@ export class GuidedLabPanel {
     status.textContent = this.exportStatusMsg;
     this.exportStatusEl = status;
 
-    foot.append(exportBtn, resetBtn, status);
+    foot.append(exportBtn, printBtn, resetBtn, status);
     body.append(foot);
 
     // Polite screen-reader live region for step completion announcements
@@ -1185,6 +1213,82 @@ export class GuidedLabPanel {
     }
   }
 
+  private handlePrintReport(): void {
+    const report = this.host.buildReport ? this.host.buildReport() : this.fallbackReport();
+    if (!report) {
+      this.setExportStatus("no active lab report");
+      return;
+    }
+    try {
+      const html = formatLabReportHtml(report);
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, "_blank");
+      if (win) {
+        try {
+          win.opener = null;
+        } catch {
+          // ignore cross-context opener restriction
+        }
+        this.setExportStatus("opened printable report");
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } else {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "solidify-lab-report.html";
+        a.click();
+        this.setExportStatus("downloaded solidify-lab-report.html");
+        window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      }
+    } catch {
+      this.setExportStatus("report export failed");
+    }
+  }
+
+  private fallbackReport(): GuidedLabReport | null {
+    const st = this.host.state();
+    const lab = st.activeLab;
+    const session = st.session;
+    if (!lab || !session) return null;
+    let stepsCompleted = 0;
+    let stepsSkipped = 0;
+    const steps: GuidedLabReportStep[] = lab.steps.map(def => {
+      const p = session.steps[def.id];
+      const status = p?.status ?? "pending";
+      if (status === "completed") stepsCompleted++;
+      else if (status === "skipped") stepsSkipped++;
+      const entry: GuidedLabReportStep = {
+        id: def.id,
+        title: def.title,
+        status,
+        completedAt: p?.completedAt ?? null,
+        captures: { ...(p?.captures ?? {}) },
+      };
+      if (p?.skipReason) entry.skipReason = p.skipReason;
+      return entry;
+    });
+    return {
+      format: "solidify-lab-report",
+      version: 1,
+      labId: lab.id,
+      hashId: lab.hashId,
+      title: lab.title,
+      course: lab.course,
+      startedAt: session.startedAt,
+      completedAt: session.completedAt,
+      build: "local",
+      seed: 0,
+      setupLink: typeof location !== "undefined" ? location.href : "",
+      stepsCompleted,
+      stepsSkipped,
+      stepsTotal: lab.steps.length,
+      anyIntervened: session.anyIntervened,
+      steps,
+      columns: lab.columns.map(c => ({ ...c })),
+      table: st.tableRows,
+    };
+  }
+
   private setExportStatus(msg: string): void {
     this.exportStatusMsg = msg;
     if (this.exportStatusEl) this.exportStatusEl.textContent = msg;
@@ -1266,11 +1370,12 @@ export class GuidedLabPanel {
     });
 
     const zipBtn = pill("export lab ZIP", () => void this.handleExport(zipBtn));
+    const printBtn = pill("print report", () => this.handlePrintReport());
     const meta = document.createElement("span");
     meta.className = "figmodal__meta q";
     meta.textContent = `${rows.length} ${rows.length === 1 ? "row" : "rows"}`;
 
-    bar.append(copyBtn, csvBtn, zipBtn, meta);
+    bar.append(copyBtn, csvBtn, zipBtn, printBtn, meta);
     card.append(wrapTable, bar);
   }
 }

@@ -8,6 +8,15 @@ import { LearnLayer, onLearnChange } from "./learn";
 import { panelText } from "./learn/panels";
 import { kv, num, panelHead, pill } from "./design/panel";
 
+export interface ChallengeFinishedEvent {
+  targetG: number;
+  playerG: number | null;
+  playerScore: number;
+  aiG: number | null;
+  aiScore: number;
+  youWin: boolean;
+}
+
 export interface ChallengeHost {
   swapGrid(n: number): void;
   restoreGrid(): void;
@@ -16,6 +25,8 @@ export interface ChallengeHost {
   startAI(target: number, limit: number, onDone: (bestScore: number, bestG: number | null) => void): void;
   simTime(): number;
   syncUI(): void;
+  /** Optional read-only hook for Guided Labs when a challenge verdict lands. */
+  onChallengeFinished?(ev: ChallengeFinishedEvent): void;
 }
 
 const GRID = 256;
@@ -137,5 +148,13 @@ export class Challenge {
     nav.append(
       pill("rematch", () => { this.active = false; this.panel?.remove(); this.panel = null; this.start(); }, "accent"),
       pill("close", () => this.stop()));
+    this.host.onChallengeFinished?.({
+      targetG: this.target,
+      playerG: this.playerG,
+      playerScore: this.playerScore,
+      aiG,
+      aiScore,
+      youWin,
+    });
   }
 }
