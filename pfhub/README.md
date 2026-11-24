@@ -96,6 +96,6 @@ Run in headless Chrome WebGPU on an integrated Intel Xe2-LPG GPU (`200x200` peri
 
 ## Dataset and submission bundle (Benchmark 1a)
 
-1. Code release: [`v8.6.0`](https://github.com/fronkt/solidify) and [`codemeta.json`](../codemeta.json).
-2. Publication bundle (5 files in `pfhub/results-b1-200/`): `bm1_results.csv`, `free_energy.csv`, `meta.yaml`, `pfhub_b1.json`, and `pfhub_b1_comparison.png`.
-3. Copy-paste Zenodo deposit metadata and `pfhub/pfhub-benchmarks` issue template: [`PFHUB_B1_SUBMISSION.md`](PFHUB_B1_SUBMISSION.md).
+1. Code release: [`v8.6.0`](https://github.com/fronkt/solidify/releases/tag/v8.6.0) (`6247461`) and [`codemeta.json`](../codemeta.json).
+2. Zenodo dataset (all 5 files in `pfhub/results-b1-200/`): [10.5281/zenodo.24516519](https://doi.org/10.5281/zenodo.24516519) (`https://zenodo.org/records/24516519`, open access, MIT License).
+3. PFHub submission: [`pfhub/pfhub-benchmarks#23`](https://github.com/pfhub/pfhub-benchmarks/issues/23) and `pfhub` Zenodo Community request `df902a40-eb99-4cb4-bf36-2d418dd227e8` (submission metadata archived in [`PFHUB_B1_SUBMISSION.md`](PFHUB_B1_SUBMISSION.md)).
