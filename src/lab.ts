@@ -36,6 +36,24 @@ import { PlotView } from "./plot/view";
 import { openFigure, type FigureHandle } from "./plot/modal";
 import type { PlotMeta } from "./hud";
 
+export interface LabFinishedEvent {
+  dim: "2d" | "3d";
+  setup: LabSetup;
+  intervened: boolean;
+  ta: ThermalAnalysis;
+  census: Census | null;
+  sections: { heightVox: number; census: Census }[] | null;
+  fired: number;
+  nMax: number;
+  effInoc: number;
+  fadeF: number;
+  dTmax: number;
+  porosity: PorosityResult | null;
+  csc: number | null;
+  umPerCell: number;
+  si: MaterialSI | null;
+}
+
 export interface LabHost {
   getMode(): "2d" | "3d";
   /** the live dimensionless<->SI scaling (units.ts) */
@@ -74,6 +92,8 @@ export interface LabHost {
   /** M4: step mould only — one Census per section, thinnest first; null for
    *  any other mould */
   measureSections(): Promise<{ heightVox: number; census: Census }[] | null>;
+  /** Optional read-only hook fired once a finished pour's report has been measured. */
+  onLabFinished?(ev: LabFinishedEvent): void;
 }
 
 export interface LabSetup {
@@ -866,6 +886,23 @@ export class Lab {
       void this.resultsBtn.offsetWidth;   // restart the animation even if it never finished last time
       this.resultsBtn.classList.add("pulse");
     }
+    this.host.onLabFinished?.({
+      dim: p.scen === 4 ? "3d" : "2d",
+      setup: this.setupAtPour ? { ...this.setupAtPour } : { ...this.setup },
+      intervened: this.intervened,
+      ta,
+      census,
+      sections,
+      fired,
+      nMax,
+      effInoc: this.effInoc,
+      fadeF: this.fadeF,
+      dTmax: this.host.maxUndercool(),
+      porosity: this.porosity,
+      csc: cscClyneDavies(this.series).csc,
+      umPerCell: this.umAtPour,
+      si: this.siAtPour,
+    });
   }
 
   /**

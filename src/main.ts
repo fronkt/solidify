@@ -11,11 +11,11 @@ import { SlicePanel } from "./slicepanel";
 import { ViewCube } from "./viewcube";
 import { UI, type UIHost } from "./ui";
 import { Hud, type PlotMeta } from "./hud";
-import { Tour, SCENES, type TourHost } from "./tour";
+import { Tour, SCENES, SCENES3, type TourHost } from "./tour";
 import { Optimizer, type OptHost, type Recipe } from "./optimizer";
 import { Optimizer3D, Casting3DClock, type Recipe3D } from "./optimizer3d";
 import { copyRecipe3 } from "./optimizer3d-model";
-import { packShare, unpackShare, type ShareState } from "./share";
+import { packShare, unpackShare, parseLabRoute, type ShareState } from "./share";
 import { Challenge, type ChallengeHost } from "./challenge";
 import { Composer } from "./composer";
 import { derive as deriveAlloy, encodeMix, decodeMix, BASES, type Mix, type Derived as AlloyDerived } from "./alloy";
@@ -37,6 +37,10 @@ import { runEntries, zipStore, micrographPNG, downloadRun, type RunSnapshot } fr
 import { ReplayLedger, REASON as REPLAY } from "./replay";
 import { stampField, stillCurrent } from "./fieldstamp";
 import { flowRefusal } from "./flow";
+import { GuidedLabRunner } from "./labs/runner";
+import { GuidedLabPanel } from "./labs/panel";
+import { GuidedLabPicker } from "./labs/picker";
+import type { LabSnapshot } from "./labs/types";
 
 /** fast-forward steps: the transport button cycles ×1 → ×2 → ×4 */
 const SPEED_MULTS = [1, 2, 4] as const;
@@ -170,6 +174,12 @@ async function boot() {
   let substeps = 14;
   let speedMult = 1;
   let undercool = 1.0;
+  let lastResetUndercool = undercool;
+  let resetEpoch = 0;
+  const latchResetUndercool = (u: number) => {
+    lastResetUndercool = u;
+    resetEpoch++;
+  };
   let brush = 4;
   let weldAuto = false;
   let weldSweep = 55;      // cells per second
@@ -785,6 +795,7 @@ async function boot() {
       // switch closes it via closeTour() instead)
       apply3DMaterial();
       sim3d.reset(1 - undercool);
+      latchResetUndercool(undercool);
       sim3d.addSeed3D(sim3d.n / 2, sim3d.n / 2, sim3d.n / 2, brush + 1);
       lastStats3 = null;
       nuc3.stage(sim3d.n, true);
@@ -843,6 +854,7 @@ async function boot() {
         await created.enableAlloy();
       }
       created.reset(1 - undercool);
+      latchResetUndercool(undercool);
       created.addSeed3D(created.n / 2, created.n / 2, created.n / 2, brush + 1);
       sim3d = created;
       if (params.solver === SOLVER.QUANT && !(await created.enableQuant())) {
@@ -850,6 +862,7 @@ async function boot() {
         restoreSolver3();
         quantError3 = reason; quantErrorStamp3 = calibrationStamp3();
         created.reset(1 - undercool);
+        latchResetUndercool(undercool);
       }
       if (mode === "3d") umPerCell = created.umPerCell;
       grid3 = created.n;
@@ -873,6 +886,8 @@ async function boot() {
   // Declared before `app` so its guards can read `heat?.busy` without a TDZ
   // (the v2.0 boot-order lesson); constructed after the host adapters below.
   let heat: HeatPanel | null = null;
+  let guidedLab: GuidedLabRunner | null = null;
+  let guidedPicker: GuidedLabPicker | null = null;
 
   // TourHost joined the annotation in v7.1 P6. `app` always satisfied it —
   // `new Tour(app)` typechecked structurally — but the requirement was invisible
@@ -888,6 +903,7 @@ async function boot() {
       else recipeSchedule = null;
       if (mode === "3d" && sim3d) {
         sim3d.reset(1 - u);
+        latchResetUndercool(u);
         hud.reset();
         an3.reset();
         lastStats3 = null;
@@ -898,6 +914,7 @@ async function boot() {
         return;
       }
       sim.reset(1 - u);
+      latchResetUndercool(u);
       hud.reset();
       analyze.reset();
       lastStats = null;
@@ -1016,6 +1033,16 @@ async function boot() {
     isLabOpen: () => lab.active,
     // both dimensions since H2b — the volume runs the 26-neighbour Potts pass
     startHeat() { if (!opt.active && !opt3?.active && !challenge.active && !lab.active) { void opt3?.stop(); if (mode === "3d") cancelRecipe3(); heat?.open(); } },
+    openGuidedLabs() {
+      if (opt.active || opt3?.active || challenge.active) return;
+      if (guidedPicker?.isOpen()) { guidedPicker.close(); return; }
+      guidedPicker?.open();
+    },
+    isGuidedLabOpen: () => !!guidedLab?.isActive(),
+    onTourOpen() {
+      guidedPicker?.close(false);
+      guidedLab?.closeLab();
+    },
     syncUI() { ui.sync(); },
     reveal(target) {
       if (target.startsWith("sec:")) ui.reveal(target.slice(4));
@@ -1222,6 +1249,7 @@ async function boot() {
         if (recipeSchedule3) sim3d.params.coolRate = recipeSchedule3[0];
         quantError3 = null;
         sim3d.reset(1 - undercool);
+        latchResetUndercool(undercool);
         lastStats3 = null;
         nuc3.stage(sim3d.n, true);
         running3d = false;
@@ -1233,6 +1261,7 @@ async function boot() {
         return;
       }
       sim.reset(1 - undercool);
+      latchResetUndercool(undercool);
       hud.reset();
       analyze.reset();
       lastStats = null;
@@ -1419,6 +1448,7 @@ async function boot() {
       // 0.98 µm/cell, which under calibrated mode is not a cosmetic difference
       sim.umPerCell = umPerCell;
       sim.reset(1 - undercool);
+      latchResetUndercool(undercool);
       renderer.rebind(sim);
       renderer.resetView();
       hud.reset();
@@ -1487,12 +1517,14 @@ async function boot() {
   const analyze = new Analyze({
     getSim: () => sim, renderer, simParams: () => sim.params,
     units: () => unitsNow(), meta: () => plotMeta(), chem: () => chemNow(false),
+    onSdasMeasured: ev => guidedLab?.emit({ kind: "sdas-measured", dim: "2d", ...ev }),
   });
   const an3 = new Analyze3D({
     sim3d: () => sim3d,
     plane: () => (sim3d ? slicePlane(slice, sim3d.n) : null),
     lastStats: () => lastStats3,
     units: () => unitsNow(), meta: () => plotMeta(), chem: () => chemNow(true),
+    onSdasMeasured: ev => guidedLab?.emit({ kind: "sdas-measured", dim: "3d", ...ev }),
   });
   // 3D probe crosshair on the shared overlay SVG (appended AFTER Analyze's
   // constructor set the overlay innerHTML — never rewrite it, append only)
@@ -1577,6 +1609,13 @@ async function boot() {
      */
     meltC: () => app.meltC(),
     materialKey: () => material,
+    onMixViewed: ev => guidedLab?.emit({ kind: "composer-mix-viewed", ...ev }),
+    onPick: ev => guidedLab?.emit({ kind: "composer-picked", ...ev }),
+    onPour: ev => guidedLab?.emit({ kind: "composer-poured", ...ev }),
+    activeLabHash: () => {
+      const id = guidedLab?.getActiveHashId();
+      return id != null ? `lab=${id}` : null;
+    },
     applyAlloy(materialKey, params, name, poured) {
       // setMaterial clears pouredMix and alloyCaveats, so both are re-set AFTER
       // it, never before. And when it refuses, the composed NAME is not written
@@ -1650,6 +1689,7 @@ async function boot() {
       sim.params.twinProb = 0;
       nuc.p.nmax = 260;
       sim.reset(1 - u);
+      latchResetUndercool(u);
       hud.reset();
       lastStats = null;
       nuc.stage(sim.n, false);
@@ -1725,6 +1765,7 @@ async function boot() {
       }
       return out;
     },
+    onLabFinished: ev => guidedLab?.emit({ kind: "lab-pour-finished", material, ...ev }),
   };
   const lab = new Lab(labHost);
 
@@ -1906,6 +1947,8 @@ async function boot() {
     getView: () => (mode === "3d" ? view3d : view),
     setView: v => { if (mode === "3d") app.setView3d(v); else app.setView(v); },
     syncUI: () => ui.sync(),
+    onHeatPlan: ev => guidedLab?.emit({ kind: "heat-plan", ...ev }),
+    onHeatFinished: ev => guidedLab?.emit({ kind: "heat-finished", ...ev }),
   };
   heat = new HeatPanel(heatHost);
 
@@ -1956,12 +1999,16 @@ async function boot() {
           : [analyze.figure("probe"), analyze.figure("scheil"), analyze.figure("tex")]),
         ...lab.exportFigures(), ...(heat?.exportFigures() ?? []), ...opt.exportFigures(), ...(opt3?.exportFigures() ?? []),
       ];
-      const entries = runEntries(snapshot, figures);
+      const labReport = guidedLab?.buildLabReport() ?? null;
+      const entries = runEntries(snapshot, figures, labReport);
       // Copy the freshly presented frame before yielding: a WebGPU canvas
       // otherwise discards its drawing buffer between tasks.
       entries.push({ name: "micrograph.png", data: await micrographPNG(canvas, snapshot) });
       const bytes = zipStore(entries);
-      if (download) downloadRun(`solidify-run-${seedHex()}-${snapshot.exportedAt.replace(/[:.]/g, "-")}.zip`, bytes);
+      if (download) {
+        const prefix = labReport ? `solidify-${labReport.labId}` : "solidify-run";
+        downloadRun(`${prefix}-${seedHex()}-${snapshot.exportedAt.replace(/[:.]/g, "-")}.zip`, bytes);
+      }
       if (status) status.textContent = "Run archive ready. Setup, recorded data, and image included.";
       return bytes;
     } catch (err) {
@@ -1976,8 +2023,185 @@ async function boot() {
     void exportRun().catch(err => console.error("[solidify] run export:", err));
   });
 
+  // ----------------------------------------------------------- GUIDED LABS
+  let preserveRouteHash = false;
+  const syncLabHash = (labHashId: number | null) => {
+    const raw = location.hash.replace(/^#/, "");
+    const kept = raw
+      ? raw.split("&").filter(p => p && !p.startsWith("lab=") && p !== "labs" && !p.startsWith("labs="))
+      : [];
+    let nextHash = "";
+    if (labHashId != null) {
+      nextHash = preserveRouteHash && kept.length
+        ? `#${[...kept, `lab=${labHashId}`].join("&")}`
+        : `#lab=${labHashId}`;
+    } else if (kept.length) {
+      nextHash = `#${kept.join("&")}`;
+    }
+    if (location.hash !== nextHash) {
+      history.replaceState(null, "", nextHash || (location.pathname + location.search));
+    }
+  };
+
+  const buildLabSnapshot = (): LabSnapshot => {
+    const three = mode === "3d" && sim3d != null;
+    const p = three ? sim3d!.params : sim.params;
+    const u = unitsNow();
+    const s = three ? lastStats3 : lastStats;
+    const cal = app.calibration();
+    const rawIntC = s && s.interfaceCells > 0 && u.known ? u.celsius(s.interfaceT) : null;
+    const interfaceTC = rawIntC != null && Number.isFinite(rawIntC) ? rawIntC : null;
+    const alloyLive = three ? sim3d!.alloyActive : sim.params.alloyOn === 1;
+    const liveMix = pouredLive({ ...p, alloyOn: Number(alloyLive) }).d && pouredMix
+      ? { mix: pouredMix.mix, derived: pouredMix.derived }
+      : null;
+    const tEq = three ? tEq3() : tEq2();
+    return {
+      mode,
+      can3d: caps3d.supported,
+      material,
+      alloyName,
+      calibrated: p.solver === SOLVER.QUANT,
+      lambda: p.lambda,
+      umPerCell,
+      gridN: three ? sim3d!.n : sim.n,
+      units: u,
+      calibration: cal
+        ? { d0: cal.d0, W0: cal.W0, tau0: cal.tau0, wOverD0: cal.wOverD0, dT0: cal.dT0, umPerCell: cal.umPerCell }
+        : null,
+      params: {
+        aniMode: three ? app.getSym3() : sim.params.aniMode,
+        delta: p.delta,
+        alloyOn: alloyLive ? 1 : 0,
+        c0: p.c0,
+        mLiq: p.mLiq,
+        kPart: p.kPart,
+        coolRate: p.coolRate,
+        scen: p.scen,
+        atCoef: p.atCoef,
+      },
+      undercool,
+      lastResetUndercool,
+      effUndercool: tEq - (1 - lastResetUndercool),
+      resetEpoch,
+      inoculant: app.getInoculant(),
+      nucFired: app.getNucFired(),
+      viewName: three ? (LENS3_NAMES[view3d] ?? "") : (LENS_NAMES[view] ?? ""),
+      cutStyle: slice.style,
+      sliceOff: slice.off,
+      sliceSweep: slice.sweep,
+      fracSolid: s?.fracSolid ?? 0,
+      grainCount: s?.grainCount ?? 0,
+      simTime: app.simTimeNow(),
+      interfaceTC,
+      scheilOn: three ? an3.scheilOn : analyze.scheilOn,
+      scheilSamples: three ? an3.scheilSampleCount() : analyze.scheilSampleCount(),
+      stereoOn: an3.stereoOn,
+      stereo: three ? an3.getLastStereo() : null,
+      nyRiskFrac: three ? (lastStats3?.nyRiskFrac ?? null) : null,
+      poreFrac: three ? (lastStats3?.poreFrac ?? null) : null,
+      pouredMix: liveMix,
+      labActive: lab.active,
+      labRunning: lab.running,
+      heatActive: !!heat?.active,
+      composerOpen: composer.isOpen(),
+      running: app.isRunning(),
+    };
+  };
+
+  const runner = new GuidedLabRunner({
+    snapshot: buildLabSnapshot,
+    meta: () => ({ build: BUILD, seed: getSeed(), setupLink: app.shareLink() }),
+    applyScene(name) {
+      if (mode === "3d") SCENES3[name]?.(app);
+      else SCENES[name]?.(app);
+    },
+    setMode: m => app.setMode(m),
+    setMaterial: key => app.setMaterial(key),
+    setCalibrated: on => app.setCalibrated(on),
+    setParams: p => app.setParams(p),
+    setUndercool: v => app.setUndercool(v),
+    setInoculant: nmax => app.setInoculant(nmax),
+    clearMelt: u => app.clearMelt(u),
+    seedCenter: () => app.seedCenter(),
+    setView(v) {
+      if (mode === "3d") app.setView3d(v);
+      else app.setView(v);
+    },
+    setSpeed: n => app.setSpeed(n),
+    setRun: on => app.setRun(on),
+    closeModes() {
+      tour.close();
+      composer.close();
+      if (lab.active) lab.close();
+      if (heat?.active) heat.close();
+      if (opt.active) opt.stop();
+      if (opt3?.active) void opt3.stop();
+      if (challenge.active) challenge.stop();
+    },
+    syncUI: () => ui.sync(),
+    reveal: target => app.reveal(target),
+    clearReveals: () => app.clearReveals(),
+    exportRun: async () => { await exportRun(true); },
+    onLabChange(labHashId) {
+      syncLabHash(labHashId);
+      ui.sync();
+    },
+  });
+  guidedLab = runner;
+
+  const startGuidedLab = async (
+    idOrHash: string | number,
+    opts: { applySetup?: boolean; restart?: boolean } = {},
+  ): Promise<boolean> => {
+    if (opt.active) opt.stop();
+    if (opt3?.active) await opt3.stop();
+    if (challenge.active) challenge.stop();
+    tour.close();
+    guidedPicker?.close(false);
+    preserveRouteHash = opts.applySetup === false;
+    try {
+      return await runner.startLab(idOrHash, opts);
+    } finally {
+      preserveRouteHash = false;
+    }
+  };
+
+  const picker = new GuidedLabPicker({
+    labs: () => runner.getLabs(),
+    progress: () => runner.getState().allLabProgress,
+    activeLabId: () => runner.getActiveLab()?.id ?? null,
+    can3d: () => caps3d.supported,
+    startLab: async (idOrHash, opts) => { await startGuidedLab(idOrHash, opts); },
+  });
+  guidedPicker = picker;
+
+  const guidedPanel = new GuidedLabPanel({
+    labs: () => runner.getLabs(),
+    state: () => runner.getState(),
+    subscribe: fn => runner.subscribe(fn),
+    startLab: async (idOrHash, opts) => { await startGuidedLab(idOrHash, opts); },
+    exitLab: () => runner.closeLab(),
+    nextStep: () => runner.nextStep(),
+    selectStep: idx => runner.selectStep(idx),
+    skipStep: reason => runner.skipStep(reason),
+    resetSetup: async () => {
+      const active = runner.getActiveLab();
+      if (!active) return;
+      await startGuidedLab(active.id, { applySetup: true, restart: false });
+    },
+    openPicker: () => picker.open(),
+    reveal: target => app.reveal(target),
+    clearReveals: () => app.clearReveals(),
+    exportZip: async () => { await exportRun(true); },
+    hideRail: () => ui.setRailHidden(true),
+  });
+
+  document.getElementById("labsBtn")?.addEventListener("click", () => app.openGuidedLabs());
+
   (window as unknown as Record<string, unknown>).__solidify = {
     app, opt, opt3, tour, ui, challenge, composer, analyze, lab, heat, hud,
+    guidedLab: runner, guidedPanel, guidedPicker: picker,
     recipe3dState: () => ({ schedule: recipeSchedule3, recipe: appliedRecipe3, clock: recipeClock3?.snapshot() ?? null }),
     // the composer's chemistry, for headless physics checks that need to set
     // up a named alloy exactly as the UI would
@@ -2533,6 +2757,7 @@ async function boot() {
             ["fps", `${fps.toFixed(0)} · ${sim3d.n}³`],
             ...isoRows3(),
           ]);
+          guidedLab?.tick();
         }
       }
       return;
@@ -2646,6 +2871,7 @@ async function boot() {
         ["fps", `${fps.toFixed(0)} · ${sim.n}²${renderer.zoom > 1.01 ? ` · ${renderer.zoom.toFixed(1)}×` : ""}`],
       ]);
       updateScalebar();
+      guidedLab?.tick();
     }
   }
 
@@ -2674,8 +2900,11 @@ async function boot() {
   // boot scene: a lone dendrite, instantly; ?tour=1 deep link opens the tour;
   // #alloy=… deep link pours a shared composition and runs it
   SCENES.dendrite(app);
-  if (new URLSearchParams(location.search).has("tour")) tour.goto(0);
+  const bootTour = new URLSearchParams(location.search).has("tour");
+  if (bootTour) tour.goto(0);
+  let bootAlloyApplied = false;
   if (location.hash.includes("alloy=") && composer.applyHash(location.hash)) {
+    bootAlloyApplied = true;
     app.scatterSeeds(6);
     app.setView(0);
     app.setRun(true);
@@ -2944,6 +3173,28 @@ async function boot() {
       }).finally(() => { sharedRestore3Pending = false; ui.sync(); });
     }
   }
+  // guided-labs deep link (#lab=1..4, #labs, ?lab=1..4, ?labs)
+  const applyLabRoute = (route: ReturnType<typeof parseLabRoute>, preserveExisting: boolean) => {
+    if (!route) return;
+    if (route.kind === "picker") {
+      picker.open();
+      return;
+    }
+    const def = runner.findLab(route.ref);
+    if (!def) {
+      picker.open("No guided lab matches that link. Choose a lab below.");
+      return;
+    }
+    if (runner.getActiveLab()?.id === def.id) return;
+    void startGuidedLab(def.id, { applySetup: !preserveExisting });
+  };
+  if (!bootTour) {
+    const labRoute = parseLabRoute(location.hash, location.search);
+    applyLabRoute(labRoute, Boolean(shared) || bootAlloyApplied);
+  }
+  window.addEventListener("hashchange", () => {
+    applyLabRoute(parseLabRoute(location.hash), false);
+  });
   ui.sync();
   requestAnimationFrame(frame);
 }

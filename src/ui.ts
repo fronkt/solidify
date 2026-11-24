@@ -72,6 +72,9 @@ export interface UIHost extends AppControl {
   isLabOpen(): boolean;
   /** open the HEAT TREAT panel — the second clock, in either dimension */
   startHeat(): void;
+  /** open the Guided Labs picker or bring the active lab dock into focus */
+  openGuidedLabs(): void;
+  isGuidedLabOpen(): boolean;
   getSubsteps(): number;
   isRunning(): boolean;
   isEngineering(): boolean;
@@ -271,8 +274,8 @@ export class UI {
     onLearnChange(() => this.sync());
   }
 
-  /** show or hide the rail (CONTROLS, the tour's reveal, a narrow boot) */
-  private setRailHidden(hide: boolean) {
+  /** show or hide the rail (CONTROLS, the tour's reveal, a narrow boot, guided labs) */
+  setRailHidden(hide: boolean) {
     document.getElementById("rail")!.classList.toggle("hidden", hide);
     document.body.classList.toggle("railHidden", hide);
     this.railRoom();
@@ -659,6 +662,11 @@ export class UI {
     heatBtn.title = "solid-state heat treatment · real-hours clock · Arrhenius grain growth";
     const optimizerBtn = this.button(mrow0, "optimizer", () => { host.startOptimizer(); this.sync(); });
     this.only2d.push(this.button(mrow0, "challenge", () => host.startChallenge()));
+    const mrow1 = this.btnRow(modes);
+    const labsBtn = this.button(mrow1, "guided labs", () => { host.openGuidedLabs(); this.sync(); });
+    labsBtn.title = "structured hands-on labs with live physics checks";
+    this.hintFor(mrow1, "guided labs");
+    this.binds.push({ update: () => labsBtn.setAttribute("aria-expanded", String(host.isGuidedLabOpen())) });
     const optimizerNote = document.createElement("div");
     optimizerNote.id = "optimizerModeNote";
     optimizerNote.className = "matnote";

@@ -83,5 +83,47 @@ try {
     assert.equal(R.imageScale(NaN, 1000), null);
     assert.equal(R.imageScale(0, 1000), null);
   });
+  await check("RUN-LAB-REPORT", () => {
+    const without = R.runEntries(snapshot, [fig], null);
+    assert.equal(without.length, entries.length);
+    assert.equal(without.find(e => e.name === "lab-report.json"), undefined);
+    const labReport = {
+      format: "solidify-lab-report",
+      version: 1,
+      labId: "lab-01",
+      hashId: 1,
+      title: "Dendrite Arm Spacing & Calibration",
+      course: "MSE 301",
+      startedAt: "2026-11-23T00:00:00Z",
+      completedAt: "2026-11-23T00:12:00Z",
+      build: "test",
+      seed: 42,
+      setupLink: "https://example.test/app/#lab=1",
+      stepsCompleted: 5,
+      stepsSkipped: 0,
+      stepsTotal: 5,
+      anyIntervened: false,
+      steps: [{ id: "1.1", title: "Thermal dendrite", status: "completed", completedAt: "2026-11-23T00:02:00Z", captures: { fracSolid: 0.18 } }],
+      columns: [{ key: "sdasUm", label: "SDAS", unit: "um" }],
+      table: [{ label: "Run A", values: { sdasUm: 14.2 } }],
+    };
+    const withLab = R.runEntries(snapshot, [fig], labReport);
+    assert.equal(withLab.length, entries.length + 1);
+    const reportEntry = withLab.find(e => e.name === "lab-report.json");
+    assert(reportEntry, "lab-report.json entry present");
+    const parsed = JSON.parse(new TextDecoder().decode(reportEntry.data));
+    assert.equal(parsed.format, "solidify-lab-report");
+    assert.equal(parsed.version, 1);
+    assert.equal(parsed.labId, "lab-01");
+    assert.equal(parsed.stepsCompleted, 5);
+    assert.equal(parsed.table[0].values.sdasUm, 14.2);
+    const readme = new TextDecoder().decode(withLab.find(e => e.name === "README.txt").data);
+    assert.match(readme, /lab-report\.json/);
+    const zip = R.zipStore(withLab);
+    const view = new DataView(zip.buffer);
+    const end = zip.length - 22;
+    assert.equal(view.getUint32(end, true), 0x06054b50);
+    assert.equal(view.getUint16(end + 10, true), withLab.length);
+  });
 } finally { await server.close(); }
 process.exitCode = failed ? 1 : 0;

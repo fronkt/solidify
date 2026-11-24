@@ -1,5 +1,6 @@
 import type { Figure } from "./plot/figures";
 import { bridgeLines, slug, toCSV } from "./plot/csv";
+import type { GuidedLabReport } from "./labs/types";
 
 export interface ArchiveEntry { name: string; data: Uint8Array }
 const utf8 = new TextEncoder();
@@ -93,7 +94,11 @@ export function hasFigureData(f: Figure): boolean {
 
 /** Freeze every series and its own conversion before the asynchronous PNG
  * read. Separate datasets keep separate clocks and prior-run identities. */
-export function runEntries(snapshot: RunSnapshot, figures: Figure[]): ArchiveEntry[] {
+export function runEntries(
+  snapshot: RunSnapshot,
+  figures: Figure[],
+  labReport?: GuidedLabReport | null,
+): ArchiveEntry[] {
   const datasets = figures.filter(hasFigureData).map((f, i) => ({
     file: `data/${String(i + 1).padStart(2, "0")}-${slug(f.title) || "series"}.csv`,
     title: f.title,
@@ -117,7 +122,9 @@ export function runEntries(snapshot: RunSnapshot, figures: Figure[]): ArchiveEnt
     "SOLIDIFY run export", "",
     "run.json: versioned setup, material constants, units, provenance, and recorded data.",
     "micrograph.png: current rendered view, scale, material, seed, and solver.",
-    "data/*.csv: every available instrument dataset with its own provenance and units.", "",
+    "data/*.csv: every available instrument dataset with its own provenance and units.",
+    ...(labReport ? ["lab-report.json: guided lab progress, latched measurements, and summary table."] : []),
+    "",
     manifest.reproducibility, "", ...manifest.notes,
     ...(datasets.length ? [] : ["", "No series were recorded yet. The setup and current image are included."]),
     "", snapshot.setupLink, "",
@@ -126,6 +133,7 @@ export function runEntries(snapshot: RunSnapshot, figures: Figure[]): ArchiveEnt
     { name: "README.txt", data: utf8.encode(readme) },
     { name: "run.json", data: utf8.encode(JSON.stringify(manifest, null, 2) + "\n") },
     ...datasets.map(d => ({ name: d.file, data: utf8.encode(d.csv) })),
+    ...(labReport ? [{ name: "lab-report.json", data: utf8.encode(JSON.stringify(labReport, null, 2) + "\n") }] : []),
   ];
 }
 

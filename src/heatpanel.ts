@@ -117,6 +117,45 @@ export interface RxTally {
   window: number;
 }
 
+export type HeatRefusalReason = "incipient" | "domain" | "no-solid" | "too-few-grains" | "no-si" | "other";
+
+export interface HeatPlanEvent {
+  dim: "2d" | "3d";
+  material: string;
+  ok: boolean;
+  reason?: HeatRefusalReason;
+  specUnreachable: boolean;
+  tC: number;
+  holdMin: number;
+  peakFracTm: number;
+  specMPa: number;
+  currentSigmaY: number | null;
+  dPredUm: number | null;
+}
+
+export interface HeatFinishedEvent {
+  dim: "2d" | "3d";
+  material: string;
+  tC: number;
+  holdMin: number;
+  pinF: number;
+  pinR: number;
+  dLimUm?: number;
+  d0Um: number;
+  dAfterUm: number;
+  dPredUm: number;
+  sigmaBefore: number;
+  sigmaAfter: number;
+  specMPa: number;
+  specMet: boolean | null;
+  oxideNm: number;
+  sweeps: number;
+  aborted: boolean;
+  twinsSpawned: number;
+  twinVerdictOk: boolean;
+  twinRefusalWhy: string;
+}
+
 export interface HeatHost {
   units(): Units;
   meta(): PlotMeta;
@@ -194,6 +233,9 @@ export interface HeatHost {
   getView(): number;
   setView(v: number): void;
   syncUI(): void;
+  /** Optional read-only hooks for Guided Labs (zero DOM/behavior change when omitted). */
+  onHeatPlan?(ev: HeatPlanEvent): void;
+  onHeatFinished?(ev: HeatFinishedEvent): void;
 }
 
 /**
@@ -264,7 +306,7 @@ const THERMAL_LENSES_3D = [0, 6];
 const ORIENT3 = 1;
 
 type Plan =
-  | { ok: false; why: string; learn?: string }
+  | { ok: false; why: string; reason: HeatRefusalReason; learn?: string; peakFracTm?: number; dPredUm?: number }
   | {
       ok: true;
       sch: HeatSchedule;
@@ -519,15 +561,19 @@ export class HeatPanel {
   private plan(c: Census | null): Plan {
     // no census yet is NOT "nothing solid" — before the first measurement
     // lands, the panel does not know what is on stage and must not claim to
-    if (!c) return { ok: false, why: "waiting for a grain census…" };
+    if (!c) return { ok: false, reason: "other", why: "waiting for a grain census…" };
     const si = this.host.si();
     const ctx = this.ctx(c);
     const v = canTreat("grain", ctx);
-    if (!v.ok) return { ok: false, why: v.why, learn: v.learn };
-    if (!si) return { ok: false, why: "no SI identity" }; // canTreat already said it better
+    if (!v.ok) {
+      const reason: HeatRefusalReason = c.fracSolid < 0.02 ? "no-solid" : !si ? "no-si" : "other";
+      return { ok: false, reason, why: v.why, learn: v.learn };
+    }
+    if (!si) return { ok: false, reason: "no-si", why: "no SI identity" }; // canTreat already said it better
     if (c.grainCount < 3) {
       return {
         ok: false,
+        reason: "too-few-grains",
         why: `needs ≥ 3 grains for a grain size (this casting has ${c.grainCount}): pour a finer casting first `
           + `(more inoculant)`,
       };
@@ -538,6 +584,8 @@ export class HeatPanel {
     if (ints.peakFracTm >= INCIPIENT_FRAC) {
       return {
         ok: false,
+        reason: "incipient",
+        peakFracTm: ints.peakFracTm,
         why: `${this.tC.toFixed(0)} °C = ${(ints.peakFracTm * 100).toFixed(0)} % of T_m, past the `
           + `${(INCIPIENT_FRAC * 100).toFixed(0)} % limit: ${HC.incipient.line}`,
         learn: HC.incipient.learn,
@@ -550,6 +598,9 @@ export class HeatPanel {
     if (dPredUm > limUm) {
       return {
         ok: false,
+        reason: "domain",
+        peakFracTm: ints.peakFracTm,
+        dPredUm,
         why: `law says ${fmtUm(dPredUm)} (${fmtUm(d0Um)} → ${fmtUm(dPredUm)} in ${fmtDur(ints.seconds)}), `
           + `past the ~${fmtUm(limUm)} limit of this ${fmtUm(this.host.gridN() * this.host.umPerCell())} `
           + `specimen · ${HC.domain.line}`,
@@ -819,9 +870,39 @@ export class HeatPanel {
     this.learn.apply();
   }
 
+  private emitPlan(plan: Plan) {
+    if (!this.host.onHeatPlan) return;
+    const si = this.host.si();
+    const d0Um = this.census ? this.dBar(this.census) : 0;
+    const currentSigmaY = si && d0Um > 0 ? hallPetch(si, d0Um * 1e-6) : null;
+    const specUnreachable = !!(
+      this.specMPa > 0
+      && currentSigmaY != null
+      && (!plan.ok || !plan.work)
+      && shownMPa(this.specMPa) > shownMPa(currentSigmaY)
+    );
+    const peakFracTm = plan.ok
+      ? plan.ints.peakFracTm
+      : (plan.peakFracTm ?? (si ? (this.tC + K0) / si.Tm : 0));
+    this.host.onHeatPlan({
+      dim: this.host.getMode(),
+      material: this.host.materialKey(),
+      ok: plan.ok,
+      ...(plan.ok ? {} : { reason: plan.reason }),
+      specUnreachable,
+      tC: this.tC,
+      holdMin: this.holdMin,
+      peakFracTm,
+      specMPa: this.specMPa,
+      currentSigmaY,
+      dPredUm: plan.ok ? plan.dPredUm : (plan.dPredUm ?? null),
+    });
+  }
+
   private writeNote() {
     if (!this.noteEl || !this.runBtn) return;
     const plan = this.plan(this.census);
+    this.emitPlan(plan);
     if (!plan.ok) {
       // the gates find "refused" in the note's first 120 characters
       this.noteEl.innerHTML = `${warnWord("refused")}: ${plan.why}${learnSlot(plan.learn ?? "")}`;
@@ -1025,6 +1106,8 @@ export class HeatPanel {
     // dials stay live during a run, and a spec moved after the sweeps are
     // spent must not rewrite the verdict the schedule was committed to.
     const spec = this.specMPa;
+    const tC = this.tC;
+    const holdMin = this.holdMin;
     // the dispersion latches with it, for the same reason: the fabric the
     // boundaries dragged through is the one the card must describe, not the
     // one the dials show when the report renders (plan() read the same dials
@@ -1081,6 +1164,7 @@ export class HeatPanel {
     const workHoldsTwins = !!plan.work && twinV?.ok === true;
     const wantTwins = twinV?.ok === true && !!this.host.annealTwins && !plan.work;
     let delivered = 0;
+    let twinsSpawned = 0;
     // each report line is its terse text plus, where it has one, a learn slot
     let twinLine = twinV && !twinV.ok ? twinV.why + learnSlot(twinV.learn ?? "") : "";
     if (workHoldsTwins) {
@@ -1155,6 +1239,7 @@ export class HeatPanel {
         if (wantTwins) {
           const r = await this.host.annealTwins!(total, onProg, pin);
           delivered = r.delivered;
+          twinsSpawned = r.spawned;
           twinLine = r.spawned > 0
             ? `${num(r.spawned.toLocaleString())} Σ3 annealing twins on migrating boundaries`
               + (r.saturated ? ` (${HC.twinsSaturated.line})` : "")
@@ -1211,6 +1296,36 @@ export class HeatPanel {
     if (this.closeReq) { this.closeReq = false; this.close(); return; }
     this.report(plan, before, after, delivered, total, twinLine, homogLine, spec,
       rxEvent ? { event: rxEvent, S: rxS, X: rxX, x0: rxX0, tally: rxTally } : null);
+    if (this.host.onHeatFinished) {
+      const siDone = this.host.si();
+      const dAfterUm = after ? this.dBar(after) : plan.d0Um;
+      const sigmaBefore = siDone ? hallPetch(siDone, plan.d0Um * 1e-6) : 0;
+      const sigmaAfter = siDone && after ? hallPetch(siDone, dAfterUm * 1e-6) : 0;
+      const specMet = spec > 0 && siDone && after ? shownMPa(sigmaAfter) >= shownMPa(spec) : null;
+      const ov = canTreat("oxide", this.ctx(before));
+      this.host.onHeatFinished({
+        dim: this.host.getMode(),
+        material: this.host.materialKey(),
+        tC,
+        holdMin,
+        pinF: pin?.f ?? 0,
+        pinR: pin?.r ?? 0,
+        ...(plan.dLimUm !== undefined ? { dLimUm: plan.dLimUm } : {}),
+        d0Um: plan.d0Um,
+        dAfterUm,
+        dPredUm: plan.dPredUm,
+        sigmaBefore,
+        sigmaAfter,
+        specMPa: spec,
+        specMet,
+        oxideNm: ov.ok ? scaleThickness(plan.ints.ox) * 1e9 : 0,
+        sweeps: delivered,
+        aborted: delivered < total,
+        twinsSpawned,
+        twinVerdictOk: twinV?.ok === true,
+        twinRefusalWhy: twinV && !twinV.ok ? twinV.why : (workHoldsTwins ? HC.twinsHeldBack.line : ""),
+      });
+    }
     this.refresh();
   }
 

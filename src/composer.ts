@@ -1,6 +1,6 @@
 import { BASES, FAMOUS, derive, encodeMix, decodeMix, soluteBound, type Mix, type Derived } from "./alloy";
 import { PhaseFigureView } from "./phasediagram";
-import { ELEMENTS, admit, probeWt, tablePos, type AdmitTier } from "./elements";
+import { ELEMENTS, admit, probeWt, tablePos, type Admission, type AdmitTier } from "./elements";
 import { LearnLayer, learnSlot, fillLearnSlots, onLearnChange, bindLearnToggle } from "./learn";
 import { COMPOSER_CAVEATS as CC, composerHint, composerHintKeys, composerText } from "./learn/composer";
 import { tabbables } from "./design/panel";
@@ -121,6 +121,12 @@ export interface ComposerHost {
   meltC(): number | null;
   /** which material is actually in the crucible, for the cursor's own honesty check */
   materialKey(): string;
+  /** Optional read-only hooks for Guided Labs (zero behavior change when omitted). */
+  onMixViewed?(ev: { base: string; wt: Record<string, number>; derived: Derived }): void;
+  onPick?(ev: { base: string; el: string; admission: Admission }): void;
+  onPour?(ev: { mix: Mix; derived: Derived }): void;
+  /** When a guided lab is active, returns its hash parameter (e.g. `"lab=2"`) so `pour()` preserves it. */
+  activeLabHash?(): string | null;
 }
 
 export class Composer {
@@ -316,11 +322,17 @@ export class Composer {
     this.dedupeLearn();
   }
 
-  /** what Tab cycles through while open: the tour's panel (when shown), then the card */
+  /** what Tab cycles through while open: the tour or guided lab panel (when shown), then the card */
   private focusCycle(): HTMLElement[] {
     const tour = document.getElementById("tour");
     const tourShown = !!tour && tour.classList.contains("show");
-    return [...(tourShown ? tabbables(tour) : []), ...tabbables(this.overlay.querySelector(".card"))];
+    const gl = document.getElementById("guidedLab");
+    const glShown = !!gl && gl.classList.contains("show");
+    return [
+      ...(tourShown ? tabbables(tour) : []),
+      ...(glShown ? tabbables(gl) : []),
+      ...tabbables(this.overlay.querySelector(".card")),
+    ];
   }
 
   /** declared readout hints that no rendered row has bound yet (COMPOSER-LEARN) */
@@ -465,6 +477,7 @@ export class Composer {
   private pick(sym: string) {
     this.picked = sym;
     const a = admit(this.mix.base, sym, probeWt(this.mix.base, sym));
+    if (a) this.host.onPick?.({ base: this.mix.base, el: sym, admission: a });
     if (a?.tier === "ASSESSED" && !(sym in this.mix.wt)) {
       // the SAME ceiling-aware default the quick list uses, from the same
       // function, so the two ways of adding a solute cannot disagree
@@ -582,13 +595,14 @@ export class Composer {
       this.returnFocus = active instanceof HTMLElement && active !== document.body ? active : null;
       for (const c of document.getElementById("app")?.children ?? []) {
         const h = c as HTMLElement;
-        if (h.id === "tour" || h.inert) continue;
+        if (h.id === "tour" || (h.id === "guidedLab" && h.classList.contains("show")) || h.inert) continue;
         h.inert = true;
         this.inerted.push(h);
       }
       const tour = document.getElementById("tour");
-      this.overlay.querySelector(".card")!.setAttribute("aria-modal",
-        tour && tour.classList.contains("show") ? "false" : "true");
+      const gl = document.getElementById("guidedLab");
+      const peerOpen = (!!tour && tour.classList.contains("show")) || (!!gl && gl.classList.contains("show"));
+      this.overlay.querySelector(".card")!.setAttribute("aria-modal", peerOpen ? "false" : "true");
     }
     this.overlay.classList.add("show");
     this.render();
@@ -665,10 +679,15 @@ export class Composer {
     // composer still learns that half of the casting on screen freezes as a
     // phase this solver does not grow.
     const caveats = [...this.extraRefusals, ...d.refusals, ...d.notGrown, ...d.clamps];
+    const mixCopy = { base: this.mix.base, wt: { ...this.mix.wt } };
     this.host.applyAlloy(BASES[this.mix.base].materialKey,
       d.params as Record<string, number>, d.name,
-      { mix: { base: this.mix.base, wt: { ...this.mix.wt } }, derived: d, caveats });
-    if (setHash) history.replaceState(null, "", "#" + encodeMix(this.mix));
+      { mix: mixCopy, derived: d, caveats });
+    if (setHash) {
+      this.host.onPour?.({ mix: mixCopy, derived: d });
+      const labHash = this.host.activeLabHash?.();
+      history.replaceState(null, "", "#" + encodeMix(this.mix) + (labHash ? "&" + labHash : ""));
+    }
     this.close();
   }
 
@@ -798,5 +817,8 @@ export class Composer {
       ${d.clamps.map(c => cav("clamp", c, d.learn[c] ?? "")).join("")}`;
     fillLearnSlots(this.outEl);
     this.dedupeLearn();
+    if (this.open_) {
+      this.host.onMixViewed?.({ base: this.mix.base, wt: { ...this.mix.wt }, derived: d });
+    }
   }
 }

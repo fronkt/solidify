@@ -55,6 +55,8 @@ export interface TourHost extends AppControl {
   setCutStyle(v: number): void;
   setStereoOn(b: boolean): void;
   setAlloyOn(b: boolean): void;
+  /** Optional hook invoked before opening a tour chapter (e.g. close Guided Labs). */
+  onTourOpen?(): void;
 }
 
 const NO_SCEN: Partial<PhysParams> = { scen: 0, heatIn: 0, facet: 0 };
@@ -485,10 +487,12 @@ export const CHAPTERS: Chapter[] = [
 export class Tour {
   private el: HTMLElement;
   private btn: HTMLElement;
+  private labsBtn: HTMLElement | null;
   private nav = 0;   // navigation token: a newer goto/close cancels one awaiting a mode switch
   constructor(private app: TourHost) {
     this.el = document.getElementById("tour")!;
     this.btn = document.getElementById("tourBtn")!;
+    this.labsBtn = document.getElementById("labsBtn");
     // from 3D the tour opens straight onto part III; the 2D chapters would
     // otherwise yank the user out of the volume they are looking at
     this.btn.addEventListener("click", () => {
@@ -499,6 +503,7 @@ export class Tour {
   async goto(i: number) {
     if (i < 0 || i >= CHAPTERS.length) return this.close();
     const my = ++this.nav;
+    this.app.onTourOpen?.();
     const ch = CHAPTERS[i];
     // settle the instrument mode BEFORE staging the chapter — apply() must hit
     // the solver the chapter was written for
@@ -541,12 +546,17 @@ export class Tour {
     mk("close", () => this.close());
     this.el.classList.add("show");
     this.btn.classList.add("hide");
+    this.labsBtn?.classList.add("hide");
   }
   close() {
     this.nav++;
     this.app.clearReveals();
     this.app.closeComposer();
     this.el.classList.remove("show");
-    this.btn.classList.remove("hide");
+    const labShown = !!document.getElementById("guidedLab")?.classList.contains("show");
+    if (!labShown) {
+      this.btn.classList.remove("hide");
+      this.labsBtn?.classList.remove("hide");
+    }
   }
 }

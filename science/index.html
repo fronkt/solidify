@@ -493,24 +493,65 @@
     .sciTable td { font: 400 var(--t-ui-min)/1.5 var(--font-body); color: var(--fg-2); }
     .sciTable td:first-child { color: var(--fg); }
 
-    /* Labs CTA banner */
+    /* Labs CTA banner: Figure-03 numbered spec list */
     .labsBanner {
       margin: var(--s-8) 0;
       padding: var(--s-6);
       background: var(--surface);
       border: 1px solid var(--rule);
       border-radius: var(--r-panel);
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: var(--s-6);
-      align-items: center;
     }
-    .labsBanner h3 {
-      margin: 0 0 var(--s-2);
+    .labsBanner__head .kicker { margin: 0; }
+    .labsBanner__head h3 {
+      margin: var(--s-2) 0 var(--s-2);
       font: 400 var(--t-heading)/1.2 var(--font-body);
       color: var(--fg);
     }
-    .labsBanner p { margin: 0; font: 400 var(--t-ui)/1.55 var(--font-body); color: var(--fg-2); max-width: 56ch; }
+    .labsBanner__head p {
+      margin: 0;
+      font: 400 var(--t-ui)/1.55 var(--font-body);
+      color: var(--fg-2);
+      max-width: 58ch;
+    }
+    .labsList {
+      list-style: none;
+      margin: var(--s-5) 0 0;
+      padding: 0;
+      border-bottom: 1px solid var(--rule);
+    }
+    .labsList .labsList__row {
+      display: grid;
+      grid-template-columns: 2.2em minmax(0, 1fr) auto;
+      gap: var(--s-2) var(--s-4);
+      align-items: center;
+      padding: var(--s-3) 0;
+      margin: 0;
+      border-top: 1px solid var(--rule);
+    }
+    .labsList__idx {
+      font: 400 var(--t-ui-min)/1 var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      color: var(--fg-3);
+    }
+    .labsList__info { min-width: 0; }
+    .labsList__title {
+      display: block;
+      font: 400 var(--t-ui)/1.4 var(--font-body);
+      color: var(--fg);
+    }
+    .labsList__meta {
+      display: block;
+      margin-top: 2px;
+      font: 400 var(--t-ui-min)/1.4 var(--font-body);
+      color: var(--fg-3);
+    }
+    .labsBanner__cta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--s-4) var(--s-6);
+      margin-top: var(--s-5);
+    }
 
     /* References */
     .refs { padding-left: var(--s-5); max-width: 58em; }
@@ -522,10 +563,14 @@
       .sciToc ol { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); }
       .sciToc a { border-left: 0; padding: 4px 0; }
       .heroStats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .labSplit, .labSplit--wide, .coolGrid, .eqGrid, .cardGrid, .benchGrid, .mediaPair, .labsBanner {
+      .labSplit, .labSplit--wide, .coolGrid, .eqGrid, .cardGrid, .benchGrid, .mediaPair {
         grid-template-columns: minmax(0, 1fr);
       }
       .scopeRow { grid-template-columns: minmax(0, 1fr); gap: var(--s-2); }
+    }
+    @media (max-width: 520px) {
+      .labsBanner { padding: var(--s-4); }
+      .labsList .labsList__row { gap: var(--s-2) var(--s-3); }
     }
   </style>
 </head>
@@ -1036,11 +1081,49 @@
           </div>
 
           <div class="labsBanner">
-            <div>
+            <div class="labsBanner__head">
+              <p class="kicker">Guided labs · in-app tracker</p>
               <h3>Use SOLIDIFY in an undergraduate MSE course</h3>
-              <p>Four turnkey 50-minute lab worksheets with deterministic share links, Run-Export ZIP submission checklists, and instructor answer keys covering dendrites, alloy Scheil segregation, 3D step-block casting, and heat treatment.</p>
+              <p>Four interactive labs run directly inside the instrument with live physics checks, auto-captured comparison tables, and reproducible Run-Export ZIP reports, paired with printable worksheets and an instructor answer key.</p>
             </div>
-            <a class="btn btn--primary" href="https://github.com/fronkt/solidify/tree/main/docs/labs">View classroom labs</a>
+            <ol class="labsList">
+              <li class="labsList__row">
+                <span class="labsList__idx">01</span>
+                <span class="labsList__info">
+                  <span class="labsList__title">Dendrites, Symmetry &amp; Calibration</span>
+                  <span class="labsList__meta">Intro MSE · Phase Transformations · 35 min</span>
+                </span>
+                <a class="btn btn--sm" href="../app/#lab=1" aria-label="Start Lab 1: Dendrites, Symmetry and Calibration">Start</a>
+              </li>
+              <li class="labsList__row">
+                <span class="labsList__idx">02</span>
+                <span class="labsList__info">
+                  <span class="labsList__title">Alloys, Screening &amp; Scheil</span>
+                  <span class="labsList__meta">Physical Metallurgy · Phase Diagrams · 35 min</span>
+                </span>
+                <a class="btn btn--sm" href="../app/#lab=2" aria-label="Start Lab 2: Alloys, Screening and Scheil">Start</a>
+              </li>
+              <li class="labsList__row">
+                <span class="labsList__idx">03</span>
+                <span class="labsList__info">
+                  <span class="labsList__title">3D Casting, Cooling &amp; Niyama</span>
+                  <span class="labsList__meta">Foundry · Solidification Processing · 40 min</span>
+                </span>
+                <a class="btn btn--sm" href="../app/#lab=3" aria-label="Start Lab 3: 3D Casting, Cooling and Niyama">Start</a>
+              </li>
+              <li class="labsList__row">
+                <span class="labsList__idx">04</span>
+                <span class="labsList__info">
+                  <span class="labsList__title">Heat Treat &amp; Hall–Petch Specs</span>
+                  <span class="labsList__meta">Physical Metallurgy · Mechanical Behavior · 40 min</span>
+                </span>
+                <a class="btn btn--sm" href="../app/#lab=4" aria-label="Start Lab 4: Heat Treat and Hall–Petch Specs">Start</a>
+              </li>
+            </ol>
+            <div class="labsBanner__cta">
+              <a class="btn btn--primary" href="../app/#labs">Launch guided labs</a>
+              <a class="btn btn--text" href="https://github.com/fronkt/solidify/tree/main/docs/labs">Instructor worksheets &amp; key</a>
+            </div>
           </div>
         </section>
 
@@ -1091,6 +1174,7 @@
         <ul class="ftr__links">
           <li><a href="../app/">Open the instrument</a></li>
           <li><a href="../app/?tour=1">Take the tour</a></li>
+          <li><a href="../app/#labs">Guided labs</a></li>
         </ul>
       </nav>
       <nav aria-label="Science">

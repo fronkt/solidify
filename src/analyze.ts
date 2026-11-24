@@ -36,6 +36,8 @@ export interface AnalyzeHost {
   /** the chemistry the 2D solver runs now (main.ts chemNow), latched with
    *  each series: its liquidus and its Scheil path */
   chem(): Chem;
+  /** read-only hook when the SDAS ruler completes a >=2-arm measurement */
+  onSdasMeasured?(ev: { lambda2Um: number; arms: number; lenUm: number }): void;
 }
 
 type Which = "probe" | "scheil" | "tex";
@@ -47,6 +49,10 @@ export class Analyze {
   scheilOn = false;
   rulerOn = false;
   textureOn = false;
+  lastRuler: { lambda2Um: number | null; arms: number; lenUm: number } | null = null;
+
+  /** number of Scheil samples recorded in the current run */
+  scheilSampleCount(): number { return this.scheil.samples.length; }
 
   private fx = 0.5;             // probe position, fraction of domain
   private fy = 0.5;
@@ -154,7 +160,7 @@ export class Analyze {
 
   setRulerOn(on: boolean) {
     this.rulerOn = on;
-    if (!on) { this.ruler = null; if (this.resultEl) this.resultEl.textContent = ""; }
+    if (!on) { this.ruler = null; this.lastRuler = null; if (this.resultEl) this.resultEl.textContent = ""; }
   }
 
   setProbe(gx: number, gy: number) {
@@ -175,6 +181,7 @@ export class Analyze {
     this.curve.clear();
     this.scheil.clear();
     this.lastRose = null;
+    this.lastRuler = null;
     this.draw();
   }
 
@@ -217,11 +224,14 @@ export class Analyze {
     if (inSolid && arms === 0) arms = 1;
     const umPerCell = sim.umPerCell;
     const lenUm = lenCells * umPerCell;
-    const label = arms >= 2
-      ? `λ₂ ≈ ${(lenUm / arms).toFixed(1)} µm · ${arms} arms / ${lenUm.toFixed(0)} µm`
+    const lambda2Um = arms >= 2 ? lenUm / arms : null;
+    this.lastRuler = { lambda2Um, arms, lenUm };
+    const label = lambda2Um != null
+      ? `λ₂ ≈ ${lambda2Um.toFixed(1)} µm · ${arms} arms / ${lenUm.toFixed(0)} µm`
       : `${arms} intercept / ${lenUm.toFixed(0)} µm · need ≥ 2 arms`;
     if (this.resultEl) this.resultEl.textContent = label;
-    this.rulerText.textContent = arms >= 2 ? `λ₂ ≈ ${(lenUm / arms).toFixed(1)} µm` : "";
+    this.rulerText.textContent = lambda2Um != null ? `λ₂ ≈ ${lambda2Um.toFixed(1)} µm` : "";
+    if (lambda2Um != null) this.host.onSdasMeasured?.({ lambda2Um, arms, lenUm });
   }
 
   /** reposition SVG overlay marks through the current zoom/pan; every frame */

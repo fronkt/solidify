@@ -298,7 +298,7 @@ const PROBE = LONG => {
     vis, proseDash,
     /** Actual visible control, tour and panel copy, including tooltips. */
     uiCopy() {
-      const roots = [...document.querySelectorAll("#rail, #tour, #app > .modepanel, #slicePop, #apanels, #apanels3")].filter(vis);
+      const roots = [...document.querySelectorAll("#rail, #tour, #guidedLab, #app > .modepanel, #slicePop, #apanels, #apanels3")].filter(vis);
       const bad = [], seen = [];
       let chars = 0;
       for (const root of roots) {
@@ -811,7 +811,7 @@ const expands = [];
 // diagram's chrome included), an enlarged plot and the probe / ruler marks
 // on the melt (#overlay); an item that is not on screen reads nothing
 const CHROME_IDS = ["head", "views", "transport", "armed", "learnToggle", "railToggle", "dimSwitch", "rail", "hud",
-  "hint", "sembar", "scalebar", "thermbar", "tourBtn", "tour",
+  "hint", "sembar", "scalebar", "thermbar", "tourBtn", "labsBtn", "tour", "guidedLab",
   "#app > .modepanel", "foundryResults", "slicePop", "apanels", "apanels3", "composer", ".tmodal", "overlay"];
 const achromaSamples = [];
 // the surfaces and fixtures no rail or chrome sample reaches, read on their own

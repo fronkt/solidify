@@ -47,6 +47,8 @@ export interface An3Host {
   /** the chemistry the volume's solver runs now (main.ts chemNow: its
    *  alloyActive, not the bare request), latched with each series */
   chem(): Chem;
+  /** read-only hook when the 3D SDAS ruler completes a >=2-arm measurement */
+  onSdasMeasured?(ev: { lambda2Um: number; arms: number; lenUm: number }): void;
 }
 
 // resolution comes from the solver now (units.ts owns the anchor) — this used
@@ -160,12 +162,16 @@ export class Analyze3D {
   setScheilOn(b: boolean) { this.scheilOn = b; this.scheilPanel.style.display = b ? "block" : "none"; if (b) this.scheil.clear(); this.cols(); }
   setPoleOn(b: boolean) { this.poleOn = b; this.polePanel.style.display = b ? "block" : "none"; this.cols(); }
   /** melt reset / probe move: start fresh series */
-  reset() { this.curve.clear(); this.scheil.clear(); this.lastStereo = null; }
+  reset() { this.curve.clear(); this.scheil.clear(); this.lastStereo = null; this.lastRuler = null; }
+
+  /** number of Scheil samples recorded in the current 3D run */
+  scheilSampleCount(): number { return this.scheil.samples.length; }
 
   // ---- SDAS ruler on the section (drag pre-empts the orbit while armed)
   ruler3On = false;
+  lastRuler: { lambda2Um: number | null; arms: number; lenUm: number } | null = null;
   private rulerA: [number, number, number] | null = null;
-  setRuler3On(b: boolean) { this.ruler3On = b; if (!b) this.rulerA = null; }
+  setRuler3On(b: boolean) { this.ruler3On = b; if (!b) { this.rulerA = null; this.lastRuler = null; } }
   beginRuler3(p: [number, number, number]) { this.rulerA = p; }
   /** intercept count + λ₂, verbatim port of the 2D hysteresis walk */
   async endRuler3(p: [number, number, number]): Promise<string> {
@@ -183,8 +189,11 @@ export class Analyze3D {
     }
     if (arms === 0 && inSolid) arms = 1;
     const lenUm = Math.hypot(p[0] - a[0], p[1] - a[1], p[2] - a[2]) * umPerVox(s3);
-    return arms >= 2
-      ? `λ₂ ≈ ${(lenUm / arms).toFixed(1)} µm · ${arms} arms / ${lenUm.toFixed(0)} µm`
+    const lambda2Um = arms >= 2 ? lenUm / arms : null;
+    this.lastRuler = { lambda2Um, arms, lenUm };
+    if (lambda2Um != null) this.host.onSdasMeasured?.({ lambda2Um, arms, lenUm });
+    return lambda2Um != null
+      ? `λ₂ ≈ ${lambda2Um.toFixed(1)} µm · ${arms} arms / ${lenUm.toFixed(0)} µm`
       : `${arms} intercept${arms === 1 ? "" : "s"} · need ≥ 2 arms`;
   }
 
@@ -282,10 +291,17 @@ export class Analyze3D {
     }
   }
 
-  private drawStereo() {
+  /** read-only stereology metrics shared with drawStereo() */
+  getLastStereo(): { n2: number; d2Um: number; d3Um: number; ratio: number; astmG2: number | null } | null {
+    const m = this.stereoMetrics();
+    if (!m || m.ratio == null) return null;
+    return { n2: m.n2, d2Um: m.d2, d3Um: m.d3, ratio: m.ratio, astmG2: m.g2 };
+  }
+
+  private stereoMetrics() {
     const st = this.host.lastStats();
     const sec = this.lastStereo;
-    if (!sec) { this.stereoBody.innerHTML = `<span class="q">measuring the section…</span>`; return; }
+    if (!sec) return null;
     const n2 = sec.sections.length;
     const meanA = n2 ? sec.sections.reduce((a, s) => a + s.areaVox, 0) / n2 : 0;
     const uv = umPerVox(this.host.sim3d());
@@ -294,6 +310,13 @@ export class Analyze3D {
     const g2 = n2 >= 3 && meanAmm > 0 ? 3.322 * Math.log10(1 / meanAmm) - 2.954 : null;
     const d3 = st?.eqDiamUm ?? 0;
     const ratio = d3 > 0 && d2 > 0 ? d2 / d3 : null;
+    return { st, sec, n2, uv, d2, g2, d3, ratio };
+  }
+
+  private drawStereo() {
+    const m = this.stereoMetrics();
+    if (!m) { this.stereoBody.innerHTML = `<span class="q">measuring the section…</span>`; return; }
+    const { st, sec, n2, uv, d2, g2, d3, ratio } = m;
     // d̄₂ is the circle of the MEAN section area, so the equal-sphere reference
     // is √(2/3) ≈ 0.82 (mean area of a random section = 2/3 of the great
     // circle's). π/4, printed here before v8 U1b, is the mean section DIAMETER

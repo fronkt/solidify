@@ -28,9 +28,12 @@ export const RAIL_LEARN: readonly LearnEntry[] = [
   },
   {
     id: "sec:MODES",
-    text: "In lab mode you pour a planned experiment (mold, superheat, cooling program) and get its cooling "
-      + "curve and grains; heat treat anneals the frozen casting in real hours. The optimizer searches for "
-      + "a process that hits a target grain size in 2D or 3D; challenge pits you against it in 2D only.",
+    text: "Lab mode pours a planned experiment and reports its cooling curve and grains; heat treat anneals "
+      + "the solid in real hours; guided labs walk through both with live checks. The optimizer searches for "
+      + "a target grain size in 2D or 3D; challenge pits you against it in 2D only.",
+    hints: {
+      "guided labs": "hands-on labs with live physics checks",
+    },
   },
   {
     id: "sec:MELT · PROCESS",

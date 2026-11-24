@@ -98,7 +98,7 @@
        adds the bottom-left group, which the rail would otherwise cover */
     body.railCramped :is(#head, #views, #dimSwitch, #viewcube, #hud, #apanels, #apanels3, #scalebar, #thermbar, #sembar,
       #slicePop, #hint) { visibility: hidden; }
-    body.railPhone :is(#transport, #tourBtn, #armed) { visibility: hidden; }
+    body.railPhone :is(#transport, #tourBtn, #labsBtn, #armed) { visibility: hidden; }
     /* and on such a narrow canvas (ui.ts .narrow, the rail open or not) a
        mode panel, which takes the whole width there, would paint over the
        head plate and the lens bar under it: they step out while it is open
@@ -366,8 +366,8 @@
        (pour and run, run treatment, apply recipe, start) is the view's, so
        run / pause steps down to an outline pill. The panels leave the DOM on
        close, so :has() follows them */
-    body:has(#app > .modepanel) #transport .run { background: transparent; border-color: var(--rule-strong); color: var(--fg); }
-    body:has(#app > .modepanel) #transport .run:hover { background: transparent; border-color: var(--fg); }
+    body:has(#app > .modepanel, #guidedPicker) #transport .run { background: transparent; border-color: var(--rule-strong); color: var(--fg); }
+    body:has(#app > .modepanel, #guidedPicker) #transport .run:hover { background: transparent; border-color: var(--fg); }
     /* under the tour button (62 + 28 + 8): ARMED or PAUSED, and in learn
        mode what that means; backed like the other chrome, since it shows at
        t = 0, when the ETCH lens paints the melt near-white. Not uppercased:
@@ -393,8 +393,240 @@
     #tour p { line-height: 1.5; color: var(--fg-2); }
     #tour .watch { margin-top: var(--s-2); line-height: 1.5; color: var(--fg); }
     #tour .nav { display: flex; gap: var(--s-2); margin-top: var(--s-3); }
-    #tourBtn { position: absolute; left: var(--tool-edge); bottom: 62px; }
-    #tourBtn.hide { display: none; }
+    #tourBtn { position: absolute; left: var(--tool-edge); bottom: 62px; width: 72px; padding: 0; }
+    #labsBtn { position: absolute; left: 96px; bottom: 62px; min-width: 96px; }
+    #tourBtn.hide, #labsBtn.hide, body:has(#tour.show, #guidedLab.show) :is(#tourBtn, #labsBtn) { display: none; }
+
+    /* ---- guided labs companion (#guidedLab, z-index 31) and catalog modal (#guidedPicker, z-index 40) ---- */
+    #guidedLab {
+      position: absolute; z-index: 31; left: var(--tool-edge); bottom: 62px;
+      width: min(266px, calc(100vw - 32px));
+      top: var(--lab-top, 62px); height: fit-content; margin-top: auto;
+      max-height: max(0px, calc(100dvh - 62px - var(--lab-top, 62px)));
+      overflow-y: auto; overflow-x: hidden;
+      padding: var(--s-3); display: none;
+      scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent;
+    }
+    #guidedLab.show { display: block; }
+    @supports (top: anchor(--head bottom)) {
+      #guidedLab:not(.collapsed):not(.manual-open) {
+        top: calc(max(anchor(--head bottom, 54px), anchor(--scalebar bottom, 0px),
+          anchor(--thermbar bottom, 0px), anchor(--sembar bottom, 0px)) + 8px);
+        max-height: stretch;
+      }
+      body.narrow:not(.railCramped) #guidedLab:not(.collapsed):not(.manual-open) {
+        top: calc(max(anchor(--head bottom, 54px), anchor(--views bottom, 0px),
+          anchor(--scalebar bottom, 0px), anchor(--thermbar bottom, 0px), anchor(--sembar bottom, 0px)) + 8px);
+        max-height: stretch;
+      }
+    }
+    #guidedLab.manual-open:not(.collapsed) {
+      top: var(--top-band);
+      max-height: calc(100dvh - 62px - var(--top-band));
+    }
+    body.railCramped #guidedLab:not(.collapsed) {
+      top: 60px;
+      max-height: calc(100dvh - 122px);
+    }
+    body:has(#guidedLab.show:not(.collapsed)) #armed { display: none; }
+    body:has(#guidedLab.show) #foundryResults { padding-bottom: 106px; }
+
+    #guidedLab.collapsed {
+      top: auto; height: 28px; max-height: 28px;
+      width: min(266px, calc(100vw - 32px));
+      padding: 0 var(--s-1) 0 10px;
+      border-radius: var(--r-button-tool);
+      overflow: hidden;
+    }
+    #guidedLab.collapsed .gl__expanded { display: none; }
+    #guidedLab:not(.collapsed) .gl__strip { display: none; }
+    .gl__strip {
+      display: flex; align-items: center; gap: var(--s-2); height: 26px; width: 100%;
+      cursor: pointer; user-select: none;
+    }
+    .gl__strip-id {
+      flex: none; font: 400 var(--t-nav-tool)/1 var(--font-display);
+      text-transform: uppercase; letter-spacing: var(--track-nav); color: var(--fg-3);
+    }
+    .gl__strip-prog {
+      flex: none; font: 400 var(--t-ui-min)/1 var(--font-mono);
+      font-variant-numeric: tabular-nums; color: var(--fg);
+    }
+    .gl__strip-short {
+      display: none; flex: 1 1 auto; min-width: 0; white-space: nowrap;
+      font: 400 var(--t-ui-min)/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg);
+    }
+    .gl__strip-goal {
+      flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font: 400 var(--t-ui-min)/1.2 var(--font-body); color: var(--fg-2);
+    }
+    .gl__strip-mark { flex: none; font: 400 var(--t-ui-min)/1 var(--font-mono); color: var(--fg-3); }
+    .gl__strip .iconbtn { width: 22px; height: 22px; border-color: transparent; }
+    .gl__strip .iconbtn:hover { border-color: var(--rule-strong); }
+
+    body.narrow #guidedLab,
+    body.narrow #guidedLab.collapsed,
+    body.narrow:has(#app > .modepanel) #guidedLab {
+      left: var(--tool-edge); right: calc(var(--rail-inset) + var(--tool-edge)); width: auto;
+    }
+    @media (max-width: 760px) {
+      #guidedLab,
+      #guidedLab.collapsed,
+      body:has(#app > .modepanel) #guidedLab {
+        left: var(--tool-edge); right: calc(var(--rail-inset) + var(--tool-edge)); width: auto;
+      }
+    }
+    body:has(#composer.show) #guidedLab.show {
+      right: auto;
+      width: 320px;
+    }
+    body:has(#composer.show) #guidedLab.show:not(.collapsed) {
+      top: var(--tool-edge);
+      max-height: calc(100dvh - 78px);
+    }
+    body.railPhone #guidedLab,
+    body.railPhone #guidedLab.collapsed {
+      left: var(--tool-edge); right: auto; bottom: var(--tool-edge); top: auto;
+      width: 88px; height: 28px; max-height: 28px;
+      padding: 0 var(--s-1) 0 var(--s-2); border-radius: var(--r-button-tool); overflow: hidden;
+    }
+    body.railPhone #guidedLab .gl__expanded { display: none; }
+    body.railPhone #guidedLab .gl__strip { display: flex; gap: var(--s-1); }
+    body.railPhone #guidedLab .gl__strip-id,
+    body.railPhone #guidedLab .gl__strip-prog,
+    body.railPhone #guidedLab .gl__strip-goal,
+    body.railPhone #guidedLab .gl__strip-mark { display: none; }
+    body.railPhone #guidedLab .gl__strip-short { display: block; }
+    body.railPhone #guidedLab .gl__strip .iconbtn { width: 18px; height: 22px; }
+
+    #guidedLab .phead { margin-bottom: var(--s-2); padding-bottom: var(--s-2); gap: var(--s-1) var(--s-2); }
+    .gl__hacts { display: flex; align-items: center; gap: var(--s-2); margin-left: auto; }
+    .gl__hacts button { min-height: 24px; padding: 2px 10px; }
+    .gl__hacts .iconbtn { width: 24px; height: 24px; padding: 0; }
+    .gl__segs { margin-bottom: var(--s-2); }
+    .gl__tabbar {
+      display: flex; align-items: center; justify-content: space-between; gap: var(--s-2);
+      margin-bottom: var(--s-2); border-bottom: 1px solid var(--rule);
+    }
+    .gl__tabs { gap: var(--s-4); }
+    .gl__tabs .tabs__tab {
+      min-height: 0; padding: 6px 0; border: 0; border-bottom: 1px solid transparent; border-radius: 0;
+      font-size: var(--t-nav-tool); background: transparent;
+    }
+    .gl__tabs .tabs__tab[aria-selected="true"] { border-bottom-color: var(--fg); color: var(--fg); }
+    .gl__done {
+      margin-bottom: var(--s-2); padding-bottom: var(--s-2); border-bottom: 1px solid var(--rule);
+      font-size: var(--t-ui-min); color: var(--fg);
+    }
+    .gl__done-head { font-weight: 500; color: var(--fg); margin-bottom: var(--s-2); }
+    .gl__steps { list-style: none; }
+    .gl__step { padding: 6px 0; border-top: 1px solid var(--rule); }
+    .gl__step:first-child { border-top: 0; }
+    .gl__step--active { border-left: 2px solid var(--fg); padding-left: 10px; margin-left: -2px; }
+    .gl__step-btn {
+      display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: baseline; gap: var(--s-2);
+      width: 100%; min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent;
+      text-align: left; color: var(--fg-3); font: 400 var(--t-ui-min)/1.35 var(--font-body);
+    }
+    .gl__step-btn:hover { color: var(--fg-2); background: transparent; }
+    .gl__step-row {
+      display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: baseline; gap: var(--s-2);
+    }
+    .gl__idx { font: 400 var(--t-ui-min)/1.35 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg-3); }
+    .gl__step--active .gl__idx { color: var(--fg); }
+    .gl__title { font: 400 var(--t-ui-min)/1.35 var(--font-body); color: var(--fg-3); overflow-wrap: anywhere; }
+    .gl__step--active .gl__title { font-weight: 500; color: var(--fg); }
+    .gl__val {
+      font: 400 var(--t-ui-min)/1.35 var(--font-mono); font-variant-numeric: tabular-nums;
+      color: var(--fg-3); text-align: right; white-space: nowrap;
+    }
+    .gl__action { margin-top: var(--s-1); font-size: var(--t-ui-min); line-height: 1.45; color: var(--fg-2); overflow-wrap: anywhere; }
+    .gl__subgoals { margin-top: var(--s-2); border-top: 1px solid var(--rule); }
+    .gl__sub {
+      display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; align-items: baseline; gap: 6px;
+      padding: 4px 0; border-top: 1px solid var(--rule); font-size: var(--t-ui-min); line-height: 1.35; color: var(--fg-2);
+    }
+    .gl__sub:first-child { border-top: 0; }
+    .gl__sub.is-done { color: var(--fg-3); }
+    .gl__sub-m { font: 400 var(--t-ui-min)/1 var(--font-mono); color: var(--fg); }
+    .gl__sub.is-done .gl__sub-m { color: var(--fg-3); }
+    .gl__sub-v { font: 400 var(--t-ui-min)/1.35 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg-3); white-space: nowrap; }
+    .gl__hint {
+      margin-top: var(--s-2); padding-top: var(--s-1); border-top: 1px solid var(--rule);
+      font-size: var(--t-ui-min); line-height: 1.4; color: var(--fg-2); overflow-wrap: anywhere;
+    }
+    .gl__hint-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-2); }
+    .gl__bar { height: 2px; margin-top: var(--s-1); background: var(--rule-strong); }
+    .gl__bar-fill { height: 100%; background: var(--fg); transition: width 0.2s; }
+    .gl__takeaway {
+      margin-top: var(--s-1); padding-left: var(--s-2); border-left: 1px solid var(--rule-strong);
+      font-size: var(--t-ui-min); line-height: 1.45; color: var(--fg-2); overflow-wrap: anywhere;
+    }
+    .gl__warn { margin-top: var(--s-2); font-size: var(--t-ui-min); line-height: 1.4; }
+    .gl__acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin-top: var(--s-2); }
+    .gl__acts button:not(.gl__link) { min-height: 24px; padding: 2px 10px; font-size: var(--t-ui-min); }
+    .gl__link {
+      min-height: 0; height: auto; padding: 2px 0; border: 0; border-radius: 0; background: transparent;
+      color: var(--fg-3); font: 400 var(--t-ui-min)/1.2 var(--font-body);
+      text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px;
+    }
+    .gl__link:hover { color: var(--fg); background: transparent; text-decoration: none; }
+    .gl__tablewrap { overflow-x: auto; max-width: 100%; scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent; }
+    .gl__data .ptable { font-size: var(--t-ui-min); }
+    .gl__data .ptable th { padding: 4px var(--s-2) 4px 0; font-size: var(--t-nav-tool); white-space: nowrap; }
+    .gl__data .ptable td { padding: 4px var(--s-2) 4px 0; font-size: var(--t-ui-min); }
+    .gl__data .ptable td.v, .gl__data .ptable th.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+    .gl__data .ptable td.txt { color: var(--fg-2); }
+    .gl__empty { padding: var(--s-2) 0; font-size: var(--t-ui-min); color: var(--fg-3); }
+    .gl__foot {
+      margin-top: var(--s-2); padding-top: var(--s-2); border-top: 1px solid var(--rule);
+      display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2);
+    }
+    .gl__foot .gl__reset { margin-left: auto; }
+    .gl__export { min-height: 26px; padding: 2px var(--s-3); font-size: var(--t-ui-min); }
+    .gl__export--ready { border-color: var(--fg); color: var(--fg); }
+    .gl__status { width: 100%; font-size: var(--t-ui-min); color: var(--fg-3); }
+    .gl__status:empty { display: none; }
+    @keyframes glPulse { 0%, 100% { border-color: var(--rule); } 30% { border-color: var(--fg); } }
+    #guidedLab.pulse { animation: glPulse 1.1s ease-out 1; }
+
+    /* ---- guided labs catalog modal (#guidedPicker) ---- */
+    #guidedPicker .glp__card { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); }
+    .glp__notice { margin-bottom: var(--s-3); font-size: var(--t-ui-min); }
+    .glp__tabs { margin-bottom: var(--s-3); border-bottom: 1px solid var(--rule); gap: var(--s-4); }
+    .glp__tabs .tabs__tab {
+      min-height: 0; padding: 6px 0; border: 0; border-bottom: 1px solid transparent; border-radius: 0;
+      font-size: var(--t-nav-tool); background: transparent;
+    }
+    .glp__tabs .tabs__tab[aria-selected="true"] { border-bottom-color: var(--fg); color: var(--fg); }
+    .glp__list { border-bottom: 1px solid var(--rule); }
+    .glp__row {
+      display: grid; grid-template-columns: 2.4em minmax(0, 1fr) auto; align-items: center; gap: var(--s-3);
+      padding: var(--s-3) 0; border-top: 1px solid var(--rule);
+    }
+    .glp__row:first-child { border-top: 0; }
+    .glp__idx { font: 400 var(--t-ui)/1.2 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg-3); }
+    .glp__row.is-active .glp__idx { color: var(--fg); }
+    .glp__title { font: 500 var(--t-ui)/1.3 var(--font-body); color: var(--fg); }
+    .glp__summary { margin-top: 2px; font: 400 var(--t-value-tool)/1.45 var(--font-body); color: var(--fg-2); }
+    .glp__meta {
+      margin-top: var(--s-1); display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-1) var(--s-2);
+      font: 400 var(--t-ui-min)/1.35 var(--font-body); color: var(--fg-3);
+    }
+    .glp__warn { margin-top: var(--s-1); font-size: var(--t-ui-min); }
+    .glp__acts { display: flex; align-items: center; gap: var(--s-2); flex: none; }
+    .glp__foot {
+      margin-top: var(--s-3); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--s-2);
+      font-size: var(--t-ui-min); color: var(--fg-3);
+    }
+    @media (max-width: 520px) {
+      .glp__row { grid-template-columns: 2.2em minmax(0, 1fr); gap: var(--s-1) var(--s-2); }
+      .glp__acts { grid-column: 2; justify-self: start; margin-top: var(--s-1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #guidedLab.pulse { animation: none; }
+      .gl__bar-fill { transition: none; }
+    }
 
     /* ---- the HUD's glance plots (bottom right, src/hud.ts), each a plate.
        Capped so it never reaches the transport bar (right edge 282 + 16): a
@@ -713,6 +945,10 @@
        context), so it is under the tour too: the same inset, and its card
        sized on the room left (phasediagram.ts pdBigSize) */
     body:has(#tour.show) #composer > .tmodal { padding-left: 362px; }
+    /* guided labs companion (#guidedLab, 320px wide): same modal shift contract */
+    body:has(#guidedLab.show) #composer { padding-left: 352px; }
+    body:has(#guidedLab.show) #composer .card { width: min(500px, calc(100vw - 376px)); }
+    body:has(#guidedLab.show) #composer > .tmodal { padding-left: 352px; }
     /* Below this the inset would leave a card too narrow to compose in, so the
        tour gives up its prose instead and keeps only what has to stay reachable:
        the chapter counter, its title and its buttons. */
@@ -725,6 +961,11 @@
       /* and the card ends above the strip rather than under it, so the pour
          button is reachable once the card is scrolled to its end */
       body:has(#tour.show) #composer .card { padding-bottom: 118px; }
+      body:has(#guidedLab.show) #composer { padding: var(--s-4) 0 60px; }
+      body:has(#guidedLab.show) #composer > .tmodal { padding-left: 0; }
+      body:has(#guidedLab.show) #composer .card { width: min(500px, 94vw); max-height: calc(100dvh - 76px); }
+      body:has(#composer.show) #guidedLab.show { left: var(--tool-edge); right: var(--tool-edge); width: auto; bottom: var(--tool-edge); }
+      body:has(#composer.show) #guidedLab.show:not(.collapsed) { top: auto; max-height: 55dvh; width: auto; }
     }
     /* the card: the panel spec on --surface (a modal, not over the canvas),
        the tool's 16px padding, its sections split by 1 px rules */
@@ -964,6 +1205,7 @@
     <div id="apanels3"></div>
     <div id="apanels"></div>
     <button id="tourBtn" class="backed" type="button">▸ tour</button>
+    <button id="labsBtn" class="backed" type="button">guided labs</button>
     <div id="tour" class="plate"></div>
     <div id="hint" class="plate"><span class="nw">tap: seed</span> · <span class="nw">shift-tap: twin</span> · <span class="nw">scroll or pinch: zoom</span> · <span class="nw">right-drag: pan</span></div>
     <div id="gate"><div class="in">

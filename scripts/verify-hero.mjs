@@ -987,7 +987,8 @@ await block("HERO-CTA", async () => {
     .map(a => ({ text: a.textContent.trim(), href: a.getAttribute("href"), cls: a.className })));
   const linksOk = JSON.stringify(links) === JSON.stringify([
     { text: "Take the tour", href: "app/?tour=1", cls: "btn" },
-    { text: "Read the science", href: "science/", cls: "btn btn--text" }]);
+    { text: "Read the science", href: "science/", cls: "btn btn--text" },
+    { text: "Guided labs", href: "app/#labs", cls: "btn btn--text" }]);
   const openReach = [];
   for (let k = 1; k <= links.length; k++) openReach.push((await hit(desk, `#heroOpen .cta a:nth-child(${k})`)).reachable);
   // the view's one filled pill: the header's, reachable at every stop

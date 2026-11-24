@@ -119,6 +119,11 @@ export const PANEL_LEARN: readonly LearnEntry[] = [
     text: "The same projection for every symmetry axis of each grain: three ⟨100⟩ axes in a cubic crystal, "
       + "the (0001) c axis in a hexagonal one. A texture shows as clusters instead of an even scatter.",
   },
+  {
+    id: "panel:guided lab",
+    text: "Guided labs walk through real solidification and heat-treatment tasks while checking the live solver "
+      + "state. Measurements latch automatically as each step completes and export with your run archive.",
+  },
 ];
 
 registerLearn(PANEL_LEARN);

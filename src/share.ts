@@ -93,3 +93,36 @@ export function unpackShare(hash: string): ShareState | null {
     return null;
   }
 }
+
+export type LabRoute =
+  | { kind: "picker" }
+  | { kind: "lab"; ref: number | string };
+
+/**
+ * Parse `#lab=1..4`, `#labs`, `?lab=1..4`, or `?labs` without disturbing
+ * `#set=` or `#alloy=` payloads. Hash takes precedence over query string; an
+ * explicit `lab=<id>` takes precedence over bare `labs` within the same source.
+ */
+export function parseLabRoute(hash: string, search = ""): LabRoute | null {
+  const scan = (raw: string): LabRoute | null => {
+    const body = raw.replace(/^[#?]/, "");
+    if (!body) return null;
+    let picker = false;
+    for (const part of body.split("&")) {
+      if (!part) continue;
+      if (part === "labs" || part === "labs=1" || part === "labs=true") {
+        picker = true;
+        continue;
+      }
+      if (!part.startsWith("lab=")) continue;
+      const tail = part.slice(4);
+      let decoded = tail;
+      try { decoded = decodeURIComponent(tail); } catch { /* malformed escape: keep raw */ }
+      const val = decoded.trim();
+      if (/^[1-9]\d*$/.test(val)) return { kind: "lab", ref: Number(val) };
+      if (/^[a-z0-9-]+$/i.test(val)) return { kind: "lab", ref: val.toLowerCase() };
+    }
+    return picker ? { kind: "picker" } : null;
+  };
+  return scan(hash) ?? scan(search);
+}
