@@ -116,3 +116,50 @@ The fp64 cross-check (`scripts/research/quant3d-fp64-port.*`, a separate session
   preflight on the other four arms and, if that passes, runs those four; the full preflight's failure
   record stays in the archive. This applies the existing rule that a failed arm is recorded and the
   remaining arms still run. `e123base` then runs in a later session after its cause is fixed.
+
+## Amendment v1.3, 2026-11-26: session 2 (written and committed before any session-2 run)
+
+This amendment changes arms; it changes no shader, coefficient, estimator, gate or reference.
+
+- **`e123base` is replaced by `e123cal`.** Raw eps4 = 0.0123^2 / 0.0118608 = 0.012755442. Only eps4
+  changes from the row base: grid 529x529x1198, dt 0.0185512 (that of raw 0.0123), 574,322 steps.
+  `e123base` stays registered but is not run.
+- **New arm `e265cal`.** Raw eps4 = 0.0265^2 / 0.0256146 = 0.027416038. Only eps4 changes from
+  `e265base`: 271x271x613, dt 0.0169464, 164,491 steps.
+- **Why.** Session 1 showed that KR96's eps4 is the grid-corrected (equilibrium-matched) anisotropy.
+  - With eps_eff matched, `e171cal` reproduces KR96's phase-field row (accepted).
+  - Its shift from `w28` matched the frozen first-order prediction to 0.7%.
+  - A raw 0.0123 arm compares at an anisotropy 3.6% below KR96's, so it cannot be the paper's row.
+  - Calibrated arms at all three rows keep the table on one definition.
+- **Calibration source.** Both values come from the session-1 equilibrium matrix at dx 0.8, R20,
+  lambda 4 (`docs/validation/quant3d-q3d-equilibrium-2026-11-26.json`), the same geometry that set
+  `e171cal`.
+  - Session 2 first re-measures the two calibrated raw values in the same three geometries
+    (`quant3d-equilibrium-matrix-q3d-s2.json`, 6 cases), as a check.
+  - The arms use the frozen values whatever that check returns.
+- **Frozen prediction for `e265cal` (not a gate).**
+  - Inputs: session-1 `e265base` (sigma* 0.13026, P 0.25648) and the one KR96 solvability secant
+    0.0171 -> 0.0265 (slopes: sigma* 2.052, P -0.619).
+  - Prediction: sigma* 0.13966, P 0.25113, V d0/D 0.017617.
+  - There is no prediction for `e123cal`, because no raw 0.0123 run exists.
+- **Gates.** Gates 1-3 and rule 5 are unchanged. The calibrated rows are reported as `row0265cal`
+  and `row0123cal`. Convergence of row 0.0265 rests on the session-1 width and dx controls (raw
+  eps4); they are not re-run.
+- **Execution, rows (WebGPU).**
+  - Hardware and cap: g6e.4xlarge (128 GB host RAM; the e123 grid's VRAM smoke passed there and
+    failed on g6e.xlarge), cap $35 (699 min).
+  - Order: preflight with the VRAM smoke of `e123cal` (if it fails, `e265cal` runs alone), then the
+    equilibrium check, `e265cal`, `e123cal`, and the CPU replay.
+  - Time: the model gives 17 + 522 min. Session-1 arms ran at 0.82-0.86 of the model, so expect
+    about 7.5 h.
+- **Execution, fp64 cross-check.** The v1 text ("a separate session") is superseded: it runs at the
+  same time on a second instance.
+  - Hardware, cap and protocol: g6e.xlarge, cap $17 (548 min), `scripts/research/quant3d-fp64-port.md`.
+  - Order: port self-test, box gates, then `w40-anchor` and `w28` in fp64 (fused kernel), then the
+    CPU replay.
+  - The arms stop 45 min before the cap. An unfinished arm's newest restart dump is archived for a
+    later resume.
+- **Launcher.** `aws_q3d_launch.py --mode rows|fp64 --tag s2-2026-11-26`. Each mode has its own run
+  directory, state file, key pair and security group, and a mode refuses to launch while its last
+  launch is not torn down. A `STOP` file in the run directory ends a monitor.
+- **Cost.** Expected about $25 (rows) + $13 (fp64). The hard caps total $52.

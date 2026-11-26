@@ -15,7 +15,7 @@ import { installQuant3TipDriver } from '../fixtures/quant3d-tip-driver-slabbed.m
 import { localTip } from '../fixtures/quant3d-tip-analysis.mjs';
 import { fixedTerminalSchedule, terminalOperatingState, terminalReferenceAssessment } from '../fixtures/quant3d-tip-protocol.mjs';
 import { IVANTSOV_PECLET } from './quant3d-width-ladder-model.mjs';
-import { ARMS, KR96, RULES, W28, contract, selfTest } from './quant3d-paper-rows-model.mjs';
+import { ARMS, KR96, RULES, W28, E265BASE_S1, contract, selfTest } from './quant3d-paper-rows-model.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const sha = b => createHash('sha256').update(b).digest('hex');
@@ -85,12 +85,18 @@ function summarize(result) {
   const row = names => ({ arms: names, valid: names.every(n => by[n]?.valid),
     acceptedPF: names.every(n => by[n]?.assessmentPF?.accepted), acceptedSolvability: names.every(n => by[n]?.assessmentSolv?.accepted) });
   const cal = by.e171cal?.terminal?.state;
-  return { executionClean: clean,
-    row0265: { ...row(['e265base', 'e265width', 'e265dx']), controls, controlsConverged: converged265 },
-    row0123: row(['e123base']),
-    definitionSensitivity: cal?.ready ? { calibrated: { P: cal.P, sigmaStar: cal.sigmaStar, Vd0OverD: cal.Vd0OverD },
-      raw: W28, change: Object.fromEntries(['P', 'sigmaStar', 'Vd0OverD'].map(k => [k, cal[k] / W28[k] - 1])),
-      predicted: result.contract.predictions.e171cal } : null };
+  const sensitivity = (state, raw, predicted) => state?.ready ? { calibrated: { P: state.P, sigmaStar: state.sigmaStar, Vd0OverD: state.Vd0OverD },
+    raw, change: Object.fromEntries(['P', 'sigmaStar', 'Vd0OverD'].map(k => [k, state[k] / raw[k] - 1])), predicted } : null;
+  // v1.3: a session reports only the rows whose arms it ran.
+  const ran = names => names.some(n => by[n]);
+  const out = { executionClean: clean };
+  if (ran(['e265base', 'e265width', 'e265dx'])) out.row0265 = { ...row(['e265base', 'e265width', 'e265dx']), controls, controlsConverged: converged265 };
+  if (ran(['e123base'])) out.row0123 = row(['e123base']);
+  if (ran(['e171cal'])) out.definitionSensitivity = sensitivity(cal, W28, result.contract.predictions.e171cal);
+  if (ran(['e265cal'])) { out.row0265cal = row(['e265cal']);
+    out.definitionSensitivity265 = sensitivity(by.e265cal?.terminal?.state, E265BASE_S1, result.contract.predictions.e265cal); }
+  if (ran(['e123cal'])) out.row0123cal = row(['e123cal']);
+  return out;
 }
 
 async function main() {

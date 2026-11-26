@@ -30,6 +30,14 @@ export const EPS_EFF_RAW_0171_DX08 = 0.0166019492;
 // Sensitivity arm: raw eps4 scaled so eps_eff would equal KR96's 0.0171 if the
 // grid correction is proportional to eps4 (measured eps 0 -> -0.0001, so nearly so).
 export const EPS_CALIBRATED_0171 = 0.0171 * 0.0171 / EPS_EFF_RAW_0171_DX08;
+// Amendment v1.3 (session 2): the same one-step calibration for the other two rows, from the
+// session-1 equilibrium matrix at dx 0.8, R20, lambda 4
+// (docs/validation/quant3d-q3d-equilibrium-2026-11-26.json). Raw 0.017613 reached 0.017103 there.
+export const EPS_EFF_DX08_S1 = Object.freeze({ 0.0123: 0.011860820321762569, 0.0265: 0.02561456889586917 });
+export const EPS_CALIBRATED_0123 = 0.0123 * 0.0123 / EPS_EFF_DX08_S1[0.0123]; // 0.01275544152055055
+export const EPS_CALIBRATED_0265 = 0.0265 * 0.0265 / EPS_EFF_DX08_S1[0.0265]; // 0.0274160382263256
+// Session-1 e265base terminal state (raw 0.0265), docs/validation/quant3d-q3d-rows-2026-11-26.json.
+export const E265BASE_S1 = Object.freeze({ P: 0.25647704018034373, sigmaStar: 0.13025659658652147, Vd0OverD: 0.01713668084553573 });
 
 // Stability dt rule of the five-arm base, evaluated at a given eps4.
 const baseDt = (dx, lambda, eps) => Math.min(dx * dx / (12 * A2 * lambda),
@@ -57,6 +65,9 @@ export const ARMS = Object.freeze([
   arm('e265width', { row: 0.0265, lambda: LAMBDA * .9 }),
   arm('e265dx', { row: 0.0265, dx: .6 }),
   arm('e123base', { row: 0.0123 }),
+  // v1.3 (session 2): calibrated rows; only eps4 changes from the row base (dt pinned to it).
+  arm('e265cal', { row: 0.0265, epsilon4: EPS_CALIBRATED_0265, dtEpsilon: 0.0265 }),
+  arm('e123cal', { row: 0.0123, epsilon4: EPS_CALIBRATED_0123, dtEpsilon: 0.0123 }),
 ]);
 
 export const RULES = Object.freeze({
@@ -73,12 +84,19 @@ function solvSlope(key) {
   const s = (a, b) => Math.log(KR96[b].solv[key] / KR96[a].solv[key]) / Math.log(b / a);
   return (s(0.0123, 0.0171) + s(0.0171, 0.0265)) / 2;
 }
+// v1.3: 0.0265 is the last row, so its slope is the one secant 0.0171 -> 0.0265.
+const secant = (key, a, b) => Math.log(KR96[b].solv[key] / KR96[a].solv[key]) / Math.log(b / a);
 export function predictions() {
   const dlnEps = Math.log(0.0171 / EPS_EFF_RAW_0171_DX08);
   const sigma = W28.sigmaStar * Math.exp(solvSlope('sigmaStar') * dlnEps);
   const P = W28.P * Math.exp(solvSlope('P') * dlnEps);
+  const d265 = Math.log(0.0265 / EPS_EFF_DX08_S1[0.0265]);
+  const s265 = { sigmaStar: secant('sigmaStar', 0.0171, 0.0265), P: secant('P', 0.0171, 0.0265) };
+  const sigma265 = E265BASE_S1.sigmaStar * Math.exp(s265.sigmaStar * d265), P265 = E265BASE_S1.P * Math.exp(s265.P * d265);
   return { e171cal: { sigmaStar: sigma, P, Vd0OverD: 2 * P * P * sigma, slopes: { sigmaStar: solvSlope('sigmaStar'), P: solvSlope('P') },
-    note: 'first-order KR96-slope prediction of moving eps_eff 0.01660 -> 0.0171; a miss means the definition effect is not just anisotropy strength' } };
+    note: 'first-order KR96-slope prediction of moving eps_eff 0.01660 -> 0.0171; a miss means the definition effect is not just anisotropy strength' },
+    e265cal: { sigmaStar: sigma265, P: P265, Vd0OverD: 2 * P265 * P265 * sigma265, slopes: s265,
+      note: 'v1.3: same first-order prediction from session-1 e265base, moving eps_eff 0.025615 -> 0.0265 (one secant, 0.0171 -> 0.0265)' } };
 }
 
 // Throughput measured on the AWS L40S (g6e, Chrome Vulkan): 7.25e9 voxel-steps/s at
@@ -122,5 +140,12 @@ export function selfTest() {
   for (const a of c.arms) assert.ok(a.largestTextureGiB < RULES.maximumTextureGiB, `${a.name} texture over the cap`);
   assert.equal(c.arms[0].dt, w.dt, 'sensitivity arm must keep the w28 dt');
   assert.deepEqual(c.arms[0].dims, w.dims, 'sensitivity arm must keep the w28 grid');
+  const by = Object.fromEntries(c.arms.map(a => [a.name, a]));
+  for (const [cal, base] of [['e265cal', 'e265base'], ['e123cal', 'e123base']]) {
+    for (const k of ['dims', 'dt', 'radius', 'terminalSteps', 'maximumTimeTau0', 'lambda', 'dx'])
+      assert.deepEqual(by[cal][k], by[base][k], `${cal} must keep the ${base} ${k}`);
+    assert.ok(by[cal].epsilon4 > by[base].epsilon4 * 1.02 && by[cal].epsilon4 < by[base].epsilon4 * 1.05, `${cal} eps4 out of range`);
+  }
+  assert.ok(Math.abs(EPS_CALIBRATED_0123 - 0.01275544152055055) < 1e-17 && Math.abs(EPS_CALIBRATED_0265 - 0.0274160382263256) < 1e-17);
   return { ok: true, arms: c.arms.length };
 }

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "purpose": "Q3d paper rows, amendment v1.3 (session 2): equilibrium-measured effective anisotropy of the two calibrated raw eps4 values (scripts/research/quant3d-paper-rows.md); production WGSL, no needle-output fitting",
+  "lambda": 4,
+  "rawEpsilons": [0.01275544152055055, 0.0274160382263256],
+  "geometries": [
+    { "name": "baseline", "n": 96, "dx": 0.8, "radius": 20, "maximumTime": 1000, "measurementPeriod": 20 },
+    { "name": "grid", "n": 128, "dx": 0.6, "radius": 20, "maximumTime": 1000, "measurementPeriod": 20 },
+    { "name": "radius", "n": 144, "dx": 0.8, "radius": 30, "maximumTime": 2250, "measurementPeriod": 45 }
+  ],
+  "controls": [],
+  "invariants": [
+    "same continuum coefficients and production shaders",
+    "geometries copied unchanged from quant3d-equilibrium-matrix-q3d.json (baseline, grid, radius)",
+    "full fixed horizon; no early success stop",
+    "original equilibrium judge"
+  ],
+  "scope": "Checks that the calibrated raw values reach KR96's grid-corrected 0.0123 and 0.0265 at dx 0.8 R20 (the calibration geometry), and reports dx 0.6 and R30 beside them. Diagnostic; selects no coefficient."
+}
