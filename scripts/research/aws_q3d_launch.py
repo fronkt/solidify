@@ -285,7 +285,13 @@ def main():
         else:
             raise RuntimeError("SSH not ready")
         subprocess.run(["scp", *SSH_OPTS, str(bundle), f"ubuntu@{ip}:/tmp/q3d.bundle"], check=True)
-        ssh_stream(ip, remote_script(state["cap_minutes"]))
+        try:
+            ssh_stream(ip, remote_script(state["cap_minutes"]))
+        except Exception:
+            # Keep the evidence before teardown deletes the box.
+            scp_pull(ip, "/home/ubuntu/q3d-out/preflight/preflight-result.json", RUN_DIR / f"preflight-failed-{ts}.json")
+            scp_pull(ip, "/tmp/vite.log", RUN_DIR / f"vite-failed-{ts}.log")
+            raise
         log("PREFLIGHT PASSED, detached run launched; monitoring")
         seen, pulled, fails = 0, set(), 0
         while True:

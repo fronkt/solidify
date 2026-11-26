@@ -104,3 +104,11 @@ coefficient.
 
 The fp64 cross-check (`scripts/research/quant3d-fp64-port.*`, a separate session), any width arm for
 0.0123, a calibrated dx 0.6 arm at 0.0171, and any change of the published Q3c numbers.
+
+## Amendments (execution only; no physics, metrology, gate or arm change)
+
+- v1.1, 2026-11-26 02:40: first launch died in provisioning on a non-cp1252 character in apt output
+  (launcher now writes UTF-8). Second launch: equivalence 9/9 on the L40S, then the VRAM smoke test of
+  `e123base` failed and the reason was lost with the box. The runner now prints the exception, page
+  errors and GPU device errors on any failure, and the launcher copies the preflight result off the box
+  before teardown. The clean-tree check covers campaign files only.

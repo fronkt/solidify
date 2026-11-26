@@ -194,6 +194,8 @@ async function main() {
     result.status = exception ? 'refused or failed' : result.completed ? (preflight ? 'preflight passed' : 'campaign complete') : 'execution evidence failed';
     result.finished = new Date().toISOString(); save();
     console.log(preflight ? 'Q3D-PREFLIGHT' : 'Q3D-SUMMARY', JSON.stringify(preflight ? { status: result.status, vramSmoke: result.vramSmoke ?? null } : result.summary));
+    if (!result.completed) console.log('Q3D-FAILURE', JSON.stringify({ exception: (result.exception ?? '').slice(0, 2000),
+      errors: result.errors.slice(-10), deviceErrors: result.deviceErrors.slice(0, 10) }));
     if (!result.completed) process.exitCode = 1;
   }
 }
