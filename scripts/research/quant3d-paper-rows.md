@@ -163,3 +163,17 @@ This amendment changes arms; it changes no shader, coefficient, estimator, gate 
   directory, state file, key pair and security group, and a mode refuses to launch while its last
   launch is not torn down. A `STOP` file in the run directory ends a monitor.
 - **Cost.** Expected about $25 (rows) + $13 (fp64). The hard caps total $52.
+
+## Amendment v1.4, 2026-11-26 17:00: fp32 port controls (written before they run)
+
+- The fp64 box passed all 15 box gates on the L40S (g6e.2xlarge). The fused kernel is bitwise
+  equal to the array port in fp64 and fp32, and within 6e-7 of the WGSL captures. It ran the probes
+  at 3.36e9 voxel-steps/s in fp64 and 1.30e10 in fp32, so `w28` takes about 3.4 h in fp64 and
+  0.9 h in fp32.
+- Added on the same box, at the same time as the fp64 arms: `w40-anchor` and `w28` through the
+  same port in float32 (`--dtype float32 --backend fused`, outputs `fp64-out/fp32-<arm>`).
+- Why: fp32 port vs fp64 port isolates arithmetic precision with identical code, and fp32 port vs
+  the WebGPU `w28` measures the port-versus-WGSL difference over a full run. Without them, an
+  fp64-vs-WebGPU difference could not be attributed to either.
+- Same box, cap and deadline. The fp64 arms remain the registered result, and the controls change
+  no gate. Expected extra cost is about $2.
