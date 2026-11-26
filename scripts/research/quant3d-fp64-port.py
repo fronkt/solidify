@@ -408,7 +408,7 @@ class QuantStatusError(RuntimeError):
 # One CUDA kernel per pass: flux, then phase+transport (transport reads only
 # this cell's phase output, as in the array path). The per-cell functions are
 # plain C shared by the CUDA kernels (CuPy RawModule, NVRTC --fmad=false, IEEE
-# division/sqrt, no ftz) and by CPU host loops (any C compiler with
+# division/sqrt; f32 ftz forced by CuPy, see FUSED_NVRTC_OPTIONS) and by CPU host loops (any C compiler with
 # -ffp-contract=off) used to validate them locally. Every statement mirrors one
 # array operation of TipPort, in the same order; constants come from
 # TipPort._constants in the working dtype.
@@ -598,7 +598,13 @@ EXPORT unsigned phase_host(const int* ip, const real* c, const real* phi, const 
 }
 #endif
 """
-FUSED_NVRTC_OPTIONS = ("--fmad=false", "--prec-div=true", "--prec-sqrt=true", "--ftz=false", "--std=c++14")
+# CuPy appends -ftz=true to every NVRTC build (cupy/cuda/compiler.py, _compile_with_cache_cuda,
+# v13.6) and NVRTC rejects a second --ftz ("defined more than once", first L40S box, 2026-11-26),
+# so the CUDA build cannot ask for IEEE f32 denormals. FTZ applies to single precision only: the
+# float64 kernels are unaffected, and the float32 fused path flushes f32 subnormals exactly as
+# CuPy's own array path does. nvrtc_ptx() adds the same flag so the local PTX census matches.
+FUSED_NVRTC_OPTIONS = ("--fmad=false", "--prec-div=true", "--prec-sqrt=true", "--std=c++14")
+CUPY_FORCED_NVRTC_OPTIONS = ("-ftz=true",)
 FUSED_CC_FLAGS = ("-O2", "-shared", "-ffp-contract=off", "-fno-fast-math")
 
 
@@ -711,7 +717,8 @@ def nvrtc_ptx(dtype, arch="compute_89", library=None):
     prog = ctypes.c_void_p()
     check = lambda rc, what: None if rc == 0 else (_ for _ in ()).throw(RuntimeError(f"NVRTC {what} failed ({rc})"))
     check(nv.nvrtcCreateProgram(ctypes.byref(prog), FUSED_SRC.encode(), b"quant3d_fused.cu", 0, None, None), "create")
-    opts = list(FUSED_NVRTC_OPTIONS) + [f"-DREAL_DOUBLE={int(dtype == 'float64')}", f"--gpu-architecture={arch}"]
+    opts = list(FUSED_NVRTC_OPTIONS + CUPY_FORCED_NVRTC_OPTIONS) + [f"-DREAL_DOUBLE={int(dtype == 'float64')}",
+                                                                     f"--gpu-architecture={arch}", "--device-as-default-execution-space"]
     arr = (ctypes.c_char_p * len(opts))(*[o.encode() for o in opts])
     rc = nv.nvrtcCompileProgram(prog, len(opts), arr)
     size = ctypes.c_size_t()

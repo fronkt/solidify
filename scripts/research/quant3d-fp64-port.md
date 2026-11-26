@@ -318,8 +318,18 @@ The kernels are one C source, `FUSED_SRC` in `quant3d-fp64-port.py`, with
 * The constant table is built from the same `TipPort._constants` values.
 * `np.maximum`/`np.minimum` semantics are reproduced for the clamps.
 * The CUDA build is a CuPy `RawModule` with NVRTC
-  `--fmad=false --prec-div=true --prec-sqrt=true --ftz=false`, so every
+  `--fmad=false --prec-div=true --prec-sqrt=true`, so every float64
   operation is an IEEE `.rn` operation with no contraction.
+* CuPy appends `-ftz=true` to every NVRTC build, and NVRTC rejects a second
+  `--ftz`. The first L40S box (2026-11-26) failed all three box gates with
+  "--ftz defined more than once", so the port no longer passes `--ftz=false`.
+  FTZ affects single precision only:
+  * The float64 PTX is identical with `-ftz=true` and with `--ftz=false`
+    (checked with NVRTC 12.9, compute_89, comment header aside).
+  * The float32 fused path flushes f32 subnormals, as CuPy's own array path
+    already did. The fused-vs-array float32 gate stays bitwise.
+  * `nvrtc_ptx()` adds the same flag, so the local PTX census matches the
+    box build.
 * `--backend fused-cpu` compiles the same source for the CPU with
   `-ffp-contract=off` (`$SOLIDIFY_CC`, for example `gcc`; otherwise
   `python -m ziglang cc`). That is how it is validated here, where there is
