@@ -10,9 +10,18 @@ Files (all new):
 
 | File | Role |
 |---|---|
-| `quant3d-fp64-port.py` | the port, CLI, `--self-test` (13 checks) |
-| `quant3d-fp64-port-selftest.py` | gates 1-4 (`gate1 --capture DIR`, `gate2`, `gate3`, `gate4 --work DIR`) |
+| `quant3d-fp64-port.py` | the port, fused CUDA/CPU kernels, CLI, `--self-test` (13 checks), `--box-gates` |
+| `quant3d-fp64-port-selftest.py` | gates 1-4 (`gate1 --capture DIR`, `gate2`, `gate3`, `gate4 --work DIR`), `fused --capture DIR`, `box` |
 | `quant3d-fp64-port-capture.mjs` | short WebGPU capture of the real WGSL fields for gate 1 |
+| `quant3d-fp64-port-arms.json` | w40-anchor (LADDER_ARMS) and w28 (narrow-ladder 2026-11-24) configs for the probe and the cloud runs |
+
+The WGSL capture used by gate 1, gate (b) and `--box-gates` is git-ignored:
+`verify-out/fp64-port/capture/`, or the 3.8 MB state-only bundle
+`verify-out/fp64-port/capture-states.tar.gz` (sha256 `c4bb3ee6...a501`).
+Local fused validation venv: `D:\solidify\venv-fp64` (`pip install numpy==2.3.5
+scipy==1.17.1 ziglang==0.17.1 nvidia-cuda-nvrtc-cu12==12.9.86
+nvidia-cuda-nvcc-cu12==12.9.86`, the last only for `ptxas -v`), with `ZIG_GLOBAL_CACHE_DIR` and
+`SOLIDIFY_FUSED_CACHE` set to directories on D:.
 
 Source transliterated: `ab2b45c`. The worktree HEAD later moved to `4fbba7f`
 (another session added `quant3d-tip-driver-slabbed.mjs` and paper-rows files),
@@ -291,6 +300,139 @@ Restart: a run interrupted at checkpoint 8 and resumed from its dump wrote all
   subnormal assists can slow f32 NumPy.
 * `advance` raises on the quantitative status flags exactly as the driver does
   (none fired in any run).
+
+## Fused GPU path (`--backend fused`)
+
+The array path is memory-bound (207 array operations and 3.8 KB of traffic
+per voxel-step in f64). On one L40S that is about 10 h for w40-anchor and
+about 80 h for w28 in fp64. The fused path runs two kernels per substep:
+
+1. `flux_kernel`: phi to (A.xyz, w).
+2. `phase_kernel`: phase plus transport, phi/T/A to phiN/TN. This is the same
+   exact fusion the array path uses, plus an `atomicOr` of the status bits.
+
+The kernels are one C source, `FUSED_SRC` in `quant3d-fp64-port.py`, with
+`typedef double/float real`:
+
+* Each statement is one operation of the array code, in the same order.
+* The constant table is built from the same `TipPort._constants` values.
+* `np.maximum`/`np.minimum` semantics are reproduced for the clamps.
+* The CUDA build is a CuPy `RawModule` with NVRTC
+  `--fmad=false --prec-div=true --prec-sqrt=true --ftz=false`, so every
+  operation is an IEEE `.rn` operation with no contraction.
+* `--backend fused-cpu` compiles the same source for the CPU with
+  `-ffp-contract=off` (`$SOLIDIFY_CC`, for example `gcc`; otherwise
+  `python -m ziglang cc`). That is how it is validated here, where there is
+  no NVIDIA GPU.
+* Checkpoint schema, CLI, `--resume` and sampling are unchanged.
+* Status flags are read once per `advance`, as in the driver.
+
+Robustness for unattended runs:
+
+* Sample JSONs, the manifest and the `.npy` dumps are written atomically
+  (tmp, fsync, rename). Each checkpoint's sample is written before any
+  restart dump of the same state.
+* `--flush-minutes M` writes a restart dump at the first checkpoint after
+  every M minutes and keeps the newest two.
+* `--resume auto` starts the run, continues from the newest complete dump, or
+  exits as done, so the same command can be re-issued after a kill. It
+  re-registers a sample file the manifest missed.
+* The progress line and the manifest carry the rate and an ETA.
+
+### Local gates (`quant3d-fp64-port-selftest.py fused`, 2026-11-26)
+
+| Gate | Result |
+|---|---|
+| (a) fused (CPU build) vs array port, float64; corner 24x28x36 512 steps, centred 17x9x12 200, degenerate 2x3x5 50, w50 eq32 512 | max\|d phi\| = max\|d T\| = 0, 0 value mismatches (bitwise); target <= 1e-12. PASS |
+| (a') same, float32 | bitwise identical |
+| (b) fused float32 vs captured WGSL (eq32 4096, corner 4096, corner-long 16384 steps) | worst 5.96e-7 (phi), 2.38e-7 (T), the same numbers as the array port; target 1e-5. PASS |
+| CUDA build: NVRTC 12.9 to PTX for compute_80/89/90, both dtypes | compiles; 0 `fma` instructions; per voxel-step 172 arithmetic ops, 7 `div.rn`, 1 `sqrt.rn`, 101 loads |
+| ptxas sm_89 | f64: phase 56 registers, flux 42, 0 spills; f32: 48 / 32 |
+| SASS census (cubin opcode decode; f32 cubin has 0 f64 ops as control) | f64: 281 static FP64-pipe instructions per voxel-step (phase 172, flux 109; the DFMAs come only from div/sqrt) |
+| Kill test (fused-cpu, 61-checkpoint reduced arm, SIGKILL at 9 s, then `--resume auto`) | resumed from 1750; all 61 files byte-identical to an uninterrupted run, and content-identical to the earlier NumPy run |
+| `--box-gates` dry run (fake CuPy on NumPy, CUDA backend mapped to the CPU kernels) | 15/15 PASS; a missing capture prints FAIL and exits 1 |
+
+The fused CPU build itself runs at 2.4-2.8e7 voxel-steps/s on one core (64^3),
+about 3x NumPy.
+
+### Projected L40S throughput (to be confirmed by the box probe)
+
+fp64 is compute-bound on Ada. The FP64 pipe issues 142 SMs x 2 per clock x
+2.52 GHz, about 7.2e11 instructions/s. At 281 FP64 instructions per
+voxel-step the ceiling is 2.5e9 voxel-steps/s; at a realistic 65-85% that is
+1.7-2.2e9:
+
+| Arm | voxel-steps | fp64 (fused) | fp32 (fused, bandwidth-bound, est. 4-10e9/s) |
+|---|---|---|---|
+| w40-anchor (270x270x612, 108,282 steps) | 4.83e12 | 0.6-0.8 h | 0.15-0.35 h |
+| w28 (386x386x875, 315,690 steps) | 4.12e13 | 5.2-6.7 h | 1.1-2.9 h |
+
+GPU memory: 8 arrays, 64 B/voxel in f64 (w28 7.8 GiB). The kernels add no
+temporaries.
+
+### Cloud commands (g6e / L40S, Deep Learning AMI Ubuntu 22.04, CUDA 12.x, Python 3.10)
+
+```bash
+# code (branch research/q3d-paper with the fused path) and the WGSL capture bundle
+cd /home/ubuntu && git clone -q -b research/q3d-paper /tmp/q3d.bundle solidify && cd solidify
+# from the laptop: scp verify-out/fp64-port/capture-states.tar.gz ubuntu@BOX:/tmp/   (3.8 MB,
+# sha256 c4bb3ee61e084d40c5dcafd72c98539fa2c8063093ed18c2a70880946ef4a501)
+mkdir -p verify-out/fp64-port && tar -xzf /tmp/capture-states.tar.gz -C verify-out/fp64-port
+# environment
+python3 -m venv /home/ubuntu/venv-fp64 || { sudo apt-get update -qq && sudo apt-get install -y -qq python3.10-venv && python3 -m venv /home/ubuntu/venv-fp64; }
+source /home/ubuntu/venv-fp64/bin/activate
+pip install --upgrade pip
+pip install "numpy==2.2.6" "scipy==1.15.3" "cupy-cuda12x==13.6.0"
+export CUDA_PATH=/usr/local/cuda
+python -c "import cupy; print(cupy.cuda.runtime.getDeviceProperties(0)['name'], cupy.cuda.runtime.runtimeGetVersion())"
+# 1. box gates (about 10 min; non-zero exit = stop)
+python -I scripts/research/quant3d-fp64-port.py --box-gates --capture verify-out/fp64-port/capture 2>&1 | tee /home/ubuntu/fp64-box-gates.log
+# 2. lambda 4 anchor, fp64; 3. lambda 2.8 w28, fp64. Re-issue the same lines after any kill.
+A=scripts/research/quant3d-fp64-port-arms.json
+python -I scripts/research/quant3d-fp64-port.py --config $A --arm w40-anchor --out /home/ubuntu/fp64-out/w40-anchor \
+    --dtype float64 --backend fused --resume auto --flush-minutes 20 --dump-every 61
+python -I scripts/research/quant3d-fp64-port.py --config $A --arm w28 --out /home/ubuntu/fp64-out/w28 \
+    --dtype float64 --backend fused --resume auto --flush-minutes 20 --dump-every 61
+# 4. replay (CPU)
+python -I scripts/research/quant3d-q3c-tip-replay.py --campaign anchor=/home/ubuntu/fp64-out/w40-anchor/samples \
+    --campaign w28=/home/ubuntu/fp64-out/w28/samples --out /home/ubuntu/fp64-out/replay-fp64.json
+```
+
+Unattended queue, in the launcher's style:
+
+```bash
+cat > /home/ubuntu/run_fp64.sh << 'EOF'
+#!/bin/bash
+set -o pipefail
+source /home/ubuntu/venv-fp64/bin/activate; export CUDA_PATH=/usr/local/cuda; cd /home/ubuntu/solidify
+P=scripts/research/quant3d-fp64-port.py; A=scripts/research/quant3d-fp64-port-arms.json; O=/home/ubuntu/fp64-out
+mkdir -p $O
+python -I $P --box-gates --capture verify-out/fp64-port/capture > $O/box-gates.log 2>&1 || { touch $O/GATES-FAILED; }
+if [ ! -f $O/GATES-FAILED ]; then
+  for arm in w40-anchor w28; do
+    for try in 1 2 3; do
+      python -I $P --config $A --arm $arm --out $O/$arm --dtype float64 --backend fused --resume auto \
+          --flush-minutes 20 --dump-every 61 >> $O/$arm.log 2>&1 && break
+    done
+  done
+  python -I scripts/research/quant3d-q3c-tip-replay.py --campaign anchor=$O/w40-anchor/samples \
+      --campaign w28=$O/w28/samples --out $O/replay-fp64.json > $O/replay.log 2>&1
+fi
+tar -czf /home/ubuntu/fp64-out.tar.gz --exclude='*.npy' -C /home/ubuntu fp64-out
+for i in $(seq 1 180); do [ -f /home/ubuntu/PULLED ] && exit 0; sleep 60; done
+sudo shutdown -h now
+EOF
+chmod +x /home/ubuntu/run_fp64.sh && nohup setsid /home/ubuntu/run_fp64.sh </dev/null >/home/ubuntu/run_fp64.log 2>&1 &
+```
+
+Notes:
+
+* An fp64 hard cap of about 12 h covers the projected 6-8 h.
+* `--dump-every 61` keeps only the terminal state (0.71 GB for the anchor and
+  2.1 GB for w28 in f64), besides the two rolling restart dumps.
+* For fp32 controls, add `--dtype float32` and use a separate `--out`.
+* If CuPy cannot find NVRTC, `pip install "nvidia-cuda-nvrtc-cu12==12.9.86"`
+  and point `CUDA_PATH` at the toolkit.
 
 ## WGSL details assumed or not matched
 

@@ -23,11 +23,18 @@ quant3d-q3c-tip-replay.py and localTip read them unchanged.
 
 Usage:
   python -I scripts/research/quant3d-fp64-port.py --self-test
+  python -I scripts/research/quant3d-fp64-port.py --box-gates --capture DIR   # cloud GPU, before long jobs
   python -I scripts/research/quant3d-fp64-port.py --config arm.json [--arm NAME]
-      --out DIR [--dtype float32|float64] [--backend numpy|cupy]
+      --out DIR [--dtype float32|float64] [--backend numpy|cupy|fused|fused-cpu]
       [--inputs gpu|exact] [--steps N] [--max-checkpoints M]
       [--schedule protocol|every:K] [--dump-fields] [--dump-at 1,17,64]
+      [--dump-every K] [--resume STEP|auto] [--flush-minutes M]
       [--init-state state.npy] [--chunk-voxels V]
+
+Backends: numpy/cupy run the array path; fused runs one CUDA kernel per pass
+(flux, then phase+transport) from FUSED_SRC through a CuPy RawModule with
+--fmad=false; fused-cpu compiles the same C for the CPU ($SOLIDIFY_CC or
+`python -m ziglang cc`) and is bitwise identical to the array path.
 
 The arm JSON has the LADDER_ARMS schema (name, lambda, epsilon4, undercooling,
 radius, dims, dx, dt, D, d0, physicalTimeScale, latticeKinetics, ...; optional
@@ -397,6 +404,329 @@ class QuantStatusError(RuntimeError):
     pass
 
 
+# ------------------------------------------------------------ fused kernels
+# One CUDA kernel per pass: flux, then phase+transport (transport reads only
+# this cell's phase output, as in the array path). The per-cell functions are
+# plain C shared by the CUDA kernels (CuPy RawModule, NVRTC --fmad=false, IEEE
+# division/sqrt, no ftz) and by CPU host loops (any C compiler with
+# -ffp-contract=off) used to validate them locally. Every statement mirrors one
+# array operation of TipPort, in the same order; constants come from
+# TipPort._constants in the working dtype.
+FUSED_CONSTS = ("inv2dx", "lap_scale", "e2", "gcoef", "w2", "tau_a", "tau_b", "stab_l", "dx2", "coef_T",
+                "qgmin_flux", "qgmin", "big", "lo_phi", "hi_phi", "T_lo", "T_hi", "half", "twelve", "c24",
+                "one", "two", "zero", "four", "three", "delta", "lam", "dt_", "tau", "latent", "dtcool", "dtheat")
+FUSED_SRC = r"""
+/* quant3d fused tip kernels (quant3d-fp64-port.py); REAL_DOUBLE selects the dtype. */
+#if REAL_DOUBLE
+typedef double real;
+#define SQRT sqrt
+#else
+typedef float real;
+#define SQRT sqrtf
+#endif
+#ifdef __CUDACC__
+#define DEVFN static __device__ __forceinline__
+#define RESTRICT __restrict__
+#else
+#include <math.h>
+#define DEVFN static inline
+#define RESTRICT restrict
+#endif
+enum { C_INV2DX, C_LAPSCALE, C_E2, C_GCOEF, C_W2, C_TAUA, C_TAUB, C_STABL, C_DX2, C_COEFT, C_QGMINF, C_QGMIN,
+       C_BIG, C_LOPHI, C_HIPHI, C_TLO, C_THI, C_HALF, C_TWELVE, C_C24, C_ONE, C_TWO, C_ZERO, C_FOUR, C_THREE,
+       C_DELTA, C_LAM, C_DT, C_TAU, C_LATENT, C_DTCOOL, C_DTHEAT, C_COUNT };
+enum { I_NX, I_NY, I_NZ, I_LATTICE, I_W2ONE, I_TAUONE, I_LATENTONE, I_COOL, I_HEAT, I_COUNT };
+#define IDX(x, y, z) ((((long long)(z)) * ny + (y)) * nx + (x))
+
+/* np.maximum / np.minimum semantics (NaN-propagating, first operand on ties). */
+DEVFN real npmax(real a, real b) { return (a >= b || a != a) ? a : b; }
+DEVFN real npmin(real a, real b) { return (a <= b || a != a) ? a : b; }
+
+/* FLUX3D_WGSL with the identity quaternion: (A.xyz, w) per cell. */
+DEVFN void flux_cell(int x, int y, int z, int nx, int ny, int nz, const real* RESTRICT c,
+                     const real* RESTRICT phi, real* RESTRICT Ax, real* RESTRICT Ay, real* RESTRICT Az,
+                     real* RESTRICT Aw) {
+  const long long i = IDX(x, y, z);
+  const int xe = x + 1 < nx ? x + 1 : nx - 1, xw = x > 0 ? x - 1 : 0;
+  const int yn = y + 1 < ny ? y + 1 : ny - 1, ys = y > 0 ? y - 1 : 0;
+  const int zu = z + 1 < nz ? z + 1 : nz - 1, zd = z > 0 ? z - 1 : 0;
+  real t;
+  real gx = phi[IDX(xe, y, z)] - phi[IDX(xw, y, z)]; gx = gx * c[C_INV2DX];
+  real gy = phi[IDX(x, yn, z)] - phi[IDX(x, ys, z)]; gy = gy * c[C_INV2DX];
+  real gz = phi[IDX(x, y, zu)] - phi[IDX(x, y, zd)]; gz = gz * c[C_INV2DX];
+  real g2 = gx * gx; t = gy * gy; g2 = g2 + t; t = gz * gz; g2 = g2 + t;
+  if (g2 < c[C_QGMINF]) { Ax[i] = c[C_ZERO]; Ay[i] = c[C_ZERO]; Az[i] = c[C_ZERO]; Aw[i] = c[C_E2]; return; }
+  const real gm = SQRT(g2);
+  const real nX = gx / gm, nY = gy / gm, nZ = gz / gm;
+  real n3x = nX * nX; n3x = n3x * nX;
+  real n3y = nY * nY; n3y = n3y * nY;
+  real n3z = nZ * nZ; n3z = n3z * nZ;
+  real s = n3x * nX; t = n3y * nY; s = s + t; t = n3z * nZ; s = s + t;
+  s = s * c[C_FOUR]; s = s - c[C_THREE]; s = s * c[C_DELTA]; s = s + c[C_ONE];
+  const real a = s;
+  n3x = n3x * c[C_GCOEF]; n3y = n3y * c[C_GCOEF]; n3z = n3z * c[C_GCOEF];
+  real d = n3x * nX; t = n3y * nY; d = d + t; t = n3z * nZ; d = d + t;
+  const real ea = a * c[C_E2];
+  const real coef = ea * gm;
+  t = d * nX; n3x = n3x - t; Ax[i] = n3x * coef;
+  t = d * nY; n3y = n3y - t; Ay[i] = n3y * coef;
+  t = d * nZ; n3z = n3z - t; Az[i] = n3z * coef;
+  Aw[i] = ea * a;
+}
+
+/* quantLap3: (2*faceSum + edgeSum - 24*center) * (invdx2/6), QUANT_EDGES3 order. */
+DEVFN real lap18(const real* RESTRICT f, int x, int y, int z, int xe, int xw, int yn, int ys, int zu, int zd,
+                 int nx, int ny, const real* RESTRICT c) {
+  real F = f[IDX(xe, y, z)] + f[IDX(xw, y, z)];
+  F = F + f[IDX(x, yn, z)]; F = F + f[IDX(x, ys, z)]; F = F + f[IDX(x, y, zu)]; F = F + f[IDX(x, y, zd)];
+  real E = f[IDX(xw, ys, z)] + f[IDX(xw, yn, z)];
+  E = E + f[IDX(xe, ys, z)]; E = E + f[IDX(xe, yn, z)];
+  E = E + f[IDX(xw, y, zd)]; E = E + f[IDX(xw, y, zu)]; E = E + f[IDX(xe, y, zd)]; E = E + f[IDX(xe, y, zu)];
+  E = E + f[IDX(x, ys, zd)]; E = E + f[IDX(x, ys, zu)]; E = E + f[IDX(x, yn, zd)]; E = E + f[IDX(x, yn, zu)];
+  F = F * c[C_TWO]; F = F + E;
+  const real t = f[IDX(x, y, z)] * c[C_C24];
+  F = F - t; F = F * c[C_LAPSCALE];
+  return F;
+}
+
+/* phi3dWgsl (QUANT_PHASE3, pure) + transport3dWgsl; returns the status flag bits. */
+DEVFN unsigned phase_cell(int x, int y, int z, const int* RESTRICT ip, const real* RESTRICT c,
+                          const real* RESTRICT phi, const real* RESTRICT T, const real* RESTRICT Ax,
+                          const real* RESTRICT Ay, const real* RESTRICT Az, const real* RESTRICT Aw,
+                          real* RESTRICT phiN, real* RESTRICT TN) {
+  const int nx = ip[I_NX], ny = ip[I_NY], nz = ip[I_NZ];
+  const long long i = IDX(x, y, z);
+  const int xe = x + 1 < nx ? x + 1 : nx - 1, xw = x > 0 ? x - 1 : 0;
+  const int yn = y + 1 < ny ? y + 1 : ny - 1, ys = y > 0 ? y - 1 : 0;
+  const int zu = z + 1 < nz ? z + 1 : nz - 1, zd = z > 0 ? z - 1 : 0;
+  const real p = phi[i], tt = T[i];
+  const real lapPhi = lap18(phi, x, y, z, xe, xw, yn, ys, zu, zd, nx, ny, c);
+  const real lapT = lap18(T, x, y, z, xe, xw, yn, ys, zu, zd, nx, ny, c);
+  real u;
+  real gpx = phi[IDX(xe, y, z)] - phi[IDX(xw, y, z)]; gpx = gpx * c[C_INV2DX];
+  real gpy = phi[IDX(x, yn, z)] - phi[IDX(x, ys, z)]; gpy = gpy * c[C_INV2DX];
+  real gpz = phi[IDX(x, y, zu)] - phi[IDX(x, y, zd)]; gpz = gpz * c[C_INV2DX];
+  const real fw = Aw[i];
+  real gWx = Aw[IDX(xe, y, z)] - Aw[IDX(xw, y, z)]; gWx = gWx * c[C_INV2DX];
+  real gWy = Aw[IDX(x, yn, z)] - Aw[IDX(x, ys, z)]; gWy = gWy * c[C_INV2DX];
+  real gWz = Aw[IDX(x, y, zu)] - Aw[IDX(x, y, zd)]; gWz = gWz * c[C_INV2DX];
+  /* QUANT-NORMAL-FLUX: odd reflection of A's normal component at the faces */
+  const real aE = x == nx - 1 ? -Ax[i] : Ax[IDX(x + 1, y, z)], aW = x == 0 ? -Ax[i] : Ax[IDX(x - 1, y, z)];
+  const real aN = y == ny - 1 ? -Ay[i] : Ay[IDX(x, y + 1, z)], aS = y == 0 ? -Ay[i] : Ay[IDX(x, y - 1, z)];
+  const real aU = z == nz - 1 ? -Az[i] : Az[IDX(x, y, z + 1)], aD = z == 0 ? -Az[i] : Az[IDX(x, y, z - 1)];
+  real rdiv = aE - aW; u = aN - aS; rdiv = rdiv + u; u = aU - aD; rdiv = rdiv + u; rdiv = rdiv * c[C_INV2DX];
+  real dot = gWx * gpx; u = gWy * gpy; dot = dot + u; u = gWz * gpz; dot = dot + u;
+  real aniso = fw * lapPhi; aniso = aniso + dot; aniso = aniso + rdiv;
+  real q = p * c[C_TWO]; q = q - c[C_ONE];
+  real well = q * q; well = c[C_ONE] - well;
+  const real drive = tt - c[C_ONE];
+  real tauLoc;
+  int bad32 = 0;
+  if (ip[I_LATTICE]) {
+    const real X = ip[I_W2ONE] ? fw : fw / c[C_W2];
+    tauLoc = X - c[C_TAUB]; tauLoc = tauLoc * c[C_TAUA];
+    bad32 = !((tauLoc > 0) && (tauLoc <= c[C_BIG]));
+  } else {
+    tauLoc = ip[I_TAUONE] ? fw : fw * c[C_TAU];
+    if (!ip[I_W2ONE]) tauLoc = tauLoc / c[C_W2];
+  }
+  real r = q * q; r = r * q; r = q - r;
+  real L = well * c[C_LAM]; L = L * well; L = L * drive;
+  r = r - L; r = r * c[C_HALF];
+  real raw = c[C_DT] / tauLoc; r = r + aniso; raw = raw * r; raw = raw + p;
+  real phiNew = npmin(npmax(raw, c[C_ZERO]), c[C_ONE]);
+  real dPhi = phiNew - p;
+  unsigned flags = 0;
+  real st = c[C_DX2] * tauLoc; st = st / c[C_TWELVE];
+  int bad2 = 0;
+  if (c[C_STABL] > st) {
+    real g2p = gpx * gpx; u = gpy * gpy; g2p = g2p + u; u = gpz * gpz; g2p = g2p + u;
+    const int active = ((p > c[C_LOPHI]) && (p < c[C_HIPHI])) || (g2p > c[C_QGMIN]);
+    bad2 = active && !bad32;
+  }
+  const int bad4 = !((raw >= -c[C_BIG]) && (raw <= c[C_BIG])) && !bad32 && !bad2;
+  if (bad32) flags |= 32u;
+  if (bad2) flags |= 2u;
+  if (bad4) flags |= 4u;
+  if (flags) { phiNew = p; dPhi = c[C_ZERO]; }
+  real TNew = lapT * c[C_COEFT]; TNew = TNew + tt;
+  if (ip[I_LATENTONE]) { TNew = TNew + dPhi; } else { u = dPhi * c[C_LATENT]; TNew = TNew + u; }
+  if (ip[I_COOL]) TNew = TNew - c[C_DTCOOL];
+  if (ip[I_HEAT]) TNew = TNew + c[C_DTHEAT];
+  if (!((TNew >= c[C_TLO]) && (TNew <= c[C_THI]))) flags |= 16u;
+  phiN[i] = phiNew;
+  TN[i] = npmin(npmax(TNew, -c[C_ONE]), c[C_TWO]);
+  return flags;
+}
+
+#ifdef __CUDACC__
+extern "C" __global__ void flux_kernel(const int* RESTRICT ip, const real* RESTRICT c, const real* RESTRICT phi,
+                                       real* RESTRICT Ax, real* RESTRICT Ay, real* RESTRICT Az, real* RESTRICT Aw) {
+  const int x = blockIdx.x * blockDim.x + threadIdx.x, y = blockIdx.y * blockDim.y + threadIdx.y,
+            z = blockIdx.z * blockDim.z + threadIdx.z;
+  const int nx = ip[I_NX], ny = ip[I_NY], nz = ip[I_NZ];
+  if (x >= nx || y >= ny || z >= nz) return;
+  flux_cell(x, y, z, nx, ny, nz, c, phi, Ax, Ay, Az, Aw);
+}
+extern "C" __global__ void phase_kernel(const int* RESTRICT ip, const real* RESTRICT c, const real* RESTRICT phi,
+                                        const real* RESTRICT T, const real* RESTRICT Ax, const real* RESTRICT Ay,
+                                        const real* RESTRICT Az, const real* RESTRICT Aw, real* RESTRICT phiN,
+                                        real* RESTRICT TN, unsigned* flags) {
+  const int x = blockIdx.x * blockDim.x + threadIdx.x, y = blockIdx.y * blockDim.y + threadIdx.y,
+            z = blockIdx.z * blockDim.z + threadIdx.z;
+  if (x >= ip[I_NX] || y >= ip[I_NY] || z >= ip[I_NZ]) return;
+  const unsigned f = phase_cell(x, y, z, ip, c, phi, T, Ax, Ay, Az, Aw, phiN, TN);
+  if (f) atomicOr(flags, f);
+}
+#else
+#ifdef _WIN32
+#define EXPORT __declspec(dllexport)
+#else
+#define EXPORT __attribute__((visibility("default")))
+#endif
+EXPORT void flux_host(const int* ip, const real* c, const real* phi, real* Ax, real* Ay, real* Az, real* Aw) {
+  const int nx = ip[I_NX], ny = ip[I_NY], nz = ip[I_NZ];
+  for (int z = 0; z < nz; z++) for (int y = 0; y < ny; y++) for (int x = 0; x < nx; x++)
+    flux_cell(x, y, z, nx, ny, nz, c, phi, Ax, Ay, Az, Aw);
+}
+EXPORT unsigned phase_host(const int* ip, const real* c, const real* phi, const real* T, const real* Ax,
+                           const real* Ay, const real* Az, const real* Aw, real* phiN, real* TN) {
+  unsigned flags = 0;
+  for (int z = 0; z < ip[I_NZ]; z++) for (int y = 0; y < ip[I_NY]; y++) for (int x = 0; x < ip[I_NX]; x++)
+    flags |= phase_cell(x, y, z, ip, c, phi, T, Ax, Ay, Az, Aw, phiN, TN);
+  return flags;
+}
+#endif
+"""
+FUSED_NVRTC_OPTIONS = ("--fmad=false", "--prec-div=true", "--prec-sqrt=true", "--ftz=false", "--std=c++14")
+FUSED_CC_FLAGS = ("-O2", "-shared", "-ffp-contract=off", "-fno-fast-math")
+
+
+def build_fused_cpu(dtype):
+    """Compile FUSED_SRC for the CPU (validation path) and load it with ctypes.
+    Compiler: $SOLIDIFY_CC (e.g. 'gcc'), else `python -m ziglang cc`. Cache:
+    $SOLIDIFY_FUSED_CACHE, else the system temp directory."""
+    import ctypes
+    import subprocess
+    import tempfile
+    double = dtype == "float64"
+    key = hashlib.sha256((FUSED_SRC + dtype + " ".join(FUSED_CC_FLAGS)).encode()).hexdigest()[:16]
+    cache = os.environ.get("SOLIDIFY_FUSED_CACHE") or os.path.join(tempfile.gettempdir(), "solidify-fused")
+    os.makedirs(cache, exist_ok=True)
+    lib = os.path.join(cache, f"quant3d_fused_{dtype}_{key}" + (".dll" if sys.platform == "win32" else ".so"))
+    if not os.path.exists(lib):
+        src = os.path.join(cache, f"quant3d_fused_{key}.c")
+        with open(src, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(FUSED_SRC)
+        cc = os.environ.get("SOLIDIFY_CC", "").split() or [sys.executable, "-m", "ziglang", "cc"]
+        extra = [] if sys.platform == "win32" else ["-fPIC", "-lm"]
+        cmd = cc + list(FUSED_CC_FLAGS) + extra + ["-std=c11", f"-DREAL_DOUBLE={int(double)}", "-o", lib + ".tmp", src]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError(f"fused CPU build failed: {' '.join(cmd)}\n{proc.stderr}")
+        os.replace(lib + ".tmp", lib)
+    return ctypes.CDLL(lib)
+
+
+class FusedBackend:
+    """Runs one substep as two fused kernels on the TipPort's own arrays:
+    flux (phi -> A.xyz, w), then phase+transport (phi, T, A -> phiN, TN).
+    device 'cuda': CuPy RawModule; device 'cpu': the same C via ctypes."""
+
+    BLOCK = (32, 4, 2)
+
+    def __init__(self, port, device):
+        self.port, self.device = port, device
+        double = port.dtype_name == "float64"
+        consts = np.array([getattr(port, n) for n in FUSED_CONSTS], dtype=port.dt_type)
+        if consts.dtype != port.dt_type or len(consts) != 32:
+            raise AssertionError("fused constant table")
+        ints = np.array([port.nx, port.ny, port.nz, int(port.lattice), int(port.w2 == 1), int(port.tau == 1),
+                         int(port.latent == 1), int(port.coolRate != 0), int(port.heatIn != 0)], dtype=np.int32)
+        if device == "cuda":
+            import cupy
+            self.cp = cupy
+            self.module = cupy.RawModule(code=FUSED_SRC, options=FUSED_NVRTC_OPTIONS + (f"-DREAL_DOUBLE={int(double)}",))
+            self.k_flux = self.module.get_function("flux_kernel")
+            self.k_phase = self.module.get_function("phase_kernel")
+            self.c, self.ip = cupy.asarray(consts), cupy.asarray(ints)
+            self.flag_buf = cupy.zeros(1, dtype=cupy.uint32)
+            bx, by, bz = self.BLOCK
+            self.grid = (-(-port.nx // bx), -(-port.ny // by), -(-port.nz // bz))
+        elif device == "cpu":
+            import ctypes
+            self.ct = ctypes
+            self.lib = build_fused_cpu(port.dtype_name)
+            self.lib.phase_host.restype = ctypes.c_uint
+            self.c, self.ip = consts, ints
+            self.host_flags = 0
+        else:
+            raise ValueError("fused device must be cuda or cpu")
+
+    def step(self):
+        p = self.port
+        if self.device == "cuda":
+            self.k_flux(self.grid, self.BLOCK, (self.ip, self.c, p.phi, p.Ax, p.Ay, p.Az, p.Aw))
+            self.k_phase(self.grid, self.BLOCK, (self.ip, self.c, p.phi, p.T, p.Ax, p.Ay, p.Az, p.Aw,
+                                                 p.phiN, p.TN, self.flag_buf))
+        else:
+            ptr = lambda a: self.ct.c_void_p(a.ctypes.data)
+            for a in (p.phi, p.T, p.phiN, p.TN, p.Ax, p.Ay, p.Az, p.Aw):
+                if not a.flags.c_contiguous or a.dtype != p.dt_type:
+                    raise AssertionError("fused CPU path needs contiguous arrays of the working dtype")
+            self.lib.flux_host(ptr(self.ip), ptr(self.c), ptr(p.phi), ptr(p.Ax), ptr(p.Ay), ptr(p.Az), ptr(p.Aw))
+            self.host_flags |= self.lib.phase_host(ptr(self.ip), ptr(self.c), ptr(p.phi), ptr(p.T), ptr(p.Ax),
+                                                   ptr(p.Ay), ptr(p.Az), ptr(p.Aw), ptr(p.phiN), ptr(p.TN))
+
+    def read_flags(self):
+        """Accumulated status bits (never reset, as the driver's status buffer); syncs the device."""
+        if self.device == "cuda":
+            return int(self.flag_buf.get()[0])
+        return self.host_flags
+
+
+def nvrtc_ptx(dtype, arch="compute_89", library=None):
+    """Compile FUSED_SRC to PTX with NVRTC (no GPU needed) using the same options
+    as the CUDA path. Library: $SOLIDIFY_NVRTC, else the nvidia-cuda-nvrtc-cu12
+    wheel. Returns the PTX text."""
+    import ctypes
+    import glob as _glob
+    if library is None:
+        library = os.environ.get("SOLIDIFY_NVRTC")
+    if library is None:
+        import importlib.util as _iu
+        spec = _iu.find_spec("nvidia")
+        roots = list(spec.submodule_search_locations) if spec else []
+        pats = ["cuda_nvrtc/bin/nvrtc64_*_0.dll", "cuda_nvrtc/lib/libnvrtc.so.*"]
+        hits = [h for r in roots for pat in pats for h in _glob.glob(os.path.join(r, pat)) if ".alt." not in h]
+        if not hits:
+            raise RuntimeError("NVRTC library not found (pip install nvidia-cuda-nvrtc-cu12 or set SOLIDIFY_NVRTC)")
+        library = sorted(hits)[0]
+    if sys.platform == "win32":   # nvrtc loads nvrtc-builtins by name: preload it from the same directory
+        libdir = os.path.dirname(os.path.abspath(library))
+        os.environ["PATH"] = libdir + os.pathsep + os.environ.get("PATH", "")
+        for builtins in _glob.glob(os.path.join(libdir, "nvrtc-builtins64_*.dll")):
+            ctypes.CDLL(builtins)
+    nv = ctypes.CDLL(library)
+    prog = ctypes.c_void_p()
+    check = lambda rc, what: None if rc == 0 else (_ for _ in ()).throw(RuntimeError(f"NVRTC {what} failed ({rc})"))
+    check(nv.nvrtcCreateProgram(ctypes.byref(prog), FUSED_SRC.encode(), b"quant3d_fused.cu", 0, None, None), "create")
+    opts = list(FUSED_NVRTC_OPTIONS) + [f"-DREAL_DOUBLE={int(dtype == 'float64')}", f"--gpu-architecture={arch}"]
+    arr = (ctypes.c_char_p * len(opts))(*[o.encode() for o in opts])
+    rc = nv.nvrtcCompileProgram(prog, len(opts), arr)
+    size = ctypes.c_size_t()
+    nv.nvrtcGetProgramLogSize(prog, ctypes.byref(size))
+    log = ctypes.create_string_buffer(size.value)
+    nv.nvrtcGetProgramLog(prog, log)
+    if rc != 0:
+        raise RuntimeError("NVRTC compile failed:\n" + log.value.decode(errors="replace"))
+    nv.nvrtcGetPTXSize(prog, ctypes.byref(size))
+    ptx = ctypes.create_string_buffer(size.value)
+    check(nv.nvrtcGetPTX(prog, ptx), "getPTX")
+    nv.nvrtcDestroyProgram(ctypes.byref(prog))
+    return ptx.value.decode()
+
+
 class TipPort:
     """State lives as two arrays phi, T of shape (nz, ny, nx) (texture order,
     x fastest). One step = flux pass over all voxels, then the phase and the
@@ -405,13 +735,13 @@ class TipPort:
 
     def __init__(self, config, dtype="float32", backend="numpy", inputs="gpu", chunk_voxels=None,
                  init_state=None, keep_aux=False):
-        if backend == "cupy":
+        if backend in ("cupy", "fused"):
             import cupy  # noqa: F401  (only imported on request)
             self.xp = cupy
-        elif backend == "numpy":
+        elif backend in ("numpy", "fused-cpu"):
             self.xp = np
         else:
-            raise ValueError("backend must be numpy or cupy")
+            raise ValueError("backend must be numpy, cupy, fused (CUDA kernels) or fused-cpu")
         if dtype not in ("float32", "float64"):
             raise ValueError("dtype must be float32 or float64")
         if inputs not in ("gpu", "exact"):
@@ -448,6 +778,11 @@ class TipPort:
         self.Ax, self.Ay, self.Az, self.Aw = (xp.empty_like(self.phi) for _ in range(4))
         # Optional copy of the phase pass output (the GPU aux texture: phiNew, dPhi).
         self.aux = xp.empty(self.phi.shape + (2,), dtype=self.dt_type) if keep_aux else None
+        self.fused = None
+        if backend.startswith("fused"):
+            if keep_aux:
+                raise ValueError("keep_aux is an array-path diagnostic")
+            self.fused = FusedBackend(self, "cuda" if backend == "fused" else "cpu")
         self.steps = 0
         self.time = 0.0          # JS clock: time += batch * p.dt per advance batch
         self.frame = 0
@@ -490,6 +825,8 @@ class TipPort:
         self.lo_phi, self.hi_phi = K(1.0e-6), K(0.999999)
         self.T_lo, self.T_hi = K(-1.00001), K(2.00001)
         self.half, self.twelve, self.c24 = K(0.5), K(12.0), K(24.0)
+        self.four, self.three = K(4.0), K(3.0)
+        self.dtcool, self.dtheat = dt * self.coolRate, dt * self.heatIn   # P.dt * P.coolRate, P.dt * P.heatIn
 
     def uniforms(self):
         names = ("dx_", "dt_", "epsBar", "tau", "delta", "lam", "dTherm", "latent", "inv2dx", "invdx2",
@@ -704,11 +1041,14 @@ class TipPort:
         return flags
 
     def step(self):
-        for z0, z1 in self.chunks:
-            self._flux_chunk(z0, z1)
         flags = 0
-        for z0, z1 in self.chunks:
-            flags |= self._phase_transport_chunk(z0, z1)
+        if self.fused is not None:
+            self.fused.step()          # flags accumulate on the device; read in advance()
+        else:
+            for z0, z1 in self.chunks:
+                self._flux_chunk(z0, z1)
+            for z0, z1 in self.chunks:
+                flags |= self._phase_transport_chunk(z0, z1)
         self.phi, self.phiN = self.phiN, self.phi
         self.T, self.TN = self.TN, self.T
         self.steps += 1
@@ -729,10 +1069,12 @@ class TipPort:
                 self.frame += 1
                 self.time += batch * self.p["dt"]
                 left -= batch
+        if self.fused is not None:
+            self.flags |= self.fused.read_flags()     # one device sync per advance, as the driver
         if self.flags:
             raise QuantStatusError(f"quantitative diagnostic flags {self.flags}")
         return {"count": count, "seconds": time.perf_counter() - start, "time": self.time, "steps": self.steps,
-                "minTau": 1.0 if self.interface_seen else float("inf")}
+                "minTau": None if self.fused is not None else (1.0 if self.interface_seen else float("inf"))}
 
     def fields_numpy(self):
         xp = self.xp
@@ -866,13 +1208,55 @@ def load_config(path, arm=None):
     return data
 
 
+def _replace(tmp, path):
+    """os.replace with a short retry: Windows refuses while a reader holds the target."""
+    for attempt in range(40):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if attempt == 39:
+                raise
+            time.sleep(0.25)
+
+
+def atomic_write_text(path, text):
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+        fh.flush()
+        os.fsync(fh.fileno())
+    _replace(tmp, path)
+
+
 def dump_fields(port, out, steps):
+    """phi/T .npy restart point, written atomically (a kill mid-dump never leaves a torn file)."""
     d = os.path.join(out, "fields")
     os.makedirs(d, exist_ok=True)
     phi, T = port.fields_numpy()
     name = port.config.get("name", "arm")
-    np.save(os.path.join(d, f"{name}-{steps:09d}-phi.npy"), phi)
-    np.save(os.path.join(d, f"{name}-{steps:09d}-T.npy"), T)
+    for tag, arr in (("phi", phi), ("T", T)):
+        path = os.path.join(d, f"{name}-{steps:09d}-{tag}.npy")
+        with open(path + ".tmp", "wb") as fh:
+            np.save(fh, arr)
+            fh.flush()
+            os.fsync(fh.fileno())
+        _replace(path + ".tmp", path)
+
+
+def latest_restart(out, name, targets, dims, dtype):
+    """Largest scheduled checkpoint with a complete, loadable phi/T dump."""
+    shape = (dims[2], dims[1], dims[0])
+    for steps in sorted((t for t in targets), reverse=True):
+        stem = os.path.join(out, "fields", f"{name}-{steps:09d}")
+        try:
+            ok = all(np.load(stem + f"-{tag}.npy", mmap_mode="r").shape == shape
+                     and np.load(stem + f"-{tag}.npy", mmap_mode="r").dtype == np.dtype(dtype) for tag in ("phi", "T"))
+        except (OSError, ValueError):
+            ok = False
+        if ok:
+            return steps
+    return None
 
 
 def run(args):
@@ -916,24 +1300,47 @@ def run(args):
             left -= batch
 
     observed, clock_mark = 0, 0
-    if args.resume:
+    resume = None
+    if args.resume == "auto":
+        # Start-or-continue: the same command line can be re-issued after a kill.
+        if os.path.exists(mpath):
+            with open(mpath, encoding="utf-8") as fh:
+                previous = json.load(fh)
+            if previous.get("completed") and previous.get("targets") == targets:
+                print("PORT-DONE already complete", json.dumps({"samples": len(previous["samples"])}))
+                return previous
+            resume = latest_restart(out, name, targets, port.dims, port.dt_type)
+            print("PORT-RESUME", json.dumps({"fromSteps": resume}), flush=True)
+    elif args.resume:
+        resume = int(args.resume)
+    if resume:
         # Restart from dumped fields at a written checkpoint; rebuild the clock exactly.
-        if args.resume not in targets:
+        if resume not in targets:
             raise ValueError("--resume STEP must be a scheduled checkpoint of this run")
         with open(mpath, encoding="utf-8") as fh:
             manifest = json.load(fh)
         if manifest["config"] != config or manifest["dtype"] != args.dtype or manifest["inputs"] != args.inputs:
             raise ValueError("resume: config/dtype/inputs differ from the original run")
-        stem = os.path.join(out, "fields", f"{name}-{args.resume:09d}")
+        stem = os.path.join(out, "fields", f"{name}-{resume:09d}")
         port.phi = port.xp.asarray(np.load(stem + "-phi.npy"), dtype=port.dt_type)
         port.T = port.xp.asarray(np.load(stem + "-T.npy"), dtype=port.dt_type)
-        for t in [t for t in targets if t <= args.resume]:
+        for t in [t for t in targets if t <= resume]:
             clock(t - clock_mark)
             clock_mark = t
-        port.steps = observed = args.resume
-        manifest["samples"] = [s for s in manifest["samples"] if s["steps"] <= args.resume]
-        manifest["unresolved"] = [s for s in manifest["unresolved"] if s["steps"] <= args.resume]
-        manifest.setdefault("resumes", []).append({"fromSteps": args.resume, "at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        port.steps = observed = resume
+        manifest["samples"] = [s for s in manifest["samples"] if s["steps"] <= resume]
+        manifest["unresolved"] = [s for s in manifest["unresolved"] if s["steps"] <= resume]
+        known = {s["steps"] for s in manifest["samples"]}
+        for t in [t for t in targets if t <= resume and t not in known]:
+            # a kill between the sample write and the manifest save: re-register the file
+            path = f"samples/{name}-{t:09d}.json"
+            if os.path.exists(os.path.join(out, path)):
+                blob = open(os.path.join(out, path), "rb").read()
+                manifest["samples"].append({"path": path, "sha256": hashlib.sha256(blob).hexdigest(), "steps": t,
+                                            "time": json.loads(blob)["time"], "recoveredOnResume": True})
+        manifest["samples"].sort(key=lambda s: s["steps"])
+        manifest.setdefault("resumes", []).append({"fromSteps": resume, "at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                                                   "backend": args.backend,
                                                    "portSha256": hashlib.sha256(open(__file__, "rb").read()).hexdigest()})
         manifest["completed"] = False
         manifest["targets"], manifest["offScheduleTargets"] = targets, off_schedule
@@ -949,51 +1356,69 @@ def run(args):
                     "samples": [], "unresolved": [], "dumps": [], "completed": False}
 
     def save():
-        with open(mpath, "w", encoding="utf-8", newline="\n") as fh:
-            json.dump(manifest, fh, indent=1)
-            fh.write("\n")
+        atomic_write_text(mpath, json.dumps(manifest, indent=1) + "\n")
 
-    if not args.resume:
+    if not resume:
         zero = port.sample()
         manifest["initialTip"] = max((pt["z"] for pt in zero["points"]), default=None)
         if args.dump_fields or 0 in dump_at:
             dump_fields(port, out, 0)
             manifest["dumps"].append(0)
+    manifest["backendLast"] = args.backend
     save()
     started, first = time.perf_counter(), observed
+    last_flush = time.perf_counter()
     stops = sorted(set(targets) | {s for s in dump_at if 0 < s <= targets[-1]})
     stops = [s for s in stops if s > observed]
     for stop in stops:
         port.advance(stop - observed, clock=False)
         observed = stop
         k = targets.index(stop) + 1 if stop in targets else 0
-        if (stop in dump_at or (args.dump_fields and k) or stop == targets[-1] and args.dump_every
-                or (args.dump_every and k and k % args.dump_every == 0)):
+        if k:  # the checkpoint's sample is written before any restart dump of the same state
+            clock(stop - clock_mark)
+            clock_mark = stop
+            raw = port.sample()
+            source = f"direct {args.backend} {args.dtype} port state snapshot; quant3d-fp64-port.py ({SOURCE_COMMIT[:7]} WGSL)"
+            text = json.dumps({"source": source, "config": config, **raw}, separators=(",", ":"), allow_nan=False)
+            path = f"samples/{name}-{raw['steps']:09d}.json"
+            atomic_write_text(os.path.join(out, path), text)
+            entry = {"path": path, "sha256": hashlib.sha256(text.encode()).hexdigest(), "steps": raw["steps"],
+                     "time": raw["time"], "wallSeconds": time.perf_counter() - started}
+            try:
+                t = local_tip(raw["points"], config["dx"])
+                entry.update({"tip": t["tip"], "rho": t["rho"], "tipError": t["tipError"], "rhoError": t["rhoError"]})
+            except (ValueError, ZeroDivisionError) as error:
+                manifest["unresolved"].append({"steps": raw["steps"], "reason": str(error)})
+            manifest["samples"].append(entry)
+        explicit = bool(stop in dump_at or (args.dump_fields and k) or (stop == targets[-1] and args.dump_every)
+                        or (args.dump_every and k and k % args.dump_every == 0))
+        flush = bool(k and args.flush_minutes and stop != targets[-1]
+                     and time.perf_counter() - last_flush >= 60 * args.flush_minutes)
+        if explicit or flush:
             dump_fields(port, out, stop)
             manifest["dumps"].append(stop)
-        if stop not in targets:
+            if flush and not explicit:
+                # Time-based restart points: keep the newest two, prune older ones.
+                manifest.setdefault("restartDumps", []).append(stop)
+                for old in manifest["restartDumps"][:-2]:
+                    for tag in ("phi", "T"):
+                        try:
+                            os.remove(os.path.join(out, "fields", f"{name}-{old:09d}-{tag}.npy"))
+                        except OSError:
+                            pass
+                    manifest["dumps"] = [d for d in manifest["dumps"] if d != old]
+                manifest["restartDumps"] = manifest["restartDumps"][-2:]
+            last_flush = time.perf_counter()
+        if not k:
             continue
-        clock(stop - clock_mark)
-        clock_mark = stop
-        raw = port.sample()
-        source = f"direct {args.backend} {args.dtype} port state snapshot; quant3d-fp64-port.py ({SOURCE_COMMIT[:7]} WGSL)"
-        text = json.dumps({"source": source, "config": config, **raw}, separators=(",", ":"), allow_nan=False)
-        path = f"samples/{name}-{raw['steps']:09d}.json"
-        with open(os.path.join(out, path), "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(text)
-        entry = {"path": path, "sha256": hashlib.sha256(text.encode()).hexdigest(), "steps": raw["steps"],
-                 "time": raw["time"], "wallSeconds": time.perf_counter() - started}
-        try:
-            t = local_tip(raw["points"], config["dx"])
-            entry.update({"tip": t["tip"], "rho": t["rho"], "tipError": t["tipError"], "rhoError": t["rhoError"]})
-        except (ValueError, ZeroDivisionError) as error:
-            manifest["unresolved"].append({"steps": raw["steps"], "reason": str(error)})
-        manifest["samples"].append(entry)
-        voxel_steps = port.nx * port.ny * port.nz * (observed - first)
+        elapsed = max(1e-9, time.perf_counter() - started)
+        rate = port.nx * port.ny * port.nz * (observed - first) / elapsed
+        eta = (targets[-1] - observed) * port.nx * port.ny * port.nz / max(rate, 1e-9) / 3600
+        manifest["progress"] = {"steps": observed, "of": targets[-1], "voxelStepsPerSecond": rate, "etaHours": eta,
+                                "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
         print("PORT-PROGRESS", json.dumps({"arm": name, "steps": observed, "of": targets[-1],
-                                           "minutes": round((time.perf_counter() - started) / 60, 3),
-                                           "voxelStepsPerSecond": voxel_steps / max(1e-9, time.perf_counter() - started)}),
-              flush=True)
+                                           "minutes": round(elapsed / 60, 3), "voxelStepsPerSecond": rate,
+                                           "etaHours": round(eta, 3)}), flush=True)
         save()
     manifest["completed"] = True
     manifest["finished"] = time.strftime("%Y-%m-%dT%H:%M:%S")
@@ -1093,7 +1518,9 @@ def main():
     ap.add_argument("--arm")
     ap.add_argument("--out")
     ap.add_argument("--dtype", default="float64", choices=["float32", "float64"])
-    ap.add_argument("--backend", default="numpy", choices=["numpy", "cupy"])
+    ap.add_argument("--backend", default="numpy", choices=["numpy", "cupy", "fused", "fused-cpu"],
+                    help="numpy/cupy: array path; fused: one CUDA kernel per pass (CuPy RawModule); "
+                         "fused-cpu: the same kernels compiled for the CPU (validation)")
     ap.add_argument("--inputs", default="gpu", choices=["gpu", "exact"],
                     help="gpu: uniforms, WGSL literals and the initial state rounded to Float32 first (isolates "
                          "arithmetic precision); exact: float64 values of the config/literals (float64 only)")
@@ -1103,19 +1530,36 @@ def main():
     ap.add_argument("--dump-fields", action="store_true", help="save phi/T .npy at step 0 and every checkpoint")
     ap.add_argument("--dump-at", help="comma list of substeps at which to save phi/T .npy")
     ap.add_argument("--dump-every", type=int, help="save phi/T .npy at every K-th checkpoint and the last (restart points)")
-    ap.add_argument("--resume", type=int, help="restart at checkpoint STEP from OUT/fields/<name>-STEP-{phi,T}.npy")
+    ap.add_argument("--resume", help="STEP: restart at that checkpoint from OUT/fields/<name>-STEP-{phi,T}.npy; "
+                                     "auto: start, or continue from the newest complete dump (re-issue after a kill)")
+    ap.add_argument("--flush-minutes", type=float, default=0,
+                    help="write a restart dump at the first checkpoint after every M minutes (newest two kept)")
     ap.add_argument("--init-state", help="(nz, ny, nx, 2) npy initial (phi, T), e.g. a GPU readback")
     ap.add_argument("--chunk-voxels", type=int)
     ap.add_argument("--keep-power-throttling", action="store_true",
                     help="Windows: do not opt this process out of efficiency-core confinement")
+    ap.add_argument("--box-gates", action="store_true",
+                    help="cloud-GPU gates (fused vs array fp64, fused fp32 vs WGSL captures, throughput); "
+                         "prints PASS/FAIL lines, exits non-zero on any failure")
+    ap.add_argument("--capture", default="verify-out/fp64-port/capture", help="--box-gates: WGSL capture directory")
+    ap.add_argument("--arms", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "quant3d-fp64-port-arms.json"),
+                    help="--box-gates: arm configs for the throughput probe")
+    ap.add_argument("--probe-steps", type=int, default=2000, help="--box-gates: timed steps per throughput probe")
     args = ap.parse_args()
     if args.self_test:
         sys.exit(0 if self_test() else 1)
+    if args.box_gates:
+        import importlib.util as _iu
+        spec = _iu.spec_from_file_location("quant3d_fp64_port_selftest", os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "quant3d-fp64-port-selftest.py"))
+        gates = _iu.module_from_spec(spec)
+        spec.loader.exec_module(gates)
+        sys.exit(gates.box_gates(args.capture, args.arms, args.probe_steps))
     if not (args.config and args.out):
-        ap.error("--config and --out are required (or --self-test)")
+        ap.error("--config and --out are required (or --self-test / --box-gates)")
     m = run(args)
     print("PORT-DONE", json.dumps({"samples": len(m["samples"]), "unresolved": len(m["unresolved"]),
-                                   "voxelStepsPerSecond": m["voxelStepsPerSecond"]}))
+                                   "voxelStepsPerSecond": m.get("voxelStepsPerSecond")}))
 
 
 if __name__ == "__main__":

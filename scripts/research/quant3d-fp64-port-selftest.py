@@ -261,10 +261,179 @@ def gate4(work):
     return res
 
 
+FUSED_FIXTURES = (("corner-24x28x36", {**BASE, "dims": [24, 28, 36]}, 512),
+                  ("centred-17x9x12", {**BASE, "dims": [17, 9, 12], "radius": 3, "center": [6.0, 3.0, 4.4]}, 200),
+                  ("degenerate-2x3x5", {**BASE, "dims": [2, 3, 5]}, 50),
+                  ("w50-eq32", {**BASE, "lambda": 5, "dt": 0.017020371256848042, "radius": 5, "dims": [32, 32, 32],
+                                "center": [12.8, 12.8, 12.8]}, 512))
+
+
+def field_diff(a, b):
+    a = [np.asarray(x) for x in a]
+    b = [np.asarray(x) for x in b]
+    return {"phiMaxAbs": float(np.abs(a[0].astype(np.float64) - b[0]).max()),
+            "TMaxAbs": float(np.abs(a[1].astype(np.float64) - b[1]).max()),
+            "valueMismatches": int((a[0] != b[0]).sum() + (a[1] != b[1]).sum()), "cells": int(2 * a[0].size)}
+
+
+def fused_vs_array(backend, fixtures=FUSED_FIXTURES, dtypes=("float64", "float32")):
+    """Fused kernels vs the validated NumPy array path from the same initial state."""
+    rows = []
+    for name, cfg, steps in fixtures:
+        for dtype in dtypes:
+            ref = TipPort(cfg, dtype)
+            fused = TipPort(cfg, dtype, backend=backend)
+            ref.advance(steps)
+            fused.advance(steps)
+            rows.append({"fixture": name, "dtype": dtype, "steps": steps, **field_diff(fused.fields_numpy(), ref.fields_numpy())})
+    return rows
+
+
+def fused_vs_capture(capture, backend):
+    """Fused float32 vs the captured WGSL states, every stop of every fixture."""
+    meta = json.load(open(os.path.join(capture, "capture.json"), encoding="utf-8"))
+    rows = []
+    for fx in meta["fixtures"]:
+        cfg, stops = fx["config"], fx.get("stopList") or meta["stops"]
+        nx, ny, nz = cfg["dims"]
+        port = TipPort(cfg, "float32", backend=backend)
+        prev, worst = 0, {"phi": 0.0, "T": 0.0}
+        per_stop = []
+        for s in stops:
+            if s > prev:
+                port.advance(s - prev); prev = s
+            g = np.fromfile(os.path.join(capture, fx["name"], f"state-{s:09d}.f32"), "<f4").reshape(nz, ny, nx, 2)
+            phi, T = port.fields_numpy()
+            d = {"steps": s, "phi": float(np.abs(phi.astype(np.float64) - g[..., 0]).max()),
+                 "T": float(np.abs(T.astype(np.float64) - g[..., 1]).max())}
+            worst = {k: max(worst[k], d[k]) for k in worst}
+            per_stop.append(d)
+        rows.append({"fixture": fx["name"], "stops": per_stop, "worst": worst})
+    return rows
+
+
+def ptx_report(archs=("compute_89", "compute_90", "compute_80")):
+    """NVRTC compile of the fused source (no GPU needed): build check, FMA count, f64 op census."""
+    import collections
+    import re
+    out = {}
+    for arch in archs:
+        for dtype in ("float64", "float32"):
+            ptx = port_mod.nvrtc_ptx(dtype, arch)
+            entry = {}
+            for kern in ("flux_kernel", "phase_kernel"):
+                body = ptx.split(f".entry {kern}")[1].split(".entry")[0]
+                ops = collections.Counter(re.findall(r"^\s+(?:@!?%p\d+\s+)?([a-z]+(?:\.[a-z0-9]+)*)", body, re.M))
+                suffix = ".f64" if dtype == "float64" else ".f32"
+                entry[kern] = {"fma": sum(v for k, v in ops.items() if k.startswith("fma")),
+                               "arith": sum(v for k, v in ops.items() if k.endswith(suffix) and k.split(".")[0] in
+                                            ("add", "sub", "mul", "setp", "neg", "max", "min")),
+                               "div": sum(v for k, v in ops.items() if k.startswith("div") and k.endswith(suffix)),
+                               "sqrt": sum(v for k, v in ops.items() if k.startswith("sqrt") and k.endswith(suffix)),
+                               "loads": sum(v for k, v in ops.items() if k.startswith("ld.global") and k.endswith(suffix))}
+            out[f"{arch}/{dtype}"] = entry
+    return out
+
+
+def gate_fused(capture):
+    res = {"array": fused_vs_array("fused-cpu"), "capture": fused_vs_capture(capture, "fused-cpu"), "ptx": ptx_report()}
+    ok_a = all(r["phiMaxAbs"] <= 1e-12 and r["TMaxAbs"] <= 1e-12 for r in res["array"] if r["dtype"] == "float64")
+    ok_b = all(r["worst"]["phi"] <= TARGET and r["worst"]["T"] <= TARGET for r in res["capture"])
+    ok_p = all(k["fma"] == 0 for e in res["ptx"].values() for k in e.values())
+    for r in res["array"]:
+        print("FUSED-A", json.dumps(r), flush=True)
+    for r in res["capture"]:
+        print("FUSED-B", r["fixture"], json.dumps(r["worst"]), flush=True)
+    for k, v in res["ptx"].items():
+        print("FUSED-PTX", k, json.dumps(v), flush=True)
+    # Fused CPU speed for reference (single thread).
+    for dtype in ("float32", "float64"):
+        p = TipPort({**BASE, "dims": [64, 64, 64]}, dtype, backend="fused-cpu")
+        p.advance(2)
+        t = time.perf_counter(); p.advance(10)
+        res.setdefault("cpuRate", {})[dtype] = 64 ** 3 * 10 / (time.perf_counter() - t)
+    print("FUSED-CPU-RATE", json.dumps(res["cpuRate"]))
+    res["passed"] = {"a_fp64_fused_vs_array_le_1e-12": ok_a, "b_fp32_fused_vs_wgsl_le_1e-5": ok_b, "ptx_no_fma": ok_p}
+    print("FUSED", json.dumps(res["passed"]))
+    return res
+
+
+def box_gates(capture, arms_path, probe_steps=2000):
+    """Run on the cloud GPU before any long job. Prints PASS/FAIL lines; returns the exit code."""
+    port_mod.disable_power_throttling()
+    oks = []
+
+    def line(name, ok, detail):
+        print(("PASS " if ok else "FAIL ") + name + " " + detail, flush=True)
+        oks.append(bool(ok))
+
+    try:
+        import cupy
+        props = cupy.cuda.runtime.getDeviceProperties(0)
+        print("BOX", json.dumps({"gpu": props["name"].decode() if isinstance(props["name"], bytes) else props["name"],
+                                 "cc": f"{props['major']}.{props['minor']}", "memoryGiB": props["totalGlobalMem"] / 2 ** 30,
+                                 "cupy": cupy.__version__, "cudaRuntime": cupy.cuda.runtime.runtimeGetVersion(),
+                                 "driver": cupy.cuda.runtime.driverGetVersion(), "numpy": np.__version__}), flush=True)
+    except Exception as e:  # noqa: BLE001
+        line("box: CuPy/CUDA available", False, repr(e))
+        return 1
+    # (a) fused GPU float64 vs the NumPy array path (the validated reference), same initial state.
+    try:
+        for r in fused_vs_array("fused", dtypes=("float64",)):
+            line(f"a fused-fp64-vs-array {r['fixture']} {r['steps']} steps", r["phiMaxAbs"] <= 1e-12 and r["TMaxAbs"] <= 1e-12,
+                 f"max|dphi| {r['phiMaxAbs']:.3e} max|dT| {r['TMaxAbs']:.3e} mismatches {r['valueMismatches']}/{r['cells']}")
+        for r in fused_vs_array("fused", dtypes=("float32",)):
+            line(f"a' fused-fp32-vs-array {r['fixture']} {r['steps']} steps", r["phiMaxAbs"] <= TARGET and r["TMaxAbs"] <= TARGET,
+                 f"max|dphi| {r['phiMaxAbs']:.3e} max|dT| {r['TMaxAbs']:.3e} mismatches {r['valueMismatches']}/{r['cells']} "
+                 "(bitwise expected)")
+    except Exception as e:  # noqa: BLE001
+        line("a fused-vs-array", False, repr(e))
+    # (b) fused GPU float32 vs the captured WGSL states.
+    try:
+        if not os.path.exists(os.path.join(capture, "capture.json")):
+            raise FileNotFoundError(f"{capture}/capture.json (copy verify-out/fp64-port/capture from the laptop)")
+        for r in fused_vs_capture(capture, "fused"):
+            line(f"b fused-fp32-vs-WGSL {r['fixture']} (stops {r['stops'][-1]['steps']})",
+                 r["worst"]["phi"] <= TARGET and r["worst"]["T"] <= TARGET,
+                 f"worst max|dphi| {r['worst']['phi']:.3e} max|dT| {r['worst']['T']:.3e}")
+    except Exception as e:  # noqa: BLE001
+        line("b fused-fp32-vs-WGSL", False, repr(e))
+    # (c) throughput probe on the real arms.
+    try:
+        arms = json.load(open(arms_path, encoding="utf-8"))
+        for arm in arms:
+            nx, ny, nz = arm["dims"]
+            plan = port_mod.fixed_terminal_schedule(arm["dt"], arm.get("physicalTimeScale", 1.0))
+            phi0, T0 = port_mod.initial_fields(arm, arm["dims"], np.float32)
+            init = np.stack([phi0, T0], axis=-1)
+            del phi0, T0
+            for dtype in ("float64", "float32"):
+                port = TipPort(arm, dtype, backend="fused", init_state=init)
+                port.advance(10)
+                t = time.perf_counter()
+                port.advance(probe_steps)
+                secs = time.perf_counter() - t
+                finite = bool(cupy.isfinite(port.phi).all()) and bool(cupy.isfinite(port.T).all())
+                rate = nx * ny * nz * probe_steps / secs
+                hours = nx * ny * nz * plan["terminalSteps"] / rate / 3600
+                used = cupy.get_default_memory_pool().total_bytes() / 2 ** 30
+                print("THROUGHPUT", json.dumps({"arm": arm["name"], "dtype": dtype, "steps": probe_steps, "seconds": secs,
+                                                "voxelStepsPerSecond": rate, "terminalSteps": plan["terminalSteps"],
+                                                "projectedFullArmHours": hours, "gpuPoolGiB": used}), flush=True)
+                line(f"c probe {arm['name']} {dtype}", finite and not port.flags,
+                     f"{rate:.3e} voxel-steps/s, projected {hours:.2f} h for {plan['terminalSteps']} steps")
+                del port
+                cupy.get_default_memory_pool().free_all_blocks()
+    except Exception as e:  # noqa: BLE001
+        line("c throughput probe", False, repr(e))
+    print("BOX-GATES", "PASS" if all(oks) else "FAIL", f"{sum(oks)}/{len(oks)}", flush=True)
+    return 0 if all(oks) else 1
+
+
 def main():
     warnings.simplefilter("ignore", RuntimeWarning)
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("gate", choices=["gate1", "gate2", "gate3", "gate4"])
+    ap.add_argument("gate", choices=["gate1", "gate2", "gate3", "gate4", "fused", "box"])
     ap.add_argument("--capture")
     ap.add_argument("--work")
     ap.add_argument("--out")
@@ -276,6 +445,11 @@ def main():
         res = gate2()
     elif args.gate == "gate3":
         res = gate3()
+    elif args.gate == "fused":
+        res = gate_fused(args.capture)
+    elif args.gate == "box":
+        sys.exit(box_gates(args.capture or "verify-out/fp64-port/capture",
+                           os.path.join(HERE, "quant3d-fp64-port-arms.json")))
     else:
         res = gate4(args.work)
     if args.out:
@@ -285,6 +459,8 @@ def main():
     if args.gate == "gate1":
         print("GATE1", "PASS" if res["passed"] else "FAIL", [(f["name"], f["worstMaxAbs"]) for f in res["fixtures"]])
         sys.exit(0 if res["passed"] else 1)
+    if args.gate == "fused":
+        sys.exit(0 if all(res["passed"].values()) else 1)
 
 
 if __name__ == "__main__":
