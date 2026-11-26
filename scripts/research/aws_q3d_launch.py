@@ -196,10 +196,24 @@ echo DETACHED_LAUNCH_OK
 
 
 def main():
+    # Remote apt/npm output contains non-cp1252 characters (e.g. U+2192); a redirected
+    # Windows stdout would raise UnicodeEncodeError mid-provisioning (first launch, 11-26).
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     dry = "--dry-run" in sys.argv
     RUN_DIR.mkdir(parents=True, exist_ok=True)
     head = subprocess.run(["git", "-C", str(WORKTREE), "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
-    dirty = subprocess.run(["git", "-C", str(WORKTREE), "status", "--porcelain", "--untracked-files=no"],
+    # The box clones the committed branch (bundle), so only campaign files need to match HEAD;
+    # the fp64 port may be mid-edit in this worktree.
+    campaign = ["src", "scripts/fixtures", "scripts/browser-cleanup.mjs", "scripts/research/quant3d-paper-rows.mjs",
+                "scripts/research/quant3d-paper-rows-model.mjs", "scripts/research/quant3d-paper-rows.md",
+                "scripts/research/quant3d-width-ladder-model.mjs", "scripts/research/quant3d-equilibrium.mjs",
+                "scripts/research/quant3d-equilibrium-driver.mjs", "scripts/research/quant3d-equilibrium-matrix-q3d.json",
+                "scripts/research/quant3d-q3c-tip-replay.py", "scripts/research/aws_q3d_launch.py", "package.json", "package-lock.json"]
+    dirty = subprocess.run(["git", "-C", str(WORKTREE), "status", "--porcelain", "--untracked-files=no", "--", *campaign],
                            capture_output=True, text=True, check=True).stdout.strip()
     if dirty:
         raise SystemExit(f"worktree has uncommitted tracked changes; freeze first:\n{dirty}")
