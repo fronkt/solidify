@@ -9,9 +9,11 @@ import {installQuant3WulffCalibrationDriver} from './quant3d-equilibrium-driver.
 import {equilibriumState,selfTestWulff} from '../fixtures/quant3d-wulff-analysis.mjs';
 const out=resolve(process.argv[2]??'verify-out/q3-wulff-calibration-v4'),port=process.argv[3]??'5199';
 const selected=process.argv[4]?.split(',');
+// Q3d: optional alternate declared matrix (default unchanged) and Linux/Vulkan launch overrides.
+const matrixPath=process.env.Q3_EQUILIBRIUM_MATRIX??'scripts/research/quant3d-equilibrium-matrix.json';
 const paths=['src/sim3d.ts','src/shaders3d.ts','src/shaders3d-quant.ts','scripts/fixtures/quant3d-wulff-analysis.mjs',
   'scripts/fixtures/quant3d-tip-analysis.mjs','scripts/research/quant3d-equilibrium.mjs',
-  'scripts/research/quant3d-equilibrium-driver.mjs','scripts/research/quant3d-equilibrium-matrix.json',
+  'scripts/research/quant3d-equilibrium-driver.mjs',matrixPath,
   'scripts/research/quant3d-readback.mjs'];
 const sha=s=>createHash('sha256').update(s).digest('hex');
 const hashes=()=>Object.fromEntries(paths.map(p=>[p,sha(readFileSync(p))]));
@@ -22,7 +24,7 @@ mkdirSync(resolve(out,'samples'),{recursive:true});
 const save=()=>writeFileSync(resolve(out,'calibration-result.json'),JSON.stringify(result,null,2));save();
 let browser=null,page=null,warm=null,cases=[],registeredCaseCount=0;
 try{
-  const matrix=JSON.parse(readFileSync('scripts/research/quant3d-equilibrium-matrix.json'));
+  const matrix=JSON.parse(readFileSync(matrixPath));
   const declaredNames=new Set([...matrix.geometries,...matrix.controls].map(c=>c.name));
   if(selected&&(new Set(selected).size!==selected.length||selected.some(name=>!declaredNames.has(name))))
     throw new Error('Select distinct declared geometry/control names');
@@ -36,8 +38,10 @@ try{
     sourceHashes:hashes(),controls:selfTestWulff(),status:'preparing hardware'}); save();
   const args=process.env.CHROME_ARGS?JSON.parse(process.env.CHROME_ARGS):[];
   if(!Array.isArray(args)||args.some(arg=>typeof arg!=='string'))throw new Error('CHROME_ARGS must be a string array');
+  const ignore=process.env.Q3_IGNORE_DEFAULT_ARGS?JSON.parse(process.env.Q3_IGNORE_DEFAULT_ARGS):null;
   browser=await puppeteer.launch({executablePath:process.env.CHROME_PATH??'C:/Program Files/Google/Chrome/Application/chrome.exe',
-    headless:true,protocolTimeout:3_600_000,args:['--enable-unsafe-webgpu','--enable-gpu',...args]});
+    headless:process.env.Q3_HEADLESS!=='0',protocolTimeout:3_600_000,...(ignore?{ignoreDefaultArgs:ignore}:{}),
+    args:['--enable-unsafe-webgpu','--enable-gpu',...args]});
   warm=await browser.newPage();await warm.setRequestInterception(true);
   warm.once('request',r=>r.respond({status:200,contentType:'text/html',body:'<!doctype html><link rel="icon" href="data:,"><title>GPU admission</title>'}));
   await warm.goto(`http://localhost:${port}/__calibration_gpu_admission__`,{waitUntil:'domcontentloaded'});

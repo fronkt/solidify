@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "purpose": "Q3d paper rows: equilibrium-measured effective anisotropy of every raw eps4 used in the tip campaign (scripts/research/quant3d-paper-rows.md); production WGSL, no needle-output fitting",
+  "lambda": 4,
+  "rawEpsilons": [0.0171, 0.0123, 0.0265, 0.017612992093723547],
+  "geometries": [
+    { "name": "baseline", "n": 96, "dx": 0.8, "radius": 20, "maximumTime": 1000, "measurementPeriod": 20 },
+    { "name": "grid", "n": 128, "dx": 0.6, "radius": 20, "maximumTime": 1000, "measurementPeriod": 20 },
+    { "name": "radius", "n": 144, "dx": 0.8, "radius": 30, "maximumTime": 2250, "measurementPeriod": 45 }
+  ],
+  "controls": [],
+  "invariants": [
+    "same continuum coefficients and production shaders",
+    "geometries copied unchanged from quant3d-equilibrium-matrix.json (baseline, grid, radius)",
+    "raw 0.0171 at baseline is a replicate of the archived 0.0166019492 measurement",
+    "full fixed horizon; no early success stop",
+    "original equilibrium judge"
+  ],
+  "scope": "Reports eps_eff for each raw eps4 at dx 0.8 and 0.6 (R20) and at R30 (dx 0.8). Diagnostic for the paper's anisotropy-definition discussion; selects no coefficient."
+}
