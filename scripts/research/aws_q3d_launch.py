@@ -169,8 +169,16 @@ cd solidify && git log --oneline -1 && npm ci --silent
 mkdir -p /home/ubuntu/q3d-out
 nohup setsid npx vite --host 127.0.0.1 --port 5199 --strictPort </dev/null >/tmp/vite.log 2>&1 &
 for i in $(seq 1 60); do curl -sf http://127.0.0.1:5199/app/ >/dev/null && break; sleep 1; done
-xvfb-run -a -s "-screen 0 1280x720x24" node scripts/research/quant3d-paper-rows.mjs /home/ubuntu/q3d-out/preflight 5199 --preflight
-echo PREFLIGHT_PASS
+if xvfb-run -a -s "-screen 0 1280x720x24" node scripts/research/quant3d-paper-rows.mjs /home/ubuntu/q3d-out/preflight 5199 --preflight; then
+  echo "" > /home/ubuntu/q3d-arms
+  echo PREFLIGHT_PASS
+else
+  # v1.2: an e123base VRAM-smoke failure must not cost the other four arms.
+  echo PREFLIGHT_FULL_FAILED_RETRYING_WITHOUT_E123
+  xvfb-run -a -s "-screen 0 1280x720x24" node scripts/research/quant3d-paper-rows.mjs /home/ubuntu/q3d-out/preflight-small 5199 --preflight --arms=e171cal,e265base,e265width,e265dx
+  echo "--arms=e171cal,e265base,e265width,e265dx" > /home/ubuntu/q3d-arms
+  echo PREFLIGHT_PASS_WITHOUT_E123
+fi
 cat > /home/ubuntu/run_q3d.sh << 'RUNEOF'
 #!/bin/bash
 set -uo pipefail
@@ -179,7 +187,7 @@ cd /home/ubuntu/solidify
 OUT=/home/ubuntu/q3d-out
 Q3_EQUILIBRIUM_MATRIX=scripts/research/quant3d-equilibrium-matrix-q3d.json timeout 7200 xvfb-run -a -s "-screen 0 1280x720x24" node scripts/research/quant3d-equilibrium.mjs $OUT/equilibrium 5199
 echo "EQUILIBRIUM_EXIT=$?"
-timeout {max(60, cap_minutes - 90) * 60} xvfb-run -a -s "-screen 0 1280x720x24" node scripts/research/quant3d-paper-rows.mjs $OUT/rows 5199 --run
+timeout {max(60, cap_minutes - 90) * 60} xvfb-run -a -s "-screen 0 1280x720x24" node scripts/research/quant3d-paper-rows.mjs $OUT/rows 5199 --run $(cat /home/ubuntu/q3d-arms 2>/dev/null)
 RC=$?
 echo "ROWS_EXIT=$RC"
 python3 scripts/research/quant3d-q3c-tip-replay.py --campaign q3d=$OUT/rows/samples --out $OUT/replay.json

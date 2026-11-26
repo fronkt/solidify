@@ -112,3 +112,7 @@ The fp64 cross-check (`scripts/research/quant3d-fp64-port.*`, a separate session
   `e123base` failed and the reason was lost with the box. The runner now prints the exception, page
   errors and GPU device errors on any failure, and the launcher copies the preflight result off the box
   before teardown. The clean-tree check covers campaign files only.
+- v1.2, 2026-11-26 02:45: if the full preflight fails (the `e123base` VRAM smoke), the box reruns the
+  preflight on the other four arms and, if that passes, runs those four; the full preflight's failure
+  record stays in the archive. This applies the existing rule that a failed arm is recorded and the
+  remaining arms still run. `e123base` then runs in a later session after its cause is fixed.
