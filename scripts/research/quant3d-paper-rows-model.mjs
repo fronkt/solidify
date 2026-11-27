@@ -38,6 +38,14 @@ export const EPS_CALIBRATED_0123 = 0.0123 * 0.0123 / EPS_EFF_DX08_S1[0.0123]; //
 export const EPS_CALIBRATED_0265 = 0.0265 * 0.0265 / EPS_EFF_DX08_S1[0.0265]; // 0.0274160382263256
 // Session-1 e265base terminal state (raw 0.0265), docs/validation/quant3d-q3d-rows-2026-11-26.json.
 export const E265BASE_S1 = Object.freeze({ P: 0.25647704018034373, sigmaStar: 0.13025659658652147, Vd0OverD: 0.01713668084553573 });
+// Amendment v1.5 (session 3): the same one-step calibration at the arm's own grid, dx 0.6 R20 lambda 4
+// (session-1 matrix). Effective/raw at dx 0.6 was 0.98308 at raw 0.0265 and 0.98302 at raw 0.027416 (s2).
+export const EPS_EFF_DX06_S1 = Object.freeze({ 0.0265: 0.02605162646916567 });
+export const EPS_CALIBRATED_0265_DX06 = 0.0265 * 0.0265 / EPS_EFF_DX06_S1[0.0265]; // 0.026956090470250407
+// Session-1 e265dx (raw 0.0265, dx 0.6) and session-2 e265cal (calibrated at dx 0.8) terminal states,
+// docs/validation/quant3d-q3d-rows-2026-11-26.json and quant3d-q3d-rows-s2-2026-11-26.json.
+export const E265DX_S1 = Object.freeze({ P: 0.2585356202942536, sigmaStar: 0.12884359930548261, Vd0OverD: 0.017223984222451704 });
+export const E265CAL_S2 = Object.freeze({ P: 0.2495734173089094, sigmaStar: 0.14126642426229177, Vd0OverD: 0.01759809263465529 });
 
 // Stability dt rule of the five-arm base, evaluated at a given eps4.
 const baseDt = (dx, lambda, eps) => Math.min(dx * dx / (12 * A2 * lambda),
@@ -68,6 +76,8 @@ export const ARMS = Object.freeze([
   // v1.3 (session 2): calibrated rows; only eps4 changes from the row base (dt pinned to it).
   arm('e265cal', { row: 0.0265, epsilon4: EPS_CALIBRATED_0265, dtEpsilon: 0.0265 }),
   arm('e123cal', { row: 0.0123, epsilon4: EPS_CALIBRATED_0123, dtEpsilon: 0.0123 }),
+  // v1.5 (session 3): row 0.0265 calibrated at dx 0.6; only eps4 changes from e265dx (dt pinned to it).
+  arm('e265cal06', { row: 0.0265, epsilon4: EPS_CALIBRATED_0265_DX06, dx: .6, dtEpsilon: 0.0265 }),
 ]);
 
 export const RULES = Object.freeze({
@@ -93,7 +103,11 @@ export function predictions() {
   const d265 = Math.log(0.0265 / EPS_EFF_DX08_S1[0.0265]);
   const s265 = { sigmaStar: secant('sigmaStar', 0.0171, 0.0265), P: secant('P', 0.0171, 0.0265) };
   const sigma265 = E265BASE_S1.sigmaStar * Math.exp(s265.sigmaStar * d265), P265 = E265BASE_S1.P * Math.exp(s265.P * d265);
-  return { e171cal: { sigmaStar: sigma, P, Vd0OverD: 2 * P * P * sigma, slopes: { sigmaStar: solvSlope('sigmaStar'), P: solvSlope('P') },
+  const d06 = Math.log(0.0265 / EPS_EFF_DX06_S1[0.0265]);
+  const sigma06 = E265DX_S1.sigmaStar * Math.exp(s265.sigmaStar * d06), P06 = E265DX_S1.P * Math.exp(s265.P * d06);
+  return {
+    e265cal06: { sigmaStar: sigma06, P: P06, Vd0OverD: 2 * P06 * P06 * sigma06, slopes: s265,
+      note: 'v1.5: same first-order prediction from session-1 e265dx, moving eps_eff at dx 0.6 from 0.026052 to 0.0265 (one secant, 0.0171 -> 0.0265)' }, e171cal: { sigmaStar: sigma, P, Vd0OverD: 2 * P * P * sigma, slopes: { sigmaStar: solvSlope('sigmaStar'), P: solvSlope('P') },
     note: 'first-order KR96-slope prediction of moving eps_eff 0.01660 -> 0.0171; a miss means the definition effect is not just anisotropy strength' },
     e265cal: { sigmaStar: sigma265, P: P265, Vd0OverD: 2 * P265 * P265 * sigma265, slopes: s265,
       note: 'v1.3: same first-order prediction from session-1 e265base, moving eps_eff 0.025615 -> 0.0265 (one secant, 0.0171 -> 0.0265)' } };
@@ -147,5 +161,9 @@ export function selfTest() {
     assert.ok(by[cal].epsilon4 > by[base].epsilon4 * 1.02 && by[cal].epsilon4 < by[base].epsilon4 * 1.05, `${cal} eps4 out of range`);
   }
   assert.ok(Math.abs(EPS_CALIBRATED_0123 - 0.01275544152055055) < 1e-17 && Math.abs(EPS_CALIBRATED_0265 - 0.0274160382263256) < 1e-17);
+  for (const k of ['dims', 'dt', 'radius', 'terminalSteps', 'maximumTimeTau0', 'lambda', 'dx'])
+    assert.deepEqual(by.e265cal06[k], by.e265dx[k], `e265cal06 must keep the e265dx ${k}`);
+  assert.equal(EPS_CALIBRATED_0265_DX06, 0.026956090470250407, 'e265cal06 eps4 changed');
+  assert.ok(by.e265cal06.epsilon4 > 0.0265 * 1.01 && by.e265cal06.epsilon4 < 0.0265 * 1.03, 'e265cal06 eps4 out of range');
   return { ok: true, arms: c.arms.length };
 }

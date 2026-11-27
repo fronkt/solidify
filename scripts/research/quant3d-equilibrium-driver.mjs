@@ -103,7 +103,7 @@ export async function installQuant3WulffCalibrationDriver() {
       frame=H.equilibriumFrame(config);evidence=Object.hasOwn(c,"centerOffset");physicsSteps=0;
       const {n,dx,radius,lambda,epsilon}=config,D=.6267*lambda;
       if(!Number.isSafeInteger(n)||n<64||n>192||!(dx>0&&radius>0&&radius<.35*n*dx)
-        ||lambda!==4||![0,.0171,.0123,.0265,0.017612992093723547,0.01275544152055055,0.0274160382263256].includes(epsilon)||!(config.maximumTime>0&&Number.isFinite(config.maximumTime))
+        ||lambda!==4||![0,.0171,.0123,.0265,0.017612992093723547,0.01275544152055055,0.0274160382263256,0.026956090470250407].includes(epsilon)||!(config.maximumTime>0&&Number.isFinite(config.maximumTime))
         ||![.5,1].includes(config.dtScale??1)||config.initialAxes.length!==3
         ||config.initialAxes.some(v=>!(v>0&&Number.isFinite(v)))
         ||(config.targetVolume!=null&&!(config.targetVolume>0&&Number.isFinite(config.targetVolume))))

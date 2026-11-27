@@ -177,3 +177,36 @@ This amendment changes arms; it changes no shader, coefficient, estimator, gate 
   fp64-vs-WebGPU difference could not be attributed to either.
 - Same box, cap and deadline. The fp64 arms remain the registered result, and the controls change
   no gate. Expected extra cost is about $2.
+
+## Amendment v1.5, 2026-11-27: session 3, row 0.0265 at dx 0.6 (written and committed before the run)
+
+This amendment adds one arm; it changes no shader, coefficient, estimator, gate or reference.
+
+- **New arm `e265cal06`.** Raw eps4 = 0.0265^2 / 0.0260516 = 0.026956090, the same one-step calibration as
+  v1.3 but at the arm's own grid (dx 0.6, R20, lambda 4, session-1 matrix). Only eps4 changes from
+  `e265dx`: 361x361x817, dt 0.0095324 (that of raw 0.0265 at dx 0.6), 292,429 steps, model estimate 72 min.
+- **Why this raw value.** The v1.3 definition is the equilibrium-matched anisotropy. Raw 0.027416 (`e265cal`)
+  measures 0.026950 at dx 0.6 (session 2), 1.7% above KR96's 0.0265, so a dx 0.6 run with it would compare
+  at a different anisotropy. Effective/raw at dx 0.6 is 0.98308 at raw 0.0265 and 0.98302 at raw 0.027416,
+  so the one-step value should land within about 0.01% of 0.0265.
+- **Why the arm.** `e265cal` (dx 0.8, tip about 11 cells across) was 0.5% from solvability in sigma*, but its
+  sigma* measurement uncertainty (9.3%) and drift (4.1%) put the budget at 14.4%. The session-1 dx 0.6
+  arm had 5.6% and 0.34%.
+- **Frozen prediction (not a gate).** From session-1 `e265dx` (sigma* 0.12884, P 0.25854, eps_eff 0.026052)
+  with the v1.3 secant slopes (sigma* 2.052, P -0.619): sigma* 0.13343, P 0.25582, V d0/D 0.017465.
+  - That is sigma* -6.0% and P +3.6% against solvability, and sigma* -5.5% against `e265cal`.
+  - If it holds, `e265cal`'s agreement does not survive refinement at matched anisotropy, and the row stays
+    unaccepted on error rather than on uncertainty.
+- **Gates.** Gates 1-3 are unchanged. The result is reported as `row0265cal06`: accepted against X only if
+  `e265cal06` passes gates 1-3 against X and its change from session-2 `e265cal` is <= 10% in P, sigma*
+  and V d0/D (the Option B convergence rule, here at matched effective anisotropy rather than matched
+  raw eps4). `row0265cal` stays as session 2 recorded it. Also reported: `definitionSensitivity265dx06`
+  (change from `e265dx`, beside the prediction).
+- **Equilibrium check.** `quant3d-equilibrium-matrix-q3d-s3.json`: the new raw value at dx 0.8 R20, dx 0.6 R20
+  and dx 0.8 R30 (3 cases). The arm uses the frozen value whatever the check returns.
+- **Execution.** `aws_q3d_launch.py --mode rows --tag s3-2026-11-27 --arms e265cal06 --matrix
+  scripts/research/quant3d-equilibrium-matrix-q3d-s3.json --instances g6e.xlarge,g6e.2xlarge,g6e.4xlarge
+  --cap-usd 12`. Order: preflight (adapter, 9/9 equivalence, VRAM smoke of `e265cal06`), equilibrium check,
+  `e265cal06`, CPU replay. Expected about 1.5 h: about $3 on g6e.xlarge, $5 on g6e.4xlarge. Hard cap $12.
+- **Code.** `summarize` in the runner is now exported so the new row logic could be tested offline; the
+  existing rows are unchanged.

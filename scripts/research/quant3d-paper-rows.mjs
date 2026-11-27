@@ -15,7 +15,7 @@ import { installQuant3TipDriver } from '../fixtures/quant3d-tip-driver-slabbed.m
 import { localTip } from '../fixtures/quant3d-tip-analysis.mjs';
 import { fixedTerminalSchedule, terminalOperatingState, terminalReferenceAssessment } from '../fixtures/quant3d-tip-protocol.mjs';
 import { IVANTSOV_PECLET } from './quant3d-width-ladder-model.mjs';
-import { ARMS, KR96, RULES, W28, E265BASE_S1, contract, selfTest } from './quant3d-paper-rows-model.mjs';
+import { ARMS, KR96, RULES, W28, E265BASE_S1, E265DX_S1, E265CAL_S2, contract, selfTest } from './quant3d-paper-rows-model.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const sha = b => createHash('sha256').update(b).digest('hex');
@@ -75,7 +75,7 @@ function launchOptions() {
     ...(ignore ? { ignoreDefaultArgs: ignore } : {}), args: ['--enable-unsafe-webgpu', '--enable-gpu', ...extra] };
 }
 
-function summarize(result) {
+export function summarize(result) {
   const by = Object.fromEntries(result.arms.map(a => [a.config.name, a]));
   const rel = (a, b, k) => (a?.terminal?.state?.ready && b?.terminal?.state?.ready) ? Math.abs(a.terminal.state[k] / b.terminal.state[k] - 1) : null;
   const controls = ['e265width', 'e265dx'].map(n => ({ arm: n,
@@ -96,6 +96,17 @@ function summarize(result) {
   if (ran(['e265cal'])) { out.row0265cal = row(['e265cal']);
     out.definitionSensitivity265 = sensitivity(by.e265cal?.terminal?.state, E265BASE_S1, result.contract.predictions.e265cal); }
   if (ran(['e123cal'])) out.row0123cal = row(['e123cal']);
+  // v1.5: row 0.0265 calibrated at dx 0.6. Accepted against X only if e265cal06 passes gates 1-3 against X
+  // and its change from session-2 e265cal (both at eps_eff 0.0265 on their own grid) is <= 10% in P, sigma*, V.
+  if (ran(['e265cal06'])) {
+    const s = by.e265cal06?.terminal?.state;
+    const gridChange = s?.ready ? Object.fromEntries(['P', 'sigmaStar', 'Vd0OverD'].map(k => [k, s[k] / E265CAL_S2[k] - 1])) : null;
+    const gridConverged = !!gridChange && Object.values(gridChange).every(v => Math.abs(v) <= RULES.controlChange);
+    const r = row(['e265cal06']);
+    out.row0265cal06 = { ...r, gridChange, gridConverged, acceptedPF: r.acceptedPF && gridConverged,
+      acceptedSolvability: r.acceptedSolvability && gridConverged };
+    out.definitionSensitivity265dx06 = sensitivity(s, E265DX_S1, result.contract.predictions.e265cal06);
+  }
   return out;
 }
 
