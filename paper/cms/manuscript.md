@@ -68,7 +68,7 @@ values at the same conditions.
 
 Parallel computers [@GeorgeWarren2002JCP] and then graphics processors made large 3D phase-field dendrite
 simulations routine [@Yamanaka2011JCG;
-@Shimokawabe2011SC; @Takaki2014ISIJ; @Sakane2017JCG], and open frameworks, cross-code comparisons and
+@Shimokawabe2011SC; @Takaki2014ISIJ; @Sakane2017JCG; @Boccardo2023CMS], and open frameworks, cross-code comparisons and
 community benchmarks now support verification of phase-field codes [@DeWitt2020npj; @Permann2020SoftwareX;
 @Hu2027CPC; @Tian2026CMS; @Jokisaari2017CMS; @Jokisaari2018CMS; @Wheeler2019JORS]. Several GPU dendrite codes
 run in single precision [@Aoki2011PNST; @Shimokawabe2011SC; @Takaki2014ISIJ]. For lattice Boltzmann solvers,
@@ -439,7 +439,10 @@ $\varepsilon_\mathrm{eff}=0.01357$, 21% low, which is why the quantitative solve
 Bragard et al. [@Bragard2002IntSci] used an isotropic 18-neighbour Laplacian to make the lattice corrections
 to the anisotropy vanish at order $\Delta x^2$; here the remaining deficit falls by a factor of 1.7-2.0 from
 $\Delta x/W_0=0.8$ to 0.6, close to the factor 1.78 expected for an $O(\Delta x^2)$ error, so a second-order
-lattice correction remains, most likely from the central-difference anisotropic terms of Section 2.2. Grid
+lattice correction remains, most likely from the central-difference anisotropic terms of Section 2.2.
+Finite-difference approximations of the leading phase-field terms that are isotropic at $O(\Delta x^2)$ have been
+derived for alloy solidification, where lattice anisotropy was shown to change the dendrite operating state
+[@Ji2022JCP]; applying them to the anisotropic terms here is a natural next step. Grid
 shifts of this kind are common: Plapp and Karma report an input anisotropy of 0.0284 acting as 0.025 at
 $\Delta x/W_0=0.8$ [@PlappKarma2000JCP]. The ratio $\varepsilon_\mathrm{eff}/\varepsilon_4$ is nearly
 independent of $\varepsilon_4$ at fixed grid, so one proportional step, raw $=\varepsilon_\mathrm{KR}^2/
