@@ -49,7 +49,9 @@
     false,
     false,
     false
-   ]
+   ],
+   "fitDepthsUsed": [],
+   "commonRange": null
   },
   "e171cal": {
    "row": 0.0171,
@@ -83,7 +85,23 @@
     false,
     false,
     false
-   ]
+   ],
+   "fitDepthsUsed": [
+    0.75,
+    1.0,
+    1.25
+   ],
+   "commonRange": {
+    "alpha": 1.6548858862146254,
+    "invA": 10.35222412467254,
+    "depths": [
+     0.75,
+     1.0,
+     1.25
+    ],
+    "alphaVsKR96": -0.014948877253199155,
+    "invAVsKR96": 0.024972685611142742
+   }
   },
   "e265cal": {
    "row": 0.0265,
@@ -117,7 +135,28 @@
     true,
     true,
     true
-   ]
+   ],
+   "fitDepthsUsed": [
+    0.75,
+    1.0,
+    1.25,
+    1.5,
+    1.75,
+    2.0,
+    2.25,
+    2.5
+   ],
+   "commonRange": {
+    "alpha": 1.5932545967744784,
+    "invA": 8.080725353753,
+    "depths": [
+     0.75,
+     1.0,
+     1.25
+    ],
+    "alphaVsKR96": -0.016509508163902287,
+    "invAVsKR96": 0.03599042996833335
+   }
   },
   "e265cal06": {
    "row": 0.0265,
@@ -151,8 +190,362 @@
     true,
     false,
     false
-   ]
+   ],
+   "fitDepthsUsed": [
+    0.75,
+    1.0,
+    1.25,
+    1.5,
+    1.75,
+    2.0
+   ],
+   "commonRange": {
+    "alpha": 1.6150302654118858,
+    "invA": 8.530810554270248,
+    "depths": [
+     0.75,
+     1.0,
+     1.25
+    ],
+    "alphaVsKR96": -0.0030677374000706026,
+    "invAVsKR96": 0.09369366080387809
+   }
   }
+ },
+ "aliasing": {
+  "q3c-W1:w50": {
+   "cellsPerSample": 4.087644819047898,
+   "fractionalAdvance": 0.087644819047898,
+   "phaseMin": 0.031724626803736555,
+   "phaseMax": 0.8121101167037068,
+   "rhoRangeLast10": 0.01312942345750839,
+   "subcellAmplitude": 0.005842211686427419,
+   "phaseFitResidual": 0.0005944673602690517,
+   "coefficients": [
+    10.758068730920407,
+    -0.012256131781942741,
+    0.0626794774381818,
+    0.004639030848596393
+   ],
+   "driftSigma": 0.02713882867993811,
+   "dx": 0.8
+  },
+  "q3c-W1:w44": {
+   "cellsPerSample": 4.738874028512844,
+   "fractionalAdvance": 0.7388740285128437,
+   "phaseMin": 0.1838592137284536,
+   "phaseMax": 0.9664057354272586,
+   "rhoRangeLast10": 0.011606513021082612,
+   "subcellAmplitude": 0.006446850762869307,
+   "phaseFitResidual": 0.0004599356822136994,
+   "coefficients": [
+    11.806424390374294,
+    -0.009474282016254425,
+    0.060357655888644085,
+    0.04637168700224115
+   ],
+   "driftSigma": 0.023777407442231002,
+   "dx": 0.8
+  },
+  "q3c-W1:w40-anchor": {
+   "cellsPerSample": 5.275566242730038,
+   "fractionalAdvance": 0.27556624273003827,
+   "phaseMin": 0.011802216524472442,
+   "phaseMax": 0.9499796701172158,
+   "rhoRangeLast10": 0.0117418144462601,
+   "subcellAmplitude": 0.005790258789099529,
+   "phaseFitResidual": 0.0005997862548185474,
+   "coefficients": [
+    12.698311917462874,
+    -0.008820098166409185,
+    0.07028786485959453,
+    0.02158156731651995
+   ],
+   "driftSigma": 0.025044068839165323,
+   "dx": 0.8
+  },
+  "q3c-A:w40-anchor": {
+   "cellsPerSample": 5.276833149938295,
+   "fractionalAdvance": 0.27683314993829544,
+   "phaseMin": 0.039459235583763075,
+   "phaseMax": 0.9859618826994279,
+   "rhoRangeLast10": 0.011605319137319903,
+   "subcellAmplitude": 0.00579613113462108,
+   "phaseFitResidual": 0.0006106889606528594,
+   "coefficients": [
+    12.697518740453301,
+    -0.008782687047683976,
+    0.07040503296076414,
+    0.021437671221084708
+   ],
+   "driftSigma": 0.024695925148130238,
+   "dx": 0.8
+  },
+  "q3c-A:w32": {
+   "cellsPerSample": 6.751641274385316,
+   "fractionalAdvance": 0.7516412743853156,
+   "phaseMin": 0.07235923697635371,
+   "phaseMax": 0.8314502541273896,
+   "rhoRangeLast10": 0.01301764983468282,
+   "subcellAmplitude": 0.006780027613985135,
+   "phaseFitResidual": 0.0004948910607954559,
+   "coefficients": [
+    15.269845557765318,
+    0.0055929333762509284,
+    0.07105379026394165,
+    0.07529817074796037
+   ],
+   "driftSigma": 0.0273251366519196,
+   "dx": 0.8
+  },
+  "q3c-A:w28": {
+   "cellsPerSample": 7.804459827677134,
+   "fractionalAdvance": 0.8044598276771344,
+   "phaseMin": 0.11548253317971557,
+   "phaseMax": 0.9342259330604179,
+   "rhoRangeLast10": 0.013502860556540989,
+   "subcellAmplitude": 0.006784688998237981,
+   "phaseFitResidual": 0.0003406433309332796,
+   "coefficients": [
+    17.13504401614696,
+    0.014253328497674887,
+    0.05843183831734236,
+    0.10050455178996423
+   ],
+   "driftSigma": 0.02837143075864157,
+   "dx": 0.8
+  },
+  "q3c-B:domain": {
+   "cellsPerSample": 7.804460555571584,
+   "fractionalAdvance": 0.804460555571584,
+   "phaseMin": 0.11548148962850746,
+   "phaseMax": 0.9342308429891091,
+   "rhoRangeLast10": 0.013502274568570055,
+   "subcellAmplitude": 0.006784661518077168,
+   "phaseFitResidual": 0.0003409167732705955,
+   "coefficients": [
+    17.13504208173762,
+    0.014275229623155264,
+    0.05843172916786637,
+    0.10050405539591711
+   ],
+   "driftSigma": 0.028370046694714768,
+   "dx": 0.8
+  },
+  "q3c-B:width": {
+   "cellsPerSample": 8.745604833659211,
+   "fractionalAdvance": 0.7456048336592112,
+   "phaseMin": 0.07448373427348542,
+   "phaseMax": 0.8629002498300906,
+   "rhoRangeLast10": 0.012864646124324579,
+   "subcellAmplitude": 0.0076959186494637115,
+   "phaseFitResidual": 0.00033365859754966407,
+   "coefficients": [
+    18.804883489437906,
+    0.016369726439863275,
+    0.041299955611049044,
+    0.13870270047119146
+   ],
+   "driftSigma": 0.026916439612574283,
+   "dx": 0.8
+  },
+  "q3c-B:dt": {
+   "cellsPerSample": 7.807558670173074,
+   "fractionalAdvance": 0.8075586701730737,
+   "phaseMin": 0.04186827303357177,
+   "phaseMax": 0.8792386326241513,
+   "rhoRangeLast10": 0.01306962163468221,
+   "subcellAmplitude": 0.006861812109448917,
+   "phaseFitResidual": 0.00037710139350169295,
+   "coefficients": [
+    17.1299964480142,
+    0.010480787549382732,
+    0.05869274934653091,
+    0.10184043900616915
+   ],
+   "driftSigma": 0.027364404505706652,
+   "dx": 0.8
+  },
+  "q3c-B:dx": {
+   "cellsPerSample": 10.364367744232878,
+   "fractionalAdvance": 0.36436774423287766,
+   "phaseMin": 0.020192119900116268,
+   "phaseMax": 0.9320107924565946,
+   "rhoRangeLast10": 0.0010027994394400785,
+   "subcellAmplitude": 0.00045164663377553346,
+   "phaseFitResidual": 0.00023910663473953106,
+   "coefficients": [
+    17.45540700089766,
+    0.008626450744625121,
+    0.005922325601881369,
+    0.005203691362095438
+   ],
+   "driftSigma": 0.002811396128272081,
+   "dx": 0.6
+  },
+  "q3d-s1:e171cal": {
+   "cellsPerSample": 8.004148695872932,
+   "fractionalAdvance": 0.00414869587293154,
+   "phaseMin": 0.5229114754272359,
+   "phaseMax": 0.5572255534958686,
+   "rhoRangeLast10": 0.0012563946823869756,
+   "subcellAmplitude": 0.01375066079134976,
+   "phaseFitResidual": 4.065830218303574e-05,
+   "coefficients": [
+    16.6521582902946,
+    -0.052721993234426265,
+    0.22520424334632078,
+    0.04140115623790953
+   ],
+   "driftSigma": 0.0032152672797285398,
+   "dx": 0.8
+  },
+  "q3d-s1:e265base": {
+   "cellsPerSample": 5.5127414115968225,
+   "fractionalAdvance": 0.5127414115968225,
+   "phaseMin": 0.22972068767978726,
+   "phaseMax": 0.8204376741094848,
+   "rhoRangeLast10": 0.012842762241114575,
+   "subcellAmplitude": 0.010659288086581398,
+   "phaseFitResidual": 0.00016533462339399552,
+   "coefficients": [
+    9.447769040284557,
+    0.008099078049120897,
+    0.08897743997552097,
+    0.04716792025826548
+   ],
+   "driftSigma": 0.02681105063674316,
+   "dx": 0.8
+  },
+  "q3d-s1:e265width": {
+   "cellsPerSample": 6.1778816210903935,
+   "fractionalAdvance": 0.17788162109039352,
+   "phaseMin": 0.08838227699010304,
+   "phaseMax": 0.9750015094840023,
+   "rhoRangeLast10": 0.022923687150517683,
+   "subcellAmplitude": 0.011491757630655004,
+   "phaseFitResidual": 0.00032300684624538966,
+   "coefficients": [
+    10.299573845590448,
+    0.005115461165864736,
+    0.08545348500681678,
+    0.08189530110620276
+   ],
+   "driftSigma": 0.04840656156061951,
+   "dx": 0.8
+  },
+  "q3d-s1:e265dx": {
+   "cellsPerSample": 7.387937345728046,
+   "fractionalAdvance": 0.38793734572804617,
+   "phaseMin": 0.06786594811001123,
+   "phaseMax": 0.970855088868916,
+   "rhoRangeLast10": 0.0014005298452480308,
+   "subcellAmplitude": 0.0006620052853845947,
+   "phaseFitResidual": 0.0001213384823921036,
+   "coefficients": [
+    9.475306365753921,
+    0.003569353985700159,
+    0.006155910076592033,
+    -0.0012048123235325425
+   ],
+   "driftSigma": 0.0033893033935761263,
+   "dx": 0.6
+  },
+  "q3d-s2:e265cal": {
+   "cellsPerSample": 5.6611741157246485,
+   "fractionalAdvance": 0.6611741157246485,
+   "phaseMin": 0.119801284050709,
+   "phaseMax": 0.8189153867213577,
+   "rhoRangeLast10": 0.019687672120558684,
+   "subcellAmplitude": 0.010816897101627086,
+   "phaseFitResidual": 0.0002991352109358707,
+   "coefficients": [
+    8.975507948543598,
+    0.004028614058750446,
+    0.0957497413030889,
+    0.016059294572394845
+   ],
+   "driftSigma": 0.04126134422617378,
+   "dx": 0.8
+  },
+  "q3d-s2:e123cal": {
+   "cellsPerSample": 11.284833198514088,
+   "fractionalAdvance": 0.2848331985140877,
+   "phaseMin": 0.019677995852589447,
+   "phaseMax": 0.8763659375548514,
+   "rhoRangeLast10": 0.01413345327473249,
+   "subcellAmplitude": 0.0069949464540303916,
+   "phaseFitResidual": 0.00037850644124260216,
+   "coefficients": [
+    24.636429281307606,
+    0.01157969446626523,
+    -0.0034732274330282736,
+    0.1722954995826833
+   ],
+   "driftSigma": 0.029381622842198363,
+   "dx": 0.8
+  },
+  "q3d-s3:e265cal06": {
+   "cellsPerSample": 7.488969690568403,
+   "fractionalAdvance": 0.48896969056840334,
+   "phaseMin": 0.10470345252053903,
+   "phaseMax": 0.6869731078501218,
+   "rhoRangeLast10": 0.000965575238339198,
+   "subcellAmplitude": 0.0007507273139627449,
+   "phaseFitResidual": 4.502084927196373e-05,
+   "coefficients": [
+    9.238592701075053,
+    0.0008671914571886715,
+    0.006712534665006087,
+    -0.001745082196586033
+   ],
+   "driftSigma": 0.00248101558352265,
+   "dx": 0.6
+  }
+ },
+ "e171calSamplingCorrected": {
+  "rhoBias": -0.004842802898022121,
+  "rhoBiasOtherTwins": {
+   "q3c-A:w28": -0.004842802898022121,
+   "q3c-B:dt": -0.004879675586141434,
+   "q3c-B:width": -0.004078882064435666,
+   "q3c-A:w32": -0.005788584872232646
+  },
+  "sigmaStar": 0.06004701998232548,
+  "P": 0.3188024873374494,
+  "errPF": {
+   "P": 0.02180284403028665,
+   "sigmaStar": -0.046872698693246395
+  },
+  "budgetPF_asMeasured_w28Drift": {
+   "P": 0.054881885639944894,
+   "sigmaStar": 0.11689875273936012
+  },
+  "budgetPF_corrected_w28Drift": {
+   "P": 0.060015330956650015,
+   "sigmaStar": 0.1269088049835152
+  },
+  "errSolv": {
+   "P": -0.016041705748612967,
+   "sigmaStar": 0.03887577824092525
+  },
+  "budgetSolv_asMeasured_w28Drift": {
+   "P": 0.058982060388803825,
+   "sigmaStar": 0.12921111000325158
+  },
+  "budgetSolv_corrected_w28Drift": {
+   "P": 0.0540387426764215,
+   "sigmaStar": 0.11830049942571219
+  },
+  "definitionEffectCorrected": 0.053887335987815366,
+  "predictionMissCorrected": -0.003038021213257913
+ },
+ "gridAtMatchedAnisotropy": {
+  "measured_0265_cal06_vs_cal": -0.05326959555070265,
+  "estimated_0171_slopeCorrected": -0.053570989535214664,
+  "estimated_0171_vs_e171cal": -0.059802425612034305,
+  "estimated_0171_dx06_sigma": 0.05700687165579788,
+  "rawInputEpsEffChange_0171": 0.012246929206940704
  },
  "arms": [
   {
@@ -1567,7 +1960,9 @@
     ],
     "relRms": 0.003754995013136284,
     "intercept": 0.06754187030525251,
-    "interceptVsNarrowest": 0.16586245552460288
+    "interceptVsNarrowest": 0.16586245552460288,
+    "fitAt28": 0.05707465755542643,
+    "interceptVsFitAt28": 0.1833951038543007
    },
    "quadratic": {
     "coefficients": [
@@ -1580,7 +1975,9 @@
     ],
     "relRms": 0.0036444425745940172,
     "intercept": 0.06087043422066377,
-    "interceptVsNarrowest": 0.050704601288380946
+    "interceptVsNarrowest": 0.050704601288380946,
+    "fitAt28": 0.05696439657857389,
+    "interceptVsFitAt28": 0.06856980634741006
    },
    "full": {
     "coefficients": [
@@ -1595,7 +1992,9 @@
     ],
     "relRms": 0.0023785603668343524,
     "intercept": 0.06405952887906138,
-    "interceptVsNarrowest": 0.10575261391427193
+    "interceptVsNarrowest": 0.10575261391427193,
+    "fitAt28": 0.05702414394440084,
+    "interceptVsFitAt28": 0.1233755467073756
    }
   },
   "P": {
@@ -1610,7 +2009,9 @@
     ],
     "relRms": 0.0023093979487016384,
     "intercept": 0.3044286529235949,
-    "interceptVsNarrowest": -0.054152659470607434
+    "interceptVsNarrowest": -0.054152659470607434,
+    "fitAt28": 0.3228679201767172,
+    "interceptVsFitAt28": -0.05711086825544598
    },
    "quadratic": {
     "coefficients": [
@@ -1623,7 +2024,9 @@
     ],
     "relRms": 0.0012659248140314968,
     "intercept": 0.3161005727706172,
-    "interceptVsNarrowest": -0.017888483151602852
+    "interceptVsNarrowest": -0.017888483151602852,
+    "fitAt28": 0.3230267983373108,
+    "interceptVsFitAt28": -0.021441643858479797
    },
    "full": {
     "coefficients": [
@@ -1638,7 +2041,9 @@
     ],
     "relRms": 0.001216320420937995,
     "intercept": 0.31856686489391406,
-    "interceptVsNarrowest": -0.010225814662988553
+    "interceptVsNarrowest": -0.010225814662988553,
+    "fitAt28": 0.32307300407075895,
+    "interceptVsFitAt28": -0.013947742832322696
    }
   },
   "Vd0OverD": {
@@ -1653,7 +2058,9 @@
     ],
     "relRms": 0.0005995771943798801,
     "intercept": 0.012883525005028412,
-    "interceptVsNarrowest": 0.07337131657629326
+    "interceptVsNarrowest": 0.07337131657629326,
+    "fitAt28": 0.01190733846240585,
+    "interceptVsFitAt28": 0.0819819261629795
    },
    "quadratic": {
     "coefficients": [
@@ -1666,7 +2073,9 @@
     ],
     "relRms": 0.0019587677215537674,
     "intercept": 0.012259292840088521,
-    "interceptVsNarrowest": 0.02136436192146962
+    "interceptVsNarrowest": 0.02136436192146962,
+    "fitAt28": 0.011896158526799403,
+    "interceptVsFitAt28": 0.03052534248522809
    },
    "full": {
     "coefficients": [
@@ -1681,7 +2090,9 @@
     ],
     "relRms": 0.00034223489028129174,
     "intercept": 0.012761756256696486,
-    "interceptVsNarrowest": 0.06322633826764923
+    "interceptVsNarrowest": 0.06322633826764923,
+    "fitAt28": 0.011905572128082038,
+    "interceptVsFitAt28": 0.07191457238707089
    }
   }
  },
@@ -1729,6 +2140,11 @@
     "rho": -4.3722932403844617e-05,
     "P": -0.00028390561917346346,
     "sigmaStar": 0.0003277235059007122
+   },
+   "series": {
+    "maxVelocityDiff": 0.00031801220490712545,
+    "lastVelocityDiff": 0.00021187423744239986,
+    "maxAbsSigmaDiffPerCheckpoint": 0.004736889674013756
    }
   },
   "w28": {
@@ -1774,6 +2190,11 @@
     "rho": 0.00046799753895609975,
     "P": 2.3085676833956015e-05,
     "sigmaStar": -0.0004908529648743887
+   },
+   "series": {
+    "maxVelocityDiff": 0.0009046440902291675,
+    "lastVelocityDiff": 0.00026047040879340067,
+    "maxAbsSigmaDiffPerCheckpoint": 0.019121726830426233
    }
   }
  },

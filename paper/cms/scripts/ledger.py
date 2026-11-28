@@ -190,6 +190,18 @@ for arm, (camp64, camp32) in {"w40-anchor": ("anchor", "fp32port"), "w28": ("w28
         "fp64_vs_webgpu": {q: f64[q] / web[q] - 1 for q in ("V", "rho", "P", "sigmaStar")},
         "fp32port_vs_webgpu": {q: f32[q] / web[q] - 1 for q in ("V", "rho", "P", "sigmaStar")},
     }
+def replay_series(fname, campaign, arm):
+    return load(fname)["campaigns"][campaign]["arms"][arm]["series"]
+
+
+for arm, (camp64, camp32) in {"w40-anchor": ("anchor", "fp32port"), "w28": ("w28", "fp32port28")}.items():
+    s64 = replay_series("quant3d-q3d-fp64-replay-s2-2026-11-26.json", camp64, arm)
+    s32 = replay_series("quant3d-q3d-fp32port-replay-s2-2026-11-26.json", camp32, arm)
+    n = min(len(s64), len(s32))
+    dv = [s64[k]["velocity"] / s32[k]["velocity"] - 1 for k in range(n)]
+    ds = [s64[k]["sigma"] / s32[k]["sigma"] - 1 for k in range(n)]
+    precision[arm]["series"] = {"maxVelocityDiff": max(dv), "lastVelocityDiff": dv[-1],
+                                "maxAbsSigmaDiffPerCheckpoint": max(abs(x) for x in ds)}
 arc = replay_terminal("quant3d-q3c-width-ladder-replay-2026-11-07.json", "ladder", "w40-anchor")
 l40 = replay_terminal("quant3d-q3c-narrow-ladder-replay-2026-11-24.json", "ladder", "w40-anchor")
 portability = {"arc140v_vs_l40s_w40anchor": {q: l40[q] / arc[q] - 1 for q in ("V", "rho", "P", "sigmaStar")}}
@@ -223,6 +235,94 @@ for n, pred in predictions.items():
     r = next(x for x in arms if x["name"] == n)
     prediction_miss[n] = {q: r[q] / v - 1 for q, v in pred.items()}
 
+# ---- width extrapolation measured from lambda = 2.8 (the operating point of every calibrated run) ----
+for q in ("sigmaStar", "P", "Vd0OverD"):
+    for lab, f in fits[q].items():
+        at28 = sum(ck * 2.8 ** p for ck, p in zip(f["coefficients"], f["powers"]))
+        f["fitAt28"] = at28
+        f["interceptVsFitAt28"] = f["intercept"] / at28 - 1
+
+# ---- sub-cell sampling (aliasing) analysis, post hoc, from the archived checkpoint series ----
+def phase_fit(a, n=20):
+    """rho = m + trend + A cos(2 pi phi) + B sin(2 pi phi), phi = sub-cell tip phase, over the last n samples."""
+    c, S = a["config"], a["samples"][-n:]
+    t = [s["time"] for s in S]
+    t0, span = sum(t) / len(t), (max(t) - min(t))
+    ph = [(s["tip"] / c["dx"]) % 1 for s in S]
+    X = [[1.0, (ti - t0) / span, math.cos(2 * math.pi * p), math.sin(2 * math.pi * p)] for ti, p in zip(t, ph)]
+    y = [s["rho"] for s in S]
+    # normal equations, 4x4
+    M = [[sum(X[k][i] * X[k][j] for k in range(len(y))) for j in range(4)] for i in range(4)]
+    v = [sum(X[k][i] * y[k] for k in range(len(y))) for i in range(4)]
+    for i in range(4):
+        for j in range(i + 1, 4):
+            f = M[j][i] / M[i][i]
+            M[j] = [a_ - f * b_ for a_, b_ in zip(M[j], M[i])]
+            v[j] -= f * v[i]
+    co = [0.0] * 4
+    for i in reversed(range(4)):
+        co[i] = (v[i] - sum(M[i][j] * co[j] for j in range(i + 1, 4))) / M[i][i]
+    res = math.sqrt(sum((yk - sum(ci * xi for ci, xi in zip(co, xk))) ** 2 for xk, yk in zip(X, y)) / len(y))
+    return co, res / co[0]
+
+
+aliasing = {}
+for tag, fname, _ in RUNS:
+    if tag == "lattice-5arm":
+        continue
+    for a in load(fname)["arms"]:
+        if not a.get("samples") or not (a.get("terminal") or {}).get("state", {}).get("ready"):
+            continue
+        c, st, S = a["config"], a["terminal"]["state"], a["samples"]
+        dts = sorted(S[k + 1]["time"] - S[k]["time"] for k in range(len(S) - 10, len(S) - 1))
+        cells = st["velocity"] * dts[len(dts) // 2] / c["dx"]
+        ph = [(s["tip"] / c["dx"]) % 1 for s in S[-10:]]
+        rho10 = [s["rho"] for s in S[-10:]]
+        co, res = phase_fit(a)
+        aliasing[f"{tag}:{c['name']}"] = {
+            "cellsPerSample": cells, "fractionalAdvance": cells % 1, "phaseMin": min(ph), "phaseMax": max(ph),
+            "rhoRangeLast10": (max(rho10) - min(rho10)) / (sum(rho10) / 10),
+            "subcellAmplitude": math.hypot(co[2], co[3]) / co[0], "phaseFitResidual": res,
+            "coefficients": co, "driftSigma": st["drift"]["sigmaStar"], "dx": c["dx"]}
+# bias of e171cal's aliased samples, estimated with the phase response of its raw-anisotropy twin (w28)
+e171 = next(a for a in load("quant3d-q3d-rows-2026-11-26.json")["arms"] if a["config"]["name"] == "e171cal")
+ph171 = [(s["tip"] / 0.8) % 1 for s in e171["samples"][-10:]]
+def bias_from(key):
+    co = aliasing[key]["coefficients"]
+    return sum((co[2] * math.cos(2 * math.pi * p) + co[3] * math.sin(2 * math.pi * p)) / co[0] for p in ph171) / len(ph171)
+bias = {k: bias_from(k) for k in ("q3c-A:w28", "q3c-B:dt", "q3c-B:width", "q3c-A:w32")}
+b28 = bias["q3c-A:w28"]
+r171 = A[("q3d-s1", "e171cal")]
+# measured rho = true rho x (1 + b): sigma* ~ 1/rho^2 and P ~ rho (V is not affected at first order)
+sig_c, P_c = r171["sigmaStar"] * (1 + b28) ** 2, r171["P"] / (1 + b28)
+dS28, dP28 = A[("q3c-A", "w28")]["dS"], A[("q3c-A", "w28")]["dP"]
+e171_corrected = {"rhoBias": b28, "rhoBiasOtherTwins": bias, "sigmaStar": sig_c, "P": P_c}
+for lab, (rp, rs) in (("PF", (KR96[0.0171][0], KR96[0.0171][1])), ("Solv", (KR96[0.0171][2], KR96[0.0171][3]))):
+    e171_corrected[f"err{lab}"] = {"P": P_c / rp - 1, "sigmaStar": sig_c / rs - 1}
+    e171_corrected[f"budget{lab}_asMeasured_w28Drift"] = {
+        "P": (1 + abs(r171["P"] / rp - 1)) * (1 + r171["uP"]) * (1 + dP28) - 1,
+        "sigmaStar": (1 + abs(r171["sigmaStar"] / rs - 1)) * (1 + r171["uS"]) * (1 + dS28) - 1}
+    e171_corrected[f"budget{lab}_corrected_w28Drift"] = {
+        "P": (1 + abs(P_c / rp - 1)) * (1 + r171["uP"]) * (1 + dP28) - 1,
+        "sigmaStar": (1 + abs(sig_c / rs - 1)) * (1 + r171["uS"]) * (1 + dS28) - 1}
+e171_corrected["definitionEffectCorrected"] = sig_c / w28["sigmaStar"] - 1
+e171_corrected["predictionMissCorrected"] = sig_c / 0.06023 - 1
+
+# ---- grid effect at matched effective anisotropy ----
+SLOPE_S = 1.881  # KR96 solvability d ln sigma*/d ln eps4 around 0.0171 (protocol v1, mean of neighbouring secants)
+def eff_at(raw, dx, R=20):
+    return next(e["epsEff"] for e in eq if e["R"] == R and e["dx"] == dx and abs(e["epsRaw"] / raw - 1) < 1e-6)
+bdx, b08 = A[("q3c-B", "dx")], w28
+s06 = bdx["sigmaStar"] * (0.0171 / eff_at(0.0171, 0.6)) ** SLOPE_S
+s08 = b08["sigmaStar"] * (0.0171 / eff_at(0.0171, 0.8)) ** SLOPE_S
+grid_matched = {
+    "measured_0265_cal06_vs_cal": controls265["e265cal06_vs_e265cal"]["sigmaStar"],
+    "estimated_0171_slopeCorrected": s06 / s08 - 1,
+    "estimated_0171_vs_e171cal": s06 / r171["sigmaStar"] - 1,
+    "estimated_0171_dx06_sigma": s06,
+    "rawInputEpsEffChange_0171": eff_at(0.0171, 0.6) / eff_at(0.0171, 0.8) - 1,
+}
+
 # ---- tip morphology: four-fold amplitude A1(z) = A |z|^alpha (CPU replay; diagnostic, not a gate) ----
 KR96_MORPH = {0.0123: (1.73, 11.3), 0.0171: (1.68, 10.1), 0.0265: (1.62, 7.8)}  # (alpha, 1/A), KR96 Table I
 morphology = {}
@@ -233,15 +333,28 @@ for fname, name, row in (("quant3d-q3d-rows-replay-s2-2026-11-26.json", "e123cal
     m = load(fname)["campaigns"]["q3d"]["arms"][name]["morphology"]
     fit = m.get("powerFitMean")
     ka, kinv = KR96_MORPH[row]
+    # common-range refit on the depths every run covers except e123cal: 0.75, 1.0, 1.25 rho
+    pts = [(d["depth"], d["A1"]) for d in m["terminal"] if d.get("covered") and d["depth"] in (0.75, 1.0, 1.25)]
+    common = None
+    if len(pts) == 3:
+        xs_ = [math.log(d) for d, _ in pts]; ys_ = [math.log(v) for _, v in pts]
+        xb, yb = sum(xs_) / 3, sum(ys_) / 3
+        al = sum((x - xb) * (y - yb) for x, y in zip(xs_, ys_)) / sum((x - xb) ** 2 for x in xs_)
+        common = {"alpha": al, "invA": math.exp(-(yb - al * xb)), "depths": [d for d, _ in pts]}
+        common["alphaVsKR96"] = al / ka - 1
+        common["invAVsKR96"] = common["invA"] / kinv - 1
+    covered_depths = [d["depth"] for d in m["terminal"] if d.get("covered") and 0.75 <= d["depth"] <= 2.5]
     morphology[name] = {"row": row, "fitRangeInRho": m["fitRange"], "kr96Alpha": ka, "kr96InvA": kinv,
                         "alpha": fit and fit["alpha"], "invA": fit and fit["invA"],
                         "spread": m.get("powerFitSpread"),
                         "alphaVsKR96": fit and fit["alpha"] / ka - 1, "invAVsKR96": fit and fit["invA"] / kinv - 1,
-                        "covered": [d.get("covered") for d in m["terminal"]]}
+                        "covered": [d.get("covered") for d in m["terminal"]],
+                        "fitDepthsUsed": covered_depths, "commonRange": common}
 
 ledger = {
     "kr96": {str(k): dict(zip(("pfP", "pfSigma", "solvP", "solvSigma"), v)) for k, v in KR96.items()},
-    "morphology": morphology,
+    "morphology": morphology, "aliasing": aliasing, "e171calSamplingCorrected": e171_corrected,
+    "gridAtMatchedAnisotropy": grid_matched,
     "arms": arms, "controls28": controls28, "controls40": controls40, "controls265": controls265,
     "widthLadder": ladder, "widthFits": fits, "precision": precision, "portability": portability,
     "equilibrium": eq, "calibratedRows": cal, "definitionEffect": definition, "predictionMiss": prediction_miss,

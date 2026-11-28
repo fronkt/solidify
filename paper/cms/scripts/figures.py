@@ -201,19 +201,24 @@ fig.tight_layout()
 save(fig, "fig5_kr96_rows")
 
 # ---------------------------------------------------------------- Fig 6: error budget at eps4 0.0171
-c28 = L["controls28"]; fw = L["widthFits"]["sigmaStar"]
+c28 = L["controls28"]; fw = L["widthFits"]["sigmaStar"]; corr = L["e171calSamplingCorrected"]
+gm = L["gridAtMatchedAnisotropy"]
 items = [
     ("fp64 vs fp32 arithmetic", abs(L["precision"]["w28"]["fp64_vs_fp32"]["sigmaStar"]), None),
     ("GPU vendor (Arc 140V vs L40S, $\\lambda=4$)", abs(L["portability"]["arc140v_vs_l40s_w40anchor"]["sigmaStar"]), None),
     ("domain +11%", abs(c28["domain"]["sigmaStar"]), None),
     ("time step halved", abs(c28["dt"]["sigmaStar"]), None),
+    ("sub-cell sampling bias (estimate)", abs((1 + corr["rhoBias"]) ** 2 - 1), None),
     ("width $\\lambda$ 2.8$\\to$2.52", abs(c28["width"]["sigmaStar"]), None),
-    ("grid $\\Delta x$ 0.8$\\to$0.6", abs(c28["dx"]["sigmaStar"]), None),
-    ("anisotropy definition (raw vs $\\varepsilon_{\\rm eff}$)", abs(L["definitionEffect"]["0.0171_e171cal_vs_w28"]["sigmaStar"]), None),
-    ("width extrapolation $W_0\\to0$ (model-dependent)",
-     abs(fw["quadratic"]["interceptVsNarrowest"]), abs(fw["linear"]["interceptVsNarrowest"])),
+    ("grid $\\Delta x$ 0.8$\\to$0.6, fixed input", abs(c28["dx"]["sigmaStar"]), None),
+    ("grid $\\Delta x$ 0.8$\\to$0.6, matched $\\varepsilon_\\mathrm{eff}$ ($\\varepsilon_4$=0.0265)",
+     abs(gm["measured_0265_cal06_vs_cal"]), None),
+    ("anisotropy definition (raw vs $\\varepsilon_\\mathrm{eff}$)", abs(corr["definitionEffectCorrected"]),
+     abs(L["definitionEffect"]["0.0171_e171cal_vs_w28"]["sigmaStar"])),
+    ("width extrapolation $W_0\\to0$ from $\\lambda=2.8$",
+     abs(fw["quadratic"]["interceptVsFitAt28"]), abs(fw["linear"]["interceptVsFitAt28"])),
 ]
-fig, ax = plt.subplots(figsize=(5.2, 3.0))
+fig, ax = plt.subplots(figsize=(5.6, 3.4))
 yy = np.arange(len(items))[::-1]
 floor = 1e-4
 for y, (lab, v, v2) in zip(yy, items):
@@ -225,7 +230,8 @@ for y, (lab, v, v2) in zip(yy, items):
     else:
         ax.barh(y, v2 * 100 - v, left=v, height=0.55, color="white", edgecolor=BLUE, hatch="////", lw=0.8)
         ax.barh(y, v - floor, left=floor, height=0.55, color=BLUE, alpha=0.35)
-        ax.text(v2 * 100 * 1.15, y, f"{v:.2g}-{v2 * 100:.2g}%", va="center", fontsize=6.5, color=INK)
+        ax.text(v2 * 100 * 1.15, y, f"{v:.2g}-{v2 * 100:.2g}%", va="center", fontsize=6.5, color=INK,
+                bbox=dict(fc="white", ec="none", pad=0.6), zorder=5)
 sep = (L["kr96"]["0.0171"]["pfSigma"] / L["kr96"]["0.0171"]["solvSigma"] - 1) * 100
 ax.axvline(sep, color=INK2, lw=0.8, ls=":")
 ax.text(sep * 0.9, -0.8, "KR96 PF vs solvability (%.1f%%)" % sep, ha="right", va="center", fontsize=6, color=INK2)
@@ -237,4 +243,40 @@ ax.set_xscale("log"); ax.set_xlim(floor, 400); ax.set_xlabel(r"$|\Delta\sigma^*|
 ax.grid(axis="y", visible=False)
 fig.tight_layout()
 save(fig, "fig6_error_budget")
+# ---------------------------------------------------------------- Graphical abstract (13 x 5 cm)
+fig, (g1, g2) = plt.subplots(1, 2, figsize=(13 / 2.54, 5 / 2.54), gridspec_kw={"width_ratios": [1, 1.15]})
+rows = sorted(float(k) for k in L["kr96"])
+g1.plot(rows, [L["kr96"][str(r)]["pfSigma"] for r in rows], color=INK, marker="s", mfc="white", ms=4, lw=0.8, ls="-.",
+        label="KR96 phase field")
+g1.plot(rows, [L["kr96"][str(r)]["solvSigma"] for r in rows], color=INK2, marker="o", mfc="white", ms=4, lw=0.8, ls=":",
+        label="KR96 solvability")
+for sess, name, dx, col in (("q3d-s2", "e123cal", 0.8, ORANGE), ("q3d-s1", "e171cal", 0.8, ORANGE),
+                            ("q3d-s3", "e265cal06", 0.6, ORANGE)):
+    a = arm(sess, name)
+    g1.errorbar([eff_of(a["epsRaw"], dx)], [a["sigmaStar"]], yerr=[a["uS"] * a["sigmaStar"]], color=col, marker="D",
+                ms=4.5, ls="none", lw=0.8)
+g1.plot([], [], "D", color=ORANGE, ms=4.5, label="WebGPU fp32 (this work)")
+g1.set_xscale("log"); g1.set_yscale("log"); g1.minorticks_off()
+g1.set_xticks([0.012, 0.017, 0.026]); g1.set_xticklabels(["0.012", "0.017", "0.026"])
+g1.set_yticks([0.03, 0.06, 0.12]); g1.set_yticklabels(["0.03", "0.06", "0.12"])
+g1.set_xlabel(r"anisotropy $\varepsilon_4$", fontsize=7); g1.set_ylabel(r"tip selection $\sigma^*$", fontsize=7)
+g1.legend(fontsize=5.5, loc="upper left")
+ga_items = [("fp64 vs fp32", abs(L["precision"]["w28"]["fp64_vs_fp32"]["sigmaStar"])),
+            ("time step", abs(c28["dt"]["sigmaStar"])),
+            ("interface width", abs(c28["width"]["sigmaStar"])),
+            ("grid (matched anisotropy)", abs(gm["measured_0265_cal06_vs_cal"])),
+            ("anisotropy definition", abs(corr["definitionEffectCorrected"])),
+            ("width extrapolation (up to)", abs(fw["linear"]["interceptVsFitAt28"]))]
+yy = np.arange(len(ga_items))[::-1]
+g2.barh(yy, [v * 100 for _, v in ga_items], height=0.55, color=BLUE)
+for y, (lab, v) in zip(yy, ga_items):
+    g2.text(v * 100 * 1.2, y, f"{v * 100:.2g}%", va="center", fontsize=6)
+g2.set_yticks(yy); g2.set_yticklabels([i[0] for i in ga_items], fontsize=6.5)
+g2.set_xscale("log"); g2.set_xlim(0.01, 40); g2.grid(axis="y", visible=False)
+g2.set_xlabel(r"change in $\sigma^*$ (%)", fontsize=7)
+g2.set_title(r"What moves $\sigma^*$ ($\lambda=2.8$)", loc="left", fontsize=7.5)
+fig.tight_layout()
+for ext in ("pdf", "png", "tiff"):
+    fig.savefig(os.path.join(FIG, f"graphical_abstract.{ext}"), dpi=300, bbox_inches=None)
+plt.close(fig)
 print("figures written to", os.path.relpath(FIG, ROOT))
