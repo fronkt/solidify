@@ -5762,3 +5762,20 @@ Two-point extrapolations that land near the reference are hypothesis-generating
 only and are not used as evidence. Q3c cannot close on local hardware: the
 unchanged five-arm gate at a converged width needs about 30 GB textures for its
 dx arm. Q3 remains open.
+
+## CMS paper draft (fp32 WebGPU 3D tip selection vs KR96) - 2026-11-27
+
+Frank: "let's start writing it then". Branch `research/q3d-paper`, folder `paper/cms/`.
+Canonical source = `paper/cms/manuscript.md` (pandoc -> docx + pdf); numbers only from
+`paper/cms/scripts/ledger.py` over `docs/validation/*.json`; refs only from the verified ledger.
+
+- [ ] Inputs: CMS guide for authors (agent), verified refs + KR96 Table I/parameters (agent),
+      methods brief with file:line (agent), numbers ledger (done in scratch; move into repo)
+- [ ] Bring the Q3c Option A/B result JSONs from `main` into the branch (paper data provenance)
+- [ ] Outline + claim -> evidence map (`paper/cms/outline.md`)
+- [ ] Figures from data: tip patch/profiles, time series, width ladder, eps_eff, sigma*(eps4), error budget
+- [ ] Draft: Methods, Results, Discussion, Intro, Abstract/Highlights, statements
+- [ ] Number check: every number in the text recomputed from the ledger (script)
+- [ ] Refute pass on claims (independent reviewer, code + data, not my conclusions)
+- [ ] Build docx/pdf; commit on the branch; vault + memory updates
+- Open for Frank: authorship/affiliation, AI-use declaration wording, Zenodo deposit for raw archives
