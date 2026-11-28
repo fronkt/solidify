@@ -40,4 +40,6 @@ d.save(sys.argv[1])
 print("title and table styles set")
 PY
 python "$SKILL/audit.py" "$OUT" --spec submission/requirements.md --out submission/compliance_report.md | tail -2
+# the render and spot-check notes (stages 5b/5c) live in their own file so a rebuild cannot erase them
+{ echo; cat submission/compliance_notes.md; } >> submission/compliance_report.md
 powershell -NoProfile -ExecutionPolicy Bypass -File "$SKILL/export_pdf.ps1" -DocxPath "$(cygpath -w "$PWD/$OUT")"

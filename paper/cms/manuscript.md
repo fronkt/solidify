@@ -115,7 +115,8 @@ $$\tau(\hat{\mathbf n})\,\partial_t\phi=\nabla\cdot\big[W^2(\hat{\mathbf n})\nab
 $$\partial_t u=D\,\nabla^2u+\tfrac12\,\partial_t\phi, \tag{2}$$
 
 where $\hat{\mathbf n}=\nabla\phi/|\nabla\phi|$ and the second term of Eq. (1) is the anisotropic part of the
-variational derivative of the gradient energy. The interface width is $W(\hat{\mathbf n})=W_0\,a(\hat{\mathbf
+variational derivative of the gradient energy. Eq. (2) is Eq. (7) of KR96 as corrected in
+[@KarmaRappel1997PRLErratum]. The interface width is $W(\hat{\mathbf n})=W_0\,a(\hat{\mathbf
 n})$ with the cubic anisotropy
 
 $$a(\hat{\mathbf n})=1+\varepsilon_4\big(4\textstyle\sum_i n_i^4-3\big), \tag{3}$$
@@ -532,13 +533,13 @@ are the measurement uncertainty $u$.](figures/fig5_kr96_rows.png){#fig:kr96}
 
 The tip shape gives a second comparison that does not go through $\rho$ or $V$. KR96 decomposed the tip as
 $r^2(\varphi,z)=\sum_nA_n(z)\cos4n\varphi$, with $r$ and $z$ in units of $\rho$ and the tip at $z=0$, fitted the
-four-fold amplitude as $A_1(z)=A|z|^\alpha$ and listed $\alpha$ and $A^{-1}$ in Table I, without stating the
-fitted depth range. The read-back patch limits our range. Fitting the same decomposition of our archived
-crossing heights at $|z|/\rho=0.75$, 1.0 and 1.25, the depths that every patch covers, gives $\alpha=1.655$ and
-$A^{-1}=10.35$ at $\varepsilon_4=0.0171$ (KR96: 1.68 and 10.1), and $\alpha=1.593$ and 1.615 with $A^{-1}=8.08$
-and 8.53 at 0.0265 for $\Delta x/W_0=0.8$ and 0.6 (KR96: 1.62 and 7.8). Three depths make these fits rough, and
-the comparison was not part of the acceptance protocol, but the exponents agree within 2% and $A^{-1}$ within
-2.5-9.4%. At $\varepsilon_4=0.0123$ the patch, 1.3 tip radii wide, reaches only $|z|=0.5\rho$.
+four-fold amplitude as $A_1(z)=A|z|^\alpha$ over approximately $\rho/10\le|z|\le5\rho$, and listed $\alpha$ and
+$A^{-1}$ in Table I. Our read-back patch covers a much shorter range. Fitting the same decomposition of our
+archived crossing heights at $|z|/\rho=0.75$, 1.0 and 1.25, the depths that every patch covers, gives
+$\alpha=1.655$ and $A^{-1}=10.35$ at $\varepsilon_4=0.0171$ (KR96: 1.68 and 10.1), and $\alpha=1.593$ and 1.615
+with $A^{-1}=8.08$ and 8.53 at 0.0265 for $\Delta x/W_0=0.8$ and 0.6 (KR96: 1.62 and 7.8). Three depths inside
+KR96's range make these fits rough, and the comparison was not part of the acceptance protocol, but the
+exponents agree within 2% and $A^{-1}$ within 2.5-9.4%. At $\varepsilon_4=0.0123$ the patch, 1.3 tip radii wide, reaches only $|z|=0.5\rho$.
 
 ## 3.5 Raw-anisotropy runs and an accidental agreement
 
@@ -707,9 +708,9 @@ this paper from those files (`paper/cms/`). The configuration of each run, inclu
 campaign, is recorded in its result file. The raw checkpoint archives (about 1.6 GB) are deposited on Zenodo
 [@CaiZenodoRaw2026], and the SHA-256 hash of every checkpoint is recorded in the result files.
 
-<!-- PRE-SUBMISSION CHECK (author): KR96 Table I values are transcribed from arXiv patt-sol/9607005v1. The
-     published PRL text was revised after v1, and an erratum exists (PRL 78, 753 (1997),
-     doi:10.1103/PhysRevLett.78.753.2). Confirm Table I against the published PRL and the erratum. -->
+<!-- CHECKED 2026-11-27 (author's Purdue copies): published PRL 77, 4050 Table I is identical to arXiv v1 in all six
+     rows; the erratum PRL 78, 753 (1997) corrects only Eq. (7) to du/dt = D lap u + (1/2) dpsi/dt, the form used
+     here (Eq. 2). The published text gives the A1(z) fit range as about rho/10 to 5 rho (cited in Section 3.4). -->
 
 <!-- PRE-SUBMISSION CHECK (author): publish the Zenodo draft (DOI 10.5281/zenodo.24617045 is reserved but does
      not resolve until published). -->

@@ -50,6 +50,7 @@
   funding, generative-AI declaration before the References).
 - Open author items (not audit failures):
   1. Generative-AI declaration: placeholder with Elsevier's template sentence; the author writes it.
-  2. KR96 Table I vs the published PRL and erratum PRL 78, 753 (1997): to be checked by the author.
+  2. KR96 Table I vs the published PRL and erratum PRL 78, 753 (1997): CHECKED 2026-11-27 from the author's
+     library copies. Table I identical to arXiv v1; the erratum corrects only Eq. (7), the form used here.
   3. Zenodo draft 10.5281/zenodo.24617045: the author publishes it before submitting.
   4. Declaration of competing interest file: generated in Editorial Manager with Elsevier's tool.
