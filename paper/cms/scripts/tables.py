@@ -30,7 +30,10 @@ for a in L["arms"]:
         d[0], d[1], d[2], a["dt"], f"{a['steps']:,}" if a.get("steps") else "-",
         ("%.0f" % a["wallMinutes"]) if a.get("wallMinutes") else "-"))
 head = (r"| run | GPU | input $\varepsilon_4$ | $\varepsilon_\mathrm{eff}$ | $\lambda$ | $\Delta x/W_0$ | grid | "
-        r"$\Delta t/\tau_0$ | steps | wall (min) |" + "\n" + "|---|---|---:|---:|---:|---:|---|---:|---:|---:|")
+        r"$\Delta t/\tau_0$ | steps | wall (min) |" + "\n" +
+        # dash counts set the relative column widths in pandoc's docx output
+        "|" + "|".join(["-" * 12, "-" * 9, "-" * 10 + ":", "-" * 9 + ":", "-" * 5 + ":", "-" * 6 + ":",
+                        "-" * 15, "-" * 9 + ":", "-" * 9 + ":", "-" * 6 + ":"]) + "|")
 out = head + "\n" + "\n".join(rows) + "\n"
 open(os.path.join(ROOT, "paper", "cms", "data", "table1.md"), "w", encoding="utf-8").write(out)
 print(out)

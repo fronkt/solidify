@@ -1,2 +1,7 @@
 build/
 __pycache__/
+submission/*.docx
+submission/*.pdf
+submission/*.tiff
+submission/*.zip
+submission/figures/

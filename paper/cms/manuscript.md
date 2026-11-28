@@ -1,10 +1,9 @@
 ---
 title: "Single precision is not the limiting error: convergence and error budget of three-dimensional dendrite tip selection with a WebGPU phase-field solver"
 author:
-  - Frank Cai, Purdue University, West Lafayette, IN, USA (ORCID 0009-0003-0041-1459)
-date: "Draft 1, 2026-11-27 (not submitted)"
+  - Frank Cai
 bibliography: refs.bib
-link-citations: true
+link-citations: false
 ---
 
 <!-- Canonical source. Result numbers come from paper/cms/data/ledger.json (paper/cms/scripts/ledger.py), which
@@ -18,6 +17,10 @@ link-citations: true
      checkpoint; Wulff control 1e-5: scripts/fixtures/quant3d-wulff-analysis.mjs controls.
      Do not edit a number by hand: change the ledger or the text that cites it. -->
 
+Purdue University, West Lafayette, IN 47907, USA
+
+Corresponding author: Frank Cai, frankyc11223@gmail.com, ORCID 0009-0003-0041-1459
+
 # Abstract
 
 Single-precision arithmetic is common in GPU phase-field codes and unavoidable in WebGPU, whose shading
@@ -25,7 +28,7 @@ language has no 64-bit floating-point type. We test whether it limits a quantita
 benchmark: free dendritic growth of a pure substance at undercooling $\Delta=0.45$, compared with the
 phase-field and numerical-solvability values of Karma and Rappel (1996) at three of their cubic anisotropies.
 A float64 transliteration of the same discrete update changes the tip selection constant $\sigma^*$ by at most
-0.13%, and the same WGSL source agrees to 0.03% on an integrated laptop GPU and a data-center GPU. Other
+0.13%, and the same source agrees to 0.03% across laptop and data-center GPUs. Other
 factors matter far more. Karma and Rappel's anisotropy strength is grid-corrected; on our grid a raw input of
 the same value is 3% weaker at equilibrium, which lowers $\sigma^*$ by 5-6%. With the anisotropy calibrated
 from equilibrium shapes and a grid spacing $\Delta x/W_0=0.8$, $\sigma^*$ lies 0.6% ($\varepsilon_4=0.0123$) and
@@ -33,19 +36,11 @@ about 4-5% (0.0171) below the phase-field values and 4-9% above solvability. At 
 to $\Delta x/W_0=0.6$, it is 5.8% below solvability and 16% below the phase-field value. Refining the grid at
 matched anisotropy lowers $\sigma^*$ by about 5%, and convergence in interface width is slow: the tip velocity
 is linear in the coupling constant, and extrapolations of $\sigma^*$ to vanishing width lie 7-18% above the
-finite-width value. These discretization effects match the 9-13% difference between the two reference
-columns, so the data cannot say which one the solver approaches. For this benchmark the
+finite-width value. These discretization effects match the 9-13% gap between the reference columns, so the
+data cannot say which one the solver approaches. For this benchmark the
 anisotropy definition and the lattice and width discretization, not arithmetic precision, set the accuracy.
 
 **Keywords:** phase-field method; dendritic solidification; tip selection; GPU computing; WebGPU; single precision
-
-# Highlights
-
-- A single-precision WebGPU phase-field solver is tested on 3D dendrite tip selection
-- fp64 arithmetic changes the selection constant by at most 0.13%
-- Matching the grid-corrected anisotropy of the reference shifts sigma* by 5-6%
-- sigma* is within 5% of Karma-Rappel phase-field values at two anisotropies
-- Grid and interface-width errors are as large as the gap between the two references
 
 # 1. Introduction
 
@@ -300,7 +295,7 @@ the sequence of hypotheses was chosen adaptively.
 Table 1. Runs reported in this paper. A0: controls at $\lambda=4$ (Section 2.7); W: width ladder; B: base and controls at $\lambda=2.8$; R: raw-anisotropy rows at $\varepsilon_4=0.0265$; C: calibrated-anisotropy rows. $\varepsilon_\mathrm{eff}$ is the equilibrium-measured anisotropy of the input on the run's grid ($R=20W_0$). All runs use $\Delta=0.45$ and the relaxation time (4); wall times include checkpoint read-back and are not recorded for the RTX 5090 runs.
 
 | run | GPU | input $\varepsilon_4$ | $\varepsilon_\mathrm{eff}$ | $\lambda$ | $\Delta x/W_0$ | grid | $\Delta t/\tau_0$ | steps | wall (min) |
-|---|---|---:|---:|---:|---:|---|---:|---:|---:|
+|------------|---------|----------:|---------:|-----:|------:|---------------|---------:|---------:|------:|
 | A0 base | RTX 5090 | 0.0171 | 0.01660 | 4.00 | 0.8 | 270×270×612 | 0.01800 | 108,282 | - |
 | A0 domain | RTX 5090 | 0.0171 | 0.01660 | 4.00 | 0.8 | 300×300×680 | 0.01800 | 108,282 | - |
 | A0 grid | RTX 5090 | 0.0171 | 0.01681 | 4.00 | 0.6 | 360×360×816 | 0.01013 | 192,501 | - |
@@ -405,7 +400,7 @@ interface width was varied over a wider range.
 Table 3. Relative change from the base arm, raw $\varepsilon_4=0.0171$.
 
 | control | $\lambda=4$: $P$ | $\lambda=4$: $\sigma^*$ | $\lambda=2.8$: $P$ | $\lambda=2.8$: $\sigma^*$ | $\lambda=2.8$: $Vd_0/D$ |
-|---|---:|---:|---:|---:|---:|
+|--------------------------|----------:|----------:|----------:|----------:|----------:|
 | domain enlarged | $<10^{-5}$ | $<10^{-5}$ | $<10^{-6}$ | $<10^{-6}$ | $<10^{-6}$ |
 | time step halved | -0.04% | +0.08% | +0.03% | -0.02% | +0.04% |
 | narrower interface ($\lambda\times0.9$) | -1.1% | +3.5% | -0.4% | +1.7% | +0.9% |
@@ -485,17 +480,17 @@ Section 2.4: they are stationary and resolved, the box faces are at least 10.9 d
 ahead of and beside the tip, and the tip has travelled at least 15 diffusion lengths.
 
 Table 5. Calibrated runs ($\lambda=2.8$) against KR96 Table I ($\Delta=0.45$). Errors are relative to the
-KR96 entry; budgets are $(1+|e|)(1+u)(1+d)-1$; accepted means both budgets $\le 10\%$. The first four rows are
-the recorded results. The last row corrects the $\varepsilon_4=0.0171$ run for its aliased sampling and uses the
+KR96 entry; budgets are $(1+|e|)(1+u)(1+d)-1$; bold marks a run accepted (both budgets $\le 10\%$). The first four rows are
+the recorded results. The last row (est.) corrects the $\varepsilon_4=0.0171$ run for its aliased sampling and uses the
 drift of the raw-anisotropy twin run (Section 3.4); it is an estimate, not a measurement.
 
 | $\varepsilon_4$ | $\Delta x/W_0$ | $\rho/\Delta x$ | $P$ | $\sigma^*$ | vs PF: $e_P$, $e_\sigma$ | PF budget $P$ / $\sigma^*$ | vs solv.: $e_P$, $e_\sigma$ | solv. budget $P$ / $\sigma^*$ |
-|---|---:|---:|---:|---:|---|---|---|---|
-| 0.0123 | 0.8 | 30.8 | 0.3581 | 0.03579 | -0.5%, -0.6% | 3.7% / 7.2% (accepted) | -2.4%, +8.8% | 5.7% / 15.9% |
-| 0.0171 | 0.8 | 20.5 | 0.3173 | 0.06063 | +1.7%, -3.8% | 4.2% / 9.0% (accepted) | -2.1%, +4.9% | 4.6% / 10.2% |
+|---------|------:|------:|-------:|--------:|-------------|-------------|-------------|-------------|
+| 0.0123 | 0.8 | 30.8 | 0.3581 | 0.03579 | -0.5%, -0.6% | **3.7% / 7.2%** | -2.4%, +8.8% | 5.7% / 15.9% |
+| 0.0171 | 0.8 | 20.5 | 0.3173 | 0.06063 | +1.7%, -3.8% | **4.2% / 9.0%** | -2.1%, +4.9% | 4.6% / 10.2% |
 | 0.0265 | 0.8 | 11.2 | 0.2496 | 0.14127 | +5.8%, -11.7% | 12.6% / 27.1% | +1.0%, -0.5% | 7.6% / 14.4% |
 | 0.0265 | 0.6 | 15.4 | 0.2555 | 0.13374 | +8.3%, -16.4% | 11.6% / 23.7% | +3.4%, -5.8% | 6.6% / 12.5% |
-| 0.0171, corrected | 0.8 | 20.5 | 0.3188 | 0.06005 | +2.2%, -4.7% | 6.0% / 12.7% | -1.6%, +3.9% | 5.4% / 11.8% |
+| 0.0171 (est.) | 0.8 | 20.5 | 0.3188 | 0.06005 | +2.2%, -4.7% | 6.0% / 12.7% | -1.6%, +3.9% | 5.4% / 11.8% |
 
 At $\varepsilon_4=0.0123$ the run reproduces KR96's phase-field values inside the budget: $\sigma^*$ is 0.6%
 and $P$ 0.5% below them, with a budget of 7.2% that includes a 2.9% drift. Against solvability $\sigma^*$ is
@@ -613,7 +608,7 @@ afford, in which case the quadratic extrapolation in Fig. 3 is the better estima
 interface at fixed $\Delta x/W_0$ converges slowly here, and measuring the discrete kinetics on curved and oblique
 moving fronts is the most direct next test.
 
-## 4.3 Phase-field versus solvability references
+## 4.3 Phase-field versus solvability values
 
 The two KR96 columns are not equivalent references. KR96's "numerical solvability" values come from the
 steady-state growth equations in the standard axisymmetric approximation, which neglects the four-fold
@@ -702,41 +697,39 @@ allocation and accumulated single-precision rounding would next be tested.
 # Data and code availability
 
 The source code is available under the MIT license at https://github.com/fronkt/solidify, and the released
-application is archived on nanoHUB [@SolidifyNanoHUB]. The branch `research/q3d-paper` holds the solver
-revision used for every run, the run harnesses, the frozen protocols, all result files and CPU replays
+application is archived on nanoHUB [@SolidifyNanoHUB]. The tag `cms-submission-1` of that repository holds the
+solver revision used for every run, the run harnesses, the protocols, all result files and CPU replays
 (`docs/validation/`), the double-precision port, and the scripts that produce every number, table and figure in
-this paper from those files (`paper/cms/scripts/`). The raw checkpoint archives (about 1.5 GB, with SHA-256
-hashes recorded in the result files) will be deposited on Zenodo [DOI to be added before submission].
+this paper from those files (`paper/cms/`). The configuration of each run, including the cloud runs of the B
+campaign, is recorded in its result file. The raw checkpoint archives (about 1.6 GB) are deposited on Zenodo
+[@CaiZenodoRaw2026], and the SHA-256 hash of every checkpoint is recorded in the result files.
 
-<!-- PRE-SUBMISSION CHECK: KR96 Table I values are transcribed from arXiv patt-sol/9607005v1. The published PRL
-     text was revised after v1, and an erratum exists (PRL 78, 753 (1997), doi:10.1103/PhysRevLett.78.753.2).
-     Confirm Table I against the published PRL and the erratum before submission. -->
+<!-- PRE-SUBMISSION CHECK (author): KR96 Table I values are transcribed from arXiv patt-sol/9607005v1. The
+     published PRL text was revised after v1, and an erratum exists (PRL 78, 753 (1997),
+     doi:10.1103/PhysRevLett.78.753.2). Confirm Table I against the published PRL and the erratum. -->
 
-<!-- PRE-SUBMISSION CHECK: the Option A/B runner configuration that produced the lambda = 2.8 raw-anisotropy runs
-     was generated on the cloud machine and is not in the repository; only its results and replays are. -->
-
-<!-- PRE-SUBMISSION CHECK: deposit the raw archives on Zenodo and add the DOI. -->
-
-<!-- PRE-SUBMISSION CHECK: tag the commit of the paper and replace "branch research/q3d-paper" with that tag. -->
+<!-- PRE-SUBMISSION CHECK (author): publish the Zenodo draft (DOI 10.5281/zenodo.24617045 is reserved but does
+     not resolve until published). -->
 
 # CRediT authorship contribution statement
 
-[CRediT: Frank to confirm]
+**Frank Cai:** Conceptualization, Methodology, Software, Validation, Formal analysis, Investigation, Data
+curation, Writing - original draft, Writing - review & editing, Visualization.
 
 # Declaration of competing interest
 
-The author declares no competing financial interests or personal relationships that could have appeared to
-influence the work reported in this paper.
+The author declares no known competing financial interests or personal relationships that could have
+appeared to influence the work reported in this paper.
 
 # Funding
 
-[FUNDING: Frank to confirm; default "This research did not receive any specific grant from funding agencies in
-the public, commercial, or not-for-profit sectors."]
+This research did not receive any specific grant from funding agencies in the public, commercial, or
+not-for-profit sectors.
 
 # Declaration of generative AI and AI-assisted technologies in the manuscript preparation process
 
-[AI DECLARATION: Frank's wording required; Elsevier template: "During the preparation of this work the author
-used [tool] in order to [reason]. After using this tool, the author reviewed and edited the content as needed
-and takes full responsibility for the content of the publication."]
+[AUTHOR TO WRITE. Elsevier's required form: "During the preparation of this work the author used [NAME TOOL /
+SERVICE] in order to [REASON]. After using this tool/service, the author reviewed and edited the content as
+needed and takes full responsibility for the content of the publication."]
 
 # References
